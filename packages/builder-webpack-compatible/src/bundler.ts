@@ -38,6 +38,8 @@ export interface BundlerCompilation {
   modules: Iterable<BundlerModule>
   moduleGraph: BundlerModuleGraph
   entries: ReadonlyMap<string, { dependencies: BundlerDependency[] }>
+  /** The chunks the build made, by name, with the files each was written as. */
+  chunks: Iterable<{ name?: string | null; files: Iterable<string> }>
 }
 
 export interface BundlerStats {
@@ -61,7 +63,7 @@ export interface BundlerCompiler {
   modifiedFiles?: ReadonlySet<string>
   removedFiles?: ReadonlySet<string>
   watch(
-    options: { aggregateTimeout?: number },
+    options: { aggregateTimeout?: number; ignored?: RegExp },
     handler: (error: Error | null) => void
   ): { close(done: () => void): void }
   run(handler: (error: Error | null, stats?: BundlerStats) => void): void
@@ -94,9 +96,22 @@ export const bundlerConfig = z.looseObject({
 export type BundlerConfig = z.output<typeof bundlerConfig>
 
 /** A module rule, as far as the builder reads one: the loaders it runs, and the rules nested in it. */
+const loaderEntry = z.union([z.string(), z.looseObject({ loader: z.string().optional() })])
+
+/**
+ * A rule's `use`, written any way the tools take it: a loader, a list of them, or a function that gives them for each
+ * module.
+ */
+export const ruleUse = z.union([
+  loaderEntry,
+  z.array(loaderEntry),
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters, anti-slop/no-unknown-returns -- the tool calls it with its own module info; what it gives is parsed by this schema in turn
+  z.custom<(info: unknown) => unknown>((value) => value instanceof Function)
+])
+
 export const bundlerRule = z.looseObject({
   loader: z.string().optional(),
-  use: z.array(z.union([z.string(), z.looseObject({ loader: z.string().optional() })])).optional(),
+  use: ruleUse.optional(),
   oneOf: z.array(z.unknown()).optional(),
   rules: z.array(z.unknown()).optional()
 })

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import type { Bundler, BundlerConfig, BundlerPlugin } from "./bundler.ts"
+import { type Bundler, type BundlerConfig, type BundlerPlugin, bundlerRule } from "./bundler.ts"
 import { developmentStandIn, guestConfig, type GuestConfigOptions, withExtraction } from "./guest-config.ts"
 
 /** A plugin standing in for one of the bundler's, named as its class would be. */
@@ -138,6 +138,21 @@ describe("withExtraction", () => {
         { test: /\.scss$/, use: ["/extract/loader.js", "sass-loader"] }
       ]
     })
+  })
+
+  it("swaps style-loader however a rule's use is written: one loader, or a function that gives them", () => {
+    expect(withExtraction({ test: /\.css$/, use: "style-loader" }, "/extract/loader.js")).toEqual({
+      test: /\.css$/,
+      use: "/extract/loader.js"
+    })
+
+    const rule = bundlerRule.parse(
+      withExtraction({ test: /\.css$/, use: () => ["style-loader", "css-loader"] }, "/extract/loader.js")
+    )
+
+    const use = rule.use instanceof Function ? rule.use({}) : rule.use
+
+    expect(use).toEqual(["/extract/loader.js", "css-loader"])
   })
 
   it("leaves rules without style-loader as they are", () => {

@@ -24,6 +24,7 @@ function compilation(
   return {
     modules: modules.values(),
     entries: new Map(),
+    chunks: [],
     moduleGraph: {
       getIncomingConnections: (target) => connections.filter((connection) => connection.module === target),
       getOutgoingConnections: (origin) => connections.filter((connection) => connection.originModule === origin),

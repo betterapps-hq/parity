@@ -13,8 +13,11 @@ export const guestFiles = {
   styles: "styles.css",
   /** Packages' global stylesheets, compiled. */
   packageStyles: "package-styles.css",
-  /** What the guest's modules import themselves, such as a component's own stylesheet. */
-  componentStyles: "main.css"
+  /**
+   * What the guest's modules import themselves, such as a component's own stylesheet: the CSS of every chunk but the
+   * global stylesheets', the components' chunks included, which the builder gathers into one file after each build.
+   */
+  componentStyles: "component-styles.css"
 } as const
 
 /**

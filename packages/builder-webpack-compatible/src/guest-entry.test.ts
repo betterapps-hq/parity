@@ -2,6 +2,7 @@ import type { ProjectConfig } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { componentModuleSource, guestModuleSource } from "./browser-modules.ts"
 import { guestEntrySource, loadablePaths } from "./guest-entry.ts"
+import { watchIgnored } from "./session.ts"
 
 const config: ProjectConfig = {
   components: {
@@ -59,7 +60,7 @@ describe("guestModuleSource", () => {
     const source = guestModuleSource("parity_guest_4000")
 
     expect(source).toContain('globalThis.__parityBundles["parity_guest_4000"] ??= load("runtime.js")')
-    expect(source).toContain('text("styles.css"), text("package-styles.css"), text("main.css")')
+    expect(source).toContain('text("styles.css"), text("package-styles.css"), text("component-styles.css")')
     expect(source).toContain("export default createGuest({")
   })
 })
@@ -76,5 +77,16 @@ describe("componentModuleSource", () => {
         ""
       ].join("\n")
     )
+  })
+})
+
+describe("watchIgnored", () => {
+  it("leaves out Git's folder and packages, but watches the guest's entry in the builder's cache folder", () => {
+    expect(watchIgnored.test("/app/node_modules/react/index.js")).toBe(true)
+    expect(watchIgnored.test(String.raw`C:\app\.git\HEAD`)).toBe(true)
+    expect(watchIgnored.test("/app/node_modules/.cache/parity-rspack/out/main.js")).toBe(true)
+    expect(watchIgnored.test("/app/node_modules/.cache/parity-rspack/guest-entry.js")).toBe(false)
+    expect(watchIgnored.test(String.raw`C:\app\node_modules\.cache\parity-rsbuild\guest-entry.js`)).toBe(false)
+    expect(watchIgnored.test("/app/src/button.tsx")).toBe(false)
   })
 })

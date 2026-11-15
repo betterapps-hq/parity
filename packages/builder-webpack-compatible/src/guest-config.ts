@@ -1,5 +1,6 @@
+import type { z } from "zod"
 import { guestFiles } from "./browser-modules.ts"
-import { type Bundler, type BundlerConfig, type BundlerPlugin, bundlerPlugin, bundlerRule } from "./bundler.ts"
+import { type Bundler, type BundlerConfig, type BundlerPlugin, bundlerPlugin, bundlerRule, ruleUse } from "./bundler.ts"
 
 /*
  * The project's own config, changed to build the guest in place of the app: the guest's entry and the global
@@ -170,12 +171,8 @@ export function withExtraction(entry: unknown, loader: string): unknown {
     changed.loader = loader
   }
 
-  if (data.use) {
-    changed.use = data.use.map((use) => {
-      const name = use instanceof Object ? use.loader : use
-
-      return name && styleLoader.test(name) ? loader : use
-    })
+  if (data.use !== undefined) {
+    changed.use = extractedUse(data.use, loader)
   }
 
   if (data.oneOf) {
@@ -188,6 +185,25 @@ export function withExtraction(entry: unknown, loader: string): unknown {
 
   // oxlint-disable-next-line anti-slop/no-known-value-widening -- the rule as read, passed on as the project's tool takes it
   return changed
+}
+
+/** A rule's `use` with `style-loader` swapped for `loader`, however it's written; a function's loaders as it gives them. */
+function extractedUse(use: z.output<typeof ruleUse>, loader: string): z.output<typeof ruleUse> {
+  if (use instanceof Function) {
+    return (info) => extractedUse(ruleUse.parse(use(info)), loader)
+  }
+
+  if (Array.isArray(use)) {
+    return use.map((one) => extractedLoader(one, loader))
+  }
+
+  return extractedLoader(use, loader)
+}
+
+function extractedLoader(use: string | { loader?: string }, loader: string): string | { loader?: string } {
+  const name = use instanceof Object ? use.loader : use
+
+  return name && styleLoader.test(name) ? loader : use
 }
 
 /**
