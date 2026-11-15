@@ -313,13 +313,13 @@ async function entries(
     }
 
     const file = posix.isAbsolute(entry) || /^[A-Za-z]:\//.test(entry) ? entry : posix.join(root, entry)
+    // Read, or missing: creating it changes the answer too.
+    pages.push(file)
     const html = await readFile(file, "utf8").catch(() => undefined)
 
     if (html === undefined) {
       continue
     }
-
-    pages.push(file)
 
     // A tag in a comment isn't loaded.
     for (const tag of html.replaceAll(/<!--[\s\S]*?-->/g, "").matchAll(/<(script|link)\b([^>]*)>/gi)) {

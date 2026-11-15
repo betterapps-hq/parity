@@ -131,6 +131,10 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     )
   })
 
+  it("lists an HTML entry that isn't there yet, so creating it is seen", async () => {
+    expect(await viteAppStyles(root)).toEqual({ styles: [], packageStyles: [], from: ["index.html"] })
+  })
+
   it("names a package's stylesheet by the export the app imports, not the file it maps to", async () => {
     await write({
       "index.html": '<script type="module" src="/src/main.ts"></script>',
