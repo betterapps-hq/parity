@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Add @parity-app/multiplayer-loro, the project document on Loro, and the concurrent tests in describeProjectDoc",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

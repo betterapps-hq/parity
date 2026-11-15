@@ -1,10 +1,15 @@
 import {
   type CanvasDocument,
+  canvasDocument,
   type ContainerSpec,
+  containerSpec,
+  type DesignNode,
   defaultModeSettings,
   emptyDocument,
+  type JsonValue,
   type ModeSettings,
   type NoteSpec,
+  nodeIds,
   type ReferenceSpec
 } from "@parity-app/core"
 import type { TokenEdit } from "@parity-app/editor"
@@ -16,7 +21,7 @@ import type { ReplicaPair } from "./replicas.ts"
 
 /*
  * The tests every provider passes, through `createProjectDoc` (docs/proposals/multiplayer.md: The shared tests). The
- * concurrent ones, which need a `ReplicaPair`, are written with the first provider that syncs.
+ * concurrent ones run only for a provider that offers a `ReplicaPair`.
  */
 
 const card: ContainerSpec = {
@@ -94,7 +99,7 @@ const darkModes: ModeSettings = {
 const primary = (value: string): TokenEdit => ({ name: "primary", theme: "default", value, original: "black" })
 
 /** The tests every provider passes, as a Vitest suite. */
-export function describeProjectDoc(provider: DocProvider, _options: { replicas?: ReplicaPair } = {}): void {
+export function describeProjectDoc(provider: DocProvider, options: { replicas?: ReplicaPair } = {}): void {
   const open = (modes: ModeSettings = defaultModeSettings) => {
     const doc = createProjectDoc(provider.open({ files: files(), main: "app.par", modes }), {
       undoLimit: 200,
@@ -736,6 +741,176 @@ export function describeProjectDoc(provider: DocProvider, _options: { replicas?:
           persist: false,
           designs: { removed: ["more.par#about"] }
         })
+      })
+    })
+
+    describe.skipIf(!options.replicas)("concurrent", () => {
+      /** Two people with the project open, each with their own document, exchanging what they've done. */
+      const together = () => {
+        const pair = options.replicas!.open({ files: files(), main: "app.par", modes: defaultModeSettings })
+        const a = createProjectDoc(pair.a, { undoLimit: 200, main: "app.par" })
+        const b = createProjectDoc(pair.b, { undoLimit: 200, main: "app.par" })
+
+        const exchange = () => {
+          pair.exchange()
+          expect(b.files()).toEqual(a.files())
+          expect(b.modes()).toEqual(a.modes())
+        }
+
+        return { a, b, exchange }
+      }
+
+      const set = (node: string, path: string[], value: JsonValue) =>
+        ({ op: "set", design: "app.par#home", node, path, value }) satisfies DocOp
+
+      const text = (id: string): DesignNode => ({ type: "text", id, text: id })
+
+      it("lands both people's changes to different fields of one layer, and the same field the same on both", () => {
+        const { a, b, exchange } = together()
+        apply(a, [set("title", ["name"], "Heading")])
+        apply(b, [set("title", ["hidden"], true)])
+        exchange()
+        expect(layer(a, "app.par#home", "title")).toMatchObject({ name: "Heading", hidden: true })
+
+        apply(a, [set("title", ["name"], "From A")])
+        apply(b, [set("title", ["name"], "From B")])
+        exchange()
+        expect(["From A", "From B"]).toContain(layer(a, "app.par#home", "title")?.name)
+      })
+
+      it("lands both people's changes to different keys of style, the first keys of a layer without one included", () => {
+        const { a, b, exchange } = together()
+        apply(a, [set("title", ["style", "opacity"], { value: 0.5 })])
+        apply(b, [set("title", ["style", "fontWeight"], { value: 700 })])
+        apply(a, [set("a", ["style", "opacity"], { value: 0.5 })])
+        apply(b, [set("a", ["style", "fontWeight"], { value: 700 })])
+        exchange()
+        expect(layer(a, "app.par#home", "title")).toMatchObject({
+          style: { opacity: { value: 0.5 }, fontWeight: { value: 700 } }
+        })
+        expect(layer(a, "app.par#home", "a")).toMatchObject({
+          style: { opacity: { value: 0.5 }, fontWeight: { value: 700 } }
+        })
+      })
+
+      it("keeps both people's typing in one text layer", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove: 0, insert }
+        })
+
+        apply(a, [splice(5, " world")])
+        apply(b, [splice(0, "Oh, ")])
+        exchange()
+        expect(layer(a, "app.par#home", "title")).toMatchObject({ text: "Oh, Hello world" })
+      })
+
+      it("lands two layers inserted before the same sibling, in the same order on both", () => {
+        const { a, b, exchange } = together()
+        apply(a, [{ op: "insert", design: "app.par#home", parent: "row", before: "b", node: text("x") }])
+        apply(b, [{ op: "insert", design: "app.par#home", parent: "row", before: "b", node: text("y") }])
+        exchange()
+        const row = layer(a, "app.par#home", "row")
+        const ids = row && "children" in row ? row.children.map((child) => child.id) : []
+        expect(ids).toHaveLength(4)
+        expect(ids.slice(0, 1)).toEqual(["a"])
+        expect(ids.at(-1)).toBe("b")
+      })
+
+      it("ends two moves that would make a cycle without one, the same on both", () => {
+        const { a, b, exchange } = together()
+        const column: DesignNode = { type: "layout", id: "column", children: [] }
+        apply(a, [{ op: "insert", design: "app.par#home", parent: "root", node: column }])
+        exchange()
+
+        apply(a, [{ op: "move", design: "app.par#home", node: "row", parent: "column" }])
+        apply(b, [{ op: "move", design: "app.par#home", node: "column", parent: "row" }])
+        exchange()
+        const design = a.design("app.par#home")!
+        expect(containerSpec.safeParse(design).success).toBe(true)
+        expect([...nodeIds(design.root)]).toEqual(expect.arrayContaining(["row", "column", "a", "b"]))
+      })
+
+      it("gives the same result on both when one person removes a layer another is editing", () => {
+        const { a, b, exchange } = together()
+        apply(a, [{ op: "remove", design: "app.par#home", node: "row" }])
+        apply(b, [set("a", ["name"], "Edited")])
+        exchange()
+        expect(layer(a, "app.par#home", "row")).toBeUndefined()
+        expect(layer(a, "app.par#home", "a")).toBeUndefined()
+      })
+
+      it("drops a state's patch for a layer someone else removed, and the file still opens", () => {
+        const { a, b, exchange } = together()
+        apply(a, [{ op: "remove", design: "app.par#card", node: "label" }])
+        apply(b, [
+          {
+            op: "setDesign",
+            design: "app.par#card",
+            path: ["states"],
+            value: [
+              { id: "base", name: "Base" },
+              { id: "hover", name: "Hover", overrides: { label: { style: { fontWeight: { value: 800 } } } } }
+            ]
+          }
+        ])
+        exchange()
+        const card = a.design("app.par#card")!
+        expect(card.states?.some((state) => state.overrides?.label)).toBe(false)
+        expect(canvasDocument.safeParse(a.file("app.par")).success).toBe(true)
+      })
+
+      it("repairs two layers given one id, and two layers made one slot, the same way on both", () => {
+        const { a, b, exchange } = together()
+        const slot = (id: string): DesignNode => ({ type: "layout", id, slot: "extra", children: [] })
+        apply(a, [{ op: "insert", design: "app.par#home", parent: "row", node: text("same") }])
+        apply(b, [{ op: "insert", design: "app.par#home", parent: "row", node: text("same") }])
+        apply(a, [{ op: "insert", design: "app.par#card", parent: "root", node: slot("first") }])
+        apply(b, [{ op: "insert", design: "app.par#card", parent: "root", node: slot("second") }])
+        exchange()
+
+        const row = layer(a, "app.par#home", "row")
+        const ids = row && "children" in row ? row.children.map((child) => child.id) : []
+        expect(ids).toHaveLength(4)
+        expect(new Set(ids).size).toBe(4)
+        expect(ids).toContain("same")
+
+        const slots = [layer(a, "app.par#card", "first"), layer(a, "app.par#card", "second")].map((each) =>
+          each?.type === "layout" ? each.slot : undefined
+        )
+
+        expect(slots).toContain("extra")
+        expect(new Set(slots).size).toBe(2)
+      })
+
+      it("joins two people filling one empty slot", () => {
+        const { a, b, exchange } = together()
+        const instance: DesignNode = { type: "instance", id: "more", design: "card" }
+        apply(a, [{ op: "insert", design: "app.par#home", parent: "root", node: instance }])
+        exchange()
+
+        apply(a, [{ op: "insert", design: "app.par#home", parent: "more", slot: "actions", node: text("one") }])
+        apply(b, [{ op: "insert", design: "app.par#home", parent: "more", slot: "actions", node: text("two") }])
+        exchange()
+        const more = layer(a, "app.par#home", "more")
+        const filled = more?.type === "instance" ? (more.slots?.actions ?? []).map((child) => child.id) : []
+        expect(filled.toSorted()).toEqual(["one", "two"])
+      })
+
+      it("undoes only this person's step, keeping the other person's later change to the same field", () => {
+        const { a, b, exchange } = together()
+        apply(a, [set("title", ["name"], "Mine")])
+        exchange()
+        apply(b, [set("title", ["name"], "Theirs")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 1 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")?.name).toBe("Theirs")
       })
     })
   })
