@@ -1282,47 +1282,39 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `project.openFailed`
 
-| Attribute     | Type                       | Meaning                                                                            |
-| ------------- | -------------------------- | ---------------------------------------------------------------------------------- |
-| `name`        | `string`                   | The project's name, from its package.json or its folder                            |
-| `root`        | `string`                   | The project's folder                                                               |
-| `reopen`      | `boolean`                  | Whether it was reopened as Parity started, because it was open last time (PAR-179) |
-| `durationMs`  | `number`                   | How long it took, in milliseconds                                                  |
-| `detectionMs` | `number`, optional         | How long detection took, when it finished                                          |
-| `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                   |
-| `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                  |
-| `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                    |
-| `react`       | `string`, optional         | The React version installed, once detection found it                               |
-| `vite`        | `string`, optional         | The Vite version installed, once detection found it                                |
-| `tailwind`    | `string`, optional         | The Tailwind version installed, once detection found it                            |
-| `storybook`   | `string`, optional         | The Storybook version installed, once detection found it                           |
-| `typescript`  | `string`, optional         | The TypeScript version installed, once detection found it                          |
-| `step`        | `"detection" \| "builder"` | The step that failed                                                               |
-| `message`     | `string`                   | Why, as the tab says it                                                            |
-| `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                    |
+| Attribute     | Type                       | Meaning                                                                                                        |
+| ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string`                   | The project's name, from its package.json or its folder                                                        |
+| `root`        | `string`                   | The project's folder                                                                                           |
+| `reopen`      | `boolean`                  | Whether it was reopened as Parity started, because it was open last time (PAR-179)                             |
+| `durationMs`  | `number`                   | How long it took, in milliseconds                                                                              |
+| `detectionMs` | `number`, optional         | How long detection took, when it finished                                                                      |
+| `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                                               |
+| `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                                              |
+| `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                                                |
+| `tools`       | `object`, optional         | The version of each tool detection found, by its ID, as `{ vite: '8.0.3' }`, with TypeScript's as `typescript` |
+| `step`        | `"detection" \| "builder"` | The step that failed                                                                                           |
+| `message`     | `string`                   | Why, as the tab says it                                                                                        |
+| `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                                                |
 
 ### `project.opened`
 
-| Attribute     | Type               | Meaning                                                                            |
-| ------------- | ------------------ | ---------------------------------------------------------------------------------- |
-| `name`        | `string`           | The project's name, from its package.json or its folder                            |
-| `root`        | `string`           | The project's folder                                                               |
-| `reopen`      | `boolean`          | Whether it was reopened as Parity started, because it was open last time (PAR-179) |
-| `durationMs`  | `number`           | How long it took, in milliseconds                                                  |
-| `detectionMs` | `number`, optional | How long detection took, when it finished                                          |
-| `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                   |
-| `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                  |
-| `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                    |
-| `react`       | `string`, optional | The React version installed, once detection found it                               |
-| `vite`        | `string`, optional | The Vite version installed, once detection found it                                |
-| `tailwind`    | `string`, optional | The Tailwind version installed, once detection found it                            |
-| `storybook`   | `string`, optional | The Storybook version installed, once detection found it                           |
-| `typescript`  | `string`, optional | The TypeScript version installed, once detection found it                          |
-| `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed  |
-| `components`  | `integer`          | The components it has                                                              |
-| `designs`     | `integer`          | The designs in its project files                                                   |
-| `tokens`      | `integer`          | The theme variables its styles have                                                |
-| `libraries`   | `integer`          | The component libraries it depends on                                              |
+| Attribute     | Type               | Meaning                                                                                                        |
+| ------------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string`           | The project's name, from its package.json or its folder                                                        |
+| `root`        | `string`           | The project's folder                                                                                           |
+| `reopen`      | `boolean`          | Whether it was reopened as Parity started, because it was open last time (PAR-179)                             |
+| `durationMs`  | `number`           | How long it took, in milliseconds                                                                              |
+| `detectionMs` | `number`, optional | How long detection took, when it finished                                                                      |
+| `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                                               |
+| `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                                              |
+| `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                                                |
+| `tools`       | `object`, optional | The version of each tool detection found, by its ID, as `{ vite: '8.0.3' }`, with TypeScript's as `typescript` |
+| `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed                              |
+| `components`  | `integer`          | The components it has                                                                                          |
+| `designs`     | `integer`          | The designs in its project files                                                                               |
+| `tokens`      | `integer`          | The theme variables its styles have                                                                            |
+| `libraries`   | `integer`          | The component libraries it depends on                                                                          |
 
 ### `project.opening`
 

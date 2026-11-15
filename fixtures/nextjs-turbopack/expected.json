@@ -202,30 +202,11 @@
       "version": "2.2.0"
     }
   ],
-  "storybook": {
-    "configDir": ".storybook",
-    "main": ".storybook/main.ts",
-    "script": "storybook",
-    "port": 6006,
-    "stories": {
-      "StatCard": [
-        {
-          "path": "src/components/StatCard.stories.tsx",
-          "title": "Dashboard/StatCard",
-          "exports": [
-            "Rising",
-            "Falling"
-          ]
-        }
-      ]
-    }
-  },
   "notes": [
     "styles the builder found: src/app/globals.css",
     "14 components in 14 files from tsconfig.json",
     "0 components from Heroicons (@heroicons/react)",
     "58 components from Recharts (recharts)",
-    "no .par project file yet",
-    "Storybook in .storybook, with stories for 1 components"
+    "no .par project file yet"
   ]
 }

@@ -300,7 +300,8 @@ interface Opening {
   detectionMs?: number
   builderMs?: number
   cached: boolean
-  versions?: ToolVersions
+  /** The version installed of each tool, by its ID, as `project.opened` records them. */
+  tools?: Record<string, string>
 }
 
 /** What a builder is started with before detection confirms it (PAR-1078): the builder whose config file is there. */
@@ -310,20 +311,16 @@ interface EarlyStart {
   startOptions: BuilderStartOptions
 }
 
-/** The tools whose versions both events record, by detection's IDs. */
-const recordedVersions = ["react", "vite", "tailwind", "storybook"] as const
+/**
+ * The version installed of each tool both events record, by its ID: every tool detection found with a version, as the
+ * project's extensions detect them, and TypeScript's.
+ */
+async function toolVersions(root: string, detection: ProjectDetection): Promise<Record<string, string>> {
+  const versions: Record<string, string> = {}
 
-type ToolVersions = Partial<Record<(typeof recordedVersions)[number] | "typescript", string>>
-
-/** The versions installed of the tools both events record: detection's, and TypeScript's. */
-async function toolVersions(root: string, detection: ProjectDetection): Promise<ToolVersions> {
-  const versions: ToolVersions = {}
-
-  for (const id of recordedVersions) {
-    const version = detection.tools.find((tool) => tool.id === id)?.version
-
-    if (version) {
-      versions[id] = version
+  for (const tool of detection.tools) {
+    if (tool.version) {
+      versions[tool.id] = tool.version
     }
   }
 
@@ -522,7 +519,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
     const found = await findBuilder(adapters.builders, detectOnce).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
+      opening.tools = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
       throw cause
     })
 
@@ -534,7 +531,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const detection = await detectProject(root, pkg, [rendererFound, ...builderFound, ...others])
 
-    opening.versions = await toolVersions(root, detection)
+    opening.tools = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.
     const explain = (problem: string) => (detection.notice ? `${problem}\n\n${detection.notice}` : problem)
 
@@ -683,7 +680,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         attributes.builder = opening.builder
       }
 
-      return { ...attributes, ...opening.versions }
+      if (opening.tools && Object.keys(opening.tools).length > 0) {
+        attributes.tools = opening.tools
+      }
+
+      return attributes
     }
 
     try {
