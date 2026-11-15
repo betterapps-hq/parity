@@ -368,8 +368,7 @@ describe("what opening a project records", () => {
         durationMs: expect.any(Number),
         detectionMs: expect.any(Number),
         builderMs: expect.any(Number),
-        react: "19.1.0",
-        typescript: "5.9.2",
+        tools: { react: "19.1.0", typescript: "5.9.2" },
         components: 1,
         designs: 1,
         tokens: 0,
@@ -425,7 +424,7 @@ describe("what opening a project records", () => {
     await expect(projects.open(root)).rejects.toThrow("The builder failed")
 
     expect(attributes("project.openFailed")).toEqual([
-      expect.objectContaining({ step, framework: "react", react: "19.1.0", typescript: "5.9.2" })
+      expect.objectContaining({ step, framework: "react", tools: { react: "19.1.0", typescript: "5.9.2" } })
     ])
   })
 

@@ -12,9 +12,6 @@ const reopen = z
   .boolean()
   .describe("Whether it was reopened as Parity started, because it was open last time (PAR-179)")
 
-const version = (tool: string) =>
-  z.string().optional().describe(`The ${tool} version installed, once detection found it`)
-
 const count = (what: string) => z.number().int().nonnegative().describe(what)
 const builder = z.string().describe("The builder's name, as Vite")
 
@@ -27,11 +24,12 @@ const opening = {
   builderMs: z.number().nonnegative().optional().describe("How long the builder took to answer, when it did"),
   framework: z.string().optional().describe("The renderer's ID, as `react`, once one was found"),
   builder: z.string().optional().describe("The builder's ID, as `vite`, once one was found"),
-  react: version("React"),
-  vite: version("Vite"),
-  tailwind: version("Tailwind"),
-  storybook: version("Storybook"),
-  typescript: version("TypeScript")
+  tools: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe(
+      "The version of each tool detection found, by its ID, as `{ vite: '8.0.3' }`, with TypeScript's as `typescript`"
+    )
 }
 
 export const projectDetected = defineEvent("project.detected", z.object({ root }), {
