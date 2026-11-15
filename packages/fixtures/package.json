@@ -9,9 +9,12 @@
     "install-projects": "node src/generate.ts --install"
   },
   "dependencies": {
-    "@parity-app/adapters": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension-react": "workspace:*",
+    "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-tailwind": "workspace:*",
+    "@parity-app/extension-tanstack-router": "workspace:*",
+    "@parity-app/extension-vite": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/tokens": "workspace:*"
   }

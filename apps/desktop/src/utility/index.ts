@@ -1,4 +1,3 @@
-import { adapters, extensionTools } from "@parity-app/adapters"
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
@@ -34,6 +33,7 @@ import {
   builtInBuilders,
   builtInEntities,
   builtInRenderers,
+  builtInTools,
   closeExtensions,
   openExtensions,
   projectProviders,
@@ -74,11 +74,10 @@ function whenWindow(): Promise<Channel<ServiceMethods, WindowMethods>> {
 }
 
 const projects = openProjects({
-  ...adapters,
   renderers: builtInRenderers,
   builders: builtInBuilders,
   entities: builtInEntities,
-  tools: extensionTools,
+  tools: builtInTools,
   // The extensions' hosts start below, before any project opens.
   get providers() {
     return projectProviders(extensions)

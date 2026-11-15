@@ -74,9 +74,10 @@ snapshot only.
 
 ## By kind of tool
 
-Every adapter Parity opens projects with is listed once, in `packages/adapters`, which the project service, the
-builder's process, Storybook's example project and the validation projects all read. Supporting a new tool means writing
-its adapter and adding it to that list. Each adapter can bring its tool's logo, which its status bar item shows.
+Every tool Parity opens projects with is an extension, which describes what it provides in its package.json and answers
+through its host. The project service lists Parity's own extensions in `apps/desktop/src/utility/extensions.ts`;
+supporting a new tool means writing its extension and adding it there. Each extension brings its tool's logo, which its
+status bar item shows.
 
 When a project opens, every adapter's `detect` is asked, all through the same context (the root, its package.json and
 its files), whether the project uses its tool; it says what it found and its config file, and a builder asks its build
@@ -541,26 +542,30 @@ What the detection snapshots record on 2026-10-29, gaps included:
   read.
 - **`mui` and `fluent`:** MUI and Fluent UI are listed as libraries, Fluent's icons as an icon set, and MUI's four
   breakpoints are read. Neither has tokens yet, since both keep their themes in JavaScript objects.
+- **`nextjs-webpack`:** Next.js 15 on webpack with React 18, both the `app/` and `pages/` routers, Sass CSS modules,
+  Mantine 8, Tabler icons and npm. It doesn't open yet: no builder supports webpack (PAR-1150).
+- **`webpack-react-router`:** plain webpack 5 with React 19, React Router's `<Routes>` in JSX, styled-components, React
+  Aria Components, Lucide icons, JavaScript and pnpm. It doesn't open yet either, for the same reason.
 - **`buildkit`:** the eight Buildkit styles are listed as libraries, with only `luma`'s stylesheet imported, and Lucide
   as an icon set. Tailwind's theme gives 513 tokens, the `.dark` theme and five breakpoints.
 
 Every axis, and where it's covered:
 
-| Axis            | Values                                                                                         | Covered by                                                                                |
-| --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| React           | 19, 18                                                                                         | Most; `too-old`, `react18-mui-js`                                                         |
-| Build tool      | Vite 8, 7, 6, 5 (dropped); Next.js 16                                                          | Most; `vite7-js`, `react-aria`; `react18-mui-js`; `too-old`; `next`                       |
-| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`, `.js`                                                           | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`; `react18-mui-js`                      |
-| Router          | None, TanStack Router, React Router 8, React Router 7 in library mode, TanStack Start, Next.js | `shadcn-vite`; `scaffolder`; `react-router`; `react18-mui-js`; `tanstack-start`; `next`   |
-| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                            | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`, `react18-mui-js`; `fluent` |
-| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped)       | Most; `vite7-js`; `mantine`; `mui`, `fluent`, `react18-mui-js`; `too-old`                 |
-| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider        | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                            |
-| Icons           | Lucide, Hugeicons, Fluent icons, none                                                          | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                         |
-| Language        | TypeScript, JavaScript                                                                         | Most; `vite7-js`, `react18-mui-js`                                                        |
-| Package manager | pnpm, npm, Yarn Berry, bun                                                                     | `shadcn-vite`; `vite7-js`; `react-aria`, `react18-mui-js`; `mantine`                      |
-| Repo            | One package, a workspace monorepo                                                              | Most; `scaffolder`                                                                        |
-| Storybook       | 10, 9, 8 (dropped), none                                                                       | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                 |
-| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only              | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                          |
+| Axis            | Values                                                                                         | Covered by                                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| React           | 19, 18                                                                                         | Most; `too-old`, `react18-mui-js`, `nextjs-webpack`                                                           |
+| Build tool      | Vite 8, 7, 6, 5 (dropped); Next.js 16; Next.js 15 on webpack; webpack 5                        | Most; `vite7-js`, `react-aria`; `react18-mui-js`; `too-old`; `next`; `nextjs-webpack`; `webpack-react-router` |
+| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`, `.js`                                                           | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`; `react18-mui-js`                                          |
+| Router          | None, TanStack Router, React Router 8, React Router 7 in library mode, TanStack Start, Next.js | `shadcn-vite`; `scaffolder`; `react-router`; `react18-mui-js`; `tanstack-start`; `next`                       |
+| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                            | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`, `react18-mui-js`; `fluent`                     |
+| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped)       | Most; `vite7-js`; `mantine`; `mui`, `fluent`, `react18-mui-js`; `too-old`                                     |
+| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider        | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                                                |
+| Icons           | Lucide, Hugeicons, Fluent icons, none                                                          | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                                             |
+| Language        | TypeScript, JavaScript                                                                         | Most; `vite7-js`, `react18-mui-js`                                                                            |
+| Package manager | pnpm, npm, Yarn Berry, bun                                                                     | `shadcn-vite`; `vite7-js`; `react-aria`, `react18-mui-js`; `mantine`                                          |
+| Repo            | One package, a workspace monorepo                                                              | Most; `scaffolder`                                                                                            |
+| Storybook       | 10, 9, 8 (dropped), none                                                                       | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                                     |
+| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only              | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                                              |
 
 ### What runs against each project
 

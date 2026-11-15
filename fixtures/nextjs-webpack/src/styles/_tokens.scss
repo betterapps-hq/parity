@@ -1,0 +1,15 @@
+@use 'sass:math';
+
+// Mantine's breakpoints, as Sass variables for media queries.
+$breakpoint-xs: 36em;
+$breakpoint-sm: 48em;
+$breakpoint-md: 62em;
+
+$surface: var(--mantine-color-body);
+$radius: var(--mantine-radius-md);
+$gap: var(--mantine-spacing-md);
+
+// Mantine's rem(), scaled with its --mantine-scale, for Sass files, where PostCSS's rem() can't reach.
+@function rem($value) {
+  @return calc(#{math.div($value, 16px)}rem * var(--mantine-scale));
+}

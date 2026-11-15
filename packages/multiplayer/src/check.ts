@@ -1,13 +1,14 @@
-import { canvasDocument, containerSpec, modeSettings } from "@parity-app/core"
+import { canvasDocument, containerIssue, modeSettings } from "@parity-app/core"
 import type { DocState } from "./apply.ts"
 import { splitKey } from "./keys.ts"
 import type { Recorder } from "./recorder.ts"
 import type { TransactProblem } from "./types.ts"
 
 /*
- * A transaction's draft checked before anything is sent: each design it changed with core's `containerSpec`, which
- * covers the rules that span fields (patch keys naming layers, unique slots, frames, states only on components), and
- * each file field, list and the modes with their own schemas from `canvasDocument`.
+ * A transaction's draft checked before anything is sent: each design it changed with core's `containerIssue`, which
+ * reads as `containerSpec` and covers the rules that span fields (patch keys naming layers, unique slots, frames, states
+ * only on components) but checks again only the layers the draft changed, and each file field, list and the modes with
+ * their own schemas from `canvasDocument`.
  */
 
 /** The first problem with what a draft changed, or undefined when it's all valid. */
@@ -21,10 +22,11 @@ export function checkDraft(before: DocState, after: DocState, recorder: Recorder
       continue
     }
 
-    const read = containerSpec.safeParse(container)
+    // The draft was made from `previous`, which was valid, so only the layers it changed are checked again.
+    const issue = containerIssue(container, previous)
 
-    if (!read.success) {
-      return invalid(read.error.issues[0], key)
+    if (issue) {
+      return invalid(issue, key)
     }
   }
 

@@ -1,0 +1,22 @@
+@use '../styles/tokens';
+
+.card {
+  background-color: tokens.$surface;
+  border-radius: tokens.$radius;
+}
+
+.value {
+  font-size: tokens.rem(28px);
+  font-weight: 700;
+  line-height: 1;
+
+  @media (max-width: tokens.$breakpoint-sm) {
+    font-size: tokens.rem(22px);
+  }
+}
+
+.change {
+  display: inline-flex;
+  align-items: center;
+  gap: tokens.rem(2px);
+}
