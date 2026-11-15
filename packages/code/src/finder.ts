@@ -123,11 +123,10 @@ export const reactFinder: ComponentFinder = {
 export async function findAll(
   finder: ComponentFinder,
   renderer: ComponentReader,
-  root: string,
-  uiKit?: string
+  root: string
 ): Promise<AppComponent[]> {
   const tsconfig = readTsconfig(root)
-  const { found, files } = await findAppComponents(root, renderer, tsconfig, uiKit, [])
+  const { found, files } = await findAppComponents(root, renderer, tsconfig, [])
   const sources = componentIds(found)
   const program = finder.program(root, [...files, ...finder.propsFiles(root, sources)])
   const { added, confirmed, removed } = checkedChanges(sources, finder.check(root, files, program).components)

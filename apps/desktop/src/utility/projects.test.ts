@@ -521,7 +521,7 @@ describe("an open project's files", () => {
     expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Saved from the canvas")
   })
 
-  it("tell the windows when components.json changes what detection finds, so they open the project again", async () => {
+  it("tell the windows when a new entry changes what detection finds, so they open the project again", async () => {
     const { projects, watcher, detectionChanged } = setUp()
     // Somewhere no convention looks, as a TanStack Start app with no index.html keeps it.
     await write("src/styles/app.css", ":root { --primary: red; }")
@@ -534,9 +534,10 @@ describe("an open project's files", () => {
     await new Promise((done) => setTimeout(done, 500))
     expect(detectionChanged).toEqual([])
 
-    await write("components.json", JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    await write("src/main.tsx", 'import "./styles/app.css"')
+    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     expect(await projects.detectAgain(root)).toBe(true)
-    watcher.change("components.json")
+    watcher.change("index.html")
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
 
     // A moment without package.json, as while it's rewritten, isn't a change.
@@ -547,7 +548,7 @@ describe("an open project's files", () => {
 
     // Opened again, it's detected from the files as they are now.
     await projects.close(root)
-    expect((await projects.open(root)).notes).toContain("styles from components.json: src/styles/app.css")
+    expect((await projects.open(root)).notes).toContain("styles from /src/main.tsx: src/styles/app.css")
     expect(await projects.detectAgain(root)).toBe(false)
   })
 
@@ -568,8 +569,7 @@ describe("an open project's files", () => {
 
   it("tell the windows when what detection reads changed while the project opened", async () => {
     const { projects, detectionChanged, builder } = setUp()
-    builder.hooks.starting = () =>
-      writeFileSync(join(root, "components.json"), JSON.stringify({ tailwind: { css: "src/styles/app.css" } }))
+    builder.hooks.starting = () => writeFileSync(join(root, "src/styles.css"), ":root { --primary: red; }")
     await projects.open(root)
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
   })

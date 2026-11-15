@@ -52,10 +52,10 @@ afterEach(async () => {
 })
 
 describe("finding the app's components", () => {
-  /** The app's components with their ids, as discovery lists them, with the UI kit in `uiKit`. */
-  const list = async (uiKit?: string) => {
+  /** The app's components with their ids, as discovery lists them. */
+  const list = async () => {
     const notes: string[] = []
-    const { found } = await findAppComponents(root, renderer, readTsconfig(root), uiKit, notes)
+    const { found } = await findAppComponents(root, renderer, readTsconfig(root), notes)
 
     return { components: componentIds(found), notes }
   }
@@ -78,9 +78,9 @@ describe("finding the app's components", () => {
     await write("src/tmp/scratch.tsx", "export function Scratch() {}")
     await write("other/outside.tsx", "export function Outside() {}")
 
-    const project = await list("src/components/ui")
+    const project = await list()
     expect(project.components).toEqual({
-      Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function" },
+      Button: { path: "src/components/ui/button.tsx", export: "Button", as: "function", lazy: true },
       OrderList: { path: "src/routes/orders/order-list.tsx", export: "OrderList", as: "function", lazy: true }
     })
     expect(project.notes).toContain("not read, since they mount the app: src/main.tsx")
@@ -102,7 +102,6 @@ describe("finding the app's components", () => {
       root,
       { ...renderer, componentExtensions: [".tsx", ".ts"] },
       readTsconfig(root),
-      undefined,
       []
     )
 
@@ -122,19 +121,19 @@ describe("finding the app's components", () => {
     await write("tsconfig.json", '{ "include": ["src"] }')
     const files = await checkedAppFiles(root, renderer, readTsconfig(root))
     expect(files).toEqual(["src/app.tsx", "src/components/button.tsx"])
-    expect(files).toEqual((await findAppComponents(root, renderer, readTsconfig(root), undefined, [])).files)
+    expect(files).toEqual((await findAppComponents(root, renderer, readTsconfig(root), [])).files)
   })
 
-  it("keeps undecided exports only in the UI kit folder, as it did before", async () => {
+  it("leaves undecided exports to the type checker, whichever folder they're in", async () => {
     await write("src/components/ui/select.tsx", "export const Select = Primitive.Root\nexport function SelectItem() {}")
     await write("src/components/access.tsx", "export const ForAdmins = Gate.Admins")
-    const project = await list("src/components/ui")
-    expect(Object.keys(project.components).sort()).toEqual(["Select", "SelectItem"])
+    const project = await list()
+    expect(Object.keys(project.components)).toEqual(["SelectItem"])
   })
 })
 
 describe("component ids", () => {
-  const found = (path: string, name: string, uiKit = false): ParsedComponent => ({ name, path, export: name, uiKit })
+  const found = (path: string, name: string): ParsedComponent => ({ name, path, export: name })
 
   it("are bare names while they're unique", () => {
     expect(Object.keys(componentIds([found("src/a.tsx", "Card"), found("src/b.tsx", "Badge")]))).toEqual([
@@ -143,16 +142,16 @@ describe("component ids", () => {
     ])
   })
 
-  it("gain folders on a clash, except the UI kit's, which keeps the bare name", () => {
+  it("gain folders on a clash, whichever folder each is in", () => {
     const ids = componentIds([
-      found("src/components/ui/field.tsx", "FieldError", true),
+      found("src/components/ui/field.tsx", "FieldError"),
       found("src/components/packing-fields.tsx", "FieldError"),
       found("src/app/(portal)/error.tsx", "ErrorPage"),
       found("src/app/error.tsx", "ErrorPage")
     ])
 
     expect(ids).toEqual({
-      FieldError: { path: "src/components/ui/field.tsx", export: "FieldError" },
+      "ui/FieldError": { path: "src/components/ui/field.tsx", export: "FieldError", lazy: true },
       "components/FieldError": { path: "src/components/packing-fields.tsx", export: "FieldError", lazy: true },
       "(portal)/ErrorPage": { path: "src/app/(portal)/error.tsx", export: "ErrorPage", lazy: true },
       "app/ErrorPage": { path: "src/app/error.tsx", export: "ErrorPage", lazy: true }
@@ -188,14 +187,14 @@ describe("component ids", () => {
     const ids = componentIds(
       [
         found("src/components/ui/button.tsx", "Button"),
-        found("src/components/ui/field.tsx", "FieldError", true),
+        found("src/components/ui/field.tsx", "FieldError"),
         found("src/demos/field.tsx", "FieldError")
       ],
       new Set(["nova/Button", "lucide/Heart"]),
       "nova"
     )
 
-    expect(Object.keys(ids)).toEqual(["nova/ui/Button", "nova/FieldError", "nova/demos/FieldError"])
+    expect(Object.keys(ids)).toEqual(["nova/ui/Button", "nova/ui/FieldError", "nova/demos/FieldError"])
     expect(Object.keys(componentIds([found("src/card.tsx", "Card")], new Set(), "nova"))).toEqual(["nova/Card"])
   })
 
@@ -354,7 +353,6 @@ describe("files changing", () => {
     path,
     export: name,
     as: "function",
-    uiKit: false,
     ...extra
   })
 
@@ -405,26 +403,23 @@ describe("files changing", () => {
         "src/access.tsx",
         [own("src/access.tsx", "ForAdmins", { as: undefined }), own("src/access.tsx", "IfCanOpen", { as: undefined })]
       ],
-      ["src/components/ui/select.tsx", [own("src/components/ui/select.tsx", "Select", { as: undefined, uiKit: true })]]
+      ["src/components/ui/select.tsx", [own("src/components/ui/select.tsx", "Select", { as: undefined })]]
     ])
 
     const changes = filesChanged(sources, read)
-    expect(changes.sources).toEqual({
-      ForAdmins: { path: "src/access.tsx", export: "ForAdmins", lazy: true },
-      Select: { path: "src/components/ui/select.tsx", export: "Select" }
-    })
+    expect(changes.sources).toEqual({ ForAdmins: { path: "src/access.tsx", export: "ForAdmins", lazy: true } })
   })
 
   it("reads changed files again, and treats ones no longer in the app as gone", async () => {
     await write("src/orders/table.tsx", "export function OrderTable() {}\nexport const Row = Base.Row")
     await write("src/main.tsx", "createRoot(root).render(<App />)\nexport function App() {}")
 
-    const read = await readChangedFiles(root, renderer, ["src/orders/table.tsx", "src/main.tsx"], undefined, [
-      "src/orders/table.tsx",
-      "src/main.tsx",
-      "src/deleted.tsx",
-      "src/orders/table.tsx"
-    ])
+    const read = await readChangedFiles(
+      root,
+      renderer,
+      ["src/orders/table.tsx", "src/main.tsx"],
+      ["src/orders/table.tsx", "src/main.tsx", "src/deleted.tsx", "src/orders/table.tsx"]
+    )
 
     expect(read.get("src/orders/table.tsx")?.map((component) => [component.name, component.as])).toEqual([
       ["OrderTable", "function"],
@@ -454,14 +449,13 @@ describe("files changing", () => {
 
 describe("the config changing while open", () => {
   /** The list a fresh open makes, before the type checker. */
-  const fresh = async () =>
-    componentIds((await findAppComponents(root, renderer, readTsconfig(root), undefined, [])).found)
+  const fresh = async () => componentIds((await findAppComponents(root, renderer, readTsconfig(root), [])).found)
 
   /** The list after the config changed, as the project service works it out. */
   const rediscover = async (list: ComponentList) =>
     nextComponentList(list, {
       kind: "filesRead",
-      read: await rediscoveredFiles(root, renderer, readTsconfig(root), undefined, list.sources)
+      read: await rediscoveredFiles(root, renderer, readTsconfig(root), list.sources)
     })
 
   it("matches a fresh open after include is widened, then narrowed", async () => {

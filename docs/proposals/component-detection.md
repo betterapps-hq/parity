@@ -75,8 +75,8 @@ Syntax newer than Parity's TypeScript would need Parity updated.
 - **Each component has one id, and it lasts.** Today a project component's id is its export name (`Button`), and a
   second component with the same name is silently dropped. A whole app makes that likely: copacker has two `ErrorPage`s
   and two `FieldError`s. The id stays the bare name while it's unique and gains its folder on a clash (`ui/FieldError`,
-  `packing-fields/FieldError`). A component in the UI kit folder keeps the bare name even then, because that folder was
-  all Parity read before, so designs keep the id they were made with. A moved file is followed by its export name.
+  `packing-fields/FieldError`), wherever each one is: no folder keeps the bare name on a clash (PAR-1133). A moved file
+  is followed by its export name.
 - **The import a developer would write.** A component re-exported from an index file is listed once, at the path the app
   imports it by: the package name for a package, or the alias (`@/components/ui/button`) for the app.
 - **It says why.** Each component carries what it was found as ("a function returning JSX", "made with `memo`"). Exports

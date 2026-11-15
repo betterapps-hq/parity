@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Stop reading shadcn's components.json and the UI kit folder: stylesheets come from the app's entry or the usual places, every detected component loads as it's drawn, and components sharing a name all gain their folders.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

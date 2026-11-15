@@ -86,12 +86,14 @@
     "ProfileForm": {
       "path": "src/components/ProfileForm.tsx",
       "export": "ProfileForm",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "StatCard": {
       "path": "src/components/StatCard.tsx",
       "export": "StatCard",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     }
   },
   "libraries": [
@@ -107,7 +109,6 @@
   "storybook": null,
   "notes": [
     "styles from /src/main.tsx: @mantine/core/styles.css, src/index.css",
-    "the UI kit is in src/components",
     "3 components in 4 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "291 components from Mantine (@mantine/core)",

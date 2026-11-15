@@ -32,8 +32,6 @@ export interface ParsedComponent {
   export: string
   /** How it was recognised; unset for an export only the type checker can decide. */
   as?: ComponentEvidence
-  /** Whether it's in the UI kit folder, the one folder Parity read before it read the whole app. */
-  uiKit: boolean
 }
 
 /** Installed packages, build output, and folders of tests and scratch files. */
@@ -62,15 +60,13 @@ const mountsApp = /\b(createRoot|hydrateRoot)\s*\(|\bReactDOM\.render\s*\(/
  * tsconfigs include, or without one, every file under the root. Files outside the root (workspace packages), stories,
  * tests, generated files and the app's entry, which mounts the app, are left out.
  *
- * Exports the parse can't decide, such as `const Select = SelectPrimitive.Root`, wait for the type checker, except in
- * the UI kit folder, where every capitalised export was listed before and still is. `files` are the ones read, for the
- * checker to read again.
+ * Exports the parse can't decide, such as `const Select = SelectPrimitive.Root`, wait for the type checker. `files` are
+ * the ones read, for the checker to read again.
  */
 export async function findAppComponents(
   root: string,
   renderer: ComponentReader,
   tsconfig: ProjectTsconfig,
-  uiKit: string | undefined,
   notes: string[]
 ): Promise<{ found: ParsedComponent[]; files: string[] }> {
   const { files: unique, from } = await appFiles(root, renderer, tsconfig)
@@ -79,7 +75,7 @@ export async function findAppComponents(
   const read: string[] = []
   await Promise.all(
     unique.map(async (path) => {
-      const parsed = await parseFile(root, renderer, path, uiKit)
+      const parsed = await parseFile(root, renderer, path)
 
       if (parsed === "mounts") {
         entries.push(path)
@@ -90,7 +86,7 @@ export async function findAppComponents(
       }
 
       read.push(path)
-      found.push(...parsed.filter((component) => component.as || component.uiKit))
+      found.push(...parsed.filter((component) => component.as))
     })
   )
   found.sort((a, b) => {
@@ -156,22 +152,14 @@ async function appSource(root: string, path: string): Promise<{ source: string }
 }
 
 /** A file's exports the renderer recognises, decided or not; `mounts` for the app's entry, `gone` when it can't be read. */
-async function parseFile(
-  root: string,
-  renderer: ComponentReader,
-  path: string,
-  uiKit: string | undefined
-): Promise<ParsedComponent[] | Unread> {
+async function parseFile(root: string, renderer: ComponentReader, path: string): Promise<ParsedComponent[] | Unread> {
   const read = await appSource(root, path)
 
   if (isUnread(read)) {
     return read
   }
 
-  const { source } = read
-  const inUiKit = uiKit !== undefined && posix.dirname(path) === uiKit
-
-  return (await renderer.findComponents(source, path)).map((component) => ({ ...component, path, uiKit: inUiKit }))
+  return (await renderer.findComponents(read.source, path)).map((component) => ({ ...component, path }))
 }
 
 /**
@@ -182,14 +170,13 @@ export async function readChangedFiles(
   root: string,
   renderer: ComponentReader,
   files: readonly string[],
-  uiKit: string | undefined,
   changed: Iterable<string>
 ): Promise<Map<string, ParsedComponent[] | undefined>> {
   const inApp = new Set(files)
   const read = new Map<string, ParsedComponent[] | undefined>()
   await Promise.all(
     [...new Set(changed)].map(async (path) => {
-      const parsed = inApp.has(path) ? await parseFile(root, renderer, path, uiKit) : "gone"
+      const parsed = inApp.has(path) ? await parseFile(root, renderer, path) : "gone"
       read.set(path, isUnread(parsed) ? undefined : parsed)
     })
   )
@@ -201,8 +188,7 @@ export async function readChangedFiles(
  * The list after files changed, from what the parse reads in them now. A component still exported keeps its id, and one
  * whose file is gone or no longer exports it is `removed`. New ones are `added`, with ids that don't clash, so a
  * component moved to another file keeps its id while its name stays unique. An export the parse can no longer decide
- * stays listed for the type checker to settle, as do new ones in the UI kit, and other new undecided exports wait for
- * it. Libraries' components and other files' aren't touched. New ids start with a library project's `namespace`.
+ * stays listed for the type checker to settle, and new undecided exports wait for it. Libraries' components and other files' aren't touched. New ids start with a library project's `namespace`.
  */
 /** The list after files changed, with the ids of the components added and removed. */
 interface ChangedFiles {
@@ -241,7 +227,7 @@ export function filesChanged(
 
   const fresh = [...read.values()]
     .flatMap((found) => found ?? [])
-    .filter((component) => (component.as || component.uiKit) && !listed.has(key(component.path, component.export)))
+    .filter((component) => component.as && !listed.has(key(component.path, component.export)))
 
   const added = componentIds(fresh, new Set(Object.keys(next)), namespace)
 
@@ -259,7 +245,6 @@ export async function rediscoveredFiles(
   root: string,
   renderer: ComponentReader,
   tsconfig: ProjectTsconfig,
-  uiKit: string | undefined,
   sources: ComponentSources
 ): Promise<Map<string, ParsedComponent[] | undefined>> {
   const { files } = await appFiles(root, renderer, tsconfig)
@@ -268,7 +253,7 @@ export async function rediscoveredFiles(
     .filter((source) => !source.library)
     .map((source) => source.path)
 
-  return readChangedFiles(root, renderer, files, uiKit, [...files, ...listed])
+  return readChangedFiles(root, renderer, files, [...files, ...listed])
 }
 
 /**
@@ -354,7 +339,7 @@ export function leftOutChanges(
 /**
  * What the type checker changes in the list the parse made. Components the parse recognised keep their ids. Exports
  * only the checker could decide are `added`, loading as they're drawn, with ids that don't clash with any given
- * already. The UI kit's undecided exports that it didn't confirm are `removed`. Libraries' components aren't touched.
+ * already. Undecided exports listed already that it didn't confirm are `removed`. Libraries' components aren't touched.
  * When the checker read only some `files`, only their components are settled. New ids start with a library project's
  * `namespace`.
  */
@@ -397,9 +382,7 @@ export function checkedChanges(
     }
   }
 
-  const missed = checked.flatMap((component) =>
-    listed.has(key(component.path, component.export)) ? [] : [{ ...component, uiKit: false }]
-  )
+  const missed = checked.flatMap((component) => (listed.has(key(component.path, component.export)) ? [] : [component]))
 
   const added = componentIds(missed, new Set(Object.keys(sources).filter((id) => !removed.includes(id))), namespace)
 
@@ -436,7 +419,7 @@ export function correctedSources(
   }
 
   const added = componentIds(
-    missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export, uiKit: false })),
+    missing.map((ref) => ({ name: refName(ref), path: ref.path, export: ref.export })),
     new Set(Object.keys(next)),
     namespace
   )
@@ -464,9 +447,7 @@ function refName(ref: ComponentRef): string {
 
 /**
  * Ids for the app's components: each one's name while it's unique. A name used by more than one component gains as
- * many of its folders as it takes to tell them apart (`ui/FieldError`, `packing-fields/FieldError`), except that the
- * first one in the UI kit folder keeps the bare name, so designs made before the whole app was read still find it.
- * Ids already `taken`, such as libraries' `nova/Button`, are skipped the same way. In a library's own project, every id
+ * many of its folders as it takes to tell them apart (`ui/FieldError`, `packing-fields/FieldError`). Ids already `taken`, such as libraries' `nova/Button`, are skipped the same way. In a library's own project, every id
  * starts with the library's `namespace` (`nova/Button`), as the apps that install it name them.
  */
 export function componentIds(
@@ -500,7 +481,7 @@ function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): Compone
 
   const ids: [string, ComponentSource][] = []
 
-  // The UI kit loads with the canvas; the rest of the app, which can import much more, loads as it's drawn.
+  // The app's components, which can import much more than they draw, load as they're drawn.
   const add = (id: string, component: ParsedComponent) => {
     const source: ComponentSource = { path: component.path, export: component.export }
 
@@ -508,11 +489,7 @@ function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): Compone
       source.as = component.as
     }
 
-    if (!component.uiKit) {
-      source.lazy = true
-    }
-
-    ids.push([id, source])
+    ids.push([id, { ...source, lazy: true }])
   }
 
   for (const [name, group] of byName) {
@@ -521,16 +498,8 @@ function localIds(found: ParsedComponent[], taken: ReadonlySet<string>): Compone
       continue
     }
 
-    const kept = group.find((component) => component.uiKit)
-
-    if (kept && !taken.has(name)) {
-      add(name, kept)
-    }
-
-    const rest = group.filter((component) => component !== kept)
-
-    for (const component of rest) {
-      add(`${qualifier(component, rest, taken, name)}/${name}`, component)
+    for (const component of group) {
+      add(`${qualifier(component, group, taken, name)}/${name}`, component)
     }
   }
 

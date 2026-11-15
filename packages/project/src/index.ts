@@ -1,5 +1,5 @@
 import { readdir, readFile } from "node:fs/promises"
-import { basename, extname, join, relative } from "node:path"
+import { basename, join, relative } from "node:path"
 import { componentIds, findAppComponents, type ProjectTsconfig, readTsconfig, resolvePathAlias } from "@parity-app/code"
 import {
   type Adapter,
@@ -27,7 +27,7 @@ import { parseJsonc } from "@parity-app/registry"
 import type { ProjectDetection } from "./detection.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { componentFor, findStorybook } from "./storybook.ts"
-import { type ShadcnConfig, shadcnConfig, stylesWith } from "./styles.ts"
+import { findStyles } from "./styles.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -131,8 +131,6 @@ export interface DiscoveredProject extends ProjectConfig {
   notes: string[]
   /** The app's files read for components, relative to the root, for the type checker to read again. */
   componentFiles: string[]
-  /** The UI kit folder, relative to the root, when there is one. Its components load with the canvas. */
-  uiKit?: string
 }
 
 /** What the caller already knows of the project when it discovers it. */
@@ -145,8 +143,8 @@ export interface DiscoverOptions {
 
 /**
  * Works out what the canvas needs from the project as it is: no config file. Styles come from the project's own
- * conventions (shadcn's `components.json`, the app entry, the usual places; see `findStyles`), components from what the renderer recognizes in every file
- * the app's tsconfig includes, and designs from the project's `.par` files (usually one, at its root). A library's own
+ * conventions (the app entry, then the usual places; see `findStyles`), components from what the renderer recognizes in
+ * every file the app's tsconfig includes, and designs from the project's `.par` files (usually one, at its root). A library's own
  * `.lib.par`, at its root, holds designs too, and the tokens it describes.
  */
 export async function discoverProject(
@@ -156,12 +154,10 @@ export async function discoverProject(
   options: DiscoverOptions = {}
 ): Promise<DiscoveredProject> {
   const notes: string[] = []
-  const shadcn = await shadcnConfig(root, notes)
   const tsconfig = readTsconfig(root)
-  const { styles, packageStyles } = await stylesWith(root, shadcn, notes)
+  const { styles, packageStyles } = await findStyles(root, notes)
   const libraries = await findLibraries(root, pkg, styles, renderer, packageStyles)
-  const uiKit = await findUiKit(root, shadcn, tsconfig, renderer, notes)
-  const app = await findAppComponents(root, renderer, tsconfig, uiKit, notes)
+  const app = await findAppComponents(root, renderer, tsconfig, notes)
   notes.push(...libraries.notes)
   await addWorkspacePackages(root, pkg, renderer, libraries, notes)
   const documents = options.documents ? [...options.documents] : await findProjectDocuments(root)
@@ -220,8 +216,7 @@ export async function discoverProject(
     describedTokens: tokens.length > 0 ? tokens : undefined,
     namespace: namespace || undefined,
     notes,
-    componentFiles: app.files,
-    uiKit: uiKit || undefined
+    componentFiles: app.files
   }
 }
 
@@ -267,41 +262,6 @@ async function addWorkspacePackages(
   } else {
     notes.push(`${where}, with components from ${sections.join(", ")}`)
   }
-}
-
-/**
- * The UI kit folder: the one `components.json` names, else the usual places. Its components keep their bare names
- * when another has the same name, since it was the only folder Parity read before it read the whole app. The folder
- * `components.json` names is the kit even while it's empty, as in an app that takes its kit from a package: the usual
- * places would take the app's own components folder for it.
- */
-async function findUiKit(
-  root: string,
-  shadcn: ShadcnConfig | undefined,
-  tsconfig: ProjectTsconfig,
-  renderer: RendererAdapter,
-  notes: string[]
-): Promise<string | undefined> {
-  const alias = shadcn?.aliases?.ui
-  const named = alias === undefined ? undefined : resolveAlias(root, tsconfig, alias)
-
-  if (named) {
-    notes.push(`the UI kit is in ${named}`)
-
-    return named
-  }
-
-  for (const folder of ["src/components/ui", "components/ui", "src/components"]) {
-    if ((await listFiles(join(root, folder), renderer.componentExtensions)).length === 0) {
-      continue
-    }
-
-    notes.push(`the UI kit is in ${folder}`)
-
-    return folder
-  }
-
-  return undefined
 }
 
 /** Maps an import alias such as `@/components/ui` to a folder, using the project's tsconfig paths. */
@@ -553,15 +513,6 @@ export async function findProjectDocuments(root: string): Promise<string[]> {
   await walk(root)
 
   return found.sort()
-}
-
-async function listFiles(folder: string, extensions: string[]): Promise<string[]> {
-  const entries = await readdir(folder, { withFileTypes: true }).catch(() => [])
-
-  return entries
-    .filter((entry) => entry.isFile() && extensions.includes(extname(entry.name)))
-    .map((entry) => join(folder, entry.name))
-    .sort()
 }
 
 function toPosix(path: string): string {

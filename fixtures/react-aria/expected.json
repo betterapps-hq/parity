@@ -122,17 +122,20 @@
     "Button": {
       "path": "src/components/Button.tsx",
       "export": "Button",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "TextField": {
       "path": "src/components/TextField.tsx",
       "export": "TextField",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "ThemeToggle": {
       "path": "src/components/ThemeToggle.tsx",
       "export": "ThemeToggle",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     }
   },
   "libraries": [
@@ -181,7 +184,6 @@
   },
   "notes": [
     "styles from /src/main.tsx: src/index.css",
-    "the UI kit is in src/components",
     "4 components in 5 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "0 components from Hugeicons (@hugeicons/core-free-icons)",

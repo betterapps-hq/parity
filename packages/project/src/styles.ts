@@ -1,9 +1,6 @@
 import { existsSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { dirname, join, relative } from "node:path"
-import { parseData } from "@parity-app/core"
-import { parseJsonc } from "@parity-app/registry"
-import { z } from "zod"
 import { isStylesheetFile, stylesheetExtensions } from "./code-changes.ts"
 
 /** An app's global stylesheets: the project's own, by path from its root, and packages', by their specifiers. */
@@ -14,19 +11,8 @@ export interface AppStyles {
 }
 
 /**
- * The parts of shadcn's `components.json` Parity reads: the app's stylesheet and the UI kit's import alias. It's
- * shadcn's file, so the rest passes through unchecked.
- */
-const shadcnComponents = z.looseObject({
-  tailwind: z.looseObject({ css: z.string().optional() }).optional(),
-  aliases: z.looseObject({ ui: z.string().optional() }).optional()
-})
-
-export type ShadcnConfig = z.infer<typeof shadcnComponents>
-
-/**
- * Where an app keeps its global styles when neither `components.json` nor the entry says: Vite's and Create React App's
- * `src/index.css`, the usual alternatives, and Next's `globals.css`, which its layout imports with no HTML entry.
+ * Where an app keeps its global styles when its entry doesn't say: Vite's and Create React App's `src/index.css`, the
+ * usual alternatives, and Next's `globals.css`, which its layout imports with no HTML entry.
  */
 export const conventionalStylesheets = [
   "src/index.css",
@@ -39,25 +25,12 @@ export const conventionalStylesheets = [
 ]
 
 /**
- * The app's global stylesheets, by one set of rules that detection and app libraries share: the one shadcn's
- * `components.json` names; else what the app entry imports (index.html, its module script, that module's stylesheet
- * imports, side-effect or default); else the conventional places that exist. How they were found goes in `notes`.
+ * The app's global stylesheets, by one set of rules that detection and app libraries share: what the app entry imports
+ * (index.html, its module script, that module's stylesheet imports, side-effect or default); else the conventional
+ * places that exist. How they were found goes in `notes`.
  */
 export async function findStyles(root: string, notes: string[] = []): Promise<AppStyles> {
-  return stylesWith(root, await shadcnConfig(root, notes), notes)
-}
-
-/** `findStyles`, with `components.json` already read. */
-export async function stylesWith(root: string, shadcn: ShadcnConfig | undefined, notes: string[]): Promise<AppStyles> {
-  const fromShadcn = shadcn?.tailwind?.css
-
-  if (fromShadcn) {
-    notes.push(`styles from components.json: ${fromShadcn}`)
-
-    return { styles: [toPosix(fromShadcn)], packageStyles: [] }
-  }
-
-  // Otherwise follow the app entry: index.html → module script → its stylesheet imports.
+  // Follow the app entry: index.html → module script → its stylesheet imports.
   const entry = await htmlEntry(root)
 
   if (entry) {
@@ -150,24 +123,6 @@ export async function readStylesheet(path: string, seen = new Set<string>()): Pr
   parts.push(source.slice(last))
 
   return parts.join("")
-}
-
-/** shadcn's `components.json`, which it reads from the project's own folder only and which may have comments. */
-export async function shadcnConfig(root: string, notes: string[]): Promise<ShadcnConfig | undefined> {
-  // Read directly rather than through `loadConfig`, whose config loader the CLI's bundle (through libgen) doesn't carry.
-  const text = await readText(join(root, "components.json"))
-
-  if (text === undefined) {
-    return undefined
-  }
-
-  try {
-    return parseData(shadcnComponents, parseJsonc(text))
-  } catch (error) {
-    notes.push(`Couldn't load components: ${error instanceof Error ? error.message : String(error)}`)
-
-    return undefined
-  }
 }
 
 async function readText(path: string): Promise<string | undefined> {

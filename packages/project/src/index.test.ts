@@ -39,7 +39,7 @@ afterEach(async () => {
 })
 
 describe("discoverProject", () => {
-  it("follows components.json and tsconfig paths", async () => {
+  it("reads every component file and .par design, and leaves components.json to shadcn", async () => {
     await write("components.json", JSON.stringify({ tailwind: { css: "app/global.css" }, aliases: { ui: "~/ui" } }))
     await write("tsconfig.json", '{ "compilerOptions": { /* paths */ "paths": { "~/*": ["./lib/*"] } } }')
     await write("lib/ui/card.tsx", "export function Card() {}\nexport function CardTitle() {}")
@@ -47,21 +47,12 @@ describe("discoverProject", () => {
     await write("node_modules/pkg/ignored.par", "{}")
 
     const project = await discoverProject(root, renderer)
-    expect(project.styles).toEqual(["app/global.css"])
+    expect(project.styles).toEqual([])
     expect(project.components).toEqual({
-      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function" },
-      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function" }
+      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function", lazy: true },
+      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function", lazy: true }
     })
     expect(project.documents).toEqual(["designs/team.par"])
-  })
-
-  it("keeps the UI kit folder components.json names while it's empty, rather than taking the app's components", async () => {
-    await write("components.json", JSON.stringify({ aliases: { ui: "@/components/ui" } }))
-    await write("src/components/status-badge.tsx", "export function StatusBadge() {}")
-
-    const project = await discoverProject(root, renderer)
-    expect(project.uiKit).toBe("src/components/ui")
-    expect(project.notes).toContain("the UI kit is in src/components/ui")
   })
 
   it("falls back to the app entry's CSS imports and conventional folders", async () => {
@@ -182,7 +173,7 @@ describe("libraries", () => {
     const project = await discoverProject(root, renderer, { name: "@buildkitgg/shadcn-baseui-nova" })
     expect(project.namespace).toBe("nova")
     expect(project.components).toEqual({
-      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function" }
+      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function", lazy: true }
     })
 
     // Without an id, the package's name names them, as it does in the apps that install the library.

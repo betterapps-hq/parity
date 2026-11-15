@@ -41,14 +41,14 @@ describe("finding an app's components through the finder contract", () => {
     await write("src/app/orders/page.tsx", "export function OrdersPage() { return null }")
     await write("src/features/stat-card.tsx", "export function StatCard(props: { value: number }) { return null }")
 
-    const found = await findAll(reactFinder, renderer, root, "src/components/ui")
+    const found = await findAll(reactFinder, renderer, root)
     const byId = Object.fromEntries(found.map((component) => [component.id, component]))
     expect(Object.keys(byId).sort()).toEqual(["Button", "OrdersPage", "StatCard"])
     expect(byId.Button).toMatchObject({
       path: "src/components/ui/button.tsx",
       export: "Button",
       import: "@/components/ui/button",
-      role: "kit",
+      role: "app",
       evidence: "function"
     })
     expect(byId.Button!.props?.map((prop) => prop.name).sort()).toEqual(["label", "size"])

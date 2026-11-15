@@ -244,9 +244,8 @@ interface Project extends OpenProject {
   watcher?: Watching
   /** The props inferred from each component's source, read again as the list says. */
   components: Promise<Record<string, ComponentInfo>>
-  /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
+  /** What reads the app's files for components when they change. */
   renderer: RendererAdapter
-  uiKit?: string
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
   /**
@@ -805,7 +804,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
       renderer,
-      uiKit: config.uiKit || undefined,
       openedAt: performance.now(),
       stylesVersion: 0,
       detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
@@ -1365,8 +1363,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /**
    * Reads what detection reads of the project again (PAR-820), and whether it changed since the project opened:
-   * `components.json` added, a stylesheet created, a dependency added. Only opening it again takes that in. A file
-   * caught mid-write reads as no change, and the next event reads it again.
+   * a stylesheet created, a dependency added. Only opening it again takes that in. A file caught mid-write reads as no
+   * change, and the next event reads it again.
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
@@ -1413,7 +1411,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     logNote(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
-    const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.uiKit, project.list.sources)
+    const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.list.sources)
     // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
     const files = await checkedAppFiles(root, project.renderer, tsconfig)
 
@@ -1445,9 +1443,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /**
    * Runs the type checker over the app's files once props are read, so the list gains what the parse can't see, such
-   * as `const Select = SelectPrimitive.Root`, and loses the UI kit's undecided exports that aren't components. The
-   * builder serves the guest from the list, so a guest loaded later has the new ones; the canvas hears about them and
-   * adds them to the guest it has. Whether the checker read them, so what it found can be saved.
+   * as `const Select = SelectPrimitive.Root`, and loses undecided exports that aren't components. The builder serves
+   * the guest from the list, so a guest loaded later has the new ones; the canvas hears about them and adds them to the
+   * guest it has. Whether the checker read them, so what it found can be saved.
    */
   async function checkTypes(project: Project, files: string[]): Promise<boolean> {
     const { root, id } = project.info
@@ -1510,7 +1508,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const { root } = project.info
     const tsconfig = readTsconfig(root)
     const { files } = await appFiles(root, project.renderer, tsconfig)
-    const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
+    const read = await readChangedFiles(root, project.renderer, files, paths)
 
     if (projects.get(root) !== project) {
       return

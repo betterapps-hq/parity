@@ -24,15 +24,15 @@ afterEach(async () => {
 })
 
 describe("detectionInputs", () => {
-  it("changes when components.json names a stylesheet in an app with no index.html", async () => {
+  it("doesn't read components.json, so writing one, whole or half, is no change", async () => {
     const before = await detectionInputs(root, builderConfigs)
-    expect(before.files).toContain("components.json")
+    expect(before.files).not.toContain("components.json")
 
     await write("components.json", JSON.stringify({ tailwind: { css: "src/app/theme.css" } }))
-    const after = await detectionInputs(root, builderConfigs)
+    expect(await detectionInputs(root, builderConfigs)).toEqual(before)
 
-    expect(after.key).not.toBe(before.key)
-    expect(await detectionInputs(root, builderConfigs)).toEqual(after)
+    await write("components.json", '{ "tailwind": { "css": "src/sty')
+    expect(await detectionInputs(root, builderConfigs)).toEqual(before)
   })
 
   it("changes when a conventional stylesheet or a builder's config appears, and follows the entry index.html names", async () => {
@@ -86,13 +86,5 @@ describe("detectionInputs", () => {
     await expect(detectionInputs(root, builderConfigs)).rejects.toThrow("package.json")
     await rm(join(root, "package.json"))
     await expect(detectionInputs(root, builderConfigs)).rejects.toThrow("There's no package.json")
-  })
-
-  it("fails while components.json is half-written, though one that isn't there is no failure", async () => {
-    const before = await detectionInputs(root, builderConfigs)
-    await write("components.json", '{ "tailwind": { "css": "src/sty')
-    await expect(detectionInputs(root, builderConfigs)).rejects.toThrow("Couldn't load components")
-    await rm(join(root, "components.json"))
-    expect((await detectionInputs(root, builderConfigs)).key).toBe(before.key)
   })
 })

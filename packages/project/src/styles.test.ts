@@ -20,7 +20,7 @@ afterEach(async () => {
 })
 
 describe("findStyles", () => {
-  it("prefers components.json, then the entry's imports, then the conventional places", async () => {
+  it("prefers the entry's imports to the conventional places, and doesn't read components.json", async () => {
     await write("app/globals.css", "")
     await write("src/index.css", "")
     const notes: string[] = []
@@ -35,15 +35,7 @@ describe("findStyles", () => {
     expect((await findStyles(root)).styles).toEqual(["src/theme.css"])
 
     await write("components.json", '{ /* shadcn */ "tailwind": { "css": "styles/app.css" } }')
-    expect((await findStyles(root)).styles).toEqual(["styles/app.css"])
-  })
-
-  it("says what's wrong with a components.json it can't read, and looks elsewhere", async () => {
-    await write("src/index.css", "")
-    await write("components.json", '{ "tailwind": { "css": ["styles/app.css"] } }')
-    const notes: string[] = []
-    expect((await findStyles(root, notes)).styles).toEqual(["src/index.css"])
-    expect(notes[0]).toBe("Couldn't load components: /tailwind/css: expected a string")
+    expect((await findStyles(root)).styles).toEqual(["src/theme.css"])
   })
 
   it("reads a root-absolute import from the project's root, as Vite does", async () => {

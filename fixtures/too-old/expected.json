@@ -104,22 +104,26 @@
     "Button": {
       "path": "src/components/ui/button.tsx",
       "export": "Button",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "Card": {
       "path": "src/components/ui/card.tsx",
       "export": "Card",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "CardContent": {
       "path": "src/components/ui/card.tsx",
       "export": "CardContent",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "CardTitle": {
       "path": "src/components/ui/card.tsx",
       "export": "CardTitle",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     }
   },
   "libraries": [],
@@ -144,7 +148,6 @@
   },
   "notes": [
     "styles from /src/main.tsx: src/index.css",
-    "the UI kit is in src/components/ui",
     "5 components in 4 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "no .par project file yet",
