@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Copy the example for end-to-end tests onto the repository's drive",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

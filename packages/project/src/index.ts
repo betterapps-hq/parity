@@ -23,9 +23,9 @@ import {
   type StatusFacts
 } from "@parity-app/core"
 import { parseJsonc } from "@parity-app/registry"
+import { componentFor } from "./component-for.ts"
 import type { ProjectDetection } from "./detection.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
-import { componentFor, findStorybook } from "./storybook.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -120,10 +120,6 @@ export {
   splitSpecifier
 } from "./packages.ts"
 
-export { parseStoryFile } from "./storybook.ts"
-
-export { detectStorybook, storybookConfigFiles } from "./storybook-detect.ts"
-
 export { readStylesheet } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
@@ -141,8 +137,6 @@ export interface DiscoveredProject extends ProjectConfig {
 export interface DiscoverOptions {
   /** Its `.par` files, relative to the root, as `findProjectDocuments` lists them, when they've been found already. */
   documents?: readonly string[]
-  /** The Storybook config folder its main `.par` sets (`storybookConfigDir`), which wins over finding one. */
-  storybookConfigDir?: string
   /**
    * The global stylesheets the app loads, as its builder reports them (`BuilderAdapter.styles`): the only source of
    * them. Unset, or settling to nothing, when the builder can't say, which leaves the canvas without global styles.
@@ -203,27 +197,12 @@ export async function discoverProject(
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
   const all = { ...components, ...libraries.components }
 
-  const storybook = await findStorybook(
-    root,
-    pkg,
-    all,
-    async (specifier) => resolveAlias(root, tsconfig, specifier),
-    options.storybookConfigDir
-  )
-
-  if (storybook) {
-    notes.push(
-      `Storybook in ${storybook.configDir}, with stories for ${Object.keys(storybook.stories).length} components`
-    )
-  }
-
   return {
     styles,
     packageStyles: packageStyles.length > 0 ? packageStyles : undefined,
     components: all,
     libraries: libraries.libraries,
     documents,
-    storybook,
     describedTokens: tokens.length > 0 ? tokens : undefined,
     namespace: namespace || undefined,
     notes,
@@ -297,7 +276,7 @@ function resolveAlias(root: string, tsconfig: ProjectTsconfig, alias: string): s
 
 /**
  * The entities each of `adapters`, those whose `detect` found their tool, reads from the tool's files, together:
- * Storybook's stories as screens, for one. An adapter that fails is left out, with why in `notes`.
+ * a tool's story files as screens, for one. An adapter that fails is left out, with why in `notes`.
  */
 export async function importEntities(
   root: string,

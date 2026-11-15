@@ -14,7 +14,6 @@
   "dependencies": {
     "@parity-app/core": "workspace:*",
     "@parity-app/next-builders": "workspace:*",
-    "@parity-app/project": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {

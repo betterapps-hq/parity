@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Storybook is found and read by its extension alone; Parity's core no longer reads the project's Storybook",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

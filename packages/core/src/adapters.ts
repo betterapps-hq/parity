@@ -739,18 +739,37 @@ export interface EntitiesPackage {
 }
 
 /**
- * The entities provider an extension's manifest describes (PAR-1095), named by its prefix, found as `detect` says
- * until extensions detect their own tools; nothing when it gives none.
+ * The entities provider an extension's manifest describes (PAR-1095), named by its prefix; nothing when it gives none.
+ * Its tool is found when the project's package.json declares one of the extension's peer dependencies or a package in
+ * its versions' scope (PAR-1131), and its config is the first of the files its provider watches that's there.
  */
-export function extensionEntities(
-  pkg: EntitiesPackage,
-  detect: EntitiesDescription["detect"]
-): EntitiesDescription | undefined {
+export function extensionEntities(pkg: EntitiesPackage): EntitiesDescription | undefined {
   const { prefix, displayName, icon, contributes } = pkg.parity
   const entities = contributes.providers?.entities
 
   if (!entities) {
     return undefined
+  }
+
+  const peers = Object.keys(pkg.peerDependencies ?? {})
+  const scope = pkg.parity.versions?.scope
+
+  const detect: EntitiesDescription["detect"] = async (project) => {
+    const dependency = declares(project.pkg, peers, scope)
+
+    if (!dependency) {
+      const named = [...peers, ...(scope ? [`${scope}*`] : [])].join(" or ")
+
+      return { found: false, summary: `No ${named} package in package.json` }
+    }
+
+    for (const config of entities.watches ?? []) {
+      if ((await project.read(config)) !== undefined) {
+        return { found: true, config, summary: `${dependency} in package.json, config ${config}` }
+      }
+    }
+
+    return { found: true, summary: `${dependency} in package.json` }
   }
 
   const description: EntitiesDescription = { id: prefix, name: displayName, detect }

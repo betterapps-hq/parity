@@ -20,7 +20,6 @@ import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
 import turbopackExtension from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import { viteBuilder } from "@parity-app/extension-vite/builder"
 import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
-import { detectStorybook } from "@parity-app/project"
 
 /*
  * Parity's own extensions, run here rather than in hosts of their own (PAR-1095): each as its manifest describes it,
@@ -39,7 +38,7 @@ export const builders: BuilderAdapter[] = [
 
 /** Storybook's entities provider, importing and exporting here. */
 export const entities: EntitiesAdapter[] = [
-  { ...extensionEntities(storybookExtension, detectStorybook)!, import: importStoryScreens, export: exportStoryScreen }
+  { ...extensionEntities(storybookExtension)!, import: importStoryScreens, export: exportStoryScreen }
 ]
 
 /** The tools of extensions that open projects with nothing else of theirs: Tailwind CSS and TanStack Router. */

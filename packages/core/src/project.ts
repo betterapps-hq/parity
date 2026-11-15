@@ -27,8 +27,6 @@ export interface ProjectConfig {
   documents: string[]
   /** Component libraries the project depends on, whose components the canvas can place too. */
   libraries: LibraryInfo[]
-  /** The project's Storybook, when it has one. */
-  storybook?: StorybookInfo
   /** Design tokens described in DTCG by the project's own `.lib.par` and by its libraries' `.lib.par` files. */
   describedTokens?: DescribedTokens[]
   /**
@@ -46,29 +44,6 @@ export interface DescribedTokens {
   manifest: string
   tokens: DescribedToken[]
   error?: string
-}
-
-/** How to reach a project's Storybook, and which components have stories there. */
-export interface StorybookInfo {
-  /** Its config folder, relative to the root, usually `.storybook`. */
-  configDir: string
-  /** Its `main` config file, relative to the root, such as `.storybook/main.ts`. */
-  main?: string
-  /** The package.json script that starts it, if there is one. */
-  script?: string
-  /** The port that script asks for. */
-  port?: number
-  /** Story files by component id. */
-  stories: Record<string, StoryFile[]>
-}
-
-export interface StoryFile {
-  /** Relative to the project root. */
-  path: string
-  /** The title its meta sets, when it doesn't leave it to the file's path. */
-  title?: string
-  /** The stories it exports, by export name. */
-  exports: string[]
 }
 
 export interface ComponentSource {

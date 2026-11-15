@@ -21,25 +21,24 @@ All four are optional, and none needs a Storybook package inside Parity.
 
 ### Detection
 
-[`findStorybook`](../packages/project/src/storybook.ts) runs when a project opens, after its components are found,
-because it needs them to map stories.
+Everything about the project's Storybook is read by its extension (PAR-1131); Parity's core doesn't name it.
 
-- **The config.** `storybookConfig` takes the first `package.json` script that runs `storybook dev` and reads its
-  `-c`/`--config-dir` and `-p`/`--port`. The folder defaults to `.storybook`. A folder the project's main `.par` sets,
-  in `extensions.storybook.configDir` (PAR-1085), wins over both, and Parity starts Storybook with it. A `main` file
-  must be there, with any extension Storybook accepts, found through the shared config search in
-  [configs.ts](../packages/project/src/configs.ts). Without one, the project has no Storybook as far as Parity is
-  concerned, even when another folder has one. The service reads the project's `.par` files before discovery for this,
-  and changing the folder, from the window or on disk, opens the project again, as a changed dependency does.
-- **The story files.** Every `*.stories.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` under the root, skipping `node_modules`, build
-  folders, `storybook-static` and every dot folder. The `stories` globs in `main` aren't read, and `.mdx` files aren't
-  looked at.
-- **Stories to components.** `parseStoryFile` uses regular expressions to find the first `component: Name`, the first
-  `title`, and every `export const`. The component's import is followed to a project component, by relative path or
-  tsconfig alias, or to a library component, by package and export name.
-- **The result** is `StorybookInfo` in [project.ts](../packages/core/src/project.ts): the config folder, its `main`
-  file, the script and port, and the story files per component id. The project notes say "Storybook in `.storybook`,
-  with stories for N components".
+- **Finding it.** Parity finds the tool as it finds any entities provider's, from the extension's manifest
+  (`extensionEntities`): the project declares one of its peer dependencies or a `@storybook/*` package, and its config
+  is the first of the `.storybook/main` files its provider watches.
+- **The config.** The extension reads its config folder from its `storybook.configDir` setting when it's changed from
+  `.storybook`, else from the first `package.json` script that runs `storybook dev` (`-c`/`--config-dir`), else
+  `.storybook`, and the port from that script's `-p`/`--port` (`projectStorybook` in
+  [storybook.ts](../packages/extension-storybook/src/storybook.ts)). A change to the setting is read again at once,
+  without opening the project again.
+- **The story files.** Each import lists the project's `*.stories.{js,jsx,ts,tsx,mjs,cjs,mts,cts}` files through its
+  entities source. The `stories` globs in `main` aren't read, and `.mdx` files aren't looked at.
+- **Stories to components.** The extension's CSF reader finds each file's meta: its `title`, its `component` and every
+  story it exports. Parity follows the component's import to a project component, by relative path or tsconfig alias, or
+  to a library component, by package and export name (`componentFor` in
+  [component-for.ts](../packages/project/src/component-for.ts)).
+- **The result** is kept by the extension: the config folder, the port and the story files per component id. Its log
+  says "Found Storybook's config in `.storybook`, with stories for N components".
 - **Story files aren't components.** Component detection, and libgen's `describeApp`, skip `.stories`, `.test` and
   `.spec` files by name.
 
@@ -191,11 +190,8 @@ These rules keep Storybook optional and replaceable. A change that breaks one ne
 
 3. **Everything Storybook-specific lives in one adapter,** behind an interface Parity owns. Detecting it, importing
    stories, writing args back and opening it are in its extension,
-   [packages/extension-storybook](../packages/extension-storybook), with detection in
-   [packages/project/src/storybook-detect.ts](../packages/project/src/storybook-detect.ts); which components have
-   stories is still read by [packages/project/src/storybook.ts](../packages/project/src/storybook.ts) into
-   `StorybookInfo`, until adapters give facts about components. The canvas, `.par`, the agent API and the UI talk to the
-   interface, never to Storybook.
+   [packages/extension-storybook](../packages/extension-storybook), and Parity finds the tool from its manifest. The
+   canvas, `.par`, the agent API and the UI talk to the interface, never to Storybook.
 4. **Parity's models are Parity's.** `.par`, modes, decorators, parameters and states are shaped so they translate to
    and from Storybook's (a mode value is a global, a state can be a story), but they're defined by Parity and never
    imported from Storybook's types.

@@ -29,7 +29,6 @@ import {
   type PackageManifest,
   parseCanvasDocument,
   type CanvasDocument,
-  storybookConfigDir,
   type RendererAdapter,
   type RendererDescription,
   type ThemeVariable,
@@ -594,9 +593,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     styles: Promise<AppStyles | undefined>,
     early?: (read: EarlyStart) => void
   ) {
-    // The project files are read before discovery, which follows what the main one sets, such as the Storybook config
-    // folder (PAR-1085). A project file that can't be read stops the project opening, with an error naming it
-    // (PAR-1011).
+    // The project files are read before discovery. A project file that can't be read stops the project opening, with an
+    // error naming it (PAR-1011).
     const paths = await findProjectDocuments(root)
     const known = new Map<string, string>()
 
@@ -614,7 +612,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const config = await discoverProject(root, renderer, pkg, {
       documents: paths,
-      storybookConfigDir: storybookConfigDir(main),
       styles
     })
 
@@ -1250,29 +1247,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     return { theme: [] }
   }
 
-  /**
-   * Keeps what a project file holds now, as saved from the window or changed on disk. Returns a function that tells the
-   * windows to open the project again when the change needs it, to call once they've heard of the change itself:
-   * discovery reads the Storybook config folder the main file sets as the project opens, so a change to it is like a
-   * changed dependency (PAR-1085).
-   */
-  function keepDocument(project: Project, path: string, document: CanvasDocument): () => void {
+  /** Keeps what a project file holds now, as saved from the window or changed on disk. */
+  function keepDocument(project: Project, path: string, document: CanvasDocument): void {
     const entry = project.info.documents.find((candidate) => candidate.path === path)
-    const storybookBefore = storybookConfigDir(entry?.document)
 
     if (entry) {
       entry.document = document
     } else {
       project.info.documents.push({ path, document })
-    }
-
-    if (path !== project.info.mainDocument || storybookConfigDir(document) === storybookBefore) {
-      return () => undefined
-    }
-
-    return () => {
-      logNote(`[service] ${project.info.name}'s Storybook config folder changed`)
-      listeners.detectionChanged({ projectId: project.info.id })
     }
   }
 
@@ -1333,10 +1315,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       try {
         const document = readDesigns(path, text)
-        const reopen = keepDocument(project, path, document)
+        keepDocument(project, path, document)
         logNote(`[service] ${path} changed on disk`)
         listeners.fileChanged({ projectId: project.info.id, path, document })
-        reopen()
       } catch (error) {
         // Often a file caught mid-write; the next change event brings the rest.
         degraded("design_reload", `${path} changed on disk but can't be read`, error, root)
@@ -1864,8 +1845,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         project.known.set(path, text)
       })
 
-      // Asked to open the project again only after this reply, so the window has the file as saved by then.
-      setImmediate(keepDocument(project, path, parsed))
+      keepDocument(project, path, parsed)
 
       return undefined
     },
