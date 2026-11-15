@@ -47,7 +47,10 @@ jobs:
         fixtures/*/node_modules
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
-      cache-key-files: fixtures/*/*lock*
+      # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
+      cache-key-files: |
+        fixtures/*/*lock*
+        fixtures/*/pnpm-workspace.yaml
       command: |
         pnpm verify
         pnpm --filter @parity-app/cli try-packed
@@ -93,7 +96,10 @@ jobs:
         fixtures/*/node_modules
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
-      cache-key-files: fixtures/*/*lock*
+      # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
+      cache-key-files: |
+        fixtures/*/*lock*
+        fixtures/*/pnpm-workspace.yaml
       command: |
         pnpm build
         # The startup check launches the production app only in CI, outside the checkout and without a dev server.
@@ -145,7 +151,10 @@ jobs:
         fixtures/*/node_modules
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
-      cache-key-files: fixtures/*/*lock*
+      # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
+      cache-key-files: |
+        fixtures/*/*lock*
+        fixtures/*/pnpm-workspace.yaml
       command: |
         pnpm build
         export CSC_IDENTITY_AUTO_DISCOVERY=false
