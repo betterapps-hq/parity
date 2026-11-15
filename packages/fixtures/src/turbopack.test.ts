@@ -18,6 +18,7 @@ const rendererGuestPath = fileURLToPath(import.meta.resolve("@parity-app/extensi
 const startedIn = process.cwd()
 let session: BuilderSession | undefined
 
+// Next takes a while to close on Windows, and what it built a while more to remove.
 afterAll(async () => {
   await session?.close()
   // The builder runs Next from the project's folder, as `next dev` does.
@@ -30,7 +31,7 @@ afterAll(async () => {
       (error: Error) => console.warn(`${folder} is left: ${error.message}`)
     )
   }
-})
+}, 180_000)
 
 describe.skipIf(!process.env.CI)("the Turbopack builder on nextjs-turbopack", { timeout: 300_000 }, () => {
   it("serves a guest module whose runtime, chunks and stylesheets load", async () => {

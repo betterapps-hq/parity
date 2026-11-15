@@ -52,7 +52,8 @@ describe("finding an app's components through the finder contract", () => {
       evidence: "function"
     })
     expect(byId.Button!.props?.map((prop) => prop.name).sort()).toEqual(["label", "size"])
-    expect(byId.OrdersPage).toMatchObject({ role: "page", import: "@/app/orders/page" })
+    // The CLI reads no routes, which only a router extension gives, so a route file is the app's like any other.
+    expect(byId.OrdersPage).toMatchObject({ role: "app", import: "@/app/orders/page" })
     expect(byId.StatCard).toMatchObject({ role: "app", import: "@/features/stat-card" })
   })
 })

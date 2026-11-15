@@ -272,7 +272,15 @@ export {
   type WrittenClasses
 } from "./frame-rules.ts"
 
-export { componentRole, type ComponentRole, groupComponents, type LeftOutExport, pageRoute } from "./grouping.ts"
+export {
+  componentRole,
+  type ComponentRole,
+  groupComponents,
+  type LeftOutExport,
+  rendersRoot,
+  type RouteFiles,
+  routeFiles
+} from "./grouping.ts"
 
 export {
   codeChangeVersions,

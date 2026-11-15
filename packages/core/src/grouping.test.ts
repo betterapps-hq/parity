@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vite-plus/test"
-import { componentRole, describeEvidence, groupComponents, pageRoute } from "./grouping.ts"
+import { componentRole, describeEvidence, groupComponents, rendersRoot, routeFiles } from "./grouping.ts"
 import type { ComponentSource } from "./project.ts"
+import type { ProjectRoute } from "./routes.ts"
 
 const own = (path: string, extra: Partial<ComponentSource> = {}): ComponentSource => ({
   path,
@@ -9,6 +10,47 @@ const own = (path: string, extra: Partial<ComponentSource> = {}): ComponentSourc
   ...extra
 })
 
+/** A route as a router extension gives it, with what the tests don't care about filled in. */
+const route = (route: Pick<ProjectRoute, "id" | "kind" | "path" | "file"> & Partial<ProjectRoute>): ProjectRoute => ({
+  segments: [],
+  index: false,
+  loads: false,
+  guards: false,
+  ...route
+})
+
+/** An App Router app's routes, as the Next.js extension reads them. */
+const routes = routeFiles([
+  route({ id: "src/app/layout", kind: "root", path: "/", file: "src/app/layout.tsx" }),
+  route({
+    id: "src/app/page",
+    kind: "page",
+    path: "/",
+    file: "src/app/page.tsx",
+    parent: "src/app/layout",
+    index: true
+  }),
+  route({
+    id: "src/app/(portal)/layout",
+    kind: "group",
+    path: "/(portal)",
+    file: "src/app/(portal)/layout.tsx",
+    parent: "src/app/layout",
+    stateFiles: { error: "src/app/(portal)/error.tsx" }
+  }),
+  route({
+    id: "src/app/(portal)/orders/[id]/page",
+    kind: "page",
+    path: "/orders/[id]",
+    segments: [
+      { type: "static", value: "orders" },
+      { type: "param", name: "id" }
+    ],
+    file: "src/app/(portal)/orders/[id]/page.tsx",
+    parent: "src/app/(portal)/layout"
+  })
+])
+
 describe("component roles", () => {
   it("lists the UI kit, the rest of the app, and pages apart", () => {
     expect(componentRole(own("src/components/ui/button.tsx", { lazy: undefined }))).toBe("kit")
@@ -16,36 +58,70 @@ describe("component roles", () => {
     expect(componentRole({ path: "@acme/ui", export: "Button", library: "ui" })).toBeUndefined()
   })
 
-  it("finds pages by their router's file names", () => {
+  it("finds pages by their routes' files, state files among them, whatever the file's called", () => {
     const pages = [
       "src/app/page.tsx",
       "src/app/(portal)/orders/[id]/page.tsx",
-      "app/settings/layout.tsx",
-      "src/app/not-found.tsx",
-      "src/pages/orders/index.tsx",
-      "app/routes/orders.$id.tsx",
-      "src/routes/settings/profile.tsx"
+      "src/app/layout.tsx",
+      "src/app/(portal)/error.tsx"
     ]
 
     const notPages = [
       "src/app/(portal)/orders/order-table.tsx",
       "src/components/page.tsx",
-      "src/pages/_app.tsx",
-      "src/pages/api/orders.ts",
-      "src/routes/__root.tsx",
-      "src/routes/-page-route.tsx",
-      "src/routes/orders/-components/row.tsx"
+      "src/pages/orders/index.tsx"
     ]
 
-    expect(pages.filter((path) => componentRole(own(path)) !== "page")).toEqual([])
-    expect(notPages.filter((path) => componentRole(own(path)) === "page")).toEqual([])
+    expect(pages.filter((path) => componentRole(own(path), routes) !== "page")).toEqual([])
+    expect(notPages.filter((path) => componentRole(own(path), routes) === "page")).toEqual([])
   })
 
-  it("names a page by its route", () => {
-    expect(pageRoute("src/app/page.tsx")).toBe("/")
-    expect(pageRoute("src/app/(portal)/orders/[id]/page.tsx")).toBe("/(portal)/orders/[id]")
-    expect(pageRoute("src/pages/orders/index.tsx")).toBe("/orders")
-    expect(pageRoute("app/routes/orders.$id.tsx")).toBe("/orders.$id")
+  it("names no page without routes, as the CLI reads none", () => {
+    expect(componentRole(own("src/app/page.tsx"))).toBe("app")
+    expect(componentRole(own("src/routes/index.tsx", { lazy: undefined }))).toBe("kit")
+  })
+
+  it("knows the page for `/` from its route: a page at the root's URL, not its layout or a state file", () => {
+    expect(rendersRoot(own("src/app/page.tsx"), routes)).toBe(true)
+    expect(rendersRoot(own("src/app/layout.tsx"), routes)).toBe(false)
+    expect(rendersRoot(own("src/app/(portal)/error.tsx"), routes)).toBe(false)
+    expect(rendersRoot(own("src/app/(portal)/orders/[id]/page.tsx"), routes)).toBe(false)
+  })
+
+  it("knows the page for `/` when its file draws another route first, as a library-mode router's may", () => {
+    const shared = routeFiles([
+      route({
+        id: "home",
+        kind: "page",
+        path: "/home",
+        segments: [{ type: "static", value: "home" }],
+        file: "src/pages/index.tsx"
+      }),
+      route({ id: "index", kind: "page", path: "/", file: "src/pages/index.tsx", index: true })
+    ])
+
+    expect(rendersRoot(own("src/pages/index.tsx"), shared)).toBe(true)
+    expect(componentRole(own("src/pages/index.tsx"), shared)).toBe("page")
+  })
+
+  it("leaves a parallel route's slot at `/` out of the page for `/`", () => {
+    const slotted = routeFiles([
+      route({ id: "analytics", kind: "page", path: "/", file: "app/@analytics/page.tsx", slot: "analytics" }),
+      route({ id: "home", kind: "page", path: "/", file: "app/(site)/page.tsx" })
+    ])
+
+    expect(rendersRoot(own("app/@analytics/page.tsx"), slotted)).toBe(false)
+    expect(rendersRoot(own("app/(site)/page.tsx"), slotted)).toBe(true)
+  })
+
+  it("knows the page for `/` by the component its route names, not another its file exports", () => {
+    const named = routeFiles([
+      route({ id: "home", kind: "page", path: "/", file: "src/screens/Home.tsx", component: "Home" })
+    ])
+
+    expect(rendersRoot({ path: "src/screens/Home.tsx", export: "Home" }, named)).toBe(true)
+    expect(rendersRoot({ path: "src/screens/Home.tsx", export: "default" }, named)).toBe(true)
+    expect(rendersRoot({ path: "src/screens/Home.tsx", export: "ErrorBoundary" }, named)).toBe(false)
   })
 
   it("says in words why a component counts as one", () => {
@@ -90,20 +166,21 @@ describe("grouping components", () => {
     ])
   })
 
-  it("groups pages by route", () => {
+  it("groups pages by their routes' paths, as their routers write them", () => {
     const groups = groupComponents(
       [
         ["OrderPage", own("src/app/(portal)/orders/[id]/page.tsx")],
         ["(portal)/ErrorPage", own("src/app/(portal)/error.tsx")],
         ["HomePage", own("src/app/page.tsx")]
       ],
-      "route"
+      "route",
+      routes
     )
 
     expect(groups).toEqual([
       { name: "/", ids: ["HomePage"] },
       { name: "/(portal)", ids: ["(portal)/ErrorPage"] },
-      { name: "/(portal)/orders/[id]", ids: ["OrderPage"] }
+      { name: "/orders/[id]", ids: ["OrderPage"] }
     ])
   })
 })

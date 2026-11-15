@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Next.js projects draw their own App Router and Pages Router pages on canvas, in each frame's mode, on Turbopack and webpack",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
