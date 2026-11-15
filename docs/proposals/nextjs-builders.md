@@ -148,7 +148,7 @@ a plain webpack app runs the webpack-compatible core from the [Rspack proposal](
 - **Not found** says why: no webpack installed, no webpack config, or a Next.js dev script that runs Turbopack.
 
 The manifest watches the webpack config names, Next's, and `package.json`. Peer dependencies give the versions:
-`webpack` `^5.90.0` and `next` `>=15`.
+`webpack` `^5.0.0` and `next` `^15.0.0 || ^16.0.0`, each a whole major.
 
 ### Next.js on webpack
 
