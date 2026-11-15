@@ -1,7 +1,8 @@
 import { mkdtemp, readFile, realpath, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { dirname, join, posix } from "node:path"
-import { type AppStyles, parseManifest } from "@parity-app/core"
+import { join, posix } from "node:path"
+import { importSpecifiers } from "@parity-app/code"
+import { type AppStyles } from "@parity-app/core"
 import { isStylesheetFile, readStylesheet } from "@parity-app/project"
 import type * as Vite from "vite"
 import { loadProjectVite, scriptedConfig } from "./builder.ts"
@@ -19,6 +20,12 @@ interface Imported {
   file: string
   importer: string
   depth: number
+}
+
+/** What the walk found: the stylesheets, and the app's own files it read on the way, from the entries in. */
+interface Walked {
+  found: Imported[]
+  read: string[]
 }
 
 /** The most modules followed: an app's entry reaches its root module long before this, packages included. */
@@ -52,7 +59,7 @@ export async function viteAppStyles(root: string): Promise<AppStyles> {
   try {
     const base = vite.normalizePath(root)
 
-    return await appStyles(await importedStyles(client, base), base)
+    return await appStyles(await importedStyles(client, base), base, client)
   } finally {
     await client.close()
     await rm(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
@@ -188,8 +195,8 @@ function inputList(input: InputOption | undefined): string[] {
  * only on the way from an entry to the app, as a framework's client entry reaches the app's router: what the app's own
  * modules import from packages isn't the app.
  */
-async function importedStyles(client: ClientGraph, root: string): Promise<Imported[]> {
-  const { modules, links } = await entries(client, root)
+async function importedStyles(client: ClientGraph, root: string): Promise<Walked> {
+  const { modules, links, pages } = await entries(client, root)
   const linked: Imported[] = links.map((file) => ({ file, importer: `${root}/index.html`, depth: 0 }))
   const found: Imported[] = []
 
@@ -197,6 +204,7 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Import
     !!file && file.startsWith(`${root}/`) && !file.includes("/node_modules/")
 
   const seen = new Set<string>()
+  const read = new Set(pages)
   let level = modules
 
   for (let depth = 0; level.length > 0 && found.length === 0 && seen.size < moduleLimit; depth++) {
@@ -217,6 +225,10 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Import
       for (const { module, imported } of imports) {
         const fromApp = own(module?.file)
 
+        if (fromApp) {
+          read.add(module!.file!)
+        }
+
         for (const child of imported) {
           if (isStylesheetFile(child.url)) {
             if (fromApp && isGlobalStylesheet(child.url)) {
@@ -235,7 +247,7 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Import
     level = deeper
   }
 
-  return [...linked, ...found]
+  return { found: [...linked, ...found], read: [...read] }
 }
 
 /** A module's static imports, once Vite has compiled it; none when it can't, as for a file a plugin rejects. */
@@ -272,12 +284,16 @@ function isGlobalStylesheet(url: string): boolean {
 
 /**
  * Where the app starts, as the config builds it: its client entries, as module URLs, and for an HTML entry the module
- * scripts and stylesheets it loads.
+ * scripts and stylesheets it loads, with the HTML files read.
  */
-async function entries(client: ClientGraph, root: string): Promise<{ modules: string[]; links: string[] }> {
+async function entries(
+  client: ClientGraph,
+  root: string
+): Promise<{ modules: string[]; links: string[]; pages: string[] }> {
   const named = client.input
   const modules: string[] = []
   const links: string[] = []
+  const pages: string[] = []
 
   for (const entry of named.length > 0 ? named : ["index.html"]) {
     if (!entry.endsWith(".html")) {
@@ -291,6 +307,8 @@ async function entries(client: ClientGraph, root: string): Promise<{ modules: st
     if (html === undefined) {
       continue
     }
+
+    pages.push(file)
 
     for (const tag of html.matchAll(/<(script|link)\b([^>]*)>/gi)) {
       const attributes = tag[2]!
@@ -306,7 +324,7 @@ async function entries(client: ClientGraph, root: string): Promise<{ modules: st
     }
   }
 
-  return { modules, links }
+  return { modules, links, pages }
 }
 
 /** The URL Vite compiles an entry by: a project file's path from the root, else its resolved id. */
@@ -329,9 +347,10 @@ async function moduleUrl(client: ClientGraph, root: string, id: string, importer
 /**
  * What the app loads, from the stylesheets the shallowest modules import: one module's, or, when several import some,
  * those of the ones whose stylesheets hold the theme (all of them when none do), and the page's `<link>`s. The
- * project's own stylesheets are named by their path, and packages' by the specifier that loads them.
+ * project's own stylesheets are named by their path, and packages' by the specifier the app imports them by. The
+ * answer comes from every app file the walk read, so a stylesheet imported in one later is a change it sees.
  */
-async function appStyles(found: Imported[], root: string): Promise<AppStyles> {
+async function appStyles({ found, read }: Walked, root: string, client: ClientGraph): Promise<AppStyles> {
   const byImporter = new Map<string, string[]>()
 
   for (const { file, importer } of found) {
@@ -364,17 +383,33 @@ async function appStyles(found: Imported[], root: string): Promise<AppStyles> {
   const styles: string[] = []
   const packageStyles: string[] = []
 
-  for (const file of new Set(importers.flatMap((importer) => byImporter.get(importer)!))) {
-    if (file.startsWith(`${root}/`) && !file.includes("/node_modules/")) {
-      styles.push(file.slice(root.length + 1))
-    } else {
-      packageStyles.push(await packageSpecifier(file))
+  const own = (file: string) => file.startsWith(`${root}/`) && !file.includes("/node_modules/")
+  const seen = new Set<string>()
+
+  for (const importer of importers) {
+    for (const file of byImporter.get(importer)!) {
+      if (seen.has(file)) {
+        continue
+      }
+
+      seen.add(file)
+
+      if (own(file)) {
+        styles.push(file.slice(root.length + 1))
+        continue
+      }
+
+      const specifier = await importedAs(client, importer, file)
+
+      if (specifier) {
+        packageStyles.push(specifier)
+      }
     }
   }
 
-  const from = importers.flatMap((importer) =>
-    importer.startsWith(`${root}/`) && !importer.includes("/node_modules/") ? [importer.slice(root.length + 1)] : []
-  )
+  const relative = (file: string) => file.slice(root.length + 1)
+  const sources = importers.filter(own).map(relative)
+  const from = [...new Set([...sources, ...read.filter(own).map(relative).sort()])]
 
   return { styles, packageStyles, from }
 }
@@ -387,26 +422,22 @@ async function holdsTheme(file: string): Promise<boolean> {
   return themeTokens.test(await readStylesheet(file))
 }
 
-/** A package's stylesheet by the specifier that loads it: its package's name and its path there. */
-async function packageSpecifier(file: string): Promise<string> {
-  for (let folder = dirname(file); dirname(folder) !== folder; folder = dirname(folder)) {
-    const path = join(folder, "package.json")
-    const text = await readFile(path, "utf8").catch(() => undefined)
-    const name = text === undefined ? undefined : packageName(text, path)
+/**
+ * The specifier `importer` imports a package's stylesheet by, as it's written there (`fake-ui/styles.css`), which the
+ * package's `exports` allow, where the file's own path may not be. Nothing when no bare import of a stylesheet in the
+ * importer's source resolves to it, as when a plugin added the import.
+ */
+async function importedAs(client: ClientGraph, importer: string, file: string): Promise<string | undefined> {
+  const source = await readFile(importer, "utf8").catch(() => "")
+  const bare = importSpecifiers(source).filter((specifier) => isStylesheetFile(specifier) && !/^[./]/.test(specifier))
 
-    if (name) {
-      return `${name}/${posix.relative(folder.replaceAll("\\", "/"), file)}`
+  for (const specifier of bare) {
+    const resolved = await client.resolve(specifier, importer).catch(() => undefined)
+
+    if (resolved?.split("?")[0] === file) {
+      return specifier.split("?")[0]
     }
   }
 
-  return file
-}
-
-/** A package.json's name, or nothing when it has none or can't be read. */
-function packageName(text: string, path: string): string | undefined {
-  try {
-    return parseManifest(text, path).name
-  } catch {
-    return undefined
-  }
+  return undefined
 }

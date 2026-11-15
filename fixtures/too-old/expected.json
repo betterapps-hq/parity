@@ -147,7 +147,7 @@
     }
   },
   "notes": [
-    "styles the builder found from src/main.tsx: src/index.css",
+    "styles the builder found: src/index.css",
     "5 components in 4 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "no .par project file yet",

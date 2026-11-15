@@ -563,9 +563,7 @@ describe("an open project's files", () => {
 
     // Opened again, it has the stylesheets the builder names now.
     await projects.close(root)
-    expect((await projects.open(root)).notes).toContain(
-      "styles the builder found from src/main.tsx: src/styles/app.css"
-    )
+    expect((await projects.open(root)).notes).toContain("styles the builder found: src/styles/app.css")
     expect(await projects.detectAgain(root)).toBe(false)
   })
 

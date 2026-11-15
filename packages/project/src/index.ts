@@ -241,7 +241,7 @@ function stylesNote(loaded: AppStyles | undefined): string {
     return "the builder found no global stylesheets the app loads"
   }
 
-  return `styles the builder found${loaded.from.length > 0 ? ` from ${loaded.from.join(", ")}` : ""}: ${named.join(", ")}`
+  return `styles the builder found: ${named.join(", ")}`
 }
 
 /**

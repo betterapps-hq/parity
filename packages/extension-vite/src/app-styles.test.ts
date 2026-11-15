@@ -65,17 +65,42 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
       "src/page.css": ".page { --gap: 4px; }"
     })
 
-    expect(await viteAppStyles(root)).toEqual({ styles: ["src/style.css"], packageStyles: [], from: ["src/root.ts"] })
+    expect(await viteAppStyles(root)).toEqual({
+      styles: ["src/style.css"],
+      packageStyles: [],
+      from: ["src/root.ts", "src/entry.ts", "src/page.ts"]
+    })
   })
 
-  it("names none for an app that loads no stylesheet", async () => {
+  it("names a package's stylesheet by the export the app imports, not the file it maps to", async () => {
+    await write({
+      "index.html": '<script type="module" src="/src/main.ts"></script>',
+      "src/main.ts": 'import "fake-ui/styles.css"',
+      "node_modules/fake-ui/package.json": JSON.stringify({
+        name: "fake-ui",
+        exports: { "./styles.css": "./dist/styles.css" }
+      }),
+      "node_modules/fake-ui/dist/styles.css": ":root { --fake: blue; }"
+    })
+
+    expect((await viteAppStyles(root)).packageStyles).toEqual(["fake-ui/styles.css"])
+  })
+
+  it("names none for an app that loads no stylesheet, but says the files it read, so a first import is seen", async () => {
     await write({
       "index.html": '<script type="module" src="/src/main.ts"></script>',
       "src/main.ts": 'import { app } from "./app"\napp()',
       "src/app.ts": "export const app = () => 1"
     })
 
-    expect(await viteAppStyles(root)).toEqual({ styles: [], packageStyles: [], from: [] })
+    expect(await viteAppStyles(root)).toEqual({
+      styles: [],
+      packageStyles: [],
+      from: ["index.html", "src/app.ts", "src/main.ts"]
+    })
+
+    await write({ "src/main.ts": 'import "./index.css"\nimport { app } from "./app"\napp()', "src/index.css": "" })
+    expect((await viteAppStyles(root)).styles).toEqual(["src/index.css"])
   })
 })
 

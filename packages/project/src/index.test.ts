@@ -64,7 +64,7 @@ describe("discoverProject", () => {
     const project = await discoverProject(root, renderer, {}, { styles: Promise.resolve(styles) })
     expect(project.styles).toEqual(["src/index.css"])
     expect(project.packageStyles).toEqual(["@mantine/core/styles.css"])
-    expect(project.notes[0]).toBe("styles the builder found from src/main.tsx: @mantine/core/styles.css, src/index.css")
+    expect(project.notes[0]).toBe("styles the builder found: @mantine/core/styles.css, src/index.css")
 
     const unasked = await discoverProject(root, renderer)
     expect(unasked.styles).toEqual([])

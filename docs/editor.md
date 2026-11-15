@@ -7661,12 +7661,15 @@ app with no `index.html` whose root route imports `src/style.css?url`, and a Nex
   gives them, imported plainly or with `?url`, not CSS modules or `?inline` and `?raw` reads. When several modules at
   that level import some, as a router's generated tree imports the root route beside its pages, the ones whose
   stylesheets hold the theme (custom properties on `:root`, `html` or `:host`, or Tailwind's `@theme`, through their
-  relative `@import`s) are the root's. `index.html`'s `<link>`s always count. Packages' stylesheets are named by their
-  package's name and path, as `@mantine/core/styles.css`.
+  relative `@import`s) are the root's. `index.html`'s `<link>`s always count. Packages' stylesheets are named by the
+  specifier the app imports them by, as `@mantine/core/styles.css`, which their `exports` allow where the file's own
+  path (`dist/styles.css`) may not.
 - **An app that loads none has none,** as a CSS-in-JS app does. A builder without `styles`, or one that fails, leaves
   the canvas without global styles, and the project's notes say so.
-- **Its answer says which files it came from** (`from`), such as the root route, and the service asks again when one of
-  them changes (PAR-820).
+- **Its answer says which files it came from** (`from`): the modules that import the stylesheets, then every app file
+  the walk read, `index.html` included. The service asks again when one of them changes (PAR-820), so the first
+  stylesheet an app imports, or a new entry `index.html` names, is seen. For a TanStack Start app that's its routes too,
+  40 to 60 files on the projects here, so saving a route asks Vite again in the background.
 - **The project opens no slower for it.** Parity asks while it reads the app's files. On the projects on this machine it
   answered in 0.2 to 0.9 s for a Vite app with `index.html`, 2 to 3 s for TanStack Start apps, and 9 s for copacker,
   whose root level has 52 modules.
@@ -7678,14 +7681,15 @@ and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/
 `DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
 `appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
 
-Tests: `packages/extension-vite/src/app-styles.test.ts` (5; 3 with a real Vite: what `index.html`'s module imports and
+Tests: `packages/extension-vite/src/app-styles.test.ts` (6; 4 with a real Vite: what `index.html`'s module imports and
 its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry followed to the root,
-whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; none for an app that loads none; and
-2 for `configInput`: a Vite 6 or 7 config with only `rollupOptions`, and Vite 8's `rolldownOptions` first).
-`packages/project/src/index.test.ts` (1: discovery takes the builder's answer and reads no entry itself).
-`apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake builder's answer). `parity lib` on an app asks
-the registered builders the same way (`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's tokens from
-what the first that serves it names. Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which
+whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; a package's stylesheet named by the
+export the app imports, not the `dist` file it maps to; none for an app that loads none, with the files it read, and its
+first import found when asked again; and 2 for `configInput`: a Vite 6 or 7 config with only `rollupOptions`, and Vite
+8's `rolldownOptions` first). `packages/project/src/index.test.ts` (1: discovery takes the builder's answer and reads no
+entry itself). `apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake builder's answer). `parity lib`
+on an app asks the registered builders the same way (`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's
+tokens from what the first that serves it names. Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which
 `configInput`'s tests cover with that shape rather than a real Vite 7, and CI's detection snapshots of `vite7-js` and
 `react-aria` cover it end to end; Vite 5's projects are compiled with a middleware-mode dev server, since Vite 5 has no
 environments.
