@@ -71,7 +71,7 @@ describe("the project's pages in the guest app", () => {
 
     expect(page!.text.split("\n").slice(1)).toEqual([
       'export { default } from "../../../../../app/blog/page"',
-      'export { generateMetadata, revalidate } from "../../../../../app/blog/page"',
+      'export { revalidate, generateMetadata } from "../../../../../app/blog/page"',
       'export const dynamic = "force-dynamic"',
       ""
     ])
@@ -121,7 +121,7 @@ describe("the project's pages in the guest app", () => {
       "export { f as default }"
     ].join("\n")
 
-    expect(exportNames(source)).toEqual(["gen", "Shape", "a", "c", "default"])
+    expect(exportNames(source)).toEqual(["a", "c", "gen", "Shape", "default"])
   })
 
   it("reads every binding a variable statement exports: each declarator, and what a pattern destructures", () => {
@@ -147,6 +147,28 @@ describe("the project's pages in the guest app", () => {
       "one",
       "two",
       "three"
+    ])
+  })
+
+  it("reads type arguments and annotations as types, not further bindings", () => {
+    const source = [
+      "export const GET = createHandler<Request, Response>(handler)",
+      "export const POST: Handler<Request, Context> = handler",
+      "export declare const ambient: string",
+      "export interface Props { a: string }"
+    ].join("\n")
+
+    expect(exportNames(source)).toEqual(["GET", "POST"])
+  })
+
+  it("leaves segment config in a comment out", () => {
+    const source = ["/*", 'export const dynamic = "force-static"', "*/", 'export const dynamic = "force-dynamic"'].join(
+      "\n"
+    )
+
+    expect(segmentLiterals(source)).toEqual([["dynamic", '"force-dynamic"']])
+    expect(segmentLiterals('// export const revalidate = 60\nexport const runtime = "edge"')).toEqual([
+      ["runtime", '"edge"']
     ])
   })
 
