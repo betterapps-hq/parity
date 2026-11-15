@@ -104,6 +104,16 @@ describe("component roles", () => {
     expect(componentRole(own("src/pages/index.tsx"), shared)).toBe("page")
   })
 
+  it("leaves a parallel route's slot at `/` out of the page for `/`", () => {
+    const slotted = routeFiles([
+      route({ id: "analytics", kind: "page", path: "/", file: "app/@analytics/page.tsx", slot: "analytics" }),
+      route({ id: "home", kind: "page", path: "/", file: "app/(site)/page.tsx" })
+    ])
+
+    expect(rendersRoot(own("app/@analytics/page.tsx"), slotted)).toBe(false)
+    expect(rendersRoot(own("app/(site)/page.tsx"), slotted)).toBe(true)
+  })
+
   it("knows the page for `/` by the component its route names, not another its file exports", () => {
     const named = routeFiles([
       route({ id: "home", kind: "page", path: "/", file: "src/screens/Home.tsx", component: "Home" })

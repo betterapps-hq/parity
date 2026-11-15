@@ -1,6 +1,6 @@
 import type { ComponentEvidence } from "./library.ts"
 import type { ComponentSource } from "./project.ts"
-import type { ProjectRoute } from "./routes.ts"
+import { drawnRoute, type ProjectRoute } from "./routes.ts"
 
 /** An export of the app's that isn't listed as a component, and why, so a person or agent looking for it learns why. */
 export interface LeftOutExport {
@@ -67,9 +67,12 @@ export function routeFiles(routes: readonly ProjectRoute[]): RouteFiles {
   return files
 }
 
-/** Whether a route is the page at `/` and `file` its own file, not a layout or a state it draws. */
+/**
+ * Whether a route is the page at `/` and `file` its own file: not a layout or a state it draws, and not a parallel
+ * route's slot or an intercepting route, which draw beside or over a page rather than at its URL.
+ */
 function isRootPage(route: ProjectRoute, file: string): boolean {
-  return route.kind === "page" && route.file === file && route.segments.length === 0
+  return route.kind === "page" && route.file === file && route.segments.length === 0 && drawnRoute(route)
 }
 
 /** The project's own component's role, a page when its file is one of its routes'; unset for a library's. */
