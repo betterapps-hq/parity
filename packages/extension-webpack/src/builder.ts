@@ -49,7 +49,7 @@ export const webpackBuilder: BuilderAdapter = {
   name: "webpack",
   watches: [...webpackConfigFiles, ...otherConfigFiles],
   detect: ({ root }) => detectWebpack(root),
-  styles: async ({ root }) => ((await isNextProject(root)) ? nextAppStyles(root) : webpackAppStyles(root)),
+  styles: ({ root }) => appStyles(root),
   async start(options) {
     const root = await realpath(options.root)
 
@@ -197,8 +197,13 @@ async function detectNextOnWebpack(root: string): Promise<BuilderDetection> {
   return detection
 }
 
+/** The global stylesheets the app loads: a Next.js app's as Next builds it, another's as its own webpack does. */
+export async function appStyles(root: string): Promise<AppStyles> {
+  return (await isNextProject(root)) ? nextAppStyles(root) : webpackAppStyles(root)
+}
+
 /** The global stylesheets the app loads, as the project's own webpack builds it. */
-export async function webpackAppStyles(root: string): Promise<AppStyles> {
+async function webpackAppStyles(root: string): Promise<AppStyles> {
   root = await realpath(root)
   const { bundler, config, file } = await projectWebpack(root)
 

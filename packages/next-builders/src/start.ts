@@ -106,7 +106,7 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
   if (tsconfig) {
     app.tsconfig = tsconfig
-    app.tsconfigBaseUrl = await tsconfigSetsBaseUrl(root, tsconfig)
+    app.tsconfigBaseUrl = tsconfigSetsBaseUrl(root, tsconfig)
   }
 
   await writeGuestApp(root, [...guestAppFiles(app), ...standIns.map(({ path, text }) => ({ path, text }))])

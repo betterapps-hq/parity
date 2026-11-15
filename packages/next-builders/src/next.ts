@@ -1,6 +1,7 @@
 import { readdir, readFile, realpath, stat } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, join, resolve } from "node:path"
+import { readTsconfig } from "@parity-app/code"
 import { parseManifest } from "@parity-app/core"
 import { type NextBundler, nextBundler, nextDevScript } from "./bundler.ts"
 
@@ -106,11 +107,14 @@ export async function projectTsconfigFile(root: string): Promise<string | undefi
   return ["tsconfig.json", "jsconfig.json"].find((name) => present.has(name))
 }
 
-/** Whether the project's tsconfig sets its own `baseUrl`, which the guest app's then leaves alone. */
-export async function tsconfigSetsBaseUrl(root: string, tsconfig: string): Promise<boolean> {
-  const text = await readFile(join(root, tsconfig), "utf8").catch(() => "")
+/**
+ * Whether the project's tsconfig gives a `baseUrl`, its own or one it inherits through `extends`, which the guest app's
+ * then leaves alone.
+ */
+export function tsconfigSetsBaseUrl(root: string, tsconfig: string): boolean {
+  const config = readTsconfig(root).configs.find((read) => read.path === tsconfig)
 
-  return /"baseUrl"\s*:/.test(text)
+  return config?.options.baseUrl !== undefined
 }
 
 async function isFile(path: string): Promise<boolean> {

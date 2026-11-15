@@ -1,5 +1,5 @@
 import type { Parity } from "@parity-app/extension-api"
-import { detectWebpack, webpackAppStyles } from "./builder.ts"
+import { appStyles, detectWebpack } from "./builder.ts"
 
 /*
  * webpack as an extension (PAR-1150), using only Parity's public API. Its builder provider asks the project's own
@@ -15,6 +15,6 @@ export function activate(parity: Parity): void {
   parity.subscriptions.push(status)
 
   parity.subscriptions.push(
-    parity.providers.register("builder", { detect: () => detectWebpack(root), styles: () => webpackAppStyles(root) })
+    parity.providers.register("builder", { detect: () => detectWebpack(root), styles: () => appStyles(root) })
   )
 }
