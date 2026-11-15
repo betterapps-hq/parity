@@ -688,9 +688,6 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
-      '@parity-app/extension-rspack':
-        specifier: workspace:*
-        version: link:../extension-rspack
       '@parity-app/extension-vite':
         specifier: workspace:*
         version: link:../extension-vite

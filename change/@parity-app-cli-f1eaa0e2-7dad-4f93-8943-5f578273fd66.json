@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check only the layers a change made, so undo and edits on large designs cost a fraction of what they did",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

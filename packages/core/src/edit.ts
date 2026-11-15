@@ -238,6 +238,19 @@ export function insertNode(
     }
   }
 
+  return placeNode(root, parentId, node, options)
+}
+
+/**
+ * `insertNode` without checking that the node's ids are free, for a caller that has checked them already, so a large
+ * insert isn't walked twice.
+ */
+export function placeNode(
+  root: DesignNode,
+  parentId: string,
+  node: DesignNode,
+  options: { index?: number; slot?: string } = {}
+): DesignNode {
   const at = (list: DesignNode[]) => {
     const index = Math.max(0, Math.min(options.index ?? list.length, list.length))
 

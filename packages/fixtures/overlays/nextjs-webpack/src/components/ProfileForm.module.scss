@@ -1,0 +1,10 @@
+@use '../styles/tokens';
+
+.paper {
+  background-color: tokens.$surface;
+  border-radius: tokens.$radius;
+
+  @media (min-width: tokens.$breakpoint-md) {
+    padding: calc(tokens.$gap * 2);
+  }
+}

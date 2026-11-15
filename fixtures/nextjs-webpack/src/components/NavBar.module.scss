@@ -1,0 +1,25 @@
+@use '../styles/tokens';
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: tokens.$gap;
+  border-bottom: 1px solid var(--mantine-color-default-border);
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: tokens.rem(6px);
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    color: var(--mantine-primary-color-filled);
+  }
+
+  @media (max-width: tokens.$breakpoint-xs) {
+    font-size: var(--mantine-font-size-sm);
+  }
+}

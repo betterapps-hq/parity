@@ -96,6 +96,54 @@ const projects = new Map<string, Project>([
     }
   ],
   [
+    "nextjs-webpack",
+    {
+      install: "npm ci",
+      async generate(dir) {
+        // Next.js 15, whose `next dev` runs on webpack unless it's asked for Turbopack, with React 18, which it still
+        // accepts. Both routers in one project: `app/` for the dashboard, `pages/` for settings.
+        await mkdir(dirname(dir), { recursive: true })
+        await run(
+          dirname(dir),
+          `npx --yes create-next-app@15.5.29 ${basename(dir)} --ts --app --src-dir --empty --no-tailwind --no-eslint --no-turbopack --import-alias "@/*" --use-npm --skip-install --disable-git --yes`
+        )
+        await remove(dir, "src/app")
+        await overlay(dir, "nextjs-webpack")
+        // Mantine 8, the last to support React 18, set up as its Next.js guide says. The CSS modules are Sass, with the
+        // breakpoints as Sass variables, so PostCSS needs only Mantine's preset.
+        await editPackage(dir, (pkg) => {
+          addDependencies(pkg, "dependencies", {
+            "@mantine/core": "8.3.18",
+            "@mantine/hooks": "8.3.18",
+            "@tabler/icons-react": "3.52.0",
+            react: "18.3.1",
+            "react-dom": "18.3.1"
+          })
+          addDependencies(pkg, "devDependencies", {
+            "@types/react": "18.3.31",
+            "@types/react-dom": "18.3.7",
+            "postcss-preset-mantine": "1.18.0",
+            sass: "1.108.2"
+          })
+        })
+        await run(dir, "npm install")
+      }
+    }
+  ],
+  [
+    "webpack-react-router",
+    {
+      install: "pnpm install --frozen-lockfile",
+      async generate(dir) {
+        // Plain webpack 5 has no scaffolder, so the whole project, package.json included, comes from its overlay.
+        // Its own pnpm-workspace.yaml makes pnpm treat it as a project of its own, not part of the repo around it.
+        await mkdir(dir, { recursive: true })
+        await overlay(dir, "webpack-react-router")
+        await run(dir, "pnpm install")
+      }
+    }
+  ],
+  [
     "too-old",
     {
       install: "npm ci",
