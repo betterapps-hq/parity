@@ -56,7 +56,7 @@ export function mixedOf(editor: StyleEditor): (name: keyof NodeStyle) => boolean
  * makes, is made at once.
  */
 export function useEditSession(editor: StyleEditor): SectionEdits {
-  const store = useContext(ProjectContext)?.store
+  const doc = useContext(ProjectContext)?.doc
   const target = useContext(FieldTarget)
   // The edits a field's change is coming to, while it runs.
   const gathering = useRef<StyleChange[]>(undefined)
@@ -66,7 +66,7 @@ export function useEditSession(editor: StyleEditor): SectionEdits {
     now.current = { editor, target }
   })
   // A run of presses is one gesture (`GestureRun`), with a checkpoint Escape takes it back to.
-  const run = useMemo(() => (store ? new GestureRun(store, "fieldNudge") : undefined), [store])
+  const run = useMemo(() => (doc ? new GestureRun(doc, "fieldNudge") : undefined), [doc])
 
   const session = useMemo(() => new SessionRunner(run, now), [run])
   const dispatch = (event: SessionEvent<StyleChange>) => session.dispatch(event)
@@ -111,7 +111,7 @@ export interface SessionTarget {
   target: string | undefined
 }
 
-/** Keeps a session's state, and runs what it asks for against the style editor and the store's gestures. */
+/** Keeps a session's state, and runs what it asks for against the style editor and the document's gestures. */
 export class SessionRunner {
   private state = initialSession
   /** The run of presses under way: its gesture, the checkpoint Escape takes it back to, and whether it's made a step. */

@@ -1,6 +1,8 @@
 import { layersSelection } from "@parity-app/editor"
+import { setPosition } from "@parity-app/multiplayer"
 import type { Meta } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"
+import { undo } from "../project-doc.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { actions } from "./actions.ts"
 import { hero, menuStories, opened, selecting, unavailable, valueInUsersCard } from "./app-menu-stories.tsx"
@@ -37,9 +39,9 @@ export const AfterUndo = opened(
     () => {
       renameDesign("Pricing", "Pricing (annual)")
       const key = design("Pricing (annual)")
-      const { position } = example().store.getEntry(key)!.container
-      example().store.setPosition(key, { x: position.x + 400, y: position.y })
-      example().store.undo()
+      const { position } = example().doc.design(key)!
+      setPosition(example().doc, key, { x: position.x + 400, y: position.y })
+      undo(example())
     }
   )
 )

@@ -1,7 +1,6 @@
 import { type CanvasDocument, defaultModeSettings, parseCanvasDocument, type ReferenceSpec } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { mergeAgentChanges } from "./design-changes.ts"
-import type { DesignSnapshot } from "./history.ts"
 import {
   addReferences,
   changeReference,
@@ -13,6 +12,7 @@ import {
   referenceSearch,
   referenceSize
 } from "./references.ts"
+import type { DesignSnapshot } from "./snapshot.ts"
 import { noTokenEdits } from "./token-edits.ts"
 
 function snapshot(document: CanvasDocument): DesignSnapshot {

@@ -10,7 +10,7 @@ import {
   nodeLabel
 } from "@parity-app/core"
 import { editingState, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import type { CommandStates } from "./command-state.ts"
 import { type Command, shortcutOf } from "./keymap.ts"
 import { unnamedIconLabel } from "./layer-kind.ts"

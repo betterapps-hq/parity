@@ -43,12 +43,26 @@ describe("the guest app", () => {
     const files = guestAppFiles(options)
 
     expect(text(files, guestModuleFile)).toMatch(/^"use client"\n\nexport async function guestParts\(\) \{\}/)
-    expect(text(files, "app/page.tsx")).toContain('import Guest from "./guest"')
-    // The styles page is one folder deeper than the guest module.
-    expect(text(files, "app/styles/page.tsx")).toContain('import "../../../../src/app/globals.css"')
-    expect(text(files, "app/package-styles/page.tsx")).toContain('import "@mantine/core/styles.css"')
+    // Its pages are under a route group and a path of their own, so the project's routes can be served beside them.
+    expect(text(files, "app/(parity)/layout.tsx")).toContain("<html")
+    expect(text(files, "app/(parity)/parity-guest/page.tsx")).toContain('import Guest from "../../guest"')
+    // The styles page is three folders deeper than the guest module.
+    expect(text(files, "app/(parity)/parity-guest/styles/page.tsx")).toContain(
+      'import "../../../../../../src/app/globals.css"'
+    )
+    expect(text(files, "app/(parity)/parity-guest/package-styles/page.tsx")).toContain(
+      'import "@mantine/core/styles.css"'
+    )
+    expect(text(files, "app/layout.tsx")).toBeUndefined()
     expect(text(files, "tsconfig.json")).toBeUndefined()
     expect(text(files, "postcss.config.mjs")).toBeUndefined()
+  })
+
+  it("runs the page script in the browser before a page's own code, with Next's overlay hidden in a canvas frame", () => {
+    const script = text(guestAppFiles(options), "instrumentation-client.js")
+
+    expect(script).toContain('window.parent.postMessage({ parity: "page-height", height }, "*")')
+    expect(script).toContain("nextjs-portal { display: none !important }")
   })
 
   it("extends the project's tsconfig, with a baseUrl where its paths resolve from unless it gives one", () => {

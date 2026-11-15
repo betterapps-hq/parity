@@ -2,7 +2,7 @@ import { editingState } from "@parity-app/editor"
 import { Info } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { baseDesignNote } from "./edit-scope.ts"
 

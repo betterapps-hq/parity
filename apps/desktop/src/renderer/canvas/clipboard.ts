@@ -38,11 +38,21 @@ import {
   type Selection,
   selectionToPasteOn
 } from "@parity-app/editor"
+import {
+  addNote,
+  changeSnapshot,
+  type ContainerEntry,
+  containerEntries,
+  containerEntry,
+  designKey,
+  editFrame,
+  noteEntries,
+  updateContainer
+} from "@parity-app/multiplayer"
 import { toast } from "sonner"
 import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { shortcutOf } from "../chrome/keymap.ts"
-import { type ContainerEntry, containerKey } from "../design-store.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
@@ -58,7 +68,7 @@ import { placeAtPoint } from "./paste-here.ts"
  * Copy and paste for layers, designs and text notes, through the system clipboard, so they paste into another
  * project or another Parity window too. What's copied is what the frame shows: a layer copied in a state other than
  * the base carries that state's changes, and the variants, viewport and bound values the frame shows. Pasted layers get fresh ids; pasted designs keep theirs unless taken. The rules
- * are `@parity-app/editor`'s; this reads and writes the system clipboard and applies them to the selection and the store.
+ * are `@parity-app/editor`'s; this reads and writes the system clipboard and applies them to the selection and the project.
  */
 
 /** The last copy from this window, in case the system clipboard can't be read back. */
@@ -297,9 +307,9 @@ async function readClipboard(): Promise<ClipboardContent> {
 export async function pasteOverSelection(
   session: ProjectDesigns & Pick<ProjectSession, "components" | "id">
 ): Promise<void> {
-  const { store, selection } = session
+  const { doc, selection } = session
   const asked = selection.get()
-  const selected = selectedDesigns(asked).flatMap((key) => store.getEntry(key) ?? [])
+  const selected = selectedDesigns(asked).flatMap((key) => containerEntry(doc, key) ?? [])
   let where: "layers" | "designs" | "nothing" = "nothing"
 
   if (layersSelected(session, asked)) {
@@ -330,7 +340,7 @@ export async function pasteOverSelection(
 
     const copies = designsAt(
       content.envelope.payload.designs,
-      store.getEntries().map((design) => design.container.id),
+      containerEntries(doc).map((design) => design.container.id),
       at
     )
 
@@ -349,7 +359,7 @@ export async function pasteOverSelection(
 
   // Saving an image takes a while, so the selection is read again: the copies go over what's selected now.
   const current = selectionToPasteOn("over", asked, selection.get())
-  const frame = current && store.editFrame(current)
+  const frame = current && editFrame(doc, current)
 
   if (!current || !frame) {
     toast.info("No layers are selected, so nothing was pasted")
@@ -361,7 +371,8 @@ export async function pasteOverSelection(
   const ids = selectedNodes(current)
   const { nodes } = layers
   let copies: string[] = []
-  store.updateContainer(
+  updateContainer(
+    doc,
     frame.design,
     nodes.length === 1 ? "Paste over layer" : `Paste ${nodes.length} layers over`,
     (container) => {
@@ -414,7 +425,7 @@ export async function pasteToReplace(
 
   // Saving an image takes a while, and replacing removes layers, so it only replaces what was selected when asked.
   const current = selectionToPasteOn("replace", asked, session.selection.get())
-  const frame = current && session.store.editFrame(current)
+  const frame = current && editFrame(session.doc, current)
 
   if (!current || !frame) {
     toast.info("The selection changed, so nothing was replaced")
@@ -426,7 +437,8 @@ export async function pasteToReplace(
   const ids = selectedNodes(current)
   const { nodes } = layers
   let copies: string[] = []
-  session.store.updateContainer(
+  updateContainer(
+    session.doc,
     frame.design,
     ids.length === 1 ? "Paste to replace" : `Paste to replace ${ids.length} layers`,
     (container) => {
@@ -461,7 +473,7 @@ export async function pasteAtPointer(
   session: ProjectDesigns & Pick<ProjectSession, "components" | "editor" | "id" | "tokens">,
   point: Point
 ): Promise<void> {
-  const { store, selection, editor } = session
+  const { doc, selection, editor } = session
 
   if (!editor) {
     return
@@ -484,7 +496,7 @@ export async function pasteAtPointer(
   if (action.do === "designs" && isEnvelope(content, "designs")) {
     const copies = designsAt(
       content.envelope.payload.designs,
-      store.getEntries().map((design) => design.container.id),
+      containerEntries(doc).map((design) => design.container.id),
       at
     )
 
@@ -526,7 +538,7 @@ export async function pasteAtPointer(
 
   const { hit, here, frame } = place
   let copies: string[] = []
-  store.updateContainer(frame.design, label, (container) => {
+  updateContainer(doc, frame.design, label, (container) => {
     const placed = pasteHere(container, nodes, here, frame.state, frame.viewport)
     copies = placed.copies
 
@@ -548,15 +560,15 @@ export async function pasteAtPointer(
 
 /** Whether `selection` has layers in a frame being edited, for Paste over and Paste to replace to paste on. */
 function layersSelected(session: ProjectDesigns, selection: Selection): boolean {
-  return Boolean(session.store.editFrame(selection)) && selectedNodes(selection).length > 0
+  return Boolean(editFrame(session.doc, selection)) && selectedNodes(selection).length > 0
 }
 
 /** Adds copied designs to the canvas as one undo step, `label`, and selects them. */
 function addDesigns(session: ProjectDesigns, copies: ContainerSpec[], label: string): void {
-  const { store, selection } = session
-  const path = store.mainPath
-  store.change(label, (snapshot) => addDesign(snapshot, path, ...copies))
-  selection.set(designsSelection(copies.map((copy) => containerKey(path, copy.id))))
+  const { doc, selection } = session
+  const path = doc.main
+  changeSnapshot(doc, label, (snapshot) => addDesign(snapshot, path, ...copies))
+  selection.set(designsSelection(copies.map((copy) => designKey(path, copy.id))))
 }
 
 /**
@@ -642,9 +654,9 @@ async function savedFiles(projectId: string, content: ClipboardContent & { kind:
 /** Copies the selected designs, placing the copies in the first free space to the right of the originals. */
 export function duplicateDesigns(session: ProjectDesigns & Pick<ProjectSession, "editor">): boolean {
   const designs = selectedDesigns(session.selection.get()).flatMap((key) => {
-    const entry = session.store.getEntry(key)
+    const design = session.doc.design(key)
 
-    return entry ? [structuredClone(entry.container)] : []
+    return design ? [structuredClone(design)] : []
   })
 
   if (designs.length === 0) {
@@ -659,7 +671,7 @@ export function duplicateDesigns(session: ProjectDesigns & Pick<ProjectSession, 
 /** Copies the selected layer's look, to paste onto other layers. */
 export function copyStyle(session: ProjectDesigns): boolean {
   const current = session.selection.get()
-  const frame = session.store.editFrame(current)
+  const frame = editFrame(session.doc, current)
   const style = frame && current.node ? styleOf(frame.container, current.node, frame.state, frame.viewport) : undefined
 
   if (!style) {
@@ -676,7 +688,7 @@ export function copyStyle(session: ProjectDesigns): boolean {
 export function pasteStyle(session: ProjectDesigns): void {
   const style = copiedStyle
   const current = session.selection.get()
-  const frame = session.store.editFrame(current)
+  const frame = editFrame(session.doc, current)
   const ids = selectedNodes(current)
 
   if (!style || !frame || ids.length === 0) {
@@ -689,7 +701,8 @@ export function pasteStyle(session: ProjectDesigns): void {
     return
   }
 
-  session.store.updateContainer(
+  updateContainer(
+    session.doc,
     frame.design,
     ids.length === 1 ? "Paste style" : `Paste style on ${ids.length} layers`,
     (container) => applyStyle(container, ids, frame.state, style, frame.viewport)
@@ -697,9 +710,9 @@ export function pasteStyle(session: ProjectDesigns): void {
 }
 
 function selectionPayload(session: ProjectDesigns): ClipboardPayload | undefined {
-  const { store, selection } = session
+  const { doc, selection } = session
   const current = selection.get()
-  const frame = store.editFrame(current)
+  const frame = editFrame(doc, current)
   const layers = selectedNodes(current)
 
   if (frame && layers.length > 0) {
@@ -707,16 +720,16 @@ function selectionPayload(session: ProjectDesigns): ClipboardPayload | undefined
   }
 
   const designs = selectedDesigns(current).flatMap((key) => {
-    const found = store.getEntry(key)
+    const found = doc.design(key)
 
-    return found ? [structuredClone(found.container)] : []
+    return found ? [structuredClone(found)] : []
   })
 
   if (designs.length > 0) {
     return { kind: "designs", designs }
   }
 
-  const note = current.note ? store.getNotes().find((candidate) => candidate.key === current.note) : undefined
+  const note = current.note ? noteEntries(doc).find((candidate) => candidate.key === current.note) : undefined
 
   return note ? { kind: "notes", notes: [structuredClone(note.note)] } : undefined
 }
@@ -726,7 +739,7 @@ function selectedPasteTarget(
   session: ProjectDesigns
 ): { entry: ContainerEntry; target: PasteTarget; frame: { mode?: string; state?: string } } | undefined {
   const current = session.selection.get()
-  const entry = current.design ? session.store.getEntry(current.design) : undefined
+  const entry = current.design ? containerEntry(session.doc, current.design) : undefined
   const target = entry && pasteTarget(entry.container, { node: current.node, nodes: selectedNodes(current) })
 
   return entry && target ? { entry, target, frame: { mode: current.mode, state: current.state } } : undefined
@@ -741,7 +754,7 @@ export function placeLayers(
   nodes: DesignNode[],
   label?: string
 ): { design: string; ids: string[]; frame: { mode?: string; state?: string } } | undefined {
-  const { store, selection, components } = session
+  const { doc, selection, components } = session
   const place = selectedPasteTarget(session)
 
   if (!place) {
@@ -752,7 +765,8 @@ export function placeLayers(
 
   const { entry, target, frame } = place
   let copies: string[] = []
-  store.updateContainer(
+  updateContainer(
+    doc,
     entry.key,
     label ?? (nodes.length === 1 ? "Paste layer" : `Paste ${nodes.length} layers`),
     (container) => {
@@ -787,13 +801,13 @@ function pasteDesigns(
   designs: ContainerSpec[],
   sameProject: boolean
 ): void {
-  const { store, editor } = session
-  const ids = store.getEntries().map((entry) => entry.container.id)
+  const { doc, editor } = session
+  const ids = containerEntries(doc).map((entry) => entry.container.id)
 
   // Pasted into the project they came from, they sit to the right of the originals, in the first free space along
   // their row; elsewhere, in the view (see `pastedPlacement`).
   const placed = designs.map((design) => {
-    const original = sameProject ? store.getEntries().find((entry) => entry.container.id === design.id) : undefined
+    const original = sameProject ? containerEntries(doc).find((entry) => entry.container.id === design.id) : undefined
     const bounds = original ? editor?.getShapePageBounds(canvasIdFor(original.key)) : undefined
 
     return { position: design.position, bounds }
@@ -802,7 +816,7 @@ function pasteDesigns(
   const { shift, shown } = pastedPlacement(placed, viewCenter(session.editor), editor ? takenBounds(editor) : [])
   const copies = copyDesigns(designs, ids, shift)
   addDesigns(session, copies, `Paste ${kindsName(copies.map((copy) => copy.kind))}`)
-  const keys = copies.map((copy) => containerKey(store.mainPath, copy.id))
+  const keys = copies.map((copy) => designKey(doc.main, copy.id))
 
   // A copy that lands off screen, as a duplicate beside a wide design does, is brought into view (PAR-204), at the
   // size it's drawn at, which for a copy from elsewhere is known once its board has drawn it.
@@ -824,12 +838,12 @@ function pasteDesigns(
  * canvas, sitting as they sat together.
  */
 function pasteNotes(session: ProjectDesigns, notes: NoteSpec[], at?: { x: number; y: number }): void {
-  const { store, selection } = session
-  const taken = store.getNotes().map((note) => note.note.id)
+  const { doc, selection } = session
+  const taken = noteEntries(doc).map((note) => note.note.id)
   let last: string | undefined
 
   for (const note of copyNotes(notes, taken, at)) {
-    last = store.addNote(store.mainPath, note)
+    last = addNote(doc, doc.main, note)
   }
 
   if (last) {

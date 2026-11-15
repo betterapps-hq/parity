@@ -8,7 +8,7 @@ import {
   type MeasuredLayer,
   type Point
 } from "@parity-app/editor"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { findNodeElement, nodeBox } from "../frame.ts"
 
 /**

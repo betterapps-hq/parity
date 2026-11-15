@@ -88,7 +88,7 @@ export const Swap: Story = onCanvas(
   () =>
     answering({
       "frames.capture": async ({ job }) => {
-        const root = example().store.getEntry(design("Sign in"))?.container.root.id
+        const root = example().doc.design(design("Sign in"))?.root.id
 
         if (!root || !JSON.stringify(job.tree).includes(`"nodeId":"${root}"`)) {
           return {}

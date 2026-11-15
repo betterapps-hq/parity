@@ -1,5 +1,6 @@
 import { boardLayoutAt } from "@parity-app/core"
 import { designsSelection, selectedDesigns, snaps } from "@parity-app/editor"
+import { designsLabel } from "@parity-app/multiplayer"
 import { type PointerEvent as ReactPointerEvent, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   type Atom,
@@ -17,7 +18,7 @@ import {
   useValue
 } from "tldraw"
 import { moveDesigns } from "../chrome/arrange.ts"
-import { useContainerEntry } from "../design-store.ts"
+import { useContainerEntry } from "../project-doc.ts"
 import { getEffectivePreferences } from "../project-settings.ts"
 import { isRestingFar, isTabHidden, isZoomSettled, canvasIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
@@ -124,8 +125,8 @@ function boardSizes(editor: Editor): ReturnType<typeof measureTogether> {
 function ContainerContent({ container }: { container: ContainerRecord }) {
   const editor = useEditor()
   const session = useProject()
-  const { store, selection } = session
-  const entry = useContainerEntry(store, container.props.key)
+  const { doc, selection } = session
+  const entry = useContainerEntry(session, container.props.key)
   const ref = useRef<HTMLDivElement>(null)
   const hovered = useValue("board hovered", () => editor.getHoveredShapeId() === container.id, [editor, container.id])
   // Moving a board doesn't draw it again, but its title, drawn in a layer above every board, has to follow.
@@ -280,7 +281,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
    */
   const dragByTitle = (event: ReactPointerEvent<HTMLElement>) => {
     // A locked design's title is left to the canvas, as its board is: it's selected and moved only from Layers.
-    if (session.store.getEntry(container.props.key)?.container.locked) {
+    if (doc.design(container.props.key)?.locked) {
       return
     }
 
@@ -293,9 +294,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
     const key = container.props.key
     const current = selection.get()
 
-    const group = selectedDesigns(current).filter(
-      (candidate) => candidate === key || !session.store.getEntry(candidate)?.container.locked
-    )
+    const group = selectedDesigns(current).filter((candidate) => candidate === key || !doc.design(candidate)?.locked)
 
     if (event.shiftKey) {
       const next = group.includes(key) ? group.filter((candidate) => candidate !== key) : [...group, key]
@@ -340,7 +339,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
         { history: "ignore" }
       )
 
-    followPress(gestures.titleDrag, session.store, event, {
+    followPress(gestures.titleDrag, doc, event, {
       moves: { designs: moving },
       cursor: "grabbing",
       start() {
@@ -352,7 +351,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
         const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
         const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
         // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
-        const snapping = snaps(moveEvent, getEffectivePreferences(session.store).snapping)
+        const snapping = snaps(moveEvent, getEffectivePreferences(doc).snapping)
         const next = snapping ? snapPosition(editor, container.id, free, others) : free
 
         if (!snapping) {
@@ -388,7 +387,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
           })
         )
 
-        moveDesigns(session.store, positions, `Move ${session.store.designsLabel(positions.keys())}`)
+        moveDesigns(doc, positions, `Move ${designsLabel(doc, positions.keys())}`)
       }
     })
   }

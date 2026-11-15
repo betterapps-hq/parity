@@ -12,7 +12,7 @@ import { AppWindow, Component } from "lucide-react"
 import { useProject } from "../../canvas/context.ts"
 import { placeFrame } from "../../canvas/frame-tool.ts"
 import { kindColors, textFor } from "../../canvas/kinds.tsx"
-import { useContainerEntry, useModeSettings } from "../../design-store.ts"
+import { useContainerEntry, useModeSettings } from "../../project-doc.ts"
 import { useSelection } from "../../selection.ts"
 import { actions } from "../actions.ts"
 import { keymap, shortcutOf } from "../keymap.ts"
@@ -26,9 +26,9 @@ import { ModeViewportIcon } from "../viewports.tsx"
  */
 export function FrameMenu() {
   const session = useProject()
-  const settings = useModeSettings(session.store)
+  const settings = useModeSettings(session)
   const selected = useSelection(session.selection)
-  const entry = useContainerEntry(session.store, selected.design)
+  const entry = useContainerEntry(session, selected.design)
   const frame = entry?.container.kind === "frame" && !selected.node ? entry : undefined
 
   return (

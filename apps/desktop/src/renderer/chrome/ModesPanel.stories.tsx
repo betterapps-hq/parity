@@ -1,4 +1,5 @@
 import { defaultModeSettings, type ModeSettings, type ModeSpec } from "@parity-app/core"
+import { setModes } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { example } from "../stories/fixtures.tsx"
@@ -33,10 +34,10 @@ type Story = StoryObj<typeof meta>
 /** Opens the example on the Modes tab, after `change` edits its modes when given. */
 const modes = (change?: (settings: ModeSettings) => ModeSettings) =>
   inspecting("modes", () => {
-    const { store } = example()
+    const { doc } = example()
 
     if (change) {
-      store.setModes(change(store.getModes()))
+      setModes(doc, change(doc.modes()))
     }
   })
 
@@ -70,9 +71,9 @@ export const DefaultModesEdited: Story = {
   loaders: [
     async () => {
       await defaults()
-      const store = activeStore()
-      const settings = store.getModes()
-      store.setModes({
+      const doc = activeDoc()
+      const settings = doc.modes()
+      setModes(doc, {
         ...settings,
         modes: [
           ...settings.modes,
@@ -254,15 +255,15 @@ export const AddingAViewportSize: Story = {
   }
 }
 
-/** The active project's designs and modes, for a project other than the example. */
-function activeStore() {
+/** The active project's document, for a project other than the example. */
+function activeDoc() {
   const session = workspace.getActive()?.session
 
   if (!session) {
     throw new Error("No project is open")
   }
 
-  return session.store
+  return session.doc
 }
 
 function capital(word: string): string {

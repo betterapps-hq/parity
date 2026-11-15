@@ -406,6 +406,9 @@ importers:
       '@parity-app/multiplayer':
         specifier: workspace:*
         version: link:../../packages/multiplayer
+      '@parity-app/multiplayer-local':
+        specifier: workspace:*
+        version: link:../../packages/multiplayer-local
       '@parity-app/processes':
         specifier: workspace:*
         version: link:../../packages/processes

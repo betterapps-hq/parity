@@ -1,9 +1,10 @@
 import { insertNode, setSlot } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ComponentType } from "react"
 import { useProject } from "../canvas/context.ts"
-import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
+import { type ContainerEntry, useContainerEntry } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { answerPreviews } from "../stories/previews.ts"
@@ -34,8 +35,8 @@ export const renderSection = (Section: ComponentType) =>
 /** One of the selected design's sections alone, as `renderSection` draws a layer's. */
 export const renderDesignSection = (Section: ComponentType<{ entry: ContainerEntry }>) =>
   renderSection(function Selected() {
-    const { store, selection } = useProject()
-    const entry = useContainerEntry(store, useSelection(selection).design)
+    const session = useProject()
+    const entry = useContainerEntry(session, useSelection(session.selection).design)
 
     return entry ? <Section entry={entry} /> : null
   })
@@ -63,7 +64,7 @@ export const pick = (designName: string, layerName: string, state?: string) =>
 export const slotted = (designName: string, slots: Record<string, string>, layerName: string) =>
   inspecting("design", () => {
     const key = design(designName)
-    example().store.updateContainer(key, "Make slot", (container) =>
+    updateContainer(example().doc, key, "Make slot", (container) =>
       Object.entries(slots).reduce(
         (current, [layer, name]) => setSlot(current, node(designName, layer), name),
         container
@@ -82,7 +83,7 @@ export const filledInstance = (selected: "instance" | "slot" = "instance") =>
   inspecting("design", () => {
     answerPreviews()
     const card = design("Plan card")
-    example().store.updateContainer(card, "Make slots", (container) =>
+    updateContainer(example().doc, card, "Make slots", (container) =>
       setSlot(
         setSlot(container, node("Plan card", "Features"), "features"),
         node("Plan card", "Price block"),
@@ -91,7 +92,7 @@ export const filledInstance = (selected: "instance" | "slot" = "instance") =>
     )
     const page = design("Pricing")
     const starter = node("Pricing", "Starter plan")
-    example().store.updateContainer(page, "Fill features", (container) => ({
+    updateContainer(example().doc, page, "Fill features", (container) => ({
       ...container,
       root: insertNode(
         container.root,

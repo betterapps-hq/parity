@@ -6,7 +6,7 @@ import { ExternalLink } from "lucide-react"
 import { useState } from "react"
 import { HTMLContainer, Rectangle2d, type RecordProps, stopEventPropagation, T, useEditor, useValue } from "tldraw"
 import { z } from "zod"
-import { useReference } from "../design-store.ts"
+import { useReference } from "../project-doc.ts"
 import { useProject } from "./context.ts"
 import { type CanvasRecord, CanvasUtil } from "./tldraw-names.ts"
 
@@ -58,7 +58,7 @@ export class ReferenceUtil extends CanvasUtil<ReferenceRecord> {
   }
 
   override onDoubleClick(reference: ReferenceRecord) {
-    // The canvas keeps the reference's link on its shape, since a util can't reach the store.
+    // The canvas keeps the reference's link on its shape, since a util can't reach the document.
     const link = z.url().safeParse(reference.meta.link)
 
     if (link.success) {
@@ -87,8 +87,8 @@ const failed = new Set<string>()
 
 function ReferenceContent({ record }: { record: ReferenceRecord }) {
   const editor = useEditor()
-  const { store } = useProject()
-  const reference = useReference(store, record.props.key)?.reference
+  const session = useProject()
+  const reference = useReference(session, record.props.key)?.reference
   const zoom = useValue("zoom", () => editor.getZoomLevel(), [editor])
   const selected = useValue("reference selected", () => editor.getSelectedShapeIds().includes(record.id), [editor])
   const [broken, setBroken] = useState(false)

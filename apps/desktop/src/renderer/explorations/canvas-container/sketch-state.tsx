@@ -1,7 +1,7 @@
 import { resolveMode, type ResolvedMode } from "@parity-app/core"
 import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
-import { useModeSettings } from "../../design-store.ts"
+import { useModeSettings } from "../../project-doc.ts"
 import {
   type BoardData,
   type OwnValues,
@@ -113,8 +113,7 @@ export function orderedStates(board: BoardData, view: BoardView): StateItem[] {
 }
 
 export function SketchProvider({ setup, children }: { setup: SketchSetup; children: ReactNode }) {
-  const { store } = useProject()
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(useProject())
   const modes = useMemo(() => settings.modes.map((mode) => resolveMode(settings, mode)), [settings])
 
   const boards = useMemo(

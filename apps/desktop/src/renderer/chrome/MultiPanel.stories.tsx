@@ -1,5 +1,6 @@
 import { findNode } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
@@ -98,7 +99,7 @@ export const LayersGone: Story = {
 
 /** The ids of a layout's children in the example. */
 function childrenOf(designName: string, layoutName: string): string[] {
-  const entry = example().store.getEntry(design(designName))
+  const entry = containerEntry(example().doc, design(designName))
   const layout = entry && findNode(entry.container.root, node(designName, layoutName))
 
   return layout?.type === "layout" ? layout.children.map((child) => child.id) : []

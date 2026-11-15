@@ -1,4 +1,5 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { addContainer } from "@parity-app/multiplayer"
 import { changeProjectsData, type Projects, type ProjectsChange, type SavedTabs } from "@parity-app/settings"
 import {
   type Attributes,
@@ -717,10 +718,10 @@ describe("a tab closed while its project opens", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
-    const { store } = workspace.getTab(info.id)!.session!
+    const { saver } = workspace.getTab(info.id)!.session!
     let saved!: () => void
-    vi.spyOn(store, "hasUnsaved").mockReturnValueOnce(true)
-    vi.spyOn(store, "flush").mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)))
+    vi.spyOn(saver, "hasUnsaved").mockReturnValueOnce(true)
+    vi.spyOn(saver, "flush").mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)))
     const reloading = workspace.reload(info.id)
     await workspace.close(info.id)
     const reopening = workspace.open(info.root)
@@ -966,9 +967,9 @@ describe("recording a save", () => {
     saving.answer = answer
     const workspace = new Workspace()
     await openFully(workspace)
-    const { store } = workspace.getTab(info.id)!.session!
-    store.addContainer(info.mainDocument, about)
-    await tracedCommand(save, () => store.flush()).catch(() => undefined)
+    const { doc, saver } = workspace.getTab(info.id)!.session!
+    addContainer(doc, info.mainDocument, about)
+    await tracedCommand(save, () => saver.flush()).catch(() => undefined)
     const ran = sink.spans.find(({ name }) => name === "command.ran")
 
     return {

@@ -26,7 +26,7 @@ export interface MeasuredOverlay<T> {
 type OverlayDesigns = ReturnType<typeof overlayDesigns>
 
 /** The parts of a project the scheduler hears changes from. */
-export type OverlaySession = Pick<ProjectSession, "store" | "selection" | "editor" | "subscribe">
+export type OverlaySession = Pick<ProjectSession, "doc" | "selection" | "editor" | "subscribe">
 
 /** An overlay as the scheduler keeps it: its `measure` gives back its `draw`, or nothing when it found what it drew. */
 interface Entry {
@@ -182,7 +182,7 @@ class OverlayScheduler {
       stopFrames,
       session.selection.subscribe(wake),
       subscribePreferences(wake),
-      session.store.subscribe(wake),
+      session.doc.subscribe(wake),
       // The canvas mounting, or remounting, gives the session another editor to follow.
       session.subscribe(() => this.follow(session.editor)),
       () => {

@@ -10,8 +10,8 @@ import {
   styleKeys
 } from "@parity-app/core"
 import { kindName, type StyleRow, type StyleSelection, styleRows } from "@parity-app/editor"
+import { type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { ChangePreview } from "../canvas/change-preview.ts"
-import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
 import type { TokenStore } from "../tokens-store.ts"
 import type { Attributes } from "./event-attributes.ts"
@@ -226,20 +226,20 @@ export interface DesignField<Value> {
 }
 
 /**
- * Changes a design through the store as one undo step and records it as `inspector.changed` (PAR-713), with the field
- * as the design reads before and after. Reading it back from the store, a change that left it as it was, or that the
- * store didn't make, records nothing; one that throws records nothing either.
+ * Changes a design in the document as one undo step and records it as `inspector.changed` (PAR-713), with the field
+ * as the design reads before and after. Reading it back from the document, a change that left it as it was, or that
+ * the document refused, records nothing; one that throws records nothing either.
  */
 export function updateAndRecord<Value>(
-  store: Pick<DesignStore, "getEntry" | "updateContainer">,
+  doc: ProjectDoc,
   key: string,
   label: string,
   update: (container: ContainerSpec) => ContainerSpec,
   { field, layers = [], state, read, gesture }: DesignField<Value>
 ): void {
-  const before = store.getEntry(key)?.container
-  store.updateContainer(key, label, update, { gesture })
-  const after = store.getEntry(key)?.container
+  const before = doc.design(key)
+  updateContainer(doc, key, label, update, { gesture })
+  const after = doc.design(key)
 
   if (!before || !after || before === after) {
     return
@@ -253,14 +253,9 @@ export function updateAndRecord<Value>(
  * `field: name` wherever it's renamed: the inspector, Layers or a board's title (PAR-728). A layer left with no name
  * goes back to its label; a design can't be.
  */
-export function renameAndRecord(
-  store: Pick<DesignStore, "getEntry" | "updateContainer">,
-  key: string,
-  name: string | undefined,
-  layer?: string
-): void {
+export function renameAndRecord(doc: ProjectDoc, key: string, name: string | undefined, layer?: string): void {
   if (layer !== undefined) {
-    updateAndRecord(store, key, "Rename layer", (current) => setOwnFields(current, layer, { name: name ?? null }), {
+    updateAndRecord(doc, key, "Rename layer", (current) => setOwnFields(current, layer, { name: name ?? null }), {
       field: "name",
       layers: [layer],
       read: (current) => findNode(current.root, layer)?.name
@@ -269,13 +264,13 @@ export function renameAndRecord(
     return
   }
 
-  const entry = store.getEntry(key)
+  const container = doc.design(key)
 
-  if (!entry || !name) {
+  if (!container || !name) {
     return
   }
 
-  updateAndRecord(store, key, `Rename ${kindName(entry.container.kind)}`, (current) => ({ ...current, name }), {
+  updateAndRecord(doc, key, `Rename ${kindName(container.kind)}`, (current) => ({ ...current, name }), {
     field: "name",
     read: (current) => current.name
   })

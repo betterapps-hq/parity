@@ -7,7 +7,7 @@ import type { ProjectSession } from "../workspace.ts"
 import type { ImageSource } from "./controls/image-fill.tsx"
 
 /** The project's pictures for image fills, drawn from its dev server; a file added is saved into `public/images/`. */
-export function useProjectImages(session: Pick<ProjectSession, "id" | "info" | "store" | "untilClosed">): ImageSource {
+export function useProjectImages(session: Pick<ProjectSession, "id" | "info" | "doc" | "untilClosed">): ImageSource {
   const { images } = useProjectMedia(session)
   // The pictures are drawn from the guest's address, which changes when its builder restarts on another port.
   const { guestUrl } = session.info

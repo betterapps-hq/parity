@@ -1,5 +1,6 @@
 import { type MadeKind, resolveModes } from "@parity-app/core"
 import { newDesign, rightOfEverything } from "@parity-app/editor"
+import { addContainer, containerEntries } from "@parity-app/multiplayer"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 
@@ -8,15 +9,15 @@ import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
  * actions, their keys and Layers' +. It goes to the right of everything, and the view zooms to it; given a point on
  * the page, as the canvas's right-click menu gives one, its top left goes there instead, already in view. What it
  * holds and where it goes are `@parity-app/editor`'s; this measures the designs on the canvas and applies it to the
- * store.
+ * document.
  */
 export function createDesign(
   session: ProjectDesigns & Pick<ProjectSession, "editor">,
   kind: MadeKind = "screen",
   at?: { x: number; y: number }
 ): string {
-  const { store, editor } = session
-  const entries = store.getEntries()
+  const { doc, editor } = session
+  const entries = containerEntries(doc)
 
   const position =
     at ??
@@ -27,10 +28,11 @@ export function createDesign(
       }))
     )
 
-  const viewport = resolveModes(store.getModes())[0]?.viewport
+  const viewport = resolveModes(doc.modes())[0]?.viewport
 
-  const key = store.addContainer(
-    store.mainPath,
+  const key = addContainer(
+    doc,
+    doc.main,
     newDesign(
       kind,
       entries.map((entry) => entry.container.id),

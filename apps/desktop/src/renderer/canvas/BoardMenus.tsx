@@ -7,8 +7,8 @@ import { Hint } from "../chrome/Hint.tsx"
 import { setLayout } from "../chrome/layout.ts"
 import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
 import { HeaderActions } from "../chrome/SelectionHeading.tsx"
-import { type ContainerEntry, useModeSettings } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
+import { type ContainerEntry, useModeSettings } from "../project-doc.ts"
 import { useProject } from "./context.ts"
 import { routePageTarget } from "./route-pages.ts"
 import { stateNouns } from "./story-screens.ts"
@@ -26,8 +26,9 @@ export const boardMenuTrigger =
  * Open in browser.
  */
 export function BoardMenus({ entry }: { entry: ContainerEntry }) {
-  const { store, info } = useProject()
-  const settings = useModeSettings(store)
+  const session = useProject()
+  const { info } = session
+  const settings = useModeSettings(session)
   const { container, key } = entry
   const { ordered, companions } = containerModes(settings, container)
   const nouns = stateNouns(entry, info)

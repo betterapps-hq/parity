@@ -1,5 +1,6 @@
 import { designStates, editNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
@@ -48,7 +49,7 @@ export const NumberAsContent: Story = {
     inspecting("design", () => {
       const key = design("Pricing")
       const id = node("Pricing", "Badge")
-      example().store.updateContainer(key, "Change children", (container) =>
+      updateContainer(example().doc, key, "Change children", (container) =>
         editNode(container, designStates(container)[0]!.id, id, { props: { children: 12 } })
       )
 

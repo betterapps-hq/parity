@@ -10,6 +10,7 @@ import {
   withSavedPreviewValues
 } from "@parity-app/core"
 import { labelLook, pickPreviews } from "@parity-app/editor"
+import { updateView } from "@parity-app/multiplayer"
 import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, useMemo, useRef } from "react"
 import { stopEventPropagation, useEditor, useValue } from "tldraw"
 import { Hint } from "../chrome/Hint.tsx"
@@ -98,7 +99,7 @@ export function PreviewResize({
   onResizing: (resizing: boolean) => void
 }) {
   const editor = useEditor()
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const gutter = useRef<HTMLDivElement>(null)
   const grip = useRef<HTMLSpanElement>(null)
   useGutterStyle(gutter, "resizeHandle")
@@ -117,7 +118,7 @@ export function PreviewResize({
     const reach = snapReach / (editor.getZoomLevel() * scale)
     const landed = breakpoints && snap ? snapToBreakpoint(breakpoints, clamped, reach) : clamped
 
-    store.updateView(designKey, "Resize preview", (view) =>
+    updateView(doc, designKey, "Resize preview", (view) =>
       changing.reduce(
         (each, preview) =>
           withPreviewValues(each, preview.key, {
@@ -170,7 +171,7 @@ export function PreviewResize({
 
   // Back to the width each was last saved at, or its mode's where none was saved.
   const reset = () =>
-    store.updateView(designKey, "Reset preview width", (view) =>
+    updateView(doc, designKey, "Reset preview width", (view) =>
       changing.reduce(
         (each, preview) => withSavedPreviewValues(each, preview.key, saved?.previews?.[preview.key], ["width"]),
         view

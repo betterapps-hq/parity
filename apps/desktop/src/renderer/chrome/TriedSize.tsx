@@ -1,9 +1,10 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { hasTriedSize, withoutTriedSize } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import { RotateCcw } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { drawnStory } from "../canvas/story-screens.ts"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "../project-doc.ts"
 import { PanelSection } from "./PanelSection.tsx"
 
 /**
@@ -25,7 +26,7 @@ export function TriedSize({ entry }: { entry: ContainerEntry }) {
         size="sm"
         className="w-fit"
         onClick={() =>
-          session.store.updateContainer(entry.key, "Reset size", (design) => withoutTriedSize(design, drawn))
+          updateContainer(session.doc, entry.key, "Reset size", (design) => withoutTriedSize(design, drawn))
         }
       >
         <RotateCcw aria-hidden />

@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/desktop",
-  "version": "0.94.0",
+  "version": "0.95.0",
   "license": "MIT",
   "description": "A design editor for real components and the code behind them.",
   "author": "Better Apps",
@@ -47,6 +47,7 @@
     "@parity-app/core": "workspace:*",
     "@parity-app/editor": "workspace:*",
     "@parity-app/multiplayer": "workspace:*",
+    "@parity-app/multiplayer-local": "workspace:*",
     "@parity-app/extension-api": "workspace:*",
     "@parity-app/extension-nextjs": "workspace:*",
     "@parity-app/extension-portless": "workspace:*",

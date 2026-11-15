@@ -1,7 +1,8 @@
 import type { DesignNode } from "@parity-app/core"
 import { type DesignName, designOfLayers, frameOfText } from "@parity-app/editor"
+import { addContainer, containerEntries } from "@parity-app/multiplayer"
 import type { Editor } from "tldraw"
-import type { DesignStore } from "../design-store.ts"
+import { type DocSession, projectLibrary } from "../project-doc.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { hitTest, type Point } from "./hit.ts"
 
@@ -9,7 +10,7 @@ import { hitTest, type Point } from "./hit.ts"
  * What lands on empty space on the canvas makes a frame there, named after what's in it (PAR-546, PAR-545): pasted layers, a
  * layout or text from the insert picker, a component or design dropped from the Assets panel or inserted with nothing
  * selected, and image files. The rule and the names are `@parity-app/editor`'s (`designOfLayers`, `designOfItem`,
- * `designOfImages`); this finds the empty canvas and the middle of the view, and adds the frame to the store.
+ * `designOfImages`); this finds the empty canvas and the middle of the view, and adds the frame to the document.
  */
 
 /**
@@ -17,13 +18,13 @@ import { hitTest, type Point } from "./hit.ts"
  * frame, nor over its board around the frames. Undefined otherwise, or before the canvas is drawn.
  */
 export function emptyCanvasAt(
-  session: Pick<ProjectSession, "editor" | "store">,
+  session: Pick<ProjectSession, "editor" | "doc">,
   area: ParentNode,
   point: Point
 ): Point | undefined {
-  const { store, editor } = session
+  const { doc, editor } = session
 
-  if (!editor || hitTest(area, store, point, editor)) {
+  if (!editor || hitTest(area, doc, point, editor)) {
     return undefined
   }
 
@@ -41,11 +42,11 @@ export function viewCenter(editor: Editor | undefined): Point {
 }
 
 /** A design's name by its id, the project's own or a library's, as the Layers panel names an instance. */
-export function designNames(store: DesignStore): DesignName {
-  const entries = store.getEntries()
+export function designNames(designs: DocSession): DesignName {
+  const entries = containerEntries(designs.doc)
 
   return (id) =>
-    entries.find((entry) => entry.container.id === id)?.container.name ?? store.getComponentLibrary().get(id)?.name
+    entries.find((entry) => entry.container.id === id)?.container.name ?? projectLibrary(designs).get(id)?.name
 }
 
 /**
@@ -58,9 +59,9 @@ export function addFrameOfLayers(
   at: Point,
   label: string
 ): string {
-  const { store, selection } = session
-  const ids = store.getEntries().map((entry) => entry.container.id)
-  const key = store.addContainer(store.mainPath, designOfLayers(nodes, ids, at, designNames(store)), label)
+  const { doc, selection } = session
+  const ids = containerEntries(doc).map((entry) => entry.container.id)
+  const key = addContainer(doc, doc.main, designOfLayers(nodes, ids, at, designNames(session)), label)
   selection.set({ design: key })
 
   return key
@@ -78,15 +79,15 @@ export interface FrameOfText {
  * text layer's id, which the text tool edits in place.
  */
 export function addFrameOfText(session: ProjectDesigns, text: string, at: Point, label: string): FrameOfText {
-  const { store, selection } = session
+  const { doc, selection } = session
 
   const { design, node } = frameOfText(
     text,
-    store.getEntries().map((entry) => entry.container.id),
+    containerEntries(doc).map((entry) => entry.container.id),
     at
   )
 
-  const key = store.addContainer(store.mainPath, design, label)
+  const key = addContainer(doc, doc.main, design, label)
   selection.set({ design: key })
 
   return { key, node }

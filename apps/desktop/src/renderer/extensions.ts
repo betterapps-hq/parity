@@ -142,16 +142,16 @@ export interface WhenFacts {
 }
 
 /** What's selected in a project's tab, by `NodeRef`, the one picked last at the end. */
-export function selectedRefs(session: Pick<ProjectSession, "selection" | "store">): NodeRef[] {
+export function selectedRefs(session: Pick<ProjectSession, "selection" | "doc">): NodeRef[] {
   return selectionRefs(session.selection.get(), (design, node) => {
-    const root = session.store.getEntry(design)?.container.root
+    const root = session.doc.design(design)?.root
 
     return root && locateNode(root, node)?.node.type
   })
 }
 
 /** What the project's tab knows that a `when` reads: what's selected, the tool and the project's tools. */
-export function whenFactsOf(session: Pick<ProjectSession, "info" | "selection" | "store">, node?: NodeRef): WhenFacts {
+export function whenFactsOf(session: Pick<ProjectSession, "info" | "selection" | "doc">, node?: NodeRef): WhenFacts {
   const refs = selectedRefs(session)
   const { note, reference } = session.selection.get()
 

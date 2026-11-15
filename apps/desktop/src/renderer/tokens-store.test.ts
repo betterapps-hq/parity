@@ -10,13 +10,12 @@ let page: Page
 const errors: string[] = []
 
 /**
- * What the page loads: the token and design stores, with a project whose stylesheet declares `--primary` in the root
- * and dark themes, and a writer that keeps what Save writes.
+ * What the page loads: a project document and its token store, with a project whose stylesheet declares `--primary`
+ * in the root and dark themes, and a writer that keeps what Save writes.
  */
 const entry = `
-import { DesignStore } from "./design-store.ts"
+import { openTestSession } from "./doc-fixtures.ts"
 import { keyframesNamed, TokenStore } from "./tokens-store.ts"
-import { defaultModeSettings } from "@parity-app/core"
 
 const tokens = [
   { name: "primary", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
@@ -28,19 +27,16 @@ export const written = []
 export { keyframesNamed }
 
 export function open() {
-  const store = new DesignStore([], defaultModeSettings, "app.par", {
-    saveDocument: async () => undefined,
-    autosave: () => false
-  })
-  return { store, tokens: guest(store) }
+  const designs = openTestSession([])
+  return { designs, tokens: guest(designs) }
 }
 
 /** The guest loading again, as when the project's builder restarts: a fresh sheet and a new token store. */
-export function guest(store) {
+export function guest(designs) {
   const sheet = new CSSStyleSheet()
   sheet.replaceSync(css)
   const write = async (changes) => { written.push(changes) }
-  return { sheet, store: new TokenStore(tokens, sheet, write, store, "src/index.css") }
+  return { sheet, store: new TokenStore(tokens, sheet, write, designs, "src/index.css") }
 }
 
 /** A token's value in a theme, as the sheet declares it. */
@@ -93,21 +89,21 @@ describe("editing tokens", () => {
       // @ts-expect-error The bundle's global.
       const { open, declared, written } = tokens
       written.length = 0
-      const { store, tokens: project } = open()
+      const { designs, tokens: project } = open()
       const seen = (theme?: string) => declared(project.sheet, "primary", theme)
       project.store.set([
         { name: "primary", theme: "default", value: "red" },
         { name: "primary", theme: "dark", value: "pink" }
       ])
-      const edited = [seen(), seen("dark"), store.getHistory().undoLabel, store.hasUnsaved(), written.length]
+      const edited = [seen(), seen("dark"), designs.doc.history().undo[0], designs.saver.hasUnsaved(), written.length]
       const listed = project.store.get()[0].values
-      store.undo()
-      const undone = [seen(), seen("dark"), store.hasUnsaved(), project.store.get()[0].values.default]
-      store.redo()
+      designs.doc.undo()
+      const undone = [seen(), seen("dark"), designs.saver.hasUnsaved(), project.store.get()[0].values.default]
+      designs.doc.redo()
       const redone = [seen(), project.store.previews().length]
-      await store.flush()
+      await designs.saver.flush()
 
-      return { edited, listed, undone, redone, saved: [written, store.hasUnsaved()] }
+      return { edited, listed, undone, redone, saved: [written, designs.saver.hasUnsaved()] }
     })
 
     expect(result.edited).toEqual(["red", "pink", "Edit primary", true, 0])
@@ -129,11 +125,11 @@ describe("editing tokens", () => {
     const result = await page.evaluate(() => {
       // @ts-expect-error The bundle's global.
       const { open, declared } = tokens
-      const { store, tokens: project } = open()
+      const { designs, tokens: project } = open()
       project.store.set([{ name: "radius", theme: "dark", value: "1rem" }])
       const edited = declared(project.sheet, "radius", "dark")
       const previewed = project.store.previews()
-      store.undo()
+      designs.doc.undo()
 
       return [
         edited,
@@ -160,13 +156,13 @@ describe("editing tokens", () => {
       // @ts-expect-error The bundle's global.
       const { open, guest, declared, written } = tokens
       written.length = 0
-      const { store, tokens: first } = open()
+      const { designs, tokens: first } = open()
       first.store.set([{ name: "primary", theme: "default", value: "red" }])
-      const again = guest(store)
+      const again = guest(designs)
       const shown = declared(again.sheet, "primary")
-      await store.flush()
+      await designs.saver.flush()
 
-      return [shown, written.length, store.hasUnsaved()]
+      return [shown, written.length, designs.saver.hasUnsaved()]
     })
 
     expect(result).toEqual(["red", 1, false])

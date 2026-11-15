@@ -1,10 +1,10 @@
 import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { addNote as addNoteTo, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { fireEvent, within } from "storybook/test"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { AppWindow } from "../App.tsx"
-import type { DesignStore } from "../design-store.ts"
 import {
   blankProjectAt,
   clearNotifications,
@@ -65,12 +65,12 @@ export function olderProjectAt(folder: string): ProjectInfo {
 
 /** Renames one of the example's designs as the Layers panel would: one undoable step that leaves it unsaved. */
 export function renameDesign(name: string, to: string): void {
-  example().store.updateContainer(design(name), "Rename design", (container) => ({ ...container, name: to }))
+  updateContainer(example().doc, design(name), "Rename design", (container) => ({ ...container, name: to }))
 }
 
 /** Adds a text note to a project's canvas, leaving it unsaved. */
-export function addNote(store: DesignStore, text: string): void {
-  store.addNote(store.mainPath, { id: "story-note", text, position: { x: 0, y: -240 } })
+export function addNote(doc: ProjectDoc, text: string): void {
+  addNoteTo(doc, doc.main, { id: "story-note", text, position: { x: 0, y: -240 } })
 }
 
 /** The window's chrome without a canvas: tooltips, notifications and the unsaved changes prompt, full height. */

@@ -24,7 +24,7 @@ export function pressBackground(
   // A locked layer isn't touched by the box (PAR-192).
   const layers = childNodes(hit.entry.container.root).flatMap((node) => (node.locked ? [] : [node.id]))
 
-  followPress(gestures.boxSelect, session.store, start, {
+  followPress(gestures.boxSelect, session.doc, start, {
     move(event) {
       const box = {
         left: Math.min(start.clientX, event.clientX),

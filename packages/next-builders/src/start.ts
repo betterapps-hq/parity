@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { mkdir, realpath } from "node:fs/promises"
+import { mkdir, readdir, readFile, realpath, stat } from "node:fs/promises"
 import { join, posix } from "node:path"
 import type { BuilderSession, BuilderStartOptions } from "@parity-app/core"
 import { guestModule } from "@parity-app/project"
@@ -15,6 +15,7 @@ import {
 import { copyGuestRuntime } from "./guest-runtime.ts"
 import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigPathsBase } from "./next.ts"
 import { type GuestPage, readGuestPage } from "./page.ts"
+import { projectPageFiles, projectRouteFolders, type ProjectRouteFile, routeFolders } from "./project-pages.ts"
 import { serverOnlyStandIns } from "./server-modules.ts"
 import { freePort, type NextServer, type OwnRoute, portFree, startNextServer, writeGuestApp } from "./server.ts"
 
@@ -85,7 +86,11 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     styles: "bundled"
   })
 
-  const [postcss, tsconfig] = await Promise.all([postcssConfigFile(root), projectTsconfigFile(root)])
+  const [postcss, tsconfig, pages] = await Promise.all([
+    postcssConfigFile(root),
+    projectTsconfigFile(root),
+    projectPages(root)
+  ])
 
   const app: GuestAppOptions = {
     root: root.replaceAll("\\", "/"),
@@ -113,7 +118,7 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     }
   }
 
-  await writeGuestApp(root, [...guestAppFiles(app), ...standIns.map(({ path, text }) => ({ path, text }))])
+  await writeGuestApp(root, [...guestAppFiles(app), ...pages, ...standIns.map(({ path, text }) => ({ path, text }))])
   const session = randomUUID()
   const started: StartedServer = {}
   const guestModuleText = async (server: NextServer) => loader.guestModule(await guestPages(server), server, session)
@@ -161,6 +166,52 @@ async function guestPages(server: NextServer): Promise<GuestPages> {
   ])
 
   return { guest, styles, packageStyles }
+}
+
+/** The guest app's mirrors of the project's App Router and Pages Router files, so it serves the project's pages. */
+async function projectPages(root: string) {
+  const candidates = [...projectRouteFolders.app, ...projectRouteFolders.pages]
+
+  const present = await Promise.all(
+    candidates.map(async (folder) => ((await isFolder(join(root, folder))) ? [folder] : []))
+  )
+
+  const folders = routeFolders(present.flat())
+  const files: ProjectRouteFile[] = []
+
+  for (const folder of [folders.app, folders.pages]) {
+    for (const path of folder ? await filesUnder(root, folder) : []) {
+      files.push({ path, text: await readFile(join(root, path), "utf8") })
+    }
+  }
+
+  return projectPageFiles(folders, files)
+}
+
+/** Every file under a folder of the project's, by path from the root, leaving out `node_modules`. */
+async function filesUnder(root: string, folder: string): Promise<string[]> {
+  const entries = await readdir(join(root, folder), { withFileTypes: true })
+
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const path = posix.join(folder, entry.name)
+
+      if (entry.isDirectory()) {
+        return entry.name === "node_modules" ? [] : await filesUnder(root, path)
+      }
+
+      return entry.isFile() ? [path] : []
+    })
+  )
+
+  return nested.flat()
+}
+
+function isFolder(path: string): Promise<boolean> {
+  return stat(path).then(
+    (stats) => stats.isDirectory(),
+    () => false
+  )
 }
 
 /** A page of the guest app as Next renders it, or why it didn't. */

@@ -1,5 +1,6 @@
 import { detachInstance, findNode, pushOverrides } from "@parity-app/core"
-import type { DesignStore } from "../design-store.ts"
+import { type ProjectDoc, type TransactResult, updateContainer, updateContainers } from "@parity-app/multiplayer"
+import { type DocSession, projectLibrary } from "../project-doc.ts"
 import { track } from "../report-error.ts"
 
 /**
@@ -15,25 +16,23 @@ export function recordComponentChange(
   track("component.changed", { action, design, layers: [...layers], component })
 }
 
-type Store = Pick<DesignStore, "getEntry" | "updateContainer" | "updateContainers" | "getComponentLibrary">
-
 /**
  * Detaches one of a design's instances into plain layers, as one undo step, and records it, from the inspector's Detach
- * and Object > Detach instance alike. One the store didn't change records nothing; one that throws records nothing
+ * and Object > Detach instance alike. One that changed nothing records nothing; one that throws records nothing
  * either.
  */
-export function detachAndRecord(store: Store, key: string, instanceId: string): void {
-  const root = store.getEntry(key)?.container.root
+export function detachAndRecord(designs: DocSession, key: string, instanceId: string): void {
+  const root = designs.doc.design(key)?.root
   const instance = root && findNode(root, instanceId)
 
   if (instance?.type !== "instance") {
     return
   }
 
-  const library = store.getComponentLibrary()
+  const library = projectLibrary(designs)
 
-  const changed = changes(store, [key], () =>
-    store.updateContainer(key, "Detach instance", (container) => detachInstance(container, instanceId, library))
+  const changed = changes(
+    updateContainer(designs.doc, key, "Detach instance", (container) => detachInstance(container, instanceId, library))
   )
 
   if (changed) {
@@ -46,20 +45,20 @@ export function detachAndRecord(store: Store, key: string, instanceId: string): 
  * it. Given `inner`, only the overrides of that layer inside the copy, by its key in the overrides and its path.
  */
 export function pushAndRecord(
-  store: Store,
+  doc: ProjectDoc,
   key: string,
   mainKey: string,
   instanceId: string,
   inner?: { key: string; path: string }
 ): void {
-  const main = store.getEntry(mainKey)
+  const main = doc.design(mainKey)
 
   if (!main) {
     return
   }
 
-  const changed = changes(store, [key, mainKey], () =>
-    store.updateContainers([key, mainKey], `Push to ${main.container.name}`, ([design, component]) => {
+  const changed = changes(
+    updateContainers(doc, [key, mainKey], `Push to ${main.name}`, ([design, component]) => {
       const pushed = pushOverrides(design!, instanceId, component!, inner && [inner.key])
 
       return [pushed.container, pushed.component]
@@ -67,14 +66,11 @@ export function pushAndRecord(
   )
 
   if (changed) {
-    recordComponentChange("push", key, [inner?.path ?? instanceId], main.container.id)
+    recordComponentChange("push", key, [inner?.path ?? instanceId], main.id)
   }
 }
 
-/** Makes a change and says whether any of the designs with these keys is different afterwards. */
-function changes(store: Pick<DesignStore, "getEntry">, keys: readonly string[], change: () => void): boolean {
-  const before = keys.map((key) => store.getEntry(key)?.container)
-  change()
-
-  return keys.some((key, index) => store.getEntry(key)?.container !== before[index])
+/** Whether a change was made: applied, and not one that left everything as it was. */
+function changes(result: TransactResult): boolean {
+  return result.ok && result.change !== undefined
 }

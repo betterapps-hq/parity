@@ -7,6 +7,7 @@ import {
   snapToEdges,
   withFrameSize
 } from "@parity-app/editor"
+import { addContainer, containerEntries, updateContainer } from "@parity-app/multiplayer"
 import { getEffectivePreferences } from "../project-settings.ts"
 import { useStore, windowStore } from "../store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
@@ -19,7 +20,7 @@ import { viewCenter } from "./new-screen.ts"
  * The frame tool (F, PAR-545): a drag on the canvas draws a frame, snapping to the edges of the designs around it, and a
  * click makes a 100 × 100 one, as Figma's does. Either is named Frame 1, Frame 2 and so on, selected, with the move
  * tool back. The tool's menu places a frame at one of the modes' sizes, or resizes the selected frame to it. The rules
- * are `@parity-app/editor`'s (frames.ts); this follows the pointer and adds the frame to the store.
+ * are `@parity-app/editor`'s (frames.ts); this follows the pointer and adds the frame to the project.
  */
 
 /** How near an edge, in screen pixels, a dragged corner snaps to it. */
@@ -45,15 +46,15 @@ export function useFrameDrawing(): FrameDrawing | undefined {
 
 /** Adds a frame, selects it, and goes back to the move tool, as one undo step. Returns its key. */
 function addFrame(session: ProjectDesigns, at: Point, size: { width: number; height: number }): string {
-  const { store, selection } = session
+  const { doc, selection } = session
 
   const frame = drawnFrame(
-    store.getEntries().map((entry) => entry.container),
+    containerEntries(doc).map((entry) => entry.container),
     at,
     size
   )
 
-  const key = store.addContainer(store.mainPath, frame, "Draw frame")
+  const key = addContainer(doc, doc.main, frame, "Draw frame")
   selection.set({ design: key })
   selection.setTool("select")
 
@@ -69,7 +70,7 @@ export function drawFrame(
   area: HTMLElement,
   event: PointerEvent
 ): void {
-  const { editor, store } = session
+  const { editor, doc } = session
 
   if (!editor) {
     return
@@ -80,7 +81,7 @@ export function drawFrame(
 
   const from = toPage(event)
 
-  const boxes = store.getEntries().flatMap((entry) => {
+  const boxes = containerEntries(doc).flatMap((entry) => {
     const bounds = editor.getShapePageBounds(canvasIdFor(entry.key))
 
     return bounds ? [bounds] : []
@@ -94,11 +95,11 @@ export function drawFrame(
   }
 
   let last: { x: number; y: number; width: number; height: number } | undefined
-  followPress(gestures.frameDraw, store, event, {
+  followPress(gestures.frameDraw, doc, event, {
     cursor: "crosshair",
     move(moveEvent) {
       const free = toPage(moveEvent)
-      const snapping = snaps(moveEvent, getEffectivePreferences(store).snapping)
+      const snapping = snaps(moveEvent, getEffectivePreferences(doc).snapping)
 
       const { point, guides } = snapping
         ? snapToEdges(free, boxes, snapReach / editor.getZoomLevel())
@@ -148,7 +149,7 @@ export function placeFrame(
   const size = { width: preset.width, height: preset.height }
 
   if (frame) {
-    session.store.updateContainer(frame, `Resize frame to ${preset.name}`, (design) => withFrameSize(design, size))
+    updateContainer(session.doc, frame, `Resize frame to ${preset.name}`, (design) => withFrameSize(design, size))
 
     return
   }

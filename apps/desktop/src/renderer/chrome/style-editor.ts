@@ -9,12 +9,12 @@ import {
   type StyleSelection,
   styleSelection
 } from "@parity-app/editor"
+import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
 import { useEffect, useReducer, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { useStylePreview } from "../canvas/style-preview.ts"
-import type { ContainerEntry } from "../design-store.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
@@ -174,11 +174,11 @@ function useDrawnBox(
 
 /**
  * The style editor for layers of one design: the module's selection, with its edits previewed on the canvas and made
- * through the store. Undefined when none of the layers exists.
+ * in the document. Undefined when none of the layers exists.
  */
 export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): StyleEditor | undefined {
   const session = useProject()
-  const { store } = session
+  const { doc } = session
   const selected = useSelection(session.selection)
   useDrawnBox(session, entry.key, ids.length === 1 ? ids[0] : undefined, selected)
   const tokens = useTokenList(session.tokens)
@@ -192,7 +192,7 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const within = (edit: (container: ContainerSpec) => ContainerSpec) =>
     frameRoot ? (container: ContainerSpec) => frameRootStored(edit(frameRootShown(container, unit)), unit) : edit
 
-  const selection = styleSelection(shown, ids, selected.state, projectLibrary(store))
+  const selection = styleSelection(shown, ids, selected.state, projectLibrary(session))
 
   if (!selection) {
     return undefined
@@ -210,11 +210,11 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
 
   // Each change is recorded with the row's values before and after, as the layers show them (PAR-640).
   const recordRow = (row: StyleRow, gesture?: string) => {
-    const changed = store.getEntry(entry.key)?.container
+    const changed = doc.design(entry.key)
 
     const now =
       changed &&
-      styleSelection(frameRoot ? frameRootShown(changed, unit) : changed, ids, selected.state, projectLibrary(store))
+      styleSelection(frameRoot ? frameRootShown(changed, unit) : changed, ids, selected.state, projectLibrary(session))
 
     const change: InspectorChange<RowValues | undefined> = {
       field: `style.${row}`,
@@ -243,29 +243,29 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
       const label = changes[0]?.label ?? "Change style"
       const apply = applying(changes)
       preview.settle(apply)
-      store.updateContainer(entry.key, count > 1 ? `${label} on ${count} layers` : label, apply, { gesture })
+      updateContainer(doc, entry.key, count > 1 ? `${label} on ${count} layers` : label, apply, { gesture })
 
       for (const row of new Set(changes.map((change) => change.row))) {
         recordRow(row, gesture)
       }
     },
     reset: (row) => {
-      store.updateContainer(entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
+      updateContainer(doc, entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
       recordRow(row)
     },
     preview: (changes) => preview.show(applying(changes)),
     endPreview: () => preview.cancel(),
     checkpoint: (gesture) => {
-      const point = store.checkpoint(entry.key, gesture)
+      const point = doc.checkpoint(gesture, entry.key)
 
       return (
         point && {
           revert: () => {
-            if (store.changedBesides(point)) {
+            if (doc.changedBesides(point)) {
               return false
             }
 
-            store.revert(point)
+            doc.revert(point)
 
             return true
           }
