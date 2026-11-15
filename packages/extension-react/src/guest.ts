@@ -30,6 +30,7 @@ import {
   Fragment,
   type Key,
   type ReactNode,
+  type Ref,
   useContext,
   useEffect,
   useLayoutEffect,
@@ -355,10 +356,9 @@ interface LayerDrawing {
  * names joined, styles merged and both handlers called, the layer's first, as Radix's `mergeProps` does. A ref it's
  * given goes to the component. It forwards the ref, since React 18 keeps a ref out of a function component's props.
  */
-const ComponentLayer = forwardRef<unknown, { layer: LayerDrawing } & Props>(function ComponentLayer(
-  { layer, ...given },
-  ref
-) {
+const ComponentLayer = forwardRef(function ComponentLayer(drawn: { layer: LayerDrawing }, ref: Ref<unknown>) {
+  // SAFETY: a parent cloning the layer adds whatever props it hands on; forwardRef's types keep only `layer`.
+  const { layer, ...given } = drawn as { layer: LayerDrawing } & Props
   const props = Object.keys(given).length === 0 ? layer.props : mergeGiven(given, layer.props)
   const { name, nodeId } = layer.boundary
   const styles = useContext(LayerStylesContext)

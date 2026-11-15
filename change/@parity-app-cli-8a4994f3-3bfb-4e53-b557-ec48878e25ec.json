@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Draw components on React 18 too: component layers forward refs, and frames report errors without React 19's root callbacks.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
