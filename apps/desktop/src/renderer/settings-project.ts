@@ -19,6 +19,7 @@ import {
   useProjectSettings
 } from "./project-settings.ts"
 import { request } from "./service.ts"
+import { resetWithWindow, windowStore } from "./store.ts"
 import { type ProjectSession, workspace } from "./workspace.ts"
 
 /*
@@ -43,34 +44,67 @@ function useActiveExtensions(session: ProjectSession | undefined): ProjectExtens
   return useSyncExternalStore(store?.subscribe ?? unsubscribed, store?.get ?? (() => noExtensions))
 }
 
-/** Every installed extension, from the service, which reads their manifests as it starts; none until it answers. */
-let installed: InstalledStatus[] = []
-const installedListeners = new Set<() => void>()
-let askedInstalled = false
+/** Every installed extension, from the service, which reads their manifests as it starts; nothing until it answers. */
+const installedExtensions = windowStore<InstalledStatus[] | undefined>(() => undefined)
+const noneInstalled: InstalledStatus[] = []
 
-function subscribeInstalled(listener: () => void): () => void {
-  installedListeners.add(listener)
+/** Which ask for them is current: a reset or a restarted service makes an earlier answer stale. */
+let installedAsk = 0
+let askingInstalled = false
+let hearsReconnect = false
 
-  if (!askedInstalled) {
-    askedInstalled = true
-    void request("extensions.installed", {}).then(
-      (list) => {
-        installed = list
-        installedListeners.forEach((each) => each())
-      },
-      () => {
-        // Asked again by the next window to subscribe, as after the service restarts.
-        askedInstalled = false
-      }
-    )
+resetWithWindow(() => {
+  installedAsk += 1
+  askingInstalled = false
+})
+
+/** Asks the service for its installed extensions, unless it's asked already. */
+function askInstalled(): void {
+  if (askingInstalled) {
+    return
   }
 
-  return () => installedListeners.delete(listener)
+  askingInstalled = true
+  const ask = installedAsk
+
+  void request("extensions.installed", {}).then(
+    (list) => {
+      if (ask === installedAsk) {
+        askingInstalled = false
+        installedExtensions.set(list)
+      }
+    },
+    () => {
+      if (ask === installedAsk) {
+        askingInstalled = false
+      }
+    }
+  )
+}
+
+/** Asks again once a restarted service is back, since an answer the old one owed never comes. */
+function askAgain(): void {
+  installedAsk += 1
+  askingInstalled = false
+  askInstalled()
+}
+
+function subscribeInstalled(listener: () => void): () => void {
+  if (!hearsReconnect) {
+    hearsReconnect = true
+    window.canvasHost.onReconnect(askAgain)
+  }
+
+  if (installedExtensions.get() === undefined) {
+    askInstalled()
+  }
+
+  return installedExtensions.subscribe(listener)
 }
 
 /** The extensions Parity has installed, as their manifests describe them. */
 function useInstalledExtensions(): InstalledStatus[] {
-  return useSyncExternalStore(subscribeInstalled, () => installed)
+  return useSyncExternalStore(subscribeInstalled, () => installedExtensions.get() ?? noneInstalled)
 }
 
 /**
