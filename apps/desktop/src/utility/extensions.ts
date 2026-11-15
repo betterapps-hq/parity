@@ -1,7 +1,7 @@
 import { existsSync, type Stats, unwatchFile, watchFile } from "node:fs"
 import { readdir, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
-import { join, relative } from "node:path"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import {
   type BuilderDescription,
@@ -155,15 +155,29 @@ const unlisted = new Set(["node_modules", ".git"])
 /** The most files a listing gives, so a listing of a whole project can't run away. */
 const listLimit = 20_000
 
-/** Every file under `folder`, by its path from it with forward slashes, skipping installed packages. */
+/**
+ * Every file under `folder`, by its path from it with forward slashes, one folder at a time so installed packages and
+ * version control are never read, and stopping at `listLimit`.
+ */
 async function listFiles(folder: string): Promise<string[]> {
-  const entries = await readdir(folder, { recursive: true, withFileTypes: true }).catch(() => [])
+  const found: string[] = []
+  const pending = [""]
 
-  return entries
-    .filter((entry) => entry.isFile())
-    .map((entry) => relative(folder, join(entry.parentPath, entry.name)).replaceAll("\\", "/"))
-    .filter((path) => !path.split("/").some((part) => unlisted.has(part)))
-    .slice(0, listLimit)
+  for (let next = pending.shift(); next !== undefined && found.length < listLimit; next = pending.shift()) {
+    const entries = await readdir(join(folder, next), { withFileTypes: true }).catch(() => [])
+
+    for (const entry of entries) {
+      const path = next === "" ? entry.name : `${next}/${entry.name}`
+
+      if (entry.isDirectory() && !unlisted.has(entry.name)) {
+        pending.push(path)
+      } else if (entry.isFile() && found.length < listLimit) {
+        found.push(path)
+      }
+    }
+  }
+
+  return found
 }
 
 /** The providers extensions register for the open projects' processes. */
