@@ -294,8 +294,15 @@ code without the generated tree aren't read. The React Router extension (`packag
 reads framework mode's `app/routes.ts` (`route`, `index`, `layout` and `prefix`), the file-based routes `flatRoutes()`
 makes, and library mode's route objects or `<Route>` elements, without running the app; routes it can only know by
 running the app are named as not supported yet in its status item's tooltip. See
-[editor.md](editor.md#react-router-as-an-extension-par-1145). Each page is a screen, laid out in the router's tree,
-whose frames load the app itself at the page's URL (see editor.md), with each path param's value set in Props.
+[editor.md](editor.md#react-router-as-an-extension-par-1145). The Next.js extension (`packages/extension-nextjs`,
+PAR-1162) reads the App Router's `app/` and the Pages Router's `pages/`, at the root or in `src/`, both in one project:
+folders and files as segments, `[id]`, `[...slug]` and `[[...slug]]`, nested layouts, `(group)` folders, `index`, and
+`_app` as the Pages Router's root, inside the App Router's root layout when there are both. `loading`, `error` and
+`not-found` files, and `404`, `500` and `_error`, are named as the route's state files. Parallel `@slot` routes and
+intercepting `(.)`, `(..)` and `(...)` routes are read with their slot and the route they intercept, and left off the
+canvas. Private `_folders`, route handlers, `_document` and `api/` aren't routes. Its pages draw once a builder serves
+the app. Each page is a screen, laid out in the router's tree, whose frames load the app itself at the page's URL (see
+editor.md), with each path param's value set in Props.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
@@ -383,9 +390,9 @@ project on a dropped version opens and works as far as it can. Parity reads the 
 adapter finds (React, Vite, Tailwind CSS, TanStack Router, React Router and Storybook) and notes an untested one
 quietly, in the status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each
 major (`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
-extension exists, React, Storybook, TanStack Router and React Router so far, takes its versions from the extension's
-peer dependencies instead: inside the range is supported, above it newer and below it dropped, and the range is widened
-or narrowed in the extension's `package.json` as this policy says.
+extension exists, React, Storybook, TanStack Router, React Router and Next.js so far, takes its versions from the
+extension's peer dependencies instead: inside the range is supported, above it newer and below it dropped, and the range
+is widened or narrowed in the extension's `package.json` as this policy says.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.

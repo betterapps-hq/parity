@@ -1,7 +1,8 @@
 # Extensions
 
 How Parity runs an extension: the manifest it reads first, the host each one runs in, and the `parity` object its code
-gets (PAR-1089). Storybook, TanStack Router and React Router are built in. Installing others comes later.
+gets (PAR-1089). Storybook, TanStack Router, React Router and Next.js's routes are built in. Installing others comes
+later.
 
 ## The manifest
 
@@ -17,9 +18,9 @@ a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id
 - **`detect`** (PAR-1128) says how Parity finds the extension's tool, with no code of the extension's and nothing Parity
   knows of the tool ([`detect.ts`](../packages/extensions/src/detect.ts)). It's found when any rule holds: `peers`, the
   project's package.json declares a package its peer dependencies name (what an extension without `detect` gets, as
-  Vite, React, Tailwind, TanStack Router and Storybook's accessibility checks are found); `entities`, Parity's entities
-  detection found its files, for an extension with an entities provider (Storybook); or `paths`, the first of its paths
-  that names something exists, from the home folder, a variable's folder or the project's root (Portless's
+  Vite, React, Tailwind, TanStack Router, Next.js and Storybook's accessibility checks are found); `entities`, Parity's
+  entities detection found its files, for an extension with an entities provider (Storybook); or `paths`, the first of
+  its paths that names something exists, from the home folder, a variable's folder or the project's root (Portless's
   `$PORTLESS_STATE_DIR`, else `~/.portless`). Its `read` permission has to name each path, and the extension gets the
   one found as `parity.project.detected.path`. An extension that needs another's (`extensionDependencies`) is found only
   where that one is.
@@ -332,6 +333,10 @@ out, as Portless does.
   [routes.test.ts](../packages/extension-tanstack-router/src/routes.test.ts): TanStack Router's manifest, with its
   router provider, route node type and Open in browser placed only for routes; its pages counted without the root; the
   page a command was run for, or from Search, the page selected; and the routes it reads.
+- [extension.test.ts](../packages/extension-nextjs/src/extension.test.ts) and
+  [routes.test.ts](../packages/extension-nextjs/src/routes.test.ts) (PAR-1162): Next.js's manifest, with its router
+  provider, `read` permission and peer dependency; its pages counted without slots and intercepting routes; and the
+  routes it reads from App Router, Pages Router and mixed fixture trees, and from the Turbopack example app.
 - [extension.test.ts](../packages/extension-tailwind/src/extension.test.ts): Tailwind CSS's manifest, with its styles
   provider and status item, and the stylesheets it handles.
 - [extension.test.ts](../packages/extension-react/src/extension.test.ts): React's manifest, with its renderer's guest

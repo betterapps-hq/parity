@@ -352,6 +352,9 @@ importers:
       '@parity-app/extension-api':
         specifier: workspace:*
         version: link:../../packages/extension-api
+      '@parity-app/extension-nextjs':
+        specifier: workspace:*
+        version: link:../../packages/extension-nextjs
       '@parity-app/extension-portless':
         specifier: workspace:*
         version: link:../../packages/extension-portless
@@ -799,6 +802,19 @@ importers:
         version: 4.6.7
 
   packages/extension-api: {}
+
+  packages/extension-nextjs:
+    dependencies:
+      next:
+        specifier: ^16.0.0
+        version: 16.4.6(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+    devDependencies:
+      '@parity-app/extension-api':
+        specifier: workspace:*
+        version: link:../extension-api
+      '@parity-app/extensions':
+        specifier: workspace:*
+        version: link:../extensions
 
   packages/extension-portless:
     dependencies:

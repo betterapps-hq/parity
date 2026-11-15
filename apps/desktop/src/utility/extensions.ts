@@ -13,6 +13,7 @@ import {
   type PackageManifest,
   type RendererDescription
 } from "@parity-app/core"
+import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
@@ -122,6 +123,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   builtIn(tailwindPackage, "tailwind"),
   builtIn(routerPackage, "tanstack-router"),
   builtIn(reactRouterPackage, "react-router"),
+  builtIn(nextjsPackage, "nextjs"),
   builtIn(storybookPackage, "storybook"),
   builtIn(accessibilityPackage, "storybook-a11y"),
   builtIn(portlessPackage, "portless")
