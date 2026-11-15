@@ -11,7 +11,7 @@ import { items } from "./canvas-menu-stories.tsx"
  * mouse does, so tldraw opens the menu as it does in the app. What the menu lists is in Canvas menu/Items.
  */
 const meta = {
-  title: "Parity/Chrome/Canvas menu/Right-click",
+  title: "Parity/Chrome/Menus/Canvas menu/Right-click",
   component: AppWindow,
   decorators: [
     (Story) => (

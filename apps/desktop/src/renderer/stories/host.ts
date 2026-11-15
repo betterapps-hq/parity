@@ -978,8 +978,6 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
     case "extensions.viewOpened":
     case "extensions.viewChanged":
       return undefined
-    case "adapter.run":
-      return { open: "http://localhost:6006/?path=/docs/components-button--docs" }
     case "layers.export":
       return {
         files: request.params.files.map((file) => `D:/exports/${file.name}`),

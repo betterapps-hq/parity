@@ -9,7 +9,7 @@ import { openSettings, SettingsDialog } from "./SettingsDialog.tsx"
  * project's page with what its file sets. Settings view's stories show every page and state with data of their own.
  */
 const meta = {
-  title: "Parity/Chrome/Settings",
+  title: "Parity/Chrome/Settings/Dialog",
   component: SettingsDialog,
   ...dialogStories
 } satisfies Meta<typeof SettingsDialog>

@@ -186,12 +186,6 @@ export const serviceParams = {
   "extensions.projectSettings": project.extend({
     settings: z.record(z.string(), z.record(z.string(), z.json()))
   }),
-  "adapter.run": project.extend({
-    adapter: z.string(),
-    action: z.string(),
-    component: z.string().optional(),
-    page: z.object({ route: z.string(), url: z.url() }).optional()
-  }),
   "document.saveCopy": z.object({ path: z.string(), document: canvasDocument }),
   "designs.export": project.extend({
     folder: z.string(),

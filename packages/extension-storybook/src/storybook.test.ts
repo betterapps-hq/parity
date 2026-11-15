@@ -1,7 +1,15 @@
 import { readExtension } from "@parity-app/extensions"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
-import { componentsWithStories, readDetected, readStoryIndex, servesStories, storyPage } from "./storybook.ts"
+import {
+  componentsWithStories,
+  projectStorybook,
+  readLastRead,
+  readStoryIndex,
+  scriptsOf,
+  servesStories,
+  storyPage
+} from "./storybook.ts"
 
 const entries = readStoryIndex({
   v: 5,
@@ -40,17 +48,23 @@ describe("the Storybook extension", () => {
     })
   })
 
-  it("reads what detection found, and which components have stories", () => {
-    const detected = readDetected({
-      configDir: ".storybook",
-      main: ".storybook/main.ts",
-      port: 6007,
-      stories: { Button: [{ path: "src/button.stories.tsx", exports: ["Primary"] }], Card: [] }
-    })
+  it("reads the config folder and port from the setting and the script, and which components have stories (PAR-1128)", () => {
+    const stories = { Button: [{ path: "src/button.stories.tsx", exports: ["Primary"] }], Card: [] }
+    const scripts = scriptsOf(JSON.stringify({ scripts: { storybook: "storybook dev -p 6007 -c config/sb" } }))
 
-    expect(detected?.port).toBe(6007)
-    expect(componentsWithStories(detected!)).toEqual(["Button"])
-    expect(readDetected({ stories: {} })).toBeUndefined()
+    expect(projectStorybook(scripts, ".storybook", stories)).toEqual({ configDir: "config/sb", port: 6007, stories })
+    expect(projectStorybook(scripts, "stories-config", stories).configDir).toBe("stories-config")
+    expect(projectStorybook(undefined, ".storybook", {})).toEqual({ configDir: ".storybook", stories: {} })
+    expect(componentsWithStories(projectStorybook(scripts, "", stories))).toEqual(["Button"])
+    expect(scriptsOf("not json")).toBeUndefined()
+  })
+
+  it("reads back what the last import kept, so a host started again shows it, and nothing it can't read", () => {
+    const kept = { scripts: { storybook: "storybook dev" }, stories: { Button: [{ path: "src/b.stories.tsx" }] } }
+
+    expect(readLastRead(structuredClone(kept))).toEqual(kept)
+    expect(readLastRead({ stories: "none" })).toBeUndefined()
+    expect(readLastRead(undefined)).toBeUndefined()
   })
 
   it("leaves out index entries of kinds it doesn't know", () => {

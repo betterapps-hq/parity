@@ -15,7 +15,7 @@ import { formatKeys } from "./keys.ts"
  * canvas selects first is in Canvas menu/Right-click.
  */
 const meta = {
-  title: "Parity/Chrome/Canvas menu/Items",
+  title: "Parity/Chrome/Menus/Canvas menu/Items",
   component: CanvasMenuItems
 } satisfies Meta<typeof CanvasMenuItems>
 

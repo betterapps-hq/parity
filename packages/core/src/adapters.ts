@@ -73,11 +73,11 @@ export function parseManifest(text: string, file: string): PackageManifest {
 }
 
 /**
- * The first of `packages` a package.json declares as a dependency or dev dependency, else the first in `scope` (as
- * `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
+ * The first of `packages` a package.json declares as a dependency, dev dependency or optional dependency, else the
+ * first in `scope` (as `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
  */
 export function declares(pkg: PackageManifest, packages: readonly string[], scope?: string): string | undefined {
-  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.optionalDependencies })
 
   return (
     packages.find((name) => declared.includes(name)) ??
@@ -101,8 +101,8 @@ export interface StatusItem {
   hint: string
   /** The tooltip's line, saying what it does or what clicking it does. */
   detail?: string
-  /** What clicking it does: open one of the app's left panel tabs, or run one of its adapter's actions by id. */
-  opens?: { tab: string } | { action: string }
+  /** What clicking it does: open one of the app's left panel tabs. */
+  opens?: { tab: string }
 }
 
 /** What an adapter's status items are made from: what Parity found of its tool in the project. */
@@ -111,27 +111,12 @@ export interface StatusFacts {
   version?: string
   /** The project's package manager's name. */
   packageManager: string
-  /** The entities an entities adapter imported. */
-  entities?: ProjectEntities
-  /** The app's routes, which a router read. */
-  routes?: readonly ProjectRoute[]
 }
 
 /** A status item, with the adapter that gave it, and that adapter's logo when the item names no icon. */
 export interface AdapterStatusItem extends StatusItem {
   adapter: string
   logo?: AdapterIcon
-}
-
-/** An action an adapter offers, as the windows are told it: with the adapter that does it, its logo, and its components. */
-export interface ProjectAction extends Omit<AdapterAction, "components" | "routes"> {
-  adapter: string
-  /** The adapter's logo. */
-  icon?: AdapterIcon
-  /** The components it's offered for, by key. */
-  components?: string[]
-  /** The app's routes it's offered for, by id. */
-  routes?: string[]
 }
 
 /**
@@ -173,64 +158,6 @@ export interface Adapter {
   versions?: ToolVersions
   /** What it adds to the status bar. */
   status?(facts: StatusFacts): StatusItem[]
-  /** What it can do for the project, such as open its tool, which the app offers and `run` does. */
-  actions?: readonly AdapterAction[]
-  /** Does one of its `actions`, by id. */
-  run?(action: string, context: ActionContext): Promise<ActionResult>
-}
-
-/** Something an adapter does for the project, which the app offers where it says. */
-export interface AdapterAction {
-  /** Its id among its adapter's actions, as `open`. */
-  id: string
-  /** Its name in a menu, as `Open in Storybook`. */
-  name: string
-  /**
-   * The project's components it's also offered for, by key, from what Parity found of its tool, as those with stories;
-   * `ActionContext.component` names the one it's run for. Without it, it's offered for the whole project only.
-   */
-  components?(facts: StatusFacts): string[]
-  /**
-   * The app's routes it's also offered for, by id, as a router's pages; `ActionContext.page` is the one it's run for.
-   */
-  routes?(facts: StatusFacts): string[]
-  /** What the app says while it runs, as `Opening Storybook…`. */
-  progress: string
-  /** What the app says when it fails, as `Couldn't open Storybook`. */
-  failed: string
-  /** A line under that, when it may take a while. */
-  note?: string
-  /**
-   * Why it isn't offered for one of the project's components, as `No stories`. A component's menu in the Components
-   * panel shows it greyed with this, so the menu is the same for every component.
-   */
-  unavailable?: string
-  /** What running it does first while its tool's server isn't running, as `Starts Storybook`, beside it in a menu. */
-  starts?: string
-}
-
-/** What an adapter's `run` reads the project through, and how it starts its tool. */
-export interface ActionContext {
-  project: DetectContext
-  /** The project's files and components, as an entities adapter reads them. */
-  source: EntitiesSource
-  /** What the adapter's own `detect` found when the project opened. */
-  detection: AdapterDetection
-  /** The component it's run for, by its key, when it's run for one. */
-  component?: string
-  /** The page it's run for, when it's run for one: its route's id, and the URL the canvas draws it at. */
-  page?: ActionPage
-}
-
-/** A page of the app an action is run for: its route's id, and the URL the canvas draws it at, its params filled. */
-export interface ActionPage {
-  route: string
-  url: string
-}
-
-/** What an action did: an address the app opens in the browser. */
-export interface ActionResult {
-  open?: string
 }
 
 /** What every adapter's `detect` reads the project through, so it can look wherever its tool leaves a trace. */

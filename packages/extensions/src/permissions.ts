@@ -66,6 +66,14 @@ export function readablePath(path: string, permissions: Permissions | undefined,
   return allowed ? target : undefined
 }
 
+/**
+ * Where a path is, from where it starts: the home folder (`~/`), a variable's folder (`$NAME`), or the project's root.
+ * Nothing while its variable isn't set, or for an absolute path.
+ */
+export function placedPath(path: string, place: ReadPlace): string | undefined {
+  return expandedGlob(path, place)
+}
+
 /** A read glob from where it starts: the home folder, a variable's folder, or the project's root. */
 function expandedGlob(glob: string, place: ReadPlace): string | undefined {
   if (glob.startsWith("~/")) {

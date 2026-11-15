@@ -8,7 +8,7 @@ import { KindTile, Light } from "./Processes.tsx"
  * once and finish with a result. A new kind of process needs a row here.
  */
 const meta = {
-  title: "Parity/Chrome/Process icons",
+  title: "Parity/Chrome/Panels/Process icons",
   component: KindTile
 } satisfies Meta<typeof KindTile>
 
@@ -26,7 +26,6 @@ const tasks: Record<Exclude<ProcessRole, "builder" | "tool">, string> = {
   install: "Install",
   typecheck: "Type check",
   test: "Unit tests",
-  e2e: "Playwright",
   format: "Format",
   lint: "Lint",
   verify: "Verify",

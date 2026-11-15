@@ -63,8 +63,11 @@ Its manifest declares `storybook.open`, Open in Storybook, which shows wherever 
 and extensions do (its layer's header, its right-click menus in Layers, on the canvas and in the Components panel, its
 row's button and card, and Search actions), and which the Storybook item in the status bar runs. Its code
 ([extension.ts](../packages/extension-storybook/src/extension.ts)) sets which components have stories, each one's story
-count on its card, and the status item's count. The Storybook adapter still detects Storybook and imports its stories as
-screens.
+count on its card, and the status item's count. Parity finds it where its entities detection finds the project's
+Storybook (`"detect": { "entities": true }`, PAR-1128), and the extension reads the rest itself each time Parity imports
+the stories: which components have stories, from the story files its entities provider reads, its config folder (the
+Config folder setting when it's changed from `.storybook`, else the `storybook dev` script's `-c`, else `.storybook`)
+and the port the script asks for. The service passes it nothing about Storybook.
 
 - **Reusing a server.** The extension asks `parity.processes.find` about the script's port or 6006, and, when the
   project has stories, the discovery providers too, as the Portless extension's routes. It fetches each one's

@@ -18,9 +18,7 @@ import {
   type PackageManifest,
   parseLibraryManifest,
   type ProjectConfig,
-  type ProjectAction,
   type ProjectEntities,
-  type ProjectRoute,
   type RendererAdapter,
   type StatusFacts
 } from "@parity-app/core"
@@ -327,92 +325,24 @@ export async function importEntities(
   return entities
 }
 
-/** An adapter that may add items to the status bar or offer actions, with what Parity found of its tool. */
+/** An adapter that may add items to the status bar, with what Parity found of its tool. */
 export interface StatusSource {
-  adapter: Pick<Adapter, "id" | "icon" | "status" | "actions">
+  adapter: Pick<Adapter, "id" | "icon" | "status">
   /** The tool's version when the running tool says it; otherwise detection's. */
   version?: string
 }
 
 /**
- * What Parity found of an adapter's tool, as its status items and actions are told it: its version, the package
- * manager, the entities it imported and the app's routes.
+ * The status bar's items, as each adapter in `sources` tells them, in order, told its tool's version and the package
+ * manager. An item from a tool at a version Parity doesn't test says so in its tooltip, and an item that names no icon
+ * carries its adapter's logo.
  */
-function factsFor(
-  { adapter, version }: StatusSource,
-  detection: ProjectDetection,
-  entities: ProjectEntities,
-  routes: readonly ProjectRoute[]
-): StatusFacts {
-  const screens = entities.screens?.filter((screen) => screen.adapter === adapter.id)
-
-  return {
-    version: version ?? detection.tools.find((tool) => tool.id === adapter.id)?.version,
-    packageManager: detection.packageManager.name,
-    entities: { screens, sources: entities.sources },
-    routes
-  }
-}
-
-/** What each adapter in `sources` can do, as the windows are told it: with its logo, and the components it's offered for. */
-export function adapterActions(
-  sources: readonly StatusSource[],
-  detection: ProjectDetection,
-  entities: ProjectEntities,
-  routes: readonly ProjectRoute[] = []
-): ProjectAction[] {
-  return sources.flatMap((source) => {
-    const { adapter } = source
-
-    return (adapter.actions ?? []).map((action) => {
-      const { id, name, progress, failed, note, unavailable, starts } = action
-      const told: ProjectAction = { id, name, progress, failed, adapter: adapter.id }
-
-      if (note) {
-        told.note = note
-      }
-
-      if (unavailable) {
-        told.unavailable = unavailable
-      }
-
-      if (starts) {
-        told.starts = starts
-      }
-
-      if (adapter.icon) {
-        told.icon = adapter.icon
-      }
-
-      if (action.components) {
-        told.components = action.components(factsFor(source, detection, entities, routes))
-      }
-
-      if (action.routes) {
-        told.routes = action.routes(factsFor(source, detection, entities, routes))
-      }
-
-      return told
-    })
-  })
-}
-
-/**
- * The status bar's items, as each adapter in `sources` tells them, in order. An entities adapter is told the entities
- * it imported, and a router the app's routes; an item from a tool at a version Parity doesn't test says so in its tooltip.
- * An item that names no icon carries its adapter's logo.
- */
-export function adapterStatus(
-  sources: readonly StatusSource[],
-  detection: ProjectDetection,
-  entities: ProjectEntities,
-  routes: readonly ProjectRoute[] = []
-): AdapterStatusItem[] {
-  return sources.flatMap((source) => {
-    const { adapter } = source
+export function adapterStatus(sources: readonly StatusSource[], detection: ProjectDetection): AdapterStatusItem[] {
+  return sources.flatMap(({ adapter, version }) => {
     const detected = detection.tools.find((tool) => tool.id === adapter.id)
     const untested = detected?.status === "dropped" || detected?.status === "newer"
-    const items = adapter.status?.(factsFor(source, detection, entities, routes))
+    const facts: StatusFacts = { version: version ?? detected?.version, packageManager: detection.packageManager.name }
+    const items = adapter.status?.(facts)
 
     return (items ?? []).map((item) => {
       const told: AdapterStatusItem = {
@@ -468,7 +398,7 @@ export async function exportEntities(
 }
 
 /**
- * How an adapter reads the project at `root`, as an entities adapter imports from it or an action runs: its files,
+ * How an adapter reads the project at `root`, as an entities adapter imports from it: its files,
  * leaving out dependencies and builds, and which of its components an import names.
  */
 export function projectSource(

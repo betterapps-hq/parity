@@ -16,7 +16,6 @@ import {
   Accessibility,
   Braces,
   Check,
-  Drama,
   Ellipsis,
   ExternalLink,
   FlaskConical,
@@ -55,7 +54,7 @@ import {
 /**
  * Each kind's icon, the color its tile is tinted, and what it is, for a process with no address to show. Each hue sits at
  * least 25 degrees from any other, so tiles side by side don't read as the same kind: the build server is the canvas's
- * blue, Format its component purple, and a tool's server, as Storybook, keeps Storybook's pink.
+ * blue, Format its component purple, and a tool's server pink.
  */
 const kinds: Record<ProcessRole, { icon: typeof Hammer; tint: string; role: string }> = {
   builder: { icon: Zap, tint: "var(--canvas-screen)", role: "Renders the canvas" },
@@ -63,7 +62,6 @@ const kinds: Record<ProcessRole, { icon: typeof Hammer; tint: string; role: stri
   install: { icon: Package, tint: "oklch(0.76 0.15 65)", role: "Installs packages" },
   typecheck: { icon: Braces, tint: "oklch(0.66 0.15 230)", role: "Checks types" },
   test: { icon: FlaskConical, tint: "oklch(0.72 0.17 140)", role: "Runs unit tests" },
-  e2e: { icon: Drama, tint: "oklch(0.68 0.17 30)", role: "Runs Playwright" },
   format: { icon: WandSparkles, tint: "var(--canvas-component)", role: "Formats files" },
   lint: { icon: SearchCheck, tint: "oklch(0.82 0.15 98)", role: "Lints files" },
   verify: { icon: ShieldCheck, tint: "oklch(0.75 0.13 175)", role: "Verifies the project" },
