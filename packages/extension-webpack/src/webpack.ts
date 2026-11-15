@@ -182,17 +182,19 @@ const cssModulesOption = z
       })
       .transform(({ auto, mode, namedExport, exportLocalsConvention: convention }): CssModules => {
         // Without `auto`, every file is a CSS module unless the mode scopes nothing; `auto: false` makes none one.
+        // A global mode scopes nothing, whichever files `auto` picks.
+        const global = globalMode.safeParse(mode).success
         let type: CssModules["type"] = "css/auto"
 
-        if (auto === undefined) {
-          type = globalMode.safeParse(mode).success ? "css/global" : "css/module"
-        } else if (auto !== true) {
+        if (global || auto === false || auto instanceof RegExp || auto instanceof Function) {
           type = "css/global"
+        } else if (auto === undefined) {
+          type = "css/module"
         }
 
         const modules: CssModules = { type }
 
-        if (auto instanceof RegExp || auto instanceof Function) {
+        if (!global && (auto instanceof RegExp || auto instanceof Function)) {
           modules.scoped = auto
         }
 
@@ -214,7 +216,7 @@ const cssModulesOption = z
 /** A `css-loader` with its options: an entry in a rule's `use`, or a rule whose lone loader it is. */
 const cssLoaderEntry = z.looseObject({
   loader: z.string().regex(cssLoaderName),
-  options: z.looseObject({ modules: cssModulesOption }).optional()
+  options: z.looseObject({ modules: cssModulesOption, esModule: z.boolean().optional().catch(undefined) }).optional()
 })
 
 /** The CSS modules a rule's `css-loader` made, from the rule itself or the first of its `use` that's one. */
@@ -223,7 +225,14 @@ function cssLoaderModules(candidates: readonly (CssRule | z.output<typeof loader
     const parsed = cssLoaderEntry.safeParse(candidate)
 
     if (parsed.success) {
-      return parsed.data.options?.modules ?? { type: "css/auto" }
+      const modules = parsed.data.options?.modules ?? { type: "css/auto" }
+
+      // Without `esModule`, `css-loader` gives classes as the default export whatever its version's default.
+      if (parsed.data.options?.esModule === false && modules.namedExport === undefined) {
+        return { ...modules, namedExport: false }
+      }
+
+      return modules
     }
   }
 

@@ -223,4 +223,14 @@ describe("webpackCssRule", () => {
       webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }, older)
     ).toMatchObject({ oneOf: [{ resource: scoped, type: "css/module" }, { type: "css/global" }] })
   })
+
+  it("leaves a global mode's files global, and takes the default export without esModule", () => {
+    const seven = { globalCustomProperties: false, cssLoaderNamedExports: true, exportsConvention: false }
+
+    const rule = (options: { esModule?: boolean; modules?: { auto: boolean; mode: string } }) =>
+      webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }, seven)
+
+    expect(rule({ modules: { auto: true, mode: "global" } })).toMatchObject({ type: "css/global" })
+    expect(rule({ esModule: false })).toMatchObject({ parser: { namedExports: false } })
+  })
 })
