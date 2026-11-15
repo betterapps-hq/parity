@@ -60,7 +60,7 @@ describe.skipIf(!process.env.CI)("the Turbopack builder on nextjs-turbopack", { 
       (url) => !url.endsWith("/")
     )
 
-    const runtime = urls.find((url) => url.includes("/__parity/runtime.js"))
+    const runtime = urls.find((url) => url.includes("/__parity/script.js"))
 
     expect(runtime).toBeDefined()
     expect(urls.filter((url) => url.endsWith(".js")).length).toBeGreaterThan(1)
