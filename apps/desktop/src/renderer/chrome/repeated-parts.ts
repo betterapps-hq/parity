@@ -1,6 +1,6 @@
 import { findRepeats, type RepeatCandidate } from "@parity-app/core"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { useSyncExternalStore } from "react"
-import type { ContainerEntry } from "../design-store.ts"
 import { resetWithWindow, signal } from "../store.ts"
 
 // The repeated parts found in each screen, so Search actions can find them as the inspector's button does (PAR-180).

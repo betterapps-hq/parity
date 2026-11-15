@@ -6,6 +6,7 @@ import {
   nodeLabel
 } from "@parity-app/core"
 import { describeElement, elementFamilies } from "@parity-app/layer-types"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import {
   AppWindow,
   Bookmark,
@@ -26,7 +27,6 @@ import {
 } from "lucide-react"
 import { useContext } from "react"
 import { isIconLayer, unnamedIconLabel } from "../chrome/layer-kind.ts"
-import type { ContainerEntry } from "../design-store.ts"
 import { componentBoardsFile } from "./component-boards.ts"
 import { ProjectContext } from "./context.ts"
 import { elementFamilyColors, elementFamilyTextColors, LayerIcon } from "./element-kinds.tsx"

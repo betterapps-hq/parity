@@ -8,6 +8,14 @@ import {
   zoomHeldFrom,
   zoomSettled
 } from "@parity-app/editor"
+import {
+  containerEntries,
+  noteEntries,
+  referenceEntries,
+  setPosition,
+  updateNote,
+  updateReference
+} from "@parity-app/multiplayer"
 import { useCallback, useEffect, useState } from "react"
 import {
   type Atom,
@@ -46,10 +54,10 @@ import { withoutTldrawShortcuts } from "./tldraw-shortcuts.ts"
 
 const canvasUtils = [ContainerUtil, NoteUtil, ReferenceUtil, PageLinksUtil, ...withoutPatternFills]
 
-/** The kinds of things the store holds that tldraw draws, each as a shape following its entry. */
+/** The kinds of things the project holds that tldraw draws, each as a shape following its entry. */
 type ProjectedType = "canvas-container" | "canvas-note" | "canvas-reference" | "canvas-page-links"
 
-/** A shape as the store wants it: where it is, and for a reference its size and link. */
+/** A shape as the project wants it: where it is, and for a reference its size and link. */
 interface Projected {
   type: ProjectedType
   key: string
@@ -66,8 +74,8 @@ export function canvasIdFor(key: string): CanvasId {
 
 /**
  * The infinite canvas. tldraw supplies the camera, dragging and snapping with its own UI hidden; the editor chrome is
- * ours. The design store is the source of truth: tldraw shapes are a projection of it, and the selection store says
- * what's selected.
+ * ours. The project document is the source of truth: tldraw shapes are a projection of it, and the selection store
+ * says what's selected.
  */
 /**
  * tldraw's own context menu acts on tldraw shapes (copy as SVG, paste); designs have their own menus instead. Design
@@ -186,7 +194,7 @@ const hiddenTabs = new WeakMap<Editor, Atom<boolean>>()
 
 /**
  * Whether the canvas's tab has been hidden for `hiddenSleepMs`. Its frames then sleep, so a tab that isn't showing
- * holds its session, store and boards but not its designs' elements and React roots (see frame-sleep.ts, PAR-153).
+ * holds its session, document and boards but not its designs' elements and React roots (see frame-sleep.ts, PAR-153).
  */
 export function isTabHidden(editor: Editor): boolean {
   return hiddenTabs.get(editor)?.get() ?? false
@@ -301,7 +309,7 @@ export function CanvasEditor({
   /** The canvas's tab is the one showing. Hidden a while, its frames sleep; shown again, those near the view wake. */
   shown?: boolean
 }) {
-  const { id: tab, store, selection, editor } = useProject()
+  const { id: tab, doc, selection, editor } = useProject()
   const theme = useResolvedTheme()
 
   // tldraw draws its first frame in the app's theme, rather than in the light one it starts in until it's mounted. Its
@@ -344,12 +352,12 @@ export function CanvasEditor({
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       hiddenTabs.set(editor, atom("tab hidden", false))
 
-      // Designs, notes and references come and go with undo and agents, so shapes follow the store rather than being
-      // made once.
+      // Designs, notes and references come and go with undo and agents, so shapes follow the document rather than
+      // being made once.
       const sync = () => {
         const wanted = new Map<CanvasId, Projected>()
 
-        for (const { key, container } of store.getEntries()) {
+        for (const { key, container } of containerEntries(doc)) {
           // A board an agent moved stays where it was until the agent's cursor drags it over.
           const at = heldBoards.at(tab, key) ?? container.position
           // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
@@ -357,11 +365,11 @@ export function CanvasEditor({
           wanted.set(canvasIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
 
-        for (const { key, note } of store.getNotes()) {
+        for (const { key, note } of noteEntries(doc)) {
           wanted.set(canvasIdFor(key), { type: "canvas-note", key, ...note.position })
         }
 
-        for (const { key, reference } of store.getReferences()) {
+        for (const { key, reference } of referenceEntries(doc)) {
           const { width: w, height: h } = referenceSize(reference)
           const size = { w, h }
           wanted.set(canvasIdFor(key), {
@@ -430,7 +438,7 @@ export function CanvasEditor({
       const stopZoom = settleZoom(editor)
       const stopZoomedOut = markZoomedOut(editor)
       const stopOverlays = sizeOverlays(editor)
-      const stopStore = store.subscribe(sync)
+      const stopDoc = doc.subscribe(() => sync())
       const stopHeld = heldBoards.subscribe(sync)
 
       // A pan or a zoom is a gesture of its own, recorded once the camera settles (PAR-640).
@@ -449,7 +457,7 @@ export function CanvasEditor({
 
         const { gesture, began, moved, frames } = translation
         translation = undefined
-        const undoStep = store.endGesture(gesture)
+        const result = doc.endGesture(gesture)
         const fps = frames()
 
         const ended: GestureEnded = {
@@ -458,7 +466,9 @@ export function CanvasEditor({
           kept: true,
           durationMs: Math.round(performance.now() - began),
           designs: [...moved],
-          undoStep
+          undoStep: result.step,
+          transactions: result.transactions,
+          transactMs: result.transactMs
         }
 
         if (fps !== undefined) {
@@ -477,7 +487,7 @@ export function CanvasEditor({
 
         if (translating) {
           translation ??= {
-            gesture: store.beginGesture(),
+            gesture: doc.beginGesture(),
             began: performance.now(),
             moved: new Set(),
             frames: countFrames()
@@ -491,17 +501,17 @@ export function CanvasEditor({
         const gesture = translating ? translation?.gesture : undefined
 
         if (next.type === "canvas-container" && !heldBoards.at(tab, next.props.key)) {
-          store.setPosition(next.props.key, { x: next.x, y: next.y }, { gesture })
+          setPosition(doc, next.props.key, { x: next.x, y: next.y }, { gesture })
         }
 
         if (next.type === "canvas-note") {
           const position = { x: Math.round(next.x), y: Math.round(next.y) }
-          store.updateNote(next.props.key, "Move text", (note) => ({ ...note, position }), { gesture })
+          updateNote(doc, next.props.key, "Move text", (note) => ({ ...note, position }), { gesture })
         }
 
         if (next.type === "canvas-reference") {
           const position = { x: Math.round(next.x), y: Math.round(next.y) }
-          store.updateReference(next.props.key, "Move reference", (reference) => ({ ...reference, position }), {
+          updateReference(doc, next.props.key, "Move reference", (reference) => ({ ...reference, position }), {
             gesture
           })
         }
@@ -567,9 +577,7 @@ export function CanvasEditor({
             return kindColors.layer
           }
 
-          const entry = store.getEntry(target.design)
-
-          return designColor(entry?.container.kind, target.design)
+          return designColor(doc.design(target.design)?.kind, target.design)
         }
       })
       setSelectionColor(editor, neutralSelection)
@@ -641,14 +649,14 @@ export function CanvasEditor({
         stopZoomedOut()
         stopOverlays()
         hiddenTabs.delete(editor)
-        stopStore()
+        stopDoc()
         stopHeld()
         stopTranslation()
         // A drag still going as the canvas goes, as when its tab closes: its frame counter stops with it.
         translation?.frames()
 
         if (translation) {
-          store.endGesture(translation.gesture)
+          doc.endGesture(translation.gesture)
         }
 
         translation = undefined
@@ -663,7 +671,7 @@ export function CanvasEditor({
         onEditor(undefined)
       }
     },
-    [tab, store, selection, onEditor]
+    [tab, doc, selection, onEditor]
   )
 
   return (

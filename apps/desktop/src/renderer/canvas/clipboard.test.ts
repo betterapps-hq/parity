@@ -1,17 +1,18 @@
 import { type ContainerSpec, type DesignNode, defaultModeSettings, findNode } from "@parity-app/core"
+import type { ProjectDoc } from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { ComponentStore } from "../components-store.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { setWindowTelemetry } from "../report-error.ts"
 import { SelectionStore } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { pasteClipboard, pasteOverSelection, pasteToReplace } from "./clipboard.ts"
 
 // Which layers Paste over and Paste to replace act on once an image is saved is `@parity-app/editor`'s rule
-// (`selectionToPasteOn`, tested in paste-over.test.ts). These change the selection while the image saves, on the real
-// stores, and see where the paste lands (PAR-981).
+// (`selectionToPasteOn`, tested in paste-over.test.ts). These change the selection while the image saves, on a real
+// document, and see where the paste lands (PAR-981).
 
 /** Saving the pasted image, which finishes when a test says. */
 const saving = vi.hoisted(() => ({
@@ -55,25 +56,21 @@ function card(): ContainerSpec {
 const sink = createTestSink()
 
 function session() {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [card()] } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers: [card()] } }], {
+    modes: defaultModeSettings
+  })
 
-  return { id: "project", store, selection: new SelectionStore(), components: new ComponentStore() }
+  return { id: "project", ...designs, selection: new SelectionStore(), components: new ComponentStore() }
 }
 
 /** The card's layers, in order, with the pasted image, which gets an id of its own, as "image". */
-function layers(store: DesignStore): string[] {
-  return children(store).map((child) => (child.type === "image" ? "image" : child.id))
+function layers(doc: ProjectDoc): string[] {
+  return children(doc).map((child) => (child.type === "image" ? "image" : child.id))
 }
 
-function children(store: DesignStore): DesignNode[] {
+function children(doc: ProjectDoc): DesignNode[] {
   // SAFETY: the card's root is a layout.
-  return (findNode(store.getEntry("app.par#card")!.container.root, "root") as Extract<DesignNode, { type: "layout" }>)
-    .children
+  return (findNode(doc.design("app.par#card")!.root, "root") as Extract<DesignNode, { type: "layout" }>).children
 }
 
 /** Waits for the paste to read the clipboard and start saving the image. */
@@ -108,28 +105,28 @@ afterEach(() => {
 
 describe("pasting an image over the selection", () => {
   it("goes over the layer selected while the image saved, not the one selected before", async () => {
-    const { store, selection, ...rest } = session()
+    const { doc, selection, ...rest } = session()
     selection.set({ design: "app.par#card", node: "title" })
-    const pasting = pasteOverSelection({ store, selection, ...rest })
+    const pasting = pasteOverSelection({ doc, selection, ...rest })
     await saveStarted()
     selection.set({ design: "app.par#card", node: "body" })
     saving.finish(image)
     await pasting
 
-    expect(layers(store)).toEqual(["title", "body", "image", "footer"])
-    expect(selection.get().node).toBe(children(store)[2]?.id)
+    expect(layers(doc)).toEqual(["title", "body", "image", "footer"])
+    expect(selection.get().node).toBe(children(doc)[2]?.id)
   })
 
   it("pastes nothing when no layers are selected once the image is saved", async () => {
-    const { store, selection, ...rest } = session()
+    const { doc, selection, ...rest } = session()
     selection.set({ design: "app.par#card", node: "title" })
-    const pasting = pasteOverSelection({ store, selection, ...rest })
+    const pasting = pasteOverSelection({ doc, selection, ...rest })
     await saveStarted()
     selection.set({})
     saving.finish(image)
     await pasting
 
-    expect(layers(store)).toEqual(["title", "body", "footer"])
+    expect(layers(doc)).toEqual(["title", "body", "footer"])
     expect(toast.info).toHaveBeenCalledWith("No layers are selected, so nothing was pasted")
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "over", content: "image", reason: "noTarget" }
@@ -139,28 +136,28 @@ describe("pasting an image over the selection", () => {
 
 describe("replacing the selection with an image", () => {
   it("replaces the layer still selected once the image is saved", async () => {
-    const { store, selection, ...rest } = session()
+    const { doc, selection, ...rest } = session()
     selection.set({ design: "app.par#card", node: "title" })
-    const pasting = pasteToReplace({ store, selection, ...rest })
+    const pasting = pasteToReplace({ doc, selection, ...rest })
     await saveStarted()
     saving.finish(image)
     await pasting
 
-    expect(layers(store)).toEqual(["image", "body", "footer"])
+    expect(layers(doc)).toEqual(["image", "body", "footer"])
   })
 
   it("replaces nothing when another layer was selected while the image saved", async () => {
-    const { store, selection, ...rest } = session()
+    const { doc, selection, ...rest } = session()
     selection.set({ design: "app.par#card", node: "title" })
-    const pasting = pasteToReplace({ store, selection, ...rest })
+    const pasting = pasteToReplace({ doc, selection, ...rest })
     await saveStarted()
     selection.set({ design: "app.par#card", node: "body" })
     saving.finish(image)
     await pasting
 
-    expect(layers(store)).toEqual(["title", "body", "footer"])
+    expect(layers(doc)).toEqual(["title", "body", "footer"])
     expect(selection.get()).toEqual({ design: "app.par#card", node: "body" })
-    expect(store.getHistory().canUndo).toBe(false)
+    expect(doc.history().canUndo).toBe(false)
     expect(toast.info).toHaveBeenCalledWith("The selection changed, so nothing was replaced")
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "replace", content: "image", reason: "noTarget" }
@@ -176,13 +173,13 @@ describe("pasting from an empty clipboard", () => {
   })
 
   it("Paste pastes nothing and says nothing, but records it", async () => {
-    const { store, selection, ...rest } = session()
+    const { doc, selection, ...rest } = session()
     // SAFETY: an empty clipboard pastes nothing, so the project's root is all Paste reads of its info.
     const info = { root: "project" } as ProjectSession["info"]
-    await pasteClipboard({ store, selection, ...rest, editor: undefined, info })
+    await pasteClipboard({ doc, selection, ...rest, editor: undefined, info })
 
-    expect(layers(store)).toEqual(["title", "body", "footer"])
-    expect(store.getHistory().canUndo).toBe(false)
+    expect(layers(doc)).toEqual(["title", "body", "footer"])
+    expect(doc.history().canUndo).toBe(false)
     expect(toast.info).not.toHaveBeenCalled()
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "paste", content: "empty", reason: "empty" }
@@ -204,12 +201,12 @@ describe("pasting from an empty clipboard", () => {
       selected: { design: "app.par#card", node: "title" }
     }
   ])("$name says there's nothing to paste and pastes nothing", async ({ how, paste, selected }) => {
-    const { store, selection, ...rest } = session()
+    const { doc, selection, ...rest } = session()
     selection.set(selected)
-    await paste({ store, selection, ...rest })
+    await paste({ doc, selection, ...rest })
 
-    expect(layers(store)).toEqual(["title", "body", "footer"])
-    expect(store.getHistory().canUndo).toBe(false)
+    expect(layers(doc)).toEqual(["title", "body", "footer"])
+    expect(doc.history().canUndo).toBe(false)
     expect(toast.info).toHaveBeenCalledWith("There's nothing on the clipboard to paste")
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how, content: "empty", reason: "empty" }

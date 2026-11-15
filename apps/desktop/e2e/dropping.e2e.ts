@@ -302,6 +302,6 @@ function rootOf(design: string): Promise<string> {
   return app.page.evaluate((design) => {
     const e2e = window.e2e!
 
-    return e2e.session().store.getEntry(e2e.key(design))!.container.root.id
+    return e2e.session().doc.design(e2e.key(design))!.root.id
   }, design)
 }

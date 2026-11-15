@@ -1,6 +1,6 @@
-import { type Checkpoint, dragThreshold, type HistoryEntry } from "@parity-app/editor"
+import { dragThreshold } from "@parity-app/editor"
+import type { Checkpoint, ProjectDoc } from "@parity-app/multiplayer"
 import type { EventAttributes, registeredEvents, TraceContext } from "@parity-app/telemetry"
-import type { DesignStore } from "../design-store.ts"
 import { track } from "../report-error.ts"
 import { startTrace, type Trace } from "../tracing.ts"
 
@@ -129,12 +129,12 @@ export const gestures = {
 } as const satisfies Record<string, GesturePolicy>
 
 /**
- * What a gesture needs of the store: an undo gesture, and a checkpoint of its design to take it back to. Ending the
+ * What a gesture needs of the document: an undo gesture, and a checkpoint of its design to take it back to. Ending the
  * undo gesture says whether it made an undo step, and the step Undo would take says whether one was made as it ended.
  */
-export type GestureStore = Pick<
-  DesignStore,
-  "beginGesture" | "endGesture" | "checkpoint" | "revert" | "getEntry" | "getUndoStep"
+export type GestureDoc = Pick<
+  ProjectDoc,
+  "beginGesture" | "endGesture" | "checkpoint" | "revert" | "design" | "history"
 >
 
 /** A press that's become a drag. */
@@ -185,7 +185,7 @@ export interface GestureWindow {
  */
 export function followPress(
   policy: GesturePolicy,
-  store: GestureStore,
+  doc: GestureDoc,
   start: { clientX: number; clientY: number },
   press: Press,
   at: GestureWindow = { target: window, holdCursor }
@@ -197,7 +197,7 @@ export function followPress(
   const now = at.now ?? (() => performance.now())
   let began = 0
   let frames: (() => number | undefined) | undefined
-  let step: HistoryEntry | undefined
+  let step: number | undefined
 
   // Only once the design has changed, since a revert writes its file again.
   const revert = () => {
@@ -205,8 +205,8 @@ export function followPress(
       return
     }
 
-    if (store.getEntry(press.design)?.container !== checkpoint.container) {
-      store.revert(checkpoint)
+    if (doc.design(press.design) !== checkpoint.container) {
+      doc.revert(checkpoint)
     }
   }
 
@@ -224,9 +224,9 @@ export function followPress(
       trace = startTrace("gesture.ran", { gesture: gestureKind(policy) ?? "other" })
       began = now()
       frames = (at.countFrames ?? countFrames)()
-      step = store.getUndoStep()
-      const gesture = store.beginGesture()
-      checkpoint = press.design === undefined ? undefined : store.checkpoint(press.design, gesture)
+      step = doc.history().step
+      const gesture = doc.beginGesture()
+      checkpoint = press.design === undefined ? undefined : doc.checkpoint(gesture, press.design)
       releaseCursor = press.cursor === undefined ? undefined : at.holdCursor(press.cursor)
       drag = { gesture, revert }
       press.start?.(drag, event)
@@ -260,7 +260,8 @@ export function followPress(
     press.end?.(outcome === "keep", drag)
     // A drag that writes once it's kept, as a design dragged by its title does, makes its step as it ends. A drag
     // that changed things and then put them back leaves the step Undo would take as it was.
-    const undoStep = store.endGesture(drag.gesture) || (outcome === "keep" && store.getUndoStep() !== step)
+    const result = doc.endGesture(drag.gesture)
+    const undoStep = result.step || (outcome === "keep" && doc.history().step !== step)
     trace?.end(outcome === "cancel" ? "cancelled" : "ok", { how })
     const kind = gestureKind(policy)
 
@@ -271,7 +272,16 @@ export function followPress(
     const fps = frames?.()
     const designs = press.moves?.designs ?? (press.design === undefined ? undefined : [press.design])
     const layers = press.moves?.layers
-    const ended: GestureEnded = { kind, how, kept: outcome === "keep", durationMs: Math.round(now() - began), undoStep }
+
+    const ended: GestureEnded = {
+      kind,
+      how,
+      kept: outcome === "keep",
+      durationMs: Math.round(now() - began),
+      undoStep,
+      transactions: result.transactions,
+      transactMs: result.transactMs
+    }
 
     if (designs) {
       ended.designs = [...designs]
@@ -333,7 +343,7 @@ export class GestureRun {
    * time, for how long it lasted.
    */
   constructor(
-    private readonly store: Pick<DesignStore, "beginGesture" | "endGesture">,
+    private readonly doc: Pick<ProjectDoc, "beginGesture" | "endGesture">,
     private readonly kind: "nudge" | "fieldNudge" = "nudge",
     private readonly now: () => number = () => performance.now()
   ) {}
@@ -351,7 +361,7 @@ export class GestureRun {
     }
 
     this.end()
-    const gesture = this.store.beginGesture()
+    const gesture = this.doc.beginGesture()
     this.open = { key, gesture, began: this.now(), presses: 1 }
     this.open.stop = watch?.()
 
@@ -384,14 +394,16 @@ export class GestureRun {
 
     this.open = undefined
     open.stop?.()
-    const undoStep = this.store.endGesture(open.gesture)
+    const ended = this.doc.endGesture(open.gesture)
     recordGesture({
       kind: this.kind,
       how,
       kept,
       durationMs: Math.round(this.now() - open.began),
       presses: open.presses,
-      undoStep
+      undoStep: ended.step,
+      transactions: ended.transactions,
+      transactMs: ended.transactMs
     })
   }
 }

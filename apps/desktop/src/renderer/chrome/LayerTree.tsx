@@ -49,6 +49,7 @@ import {
   type TreeRow,
   treeRows
 } from "@parity-app/editor"
+import { containerEntry, reorderContainer, updateContainer } from "@parity-app/multiplayer"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   ChevronRight,
@@ -100,9 +101,9 @@ import {
   storyPlaces,
   storyScreensFile
 } from "../canvas/story-screens.ts"
-import { type ContainerEntry, useContainerEntries, useNotes } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { useLayerFailure } from "../failures-store.ts"
+import { type ContainerEntry, projectLibrary, useContainerEntries, useNotes } from "../project-doc.ts"
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
@@ -276,9 +277,9 @@ function folderOfLine(line: Line): string | undefined {
  */
 export function LayerTree() {
   const session = useProject()
-  const { store, selection } = session
-  const entries = useContainerEntries(store)
-  const notes = useNotes(store)
+  const { selection } = session
+  const entries = useContainerEntries(session)
+  const notes = useNotes(session)
   const selected = useSelection(selection)
   const hover = useHover(selection)
   const [expansion, setExpansion] = useState(closedTree)
@@ -318,14 +319,14 @@ export function LayerTree() {
     setRevealed(selectionKey)
     setPickedHere(undefined)
     setActiveFolder(undefined)
-    const entry = selected.design ? store.getEntry(selected.design) : undefined
+    const entry = selected.design ? containerEntry(session.doc, selected.design) : undefined
 
     if (entry) {
       const place = entry.path === storyScreensFile ? places.get(entry.container.id) : undefined
 
       const ids = [
         ...(place ? folderIds(screensGroupId(session.info, entry.container.id), place.folders) : []),
-        ...revealIds(entry, selectedNodes(selected), store.getComponentLibrary())
+        ...revealIds(entry, selectedNodes(selected), projectLibrary(session))
       ]
 
       const next = revealRows(expansion, ids, pickedHere === selectionKey)
@@ -401,9 +402,9 @@ export function LayerTree() {
     return listed
   }, [entries, places, session.info])
 
-  const { rows, lines } = useMemo(() => {
-    const library = store.getComponentLibrary()
+  const library = projectLibrary(session)
 
+  const { rows, lines } = useMemo(() => {
     const label = (entry: ContainerEntry, node?: DesignNode) =>
       node ? layerLabel(node, entries, library, session.info.libraries) : entry.container.name
 
@@ -457,7 +458,7 @@ export function LayerTree() {
     }
 
     return { rows: all, lines: list }
-  }, [groups, expanded, search, entries, store, session.info.libraries, session.info.id])
+  }, [groups, expanded, search, entries, library, session.info.libraries, session.info.id])
 
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 
@@ -493,7 +494,7 @@ export function LayerTree() {
 
   // Alt+click on an arrow opens or closes the row with everything inside it, as Finder does.
   const toggleBranch = (row: Row) =>
-    setExpansion((current) => toggleRows(current, branchIds(row, store.getComponentLibrary()), !row.expanded))
+    setExpansion((current) => toggleRows(current, branchIds(row, projectLibrary(session)), !row.expanded))
 
   /**
    * A click selects the row. Ctrl or Cmd adds it to the selection or takes it out; Shift selects every row between it
@@ -690,7 +691,7 @@ export function LayerTree() {
 
     if (event.dataTransfer.types.includes(designMime)) {
       if (draggedDesign && position !== "inside") {
-        store.reorderContainer(draggedDesign.design.key, row.design.key, position)
+        reorderContainer(session.doc, draggedDesign.design.key, row.design.key, position)
       }
 
       setDraggedDesign(undefined)
@@ -705,7 +706,7 @@ export function LayerTree() {
     }
 
     const { design, ids } = dragged
-    const source = store.getEntry(design)
+    const source = containerEntry(session.doc, design)
     const target = dropTargetFor(row, position)
 
     if (source && target) {
@@ -902,8 +903,6 @@ export function LayerTree() {
     rename: (row) => latest.current?.rename(row),
     renamed: (row, name) => latest.current?.renamed(row, name)
   }))
-
-  const library = store.getComponentLibrary()
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -1473,12 +1472,12 @@ const LayerRow = memo(function LayerRow({
                     if (row.node) {
                       const id = row.node.id
                       const label = lock ? "Unlock layer" : "Lock layer"
-                      session.store.updateContainer(row.design.key, label, (current) =>
+                      updateContainer(session.doc, row.design.key, label, (current) =>
                         toggleLockedLayers(current, [id])
                       )
                     } else {
                       const label = `${lock ? "Unlock" : "Lock"} ${kindName(container.kind)}`
-                      session.store.updateContainer(row.design.key, label, (current) => setDesignLocked(current, !lock))
+                      updateContainer(session.doc, row.design.key, label, (current) => setDesignLocked(current, !lock))
                     }
                   }}
                 />
@@ -1487,7 +1486,7 @@ const LayerRow = memo(function LayerRow({
                 <VisibilityToggle
                   hidden={hidden}
                   onToggle={() =>
-                    session.store.updateContainer(row.design.key, "Toggle visibility", (current) => {
+                    updateContainer(session.doc, row.design.key, "Toggle visibility", (current) => {
                       const stateId = activeState(current).id
 
                       if (!inside) {
@@ -1581,7 +1580,7 @@ function LockToggle({ locked, onToggle }: { locked: boolean; onToggle: () => voi
 type Session = ReturnType<typeof useProject>
 
 function rename(session: Session, row: Row, name: string): void {
-  renameAndRecord(session.store, row.design.key, name, row.node?.id)
+  renameAndRecord(session.doc, row.design.key, name, row.node?.id)
 }
 
 /** The row as the row menu reads it: its design, and its layer unless it's the design's own row. */
@@ -1597,7 +1596,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
   const session = useProject()
   const selection = useSelection(session.selection)
   // What the commands can do changes with the designs as well as the selection.
-  useContainerEntries(session.store)
+  useContainerEntries(session)
 
   // A component's board offers what its component's layer does.
   const node = row.node ?? boardOpensTo(row.design)

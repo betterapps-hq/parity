@@ -1074,6 +1074,23 @@ What they say about the layer:
 - **Opening is almost free,** because `ProjectDoc` indexes nothing up front and its lookups build lazily. The cost of
   the first lookup isn't in this scenario yet. **Memory is as flat as today:** the values are the files' own objects.
 
+Run again once the session moved onto the document (step 5, PAR-1112), back to back with `main` (`d555e20f1`) on the
+same machine:
+
+| Scenario                                  | Large, main | Large, step 5 | Very large, main | Very large, step 5 |
+| ----------------------------------------- | ----------: | ------------: | ---------------: | -----------------: |
+| Open the project                          |    0.047 ms |      0.045 ms |         0.061 ms |           0.064 ms |
+| Set one field on one layer                |    0.142 ms |      0.140 ms |         0.265 ms |           0.299 ms |
+| A 300-frame drag of one design, per frame |    0.037 ms |      0.037 ms |         0.067 ms |           0.066 ms |
+| Type into a text layer, per character     |    0.163 ms |      0.164 ms |         0.306 ms |           0.301 ms |
+| Paste 500 layers, or take them out        |    0.722 ms |      0.737 ms |         0.885 ms |           0.984 ms |
+| Undo or redo, per step                    |    0.052 ms |      0.055 ms |         0.091 ms |           0.150 ms |
+| Save one file                             |    0.749 ms |      0.854 ms |         0.945 ms |           1.269 ms |
+
+Step 5 changes nothing the bench runs, and the numbers agree within the noise above; saving is again the noisiest row.
+The heap is as before: 21.8 MB of values on the very large project, nothing more for the session, and 0.2 MB after
+10,000 edits.
+
 ### The layer's numbers, on `loroProvider`
 
 `ProjectDoc` on `loroProvider` through the functions for callers, run on `5df8164b4` with PAR-1113 on top, on the same

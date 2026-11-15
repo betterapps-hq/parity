@@ -1,5 +1,6 @@
 import { addVariant, type ContainerSpec, type DesignNode, designStates, editNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
+import { addContainer, addNote, containerEntries, updateContainer, updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
@@ -235,7 +236,7 @@ export const Slots: Story = {
     async () => {
       await openProjects("example")
       const key = design("Plan card")
-      example().store.updateContainer(key, "Make slot", (container) =>
+      updateContainer(example().doc, key, "Make slot", (container) =>
         setSlot(container, node("Plan card", "Features"), "features")
       )
       example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
@@ -298,7 +299,7 @@ export const ShowingAState: Story = {
     async () => {
       await openProjects("example")
       const card = design("Stat card")
-      example().store.updateView(card, "Show Loading", (view) => ({ ...view, state: "loading" }))
+      updateView(example().doc, card, "Show Loading", (view) => ({ ...view, state: "loading" }))
     }
   ],
   play: async () => {
@@ -364,11 +365,11 @@ export const LongNames: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store, selection } = example()
+      const { doc, selection } = example()
       const card = design("Plan card")
       const third = node("Plan card", "Feature 3 text")
-      renameAndRecord(store, card, "Plan card for the enterprise tier, with annual billing and a seat-based discount")
-      renameAndRecord(store, card, "Third feature of the plan, as marketing wrote it for the launch page", third)
+      renameAndRecord(doc, card, "Plan card for the enterprise tier, with annual billing and a seat-based discount")
+      renameAndRecord(doc, card, "Third feature of the plan, as marketing wrote it for the launch page", third)
       selection.set({ design: card, node: third })
     }
   ]
@@ -408,7 +409,7 @@ export const HiddenByAVariant: Story = {
       await openProjects("example")
       const card = design("Plan card")
       const feature = node("Plan card", "Feature 4")
-      example().store.updateContainer(card, "Add density variant", (current) => {
+      updateContainer(example().doc, card, "Add density variant", (current) => {
         const added = addVariant(current, "density", ["Comfortable", "Compact"])
         const compact = added.params!.density!.options![1]!.id
 
@@ -642,8 +643,7 @@ export const LockedDesign: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store } = example()
-      store.updateContainer(design("Pricing"), "Lock screen", (container) => ({ ...container, locked: true }))
+      updateContainer(example().doc, design("Pricing"), "Lock screen", (container) => ({ ...container, locked: true }))
     }
   ],
   play: async () => {
@@ -664,14 +664,14 @@ export const TextOnTheCanvas: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store, selection } = example()
-      store.addNote(store.mainPath, {
+      const { doc, selection } = example()
+      addNote(doc, doc.main, {
         id: "note-launch",
         text: "Launch checklist: pricing copy signed off by Friday",
         position: { x: 0, y: -1600 }
       })
 
-      const note = store.addNote(store.mainPath, {
+      const note = addNote(doc, doc.main, {
         id: "note-review",
         text: "Review the empty states with design before handoff",
         position: { x: 0, y: -1400 }
@@ -694,16 +694,16 @@ export const LargeProject: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store, selection } = example()
+      const { doc, selection } = example()
 
       for (let index = 0; index < 100; index++) {
-        const taken = store.getEntries().map((entry) => entry.container.id)
+        const taken = containerEntries(doc).map((entry) => entry.container.id)
         const screen = newDesign("screen", taken, { x: index * 400, y: 6000 })
-        store.addContainer(store.mainPath, { ...screen, name: `Screen ${index + 1}` })
+        addContainer(doc, doc.main, { ...screen, name: `Screen ${index + 1}` })
       }
 
-      const taken = store.getEntries().map((entry) => entry.container.id)
-      const key = store.addContainer(store.mainPath, largeScreen(taken))
+      const taken = containerEntries(doc).map((entry) => entry.container.id)
+      const key = addContainer(doc, doc.main, largeScreen(taken))
       selection.set({ design: key, node: "large-40-15-title" })
     }
   ]

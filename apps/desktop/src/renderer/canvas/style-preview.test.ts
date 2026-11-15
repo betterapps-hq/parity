@@ -49,6 +49,7 @@ const entry = `
 export { StylePreview } from "./style-preview.ts"
 import { boardRoot, editNode, frameRules, previewRules, resolveDesign, withClasses } from "@parity-app/core"
 import { prepareFrame, registerFrame, showFrameRules } from "../frame.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 export { editNode }
 
 let unregister = []
@@ -103,10 +104,10 @@ export function redraw(design) {
   }
 }
 
-/** A session holding the design, as the store would, with a guest that writes its frames' rules. */
+/** A session holding the design in its document, with a guest that writes its frames' rules. */
 export function session(design) {
   return {
-    store: { getEntry: () => ({ key: "app.par#card", path: "app.par", container: design }), getLibrary: () => new Map() },
+    ...openTestSession([{ path: "app.par", document: { version: 4, containers: [design] } }]),
     loaded: { previewRules: (drawn, next) => previewRules(drawn, next, layer) },
     info: { guestUrl: "http://parity.test/guest.js" }
   }

@@ -18,6 +18,7 @@ import {
   type StateSpec
 } from "@parity-app/core"
 import { editingState, type Selection, selectionKey } from "@parity-app/editor"
+import { updateContainer, updateView } from "@parity-app/multiplayer"
 import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -33,9 +34,9 @@ import { useLayer } from "../../chrome/selected-layer.ts"
 import { useStyleEditor } from "../../chrome/style-editor.ts"
 import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
-import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
 import { FieldTarget } from "../../inspector/controls/field-row.tsx"
 import { AttributesSection, PropsSection } from "../../inspector/sections/PropsSection.tsx"
+import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../project-doc.ts"
 import { useSelection } from "../../selection.ts"
 
 /*
@@ -64,9 +65,9 @@ export function selectsContainer(selected: Selection, entry: ContainerEntry | un
 
 /** The Design tab: a screen or component as its container, or the shipped panel for anything else selected. */
 export function ContainerTab() {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
 
   if (!selected.design && !selected.note) {
     return <NothingSelected />
@@ -113,7 +114,7 @@ export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
 }
 
 function ContainerHeader({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const selected = useSelection(selection)
   const { container, key } = entry
   const kind = container.kind ?? "screen"
@@ -133,7 +134,7 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
             const name = event.currentTarget.value.trim()
 
             if (name && name !== container.name) {
-              store.updateContainer(key, `Rename ${noun.toLowerCase()}`, (current) => ({ ...current, name }))
+              updateContainer(doc, key, `Rename ${noun.toLowerCase()}`, (current) => ({ ...current, name }))
             }
           }}
           onKeyDown={(event) => {
@@ -155,7 +156,8 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
               return
             }
 
-            store.updateContainer(
+            updateContainer(
+              doc,
               key,
               value === "component" ? "Make it a component" : "Make it a screen",
               (current) => ({
@@ -188,7 +190,7 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
 
 /** The state, or variant, the root's edits go to, and a switch to another. LayerPanel's ComponentStateSelector, reworded. */
 function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec }) {
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const selected = useSelection(selection)
   const target = boardTarget(entry.container, state.id)
   const base = editsDesign(entry.container, target)
@@ -228,7 +230,7 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
           }
 
           const name = designStates(entry.container).find((candidate) => candidate.id === id)?.name ?? id
-          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
+          updateView(doc, entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       />
@@ -257,8 +259,9 @@ function RootSections({ entry }: { entry: ContainerEntry }) {
 
 /** The modes a screen or component shows: DesignPanel's Modes section, with previews where it says frames. */
 function ModesSection({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
-  const settings = useModeSettings(store)
+  const session = useProject()
+  const { doc, selection } = session
+  const settings = useModeSettings(session)
   const selected = useSelection(selection)
   const { container, key } = entry
   const { primary, all } = containerModes(settings, container)
@@ -266,7 +269,7 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
   const noun = container.kind === "component" ? "component" : "screen"
 
   const setModes = (modes: string[]) =>
-    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
+    updateView(doc, key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
   return (
     <PanelSection
@@ -276,7 +279,7 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
       <RadioGroup
         value={primary.id}
         onValueChange={(mode) =>
-          store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
+          updateView(doc, key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
         }
         className="gap-0.5"
         aria-label="Main mode"

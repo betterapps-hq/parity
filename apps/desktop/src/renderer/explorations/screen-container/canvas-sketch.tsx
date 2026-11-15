@@ -22,7 +22,13 @@ import { containerModes } from "../../canvas/view.ts"
 import { actions } from "../../chrome/actions.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
-import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
+import {
+  type ContainerEntry,
+  projectLibrary,
+  useContainerEntries,
+  useContainerEntry,
+  useModeSettings
+} from "../../project-doc.ts"
 import { useHover, useSelection } from "../../selection.ts"
 import { spacingUnit, useTokenList } from "../../tokens-store.ts"
 
@@ -38,7 +44,7 @@ const sketchWidth = 480
 
 export function CanvasSketch() {
   const session = useProject()
-  const { store, selection } = session
+  const { selection } = session
   const selected = useSelection(selection)
   // Keeps showing the last design selected once nothing is, so the board doesn't vanish on Esc.
   const [shown, setShown] = useState(selected.design)
@@ -47,7 +53,7 @@ export function CanvasSketch() {
     setShown(selected.design)
   }
 
-  const entry = useContainerEntry(store, shown)
+  const entry = useContainerEntry(session, shown)
 
   const onKeyDown = (event: KeyboardEvent) => {
     if (event.key === "Enter" && event.shiftKey) {
@@ -81,9 +87,9 @@ export function CanvasSketch() {
 
 function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Selection }) {
   const session = useProject()
-  const { store, selection } = session
+  const { selection } = session
   const hover = useHover(selection)
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(session)
   const tokens = useTokenList(session.tokens)
   const [overPadding, setOverPadding] = useState(false)
   const { container, key } = entry
@@ -170,8 +176,8 @@ function LayerSketch({
   hovered: boolean
   onSelect: () => void
 }) {
-  const { store } = useProject()
-  const entries = useContainerEntries(store)
+  const session = useProject()
+  const entries = useContainerEntries(session)
   const style: NodeStyle = node.style ?? {}
   const color = nodeColor(node)
   let width: CSSProperties["width"]
@@ -220,7 +226,7 @@ function LayerSketch({
       style={{ ...sized, minWidth: 72, height: Math.min(170, 22 + descendants(node) * 4) }}
     >
       <NodeIcon node={node} className="mt-px size-3 shrink-0" style={{ color }} />
-      <span className="truncate">{layerLabel(node, entries, store.getComponentLibrary())}</span>
+      <span className="truncate">{layerLabel(node, entries, projectLibrary(session))}</span>
     </div>
   )
 }
@@ -268,11 +274,11 @@ function PaddingHatch({ padding, color, name }: { padding: number[]; color: stri
  * not part of the app.
  */
 function SelectingNote({ entry, selected }: { entry: ContainerEntry; selected: Selection }) {
-  const { store } = useProject()
-  const entries = useContainerEntries(store)
+  const session = useProject()
+  const entries = useContainerEntries(session)
   const { container, key } = entry
   const top = childNodes(container.root)
-  const names = top.map((node) => layerLabel(node, entries, store.getComponentLibrary()))
+  const names = top.map((node) => layerLabel(node, entries, projectLibrary(session)))
   const picked = selected.design === key ? selectedNodes(selected).filter((id) => id !== container.root.id) : []
   const onContainer = selected.design === key && picked.length === 0
   const onAllInside = picked.length === top.length && top.every((node) => picked.includes(node.id))

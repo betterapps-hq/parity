@@ -1,3 +1,4 @@
+import { addNote, updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"
 import { design, example } from "../stories/fixtures.tsx"
@@ -51,7 +52,7 @@ export const LongName: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Pricing")
-      example().store.updateContainer(key, "Rename design", (current) => ({
+      updateContainer(example().doc, key, "Rename design", (current) => ({
         ...current,
         name: "Pricing page for the enterprise launch, with annual billing and the comparison table"
       }))
@@ -65,9 +66,9 @@ export const LongName: Story = {
 export const NoteSelected: Story = {
   loaders: [
     inspecting("design", () => {
-      const { store } = example()
+      const { doc } = example()
 
-      const note = store.addNote(store.mainPath, {
+      const note = addNote(doc, doc.main, {
         id: "launch-note",
         text: "Launch checklist: swap the hero photo, confirm yearly prices with finance, and check the FAQ copy with legal.",
         position: { x: 0, y: -1200 }

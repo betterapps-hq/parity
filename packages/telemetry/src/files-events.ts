@@ -40,11 +40,18 @@ const saveAttributes = {
   bytes: z.number().int().nonnegative().describe("The document's size as JSON")
 }
 
-export const documentSaved = defineEvent("document.saved", z.object(saveAttributes), {
-  level: "info",
-  sentBy: ["renderer"],
-  when: "A design file is saved."
-})
+export const documentSaved = defineEvent(
+  "document.saved",
+  z.object({
+    ...saveAttributes,
+    exportMs: z.number().optional().describe("Time to produce the file's content from the document, in milliseconds")
+  }),
+  {
+    level: "info",
+    sentBy: ["renderer"],
+    when: "A design file is saved."
+  }
+)
 
 export const documentSaveFailed = defineEvent("document.saveFailed", z.object({ ...saveAttributes, code }), {
   level: "warn",

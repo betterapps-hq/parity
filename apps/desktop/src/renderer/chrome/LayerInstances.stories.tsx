@@ -1,5 +1,6 @@
 import { mapNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
@@ -54,7 +55,7 @@ export const InstanceOfMissingComponent: Story = {
     inspecting("design", () => {
       const key = design("Pricing")
       const id = node("Pricing", "Business plan")
-      example().store.updateContainer(key, "Break instance", (container) => ({
+      updateContainer(example().doc, key, "Break instance", (container) => ({
         ...container,
         root: mapNode(container.root, id, (current) =>
           current.type === "instance" ? { ...current, design: "enterprise-plan-card" } : current

@@ -1,10 +1,11 @@
 import { Button, Textarea } from "@buildkitgg/shadcn-baseui-kit"
 import { moreFromApp } from "@parity-app/editor"
+import { updateReference } from "@parity-app/multiplayer"
 import { ExternalLink, Search, Telescope } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { openReference, referenceSource } from "../canvas/ReferenceUtil.tsx"
-import { useReference } from "../design-store.ts"
+import { useReference } from "../project-doc.ts"
 import { findReferences } from "../references/find-references.ts"
 import { panelEnd, PanelSection } from "./PanelSection.tsx"
 import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
@@ -15,7 +16,7 @@ import { headingIcon, headingName, SelectionHeading } from "./SelectionHeading.t
  */
 export function ReferencePanel({ referenceKey }: { referenceKey: string }) {
   const session = useProject()
-  const entry = useReference(session.store, referenceKey)
+  const entry = useReference(session, referenceKey)
 
   if (!entry) {
     return null
@@ -28,7 +29,7 @@ export function ReferencePanel({ referenceKey }: { referenceKey: string }) {
     const note = text.trim() || undefined
 
     if (note !== reference.note) {
-      session.store.updateReference(referenceKey, note ? "Edit reference note" : "Remove reference note", (current) => {
+      updateReference(session.doc, referenceKey, note ? "Edit reference note" : "Remove reference note", (current) => {
         const next = { ...current, note }
 
         if (!note) {

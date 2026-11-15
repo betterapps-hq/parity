@@ -27,15 +27,25 @@ import {
   selectedDesigns,
   selectedNodes
 } from "@parity-app/editor"
+import {
+  type ContainerEntry,
+  changeSnapshot,
+  containerEntries,
+  containerEntry,
+  designsLabel,
+  editFrame,
+  type ProjectDoc,
+  updateContainer,
+  updateContainers
+} from "@parity-app/multiplayer"
 import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
-import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 
 /**
  * What acts on several layers or designs at once: deleting, duplicating, selecting all, wrapping in a layout, ordering,
  * hiding, aligning and distributing. Each is one undo step, however many things it touches. The rules are
- * `@parity-app/editor`'s; this applies them to the selection and the store.
+ * `@parity-app/editor`'s; this applies them to the selection and the document.
  */
 
 /** The design the selected layers are in, with their ids, outermost first. Undefined unless layers are selected. */
@@ -43,8 +53,8 @@ export function selectedLayers(
   session: ProjectDesigns
 ): { entry: ContainerEntry; ids: string[]; frame: EditFrame } | undefined {
   const current = session.selection.get()
-  const entry = current.design ? session.store.getEntry(current.design) : undefined
-  const frame = session.store.editFrame(current)
+  const entry = current.design ? containerEntry(session.doc, current.design) : undefined
+  const frame = editFrame(session.doc, current)
   const ids = selectedNodes(current)
 
   if (!entry || !frame || ids.length === 0) {
@@ -65,7 +75,8 @@ export function deleteLayers(session: ProjectDesigns): boolean {
 
   const { entry, ids } = layers
   let parent: string | undefined
-  session.store.updateContainer(
+  updateContainer(
+    session.doc,
     entry.key,
     ids.length === 1 ? "Delete layer" : `Delete ${ids.length} layers`,
     (container) => {
@@ -91,7 +102,8 @@ export function duplicateLayers(session: ProjectDesigns): boolean {
 
   const { entry, ids } = layers
   let copies: string[] = []
-  session.store.updateContainer(
+  updateContainer(
+    session.doc,
     entry.key,
     ids.length === 1 ? "Duplicate layer" : `Duplicate ${ids.length} layers`,
     (container) => {
@@ -108,13 +120,13 @@ export function duplicateLayers(session: ProjectDesigns): boolean {
 
 export function deleteDesigns(session: ProjectDesigns): boolean {
   const keys = selectedDesigns(session.selection.get())
-  const entries = keys.flatMap((key) => session.store.getEntry(key) ?? [])
+  const entries = keys.flatMap((key) => containerEntry(session.doc, key) ?? [])
 
   if (entries.length === 0) {
     return false
   }
 
-  session.store.change(`Delete ${kindsName(entries.map((entry) => entry.container.kind))}`, (snapshot) =>
+  changeSnapshot(session.doc, `Delete ${kindsName(entries.map((entry) => entry.container.kind))}`, (snapshot) =>
     deleteDesign(snapshot, ...entries.map((entry) => ({ path: entry.path, id: entry.container.id })))
   )
   session.selection.set({})
@@ -124,9 +136,9 @@ export function deleteDesigns(session: ProjectDesigns): boolean {
 
 /** Ctrl+A: the selected layer and its siblings, or every design. */
 export function selectAll(session: ProjectDesigns): void {
-  const { store, selection } = session
+  const { doc, selection } = session
   const current = selection.get()
-  const entry = current.design ? store.getEntry(current.design) : undefined
+  const entry = current.design ? containerEntry(doc, current.design) : undefined
 
   if (entry && current.node) {
     const siblings = siblingsOf(entry.container.root, current.node)
@@ -138,7 +150,7 @@ export function selectAll(session: ProjectDesigns): void {
     return
   }
 
-  selection.set(designsSelection(store.getEntries().map((candidate) => candidate.key)))
+  selection.set(designsSelection(containerEntries(doc).map((candidate) => candidate.key)))
 }
 
 /** Puts the selected layers in a new layout, laid out the way their parent lays them out, and selects it. */
@@ -154,7 +166,7 @@ export function wrapLayers(session: ProjectDesigns): boolean {
   let id: string | undefined
 
   try {
-    session.store.updateContainer(entry.key, "Wrap in layout", (container) => {
+    updateContainer(session.doc, entry.key, "Wrap in layout", (container) => {
       const wrapped = wrapInLayout(container, ids, state, viewport)
       id = wrapped.id
 
@@ -185,7 +197,7 @@ export function unwrapLayer(session: ProjectDesigns): boolean {
 
   const { entry, ids } = layers
   let children: string[] | undefined
-  session.store.updateContainer(entry.key, "Unwrap layout", (container) => {
+  updateContainer(session.doc, entry.key, "Unwrap layout", (container) => {
     const unwrapped = unwrapLayout(container, ids[0]!)
     children = unwrapped?.children
 
@@ -220,7 +232,7 @@ export function orderLayer(session: ProjectDesigns, order: Order): boolean {
 
   const { entry, ids } = layers
   let moved = false
-  session.store.updateContainer(entry.key, orderLabels[order], (container) => {
+  updateContainer(session.doc, entry.key, orderLabels[order], (container) => {
     const next = reorderLayer(container, ids[0]!, order)
     moved = next !== container
 
@@ -239,7 +251,7 @@ export function toggleHiddenLayers(session: ProjectDesigns): boolean {
   }
 
   const { entry, ids, frame } = layers
-  session.store.updateContainer(entry.key, "Toggle visibility", (container) =>
+  updateContainer(session.doc, entry.key, "Toggle visibility", (container) =>
     toggleHidden(container, frame.state.id, ids)
   )
 
@@ -262,21 +274,22 @@ export function toggleLockedSelection(session: ProjectDesigns): boolean {
     }
 
     const label = `${layersLocked(entry.container, own) ? "Unlock" : "Lock"} ${own.length === 1 ? "layer" : "layers"}`
-    session.store.updateContainer(entry.key, label, (container) => toggleLockedLayers(container, own))
+    updateContainer(session.doc, entry.key, label, (container) => toggleLockedLayers(container, own))
 
     return true
   }
 
   const keys = selectedDesigns(session.selection.get())
-  const entries = keys.flatMap((key) => session.store.getEntry(key) ?? [])
+  const entries = keys.flatMap((key) => containerEntry(session.doc, key) ?? [])
 
   if (entries.length === 0) {
     return false
   }
 
   const lock = !designsLocked(entries.map((entry) => entry.container))
-  const label = `${lock ? "Lock" : "Unlock"} ${session.store.designsLabel(keys)}`
-  session.store.updateContainers(
+  const label = `${lock ? "Lock" : "Unlock"} ${designsLabel(session.doc, keys)}`
+  updateContainers(
+    session.doc,
     entries.map((entry) => entry.key),
     label,
     (containers) => containers.map((container) => setDesignLocked(container, lock))
@@ -294,7 +307,7 @@ export function align(session: ProjectDesigns & Pick<ProjectSession, "editor">, 
 
   if (layers) {
     const { state, viewport } = layers.frame
-    session.store.updateContainer(layers.entry.key, "Align", (container) =>
+    updateContainer(session.doc, layers.entry.key, "Align", (container) =>
       alignInLayouts(container, layers.ids, state, alignment, viewport)
     )
 
@@ -305,7 +318,7 @@ export function align(session: ProjectDesigns & Pick<ProjectSession, "editor">, 
   const selected = selectedDesigns(session.selection.get())
 
   if (moves.size > 0) {
-    moveDesigns(session.store, moves, `Align ${session.store.designsLabel(selected)}`)
+    moveDesigns(session.doc, moves, `Align ${designsLabel(session.doc, selected)}`)
   }
 }
 
@@ -318,14 +331,14 @@ export function distribute(
   const selected = selectedDesigns(session.selection.get())
 
   if (moves.size > 0) {
-    moveDesigns(session.store, moves, `Distribute ${session.store.designsLabel(selected)}`)
+    moveDesigns(session.doc, moves, `Distribute ${designsLabel(session.doc, selected)}`)
   }
 }
 
 /** The selected designs' boxes on the canvas. */
 function designBoxes(session: ProjectDesigns & Pick<ProjectSession, "editor">): DesignBox[] {
   return selectedDesigns(session.selection.get()).flatMap((key) => {
-    const entry = session.store.getEntry(key)
+    const entry = containerEntry(session.doc, key)
     const bounds = entry ? session.editor?.getShapePageBounds(canvasIdFor(key)) : undefined
 
     return entry && bounds
@@ -345,15 +358,15 @@ function designBoxes(session: ProjectDesigns & Pick<ProjectSession, "editor">): 
 
 /** Moves designs to new positions as one undo step. */
 export function moveDesigns(
-  store: DesignStore,
+  doc: ProjectDoc,
   moves: ReadonlyMap<string, { x: number; y: number }>,
   label: string
 ): void {
-  store.change(label, (snapshot) => {
+  changeSnapshot(doc, label, (snapshot) => {
     const documents = repositionDesigns(
       snapshot.documents,
       [...moves].flatMap(([key, position]) => {
-        const entry = store.getEntry(key)
+        const entry = containerEntry(doc, key)
 
         return entry ? [{ path: entry.path, id: entry.container.id, position }] : []
       })

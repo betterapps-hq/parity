@@ -1,10 +1,12 @@
 import { isInnerPath, locateInner, locateNode, type NodeRef } from "@parity-app/core"
 import type { CommandTarget, LayerTarget, MenuPlacement } from "@parity-app/extension-api"
+import { containerEntry } from "@parity-app/multiplayer"
 import type { ExtensionStatus } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
 import { type PageTarget, routePageTarget, routeRef } from "../canvas/route-pages.ts"
 import { commandsAt, runCommand, whenFactsOf } from "../extensions.ts"
+import type { DocSession } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { layerComponent } from "./layer-kind.ts"
 
@@ -84,10 +86,10 @@ export function pageOffers(route: string | undefined, placed: PlacedExtensions):
  * component, or a component's board on its own. Undefined for anything else, or for several things.
  */
 export function selectionComponent(
-  session: Pick<ProjectSession, "id" | "info" | "selection" | "store">
+  session: DocSession & Pick<ProjectSession, "id" | "info" | "selection">
 ): string | undefined {
   const selected = session.selection.get()
-  const entry = selected.design ? session.store.getEntry(selected.design) : undefined
+  const entry = selected.design ? containerEntry(session.doc, selected.design) : undefined
 
   if (!entry || (selected.nodes && selected.nodes.length > 1) || (selected.designs && selected.designs.length > 1)) {
     return undefined
@@ -98,7 +100,7 @@ export function selectionComponent(
   }
 
   const node = isInnerPath(selected.node)
-    ? locateInner(entry.container, selected.node, projectLibrary(session.store))?.node
+    ? locateInner(entry.container, selected.node, projectLibrary(session))?.node
     : locateNode(entry.container.root, selected.node)?.node
 
   return node && layerComponent(node, session.info.libraries)
@@ -108,9 +110,9 @@ export function selectionComponent(
  * The app's page the selection is of, whose extensions' commands it offers, as Open in browser: one page, or a layer in it.
  * Undefined for anything else, or for several things.
  */
-export function selectionPage(session: Pick<ProjectSession, "id" | "selection" | "store">): PageTarget | undefined {
+export function selectionPage(session: Pick<ProjectSession, "id" | "selection" | "doc">): PageTarget | undefined {
   const selected = session.selection.get()
-  const entry = selected.design ? session.store.getEntry(selected.design) : undefined
+  const entry = selected.design ? containerEntry(session.doc, selected.design) : undefined
 
   if (!entry || (selected.nodes && selected.nodes.length > 1) || (selected.designs && selected.designs.length > 1)) {
     return undefined

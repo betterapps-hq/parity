@@ -152,38 +152,13 @@ export {
 export { type Edge, handleBoxes } from "./handles.ts"
 
 export {
-  changedBesides,
-  type ChangeOptions,
-  checkpoint,
-  type Checkpoint,
-  type DesignHistory,
   type DesignSnapshot,
-  type DesignStep,
-  endGesture,
-  fileWrite,
-  type FileWrite,
-  type HistoryEntry,
-  historyLimit,
-  type HistoryState,
   mergedDocument,
-  openDesigns,
-  recordChange,
-  redoChange,
-  reloadFile,
-  revertTo,
-  saveFailure,
   savedView,
   type SaveState,
-  startSave,
   type TokenFailure,
-  undoChange,
-  unsavedPaths,
-  withoutModes,
-  withStylesheet,
-  writeFailed,
-  writeStarted,
-  writeSucceeded
-} from "./history.ts"
+  withoutModes
+} from "./snapshot.ts"
 
 export { openingDesigns } from "./home.ts"
 
@@ -358,14 +333,7 @@ export {
   videosFolder
 } from "./project-images.ts"
 
-export {
-  readRecoveryCopy,
-  recoveryCopy,
-  type RecoveryCopy,
-  recoveryCopySchema,
-  restoreLabel,
-  restoreRecovery
-} from "./recovery.ts"
+export { readRecoveryCopy, type RecoveryCopy, recoveryCopySchema, restoreLabel } from "./recovery.ts"
 
 export {
   addReferences,
@@ -454,7 +422,7 @@ export {
   typedSpacing
 } from "./spacing-handles.ts"
 
-export { editStatus, type EditStatus, type StatusOptions } from "./status.ts"
+export { editStatus, type EditStatus, type StatusInput, type StatusOptions } from "./status.ts"
 
 export { styleChanges } from "./style-changes.ts"
 

@@ -1,3 +1,4 @@
+import { containerEntries } from "@parity-app/multiplayer"
 import type { PictureFrame, PictureScreen, ProjectPicture, RenderJob } from "../shared/protocol.ts"
 import { bitmapsWaiting, type FrameShows, firstRowFrame, frameBitmap } from "./canvas/frame-bitmaps.ts"
 import { request } from "./service.ts"
@@ -27,7 +28,7 @@ interface ScreenFrames {
  * saved yet are never pictured: a picture that would show them waits for the next save. Stops when the function it
  * gives is called.
  */
-export function keepProjectPicture(session: Pick<ProjectSession, "id" | "info" | "store">): () => void {
+export function keepProjectPicture(session: Pick<ProjectSession, "doc" | "id" | "info" | "saver">): () => void {
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
   let taking = false
@@ -59,10 +60,10 @@ export function keepProjectPicture(session: Pick<ProjectSession, "id" | "info" |
       })
   }
 
-  let status = session.store.getSaveState().status
+  let status = session.saver.state().status
 
-  const unsubscribe = session.store.subscribe(() => {
-    const next = session.store.getSaveState().status
+  const unsubscribe = session.saver.subscribe(() => {
+    const next = session.saver.state().status
 
     if (status === "saving" && next === "saved") {
       schedule()
@@ -81,19 +82,19 @@ export function keepProjectPicture(session: Pick<ProjectSession, "id" | "info" |
 }
 
 async function takePicture(
-  session: Pick<ProjectSession, "id" | "info" | "store">,
+  session: Pick<ProjectSession, "doc" | "id" | "info" | "saver">,
   stopped: () => boolean
 ): Promise<void> {
   const screens = await framesDrawn(session, stopped)
 
-  if (stopped() || session.store.hasUnsaved()) {
+  if (stopped() || session.saver.hasUnsaved()) {
     return
   }
 
   const taken = await Promise.all(screens.map(screenPicture))
 
   // An edit made while the bitmaps were gathered may be in them.
-  if (stopped() || session.store.hasUnsaved()) {
+  if (stopped() || session.saver.hasUnsaved()) {
     return
   }
 
@@ -112,13 +113,13 @@ async function takePicture(
  * it's waiting for, so the picture comes after the canvas's own; or what there is after waiting at most 30 seconds.
  */
 async function framesDrawn(
-  session: Pick<ProjectSession, "id" | "store">,
+  session: Pick<ProjectSession, "doc" | "id">,
   stopped: () => boolean
 ): Promise<ScreenFrames[]> {
   const started = performance.now()
 
   for (;;) {
-    const screens = picturedScreens(session.store.getEntries(), session.store.getModes()).map((screen) => {
+    const screens = picturedScreens(containerEntries(session.doc), session.doc.modes()).map((screen) => {
       const frames: ScreenFrames = { screen, main: firstRowFrame(session.id, screen.design, screen.main.id) }
 
       if (screen.phone) {

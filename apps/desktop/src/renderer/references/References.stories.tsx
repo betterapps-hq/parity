@@ -1,4 +1,5 @@
 import type { Found } from "@parity-app/connectors"
+import { referenceEntries, updateReference } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
@@ -59,9 +60,9 @@ async function placedBesidePricing(by?: string, notes: string[] = []) {
   placeReferences(session, found, design("Pricing"), new Map(found.map((each) => [each.id, query])))
 
   if (by) {
-    for (const [index, entry] of session.store.getReferences().entries()) {
+    for (const [index, entry] of referenceEntries(session.doc).entries()) {
       const note = notes[index]
-      session.store.updateReference(entry.key, "Placed by an agent", (reference) => ({ ...reference, by, note }))
+      updateReference(session.doc, entry.key, "Placed by an agent", (reference) => ({ ...reference, by, note }))
     }
   }
 }
@@ -125,10 +126,10 @@ export const PictureExpired: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     await placedBesidePricing()
-    const { store } = example()
+    const { doc } = example()
 
-    for (const { key } of store.getReferences()) {
-      store.updateReference(key, "Expire", (reference) => ({
+    for (const { key } of referenceEntries(doc)) {
+      updateReference(doc, key, "Expire", (reference) => ({
         ...reference,
         image: { ...reference.image, expiresAt: 1 }
       }))

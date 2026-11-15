@@ -35,7 +35,7 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { clearConsole } from "../console-feed.ts"
 import { byDesign, type ConsoleMessage, type Level, type Tally, tally, useConsole } from "../console-store.ts"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { openSource } from "./code-editor.ts"
 import { allLevels, consoleFilterOf, type Shown, useConsoleFilter } from "./console-filter.ts"
@@ -263,7 +263,7 @@ function DesignGroup({
   messages: ConsoleMessage[]
   shown: ConsoleMessage[]
 }) {
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   const entry = entries.find((candidate) => candidate.key === design)
   const focused = focus !== undefined && focus === design
   const [open, setOpen] = useState(focus === undefined || focused)
@@ -360,7 +360,7 @@ function MessageRow({
 
   const frameName = ({ state, mode }: { state: string; mode: string }) => {
     const stateName = entry?.container.states?.find((candidate) => candidate.id === state)?.name ?? state
-    const modeName = resolveModes(session.store.getModes()).find((candidate) => candidate.id === mode)?.name ?? mode
+    const modeName = resolveModes(session.doc.modes()).find((candidate) => candidate.id === mode)?.name ?? mode
 
     return entry && (entry.container.states?.length ?? 0) > 1 ? `${stateName} in ${modeName}` : modeName
   }

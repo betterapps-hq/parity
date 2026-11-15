@@ -104,7 +104,7 @@ export const UnsavedChanges: Story = {
       await openProjects("example", "empty")
       await openAlso(blankProjectAt(folders[0]!))
       renameDesign("Pricing", "Pricing (annual)")
-      addNote(sessionAt(folders[0]!).store, "Hero copy needs a final pass")
+      addNote(sessionAt(folders[0]!).doc, "Hero copy needs a final pass")
     }
   ],
   play: async () => {
@@ -112,7 +112,7 @@ export const UnsavedChanges: Story = {
     await expect(
       await tabs.findByRole("button", { name: /^Close shadcn-vite, which has unsaved changes/ })
     ).toBeVisible()
-    await expect(example().store.hasUnsaved()).toBe(true)
+    await expect(example().saver.hasUnsaved()).toBe(true)
   }
 }
 

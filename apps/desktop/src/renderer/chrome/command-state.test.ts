@@ -1,7 +1,7 @@
 import type { ContainerSpec, DesignNode } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerEntry } from "../design-store.ts"
 import { type CommandContext, commandStates } from "./command-state.ts"
 import { type Command, keymap } from "./keymap.ts"
 

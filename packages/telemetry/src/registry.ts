@@ -4,6 +4,7 @@ import { appEvents } from "./app-events.ts"
 import { dataInvalid, projectUnsupported } from "./check-events.ts"
 import { connectorEvents } from "./connector-events.ts"
 import { reportSent } from "./diagnostics.ts"
+import { documentEvents } from "./document-events.ts"
 import { editingEvents } from "./editing-events.ts"
 import type { EventDefinition } from "./events.ts"
 import { filesEvents } from "./files-events.ts"
@@ -29,6 +30,7 @@ export const registeredEvents = [
   ...renderEvents,
   ...interfaceEvents,
   ...editingEvents,
+  ...documentEvents,
   ...filesEvents,
   ...projectEvents,
   ...processEvents,

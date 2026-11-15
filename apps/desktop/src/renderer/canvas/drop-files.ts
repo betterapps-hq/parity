@@ -16,6 +16,7 @@ import {
   sortDrop,
   type TakenFile
 } from "@parity-app/editor"
+import { addContainer, containerEntries, editFrame, updateContainer } from "@parity-app/multiplayer"
 import { toast } from "sonner"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { track } from "../report-error.ts"
@@ -55,7 +56,7 @@ export type FileDrop =
  * board around the frames.
  */
 export function fileDropAt(
-  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
   area: ParentNode,
   point: Point
 ): FileDrop {
@@ -171,7 +172,7 @@ export async function dropFiles(
   target: FileDrop,
   files: readonly File[]
 ): Promise<void> {
-  const { store, selection } = session
+  const { doc, selection } = session
   const taken = takenFrom(files)
 
   if (taken.length === 0) {
@@ -197,11 +198,11 @@ export async function dropFiles(
     const design = designOfMedia(
       nodes,
       added.map((image) => image.name),
-      store.getEntries().map((entry) => entry.container.id),
+      containerEntries(doc).map((entry) => entry.container.id),
       target.at
     )
 
-    const key = store.addContainer(store.mainPath, design, label)
+    const key = addContainer(doc, doc.main, design, label)
     selection.set({ design: key })
     recordDrop(added, key, true)
 
@@ -210,11 +211,11 @@ export async function dropFiles(
 
   const { hit, here } = target
   // In the frame they were dropped on, as the design is now that the files are saved.
-  const frame = store.editFrame(pickedIn(hit))
+  const frame = editFrame(doc, pickedIn(hit))
   let copies: string[] = []
 
   if (frame) {
-    store.updateContainer(frame.design, label, (container) => {
+    updateContainer(doc, frame.design, label, (container) => {
       const placed = pasteHere(container, nodes, here, frame.state, frame.viewport)
       copies = placed.copies
 

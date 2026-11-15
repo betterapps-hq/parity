@@ -1,7 +1,8 @@
-import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import type { ContainerSpec } from "@parity-app/core"
 import type { RecoveryCopy } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { DesignStore } from "./design-store.ts"
+import { openTestSession } from "./doc-fixtures.ts"
 import { keepRecovery } from "./recovery.ts"
 
 const home: ContainerSpec = {
@@ -17,26 +18,18 @@ afterEach(() => vi.useRealTimers())
 
 /** A project open with nothing unsaved, a keeper for it, and what the keeper was asked to keep, `undefined` for removed. */
 function setup() {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [home] } }],
-    defaultModeSettings,
-    "app.par",
-    {
-      saveDocument: async () => undefined,
-      autosave: () => false
-    }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers: [home] } }])
 
   const kept: (RecoveryCopy | undefined)[] = []
 
-  const keeper = keepRecovery(store, async (copy) => {
+  const keeper = keepRecovery(designs, async (copy) => {
     kept.push(copy)
   })
 
   const rename = (name: string) =>
-    store.updateContainer("app.par#home", "Rename design", (container) => ({ ...container, name }))
+    updateContainer(designs.doc, "app.par#home", "Rename design", (container) => ({ ...container, name }))
 
-  return { store, keeper, kept, rename }
+  return { designs, keeper, kept, rename }
 }
 
 describe("keepRecovery", () => {
@@ -64,11 +57,11 @@ describe("keepRecovery", () => {
   })
 
   it("removes the copy once the changes are saved", async () => {
-    const { store, keeper, kept, rename } = setup()
+    const { designs, keeper, kept, rename } = setup()
     keeper.start()
     rename("Home page")
     await vi.runAllTimersAsync()
-    await store.flush()
+    await designs.saver.flush()
     await vi.runAllTimersAsync()
 
     expect(kept.at(-1)).toBeUndefined()

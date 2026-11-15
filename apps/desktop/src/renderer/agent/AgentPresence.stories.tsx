@@ -1,10 +1,10 @@
-import { defaultModeSettings, emptyDocument } from "@parity-app/core"
+import { emptyDocument } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { ProjectContext } from "../canvas/context.ts"
 import { ComponentStore } from "../components-store.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { registerFrame } from "../frame.ts"
 import { keepRecovery } from "../recovery.ts"
 import { SelectionStore } from "../selection.ts"
@@ -129,24 +129,21 @@ function Frame({ board }: { board: MockBoard }) {
 
 /**
  * A canvas of mock boards with agents' presence over it, playing calls as an agent would make them. Moves land on the
- * boards at once, as the design store applies them, and the boards are drawn where they're held until dragged.
+ * boards at once, as the project document applies them, and the boards are drawn where they're held until dragged.
  */
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
 
   const session = useMemo(() => {
-    const store = new DesignStore([{ path: "app.par", document: emptyDocument() }], defaultModeSettings, "app.par", {
-      saveDocument: async () => undefined,
-      autosave: () => false
-    })
+    const designs = openTestSession([{ path: "app.par", document: emptyDocument() }])
 
     return new ProjectSession(
       {
         id: tab,
-        store,
+        designs,
         selection: new SelectionStore(),
         components: new ComponentStore(),
-        recovery: keepRecovery(store, async () => undefined)
+        recovery: keepRecovery(designs, async () => undefined)
       },
       // SAFETY: AgentPresence reads the session's id, and its editor, which a story without tldraw leaves out.
       {} as SessionParts

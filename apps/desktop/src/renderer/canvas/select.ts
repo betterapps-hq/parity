@@ -16,7 +16,13 @@ import {
   selectedNodes,
   type Selection
 } from "@parity-app/editor"
-import type { ContainerEntry, DesignStore } from "../design-store.ts"
+import {
+  type ContainerEntry,
+  containerEntries,
+  containerEntry,
+  editFrame,
+  type ProjectDoc
+} from "@parity-app/multiplayer"
 
 /** Select inverse, select matching layers, and stepping from one design to the next, as Figma's keys do them. */
 
@@ -25,8 +31,8 @@ import type { ContainerEntry, DesignStore } from "../design-store.ts"
  * layers beside the one picked last, in the same layout or slot; otherwise every design that isn't selected, or every
  * design when nothing is. When everything was selected, nothing is.
  */
-export function inverseSelection(store: DesignStore, current: Selection): Selection {
-  const entry = current.design ? store.getEntry(current.design) : undefined
+export function inverseSelection(doc: ProjectDoc, current: Selection): Selection {
+  const entry = current.design ? containerEntry(doc, current.design) : undefined
 
   if (entry && current.node) {
     const location = locateNode(entry.container.root, current.node)
@@ -47,8 +53,7 @@ export function inverseSelection(store: DesignStore, current: Selection): Select
   const selected = new Set(current.mode && current.design ? [current.design] : selectedDesigns(current))
 
   return designsSelection(
-    store
-      .getEntries()
+    containerEntries(doc)
       .map((candidate) => candidate.key)
       .filter((key) => !selected.has(key))
   )
@@ -129,8 +134,8 @@ export function matchingLayers(
  * Select matching layers: with layers selected, every layer in their design that matches one of them; with designs
  * selected, every design of the same kind, screens or components. Undefined when there's nothing to match.
  */
-export function matchingSelection(store: DesignStore, current: Selection): Selection | undefined {
-  const frame = store.editFrame(current)
+export function matchingSelection(doc: ProjectDoc, current: Selection): Selection | undefined {
+  const frame = editFrame(doc, current)
   const layers = selectedNodes(current)
 
   if (frame && layers.length > 0) {
@@ -155,10 +160,9 @@ export function matchingSelection(store: DesignStore, current: Selection): Selec
     return undefined
   }
 
-  const kinds = new Set(designs.map((key) => isComponent(store.getEntry(key))))
+  const kinds = new Set(designs.map((key) => isComponent(containerEntry(doc, key))))
 
-  const found = store
-    .getEntries()
+  const found = containerEntries(doc)
     .filter((candidate) => kinds.has(isComponent(candidate)))
     .map((candidate) => candidate.key)
 

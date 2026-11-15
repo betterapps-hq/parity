@@ -13,6 +13,7 @@ import {
   slotComponents
 } from "@parity-app/core"
 import { slotPreviewTree } from "@parity-app/editor"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { ArrowLeft, SquareDashed } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
 import { toast } from "sonner"
@@ -20,10 +21,10 @@ import { useProject } from "../canvas/context.ts"
 import { kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
 import { treePreviewJob, useOneOffPreview } from "../component-previews.ts"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { shownName, TypeTile } from "../inspector/controls/instance-section.tsx"
 import { type LayersDrag, SlotPickerField } from "../inspector/controls/slot-picker.tsx"
+import { useContainerEntries } from "../project-doc.ts"
 import { useHoverCard } from "./hover-card.ts"
 import { updateAndRecord } from "./inspector-events.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -40,8 +41,8 @@ const slotColor = kindColors.component
 /** The names of the layers filling a slot, as Layers names them; none while it shows its placeholder. */
 function useFillNames(slot: InstanceSlot): string[] {
   const session = useProject()
-  const entries = useContainerEntries(session.store)
-  const library = session.store.getComponentLibrary()
+  const entries = useContainerEntries(session)
+  const library = projectLibrary(session)
 
   return slot.fill.map((node) => layerLabel(node, entries, library, session.info.libraries))
 }
@@ -50,10 +51,10 @@ function useFillNames(slot: InstanceSlot): string[] {
  * Changes what fills a slot as one undoable step, recorded as the slot's layers, by id, before and after (PAR-713).
  */
 function useSlotChange(entry: ContainerEntry, instance: InstanceNode) {
-  const { store } = useProject()
+  const { doc } = useProject()
 
   return (slot: InstanceSlot, label: string, change: (container: ContainerSpec) => ContainerSpec) =>
-    updateAndRecord(store, entry.key, label, change, {
+    updateAndRecord(doc, entry.key, label, change, {
       field: `slots.${slot.name}`,
       layers: [instance.id],
       read: (container) => {
@@ -89,7 +90,7 @@ function SlotState({ slot }: { slot: InstanceSlot }) {
 function SlotPicture({ slot }: { slot: InstanceSlot }) {
   const session = useProject()
   const filled = slot.fill.length > 0
-  const library = session.store.getComponentLibrary()
+  const library = projectLibrary(session)
 
   const job = treePreviewJob(session, `slot:${slot.node.id}:${JSON.stringify(slot.fill).length}`, (viewport) =>
     slotPreviewTree(slot, library, viewport)
@@ -181,8 +182,8 @@ function SlotCard({
  */
 function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot }) {
   const session = useProject()
-  const entries = useContainerEntries(session.store)
-  const library = session.store.getComponentLibrary()
+  const entries = useContainerEntries(session)
+  const library = projectLibrary(session)
   const card = useHoverCard()
   const clear = useClear(entry, instance)
   const change = useSlotChange(entry, instance)
@@ -278,8 +279,8 @@ function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: I
 
 /** One of the design's own instances' slots, after its params. Nothing for a component without slots. */
 export function InstanceSlotFields({ entry, instance }: { entry: ContainerEntry; instance: InstanceNode }) {
-  const { store } = useProject()
-  const slots = instanceSlots(instance, projectLibrary(store))
+  const session = useProject()
+  const slots = instanceSlots(instance, projectLibrary(session))
 
   return (
     slots.length > 0 && (
@@ -306,11 +307,10 @@ export function SlotPanel({
   slot: InstanceSlot
 }) {
   const session = useProject()
-  const { store } = session
-  const entries = useContainerEntries(store)
+  const entries = useContainerEntries(session)
   const clear = useClear(entry, instance)
   const filled = slot.fill.length > 0
-  const name = layerLabel(instance, entries, store.getComponentLibrary(), session.info.libraries)
+  const name = layerLabel(instance, entries, projectLibrary(session), session.info.libraries)
 
   return (
     <>

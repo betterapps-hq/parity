@@ -11,6 +11,7 @@ import {
 } from "@buildkitgg/shadcn-baseui-kit"
 import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
+import { containerEntries, containerEntry } from "@parity-app/multiplayer"
 import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
@@ -18,6 +19,7 @@ import type { ExtensionStatus } from "../../shared/protocol.ts"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { type PageTarget, routeRef } from "../canvas/route-pages.ts"
 import { commandsAt, extensionsOf, runCommand, whenFactsOf } from "../extensions.ts"
+import { projectLibrary } from "../project-doc.ts"
 import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { saved, saveState } from "../saved.ts"
@@ -121,7 +123,7 @@ function repeatInsert(key: string): void {
   const session = activeSession()
 
   if (session) {
-    insertOption(session, offerOf(session.info, session.store.getEntries()), key)
+    insertOption(session, offerOf(session.info, containerEntries(session.doc)), key)
   }
 }
 
@@ -203,8 +205,8 @@ function commandItems(): Item[] {
 
 /** The open project's designs, their layers, the components it can insert and its tokens. */
 function projectItems(session: ProjectSession): Item[] {
-  const entries = session.store.getEntries()
-  const library = session.store.getComponentLibrary()
+  const entries = containerEntries(session.doc)
+  const library = projectLibrary(session)
   const items: Item[] = []
 
   for (const entry of entries) {
@@ -225,7 +227,7 @@ function projectItems(session: ProjectSession): Item[] {
   const nodes = projectNodes(session, { fresh: true })
 
   for (const design of nodes.ofType("design", { owner: designOwner })) {
-    const entry = session.store.getEntry(design.ref.key)
+    const entry = containerEntry(session.doc, design.ref.key)
 
     if (!entry) {
       continue

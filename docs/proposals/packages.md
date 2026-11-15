@@ -63,8 +63,11 @@ when it's spread through UI code. Today:
      [create.ts](../../apps/desktop/src/renderer/chrome/create.ts): inserting, Make component, where new designs go (in
      `@parity-app/editor` since PAR-32);
    - [snap.ts](../../apps/desktop/src/renderer/canvas/snap.ts): snapping (in `@parity-app/editor` since PAR-33);
-   - [design-store.ts](../../apps/desktop/src/renderer/design-store.ts): undo, unsaved tracking and save state, inside a
-     store that also holds React hooks (in `@parity-app/editor` since PAR-34);
+   - `design-store.ts`: undo, unsaved tracking and save state, inside a store that also holds React hooks (in
+     `@parity-app/editor` since PAR-34; since PAR-1112, undo is `ProjectDoc` and saving `ProjectSaver`, in
+     [project-doc.ts](../../packages/multiplayer/src/project-doc.ts) and
+     [saver.ts](../../packages/multiplayer/src/saver.ts) in `@parity-app/multiplayer`, and the window keeps the hooks in
+     [project-doc.ts](../../apps/desktop/src/renderer/project-doc.ts));
    - [selection.ts](../../apps/desktop/src/renderer/selection.ts) and `editingState` in `LayerPanel.tsx`, with copies in
      the canvas menu and nudging: the selection model, and which design, state and viewport an edit lands on (in
      `@parity-app/editor` since PAR-570, as `selection.ts` and `edit-frame.ts`; the app keeps the store and its hooks).

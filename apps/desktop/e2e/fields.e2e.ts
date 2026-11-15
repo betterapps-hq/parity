@@ -93,17 +93,19 @@ describe("typing in a length field", () => {
     // As an agent's edit would.
     await app.page.evaluate((brand) => {
       const e2e = window.e2e!
-      e2e.session().store.updateContainer(e2e.key("Pricing"), "Agent", (container) => {
-        const edit = (node: typeof container.root): typeof container.root => {
-          if (node.id === brand) {
-            return { ...node, style: { ...node.style, width: { step: 10 } } }
-          }
+      const key = e2e.key("Pricing")
+      const { doc } = e2e.session()
+      const container = doc.design(key)!
 
-          return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+      const edit = (node: typeof container.root): typeof container.root => {
+        if (node.id === brand) {
+          return { ...node, style: { ...node.style, width: { step: 10 } } }
         }
 
-        return { ...container, root: edit(container.root) }
-      })
+        return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+      }
+
+      doc.transact("Agent", [{ op: "replaceRoot", design: key, root: edit(container.root) }], { origin: "agent" })
     }, brand)
     await expect.poll(brandWidth).toBe(10)
     expect(await width().inputValue()).toBe("12")

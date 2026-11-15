@@ -1,9 +1,10 @@
 import { defaultModeSettings } from "@parity-app/core"
 import { newDesign } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ProjectInfo, ServiceMethod, ServiceMethods } from "../shared/protocol.ts"
 import { ComponentStore } from "./components-store.ts"
-import { DesignStore } from "./design-store.ts"
+import { openTestSession } from "./doc-fixtures.ts"
 import { keepRecovery } from "./recovery.ts"
 import { SelectionStore } from "./selection.ts"
 import { preloadAnswers } from "./service.ts"
@@ -88,22 +89,17 @@ const info: ProjectInfo = {
 
 /** An open project holding Pricing, with a Button component, saved nowhere and with no canvas drawn. */
 function openSession(): InstanceType<typeof ProjectSession> {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [pricing] } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers: [pricing] } }])
 
   return new ProjectSession(
     {
       id: info.id,
-      store,
+      designs,
       selection: new SelectionStore(),
       components: new ComponentStore(),
-      recovery: keepRecovery(store, async () => undefined)
+      recovery: keepRecovery(designs, async () => undefined)
     },
-    // SAFETY: what's kept here reads the project's info and stores, not its guest or tokens, which need a browser.
+    // SAFETY: what's kept here reads the project's info, document and stores, not its guest or tokens, which need a browser.
     { info } as SessionParts
   )
 }
@@ -160,7 +156,7 @@ describe("when its tab closes", () => {
   it("forgets the accessibility checks and keeps none that's under way", async () => {
     const session = openSession()
     const checks = checksOf(session)
-    const entry = session.store.getEntry("app.par#pricing")!
+    const entry = containerEntry(session.doc, "app.par#pricing")!
     void checks.run(entry)
     expect(checks.get(entry.key)?.status).toBe("checking")
     const told = vi.fn<() => void>()

@@ -58,7 +58,7 @@ import { revealSelection } from "../../chrome/reveal.ts"
 import { type SelectedLayer, useSelectedLayer } from "../../chrome/selected-layer.ts"
 import { AddProp as AddParam, NewPropRow, SlotPropRow } from "../../chrome/slot-props.tsx"
 import { useComponents } from "../../components-store.ts"
-import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../design-store.ts"
+import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../project-doc.ts"
 import { useSelection } from "../../selection.ts"
 import { FieldGrid, nameButton, TitleMenu } from "../controls/field-row.tsx"
 import { InstanceSection, type PropRow, PropRows, type PropValueRow } from "../controls/instance-section.tsx"
@@ -73,9 +73,9 @@ type CodeNode = Extract<DesignNode, { type: "component" }>
  * defined with their defaults. `layer` is another layer to show, where nothing is selected, as an exploration's root.
  */
 export function PropsSection({ layer: given }: { layer?: SelectedLayer } = {}) {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
   const layer = useSelectedLayer() ?? given
 
   if (!selected.node && !given) {
@@ -97,9 +97,9 @@ export function AttributesSection({ layer: given }: { layer?: SelectedLayer } = 
 
 /** A selected instance's props, or what a code component's passes on, edited in the state being edited. */
 function InstanceProps({ layer, part }: { layer: SelectedLayer; part: "props" | "attributes" }) {
-  const { store } = useProject()
+  const { doc } = useProject()
   // A number prop previews by being made, as the component has to draw again for it, and is taken back unless it's made.
-  const propPreview = useChangePreview(store, layer.entry.key)
+  const propPreview = useChangePreview(doc, layer.entry.key)
   const previewedProp = useMemo(() => new PreviewedProp(propPreview), [propPreview])
   const { entry, node, override, change, reset } = layer
   const changed = (name: string) => changesField(override, { kind: "props", key: name })
@@ -563,11 +563,11 @@ function DesignInstanceProps({
   onReset: (name: string) => void
 }) {
   const session = useProject()
-  const { store, selection } = session
-  const entries = useContainerEntries(store)
+  const { doc, selection } = session
+  const entries = useContainerEntries(session)
   const component = entries.find((candidate) => candidate.container.id === node.design)
   // A library's design isn't one of the project's, so it's placed and detached here but edited in the library.
-  const design = component?.container ?? store.getComponentLibrary().get(node.design)
+  const design = component?.container ?? projectLibrary(session).get(node.design)
 
   const from = component
     ? undefined
@@ -581,7 +581,7 @@ function DesignInstanceProps({
     )
   }
 
-  const library = projectLibrary(store)
+  const library = projectLibrary(session)
 
   // The instance's own field, as the design has it, to record what a change to it did.
   const instanceField = (name: "design") => ({
@@ -607,14 +607,14 @@ function DesignInstanceProps({
       .map((candidate) => ({ id: candidate.container.id, name: candidate.container.name })),
     onSwap: (id: string) =>
       updateAndRecord(
-        store,
+        doc,
         entry.key,
         "Swap instance",
         (container) => swapInstance(container, node.id, id, library),
         instanceField("design")
       ),
     onResetOverrides: () =>
-      updateAndRecord(store, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
+      updateAndRecord(doc, entry.key, "Reset overrides", (container) => resetInstance(container, node.id), {
         field: "overrides",
         layers: [node.id],
         read: (container) => {
@@ -623,8 +623,8 @@ function DesignInstanceProps({
           return instance?.type === "instance" ? instance.overrides : undefined
         }
       }),
-    onPush: component && (() => pushAndRecord(store, entry.key, component.key, node.id)),
-    onDetach: () => detachAndRecord(store, entry.key, node.id)
+    onPush: component && (() => pushAndRecord(doc, entry.key, component.key, node.id)),
+    onDetach: () => detachAndRecord(session, entry.key, node.id)
   }
 
   return (
@@ -757,7 +757,7 @@ function ParamRows({ entry, params }: { entry: ContainerEntry; params: [string, 
   const [error, setError] = useState<string>()
 
   const record = (label: string, name: string, change: (container: ContainerSpec) => ContainerSpec, gesture?: string) =>
-    updateAndRecord(session.store, entry.key, label, change, {
+    updateAndRecord(session.doc, entry.key, label, change, {
       field: `params.${name}`,
       read: (container) => paramValue(container, name),
       gesture
