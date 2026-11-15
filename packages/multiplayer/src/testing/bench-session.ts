@@ -33,6 +33,15 @@ interface Row {
 const runOptions = { iterations: 5, time: 1000 }
 
 /**
+ * Opening runs a set number of times, warmup included, not for a set time: each open first clones the project, so a
+ * session that opens in microseconds would clone it tens of thousands of times.
+ */
+const openOptions = { iterations: 20, time: 0, warmupIterations: 1, warmupTime: 0 }
+
+/** 10,000 edits on the very large project take longer than a test's minute. */
+const memoryTimeout = 600_000
+
+/**
  * The benchmark's scenarios against one kind of session, as Vitest benches, one test per project size and scenario.
  * After them it prints a table of the times per unit, and, when Node runs with `--expose-gc`, the memory a session holds.
  */
@@ -96,7 +105,7 @@ function benchSize(size: string, options: ProjectSize, open: OpenSession, rows: 
       () => {
         open(fresh)
       }
-    ).run(runOptions)
+    ).run(openOptions)
 
     rows.push({ size, scenario: "Open the project", unit: "open", ms: result.latency.mean })
     expect(result.latency.mean).toBeGreaterThan(0)
@@ -271,7 +280,7 @@ function memorySize(
 ): void {
   const collect = globalThis.gc
 
-  test.skipIf(!collect)(`${size}: memory`, () => {
+  test.skipIf(!collect)(`${size}: memory`, { timeout: memoryTimeout }, () => {
     const heap = () => {
       collect!()
       collect!()
