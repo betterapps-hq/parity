@@ -94,7 +94,7 @@
   "storybook": null,
   "notes": [
     "styles the builder found: src/index.css",
-    "3 components in 4 files from the project's files",
+    "3 components in 4 files from tsconfig.json",
     "not read, since they mount the app: src/main.tsx",
     "no .par project file yet"
   ]
