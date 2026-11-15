@@ -310,13 +310,6 @@ export function detectPeers(
     : { found: false, summary: `None of ${versions.packages.join(", ")} in package.json` }
 }
 
-/** The adapters Parity opens projects with, by what they integrate. */
-export interface Adapters {
-  renderers: RendererAdapter[]
-  builders: BuilderAdapter[]
-  entities: EntitiesAdapter[]
-}
-
 /**
  * Mounts components of one UI framework (React, Vue, Svelte…).
  *
@@ -500,6 +493,36 @@ export function extensionBuilder(pkg: BuilderPackage): BuilderDescription | unde
   }
 
   return description
+}
+
+/** A tool one of Parity's own extensions gives: its prefix and name, and its versions from its peer dependencies. */
+export type ExtensionTool = Pick<Adapter, "id" | "name"> & {
+  versions: ToolVersions
+  /** Whether it styles the project, which detection lists before the tools whose files are entities, as it always has. */
+  styles: boolean
+}
+
+/** What of an extension's `package.json` names its tool. */
+export interface ToolPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    versions?: ToolVersionsExtra
+    contributes?: { providers?: object }
+  }
+}
+
+/**
+ * The tool an extension gives (PAR-1095), found when the project's package.json declares one of its peer dependencies
+ * and listed with its version among what the project uses; nothing for one without peer dependencies.
+ */
+export function extensionTool(pkg: ToolPackage): ExtensionTool | undefined {
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  const styles = "styles" in (pkg.parity.contributes?.providers ?? {})
+
+  return versions && { id: pkg.parity.prefix, name: pkg.parity.displayName, versions, styles }
 }
 
 /** What a builder found: its build tool's version, asked of the tool itself, and its config file. */

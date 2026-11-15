@@ -1,6 +1,5 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { adapters, extensionTools } from "@parity-app/adapters"
 import {
   type BuilderDetection,
   detectPeers,
@@ -23,9 +22,7 @@ import {
   readPackage
 } from "@parity-app/project"
 import { extractTokens } from "@parity-app/tokens"
-
-// The adapters the desktop app opens projects with.
-const { renderers, builders } = adapters
+import { builders, entities, renderers, tools } from "./extensions.ts"
 
 /**
  * The version cutoff depends on the date, so snapshots are taken as of a fixed one and don't change by themselves. Move
@@ -85,7 +82,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   const rendererFound = (await detectAdapters(project, renderers)).find(({ detection }) => detection.found)
   const renderer = rendererFound?.adapter
 
-  const others = (await detectAdapters(project, adapters.entities)).filter(({ detection }) => detection.found)
+  const others = (await detectAdapters(project, entities)).filter(({ detection }) => detection.found)
 
   if (!renderer) {
     problems.push(`No renderer supports ${pkg.name ?? root}`)
@@ -111,7 +108,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
 
   const builderAdapter = builders.find((adapter) => adapter.id === builder?.id)
 
-  const tools = extensionTools.flatMap((tool) => {
+  const toolsFound = tools.flatMap((tool) => {
     const found = detectPeers(pkg, tool.versions)
 
     return found.found ? [{ adapter: tool, detection: found }] : []
@@ -124,9 +121,9 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
       ...(rendererFound ? [rendererFound] : []),
       ...(builder && builderAdapter ? [{ adapter: builderAdapter, detection: builder }] : []),
       // In the order detection has always listed them: the styling framework, then the entities, then the rest.
-      ...tools.filter(({ adapter }) => adapter.styles),
+      ...toolsFound.filter(({ adapter }) => adapter.styles),
       ...others,
-      ...tools.filter(({ adapter }) => !adapter.styles)
+      ...toolsFound.filter(({ adapter }) => !adapter.styles)
     ],
     checkedOn
   )

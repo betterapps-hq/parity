@@ -73,9 +73,10 @@ snapshot only.
 
 ## By kind of tool
 
-Every adapter Parity opens projects with is listed once, in `packages/adapters`, which the project service, the
-builder's process, Storybook's example project and the validation projects all read. Supporting a new tool means writing
-its adapter and adding it to that list. Each adapter can bring its tool's logo, which its status bar item shows.
+Every tool Parity opens projects with is an extension, which describes what it provides in its package.json and answers
+through its host. The project service lists Parity's own extensions in `apps/desktop/src/utility/extensions.ts`;
+supporting a new tool means writing its extension and adding it there. Each extension brings its tool's logo, which its
+status bar item shows.
 
 When a project opens, every adapter's `detect` is asked, all through the same context (the root, its package.json and
 its files), whether the project uses its tool; it says what it found and its config file, and a builder asks its build

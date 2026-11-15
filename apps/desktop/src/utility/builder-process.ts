@@ -1,5 +1,5 @@
-import { builders } from "@parity-app/adapters/builders"
 import { nodePort } from "@parity-app/channel"
+import { viteBuilder } from "@parity-app/extension-vite/builder"
 import { serveBuilderProcess } from "@parity-app/processes"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
 // One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
@@ -19,7 +19,8 @@ serveBuilderProcess(
     },
     exit: () => process.exit(0)
   },
-  builders
+  // The entry modules of the built-in builders' extensions, as their manifests name them.
+  [viteBuilder]
 )
 
 keepCompiledCode()

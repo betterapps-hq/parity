@@ -8297,14 +8297,15 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
 `apps/desktop/src/utility/projects.ts`; Storybook's item and logo from its extension's manifest too, and Vite's,
-React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters in
-`packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+React's, Tailwind's and TanStack Router's from their extensions' manifests; the list of Parity's own extensions in
+`apps/desktop/src/utility/extensions.ts`; and `chrome/StatusBar.tsx`, which draws `info.status` and the extensions'
+items.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
-an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
-its own id), and `packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook,
-`chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
-(`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
+an item without an icon carries its adapter's logo; an untested version says so), and
+`packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook, `chrome/StatusBar.stories.tsx`, whose
+stand-in host lists Vite's, React's, Tailwind's and Storybook's extensions with what their code sets
+(`standInExtensions` in `renderer/stories/host.ts`). Gaps: the story play functions weren't run.
 
 ### The status bar's process lights stay off the main thread (PAR-524)
 

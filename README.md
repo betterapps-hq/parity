@@ -111,7 +111,6 @@ serves them as MCP tools, and `parity skill` prints the skill that teaches an ag
 | `packages/project`         | Detecting and reading a project: its tools, configs, libraries and Storybook.                  |
 | `packages/extension-react` | React as an extension, which reads components and draws them in frames.                        |
 | `packages/extension-vite`  | Vite as an extension, which runs a project's own Vite.                                         |
-| `packages/adapters`        | The one list of adapters Parity opens projects with.                                           |
 | `packages/cli`             | The `parity` command and MCP server, and the skill for agents.                                 |
 | `packages/libgen`          | Writes a `.lib.par` by inspecting a component library, an icon set or an app.                  |
 | `packages/registry`        | Parity's own `.lib.par` files, for libraries that don't ship one.                              |
