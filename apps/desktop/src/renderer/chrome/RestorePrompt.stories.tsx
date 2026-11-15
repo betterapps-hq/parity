@@ -13,7 +13,7 @@ import { RestorePrompt } from "./RestorePrompt.tsx"
  * takes back. Discard drops the copy. Escape and clicking away do nothing.
  */
 const meta = {
-  title: "Parity/Chrome/Restore prompt",
+  title: "Parity/Chrome/Prompts/Restore",
   component: RestorePrompt,
   render: () => (
     <>

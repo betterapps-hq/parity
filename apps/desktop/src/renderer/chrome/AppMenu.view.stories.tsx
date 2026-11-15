@@ -7,7 +7,7 @@ import { setPreferences } from "./preferences.ts"
 
 /** View: Home, zoom, moving between designs, and what the window shows. */
 const meta = {
-  title: "Parity/Chrome/App menu/View",
+  title: "Parity/Chrome/Menus/App menu/View",
   ...menuStories
 } satisfies Meta<typeof AppMenu>
 

@@ -13,7 +13,7 @@ import { setLayout } from "./layout.ts"
  * worst first within each; and a design with errors or warnings says so beside its name on the canvas.
  */
 const meta = {
-  title: "Parity/Chrome/Console",
+  title: "Parity/Chrome/Panels/Console",
   component: AppWindow,
   decorators: [
     (Story) => (

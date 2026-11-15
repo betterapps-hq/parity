@@ -6,7 +6,7 @@ import { exampleOpen } from "./chrome-fixtures.tsx"
 
 /** Help: finding things, reporting a problem, upkeep under Developer, then updates, the Parity CLI and About. */
 const meta = {
-  title: "Parity/Chrome/App menu/Help",
+  title: "Parity/Chrome/Menus/App menu/Help",
   ...menuStories
 } satisfies Meta<typeof AppMenu>
 

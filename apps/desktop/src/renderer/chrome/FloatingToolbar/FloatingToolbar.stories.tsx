@@ -14,7 +14,7 @@ import { FloatingToolbar } from "./FloatingToolbar.tsx"
  * window with designs framed.
  */
 const meta = {
-  title: "Parity/Chrome/Toolbar",
+  title: "Parity/Chrome/Window/Toolbar",
   component: FloatingToolbar,
   render: () => <AppWindow />,
   decorators: [Window],

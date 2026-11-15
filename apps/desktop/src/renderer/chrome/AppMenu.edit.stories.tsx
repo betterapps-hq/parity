@@ -9,7 +9,7 @@ import { renameDesign } from "./chrome-fixtures.tsx"
 
 /** Edit: history, the clipboard, copying pictures and styles, then what changes or selects what's selected. */
 const meta = {
-  title: "Parity/Chrome/App menu/Edit",
+  title: "Parity/Chrome/Menus/App menu/Edit",
   ...menuStories
 } satisfies Meta<typeof AppMenu>
 

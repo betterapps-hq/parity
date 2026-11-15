@@ -25,7 +25,7 @@ import { StatusBar } from "./StatusBar.tsx"
  * what it opens.
  */
 const meta = {
-  title: "Parity/Chrome/Status bar",
+  title: "Parity/Chrome/Window/Status bar",
   component: StatusBar,
   decorators: [AtBottom],
   loaders: [clearNotifications]

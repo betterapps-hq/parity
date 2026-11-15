@@ -43,7 +43,7 @@ function Preview({
 }
 
 const meta = {
-  title: "Parity/Chrome/Report a problem",
+  title: "Parity/Chrome/Dialogs/Report a problem",
   component: Preview,
   args: { state: { phase: "editing" } }
 } satisfies Meta<typeof Preview>

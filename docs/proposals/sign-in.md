@@ -1,8 +1,8 @@
 # Proposal: signing in with WorkOS
 
 Status: draft, 2026-11-05 (PAR-610). `@parity-app/account` is built (PAR-613), and so is the app's side (PAR-612),
-except trying it in an installed build. The screens are the stories under Parity/Sign in
-([SignIn.stories.tsx](../../apps/desktop/src/renderer/account/SignIn.stories.tsx)), which replaced the exploration's
+except trying it in an installed build. The screens are the stories under Parity/Sign in (starting at
+[SignIn.stories.tsx](../../apps/desktop/src/renderer/account/SignIn.stories.tsx)), which replaced the exploration's
 (PAR-798), and the account menu is [AccountMenu.tsx](../../apps/desktop/src/renderer/account/AccountMenu.tsx). The work
 is in Linear, PAR-611 to PAR-616.
 

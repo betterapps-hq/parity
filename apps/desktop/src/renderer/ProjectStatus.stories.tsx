@@ -9,7 +9,7 @@ import type { Tab } from "./workspace.ts"
  * couldn't open. Parity / App shows them in the whole window.
  */
 const meta = {
-  title: "Parity/Chrome/Opening a project",
+  title: "Parity/Chrome/Prompts/Opening a project",
   parameters: { layout: "fullscreen" },
   decorators: [
     (Story) => (
