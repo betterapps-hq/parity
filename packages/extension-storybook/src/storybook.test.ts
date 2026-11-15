@@ -4,6 +4,7 @@ import packageJson from "../package.json" with { type: "json" }
 import {
   componentsWithStories,
   projectStorybook,
+  readLastRead,
   readStoryIndex,
   scriptsOf,
   servesStories,
@@ -56,6 +57,14 @@ describe("the Storybook extension", () => {
     expect(projectStorybook(undefined, ".storybook", {})).toEqual({ configDir: ".storybook", stories: {} })
     expect(componentsWithStories(projectStorybook(scripts, "", stories))).toEqual(["Button"])
     expect(scriptsOf("not json")).toBeUndefined()
+  })
+
+  it("reads back what the last import kept, so a host started again shows it, and nothing it can't read", () => {
+    const kept = { scripts: { storybook: "storybook dev" }, stories: { Button: [{ path: "src/b.stories.tsx" }] } }
+
+    expect(readLastRead(structuredClone(kept))).toEqual(kept)
+    expect(readLastRead({ stories: "none" })).toBeUndefined()
+    expect(readLastRead(undefined)).toBeUndefined()
   })
 
   it("leaves out index entries of kinds it doesn't know", () => {

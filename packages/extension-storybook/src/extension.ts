@@ -5,9 +5,11 @@ import { exportStoryScreen, importStories } from "./screens.ts"
 import {
   componentsWithStories,
   type IndexEntry,
+  type LastRead,
   type PageKind,
   type ProjectStorybook,
   projectStorybook,
+  readLastRead,
   readStoryIndex,
   scriptsOf,
   servesStories,
@@ -53,8 +55,11 @@ export type StorybookApi = {
 export function activate(parity: Parity): StorybookApi {
   const { root } = parity.project
 
-  // Until the story files are read, Storybook is found in its usual folder, with no stories.
-  let storybook: ProjectStorybook = projectStorybook(undefined, configDir(parity), {})
+  // What the last import read, kept with the project, so a host started again shows it before the next import. Until
+  // the story files are read, Storybook is found in its usual folder, with no stories.
+  const saved = readLastRead(parity.state.project.get("lastRead"))
+  let scripts = saved?.scripts
+  let storybook: ProjectStorybook = projectStorybook(scripts, configDir(parity), saved?.stories ?? {})
   let shown: string[] = []
   let read: () => void = () => undefined
   const firstRead = new Promise<void>((resolve) => (read = resolve))
@@ -105,7 +110,15 @@ export function activate(parity: Parity): StorybookApi {
 
         try {
           const imported = await importStories(source)
-          show(projectStorybook(scriptsOf(await source.read("package.json")), configDir(parity), imported.stories))
+          scripts = scriptsOf(await source.read("package.json"))
+          show(projectStorybook(scripts, configDir(parity), imported.stories))
+          const kept: LastRead = { stories: imported.stories }
+
+          if (scripts) {
+            kept.scripts = scripts
+          }
+
+          void parity.state.project.update("lastRead", kept)
 
           return imported.entities
         } finally {
@@ -123,6 +136,18 @@ export function activate(parity: Parity): StorybookApi {
   )
 
   parity.subscriptions.push(parity.commands.register("storybook.setup", () => setup.reveal()))
+
+  // The project's settings can arrive after the first import, as the project opens, and change later.
+  parity.subscriptions.push(
+    parity.settings.onChange("storybook.configDir", () =>
+      show(projectStorybook(scripts, configDir(parity), storybook.stories))
+    )
+  )
+
+  if (saved) {
+    show(storybook)
+    read()
+  }
 
   /** Every story file, so a running Storybook can be told for the project's. */
   const paths = () => Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))

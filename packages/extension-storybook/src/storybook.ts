@@ -57,6 +57,23 @@ export function scriptsOf(text: string | undefined): Record<string, string> | un
   }
 }
 
+/** What an import read, as the extension keeps it with the project: the package's scripts and the story files. */
+const lastRead = z.object({
+  scripts: z.record(z.string(), z.string()).optional(),
+  stories: z.record(
+    z.string(),
+    z.array(z.object({ path: z.string(), title: z.string().optional(), exports: z.array(z.string()).optional() }))
+  )
+})
+
+export type LastRead = z.infer<typeof lastRead>
+
+/** What the last import read, as `parity.state.project` kept it, or nothing when there's none it can read. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- what the state store kept is checked here, where it comes in
+export function readLastRead(value: unknown): LastRead | undefined {
+  return lastRead.safeParse(value).data
+}
+
 /** The components with stories, by key. */
 export function componentsWithStories(storybook: ProjectStorybook): string[] {
   return Object.entries(storybook.stories)
