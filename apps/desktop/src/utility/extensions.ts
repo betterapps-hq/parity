@@ -9,6 +9,8 @@ import {
   type EntitiesDescription,
   extensionBuilder,
   extensionEntities,
+  type ExtensionTool,
+  extensionTool,
   extensionRenderer,
   type PackageManifest,
   type RendererDescription,
@@ -110,6 +112,14 @@ export const builtInBuilders: BuilderDescription[] = [
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
 export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybookPackage, detectStorybook)].filter(
   (entities) => entities !== undefined
+)
+
+/**
+ * The tools Parity's own extensions give that open projects with nothing else of theirs, found by their peer
+ * dependencies and listed with their versions among what a project uses.
+ */
+export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage].flatMap(
+  (found) => extensionTool(found) ?? []
 )
 
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */

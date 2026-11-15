@@ -7698,16 +7698,20 @@ app with no `index.html` whose root route imports `src/style.css?url`, and a Nex
   relative `@import`s) are the root's. They keep the order the app imports them in, so the cascade does too. The page's
   stylesheet `<link>`s always count, read as the browser reads them: relative to the page, a root-relative one from the
   root or `public`, and not one in a comment or on another origin, and so do what an inline `<script type="module">`
-  imports, resolved by Vite from the page. Packages' stylesheets are named by the specifier the app imports them by, as
-  `@mantine/core/styles.css`, which their `exports` allow where the file's own path (`dist/styles.css`) may not.
+  imports statically, read with Vite's parser (`parseAst`) and resolved by Vite from the page: not an import in a
+  comment or a string, or a dynamic `import()`. Packages' stylesheets are named by the specifier the app imports them
+  by, as `@mantine/core/styles.css`, which their `exports` allow where the file's own path (`dist/styles.css`) may not.
 - **An app that loads none has none,** as a CSS-in-JS app does. A builder without `styles`, or one that fails, leaves
   the canvas without global styles, and the project's notes say so.
 - **Its answer lists every file whose contents could change it** (`from`): the modules that import the stylesheets, then
   every app file the walk read, `index.html` (there or not), a module Vite couldn't compile and a linked stylesheet not
-  there yet included, and each stylesheet read for the theme with the files it `@import`s. The service asks again when
-  one of them changes (PAR-820), so the first stylesheet an app imports, a fixed module or a theme moved between
-  stylesheets is seen. For a TanStack Start app that's its routes too, 40 to 60 files on the projects here, so saving a
-  route asks Vite again in the background.
+  there yet included, and each stylesheet read for the theme with the files it `@import`s. A local import Vite can't
+  resolve, as `import "./later.css"` before the file is written, is listed by its path from the importer (from the root
+  for `/…`), and with each extension Vite tries, as a file or a folder's `index`, when it names none; so is a module
+  script, inline import or config entry that isn't there yet. An alias's or a package's that doesn't resolve isn't,
+  since its file can't be known. The service asks again when one of them changes (PAR-820), so the first stylesheet an
+  app imports, a fixed module or a theme moved between stylesheets is seen. For a TanStack Start app that's its routes
+  too, 40 to 60 files on the projects here, so saving a route asks Vite again in the background.
 - **The project opens no slower for it.** Parity asks while it reads the app's files. On the projects on this machine it
   answered in 0.2 to 0.9 s for a Vite app with `index.html`, 2 to 3 s for TanStack Start apps, and 9 s for copacker,
   whose root level has 52 modules.
@@ -7719,21 +7723,23 @@ and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/
 `DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
 `appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
 
-Tests: `packages/extension-vite/src/app-styles.test.ts` (11; 9 with a real Vite: what `index.html`'s module imports and
-its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry followed to the root,
-whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; a package's stylesheet named by the
-export the app imports, not the `dist` file it maps to; a page's links relative to it and from `public`, without a
-commented-out or remote one; an inline module script's stylesheets, package's and modules; two modules' stylesheets in
-import order, not by name; a missing HTML entry, a module that didn't compile, a missing link and the theme's
-stylesheets with their `@import`s among the files listed; none for an app that loads none, with the files it read, and
-its first import found when asked again; and 2 for `configInput`: a Vite 6 or 7 config with only `rollupOptions`, and
-Vite 8's `rolldownOptions` first). `packages/project/src/index.test.ts` (1: discovery takes the builder's answer and
-reads no entry itself). `apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake builder's answer).
-`parity lib` on an app asks the registered builders the same way (`appStylesheets` in `packages/cli/src/lib.ts`) and
-reads the app's tokens from what the first that serves it names. Gaps: Vite 6 and 7 resolve a config with only
-`rollupOptions`, which `configInput`'s tests cover with that shape rather than a real Vite 7, and CI's detection
-snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects are compiled with a middleware-mode dev
-server, since Vite 5 has no environments.
+Tests: `packages/extension-vite/src/app-styles.test.ts` (15; 13 with a real Vite: what `index.html`'s module imports and
+its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry, a plugin's virtual one
+too, followed to the root, whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; a
+package's stylesheet named by the export the app imports, not the `dist` file it maps to; a page's links relative to it
+and from `public`, without a commented-out or remote one; an inline module script's stylesheets, package's and modules,
+without one in a comment, a string or a dynamic `import()`; two modules' stylesheets in import order, not by name; a
+missing HTML entry, a module that didn't compile, a missing link and the theme's stylesheets with their `@import`s among
+the files listed; a stylesheet, root-relative stylesheet and extensionless module a module imports before they're
+written listed, and found once they are; a missing module script, inline import and config entry listed; none for an app
+that loads none, with the files it read, and its first import found when asked again; and 2 for `configInput`: a Vite 6
+or 7 config with only `rollupOptions`, and Vite 8's `rolldownOptions` first). `packages/project/src/index.test.ts` (1:
+discovery takes the builder's answer and reads no entry itself). `apps/desktop/src/utility/projects.test.ts` (2 of
+PAR-820's, with a fake builder's answer). `parity lib` on an app asks the registered builders the same way
+(`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's tokens from what the first that serves it names.
+Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which `configInput`'s tests cover with that shape rather
+than a real Vite 7, and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects
+are compiled with a middleware-mode dev server, since Vite 5 has no environments.
 
 ### Detected again when what detection reads changes (PAR-820)
 
@@ -8389,14 +8395,15 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
 `apps/desktop/src/utility/projects.ts`; Storybook's item and logo from its extension's manifest too, and Vite's,
-React's, Tailwind's and TanStack Router's from their extensions' manifests; the one list of adapters in
-`packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
+React's, Tailwind's and TanStack Router's from their extensions' manifests; the list of Parity's own extensions in
+`apps/desktop/src/utility/extensions.ts`; and `chrome/StatusBar.tsx`, which draws `info.status` and the extensions'
+items.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
-an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
-its own id), and `packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook,
-`chrome/StatusBar.stories.tsx`, whose stand-in project gets its items from the adapters in `packages/adapters`
-(`.storybook/example-project.ts`). Gaps: the story play functions weren't run.
+an item without an icon carries its adapter's logo; an untested version says so), and
+`packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook, `chrome/StatusBar.stories.tsx`, whose
+stand-in host lists Vite's, React's, Tailwind's and Storybook's extensions with what their code sets
+(`standInExtensions` in `renderer/stories/host.ts`). Gaps: the story play functions weren't run.
 
 ### The status bar's process lights stay off the main thread (PAR-524)
 

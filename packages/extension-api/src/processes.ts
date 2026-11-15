@@ -219,7 +219,7 @@ export type ParityRole =
   | "build"
   | "export"
   | "accessibility"
-  /** A server an adapter started, until `packages/adapters` is gone. */
+  /** A server Parity runs for a tool, where no other role fits. */
   | "tool"
 
 /**

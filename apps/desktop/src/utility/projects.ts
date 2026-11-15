@@ -26,6 +26,7 @@ import {
   detectPeers,
   type EntitiesAdapter,
   type EntitiesDescription,
+  type ExtensionTool,
   libraryManifestExtension,
   type PackageManifest,
   parseCanvasDocument,
@@ -141,13 +142,6 @@ export interface DetectionCache {
     fingerprint: string,
     found: Omit<SavedDetection, "fingerprint">
   ) => Promise<void>
-}
-
-/** A tool an extension gives: its prefix and name, and where its version is installed, from its manifest. */
-export type ExtensionTool = Pick<Adapter, "id" | "name"> & {
-  versions: NonNullable<Adapter["versions"]>
-  /** Whether it styles the project, which detection lists before the tools whose files are entities, as it always has. */
-  styles: boolean
 }
 
 /** An open project as its providers' extensions see it. */

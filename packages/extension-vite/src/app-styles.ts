@@ -88,6 +88,10 @@ interface ClientGraph {
   transform(url: string): Promise<void>
   module(url: string): Promise<GraphModule | undefined>
   resolve(id: string, importer?: string): Promise<string | undefined>
+  /** The specifiers a module's code imports statically, parsed as Vite parses it; nothing when it isn't valid code. */
+  staticSpecifiers(code: string): string[] | undefined
+  /** The extensions Vite tries for an import that names none (`./app`), in its order. */
+  extensions: string[]
   close(): Promise<void>
 }
 
@@ -108,6 +112,8 @@ type InputOption = string | string[] | Record<string, string>
  * it's a dev server's, in middleware mode.
  */
 async function clientGraph(vite: typeof Vite, options: Vite.InlineConfig): Promise<ClientGraph> {
+  const staticSpecifiers = (code: string) => parsedSpecifiers(vite, code)
+
   if (Number(vite.version.split(".")[0]) < 6) {
     const server = await vite.createServer(options)
 
@@ -118,6 +124,8 @@ async function clientGraph(vite: typeof Vite, options: Vite.InlineConfig): Promi
       },
       module: async (url) => graphModule(await server.moduleGraph.getModuleByUrl(url)),
       resolve: async (id, importer) => (await server.pluginContainer.resolveId(id, importer))?.id,
+      staticSpecifiers,
+      extensions: server.config.resolve.extensions,
       close: () => server.close()
     }
   }
@@ -134,8 +142,34 @@ async function clientGraph(vite: typeof Vite, options: Vite.InlineConfig): Promi
     },
     module: async (url) => graphModule(await client.moduleGraph.getModuleByUrl(url)),
     resolve: async (id, importer) => (await client.pluginContainer.resolveId(id, importer))?.id,
+    staticSpecifiers,
+    extensions: client.config.resolve.extensions,
     close: () => client.close()
   }
+}
+
+/**
+ * The specifiers of a module's static imports and re-exports, from Vite's own parser: not an import in a comment or a
+ * string, or a dynamic `import()`, which may never run.
+ */
+function parsedSpecifiers(vite: typeof Vite, code: string): string[] | undefined {
+  let program: ReturnType<typeof Vite.parseAst>
+
+  try {
+    program = vite.parseAst(code)
+  } catch {
+    return undefined
+  }
+
+  return program.body.flatMap((node) => {
+    const isStatic =
+      node.type === "ImportDeclaration" ||
+      node.type === "ExportAllDeclaration" ||
+      node.type === "ExportNamedDeclaration"
+
+    // A module's source is always a string; a named export without `from` has none.
+    return isStatic && node.source ? [String(node.source.value)] : []
+  })
 }
 
 /** What of a module node the walk reads: its static imports, or every import where Vite doesn't keep those apart. */
@@ -217,6 +251,13 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Walked
 
         if (own(file)) {
           read.add(file)
+
+          // Vite won't compile a module whose import names a missing file, so creating that file changes the answer.
+          if (!module) {
+            for (const missing of await missingImports(client, root, file)) {
+              read.add(missing)
+            }
+          }
         }
 
         for (const child of imported) {
@@ -297,7 +338,17 @@ async function entries(
 
   for (const entry of named.length > 0 ? named : ["index.html"]) {
     if (!entry.endsWith(".html")) {
-      modules.push(await moduleUrl(client, root, entry))
+      // As the config names it first, which a plugin's virtual entry (`virtual:app`) needs. Else it's a file from the
+      // root, as Vite reads one, whether or not it starts with `./`, and listed when it isn't there yet.
+      const url = await moduleUrl(client, root, entry)
+
+      if (url) {
+        modules.push(url)
+      } else {
+        const local = /^[./]/.test(entry) || /^[A-Za-z]:\//.test(entry) ? entry : `./${entry}`
+        await addModule(client, root, local, `${root}/index.html`, { modules, pages })
+      }
+
       continue
     }
 
@@ -327,11 +378,11 @@ async function entries(
 
       if (isScript && value("type") === "module" && src) {
         if (isPageLocal(src)) {
-          modules.push(await moduleUrl(client, root, pageRelative(src), file))
+          await addModule(client, root, pageRelative(src), file, { modules, pages })
         }
       } else if (isScript && value("type") === "module") {
         // An inline module: what it imports is the app, as a module script's would be.
-        await inlineImports(client, root, file, tag[2]!, { modules, links })
+        await inlineImports(client, root, file, tag[2]!, { modules, links, pages })
       } else if (!isScript && value("rel")?.toLowerCase() === "stylesheet" && href && isPageLocal(href)) {
         const linked = await linkedFile(root, file, href)
 
@@ -349,32 +400,104 @@ async function entries(
 }
 
 /**
- * What an inline `<script type="module">` imports, resolved by Vite from the page: global stylesheets join the page's
- * links, and modules join the entries the walk starts from.
+ * What an inline `<script type="module">` imports statically, resolved by Vite from the page: global stylesheets join
+ * the page's links, and modules join the entries the walk starts from. What isn't there yet joins the files read.
  */
 async function inlineImports(
   client: ClientGraph,
   root: string,
   page: string,
   code: string,
-  into: { modules: string[]; links: Imported[] }
+  into: { modules: string[]; links: Imported[]; pages: string[] }
 ): Promise<void> {
-  for (const specifier of importSpecifiers(code)) {
+  for (const specifier of client.staticSpecifiers(code) ?? []) {
     if (!isPageLocal(specifier)) {
       continue
     }
 
     if (!isStylesheetFile(specifier)) {
-      into.modules.push(await moduleUrl(client, root, specifier, page))
+      await addModule(client, root, specifier, page, into)
       continue
     }
 
-    const resolved = isGlobalStylesheet(specifier) ? await client.resolve(specifier, page) : undefined
+    if (!isGlobalStylesheet(specifier)) {
+      continue
+    }
+
+    const resolved = await client.resolve(specifier, page).catch(() => undefined)
 
     if (resolved) {
       into.links.push({ file: resolved.split("?")[0]!, importer: page, depth: 0 })
+    } else {
+      into.pages.push(...importTargets(root, specifier, page, client.extensions))
     }
   }
+}
+
+/**
+ * Adds an entry module the page or config names: to the walk's start when Vite resolves it, or else, as a file that
+ * isn't there yet, to the files read.
+ */
+async function addModule(
+  client: ClientGraph,
+  root: string,
+  id: string,
+  importer: string,
+  into: { modules: string[]; pages: string[] }
+): Promise<void> {
+  const url = await moduleUrl(client, root, id, importer)
+
+  if (url) {
+    into.modules.push(url)
+  } else {
+    into.pages.push(...importTargets(root, id, importer, client.extensions))
+  }
+}
+
+/**
+ * The files a module's local imports name that Vite can't resolve, as when one imports `./later.css` before it's
+ * written. Read with Vite's parser where the module parses, and by pattern where it doesn't: watching a file the module
+ * doesn't import costs only a search that finds the same.
+ */
+async function missingImports(client: ClientGraph, root: string, file: string): Promise<string[]> {
+  const code = await readFile(file, "utf8").catch(() => undefined)
+
+  if (code === undefined) {
+    return []
+  }
+
+  const missing: string[] = []
+
+  for (const specifier of client.staticSpecifiers(code) ?? importSpecifiers(code)) {
+    if (!/^\.{0,2}\//.test(specifier) || (await client.resolve(specifier, file).catch(() => undefined))) {
+      continue
+    }
+
+    missing.push(...importTargets(root, specifier, file, client.extensions))
+  }
+
+  return missing
+}
+
+/**
+ * The project files a local import that doesn't resolve may come to name: its path, from the root when it starts with
+ * `/` and from the importer otherwise, and, when it names no extension Vite tries, that path with each one, as a file
+ * or a folder's `index`. None for a package's or an alias's, whose file can't be known.
+ */
+function importTargets(root: string, specifier: string, importer: string, extensions: string[]): string[] {
+  const path = specifier.split(/[?#]/)[0]!
+
+  if (!/^\.{0,2}\//.test(path)) {
+    return []
+  }
+
+  const file = path.startsWith("/") ? posix.join(root, path) : posix.join(posix.dirname(importer), path)
+
+  if (!file.startsWith(`${root}/`) || isStylesheetFile(file) || extensions.includes(posix.extname(file))) {
+    return [file]
+  }
+
+  return [file, ...extensions.map((extension) => file + extension), ...extensions.map((e) => `${file}/index${e}`)]
 }
 
 /** Whether a page's URL is the project's own file: not another origin (`https:`, `//cdn…`) or inline (`data:`). */
@@ -417,12 +540,17 @@ async function isFile(path: string): Promise<boolean> {
   )
 }
 
-/** The URL Vite compiles an entry by: a project file's path from the root, else its resolved id. */
-async function moduleUrl(client: ClientGraph, root: string, id: string, importer?: string): Promise<string> {
-  const resolved = await client.resolve(id, importer)
+/** The URL Vite compiles an entry by: a project file's path from the root, else its resolved id; none if unresolved. */
+async function moduleUrl(
+  client: ClientGraph,
+  root: string,
+  id: string,
+  importer?: string
+): Promise<string | undefined> {
+  const resolved = await client.resolve(id, importer).catch(() => undefined)
 
   if (!resolved) {
-    return id
+    return undefined
   }
 
   if (resolved.startsWith(`${root}/`)) {
