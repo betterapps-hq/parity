@@ -7,7 +7,7 @@ import { createWriteStream } from "node:fs"
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises"
 import { type AddressInfo, createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { basename, join, resolve } from "node:path"
+import { basename, join, parse, resolve } from "node:path"
 import { parseData, parserFor } from "@parity-app/core/schema"
 import { z } from "zod"
 import { print } from "../../../scripts/output.ts"
@@ -56,7 +56,7 @@ export async function launch(
   account: { signedInAs?: { email: string; name?: string }; signedOut?: boolean } = {}
 ): Promise<RunningApp> {
   await enlargeRunnerDisplay()
-  const dir = await mkdtemp(join(tmpdir(), "parity-e2e-"))
+  const dir = await mkdtemp(join(copiesDir(), "parity-e2e-"))
   const project = await copyExample(dir)
   const profile = join(dir, "profile")
   await mkdir(profile)
@@ -251,6 +251,19 @@ function systemPort(): Promise<number> {
  * that ignore their props, and a Members design that draws them. Installed packages are linked one by one rather than copied, so the copy's own
  * builder caches go in its own folder.
  */
+/**
+ * Where the example's copy goes: the system's temporary folder, or the runner's when only that one is on the
+ * repository's drive, as on GitHub's Windows runners (C: against D:). The copy links the packages where they are, and
+ * Tailwind writes the `url()`s of the stylesheets a project imports from relative POSIX paths, which can't cross from one
+ * drive to another, so a copy on C: asked for its fonts at a path Vite answered with its page (PAR-1154).
+ */
+function copiesDir(): string {
+  const drive = (path: string) => parse(path).root.toLowerCase()
+  const runner = process.env.RUNNER_TEMP
+
+  return drive(tmpdir()) !== drive(repoDir) && runner && drive(runner) === drive(repoDir) ? runner : tmpdir()
+}
+
 async function copyExample(dir: string): Promise<string> {
   const root = join(dir, basename(example))
   const modules = join(example, "node_modules")
