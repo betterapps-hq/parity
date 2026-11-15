@@ -1,7 +1,7 @@
 {
-  "type": "none",
-  "comment": "The sleeping end-to-end test zooms out once before counting, so it passes in any shard",
+  "type": "patch",
+  "comment": "Tab from a design's title no longer goes on to another design's console badge",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
+  "dependentChangeType": "patch"
 }

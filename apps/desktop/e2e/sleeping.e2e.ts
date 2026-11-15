@@ -134,15 +134,14 @@ describe("zoomed far out", () => {
     "lets go of frames showing bitmaps, and draws them again in view at the same size",
     { timeout: 240_000 },
     async () => {
-      await app.show("Members", 1)
-      const sizes = await boards()
-      const framed = await frameSizes()
-      // The first zoom out draws every board's title and gutter, which stay. Zoomed out once already, the count below
-      // is the same whichever files ran before this one: with the suite split across runners, this file may be the
-      // first to zoom out (PAR-1121).
+      // The first zoom out draws every board's title and gutter, which stay, and fits a frame or two drawn for the
+      // first time. Zoomed out once already, the counts and sizes below are the same whichever files ran before this
+      // one: with the suite split across runners, this file may be the first to zoom out (PAR-1121).
       await zoomOut()
       await app.show("Members", 1)
       await expect.poll(() => drawn("Members")).toBe(true)
+      const sizes = await boards()
+      const framed = await frameSizes()
       // Session Replay records the window in CI too, and the attributes it reads from what the zoom draws are nodes, so
       // it's held while they're counted (PAR-1047).
       const letGo = await app.holdRecording(120_000)
