@@ -9,7 +9,7 @@ import type { Bundler, BundlerCompilation, BundlerConfig, BundlerStats } from ".
 import { writeElementSourcesLoader, writeGuestAddressLoader } from "./element-sources.ts"
 import { changedComponents, entryImports, filePath, loadedFiles, providedExports } from "./graph.ts"
 import { guestConfig } from "./guest-config.ts"
-import { componentPath, entryPath, guestEntrySource, loadablePaths } from "./guest-entry.ts"
+import { componentPath, entryPath, guestEntrySource, isSourcePath, loadablePaths } from "./guest-entry.ts"
 import { freePort, portFree, serveGuest } from "./server.ts"
 
 /** What starts a guest build: the bundler and config the project's own tool gives, and what Parity asks for. */
@@ -200,9 +200,19 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
       // A component found since the guest loaded may come without a stamp.
       const path = componentPath(decodeURIComponent(url.pathname))
 
-      return url.searchParams.has("t") || loadablePaths(start.config, [...extra]).includes(path)
-        ? component(path)
-        : undefined
+      const loadable = loadablePaths(start.config, [...extra]).includes(path)
+
+      // A stamped request for a module of the project's own, which the canvas may know before discovery does; a stamped
+      // public file (`/images/photo.png?t=1`) is served as it is.
+      const stampedSource =
+        url.searchParams.has("t") &&
+        isSourcePath(path) &&
+        (await stat(join(root, path)).then(
+          (stats) => stats.isFile(),
+          () => false
+        ))
+
+      return loadable || stampedSource ? component(path) : undefined
     }
   })
 

@@ -40,6 +40,11 @@ export function componentPath(path: string): string {
   return path.replaceAll("\\", "/").replace(/^\.?\//, "")
 }
 
+/** Whether a path, from the root, is a JavaScript or TypeScript module a component can come from. */
+export function isSourcePath(path: string): boolean {
+  return /\.[cm]?[jt]sx?$/.test(path) && !path.split("/").includes("node_modules")
+}
+
 /** The project files the canvas can load a component from: each of the project's own components', and `extra`. */
 export function loadablePaths(config: ProjectConfig, extra: readonly string[] = []): string[] {
   const own = Object.values(config.components)

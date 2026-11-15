@@ -1,7 +1,7 @@
 import type { ProjectConfig } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { componentModuleSource, guestModuleSource } from "./browser-modules.ts"
-import { guestEntrySource, loadablePaths } from "./guest-entry.ts"
+import { guestEntrySource, isSourcePath, loadablePaths } from "./guest-entry.ts"
 import { watchIgnored } from "./session.ts"
 
 const config: ProjectConfig = {
@@ -88,5 +88,15 @@ describe("watchIgnored", () => {
     expect(watchIgnored.test("/app/node_modules/.cache/parity-rspack/guest-entry.js")).toBe(false)
     expect(watchIgnored.test(String.raw`C:\app\node_modules\.cache\parity-rsbuild\guest-entry.js`)).toBe(false)
     expect(watchIgnored.test("/app/src/button.tsx")).toBe(false)
+  })
+})
+
+describe("isSourcePath", () => {
+  it("takes the project's modules, and leaves out images, fonts and packages", () => {
+    expect(isSourcePath("src/components/tag.tsx")).toBe(true)
+    expect(isSourcePath("src/lib/util.mjs")).toBe(true)
+    expect(isSourcePath("images/photo.png")).toBe(false)
+    expect(isSourcePath("fonts/inter.woff2")).toBe(false)
+    expect(isSourcePath("node_modules/react/index.js")).toBe(false)
   })
 })
