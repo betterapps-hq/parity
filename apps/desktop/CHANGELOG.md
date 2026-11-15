@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 14:17:23 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 14:54:03 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.94.0
+
+Sun, 15 Nov 2026 14:54:03 GMT
+
+### Minor changes
+
+- Read React Router's routes, from framework mode's routes.ts, file-based routes or library mode, as an extension
+  (ajcraswell@gmail.com)
 
 ## 0.93.0
 

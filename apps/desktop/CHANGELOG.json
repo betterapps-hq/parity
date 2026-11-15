@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 14:54:03 GMT",
+      "version": "0.94.0",
+      "tag": "@parity-app/desktop_v0.94.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a599a56c97771e3c259901b12aac44ff2e0f39c",
+            "comment": "Read React Router's routes, from framework mode's routes.ts, file-based routes or library mode, as an extension"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 14:17:23 GMT",
       "version": "0.93.0",
       "tag": "@parity-app/desktop_v0.93.0",
