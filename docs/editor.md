@@ -1449,6 +1449,34 @@ starts the builder on the `nextjs-turbopack` validation project in CI and loads 
 in the running app on 2026-11-15 on `fixtures/nextjs-turbopack`: Next.js 16.4.6 on Turbopack found, its components, its
 stories and Home drawn with Tailwind and Recharts. On a Next.js 16.3.1 app with vanilla-extract, Sentry and Radix: it
 opened with 97 components and 441 theme variables, and the components that need no provider drew.
+### webpack as an extension, through its builder provider (PAR-1150)
+
+A plain webpack 5 project draws its components with the project's own `webpack` and `webpack.config.*`, on the code the
+Rspack builder shares (`packages/builder-webpack-compatible`), and "webpack" leads the status bar.
+
+- **Its builder provider says whether webpack builds the project,** with webpack's version and the config file: the one
+  the dev script names with `--config` or `-c`, else `webpack.config.*`. A config that exports a function is called as
+  `webpack serve` calls it. A Next.js project is left to Next.js, and one with an Rspack or Rsbuild config to them.
+- **CSS reaches the guest as text either way.** With the project's `mini-css-extract-plugin`, the shared code extracts
+  it. Without one, the stylesheet rules swap `style-loader` and `css-loader` for webpack's own CSS (`experiments.css`),
+  keeping the loaders before them. A CSS module's classes come as its default export unless `css-loader` asked for named
+  exports, and, where the project's webpack can, its custom properties stay global, as with `css-loader`.
+- **Babel works from the project's folder.** Each `babel-loader` in the project's rules finds the project's
+  `babel.config.*` as it would under `webpack serve`, which Rspack projects using Babel get too.
+- **The rest is the shared code's:** the guest, a changed component loading afresh, the global stylesheets, element
+  sources, code changes and loaded files, as for Rspack.
+
+Code: `packages/extension-webpack` (its manifest, `extension.ts`, `builder.ts` and `webpack.ts`);
+`packages/builder-webpack-compatible` (`cli-config.ts`, which loads a CLI's config for webpack and Rspack, and
+`babel.ts`).
+
+Tests: `packages/extension-webpack/src/builder.test.ts` (detection and its manifest), `webpack.test.ts` (the bundler and
+the CSS change) and `extension.test.ts`; `packages/builder-webpack-compatible/src/cli-config.test.ts` and
+`babel.test.ts`; the `webpack-react-router` validation project. Tried on 2026-11-15 by starting the builder on
+`fixtures/webpack-react-router` and loading its guest in a browser: webpack 5.112.2 and its config found, React Aria's
+`Button` drawn, the app's own components compiled with its Babel config, and, in a copy with a global stylesheet and a
+CSS module, the module's class drawn with the stylesheet's custom property. The app's own components stop at their
+styled-components theme, which comes from a `ThemeProvider` the canvas doesn't render.
 
 ### Storybook's stories through its entities provider (PAR-1095)
 

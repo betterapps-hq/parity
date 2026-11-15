@@ -2,6 +2,8 @@ export { bundledAppStyles, walkStyles } from "./app-styles.ts"
 
 export { bundlerConfig } from "./bundler.ts"
 
+export { cliConfig, cliConfigFiles, type CliConfigSource, type ServeArgv, servedConfig } from "./cli-config.ts"
+
 export type {
   Bundler,
   BundlerCompilation,

@@ -4,14 +4,7 @@ import { dirname, join } from "node:path"
 import { readExtension } from "@parity-app/extensions"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
-import {
-  detectRspack,
-  rspackBuilder,
-  rspackConfigFiles,
-  type ServeArgv,
-  type ServeEnv,
-  servedConfig
-} from "./builder.ts"
+import { detectRspack, rspackBuilder, rspackConfigFiles } from "./builder.ts"
 
 let root: string
 
@@ -114,25 +107,7 @@ describe("detectRspack", () => {
   })
 })
 
-describe("servedConfig", () => {
-  it("calls a function config as Rspack's CLI does for serve, and takes a list's first", async () => {
-    const seen: [ServeEnv, ServeArgv][] = []
-
-    const config = await servedConfig((env: ServeEnv, argv: ServeArgv) => {
-      seen.push([env, argv])
-
-      return [{ name: "web" }, { name: "server" }]
-    })
-
-    expect(config).toEqual({ name: "web" })
-    expect(seen).toEqual([[{ RSPACK_SERVE: true }, { mode: "development", env: { RSPACK_SERVE: true } }]])
-  })
-
-  it("takes a config as it is, and refuses an empty list", async () => {
-    expect(await servedConfig({ entry: "./a.js" })).toEqual({ entry: "./a.js" })
-    await expect(servedConfig([])).rejects.toThrow("its config is an empty list")
-  })
-
+describe("rspackConfigFiles", () => {
   it("knows the config files Rspack's CLI looks for", () => {
     expect(rspackConfigFiles).toContain("rspack.config.ts")
     expect(rspackConfigFiles).toContain("rspack.config.cjs")

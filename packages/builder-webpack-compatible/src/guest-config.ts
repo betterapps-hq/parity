@@ -1,4 +1,5 @@
 import type { z } from "zod"
+import { babelFromRoot } from "./babel.ts"
 import { guestFiles } from "./browser-modules.ts"
 import { type Bundler, type BundlerConfig, type BundlerPlugin, bundlerPlugin, bundlerRule, ruleUse } from "./bundler.ts"
 
@@ -116,7 +117,9 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
           enforce: "pre",
           loader: options.renderer.loader
         },
-        ...(extract ? rules.map((rule) => withExtraction(rule, extract.loader)) : rules)
+        ...(extract ? rules.map((rule) => withExtraction(rule, extract.loader)) : rules).map((rule) =>
+          babelFromRoot(rule, options.root)
+        )
       ]
     },
     resolve: { ...config.resolve, alias: withAliases(config.resolve?.alias, options.dedupe) },

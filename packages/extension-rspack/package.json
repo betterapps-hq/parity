@@ -13,9 +13,7 @@
   },
   "dependencies": {
     "@parity-app/builder-webpack-compatible": "workspace:*",
-    "@parity-app/core": "workspace:*",
-    "@parity-app/project": "workspace:*",
-    "zod": "catalog:"
+    "@parity-app/core": "workspace:*"
   },
   "devDependencies": {
     "@parity-app/extension-api": "workspace:*",

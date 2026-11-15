@@ -71,7 +71,8 @@ snapshot only.
 | React, Rsbuild, Chakra UI on Emotion                                    | ✅     | Its components drawn and styled by Chakra UI's decorator. Code-based TanStack Router routes aren't read (PAR-1156).    |
 | React, Rspack, plain CSS with custom properties                         | ✅     | Its components drawn and styled, with tokens from the CSS, as with Vite.                                               |
 | Next.js 16 on Turbopack, Tailwind v4                                    | ◐      | Components and pages drawn with the project's own Next and config. Server-only pages show why; stories don't load yet. |
-| Next.js on webpack, Remix, Astro, or webpack                            | ❌     | No builder adapter yet. webpack is in progress.                                                                        |
+| React, plain webpack 5                                                  | ✅     | Its components drawn, with global stylesheets and CSS modules, as with Vite.                                       |
+| Next.js on webpack, Remix or Astro                                      | ❌     | No builder adapter yet. Next.js on webpack is in progress.                                                 |
 | Vue, Svelte or Solid                                                    | ❌     | No renderer adapter yet. The interface exists; nothing is planned until there's demand.                                |
 | Angular, React Native, Flutter                                          | ❌     | Not planned.                                                                                                           |
 
@@ -115,7 +116,7 @@ go.
 | Next.js on webpack       | ⏳     | Will build on the same guest app (PAR-1150).                                                                                                                                                                                                                               |
 | Rspack 2                 | ✅     | Its extension (`packages/extension-rspack`), with the project's own Rspack and `rspack.config.*`, on the code webpack-shaped builders share (`packages/builder-webpack-compatible`). A project with an Rsbuild config is Rsbuild's.                                        |
 | Rspack 1.4 and later     | ❔     | Same extension; untested.                                                                                                                                                                                                                                                  |
-| webpack                  | ⏳     | Will build on the same shared code as Rspack.                                                                                                                                                                                                                              |
+| webpack 5                | ✅     | Its extension (`packages/extension-webpack`), with the project's own webpack and `webpack.config.*`, on the same shared code as Rspack. CSS is extracted with the project's `mini-css-extract-plugin`, or built with webpack's own CSS without one. Next.js projects are left to Next.js. |
 | Rsbuild 2                | ✅     | Its extension (`packages/extension-rsbuild`), with the project's own `@rsbuild/core` and `rsbuild.config.*` (or none): Rsbuild gives the Rspack config `rsbuild dev` builds with, and the Rspack builder's code builds it.                                                 |
 | Rsbuild 1                | ❔     | Same extension; untested.                                                                                                                                                                                                                                                  |
 
@@ -425,7 +426,7 @@ versions. Dates are each major's first stable release on npm. The Parity column 
 | ------- | ------ | --------- | ------------------------------------- | ----------------------------- |
 | Vite    | ✅     | 8, 7, 6   | 6, in November 2026; 7, in June 2027  | 5 (November 2023) and earlier |
 | Next.js | ◐      | 16        | Nothing; 16 is the newest             | 15 (October 2024) and earlier |
-| webpack | ⏳     | 5         | Nothing; 5 is the newest              | 4 (February 2018) and earlier |
+| webpack | ✅     | 5         | Nothing; 5 is the newest              | 4 (February 2018) and earlier |
 | Rspack  | ✅     | 2         | Nothing; 2 is the newest              | 1 (August 2024) and earlier   |
 | Rsbuild | ✅     | 2         | Nothing; 2 is the newest              | 1 untested                    |
 | Astro   | ❌     | 7, 6, 5   | 5, in December 2026; 6, in March 2028 | 4 (December 2023) and earlier |
@@ -570,13 +571,14 @@ What the detection snapshots record on 2026-10-29, gaps included:
 - **`mui` and `fluent`:** MUI and Fluent UI are listed as libraries, Fluent's icons as an icon set, and MUI's four
   breakpoints are read. Neither has tokens yet, since both keep their themes in JavaScript objects.
 - **`nextjs-webpack`:** Next.js 15 on webpack with React 18, both the `app/` and `pages/` routers, Sass CSS modules,
-  Mantine 8, Tabler icons and npm. It doesn't open yet: no builder supports webpack (PAR-1150).
+  Mantine 8, Tabler icons and npm. It doesn't open yet: the webpack builder leaves Next.js to a Next.js builder.
 - **`nextjs-turbopack`:** Next.js 16 on Turbopack with React 19, nested App Router layouts, a route group, dynamic and
   catch-all routes, `loading` and `not-found` files, Tailwind v4 through `@tailwindcss/turbopack`, a CSS module,
   Headless UI, Heroicons, Recharts, Storybook and pnpm. It opens on Turbopack, with Tailwind's 435 tokens and its light
   and dark themes.
 - **`webpack-react-router`:** plain webpack 5 with React 19, React Router's `<Routes>` in JSX, styled-components, React
-  Aria Components, Lucide icons, JavaScript and pnpm. It doesn't open yet either, for the same reason.
+  Aria Components, Lucide icons, JavaScript and pnpm. It opens with the webpack builder and loads no global stylesheet,
+  since styled-components makes its styles at run time.
 - **`buildkit`:** the eight Buildkit styles are listed as libraries, with only `luma`'s stylesheet imported, and Lucide
   as an icon set. Tailwind's theme gives 513 tokens, the `.dark` theme and five breakpoints.
 

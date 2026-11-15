@@ -1,0 +1,156 @@
+import { describe, expect, it } from "vite-plus/test"
+import { cssExtractPlugin, webpackApi, webpackBundler, webpackCssRule, withWebpackCss } from "./webpack.ts"
+
+/** A plugin as webpack's are: something it applies to its compiler. */
+class Plugin {
+  applied = false
+
+  apply(): void {
+    this.applied = true
+  }
+}
+
+/** webpack's plugin that changes a module's request, keeping what it was given so a test can call it. */
+class ReplacementPlugin extends Plugin {
+  readonly replace: (resource: { request: string }) => void
+
+  constructor(_test: RegExp, replace: (resource: { request: string }) => void) {
+    super()
+    this.replace = replace
+  }
+}
+
+/** Enough of webpack's API for the bundler: a compiler function and its plugins' classes. */
+const fakeWebpack = Object.assign(() => ({ compiler: true }), {
+  version: "5.112.2",
+  HotModuleReplacementPlugin: class extends Plugin {},
+  DefinePlugin: class extends Plugin {},
+  NormalModuleReplacementPlugin: ReplacementPlugin
+})
+
+/** The fake as the bundler takes it, read the way the builder reads the project's webpack. */
+const api = webpackApi({ default: fakeWebpack }, "webpack")
+
+describe("webpackApi", () => {
+  it("takes webpack's API from a CommonJS package's default export", () => {
+    expect(webpackApi({ default: fakeWebpack }, "webpack")).toBe(fakeWebpack)
+  })
+
+  it("refuses a module that isn't webpack", () => {
+    expect(() => webpackApi({ default: {} }, "webpack")).toThrow("webpack doesn't export webpack's API")
+  })
+})
+
+describe("cssExtractPlugin", () => {
+  it("takes the plugin's class with its loader, and nothing else", () => {
+    const plugin = Object.assign(class extends Plugin {}, { loader: "/node_modules/mini-css-extract-plugin/loader.js" })
+
+    expect(cssExtractPlugin({ default: plugin })).toBe(plugin)
+    expect(cssExtractPlugin({ default: class {} })).toBeUndefined()
+  })
+})
+
+describe("webpackBundler", () => {
+  it("makes webpack's compiler and plugins, named webpack, with no CSS extraction unless given", () => {
+    const bundler = webpackBundler(api, "5.112.2")
+
+    expect(bundler).toMatchObject({ name: "webpack", version: "5.112.2" })
+    expect(bundler.extractCss).toBeUndefined()
+    expect(bundler.compiler({})).toEqual({ compiler: true })
+    expect(bundler.define({ a: "1" })).toBeInstanceOf(fakeWebpack.DefinePlugin)
+  })
+
+  it("extracts CSS with the project's plugin", () => {
+    const plugin = Object.assign(class extends Plugin {}, { loader: "/extract-loader.js" })
+    const bundler = webpackBundler(api, "5.112.2", plugin)
+
+    expect(bundler.extractCss?.loader).toBe("/extract-loader.js")
+    expect(bundler.extractCss?.plugin()).toBeInstanceOf(plugin)
+  })
+
+  it("replaces a module's request with what the replacement gives, and leaves it otherwise", () => {
+    const bundler = webpackBundler(api, "5.112.2")
+    const plugin = bundler.replaceModules(/runtime$/, (request) => (request === "react/runtime" ? "data:x" : undefined))
+
+    if (!(plugin instanceof ReplacementPlugin)) {
+      throw new TypeError("not webpack's NormalModuleReplacementPlugin")
+    }
+
+    const { replace } = plugin
+    const replaced = { request: "react/runtime" }
+    const kept = { request: "other/runtime" }
+
+    replace(replaced)
+    replace(kept)
+
+    expect([replaced.request, kept.request]).toEqual(["data:x", "other/runtime"])
+  })
+})
+
+describe("withWebpackCss", () => {
+  it("turns on webpack's own CSS, keeping the project's other experiments", () => {
+    expect(withWebpackCss({ experiments: { topLevelAwait: true } }, { globalCustomProperties: false })).toEqual({
+      experiments: { topLevelAwait: true, css: true },
+      module: { parser: { "css/auto": { namedExports: false } } }
+    })
+  })
+
+  it("keeps custom properties global where the project's webpack can", () => {
+    expect(withWebpackCss({}, { globalCustomProperties: true }).module?.parser).toEqual({
+      "css/auto": { namedExports: false, dashedIdents: false }
+    })
+  })
+
+  it("swaps style-loader and css-loader for webpack's own CSS, keeping the loaders before them", () => {
+    const namedExports = { loader: "css-loader", options: { modules: { namedExport: true } } }
+
+    const config = withWebpackCss(
+      {
+        module: {
+          rules: [
+            { test: /\.jsx?$/, use: "babel-loader" },
+            { test: /\.css$/, use: ["style-loader", namedExports] },
+            { test: /\.scss$/, use: ["style-loader", "css-loader", "sass-loader"] }
+          ]
+        }
+      },
+      { globalCustomProperties: true }
+    )
+
+    expect(config.module?.rules).toEqual([
+      { test: /\.jsx?$/, use: "babel-loader" },
+      { test: /\.css$/, type: "css/auto", parser: { namedExports: true, dashedIdents: false } },
+      { test: /\.scss$/, use: ["sass-loader"], type: "css/auto", parser: { namedExports: false, dashedIdents: false } }
+    ])
+  })
+})
+
+describe("webpackCssRule", () => {
+  const older = { globalCustomProperties: false }
+
+  it("changes nested rules, a lone loader and loaders given by their files", () => {
+    expect(
+      webpackCssRule(
+        {
+          oneOf: [
+            { test: /\.css$/, loader: "style-loader" },
+            { test: /\.less$/, use: ["/repo/node_modules/style-loader/dist/cjs.js", "less-loader"] }
+          ]
+        },
+        older
+      )
+    ).toEqual({
+      oneOf: [
+        { test: /\.css$/, type: "css/auto", parser: { namedExports: false } },
+        { test: /\.less$/, use: ["less-loader"], type: "css/auto", parser: { namedExports: false } }
+      ]
+    })
+  })
+
+  it("leaves a rule it can't read, such as one whose use is a function, as it is", () => {
+    const use = () => ["style-loader"]
+
+    expect(webpackCssRule({ test: /\.css$/, use }, older)).toEqual({ test: /\.css$/, use })
+    expect(webpackCssRule("...", older)).toBe("...")
+  })
+})

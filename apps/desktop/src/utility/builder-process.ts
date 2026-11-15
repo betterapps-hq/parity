@@ -3,6 +3,7 @@ import { rsbuildBuilder } from "@parity-app/extension-rsbuild/builder"
 import { rspackBuilder } from "@parity-app/extension-rspack/builder"
 import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
 import { viteBuilder } from "@parity-app/extension-vite/builder"
+import { webpackBuilder } from "@parity-app/extension-webpack/builder"
 import { serveBuilderProcess } from "@parity-app/processes"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
 // One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
@@ -23,7 +24,7 @@ serveBuilderProcess(
     exit: () => process.exit(0)
   },
   // The entry modules of the built-in builders' extensions, as their manifests name them.
-  [viteBuilder, rspackBuilder, rsbuildBuilder, turbopackBuilder]
+  [viteBuilder, rspackBuilder, rsbuildBuilder, turbopackBuilder, webpackBuilder]
 )
 
 keepCompiledCode()
