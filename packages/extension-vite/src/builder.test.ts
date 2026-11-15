@@ -143,6 +143,38 @@ describe("guestModuleSource with libraries", () => {
     expect(source).toContain('"@mui/material/styles": modules[4]')
   })
 
+  it("puts the extensions' decorators around the libraries', loading their modules optionally (PAR-1152)", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      frameDecorators: [
+        {
+          extension: "react-router",
+          decorator: {
+            wrap: { import: "react-router", component: "MemoryRouter", props: { initialEntries: [{ $frame: "url" }] } }
+          }
+        }
+      ],
+      libraries: [
+        {
+          id: "mui",
+          name: "Material UI",
+          package: "@mui/material",
+          importName: "@mui/material",
+          stylesImported: true,
+          decorators: [{ wrap: { import: "@mui/material/styles", component: "ThemeProvider" } }]
+        }
+      ]
+    })
+
+    // Outermost first: the router wraps the theme, as in an app.
+    expect(source.indexOf('"library":"react-router"')).toBeLessThan(source.indexOf('"library":"mui"'))
+    expect(source.indexOf('"library":"react-router"')).toBeGreaterThan(-1)
+    expect(source).toContain('import("react-router").catch(')
+    expect(source).toContain('"react-router": modules[')
+  })
+
   it("imports each style an icon set keeps in a module of its own, by its path in the package", () => {
     const source = guestModuleSource({
       styles: [],

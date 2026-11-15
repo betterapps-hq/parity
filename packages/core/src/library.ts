@@ -244,7 +244,7 @@ const decoratorEffects = ["wrap", "add", "class", "attributes", "style"] as cons
  * first, as the JSX they make reads. That is Parity's order, the reverse of Storybook's, where the first decorator in a
  * list is innermost, so a list compiled into Storybook's decorators is reversed first.
  */
-const libraryDecorator = fileObject({
+export const libraryDecorator = fileObject({
   /** Applies only when the frame's globals have these values, as in `{ "theme": "dark" }`. */
   when: z.record(z.string(), z.string()).optional(),
   wrap: decoratorElement.optional(),

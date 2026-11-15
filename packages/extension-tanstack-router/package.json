@@ -89,7 +89,49 @@
         }
       ],
       "providers": {
-        "router": {}
+        "router": {
+          "decorators": [
+            {
+              "wrap": {
+                "import": "@tanstack/react-router",
+                "component": "RouterContextProvider",
+                "props": {
+                  "router": {
+                    "$call": {
+                      "import": "@tanstack/react-router",
+                      "export": "createRouter"
+                    },
+                    "args": [
+                      {
+                        "routeTree": {
+                          "$call": {
+                            "import": "@tanstack/react-router",
+                            "export": "createRootRoute"
+                          }
+                        },
+                        "history": {
+                          "$call": {
+                            "import": "@tanstack/react-router",
+                            "export": "createMemoryHistory"
+                          },
+                          "args": [
+                            {
+                              "initialEntries": [
+                                {
+                                  "$frame": "url"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        }
       }
     }
   }

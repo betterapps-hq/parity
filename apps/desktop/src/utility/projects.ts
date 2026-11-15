@@ -24,6 +24,7 @@ import {
   detectPeers,
   type EntitiesAdapter,
   type EntitiesDescription,
+  type ExtensionDecorator,
   type ExtensionTool,
   libraryManifestExtension,
   type PackageManifest,
@@ -169,6 +170,8 @@ export interface ProjectProviders {
    * which own what it gives.
    */
   owner(project: ProviderProject, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
+  /** What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152). */
+  decorators(project: ProviderProject): ExtensionDecorator[]
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
@@ -611,6 +614,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       documents: paths,
       styles
     })
+
+    // A router's extension puts a router around every frame, so a component with a link draws on its own (PAR-1152).
+    const frameDecorators = adapters.providers?.decorators({ root, name, pkg }) ?? []
+
+    if (frameDecorators.length > 0) {
+      config.frameDecorators = frameDecorators
+    }
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
     const discovered = nextComponentList(

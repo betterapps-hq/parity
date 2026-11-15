@@ -249,6 +249,34 @@ export interface BuilderContribution {
   watches: string[]
 }
 
+/** What Parity needs of a router before its code runs. */
+export interface RouterContribution {
+  /**
+   * What goes around every frame, outermost first, so the components that need the app's router draw on their own: a
+   * memory router, say, at the frame's URL. They wrap the libraries' own decorators.
+   */
+  decorators?: FrameDecorator[]
+}
+
+/**
+ * A component the canvas puts around every frame, written as data, so it runs no code of the extension's own. Its
+ * module is imported by the project's own build, so it's a package the project depends on, and its props are JSON or
+ * the value forms libraries' decorators use: `{ "$frame": "url" }` is the URL the frame stands for, `/` unless it's a
+ * page's, and `{ "$call": { "import": "pkg", "export": "name" }, "args": [...] }` what calling an export returns,
+ * made once for each frame.
+ */
+export interface FrameDecorator {
+  /** Applies only when the frame's globals have these values, as in `{ "theme": "dark" }`. */
+  when?: Record<string, string>
+  wrap: {
+    /** The module, by the specifier the project imports it by. */
+    import: string
+    /** The export to render, following dots into namespaces; `default` for a default export. */
+    component: string
+    props?: Record<string, JsonValue>
+  }
+}
+
 /** The jobs an extension does for a tool, each given behaviour with `parity.providers.register`. */
 export interface Providers {
   /** Draws components. Its guest module runs in the canvas frames, compiled into the project's own build. */
@@ -257,8 +285,8 @@ export interface Providers {
   builder?: BuilderContribution
   /** Reads and writes the theme. */
   styles?: Record<string, never>
-  /** Reads routes. */
-  router?: Record<string, never>
+  /** Reads routes, and says what goes around every frame for the app's router. */
+  router?: RouterContribution
   /** Imports screens such as stories, and writes them back. */
   entities?: EntitiesContribution
   /** Finds screens, photos or videos in an outside library. */
