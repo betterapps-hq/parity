@@ -1,7 +1,8 @@
 # Extensions
 
 How Parity runs an extension: the manifest it reads first, the host each one runs in, and the `parity` object its code
-gets (PAR-1089). Storybook, TanStack Router and Next.js's routes are built in. Installing others comes later.
+gets (PAR-1089). Storybook, TanStack Router, React Router and Next.js's routes are built in. Installing others comes
+later.
 
 ## The manifest
 
@@ -129,11 +130,9 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `update(key, value)`, which sets only a `project` setting.
 - **`edits.transact(label, operations)`:** changes designs, with the `edits` permission (below).
 - **`files.edit(label, files)`:** writes project files the `write` permission names (below).
-- **`files.read(path)` and `files.watch(path, listener)`:** read and watch files the `read` permission names, from the
-  project's root or absolute. A watch fires when the file is created, changes or goes, and needn't find it there.
-- **`files.list(folder)`** (PAR-1162): every file in a folder and the folders inside it, by its path from the project's
-  root, leaving out those the `read` permission doesn't name and installed packages. Empty when the folder isn't there,
-  as a router's pages before there are any.
+- **`files.read(path)`, `files.list(path)` and `files.watch(path, listener)`:** read, list and watch files and folders
+  the `read` permission names, from the project's root or absolute. A listing gives each name in the folder, marked when
+  it's a folder itself (PAR-1145). A watch fires when the file is created, changes or goes, and needn't find it there.
 - **`state.app` and `state.project`:** values that persist, for every project or for this one.
 - **`log`:** lines in the extension's log, as `console` writes are too.
 - **`views`:** fills the tabs, sections and pages the manifest declares (below).
@@ -319,11 +318,17 @@ out, as Portless does.
   refused, changes heard by the running code once each, a project setting's `update` sent to the window and an app
   setting's refused, and a value that doesn't fit listed with its note, with the activation time and permissions.
 - [hosts.test.ts](../packages/extensions/src/hosts.test.ts) also: renaming a layer from a command as one labelled
-  change, refusing design changes without the `edits` permission, writing files while refusing a `.par`, and listing a
-  folder's files from the project's root with those the `read` permission doesn't name left out (PAR-1162); and
+  change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`; and
   (PAR-1095) a provider's host started the first time it's asked, with its answer read, nothing without one, an answer
   that isn't a provider's refused and logged, a provider the manifest doesn't declare refused, and opening a project
   again starting only the extensions found since.
+- [extension.test.ts](../packages/extension-react-router/src/extension.test.ts),
+  [routes.test.ts](../packages/extension-react-router/src/routes.test.ts),
+  [routes-file.test.ts](../packages/extension-react-router/src/routes-file.test.ts),
+  [flat-routes.test.ts](../packages/extension-react-router/src/flat-routes.test.ts) and
+  [library.test.ts](../packages/extension-react-router/src/library.test.ts): React Router's manifest and range, its
+  pages counted without the root, what its status item says of routes it can't read, and the routes it reads from
+  framework mode's `routes.ts`, flat routes and library mode (PAR-1145).
 - [extension.test.ts](../packages/extension-tanstack-router/src/extension.test.ts) and
   [routes.test.ts](../packages/extension-tanstack-router/src/routes.test.ts): TanStack Router's manifest, with its
   router provider, route node type and Open in browser placed only for routes; its pages counted without the root; the

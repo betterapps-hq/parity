@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Story files are named, grouped and coloured as their extension's manifest says, rather than by Storybook's name in Parity",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

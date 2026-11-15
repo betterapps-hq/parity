@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Notice a stylesheet or module the app imports once it's created, and ignore commented-out and dynamic imports in an inline module script",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

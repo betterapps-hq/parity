@@ -11,9 +11,13 @@ describe("the Next.js extension", () => {
     expect(found.manifest.activates).toEqual(["onDetect"])
     expect(found.manifest.contributes.providers).toEqual({ router: {} })
     expect(found.manifest.permissions?.read).toEqual([
+      "app",
       "app/**",
+      "pages",
       "pages/**",
+      "src/app",
       "src/app/**",
+      "src/pages",
       "src/pages/**",
       "next.config.*"
     ])

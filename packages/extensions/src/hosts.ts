@@ -23,7 +23,7 @@ import type {
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import { readToolInput } from "./agents.ts"
 import type { ExtensionPackage } from "./manifest.ts"
-import { editsRefusal, placedPath, type ReadPlace, readablePath, writeRefusal } from "./permissions.ts"
+import { editsRefusal, type ReadPlace, readablePath, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
   type ProcessSnapshot,
@@ -239,16 +239,13 @@ export interface ExtensionProviders {
   disposeAll(projectId: string, extension: string): void
 }
 
-/** Reading and watching files, once the extension's `read` permission has allowed the path. */
+/** Reading, listing and watching files, once the extension's `read` permission has allowed the path. */
 export interface ExtensionFiles {
   /** Where read paths are worked out, besides the project's folder. */
   place: Omit<ReadPlace, "root">
   read(path: string): Promise<string>
-  /**
-   * Every file in the folder at the absolute `path` and the folders inside it, by its path from that folder with
-   * forward slashes. Empty when the folder isn't there.
-   */
-  list(path: string): Promise<string[]>
+  /** What a folder holds: each name in it, marked when it's a folder. */
+  list(path: string): Promise<{ name: string; folder: boolean }[]>
   /** Calls `listener` when the file is created, changes or goes, until the function it returns is called. */
   watch(path: string, listener: () => void): () => void
 }
@@ -774,17 +771,9 @@ export function extensionHosts<Project extends OpenedProject>(
       "files.read": async ({ path }: HostServiceMethods["files.read"]["params"]) => ({
         text: await options.files.read(readable(path))
       }),
-      async "files.list"({ folder }: HostServiceMethods["files.list"]["params"]) {
-        const named = folder.replaceAll("\\", "/").replace(/\/+$/, "")
-        const place = { ...options.files.place, root }
-        const found = await options.files.list(placedPath(named, place) ?? named)
-
-        const paths = found
-          .map((file) => `${named}/${file}`)
-          .filter((path) => readablePath(path, permissions, place) !== undefined)
-
-        return { paths }
-      },
+      "files.list": async ({ path }: HostServiceMethods["files.list"]["params"]) => ({
+        entries: await options.files.list(readable(path))
+      }),
       "files.watch"({ id: watch, path }: HostServiceMethods["files.watch"]["params"]) {
         watches.get(watch)?.()
         watches.set(

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The browser page after signing in says you're signed in when an organization is still to pick",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

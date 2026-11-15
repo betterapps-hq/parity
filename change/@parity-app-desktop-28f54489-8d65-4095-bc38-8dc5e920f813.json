@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Check that sleeping frames' nodes are collected, not the window's node count",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

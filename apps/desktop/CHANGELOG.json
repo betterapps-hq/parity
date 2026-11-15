@@ -2,6 +2,145 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 14:17:23 GMT",
+      "version": "0.93.0",
+      "tag": "@parity-app/desktop_v0.93.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bb257808220a9499904fa2c819a4bfaa2fca6da8",
+            "comment": "Remove adapter actions, which no adapter declares any more; extensions' commands are what components and pages offer"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "49cf7109be5fd3d0c5170ecf2bb1e23690d3ebfc",
+            "comment": "Choosing an organization at sign-in finishes through Parity's service, without signing in to Google again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "847be1975d42d6f44e02ebcc2a6a5ea1cd2862d9",
+            "comment": "Notice a stylesheet or module the app imports once it's created, and ignore commented-out and dynamic imports in an inline module script"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e6016b8bb8233964639fc4bf614c1c8bd86a8632",
+            "comment": "Storybook is found and read by its extension alone; Parity's core no longer reads the project's Storybook"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d1ab77103b525e8ff02f0b77171cdf0561d2c12c",
+            "comment": "project.opened records each detected tool's version in one tools field, instead of a field per tool"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b820fb8d7cc8bdf6c444993cd92840ca57c4e102",
+            "comment": "Check only the layers a change made, so undo and edits on large designs cost a fraction of what they did"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1a79a89701e8a32828cc1a8836a2c70b6cbfc66a",
+            "comment": "The browser page after signing in says you're signed in when an organization is still to pick"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2c29092b062926846204944bc5df9c294de969c0",
+            "comment": "Skip any tool's *-static build folder when reading the app's code, rather than Storybook's by name"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b1e2f2edadb2fe988d441a9a32bbe70c70038aed",
+            "comment": "Draw a component loaded on demand once its module loads, even when the load finished before the frame's effect ran"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d90123f8e0d01b0bcb69672c793affd7895c31e2",
+            "comment": "Story files are named, grouped and coloured as their extension's manifest says, rather than by Storybook's name in Parity"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "26796204b3f8c7c52c6d78762befac34fade69c4",
+            "comment": "Stop reading shadcn's components.json and the UI kit folder: stylesheets come from the app's entry or the usual places, every detected component loads as it's drawn, and components sharing a name all gain their folders."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9602ba7f3f5bd396f823feff7f3a861d7835bd6e",
+            "comment": "Build and draw components for Rsbuild projects, with the Rspack config Rsbuild gives"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5df8164b4a120b30c0e2fbd6f03842791963397a",
+            "comment": "Build and draw components for Rspack projects, through a builder shared with other webpack-compatible tools"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2d3a45d9c81a6f869161a1db4ff12c96f5354aff",
+            "comment": "Open Next.js apps that run Turbopack: their components and pages draw with the project's own Next and config."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "20eaf8ccf872568ba766baf20ff2be222f35a67c",
+            "comment": "Routes are router-neutral: a router's extension gives each route's kind and its URL as segments, rather than its own path syntax"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5ad7156df5fa786487bfe5b347090bbc921253ee",
+            "comment": "Support React 18: components draw on it, component layers forward refs, and frames report errors without React 19's root callbacks."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "439bdc47ff20e97e8a59b16dba122f84e2bd0820",
+            "comment": "Add @parity-app/multiplayer-loro, the project document on Loro, and the concurrent tests in describeProjectDoc"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "243e520bb56c90ba9b94599bb79bf4a280a1939b",
+            "comment": "Copy the example for end-to-end tests onto the repository's drive"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "858bdc7165fd51a8866d06433108e3fd44e49787",
+            "comment": "Check that sleeping frames' nodes are collected, not the window's node count"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "56be44121659b0655625b02eb3b69f890829b506",
+            "comment": "Extensions find their own tools through their manifests' detect rules; the service no longer detects Storybook, its accessibility checks or Portless for them."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "08735aa506495b0d24ec015fd67ff11866d6d5aa",
+            "comment": "Remove packages/adapters; every tool runs as an extension (PAR-1095)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 08:24:15 GMT",
       "version": "0.92.0",
       "tag": "@parity-app/desktop_v0.92.0",

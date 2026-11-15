@@ -18,7 +18,7 @@ const problems: { kind: Exclude<RenderProblem, "error">; pattern: RegExp }[] = [
   {
     kind: "provider",
     pattern:
-      /must be (used|rendered|wrapped) (within|inside|in)|outside (of )?(a|an|the) \S*Provider|No QueryClient set|may be used only in the context of a <Router>|could not find react-redux context|context value is (undefined|null)|without a parent <\w+>|Provider\b.*\b(missing|required)/i
+      /must be (used|rendered|wrapped) (within|inside|in)|outside (of )?(a|an|the) \S*Provider|No QueryClient set|may be used only in the context of a <Router>|could not find react-redux context|context value is (undefined|null)|without a parent <\w+>|Provider\b.*\b(missing|required)|Cannot destructure property .* of .*useContext\b.* as it is (null|undefined)/i
   }
 ]
 

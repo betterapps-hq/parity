@@ -1,0 +1,23 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.125rem 0.625rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.neutral {
+  background: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+.success {
+  background: color-mix(in oklch, var(--color-success) 15%, transparent);
+  color: var(--color-success);
+}
+
+.warning {
+  background: color-mix(in oklch, var(--color-warning) 20%, transparent);
+  color: oklch(0.45 0.1 75);
+}

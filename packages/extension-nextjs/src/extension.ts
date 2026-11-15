@@ -55,7 +55,7 @@ export function activate(parity: Parity): void {
 /** The project's routes, from the files in each folder Next.js reads routes from. */
 async function projectRoutes(parity: Parity): Promise<Route[]> {
   const listed = await Promise.all(
-    [...routerFolders.app, ...routerFolders.pages].map((folder) => parity.files.list(folder))
+    [...routerFolders.app, ...routerFolders.pages].map((folder) => filesUnder(parity, folder))
   )
 
   const files = listed.flat()
@@ -74,6 +74,28 @@ async function projectRoutes(parity: Parity): Promise<Route[]> {
   )
 
   return readRoutes(files, folders, texts, extensions)
+}
+
+/**
+ * Every file in a folder and the folders inside it, by its path from the project's root, a level at a time. None when
+ * the folder isn't there, as a project with only one of the routers.
+ */
+async function filesUnder(parity: Parity, folder: string): Promise<string[]> {
+  const entries = await parity.files.list(folder).catch(() => [])
+
+  const nested = await Promise.all(
+    entries.map(async (entry) => {
+      const path = `${folder}/${entry.name}`
+
+      if (!entry.folder) {
+        return [path]
+      }
+
+      return entry.name === "node_modules" ? [] : filesUnder(parity, path)
+    })
+  )
+
+  return nested.flat()
 }
 
 /** The text of the project's `next.config`, the first Next.js would load, or nothing without one. */

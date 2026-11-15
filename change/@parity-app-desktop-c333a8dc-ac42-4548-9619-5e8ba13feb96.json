@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Read React Router's routes, from framework mode's routes.ts, file-based routes or library mode, as an extension",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

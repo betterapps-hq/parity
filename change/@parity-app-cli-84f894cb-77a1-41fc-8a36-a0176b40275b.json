@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw a component loaded on demand once its module loads, even when the load finished before the frame's effect ran",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

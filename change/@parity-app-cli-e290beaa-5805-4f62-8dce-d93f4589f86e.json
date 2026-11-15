@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "project.opened records each detected tool's version in one tools field, instead of a field per tool",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

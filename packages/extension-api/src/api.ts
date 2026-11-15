@@ -239,10 +239,10 @@ export interface Files {
    */
   read(path: string): Promise<string>
   /**
-   * Every file in a folder and the folders inside it, by its path from the project's root with forward slashes, as a
-   * router's pages: those the manifest's `read` permission names. Empty when the folder isn't there.
+   * What a folder holds, by its path as `read` takes it, when the manifest's `read` permission names the folder: each
+   * name in it, marked when it's a folder itself. Rejects when it isn't there.
    */
-  list(folder: string): Promise<string[]>
+  list(path: string): Promise<FolderEntry[]>
   /**
    * Calls `listener` whenever the file at `path` is created, changes or goes, for a path `read` names, as `read` takes
    * it. The file needn't be there yet.
@@ -254,6 +254,13 @@ export interface Files {
    * permission names, and never a `.par` file. Gives the paths it changed.
    */
   edit(label: string, files: FileEdit[]): Promise<string[]>
+}
+
+/** A name in a folder, as `files.list` gives it. */
+export interface FolderEntry {
+  name: string
+  /** Whether it's a folder itself, rather than a file. */
+  folder: boolean
 }
 
 /**

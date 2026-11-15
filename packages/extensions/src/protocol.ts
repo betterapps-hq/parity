@@ -295,8 +295,8 @@ export interface HostServiceMethods {
   "providers.dispose": { params: { kind: ProviderKind }; result: undefined }
   /** A file's text, when the `read` permission names it. */
   "files.read": { params: { path: string }; result: { text: string } }
-  /** The files in a folder and the folders inside it, from the project's root, that the `read` permission names. */
-  "files.list": { params: { folder: string }; result: { paths: string[] } }
+  /** What a folder holds, when the `read` permission names it. */
+  "files.list": { params: { path: string }; result: { entries: { name: string; folder: boolean }[] } }
   /** Watches a file the `read` permission names, under an id the host gives it, until `files.unwatch`. */
   "files.watch": { params: { id: number; path: string }; result: undefined }
   "files.unwatch": { params: { id: number }; result: undefined }
@@ -747,7 +747,7 @@ export const hostChecks: Checks<HostServiceMethods> = {
   "providers.changed": checkOf(z.strictObject({ kind: providerKind })),
   "providers.dispose": checkOf(z.strictObject({ kind: providerKind })),
   "files.read": checkOf(z.strictObject({ path: filePath })),
-  "files.list": checkOf(z.strictObject({ folder: filePath })),
+  "files.list": checkOf(z.strictObject({ path: filePath })),
   "files.watch": checkOf(z.strictObject({ id: handleId, path: filePath })),
   "files.unwatch": checkOf(z.strictObject({ id: handleId })),
   "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000), call })),

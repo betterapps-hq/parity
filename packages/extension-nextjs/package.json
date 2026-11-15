@@ -35,9 +35,13 @@
     ],
     "permissions": {
       "read": [
+        "app",
         "app/**",
+        "pages",
         "pages/**",
+        "src/app",
         "src/app/**",
+        "src/pages",
         "src/pages/**",
         "next.config.*"
       ]

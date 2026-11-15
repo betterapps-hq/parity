@@ -1,0 +1,56 @@
+/* The app's tokens, as plain CSS custom properties, with a dark theme on `.dark`. */
+:root {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-brand: oklch(0.55 0.2 264);
+  --color-brand-foreground: oklch(0.98 0 0);
+  --color-surface: oklch(1 0 0);
+  --color-muted: oklch(0.96 0.005 264);
+  --color-muted-foreground: oklch(0.5 0.02 264);
+  --color-border: oklch(0.91 0.01 264);
+  --color-foreground: oklch(0.2 0.02 264);
+  --color-success: oklch(0.6 0.15 155);
+  --color-warning: oklch(0.75 0.15 75);
+  --radius: 0.5rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.06);
+}
+
+.dark {
+  --color-brand: oklch(0.65 0.18 264);
+  --color-surface: oklch(0.2 0.02 264);
+  --color-muted: oklch(0.26 0.02 264);
+  --color-muted-foreground: oklch(0.7 0.02 264);
+  --color-border: oklch(0.32 0.02 264);
+  --color-foreground: oklch(0.96 0 0);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}

@@ -31,10 +31,10 @@ export function hostFiles(): HostFiles {
 
         return text
       },
-      async list(folder) {
-        const { paths } = await send("files.list", { folder })
+      async list(path) {
+        const { entries } = await send("files.list", { path })
 
-        return paths
+        return entries
       },
       watch(path, listener): Disposable {
         const id = next++

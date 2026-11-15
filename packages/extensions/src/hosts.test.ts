@@ -1,6 +1,7 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
 import type {
   ExtensionModule,
+  FolderEntry,
   JsonValue,
   Parity,
   ProcessHandle,
@@ -77,7 +78,7 @@ const tidy = readExtension({
     prefix: "tidy",
     icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
     activates: ["onCommand:tidy.rename"],
-    permissions: { edits: true, read: ["src/**"], write: ["**"] },
+    permissions: { edits: true, write: ["**"], read: ["src/**"] },
     contributes: { commands: [{ id: "tidy.rename", title: "Rename layer" }] }
   }
 })
@@ -223,7 +224,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
     files: {
       place: { home: "/home/ada", variables: {}, platform: "linux" },
       read: () => Promise.reject(new Error("Not in this test")),
-      list: () => Promise.resolve([]),
+      list: () => Promise.reject(new Error("Not in this test")),
       watch: () => () => undefined
     },
     edits: {
@@ -942,16 +943,23 @@ describe("extension hosts", () => {
     ])
   })
 
-  it("lists a folder's files from the project's root, leaving out those the read permission doesn't name", async () => {
-    const list = vi.fn<ExtensionFiles["list"]>(() => Promise.resolve(["app/page.tsx", "Button.tsx"]))
-    let listed: string[] = []
+  it("lists a folder the read permission names through the service, and refuses one it doesn't (PAR-1145)", async () => {
+    const list = vi.fn<ExtensionFiles["list"]>(() =>
+      Promise.resolve([
+        { name: "button.tsx", folder: false },
+        { name: "forms", folder: true }
+      ])
+    )
+
+    let listed: FolderEntry[] = []
 
     const { hosts } = setUp(
       {
         "parity-tidy": {
           activate(parity) {
             parity.commands.register("tidy.rename", async () => {
-              listed = [...(await parity.files.list("src/")), ...(await parity.files.list("app"))]
+              listed = await parity.files.list("src/components")
+              await parity.files.list("docs")
             })
           }
         }
@@ -967,10 +975,15 @@ describe("extension hosts", () => {
     )
 
     hosts.open(project)
-    await hosts.run("shop", "tidy.rename")
 
-    expect(list.mock.calls).toEqual([["/shop/src"], ["/shop/app"]])
-    expect(listed).toEqual(["src/app/page.tsx", "src/Button.tsx"])
+    await expect(hosts.run("shop", "tidy.rename")).rejects.toThrow(
+      "Tidy can't read docs. Its manifest's \"read\" permission doesn't name it."
+    )
+    expect(listed).toEqual([
+      { name: "button.tsx", folder: false },
+      { name: "forms", folder: true }
+    ])
+    expect(list).toHaveBeenCalledOnce()
   })
 
   it("gives activate each setting from its own scope, the rest at their defaults, and refuses an undeclared key", async () => {

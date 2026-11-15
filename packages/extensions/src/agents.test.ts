@@ -129,7 +129,7 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
     files: {
       place: { home: "/home", variables: {}, platform: "linux" },
       read: () => Promise.reject(new Error("Not in this test")),
-      list: () => Promise.resolve([]),
+      list: () => Promise.reject(new Error("Not in this test")),
       watch: () => () => undefined
     },
     edits: { transact, files: () => Promise.resolve([]) }
