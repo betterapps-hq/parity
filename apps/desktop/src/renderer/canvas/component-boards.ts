@@ -1,4 +1,11 @@
-import { addDesigns, type CanvasDocument, type ComponentInfo, findNode, type PropValues } from "@parity-app/core"
+import {
+  addDesigns,
+  type CanvasDocument,
+  type ComponentInfo,
+  findNode,
+  type PropValues,
+  routeFiles
+} from "@parity-app/core"
 import { type BoardLayout, boardsHeight, componentBoards } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import { storyLayer } from "./story-screens.ts"
@@ -9,7 +16,7 @@ import { storyLayer } from "./story-screens.ts"
  */
 export const componentBoardsFile = "(components)"
 
-type BoardsInfo = Pick<ProjectInfo, "id" | "sources" | "documents"> & Partial<Pick<ProjectInfo, "entities">>
+type BoardsInfo = Pick<ProjectInfo, "id" | "sources" | "documents" | "routes"> & Partial<Pick<ProjectInfo, "entities">>
 
 /** Each open project's component boards: the component and file of each, by design id. */
 const boardPlaces = new Map<string, ReadonlyMap<string, { component: string; file: string }>>()
@@ -19,7 +26,10 @@ function boardLayout(info: BoardsInfo): BoardLayout {
   const ys = info.documents.flatMap((entry) => entry.document.containers.map((container) => container.position.y))
   const spacing = { x: 0, column: 400, row: 260 }
 
-  return { ...spacing, y: Math.min(0, ...ys) - 400 - boardsHeight(info.sources, { ...spacing, y: 0 }) }
+  return {
+    ...spacing,
+    y: Math.min(0, ...ys) - 400 - boardsHeight(info.sources, { ...spacing, y: 0 }, routeFiles(info.routes))
+  }
 }
 
 /** Where the boards' top is, which the app's pages go above. */
@@ -37,7 +47,14 @@ export function componentBoardsDocument(
   components: Readonly<Record<string, ComponentInfo>> = {},
   parents: Readonly<Record<string, readonly string[]>> = {}
 ): { path: string; document: CanvasDocument }[] {
-  const boards = componentBoards(info.sources, components, boardLayout(info), parents, screenSamples(info))
+  const boards = componentBoards(
+    info.sources,
+    components,
+    boardLayout(info),
+    parents,
+    screenSamples(info),
+    routeFiles(info.routes)
+  )
 
   boardPlaces.set(info.id, new Map(boards.map(({ board, component, file }) => [board.id, { component, file }])))
 

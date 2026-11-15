@@ -1177,6 +1177,9 @@ bar.
   `renderer/extension-editor.ts`), with "Opened in your browser".
 - **The route count** is its status bar item, "6 routes" without the root route, which opens Layers when clicked.
 - **Its version** shows in the project's detection, from its peer dependency, as the adapter's did.
+- **It reads through the files API** (PAR-1163), with `read: ["**"]` in its manifest, since `tsr.config.json` can put
+  the route tree and route files anywhere. Each round of reading names the next files, the config, the tree, then each
+  route's module an extension at a time, so it reads again until a round asks for nothing new (`projectRoutes`).
 - **Code-based routes too** (PAR-1156). Without a generated route tree, it reads the routes the app makes itself with
   `createRootRoute` (or `createRootRouteWithContext<…>()`) and `createRoute`, from the app's entry (the module script
   `index.html` loads, else `src/main` or `src/index`) and the files it imports by relative paths, nearest first. Each
@@ -1254,10 +1257,28 @@ permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh p
 example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
 `routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
 
+### Pages are the routes' files (PAR-1163)
+
+Which components are pages comes from the router extension's routes, not from file names in core: a component is a page
+when its file is some route's `file`, or one of its `stateFiles`. So whatever a router calls its files, its extension
+says which are pages, and core knows no router's conventions.
+
+- **`routeFiles`** in `packages/core/src/grouping.ts` maps each of those files to its route. `componentRole`,
+  `groupComponents`'s `"route"` grouping (by the route's `path`, as the router writes it) and `rendersRoot` take it. The
+  page for `/` is a `page` route's own file at the root's URL, with no segments: not a layout or state file.
+- **Callers pass the project's routes:** the Components panel, component boards and the Home screen (`openingDesigns`,
+  `homeScreen`, `homeComponent`). The CLI's finder (`packages/code`) reads no routes, so it names no component a page.
+- **`route` nodes are their router extension's.** Each router extension declares the `route` node type, and a route's
+  ref is owned by the project's router (`info.router.id`, the extension's id), as Layers, the canvas and each
+  extension's `routeOf` give it. Only a command's `when` check, which reads `node.type` alone, uses an unowned ref.
+
+Tests: `packages/core/src/grouping.test.ts`, `packages/editor/src/home.test.ts` and `component-boards.test.ts`.
+
 ### Next.js's routes as an extension (PAR-1162)
 
 Next.js's routes come from an extension, through Parity's public API alone, so a Next.js app's pages are listed under
-Routes in Layers, and drawn on canvas once a builder serves the app. It's found by its peer dependency on `next`.
+Routes in Layers, and drawn on canvas from the Next builders' guest app (PAR-1164, below). It's found by its peer
+dependency on `next`.
 
 - **Routes are its files.** Its router provider lists `app/` and `pages/` with `files.list`, or `src/app` and
   `src/pages` when neither is at the root, as Next.js picks them, taking files with the `pageExtensions` its
@@ -1283,6 +1304,35 @@ Code: `packages/extension-nextjs` (its manifest, `extension.ts` and `routes.ts`)
 Tests: `packages/extension-nextjs/src/extension.test.ts` and `routes.test.ts` (App Router, Pages Router and mixed
 fixture trees as data, and the Turbopack example app's `src/app`). Gaps: walking the folders through `files.list` has no
 unit test of its own, and the pages haven't been drawn in the running app.
+
+### Next.js's own pages on canvas (PAR-1164)
+
+A page screen loads the builder's origin at its route's URL, so the Next builders' guest app (`packages/next-builders`)
+serves the project's own pages beside its own:
+
+- **Mirrors of the project's route files.** Each start, the builder walks the project's `app/` and `pages/` (or
+  `src/app` and `src/pages`, as Next picks them) and writes a file of the same name in the guest app for each App Router
+  convention file (`page`, `layout`, `loading`, `error`, `not-found`, `route` and the rest) and each Pages Router
+  module. A mirror re-exports the project's file's default and named exports, so the module still imports what's beside
+  it from where it is, and Next finds the same routes with the project's own page extensions. The App Router's segment
+  config, which Next reads from the route's own file, is copied when it's a literal, and a Pages Router page's `config`
+  isn't re-exported. A start removes the mirrors of routes the project no longer has.
+- **Two root layouts.** The project's App Router files go in a `(project)` route group, so its root layout wraps its
+  pages and nothing else, and the guest's own pages move to `/parity-guest`, in a `(parity)` group with their bare root
+  layout, so their CSS stays theirs alone. `_app` and `_document` wrap the Pages Router's pages as in the app.
+- **The page script.** The guest app's `instrumentation-client`, which Next runs before a page's own code, runs the page
+  script Vite's builder puts first in `index.html` (`appPageModeScript`, now in `@parity-app/project`): the frame's
+  mode, the page's height and where it landed. In a canvas frame it hides Next's development overlay too, as the mode it
+  puts on `<html>` before the page hydrates is a mismatch Next would badge. The project's own client instrumentation
+  doesn't run, so the canvas sends nothing to its error reporting or analytics.
+- **webpack** compiles the project's modules from outside the guest app's folder with `experimental.externalDir`.
+
+Code: `packages/next-builders/src/project-pages.ts` (the mirrors, data in and out), `guest-app.ts` (the routes and the
+page script) and `guest-server.ts` (the walk). Tests: `project-pages.test.ts` and `guest-app.test.ts`. Checked by hand
+against Next 16.4 on Turbopack and webpack, with an App Router page, a dynamic segment, a client page in a route group
+and a Pages Router page under `_app`: each served with its root layout, hydrated, and in the frame's mode. Gaps: a page
+added while the builder runs needs a restart to be served, and the example apps' pages haven't been drawn in the running
+app.
 
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 

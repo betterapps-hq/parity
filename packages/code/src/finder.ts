@@ -149,6 +149,7 @@ export function appComponents(
   const tsconfig = readTsconfig(root)
 
   return Object.entries(sources).flatMap(([id, source]) => {
+    // The CLI reads no routes, which only a router extension gives, so it names no component a page.
     const role = componentRole(source)
 
     if (!role) {

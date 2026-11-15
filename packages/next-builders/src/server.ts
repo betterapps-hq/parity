@@ -1,7 +1,7 @@
 import { mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
-import { dirname, join } from "node:path"
+import { dirname, join, relative } from "node:path"
 import type { NextBundler } from "./bundler.ts"
 import { type GuestAppFile, guestAppFolder } from "./guest-app.ts"
 import type { ProjectNext } from "./next.ts"
@@ -24,7 +24,9 @@ export async function writeGuestApp(root: string, files: readonly GuestAppFile[]
   // The files the builder writes only for some projects, or some components, go when this start doesn't write them:
   // a PostCSS config or tsconfig the project no longer has, or a stand-in for a module that's no longer server-only.
   const standIns = await readdir(join(folder, standInFolder)).catch(() => [])
-  const optional = [...optionalGuestFiles, ...standIns.map((name) => `${standInFolder}/${name}`)]
+  // So are routes it no longer writes: a mirror of a page the project no longer has, or an earlier start's layout.
+  const routes = (await Promise.all(routeFolders.map((name) => filesIn(folder, name)))).flat()
+  const optional = [...optionalGuestFiles, ...standIns.map((name) => `${standInFolder}/${name}`), ...routes]
 
   for (const path of optional.filter((path) => !written.has(path))) {
     await rm(join(folder, path), { force: true })
@@ -173,6 +175,18 @@ export function portFree(port: number): Promise<boolean> {
     listener.once("error", () => done(false))
     listener.listen(port, loopback, () => listener.close(() => done(true)))
   })
+}
+
+/** The guest app's folders that hold routes, all of whose files it writes each start. */
+const routeFolders = ["app", "pages"]
+
+/** The files under one of the guest app's folders, by path from the guest app's folder, or none when it isn't there. */
+async function filesIn(folder: string, name: string): Promise<string[]> {
+  const entries = await readdir(join(folder, name), { recursive: true, withFileTypes: true }).catch(() => [])
+
+  return entries.flatMap((entry) =>
+    entry.isFile() ? [relative(folder, join(entry.parentPath, entry.name)).replaceAll("\\", "/")] : []
+  )
 }
 
 async function isFolder(path: string): Promise<boolean> {

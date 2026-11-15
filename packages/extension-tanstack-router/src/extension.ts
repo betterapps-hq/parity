@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs"
-import { join } from "node:path"
 import type { CommandTarget, NodeRef, Parity, Route } from "@parity-app/extension-api"
 import { readRoutes } from "./routes.ts"
 
@@ -12,21 +10,13 @@ import { readRoutes } from "./routes.ts"
  */
 
 export function activate(parity: Parity): void {
-  const { root } = parity.project
   const count = parity.status.item("tanstack-router.routes")
   parity.subscriptions.push(count)
 
   parity.subscriptions.push(
     parity.providers.register("router", {
       async routes() {
-        const routes = readRoutes((path) => {
-          try {
-            return readFileSync(join(root, path), "utf8")
-          } catch {
-            // A file that can't be read counts as missing, as the router's tooling may not have written it yet.
-            return undefined
-          }
-        })
+        const routes = await projectRoutes((path) => parity.files.read(path))
 
         const pages = routes.filter(isPage)
         count.set({
@@ -58,6 +48,38 @@ export function activate(parity: Parity): void {
       void parity.ui.notify("Opened in your browser", { detail: url, tone: "success" })
     })
   )
+}
+
+/**
+ * The project's routes, read through Parity's files API. Reading the route tree names the files to read next, so the
+ * routes are read again with each round's files until a round asks for none it hasn't read: the config, then the tree,
+ * then each route's module, one extension at a time.
+ */
+export async function projectRoutes(read: (path: string) => Promise<string>): Promise<Route[]> {
+  const texts = new Map<string, string | undefined>()
+
+  for (;;) {
+    const missing = new Set<string>()
+
+    const routes = readRoutes((path) => {
+      if (!texts.has(path)) {
+        missing.add(path)
+      }
+
+      return texts.get(path)
+    })
+
+    if (missing.size === 0) {
+      return routes
+    }
+
+    await Promise.all(
+      [...missing].map(async (path) => {
+        // A file that can't be read counts as missing, as the router's tooling may not have written it yet.
+        texts.set(path, await read(path).catch(() => undefined))
+      })
+    )
+  }
 }
 
 /** Whether a route draws a page: every route but the root, which only holds the others. */
