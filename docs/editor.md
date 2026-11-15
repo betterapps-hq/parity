@@ -1351,8 +1351,10 @@ couldn't load a module the guest hadn't imported, as a stories file, which on le
   (`app/parity-modules/<key>.tsx`). The page's payload names that module's id and chunks, as the guest's own page does.
   Next finds a new page a moment after it's written, so the builder asks again while it answers 404.
 - **Loaded into the guest's runtime.** The served module loads those chunks into the Turbopack runtime the guest
-  started, which the guest keeps by session, and asks the runtime for the client module. Its CSS modules' stylesheets
-  are linked and muted, as the guest's are.
+  started, which the guest keeps by session, and asks the runtime for the client module. Every runtime registers chunks
+  through the one `globalThis.TURBOPACK`, so the guest routes each chunk to the runtime its address names
+  (`?parity-session=`), and others to the last started, for two projects open in one window. Its CSS modules'
+  stylesheets are linked and muted, as the guest's are.
 - **Loaded again after a change.** At `/<path>?t=<stamp>` the chunks load at the stamp too, after the page is rendered
   again, which has Next build the change. The runtime keeps the first factory it's given for a module, so the guest's
   runtime forgets the project's modules in a stamped chunk, factory and instance, before registering them; packages'

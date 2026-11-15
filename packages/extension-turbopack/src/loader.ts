@@ -51,31 +51,45 @@ export function withoutStartup(runtime: string): string {
     .replace(dummySignature, "signature: () => ($1) => $1")
 }
 
+/** The query a chunk the builder serves for a module is loaded with, naming the session whose runtime registers it. */
+export const chunkSessionParam = "parity-session"
+
 /**
- * Lets a chunk loaded again, at an address stamped with a change (`?t=<stamp>`), bring its modules' new code (PAR-1159):
- * Turbopack's runtime keeps the first factory it's given for a module, so the project's modules in a stamped chunk are
- * forgotten, factory and instance, before it registers them. Packages' modules are kept, so React stays the one React.
+ * Keeps each session's runtime registering its own chunks (PAR-1159). Every runtime registers chunks through the one
+ * `globalThis.TURBOPACK`, which the last runtime started takes, so a page with two projects' guests routes each chunk to
+ * the runtime its address names (`?parity-session=<session>`), and others to the last. A chunk loaded again, at an
+ * address stamped with a change (`?t=<stamp>`), brings its modules' new code: Turbopack's runtime keeps the first
+ * factory it's given for a module, so the project's modules in a stamped chunk are forgotten, factory and instance,
+ * before it registers them. Packages' modules are kept, so React stays the one React.
  */
-const refreshStampedSource = `// Next.js 16.4's runtime keeps modules in maps, and earlier ones in objects.
+const sessionRuntimesSource = `// Next.js 16.4's runtime keeps modules in maps, and earlier ones in objects.
 const forget = (store, id) => (store instanceof Map ? store.delete(id) : delete store[id])
-const refreshStamped = (context) => {
-  const registerChunk = globalThis.TURBOPACK.push
-  const ours = (id) => typeof id === "string" && id.startsWith("[project]/") && !id.includes("/node_modules/")
-  const stamped = (script) => {
-    try {
-      return new URL(typeof script === "string" ? script : script?.src ?? "", location.href).searchParams.has("t")
-    } catch {
-      return false
-    }
+const registers = (globalThis.__parityTurbopackRegisters ??= {})
+const addressOf = (script) => {
+  try {
+    return new URL(typeof script === "string" ? script : script?.src ?? "", location.href)
+  } catch {
+    return undefined
   }
-  globalThis.TURBOPACK.push = (registration) => {
-    if (Array.isArray(registration) && stamped(registration[0])) {
+}
+const ours = (id) => typeof id === "string" && id.startsWith("[project]/") && !id.includes("/node_modules/")
+const startSession = (session, context) => {
+  const registerChunk = globalThis.TURBOPACK.push
+  registers[session] = (registration) => {
+    if (Array.isArray(registration) && addressOf(registration[0])?.searchParams.has("t")) {
       for (const id of registration.slice(1).filter(ours)) {
         forget(context.M, id)
         forget(context.c, id)
       }
     }
     return registerChunk(registration)
+  }
+  globalThis.__parityTurbopackLatest = session
+  globalThis.TURBOPACK = {
+    push: (registration) => {
+      const named = Array.isArray(registration) ? addressOf(registration[0])?.searchParams.get("${chunkSessionParam}") : null
+      return (registers[named] ?? registers[globalThis.__parityTurbopackLatest])(registration)
+    }
   }
 }`
 
@@ -113,7 +127,7 @@ const load = (src) => new Promise((resolve, reject) => {
   script.onerror = () => reject(new Error(\`\${src} didn't load\`))
   document.head.append(script)
 })
-${refreshStampedSource}
+${sessionRuntimesSource}
 // One runtime per page and session. Turbopack's runtime starts only on an empty list, so a builder started again, or
 // another, starts its own; the one before goes on with the modules it has.
 sessions[${json(loader.session)}] ??= (async () => {
@@ -126,7 +140,7 @@ sessions[${json(loader.session)}] ??= (async () => {
     globalThis.TURBOPACK.push(["parity/guest.js", "parity:guest", (context) => {
       try {
         contexts[${json(loader.session)}] = context
-        refreshStamped(context)
+        startSession(${json(loader.session)}, context)
         resolve(context.r(${json(loader.id)}))
       } catch (error) {
         reject(error)
@@ -195,6 +209,10 @@ export function moduleLoaderSource(loader: ModuleLoader): string {
   const at = (url: string) =>
     loader.stamp === undefined ? url : `${url}${url.includes("?") ? "&" : "?"}t=${loader.stamp}`
 
+  // Each chunk names the session whose runtime registers it, as another project's guest may have started since.
+  const chunk = (url: string) =>
+    `${at(url)}${at(url).includes("?") ? "&" : "?"}${chunkSessionParam}=${encodeURIComponent(loader.session)}`
+
   const names = [...new Set(loader.names)]
 
   const exported = names.map((name, index) =>
@@ -226,7 +244,7 @@ for (const href of ${json(loader.stylesheets.map(at))}) {
   document.head.append(link)
 }
 
-await Promise.all(${json(loader.chunks.map(at))}.map(load))
+await Promise.all(${json(loader.chunks.map(chunk))}.map(load))
 // The client module is made again, so it imports the project's module as it is now.
 forget(context.c, ${json(loader.id)})
 const projectModule = context.r(${json(loader.id)}).parityModule

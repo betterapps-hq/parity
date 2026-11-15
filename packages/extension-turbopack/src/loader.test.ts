@@ -87,6 +87,11 @@ interface ModuleContext {
 /** A chunk's registration as Turbopack writes it: its script, then each module's id and factory. */
 type ChunkRegistration = [{ src: string }, ...(string | (() => null))[]]
 
+declare global {
+  /** Where Turbopack's runtimes register chunks: the last runtime started's, or the guest's router between them. */
+  var TURBOPACK: { push(registration: ChunkRegistration): number }
+}
+
 function moduleContext(kind: "map" | "object", ids: string[]): ModuleContext {
   const store = (): ModuleStore =>
     kind === "map" ? new Map(ids.map((id) => [id, { id }])) : Object.fromEntries(ids.map((id) => [id, { id }]))
@@ -102,29 +107,46 @@ describe("modules loaded again in Turbopack's runtime", () => {
   const factory = () => null
 
   for (const kind of ["map", "object"] as const) {
-    it(`forgets the project's modules in a chunk stamped with a change, keeping packages' (${kind})`, async () => {
+    it(`routes each chunk to its session's runtime, forgetting the project's modules in a stamped one (${kind})`, async () => {
       const source = guestLoaderSource(guestLoader)
       const helpers = source.slice(source.indexOf("// Next.js 16.4"), source.indexOf("// One runtime"))
-      const registered: ChunkRegistration[] = []
-      const turbopack = { push: (registration: ChunkRegistration) => registered.push(registration) }
-      Object.assign(globalThis, { TURBOPACK: turbopack, location: { href: "http://127.0.0.1:4000/" } })
+      Object.assign(globalThis, { location: { href: "http://127.0.0.1:4000/" } })
 
-      const { refreshStamped } = await import(
-        `data:text/javascript,${encodeURIComponent(`${helpers}\nexport { refreshStamped }`)}`
+      const { startSession } = await import(
+        `data:text/javascript,${encodeURIComponent(`${helpers}\nexport { startSession }`)}`
       )
 
-      const context = moduleContext(kind, [card, react])
-      refreshStamped(context)
+      /** A session's runtime, as the guest starts it: it takes `globalThis.TURBOPACK` until the next starts. */
+      const runtime = (session: string) => {
+        const registered: ChunkRegistration[] = []
+        const context = moduleContext(kind, [card, react])
+        Object.assign(globalThis, {
+          TURBOPACK: { push: (registration: ChunkRegistration) => registered.push(registration) }
+        })
+        startSession(session, context)
 
-      turbopack.push([{ src: "http://127.0.0.1:4000/_next/static/chunks/card.js" }, card, factory, react, factory])
+        return { registered, context }
+      }
 
-      expect(has(context.M, card)).toBe(true)
+      const first = runtime(`first-${kind}`)
+      const second = runtime(`second-${kind}`)
+      const push = (src: string) => globalThis.TURBOPACK.push([{ src }, card, factory, react, factory])
 
-      turbopack.push([{ src: "http://127.0.0.1:4000/_next/static/chunks/card.js?t=2" }, card, factory, react, factory])
+      push(`http://127.0.0.1:4000/_next/static/chunks/card.js?parity-session=first-${kind}`)
 
-      expect([has(context.M, card), has(context.c, card)]).toEqual([false, false])
-      expect([has(context.M, react), has(context.c, react)]).toEqual([true, true])
-      expect(registered).toHaveLength(2)
+      expect([first.registered.length, second.registered.length]).toEqual([1, 0])
+      expect(has(first.context.M, card)).toBe(true)
+
+      push(`http://127.0.0.1:4000/_next/static/chunks/card.js?t=2&parity-session=first-${kind}`)
+
+      expect([has(first.context.M, card), has(first.context.c, card)]).toEqual([false, false])
+      expect([has(first.context.M, react), has(first.context.c, react)]).toEqual([true, true])
+      expect(has(second.context.M, card)).toBe(true)
+
+      // A chunk that names no session, as one the runtime loads itself, goes to the last runtime started.
+      push("http://127.0.0.1:4000/_next/static/chunks/other.js")
+
+      expect([first.registered.length, second.registered.length]).toEqual([2, 1])
     })
   }
 
@@ -132,7 +154,7 @@ describe("modules loaded again in Turbopack's runtime", () => {
     const source = guestLoaderSource(guestLoader)
 
     expect(source).toContain('contexts["s1"] = context')
-    expect(source).toContain("refreshStamped(context)")
+    expect(source).toContain('startSession("s1", context)')
   })
 
   it("loads a module's chunks at its change's stamp, makes its client module again and gives its exports", async () => {
@@ -147,7 +169,7 @@ describe("modules loaded again in Turbopack's runtime", () => {
       stamp: 7
     })
 
-    expect(source).toContain('["http://127.0.0.1:4000/_next/static/chunks/card.js?t=7"]')
+    expect(source).toContain('["http://127.0.0.1:4000/_next/static/chunks/card.js?t=7&parity-session=s2"]')
     expect(source).toContain('["http://127.0.0.1:4000/_next/static/chunks/card.css?v=1&t=7"]')
 
     const context = {
