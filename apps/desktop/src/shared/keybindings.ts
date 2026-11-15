@@ -326,6 +326,7 @@ export function swapKeys<C extends string>(
 
   const before = resolveBindings(defaults, entries).keys[command].filter((each) => !keys.includes(each))
   const after = entriesAfter(entries, given.replacements)
+
   const back = changeKeys(defaults, after, given.lost, [
     ...before,
     ...resolveBindings(defaults, after).keys[given.lost]
