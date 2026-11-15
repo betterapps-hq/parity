@@ -991,37 +991,39 @@ What they say about today:
 
 ### The layer's numbers, on `localProvider`
 
-`ProjectDoc` on `localProvider` through the functions for callers, run on `be0f7ffe6` with PAR-1111 on top, on the same
+`ProjectDoc` on `localProvider` through the functions for callers, run on `9c4b27637` with PAR-1141 on top, on the same
 machine, next to today's from the table above. Opening runs 20 times rather than for a second, since each open is given
-a fresh copy of the project.
+a fresh copy of the project. Two runs on the same code differed by up to half a millisecond on the very large project,
+with other work on the machine, so read small differences as noise.
 
 | Scenario                                  | Small, today | Small, local | Large, today | Large, local | Very large, today | Very large, local |
 | ----------------------------------------- | -----------: | -----------: | -----------: | -----------: | ----------------: | ----------------: |
-| Open the project                          |     9.200 ms |     0.022 ms |    109.60 ms |     0.058 ms |         471.80 ms |          0.068 ms |
-| Set one field on one layer                |     0.580 ms |     0.595 ms |     1.099 ms |     2.458 ms |          2.539 ms |          8.551 ms |
-| A 300-frame drag of one design, per frame |     0.560 ms |     0.367 ms |     1.080 ms |     0.691 ms |          2.574 ms |          1.429 ms |
-| Type into a text layer, per character     |     0.565 ms |     1.003 ms |     1.115 ms |     2.646 ms |          2.487 ms |          8.499 ms |
-| Paste 500 layers, or take them out        |     1.170 ms |     15.46 ms |     1.214 ms |     19.13 ms |          2.151 ms |          37.58 ms |
-| Undo or redo, per step                    |     0.022 ms |     0.431 ms |     0.109 ms |     0.689 ms |          0.430 ms |          1.350 ms |
-| Save one file                             |     0.455 ms |     0.233 ms |     0.936 ms |     0.529 ms |          1.085 ms |          0.599 ms |
+| Open the project                          |     9.200 ms |     0.063 ms |    109.60 ms |     0.065 ms |         471.80 ms |          0.062 ms |
+| Set one field on one layer                |     0.580 ms |     0.381 ms |     1.099 ms |     0.727 ms |          2.539 ms |          1.202 ms |
+| A 300-frame drag of one design, per frame |     0.560 ms |     0.271 ms |     1.080 ms |     0.551 ms |          2.574 ms |          0.989 ms |
+| Type into a text layer, per character     |     0.565 ms |     0.300 ms |     1.115 ms |     0.876 ms |          2.487 ms |          1.291 ms |
+| Paste 500 layers, or take them out        |     1.170 ms |     0.946 ms |     1.214 ms |     1.521 ms |          2.151 ms |          2.129 ms |
+| Undo or redo, per step                    |     0.022 ms |     0.246 ms |     0.109 ms |     0.535 ms |          0.430 ms |          1.040 ms |
+| Save one file                             |     0.455 ms |     0.341 ms |     0.936 ms |     0.843 ms |          1.085 ms |          0.944 ms |
 
 | Heap                       | Small, local | Large, local | Very large, local |
 | -------------------------- | -----------: | -----------: | ----------------: |
 | The files' values          |       0.3 MB |       4.3 MB |           21.7 MB |
 | The session opened on them |       0.0 MB |       0.0 MB |            0.0 MB |
-| 10,000 edits               |       0.2 MB |       0.2 MB |            0.2 MB |
+| 10,000 edits               |       0.2 MB |      −0.4 MB |            0.2 MB |
 
 What they say about the layer:
 
-- **Editing a layer costs more than today on large designs, and the comparing is why.** A field or a typed character
-  costs 8.5 ms at 100,000 layers, against 2.5 ms today. A profile of that edit puts 58% of the time in `containerOps`,
-  whose layer diff calls `locateNode` for each layer, so it grows with the square of the design's layers. A further 14%
-  goes to checking the design with `containerSpec`. The provider's own `apply` isn't among the costly calls. Indexing a
-  design's layers once per comparison, or sending the operation from the hot paths, would address it, which the bench
-  should show before step 5.
-- **Pasting is the slowest:** 500 new layers cost 15 to 38 ms, against 1 to 2 ms today, for the same reasons, with every
-  pasted layer compared and checked.
-- **Undo costs more than swapping snapshots:** 0.4 to 1.4 ms a step, since each step applies and checks its inverse
+- **Editing a layer costs less than today.** A field or a typed character costs 1.2 to 1.3 ms at 100,000 layers, against
+  2.5 ms today. Before PAR-1141 it cost 8.5 ms, because the layer diff in `containerOps` called `locateNode` for each
+  layer and rebuilt its working tree for each change, so it grew with the square of the design's layers. It now indexes
+  each tree once per comparison and changes that index in place, and takes about 0.15 ms of the edit.
+- **Checking the design is now the largest part of an edit:** about 1.1 ms at 400 layers a design, since `containerSpec`
+  parses the whole design whatever changed. `check.ts` itself has nothing cheap left to cut; checking only the layers
+  that changed would need core's schema to check one layer without the layers inside it.
+- **Pasting costs about what it does today:** 500 new layers take 0.9 to 2.1 ms, against 1.2 to 2.2 ms, down from 15 to
+  38 ms before PAR-1141.
+- **Undo costs more than swapping snapshots:** 0.2 to 1.0 ms a step, since each step applies and checks its inverse
   operations. That's still well inside a frame.
 - **Dragging and saving are faster than today.** A drag changes only the design's position, so the comparison skips its
   layers, and saving reads the file straight from the values the provider holds.

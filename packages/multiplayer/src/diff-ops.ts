@@ -1,16 +1,12 @@
 import {
   type CanvasDocument,
   type ContainerSpec,
+  childEntries,
   type DesignNode,
-  insertNode,
   type JsonValue,
-  locateNode,
-  moveNode,
-  nodeIds,
-  mapNode
+  nodeIds
 } from "@parity-app/core"
 import { sameValue } from "@parity-app/editor"
-import { siblings } from "./apply.ts"
 import { designKey } from "./keys.ts"
 import { type DesignKey, type DocOp, type FileField, fileFields } from "./types.ts"
 import { fieldOf, fieldsOf, type Holder, isRecord, jsonOf, type PlainRecord } from "./values.ts"
@@ -201,13 +197,15 @@ function itemOps<T extends { id: string }>(
 
 /**
  * The operations between two trees with the same root. It keeps a working copy of the tree as the operations would
- * leave it, to place each layer before the right sibling.
+ * leave it, to place each layer before the right sibling. The copy is an index of where each layer is, changed in place,
+ * so finding or moving a layer costs its list rather than the whole tree.
  */
 class LayerDiff {
   private readonly key: DesignKey
   private readonly before: DesignNode
   private readonly ops: DocOp[]
-  private working: DesignNode
+  private readonly working: WorkingTree
+  /** Each layer of `before` by id, in the order `nodeIds` gives them. */
   private readonly previous = new Map<string, DesignNode>()
   private wanted = new Set<string>()
 
@@ -215,11 +213,21 @@ class LayerDiff {
     this.key = key
     this.before = before
     this.ops = ops
-    this.working = before
+    this.working = new WorkingTree(before)
 
-    for (const id of nodeIds(before)) {
-      this.previous.set(id, locateNode(before, id)!.node)
+    const visit = (node: DesignNode) => {
+      if (!this.previous.has(node.id)) {
+        this.previous.set(node.id, node)
+      }
+
+      for (const entry of childEntries(node)) {
+        for (const child of entry.nodes) {
+          visit(child)
+        }
+      }
     }
+
+    visit(before)
   }
 
   run(after: DesignNode): void {
@@ -227,10 +235,10 @@ class LayerDiff {
     this.visit(this.before, after)
     const removes: string[] = []
 
-    for (const id of nodeIds(this.before)) {
-      if (!this.wanted.has(id) && locateNode(this.working, id)) {
+    for (const id of this.previous.keys()) {
+      if (!this.wanted.has(id) && this.working.has(id)) {
         removes.push(id)
-        this.working = withoutNode(this.working, id)
+        this.working.remove(id)
       }
     }
 
@@ -294,7 +302,7 @@ class LayerDiff {
       for (const slot of Object.keys(before.slots)) {
         if (!(slot in kept)) {
           this.ops.push({ op: "removeSlot", design: this.key, node: after.id, slot })
-          this.working = mapNode(this.working, after.id, (node) => withoutSlot(node, slot))
+          this.working.removeSlot(after.id, slot)
         }
       }
     }
@@ -307,35 +315,31 @@ class LayerDiff {
 
     for (const node of nodes.toReversed()) {
       const previous = this.previous.get(node.id)
-      const location = locateNode(this.working, node.id)
       const where = { slot, before: next }
 
-      if (location && previous && previous.type !== node.type) {
+      if (this.working.has(node.id) && previous && previous.type !== node.type) {
         // A layer whose type changed keeps its id, as a remove and an insert.
         this.ops.push({ op: "remove", design: this.key, node: node.id })
-        this.working = withoutNode(this.working, node.id)
+        this.working.remove(node.id)
       }
 
-      if (!locateNode(this.working, node.id)) {
-        const whole = [...nodeIds(node)].every((id) => !locateNode(this.working, id))
+      const current = this.working.locate(node.id)
+
+      if (!current) {
+        const whole = [...nodeIds(node)].every((id) => !this.working.has(id))
         const inserted = whole ? node : shallow(node)
         this.ops.push({ op: "insert", design: this.key, parent, ...where, node: inserted })
-        this.working = insertNode(this.working, parent, inserted, this.at(parent, slot, next))
+        this.working.insert(parent, inserted, this.at(parent, slot, next))
         placed.push({ node, previous: whole ? node : inserted })
       } else {
-        const current = locateNode(this.working, node.id)!
-        const holder = current.ancestors.at(-1)
+        const holder = current.parent
 
         // The next sibling that stays: ones about to be removed don't count.
-        const after = holder
-          ? siblings(holder, current.slot)
-              .slice(current.index + 1)
-              .find((each) => this.wanted.has(each.id))?.id
-          : undefined
+        const after = holder === undefined ? undefined : this.nextKept(holder, current.slot, current.index)
 
-        if (holder?.id !== parent || current.slot !== slotName(holder, slot) || after !== next) {
+        if (holder !== parent || current.slot !== slotName(this.working.type(holder), slot) || after !== next) {
           this.ops.push({ op: "move", design: this.key, node: node.id, parent, ...where })
-          this.working = moveNode(this.working, node.id, parent, this.at(parent, slot, next))
+          this.working.move(node.id, parent, this.at(parent, slot, next))
         }
 
         placed.push({ node, previous })
@@ -353,12 +357,300 @@ class LayerDiff {
 
   /** Where `insertNode` and `moveNode` put a layer to land before `next`. */
   private at(parent: string, slot: string | undefined, next: string | undefined) {
-    const holder = locateNode(this.working, parent)!.node
-    const list = siblings(holder, slot)
-    const index = next === undefined ? undefined : list.findIndex((each) => each.id === next)
+    const index = next === undefined ? undefined : this.working.siblings(parent, slot).indexOf(next)
 
     return { index, slot }
   }
+
+  /** The first layer after `index` in a holder's list that's in the new tree. */
+  private nextKept(holder: string, slot: string | undefined, index: number): string | undefined {
+    const list = this.working.siblings(holder, slot)
+
+    for (let at = index + 1; at < list.length; at++) {
+      if (this.wanted.has(list[at]!)) {
+        return list[at]
+      }
+    }
+
+    return undefined
+  }
+}
+
+/** Where a layer sits in the working tree: its parent's id, the slot `locateNode` would report, and its index. */
+interface WorkingLocation {
+  parent: string | undefined
+  slot: string | undefined
+  index: number
+}
+
+/** One of a layer's lists in the working tree: its key, and the ids in it, which change in place. */
+interface WorkingList {
+  key: string
+  ids: string[]
+}
+
+interface WorkingEntry {
+  type: DesignNode["type"]
+  parent: string | undefined
+  /** The key of the list it's in, among its parent's lists. */
+  list: string
+  /** Inside a list `mapNode` doesn't reach, a route's children or a component's internals, so edits leave it alone. */
+  frozen: boolean
+}
+
+/**
+ * A tree's layers by id, with the ids in each list a layer holds, changed in place. It does what `locateNode`,
+ * `insertNode`, `moveNode` and `mapNode` would do to the tree of values, and throws where they would. A list's key is
+ * "" for a layout's or a route's children, "i" for a component's internals, and "s:" and the name for a slot.
+ */
+class WorkingTree {
+  private readonly root: string
+  private readonly entries = new Map<string, WorkingEntry>()
+  private readonly lists = new Map<string, Map<string, string[]>>()
+
+  constructor(root: DesignNode) {
+    this.root = root.id
+    this.add(root, undefined, "", false)
+  }
+
+  has(id: string): boolean {
+    return this.entries.has(id)
+  }
+
+  type(id: string): DesignNode["type"] | undefined {
+    return this.entries.get(id)?.type
+  }
+
+  locate(id: string): WorkingLocation | undefined {
+    const entry = this.entries.get(id)
+
+    if (!entry) {
+      return undefined
+    }
+
+    if (entry.parent === undefined) {
+      return { parent: undefined, slot: undefined, index: 0 }
+    }
+
+    const index = this.lists.get(entry.parent)!.get(entry.list)!.indexOf(id)
+
+    return { parent: entry.parent, slot: reportedSlot(entry.list), index }
+  }
+
+  /** The ids in the list `siblings` in apply.ts reads for a holder and slot. */
+  siblings(holder: string, slot: string | undefined): readonly string[] {
+    const key = siblingsKey(this.entries.get(holder)?.type, slot)
+
+    return (key === undefined ? undefined : this.lists.get(holder)?.get(key)) ?? []
+  }
+
+  /** As `mapNode(root, id, () => undefined)`. */
+  remove(id: string): void {
+    if (id === this.root) {
+      throw new Error("The root of a design can't be removed")
+    }
+
+    const entry = this.entries.get(id)
+
+    if (!entry || entry.frozen) {
+      return
+    }
+
+    this.detach(id, entry)
+    this.drop(id)
+  }
+
+  /** As `insertNode`. */
+  insert(parent: string, node: DesignNode, options: { index?: number; slot?: string }): void {
+    for (const id of nodeIds(node)) {
+      if (this.entries.has(id)) {
+        throw new Error(`A node with id "${id}" already exists in this design`)
+      }
+    }
+
+    const list = this.listFor(parent, options.slot)
+    this.add(node, parent, list.key, false)
+    spliceAt(list.ids, node.id, options.index)
+  }
+
+  /** As `moveNode`. */
+  move(id: string, parent: string, options: { index?: number; slot?: string }): void {
+    const location = this.locate(id)
+
+    if (!location) {
+      throw new Error(`No node "${id}" in this design`)
+    }
+
+    if (location.parent === undefined) {
+      throw new Error("The root of a design can't be moved")
+    }
+
+    for (let at: string | undefined = parent; at !== undefined; at = this.entries.get(at)?.parent) {
+      if (at === id) {
+        throw new Error("A node can't be moved inside itself")
+      }
+    }
+
+    const entry = this.entries.get(id)!
+
+    // `moveNode` takes it out with `mapNode`, which can't reach it, and then finds its id taken.
+    if (entry.frozen) {
+      throw new Error(`A node with id "${id}" already exists in this design`)
+    }
+
+    let index = options.index
+
+    // Removing the node first shifts later siblings in the same list up by one.
+    if (index !== undefined && location.parent === parent && location.slot === options.slot && location.index < index) {
+      index--
+    }
+
+    this.detach(id, entry)
+    const list = this.listFor(parent, options.slot)
+    entry.parent = parent
+    entry.list = list.key
+    spliceAt(list.ids, id, index)
+  }
+
+  /** As `mapNode(root, id, (node) => withoutSlot(node, slot))`. */
+  removeSlot(id: string, slot: string): void {
+    const entry = this.entries.get(id)
+
+    if (!entry || entry.frozen || (entry.type !== "component" && entry.type !== "instance")) {
+      return
+    }
+
+    const lists = this.lists.get(id)
+    const ids = lists?.get(`s:${slot}`)
+
+    if (ids) {
+      lists!.delete(`s:${slot}`)
+
+      for (const child of ids) {
+        this.drop(child)
+      }
+    }
+  }
+
+  /** The list `insertNode` puts a layer in under `parent`, made when a component or instance doesn't have it yet. */
+  private listFor(parent: string, slot: string | undefined): WorkingList {
+    const entry = this.entries.get(parent)
+
+    if (!entry || entry.frozen) {
+      throw new Error(`No node "${parent}" in this design`)
+    }
+
+    let key: string
+
+    if (entry.type === "layout") {
+      key = ""
+    } else if (entry.type === "component") {
+      key = `s:${slot ?? "children"}`
+    } else if (entry.type === "instance") {
+      if (!slot) {
+        throw new Error(`Say which of "${parent}"'s slots to fill`)
+      }
+
+      key = `s:${slot}`
+    } else {
+      throw new Error(`"${parent}" is a ${entry.type} node and can't contain other nodes`)
+    }
+
+    let lists = this.lists.get(parent)
+
+    if (!lists) {
+      lists = new Map()
+      this.lists.set(parent, lists)
+    }
+
+    let ids = lists.get(key)
+
+    if (!ids) {
+      ids = []
+      lists.set(key, ids)
+    }
+
+    return { key, ids }
+  }
+
+  private add(node: DesignNode, parent: string | undefined, list: string, frozen: boolean): void {
+    this.entries.set(node.id, { type: node.type, parent, list, frozen })
+    const entries = childEntries(node)
+
+    if (entries.length === 0) {
+      return
+    }
+
+    const lists = new Map<string, string[]>()
+    this.lists.set(node.id, lists)
+
+    for (const entry of entries) {
+      const key = listKey(node.type, entry.slot)
+      const inside = frozen || key === "i" || node.type === "route"
+      lists.set(
+        key,
+        entry.nodes.map((child) => child.id)
+      )
+
+      for (const child of entry.nodes) {
+        this.add(child, node.id, key, inside)
+      }
+    }
+  }
+
+  private detach(id: string, entry: WorkingEntry): void {
+    const ids = this.lists.get(entry.parent!)!.get(entry.list)!
+    ids.splice(ids.indexOf(id), 1)
+  }
+
+  /** Forgets a layer and everything inside it. */
+  private drop(id: string): void {
+    this.entries.delete(id)
+
+    for (const ids of this.lists.get(id)?.values() ?? []) {
+      for (const child of ids) {
+        this.drop(child)
+      }
+    }
+
+    this.lists.delete(id)
+  }
+}
+
+/** The key of a list `childEntries` gives: a slot's, a component's internals, or a layout's or route's children. */
+function listKey(type: DesignNode["type"], slot: string | undefined): string {
+  if (slot !== undefined) {
+    return `s:${slot}`
+  }
+
+  return type === "component" ? "i" : ""
+}
+
+/** The slot `locateNode` reports for a list's key. */
+function reportedSlot(list: string): string | undefined {
+  return list.startsWith("s:") ? list.slice(2) : undefined
+}
+
+/** The key of the list `siblings` in apply.ts reads for a holder of this type. */
+function siblingsKey(type: DesignNode["type"] | undefined, slot: string | undefined): string | undefined {
+  if (type === "layout" || type === "route") {
+    return ""
+  }
+
+  if (type === "component") {
+    return `s:${slot ?? "children"}`
+  }
+
+  if (type === "instance" && slot !== undefined) {
+    return `s:${slot}`
+  }
+
+  return undefined
+}
+
+/** Puts `id` in a list at `index`, clamped, or at the end, as `insertNode` does. */
+function spliceAt(ids: string[], id: string, index: number | undefined): void {
+  ids.splice(Math.max(0, Math.min(index ?? ids.length, ids.length)), 0, id)
 }
 
 /** The lists of layers a layer holds, with their slots. */
@@ -375,8 +667,8 @@ function lists(node: DesignNode): { slot: string | undefined; nodes: readonly De
 }
 
 /** The slot `locateNode` reports for a layer in a list: a component's default slot is `children`. */
-function slotName(holder: DesignNode | undefined, slot: string | undefined): string | undefined {
-  return holder?.type === "component" ? (slot ?? "children") : slot
+function slotName(holder: DesignNode["type"] | undefined, slot: string | undefined): string | undefined {
+  return holder === "component" ? (slot ?? "children") : slot
 }
 
 /** A new layer without the layers it holds, which are placed after it, since some of them already exist. */
@@ -427,20 +719,4 @@ function fieldOps(
 
 function valued<T extends DocOp>(op: T, value: JsonValue | undefined): T {
   return value === undefined ? op : { ...op, value }
-}
-
-/** The tree without a layer and everything inside it. */
-function withoutNode(root: DesignNode, id: string): DesignNode {
-  return mapNode(root, id, () => undefined)
-}
-
-/** A component or instance layer without one of its slots, and the layers in it. */
-function withoutSlot(node: DesignNode, slot: string): DesignNode {
-  if ((node.type !== "component" && node.type !== "instance") || !node.slots) {
-    return node
-  }
-
-  const slots = Object.fromEntries(Object.entries(node.slots).filter(([name]) => name !== slot))
-
-  return { ...node, slots }
 }
