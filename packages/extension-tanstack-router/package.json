@@ -36,6 +36,11 @@
     "activates": [
       "onDetect"
     ],
+    "permissions": {
+      "read": [
+        "**"
+      ]
+    },
     "contributes": {
       "commands": [
         {

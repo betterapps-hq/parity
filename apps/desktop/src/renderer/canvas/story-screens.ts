@@ -47,7 +47,7 @@ const layout = { left: -2400, story: 360, gap: 240 }
  * The project's story files as a design file, or none without any: a board for each, its stories its states, down a
  * column left of everything else on the canvas.
  */
-export function storyScreensDocument(info: Pick<ProjectInfo, "id" | "entities" | "documents" | "sources">): {
+export function storyScreensDocument(info: Pick<ProjectInfo, "id" | "entities" | "documents" | "sources" | "routes">): {
   path: string
   document: CanvasDocument
 }[] {

@@ -1,5 +1,6 @@
 import type { ComponentEvidence } from "./library.ts"
 import type { ComponentSource } from "./project.ts"
+import { drawnRoute, type ProjectRoute } from "./routes.ts"
 
 /** An export of the app's that isn't listed as a component, and why, so a person or agent looking for it learns why. */
 export interface LeftOutExport {
@@ -33,59 +34,69 @@ export function describeEvidence(as: ComponentEvidence): string {
 
 /**
  * Where the Components panel lists one of the project's own components: with its UI kit, which loads with the canvas;
- * with the rest of the app, by folder; or with its pages, until the routes lens can name them.
+ * with the rest of the app, by folder; or with its pages, the files its routes are made of.
  */
 export type ComponentRole = "kit" | "app" | "page"
 
-/** The project's own component's role; unset for a library's. */
-export function componentRole(source: ComponentSource): ComponentRole | undefined {
+/**
+ * The files an app's routes are made of, from the project root, each with its route: every route's own file, and the
+ * files it draws while it loads, fails or matches nothing. Whatever router the project has, its provider gives them, so
+ * nothing here knows a router's file names (PAR-1163).
+ */
+export type RouteFiles = ReadonlyMap<string, ProjectRoute>
+
+/** No routes, as for a project without a router, or the CLI, which reads none. */
+const noRoutes: RouteFiles = new Map()
+
+/**
+ * The files an app's routes are made of, each with its route. A file that's two routes' is the first's, unless it's
+ * also the page at `/`, as a library-mode router may draw one page at `/home` and `/`: then it's the root's, so it
+ * still renders the app's home.
+ */
+export function routeFiles(routes: readonly ProjectRoute[]): RouteFiles {
+  const files = new Map<string, ProjectRoute>()
+
+  for (const route of routes) {
+    for (const file of [route.file, ...Object.values(route.stateFiles ?? {})]) {
+      if (!files.has(file) || isRootPage(route, file)) {
+        files.set(file, route)
+      }
+    }
+  }
+
+  return files
+}
+
+/**
+ * Whether a route is the page at `/` and `file` its own file: not a layout or a state it draws, and not a parallel
+ * route's slot or an intercepting route, which draw beside or over a page rather than at its URL.
+ */
+function isRootPage(route: ProjectRoute, file: string): boolean {
+  return route.kind === "page" && route.file === file && route.segments.length === 0 && drawnRoute(route)
+}
+
+/** The project's own component's role, a page when its file is one of its routes'; unset for a library's. */
+export function componentRole(source: ComponentSource, routes: RouteFiles = noRoutes): ComponentRole | undefined {
   if (source.library) {
     return undefined
   }
 
-  if (isPage(source.path)) {
+  if (routes.has(source.path)) {
     return "page"
   }
 
   return source.lazy ? "app" : "kit"
 }
 
-/** Next.js's app router makes pages, layouts and their error and loading states from files with these names. */
-const nextRouteFile =
-  /(?:^|\/)app\/(?:(.+)\/)?(?:page|layout|template|default|loading|error|global-error|not-found)\.[cm]?[jt]sx?$/
+/** Whether a component is the page for `/`: the file of a page route at the root's own URL, not a layout or state. */
+export function rendersRoot(source: ComponentSource, routes: RouteFiles): boolean {
+  const route = routes.get(source.path)
 
-/** File-based routers (Next's pages router, React Router, Remix, TanStack Router) make a page of each file here. */
-const routesFolder = /(?:^|\/)(?:pages|routes)\/(.+)\.[cm]?[jt]sx?$/
+  // A route that names its component, as a library-mode router's does, is that export's, or the file's default export,
+  // which providers name by its local name; not another component the file exports, as its error boundary.
+  const drawn = route?.component === undefined || [route.component, "default"].includes(source.export)
 
-/**
- * Whether a file is a page by its router's naming. In a `pages` or `routes` folder, files whose names start with `_` or
- * `-` are the router's own (`_app`, `__root`) or ones it skips, and `api` holds server routes.
- */
-function isPage(path: string): boolean {
-  if (nextRouteFile.test(path)) {
-    return true
-  }
-
-  const route = routesFolder.exec(path)?.[1]
-
-  return route !== undefined && !/(?:^|\/)[-_]/.test(route) && !route.startsWith("api/")
-}
-
-/** A page's route, from its file: `src/app/(shop)/orders/[id]/page.tsx` is `/(shop)/orders/[id]`. */
-export function pageRoute(path: string): string {
-  const next = nextRouteFile.exec(path)
-
-  if (next) {
-    return `/${next[1] ?? ""}`
-  }
-
-  const route = routesFolder.exec(path)?.[1]
-
-  if (route === undefined) {
-    return folderOf(path)
-  }
-
-  return `/${route.replace(/(?:^|\/)_?index$/, "")}`
+  return route !== undefined && isRootPage(route, source.path) && drawn
 }
 
 /** Components listed under one heading. */
@@ -102,7 +113,8 @@ export interface ComponentGroup {
  */
 export function groupComponents(
   entries: readonly (readonly [string, ComponentSource])[],
-  by: "file" | "folder" | "route"
+  by: "file" | "folder" | "route",
+  routes: RouteFiles = noRoutes
 ): ComponentGroup[] {
   const fileOf = (source: ComponentSource) => source.declaration ?? source.path
 
@@ -114,7 +126,7 @@ export function groupComponents(
         .replace(/(\.d)?\.[cm]?[jt]sx?$/, "")
     }
 
-    return by === "route" ? pageRoute(source.path) : folderOf(source.path)
+    return by === "route" ? (routes.get(source.path)?.path ?? folderOf(source.path)) : folderOf(source.path)
   })
 
   const shared = by === "folder" ? sharedFolders(names) : 0
