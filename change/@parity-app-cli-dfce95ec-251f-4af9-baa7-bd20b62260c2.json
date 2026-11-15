@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Components that render React Router's or TanStack Router's Link now draw on canvas on their own, inside a router at the frame's URL.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

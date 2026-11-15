@@ -1225,9 +1225,8 @@ are declared anywhere it reads, that routes made while the app runs aren't suppo
 
 Components the project's Vite plugin wraps for Fast Refresh, as React Router's does, draw on the canvas: the guest sets
 Fast Refresh's preamble, with hooks that do nothing, before any of the app's modules load (`viteGuestModule` in
-`packages/extension-vite/src/builder.ts`). Components that need the app's router, such as one rendering a `Link`, still
-fail to draw on their own, with "Needs a provider" in the Components panel, until a router extension can wrap each frame
-in a router (PAR-1152).
+`packages/extension-vite/src/builder.ts`). Components that need the app's router, such as one rendering a `Link`, draw
+on their own too, inside the memory router the extension puts around every frame (see the next section).
 
 Tried in the running app on 2026-11-15 on the example that became `fixtures/react-router-framework`: React Router 8.5.1
 found, 20 routes in Layers and the status bar, each page drawn from the app at its URL with its styles, and the route's
@@ -1246,6 +1245,38 @@ permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh p
 `packages/extension-vite/src/builder.test.ts`; the missing router in `packages/core/src/render-status.test.ts`; and the
 example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
 `routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
+
+### A router around every frame (PAR-1152)
+
+A component that renders its router's `Link`, or calls one of its hooks, draws on the canvas on its own rather than
+failing with "Needs a provider": a router's extension declares what goes around every frame, and the canvas puts it
+there.
+
+- **Declared in the manifest, as data.** `providers.router.decorators` lists components to wrap each frame in, outermost
+  first, in the same form as libraries' decorators in their `.lib.par`: a module the project imports, the export to
+  render and its props, with the value forms (`$call`, `$frame`) worked out in the frame. Parity reads them before the
+  extension's code runs, so they're in the guest module the builder writes as the project opens, for every builder.
+- **Outside the libraries' decorators,** as an app puts its router around its theme's provider.
+- **At the frame's URL.** `{ "$frame": "url" }` is the URL the frame stands for, `/` unless a frame says otherwise
+  through the mount's `url`. No frame does yet: pages are drawn from the app at their URL, so the frames the guest
+  draws, components and designs, all start at `/`.
+- **React Router** wraps each frame in its `MemoryRouter`, so `Link`, `NavLink`, `useNavigate` and `useLocation` work,
+  in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
+  with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
+  router (`useLoaderData`, `useFetcher`) still need their route's loader to run, which the canvas doesn't do.
+- **TanStack Router** wraps each frame in `RouterContextProvider`, with a router `createRouter` makes from an empty root
+  route and memory history at the frame's URL, so `Link` draws. `Outlet` draws nothing, as no route matches.
+
+Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
+`packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
+`packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
+`ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
+`packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
+`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`; each router's manifest.
+
+Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
+frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
+around the libraries'" in `packages/extension-vite/src/builder.test.ts`.
 
 ### Pages are the routes' files (PAR-1163)
 

@@ -12,7 +12,10 @@ describe("the TanStack Router extension", () => {
     const found = readExtension(packageJson)
 
     expect(found.manifest.activates).toEqual(["onDetect"])
-    expect(found.manifest.contributes.providers).toEqual({ router: {} })
+    // A router around every frame, so components with a link draw on their own (PAR-1152).
+    expect(found.manifest.contributes.providers?.router?.decorators?.map(({ wrap }) => wrap.component)).toEqual([
+      "RouterContextProvider"
+    ])
     expect(found.manifest.contributes.nodeTypes?.map((type) => type.id)).toEqual(["route"])
     expect(found.versions).toEqual({ packages: ["@tanstack/react-router"], range: "^1.0.0" })
     // It reads the route tree and route files through Parity's files API, wherever the router's config puts them.

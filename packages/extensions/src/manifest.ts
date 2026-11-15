@@ -1,4 +1,4 @@
-import { parseData, peerVersions, type ToolVersions } from "@parity-app/core"
+import { libraryDecorator, parseData, peerVersions, type ToolVersions } from "@parity-app/core"
 import type {
   ActivationEvent,
   AgentToolContribution,
@@ -129,6 +129,24 @@ const jsonSchema: z.ZodType<JsonSchema> = z.record(z.string(), jsonValue)
 
 const empty = z.strictObject({})
 
+/** A decorator a router declares: JSON, whose value forms core's library decorator schema checks. */
+const frameDecorator = z
+  .strictObject({
+    when: z.record(z.string(), z.string()).optional(),
+    wrap: z.strictObject({
+      import: z.string().min(1),
+      component: z.string().min(1),
+      props: z.record(z.string(), jsonValue).optional()
+    })
+  })
+  .superRefine((decorator, context) => {
+    const checked = libraryDecorator.safeParse(decorator)
+
+    for (const issue of checked.success ? [] : checked.error.issues) {
+      context.addIssue({ code: "custom", message: issue.message, path: issue.path })
+    }
+  })
+
 const providers = z.strictObject({
   renderer: z
     .strictObject({
@@ -141,7 +159,7 @@ const providers = z.strictObject({
     .optional(),
   builder: z.strictObject({ entry: z.string(), watches: z.array(z.string()) }).optional(),
   styles: empty.optional(),
-  router: empty.optional(),
+  router: z.strictObject({ decorators: z.array(frameDecorator).max(20).optional() }).optional(),
   entities: z
     .strictObject({
       watches: z.array(z.string()).optional(),

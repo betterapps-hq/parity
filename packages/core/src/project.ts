@@ -30,10 +30,22 @@ export interface ProjectConfig {
   /** Design tokens described in DTCG by the project's own `.lib.par` and by its libraries' `.lib.par` files. */
   describedTokens?: DescribedTokens[]
   /**
+   * What the project's extensions put around every frame, as a router's extension puts a router there (PAR-1152): each
+   * decorator with the extension's prefix, outermost first. They wrap the libraries' decorators. Module specifiers are
+   * the project's own.
+   */
+  frameDecorators?: ExtensionDecorator[]
+  /**
    * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
    * by (`nova/Button`), as the apps that install it name them.
    */
   namespace?: string
+}
+
+/** A decorator an extension declares, with the prefix of the extension that declares it. */
+export interface ExtensionDecorator {
+  extension: string
+  decorator: LibraryDecorator
 }
 
 /** The tokens one `.lib.par` describes, or why they couldn't be read. */

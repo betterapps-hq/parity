@@ -93,7 +93,23 @@
         }
       ],
       "providers": {
-        "router": {}
+        "router": {
+          "decorators": [
+            {
+              "wrap": {
+                "import": "react-router",
+                "component": "MemoryRouter",
+                "props": {
+                  "initialEntries": [
+                    {
+                      "$frame": "url"
+                    }
+                  ]
+                }
+              }
+            }
+          ]
+        }
       }
     }
   }
