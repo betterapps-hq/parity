@@ -161,6 +161,20 @@ describe("the project's pages in the guest app", () => {
     expect(exportNames(source)).toEqual(["GET", "POST"])
   })
 
+  it("reads a `.ts` file as TypeScript, where `<T>` is a type rather than JSX", () => {
+    const source = [
+      "const identity = <T>(x: T) => x",
+      "const port = <number>value",
+      'export const GET = async () => new Response("ok")'
+    ].join("\n")
+
+    expect(exportNames(source, "app/api/route.ts")).toEqual(["GET"])
+
+    const [route] = projectPageFiles({ app: "app" }, [{ path: "app/api/route.ts", text: source }])
+
+    expect(route?.text).toContain('export { GET } from "../../../../../app/api/route"')
+  })
+
   it("leaves segment config in a comment out", () => {
     const source = ["/*", 'export const dynamic = "force-static"', "*/", 'export const dynamic = "force-dynamic"'].join(
       "\n"
