@@ -3,7 +3,8 @@ import { readRoutes } from "./routes.ts"
 
 /*
  * TanStack Router as an extension (PAR-1095), using only Parity's public API. Its router provider reads the app's
- * routes from the route tree the router's tooling generates, which Parity asks for while the project opens, so the
+ * routes from the route tree the router's tooling generates, or from the app's code when it declares them there
+ * (PAR-1156), which Parity asks for while the project opens, so the
  * canvas draws each page and Layers lists them under Routes. Open in browser is offered on each page, and the status
  * bar counts the pages. Its peer dependency says which versions Parity supports, and finds the router in a project.
  */

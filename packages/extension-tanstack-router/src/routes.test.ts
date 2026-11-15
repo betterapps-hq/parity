@@ -278,3 +278,94 @@ describe("readRoutes", () => {
     )
   })
 })
+
+describe("readRoutes with code-based routes (PAR-1156)", () => {
+  it("reads app H's routes from its entry, in the files their components come from", () => {
+    const routes = readRoutes(folderReader(join(import.meta.dirname, "../../../examples/rsbuild-chakra")))
+
+    expect(routes).toEqual([
+      {
+        id: "__root__",
+        kind: "root",
+        segments: [],
+        path: "/",
+        file: "src/components/AppShell.tsx",
+        index: false,
+        component: "AppShell",
+        loads: false,
+        guards: false
+      },
+      {
+        id: "/",
+        kind: "page",
+        segments: [],
+        path: "/",
+        parent: "__root__",
+        file: "src/routes/Home.tsx",
+        index: true,
+        component: "Home",
+        loads: false,
+        guards: false
+      },
+      {
+        id: "/settings",
+        kind: "page",
+        segments: [{ type: "static", value: "settings" }],
+        path: "/settings",
+        parent: "__root__",
+        file: "src/routes/Settings.tsx",
+        index: false,
+        component: "Settings",
+        loads: false,
+        guards: false
+      }
+    ])
+  })
+
+  it("follows parents across files, in the order the files are read, through layouts with and without a path, index routes, params and lazy routes", () => {
+    const routes = readRoutes(
+      recordReader({
+        "index.html": `<script type="module" src="/src/main.tsx"></script>`,
+        "src/main.tsx": `import { router } from "./router"\nimport "./extra"`,
+        "src/root.tsx": `export const rootRoute = createRootRouteWithContext<{ user: string }>()({ component: Shell })`,
+        "src/router.tsx": `
+          import { rootRoute } from "./root"
+          import { projectsRoute, projectRoute } from "./projects"
+          const authRoute = createRoute({ getParentRoute: () => rootRoute, id: "_auth", beforeLoad: guard })
+          export const dashboardRoute = createRoute({ getParentRoute: () => authRoute, path: "dashboard", loader: load })
+          export const router = createRouter({ routeTree: rootRoute.addChildren([authRoute, projectsRoute]) })`,
+        "src/projects.tsx": `
+          import { rootRoute as parent } from "./root"
+          import { ProjectList } from "./pages/ProjectList"
+          export const projectsRoute = createRoute({ getParentRoute: () => parent, path: "/projects" })
+          export const projectsIndex = createRoute({ getParentRoute: () => projectsRoute, path: "/", component: ProjectList })
+          export const projectRoute = createRoute({ getParentRoute: () => projectsRoute, path: "$projectId" }).lazy(
+            () => import("./project.lazy").then((d) => d.Route)
+          )`,
+        "src/pages/ProjectList.tsx": "export function ProjectList() {}",
+        "src/extra.ts": `
+          import { rootRoute } from "./root"
+          const notFound = createRoute({ getParentRoute: () => rootRoute, path: "$", component: Missing })`
+      })
+    )
+
+    expect(routes.map(({ id, kind, path, parent, file, index }) => [id, kind, path, parent, file, index])).toEqual([
+      ["__root__", "root", "/", undefined, "src/root.tsx", false],
+      ["/_auth", "group", "/", "__root__", "src/router.tsx", false],
+      ["/dashboard", "page", "/dashboard", "/_auth", "src/router.tsx", false],
+      ["/$", "page", "/$", "__root__", "src/extra.ts", false],
+      ["/projects", "layout", "/projects", "__root__", "src/projects.tsx", false],
+      ["/projects/", "page", "/projects", "/projects", "src/pages/ProjectList.tsx", true],
+      ["/projects/$projectId", "page", "/projects/$projectId", "/projects", "src/projects.tsx", false]
+    ])
+    expect(routes.find((route) => route.id === "/_auth")?.guards).toBe(true)
+    expect(routes.find((route) => route.id === "/dashboard")?.loads).toBe(true)
+    expect(routes.find((route) => route.id === "/$")?.segments).toEqual([{ type: "catchAll", name: "_splat" }])
+  })
+
+  it("lists nothing when the app makes no root route", () => {
+    expect(
+      readRoutes(recordReader({ "src/main.tsx": `const homeRoute = createRoute({ getParentRoute: () => rootRoute })` }))
+    ).toEqual([])
+  })
+})

@@ -1180,17 +1180,27 @@ bar.
 - **It reads through the files API** (PAR-1163), with `read: ["**"]` in its manifest, since `tsr.config.json` can put
   the route tree and route files anywhere. Each round of reading names the next files, the config, the tree, then each
   route's module an extension at a time, so it reads again until a round asks for nothing new (`projectRoutes`).
+- **Code-based routes too** (PAR-1156). Without a generated route tree, it reads the routes the app makes itself with
+  `createRootRoute` (or `createRootRouteWithContext<…>()`) and `createRoute`, from the app's entry (the module script
+  `index.html` loads, else `src/main` or `src/index`) and the files it imports by relative paths, nearest first. Each
+  route's parent is the one its `getParentRoute` names, in its own file or imported from another; `addChildren` isn't
+  needed. Ids are TanStack Router's: a route's full path, an index's with a slash after (`/projects/`), and a pathless
+  route's `id` below its parent's (`/_auth`). A route's file is the one its `component` is imported from, else its own,
+  as React Router's library mode does; `loader` and `beforeLoad` say it loads data and guards the page. Routes come in
+  the order their files are read. Routes made at run time, or whose parent is reached through anything but a plain
+  variable, are left out.
 
-Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
-`packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
-`protocol.ts` and `providers.register` in `host.ts`; `projectProviders` and `byPeers` in `utility/extensions.ts`;
-`routes` and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/command-offers.ts` and `pageItems` in
-`ActionsSearch.tsx`.
+Code: `packages/extension-tanstack-router` (its manifest, `extension.ts`, `routes.ts`, `code-routes.ts` and
+`syntax.ts`); `providers` in `packages/extension-api/src/api.ts`; `provide` and `provider` in
+`packages/extensions/src/hosts.ts`, `readAnswer` in `protocol.ts` and `providers.register` in `host.ts`;
+`projectProviders` and `byPeers` in `utility/extensions.ts`; `routes` and `tools` in `utility/projects.ts`; `pageOffers`
+in `renderer/chrome/command-offers.ts` and `pageItems` in `ActionsSearch.tsx`.
 
-Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
-`packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a
-route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
-router, and Open in browser's placements in the window, have no unit test of their own.
+Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts` (with app H's code-based routes,
+and parents across files), and "providers (PAR-1095)" in `packages/extensions/src/hosts.test.ts`
+([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a route's page found by its design key
+gives the URL Open in browser opens). Gaps: the service's open path asking the router, and Open in browser's placements
+in the window, have no unit test of their own.
 
 ### React Router as an extension (PAR-1145)
 
@@ -1502,8 +1512,9 @@ Code: `packages/extension-rsbuild` (its manifest, `extension.ts` and `builder.ts
 Tests: `packages/extension-rsbuild/src/builder.test.ts` (detection, and the config Rsbuild gives) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/guest-config.test.ts` (the extractor and HTML plugin).
 Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3.2 and its config found, Chakra UI's
-components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its root route's component
-needs a router, which waits on reading code-based routes (PAR-1156).
+components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
+code since PAR-1156, and its root route's component, `AppShell`, draws inside the router TanStack Router's extension
+puts around every frame (PAR-1152).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 

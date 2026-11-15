@@ -97,6 +97,17 @@ describe("projectRoutes", () => {
     expect(new Set(asked).size).toBe(asked.length)
   })
 
+  it("reads code-based routes a round at a time too, as app H's (PAR-1156)", async () => {
+    const appH = join(import.meta.dirname, "../../../examples/rsbuild-chakra")
+    const routes = await projectRoutes((path) => readFile(join(appH, path), "utf8"))
+
+    expect(routes.map(({ id, file }) => [id, file])).toEqual([
+      ["__root__", "src/components/AppShell.tsx"],
+      ["/", "src/routes/Home.tsx"],
+      ["/settings", "src/routes/Settings.tsx"]
+    ])
+  })
+
   it("has no routes when there's no route tree", async () => {
     const read = () => Promise.reject(new Error("missing"))
 
