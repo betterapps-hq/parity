@@ -67,7 +67,7 @@ in the extension host, and its builder entry module runs in the builder process.
 | CSS modules        | Yes           | Next compiles them; the classes and their CSS come together                                    |
 | Tailwind           | Yes           | Next runs the project's PostCSS config, v3 or v4                                               |
 | vanilla-extract    | Yes           | The project's `turbopack.rules` apply, since its config is loaded as Next loads it             |
-| `next/link`, hooks | No            | `useRouter` and `usePathname` need Next's router context, which only the router's page sets    |
+| `next/link`, hooks | Yes           | A still router of the guest app's own around each frame (PAR-1160), at `/`                     |
 
 A server component that's `async`, or that reads `next/headers`, a database or `server-only` code, shows its error in
 its frame, as a component whose module doesn't load does today.
