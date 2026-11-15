@@ -1150,8 +1150,43 @@ What they say about Loro:
 | Opening a project          | `project.drawn`'s time with each provider, on the example project and the Very large one |
 | Memory                     | The window's memory after opening the Very large project, with each provider             |
 
-Step 7 measures the window on the local provider against today's. The live room measures Loro's load when the window
-first loads it, and says whether long sessions need Loro's shallow snapshots.
+Step 7 measured the window on the local provider against today's, below. The live room measures Loro's load when the
+window first loads it, and says whether long sessions need Loro's shallow snapshots.
+
+### The window on the local provider
+
+`pnpm perf` on `main` (`d555e20f1`) and on step 5 (PAR-1112), back to back on the same machine, one run each. Opening
+moves by a second or more between runs of the same build, so only differences beyond that count.
+
+| Measure, example project                        |  Today | Local provider |
+| ----------------------------------------------- | -----: | -------------: |
+| Launch, until usable                            |  8.7 s |          7.6 s |
+| Launch, until every preview is drawn            | 18.5 s |         16.9 s |
+| Reopen in the same window, until usable         |  4.0 s |          5.0 s |
+| Start again on the same profile, until usable   |  5.6 s |          7.0 s |
+| Select a design, median                         |  54 ms |          55 ms |
+| Edit a design, median                           |  22 ms |          18 ms |
+| Pan, frames a second                            |     80 |             70 |
+| Zoom, frames a second                           |     32 |             33 |
+| JS heap after collecting garbage, once opened   | 105 MB |         104 MB |
+| JS heap after collecting garbage, 4 soak rounds | 165 MB |         185 MB |
+
+| Measure, Very large project (49 MB in 10 files) |       Today | Local provider |
+| ----------------------------------------------- | ----------: | -------------: |
+| Launch, until usable                            | 12.1–13.1 s |         11.1 s |
+| Launch, until every preview is drawn            |     68–71 s |           67 s |
+| JS heap after collecting garbage, once opened   |      302 MB |         304 MB |
+
+- **Opening, frames and memory are as today's.** The differences are within what runs of one build vary by. What the 20
+  MB more after four soak rounds holds isn't known yet; a longer soak says whether it levels off.
+- **The download grows by 30 KB,** 5 KB gzipped: the window's JavaScript is 6.71 MB today and 6.74 MB on the local
+  provider. Loro isn't in it.
+- **No hot path sends operations directly yet.** Dragging, nudging and typing go through the functions for callers,
+  which diff the design they're given. On the Very large project that costs 0.07 ms a frame for a drag and 0.3 ms a
+  character for typing (the bench above), well inside a frame. `gesture.ended`'s `transactMs` shows if that changes, and
+  a path that grows past a few milliseconds a frame sends its own operations then.
+- **The Very large project can't run the camera scenarios:** `pnpm perf` finds no layer in view to zoom over in its
+  generated designs, so only opening and memory are measured on it.
 
 ## Telemetry
 
