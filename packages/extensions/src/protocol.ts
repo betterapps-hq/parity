@@ -1,5 +1,5 @@
 import type { Checks } from "@parity-app/channel"
-import { parseData } from "@parity-app/core"
+import { containerSpec, parseData } from "@parity-app/core"
 import type {
   Candidate,
   CommandTarget,
@@ -16,6 +16,10 @@ import type {
   PickItem,
   BuilderDetection,
   ComponentExport,
+  Design,
+  FileWrite,
+  ImportedScreen,
+  ProjectComponents,
   CssDeclaration,
   ProcessEnd,
   ProcessInfo,
@@ -109,6 +113,14 @@ export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
   renderer: { components: { params: { files: SourceFile[] }; result: ComponentExport[][] } }
   builder: { detect: { params: undefined; result: BuilderDetection } }
+  entities: {
+    /** What it imported, its designs read as containers. */
+    import: { params: { components: ProjectComponents }; result: z.output<typeof importedEntities> }
+    export: {
+      params: { screen: ImportedScreen; edited: Design; components: ProjectComponents }
+      result: FileWrite[]
+    }
+  }
   styles: {
     handles: { params: { source: string }; result: boolean }
     theme: { params: { stylesheet: string }; result: ThemeVariable[] }
@@ -508,6 +520,22 @@ const route: z.ZodType<Route> = z.strictObject({
   redirect: routePath.optional()
 })
 
+/** A screen an entities provider read, its design checked as a `.par` file's. */
+const importedScreen = z.strictObject({
+  adapter: z.string().max(200),
+  ref: z.string().max(2000),
+  group: z.string().max(2000),
+  folders: z.array(z.string().max(500)).max(100).optional(),
+  component: z.string().max(2000).optional(),
+  screen: containerSpec
+})
+
+/** What an entities provider imported. */
+const importedEntities = z.strictObject({
+  screens: z.array(importedScreen).max(10_000).optional(),
+  sources: z.record(z.string().max(2000), z.strictObject({ path: filePath, export: z.string().max(500) })).optional()
+})
+
 /** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
 const themeVariables = z.array(z.strictObject({ name: z.string().max(500), value: text })).max(100_000)
 
@@ -523,6 +551,10 @@ const providerResults = {
       })
     ),
     writeTokens: checkOf(fileText)
+  },
+  entities: {
+    import: checkOf(importedEntities),
+    export: checkOf(z.array(z.strictObject({ path: filePath, text: fileText })).max(1000))
   },
   builder: {
     detect: checkOf(
@@ -575,6 +607,8 @@ export function readAnswer(call: ProviderCall, answer: ProviderAnswer): Provider
       return providerResults.renderer[call.method](answer)
     case "builder":
       return providerResults.builder[call.method](answer)
+    case "entities":
+      return providerResults.entities[call.method](answer)
   }
 }
 

@@ -1,6 +1,6 @@
 import type { DetectContext, PackageManifest } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { detectStorybook } from "./detect.ts"
+import { detectStorybook } from "./storybook-detect.ts"
 
 /** A project with this package.json and these files, by their path from the root. */
 const project = (pkg: PackageManifest, files: string[] = []): DetectContext => ({

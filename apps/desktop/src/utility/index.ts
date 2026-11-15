@@ -32,6 +32,7 @@ import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
 import {
   builtInBuilders,
+  builtInEntities,
   builtInRenderers,
   closeExtensions,
   openExtensions,
@@ -76,6 +77,7 @@ const projects = openProjects({
   ...adapters,
   renderers: builtInRenderers,
   builders: builtInBuilders,
+  entities: builtInEntities,
   tools: extensionTools,
   // The extensions' hosts start below, before any project opens.
   get providers() {
