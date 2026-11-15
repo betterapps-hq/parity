@@ -191,8 +191,10 @@ export interface ModuleLoader {
  */
 export function moduleLoaderSource(loader: ModuleLoader): string {
   const json = (value: string | readonly string[]) => JSON.stringify(value)
+
   const at = (url: string) =>
     loader.stamp === undefined ? url : `${url}${url.includes("?") ? "&" : "?"}t=${loader.stamp}`
+
   const names = [...new Set(loader.names)]
 
   const exported = names.map((name, index) =>

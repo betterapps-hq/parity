@@ -154,12 +154,15 @@ describe("modules loaded again in Turbopack's runtime", () => {
       c: new Map([[id, { id }]]),
       r: () => ({ parityModule: { Card: "the card", default: "the page" } })
     }
+
     Object.assign(globalThis, { __parityTurbopackContexts: { s2: context } })
 
     // Only the module's last lines run here: the browser loads its chunks and links.
     const body = source.slice(source.indexOf("// The client module"))
+
     const head =
       "const context = globalThis.__parityTurbopackContexts.s2\nconst forget = (store, id) => store.delete(id)\n"
+
     const module = await import(`data:text/javascript,${encodeURIComponent(head + body)}`)
 
     expect(context.c.has(id)).toBe(false)
