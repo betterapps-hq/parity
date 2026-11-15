@@ -6,7 +6,7 @@ import {
   type KeyEntry,
   type Replacement,
   readKeybindings
-} from "../shared/keybindings.ts"
+} from "@parity-app/settings"
 import type { LockOptions } from "./file-lock.ts"
 import { type FileFormat, sharedFile, type SharedFileState } from "./shared-file.ts"
 

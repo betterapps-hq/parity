@@ -33,13 +33,12 @@ import tailwindPackage from "@parity-app/extension-tailwind/package.json" with {
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import { type ExtensionPackage, installedStatus, readExtension } from "@parity-app/extensions"
-import { defaultSettings } from "@parity-app/settings"
+import { applyReplacements, defaultSettings, readKeybindings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
 import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
 import type { ConnectorSearch } from "../../shared/connectors.ts"
-import { applyReplacements, readKeybindings } from "../../shared/keybindings.ts"
 import type {
   CanvasHost,
   ExtensionStatus,

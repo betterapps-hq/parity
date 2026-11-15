@@ -9,7 +9,7 @@ import {
   resolveBindings,
   type Skipped,
   swapKeys as swapReplacements
-} from "../../shared/keybindings.ts"
+} from "@parity-app/settings"
 import { useStore, windowStore } from "../store.ts"
 import { type Command, commandKeys, keymap } from "./keymap.ts"
 

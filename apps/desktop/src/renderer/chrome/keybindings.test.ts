@@ -1,11 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import {
   applyReplacements,
   type KeybindingsState,
   type Replacement,
   readKeybindings,
   readKeys
-} from "../../shared/keybindings.ts"
+} from "@parity-app/settings"
+import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import type { CanvasHost } from "../../shared/protocol.ts"
 import { resetWindowStores } from "../store.ts"
 import { resetKeys, setKeys, startKeybindings } from "./keybindings.ts"
