@@ -28,6 +28,7 @@ import reactPackage from "@parity-app/extension-react/package.json" with { type:
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
+import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import { type ExtensionPackage, readExtension } from "@parity-app/extensions"
 import { defaultSettings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
@@ -503,8 +504,15 @@ let windowHandler: ((method: WindowMethod, params: WindowParams) => Promise<Serv
 
 const storybookExtension = readExtension(storybookPackage)
 
-/** Parity's own extensions that run for a project detection finds their tool in, with the status their code sets. */
+/**
+ * Parity's own extensions that run for a project detection finds their tool in, with the status their code sets, in
+ * the order the service lists them: the builder, then the renderer, then the rest.
+ */
 const toolExtensions: { extension: ExtensionPackage; status: ExtensionStatus["status"] }[] = [
+  {
+    extension: readExtension(vitePackage),
+    status: { "vite.status": { value: "Vite", tooltip: "Builds the project" } }
+  },
   {
     extension: readExtension(reactPackage),
     status: { "react.status": { value: "React", tooltip: "Renders the project's components" } }
