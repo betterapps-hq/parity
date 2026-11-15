@@ -203,7 +203,13 @@ describe("who may ask", () => {
     const { ask, handled } = main()
     const change = { storybook: { openIn: "parity" } }
 
-    for (const method of ["extensionSettingsChange", "settingsProjectChange", "settingsClose"] as const) {
+    for (const method of [
+      "extensionSettingsChange",
+      "settingsProjectChange",
+      "settingsClose",
+      "keybindingsReplace",
+      "keybindingsOpen"
+    ] as const) {
       expect(hostMethod(method)?.only).toBe("settings")
     }
 
@@ -213,6 +219,19 @@ describe("who may ask", () => {
     expect(handled).toEqual([])
     expect(await ask(settings, "extensionSettingsChange", change)).toBe("extensionSettingsChange answered")
     expect(handled).toEqual([{ method: "extensionSettingsChange", params: change, from: parityWindow }])
+  })
+
+  it("takes a change to the shortcuts only from Settings, which loads no project code (PAR-1123)", async () => {
+    const { ask, handled } = main()
+    const replacements = [{ command: "undo", keys: ["Ctrl U"] }]
+
+    await expect(ask(parity, "keybindingsReplace", replacements)).rejects.toThrow(
+      "Only Settings can ask for keybindingsReplace."
+    )
+    await expect(ask(parity, "keybindingsOpen")).rejects.toThrow("Only Settings can ask for keybindingsOpen.")
+    expect(handled).toEqual([])
+    expect(await ask(settings, "keybindingsReplace", replacements)).toBe("keybindingsReplace answered")
+    expect(handled).toEqual([{ method: "keybindingsReplace", params: replacements, from: parityWindow }])
   })
 
   it("takes what Settings shows of the project only from the editor window's page", () => {

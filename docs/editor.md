@@ -2451,6 +2451,8 @@ The keymap is the defaults. The person's changes are in `keybindings.json` in th
   they're its roles' own keys, and the app's own menus are drawn by the window.
 - **A file that isn't a JSON list** keeps the keys it last had, the keymap's at start, is logged, and is never written
   over: a change fails until it's fixed by hand.
+- **Only Settings changes the file,** besides the person by hand: main refuses a change to the shortcuts, or opening the
+  file, from the editor window, where the project's code runs.
 - **Every running copy follows the file.** Main reads it before the window opens and watches its folder, so a key
   changed by hand or in another copy applies at once, in every window and menu. It reads it again when a window gains
   focus, in case a change was missed. Each change is made under the file's lock on the file as it is then, so two copies
@@ -7722,9 +7724,9 @@ open project's page, under its name and badge; Extensions; and Diagnostics and U
 project page.
 
 Settings is its own web contents over the window, owned by main, which loads no project code (PAR-1090). The editor
-window's page runs the project's code, so main takes extensions' settings for every project only from Settings. The
-window sends Settings what its project page shows each time it changes, and makes each change Settings sends back an
-undo step. Escape or the close button takes Settings away.
+window's page runs the project's code, so main takes extensions' settings for every project, and changes to the
+shortcuts (PAR-1123), only from Settings. The window sends Settings what its project page shows each time it changes,
+and makes each change Settings sends back an undo step. Escape or the close button takes Settings away.
 
 - **The person's settings save as they change,** with a brief Saved in the page's heading, and apply in every window. A
   change main couldn't save leaves the control as it was and says so under the row. A setting something outside Settings
@@ -7794,8 +7796,8 @@ extensions' settings from two copies both kept and the other copy told, a change
 changes at the same moment both kept, one copy told of another's, a reset, a file that can't be read never written over
 with the change held, a held change saved once the file reads without undoing another copy's, a stale lock taken, a held
 lock waited for, and the lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to
-the project and closing taken only from Settings, and the project's page only from the editor window.
-`packages/extensions/src/hosts.test.ts`: what the Extensions page shows of each extension's code.
+the shortcuts and to the project, and closing taken only from Settings, and the project's page only from the editor
+window. `packages/extensions/src/hosts.test.ts`: what the Extensions page shows of each extension's code.
 `packages/editor/src/settings-search.test.ts` (6): every typed word starting a word; nothing for an empty search; a
 label's start before a word inside it; another word for a setting, and which; where it is before its description; and
 values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a key named by its place, named keys,

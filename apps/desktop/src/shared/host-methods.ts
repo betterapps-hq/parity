@@ -165,10 +165,13 @@ export const hostMethods = {
   openInParity: { params: parityWindowUrl },
   /** The shortcuts the person changed, in `keybindings.json` (PAR-1085), which main sends again whenever they change. */
   keybindingsState: { result: answers<KeybindingsState>() },
-  /** Replaces commands' entries in `keybindings.json`, for what the file holds after. */
-  keybindingsReplace: { params: keybindingReplacements, result: answers<KeybindingsState>() },
-  /** Opens `keybindings.json` in the system's app for it, making it first when there's none. */
-  keybindingsOpen: {},
+  /**
+   * Replaces commands' entries in `keybindings.json`, for what the file holds after. Only Settings may change shortcuts
+   * (PAR-1123): the editor window runs the project's code, which mustn't rebind the person's keys.
+   */
+  keybindingsReplace: { params: keybindingReplacements, result: answers<KeybindingsState>(), from: "settings" },
+  /** Opens `keybindings.json` in the system's app for it, making it first when there's none. Only from Settings. */
+  keybindingsOpen: { from: "settings" },
   metrics: { result: answers<ProcessUsage[]>() },
 
   /** Which frame the window's next console message comes from (PAR-147). One that isn't an announcement is ignored. */
