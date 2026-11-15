@@ -73,11 +73,11 @@ export function parseManifest(text: string, file: string): PackageManifest {
 }
 
 /**
- * The first of `packages` a package.json declares as a dependency or dev dependency, else the first in `scope` (as
- * `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
+ * The first of `packages` a package.json declares as a dependency, dev dependency or optional dependency, else the
+ * first in `scope` (as `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
  */
 export function declares(pkg: PackageManifest, packages: readonly string[], scope?: string): string | undefined {
-  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.optionalDependencies })
 
   return (
     packages.find((name) => declared.includes(name)) ??

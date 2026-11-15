@@ -33,6 +33,12 @@ describe("detectByManifest (PAR-1128)", () => {
     expect(detectByManifest(extension({}), project, place())).toBeUndefined()
   })
 
+  it("counts a peer the project lists only in its optional dependencies", () => {
+    const optional = { ...project, pkg: { name: "app", optionalDependencies: { tool: "^2.0.0" } } }
+
+    expect(detectByManifest(extension({}, { tool: "^2.0.0" }), optional, place())).toEqual({})
+  })
+
   it("finds one by the entities Parity's detection found, and not by its peers unless it says so", () => {
     const entities = extension(
       { detect: { entities: true }, contributes: { providers: { entities: {} } } },
