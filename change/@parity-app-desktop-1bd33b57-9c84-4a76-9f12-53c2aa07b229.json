@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Settings lists every installed extension from its manifest: name, logo and settings, Portless and Storybook accessibility among them",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

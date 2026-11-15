@@ -2343,6 +2343,34 @@ describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
     expect(leaked).toEqual([])
   })
 
+  // A clock that moves on with each reading spends the run's time before its first call, which refuses. A job queued
+  // ahead of that then makes the evaluation time out, discarding the snippet's promise with it (PAR-1139).
+  it("stops a snippet failing in an evaluation that times out without leaving a rejection unhandled", async () => {
+    let now = 0
+    vi.spyOn(performance, "now").mockImplementation(() => ++now)
+    const unhandled: unknown[] = []
+    const record = (cause: unknown) => unhandled.push(cause)
+    process.on("unhandledRejection", record)
+
+    try {
+      const stopped = await execute(
+        { label: "Late", code: `Promise.resolve().then(() => { while (true) {} })\nawait Screenshot("signup")` },
+        snapshot(),
+        hooks(),
+        { total: 1, stretch: 1000 }
+      )
+
+      // Unhandled rejections are reported once the process's own jobs have run.
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      expect(stopped.error).toMatch(/0\.001 seconds/)
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off("unhandledRejection", record)
+      vi.restoreAllMocks()
+    }
+  })
+
   it("leaves a stopped snippet's next step out of the tab's next call", async () => {
     const read = snapshot()
     const fast = hooks()
