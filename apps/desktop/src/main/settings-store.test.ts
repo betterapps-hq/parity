@@ -93,7 +93,11 @@ describe("settings.json", () => {
       two.change({ extensions: { tailwind: { strict: true } } })
     ])
 
-    expect(saved(file)).toEqual({ extensions: { storybook: { openIn: "parity" }, tailwind: { strict: true } } })
+    // A copy that finds the file held for a moment, as Windows can just after the other copy writes, keeps its change
+    // and saves it on the next try, so both are in the file soon, not as the changes resolve.
+    await vi.waitFor(() =>
+      expect(saved(file)).toEqual({ extensions: { storybook: { openIn: "parity" }, tailwind: { strict: true } } })
+    )
     await vi.waitFor(() =>
       expect(heard.mock.lastCall?.[0].extensions).toEqual({
         storybook: { openIn: "parity" },
