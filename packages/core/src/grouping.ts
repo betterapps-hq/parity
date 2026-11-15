@@ -89,7 +89,11 @@ export function componentRole(source: ComponentSource, routes: RouteFiles = noRo
 export function rendersRoot(source: ComponentSource, routes: RouteFiles): boolean {
   const route = routes.get(source.path)
 
-  return route !== undefined && isRootPage(route, source.path)
+  // A route that names its component, as a library-mode router's does, is that export's, or the file's default export,
+  // which providers name by its local name; not another component the file exports, as its error boundary.
+  const drawn = route?.component === undefined || [route.component, "default"].includes(source.export)
+
+  return route !== undefined && isRootPage(route, source.path) && drawn
 }
 
 /** Components listed under one heading. */

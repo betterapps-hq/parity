@@ -104,6 +104,16 @@ describe("component roles", () => {
     expect(componentRole(own("src/pages/index.tsx"), shared)).toBe("page")
   })
 
+  it("knows the page for `/` by the component its route names, not another its file exports", () => {
+    const named = routeFiles([
+      route({ id: "home", kind: "page", path: "/", file: "src/screens/Home.tsx", component: "Home" })
+    ])
+
+    expect(rendersRoot({ path: "src/screens/Home.tsx", export: "Home" }, named)).toBe(true)
+    expect(rendersRoot({ path: "src/screens/Home.tsx", export: "default" }, named)).toBe(true)
+    expect(rendersRoot({ path: "src/screens/Home.tsx", export: "ErrorBoundary" }, named)).toBe(false)
+  })
+
   it("says in words why a component counts as one", () => {
     expect(describeEvidence("memo")).toBe("made with memo")
     expect(describeEvidence("exotic")).toMatch(/component object/)
