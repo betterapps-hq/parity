@@ -233,6 +233,24 @@ export const ResetAllShortcuts: Story = {
   }
 }
 
+/** Resetting puts away a clash still asking, so its Swap can't undo the reset (PAR-1042). */
+export const ResetPutsAwayAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("{Shift>}h{/Shift}")
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await expect(view.getByRole("button", { name: "Swap with Move and select" })).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: "Reset all shortcuts" }))
+    await userEvent.click(view.getByRole("button", { name: "Reset" }))
+    await expect(view.getByRole("button", { name: /^Change Hand, now H/ })).toBeInTheDocument()
+    await expect(view.queryByRole("button", { name: "Swap with Move and select" })).not.toBeInTheDocument()
+  }
+}
+
 /** Entries keybindings.json has that Parity skipped, listed first, with the file to fix them in. */
 export const SkippedShortcuts: Story = {
   render: () => (

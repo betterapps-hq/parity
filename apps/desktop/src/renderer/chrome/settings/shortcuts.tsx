@@ -115,7 +115,7 @@ function ResetAll({ store }: { store: Store }) {
 export function ShortcutRow({ command, store, found }: { command: string; store: Store; found?: Found }) {
   const id = useId()
   const [listening, setListening] = useState(false)
-  const [clash, setClash] = useState<{ keys: string; holder: Command }>()
+  const [asked, setAsked] = useState<{ keys: string; holder: Command; over: string }>()
 
   if (!isCommand(command)) {
     return null
@@ -124,12 +124,14 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
   const binding = keymap[command]
   const keys = store.keysOf(command)
   const lostTo = store.lost[command]
+  // A clash asks about the keys the row had then, so a reset or another change since puts it away.
+  const clash = asked?.over === keys ? asked : undefined
 
   const record = (event: KeyboardEvent) => {
     event.preventDefault()
     event.stopPropagation()
     // New keys stand in for a clash still asking, so its Swap can't apply keys pressed before.
-    setClash(undefined)
+    setAsked(undefined)
 
     if (event.key === "Escape" && !event.ctrlKey && !event.altKey && !event.shiftKey) {
       setListening(false)
@@ -148,7 +150,7 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
     const holder = next ? store.holderOf(command, next) : undefined
 
     if (holder && isCommand(holder)) {
-      setClash({ keys: next, holder })
+      setAsked({ keys: next, holder, over: keys })
 
       return
     }
@@ -186,13 +188,13 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
               size="xs"
               aria-label={`Swap with ${keymap[clash.holder].label}`}
               onClick={() => {
-                setClash(undefined)
+                setAsked(undefined)
                 void store.swap(command, clash.keys)
               }}
             >
               Swap
             </Button>
-            <Button variant="ghost" size="xs" onClick={() => setClash(undefined)}>
+            <Button variant="ghost" size="xs" onClick={() => setAsked(undefined)}>
               Cancel
             </Button>
           </span>
@@ -208,7 +210,10 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
             hint="Reset to default"
             label={`Reset ${binding.label} to ${defaultKeys}`}
             icon={<RotateCcw />}
-            onClick={() => void store.reset(command)}
+            onClick={() => {
+              setAsked(undefined)
+              void store.reset(command)
+            }}
           />
         )
       }
@@ -220,7 +225,7 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
         aria-label={`Change ${binding.label}, now ${keys ? formatKeys(keys, false) : "none"}`}
         aria-pressed={listening}
         onClick={() => {
-          setClash(undefined)
+          setAsked(undefined)
           setListening(!listening)
         }}
         onKeyDown={(event) => {

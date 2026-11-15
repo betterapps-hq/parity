@@ -7863,11 +7863,12 @@ a setting, and which; where it is before its description; and values listed as a
 letters and modifiers, a key named by its place, named keys, Shift left off plus and minus, nothing for a modifier
 alone, and keys the event matches. `chrome/settings/Settings.stories.tsx` draws every page and state with its data in
 the story, and checks the project's value beside the person's, saving the project, changing a setting for it, a save
-that fails, rebinding and resetting a shortcut, swapping on a clash or cancelling, resetting them all, an extension's
-project setting, search results and opening on a setting. `chrome/open-settings.test.ts` (2): opening asks main for its
-Settings view in the app, and opens the page's own where Storybook draws it. `chrome/SettingsDialog.stories.tsx` opens
-it over the example project, on General and on the project's page; `chrome/TelemetrySetting.stories.tsx` and
-`chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
+that fails, rebinding and resetting a shortcut, swapping on a clash or cancelling, a reset putting a clash away,
+resetting them all, an extension's project setting, search results and opening on a setting.
+`chrome/open-settings.test.ts` (2): opening asks main for its Settings view in the app, and opens the page's own where
+Storybook draws it. `chrome/SettingsDialog.stories.tsx` opens it over the example project, on General and on the
+project's page; `chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and
+Updates.
 
 ### Installed app updates (PAR-160)
 
