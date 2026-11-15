@@ -138,7 +138,7 @@ export const NewScreenHere: Story = onCanvas(["Pricing"], undefined, async () =>
   await userEvent.click(within(menu).getByRole("menuitem", { name: /^New screen/ }))
 
   const made = await waitFor(() => {
-    const found = example().store.getEntry(selected().design ?? "")?.container
+    const found = example().doc.design(selected().design ?? "")
 
     if (found?.name !== "Untitled screen") {
       throw new Error("No new screen is selected")

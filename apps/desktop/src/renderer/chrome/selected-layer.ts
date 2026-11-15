@@ -18,9 +18,10 @@ import {
   targetPatches
 } from "@parity-app/core"
 import { editingState } from "@parity-app/editor"
+import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import { useProject } from "../canvas/context.ts"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
-import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
+import { useContainerEntry } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { fieldName, fieldValue, type LayerChange, recordLayerChange, updateAndRecord } from "./inspector-events.ts"
 
@@ -52,17 +53,18 @@ export interface SelectedLayer {
 
 /** The layer selected on its own, as its panel's sections take it; undefined for anything else or one that's gone. */
 export function useSelectedLayer(): SelectedLayer | undefined {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
 
   return useLayer(entry, selected.nodes && selected.nodes.length > 1 ? undefined : selected.node)
 }
 
 /** One layer of a design, as its panel's sections take it. */
 export function useLayer(entry: ContainerEntry | undefined, nodeId: string | undefined): SelectedLayer | undefined {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
+  const session = useProject()
+  const { doc } = session
+  const selected = useSelection(session.selection)
 
   if (!entry || !nodeId) {
     return undefined
@@ -80,7 +82,7 @@ export function useLayer(entry: ContainerEntry | undefined, nodeId: string | und
     changes: (current: ContainerSpec) => NodePatch | undefined
   ) => {
     const change: LayerChange = (label, value, gesture, shown = node) => {
-      store.updateContainer(key, label, (current) => edit(current, boardTarget(current, state.id), value), { gesture })
+      updateContainer(doc, key, label, (current) => edit(current, boardTarget(current, state.id), value), { gesture })
 
       if (shown) {
         recordLayerChange(key, [nodeId], state.id, shown, value, gesture)
@@ -91,7 +93,7 @@ export function useLayer(entry: ContainerEntry | undefined, nodeId: string | und
       const update = (current: ContainerSpec) => undo(current, boardTarget(current, state.id), field)
 
       if (field) {
-        updateAndRecord(store, key, "Reset change", update, {
+        updateAndRecord(doc, key, "Reset change", update, {
           field: fieldName(field),
           layers: [nodeId],
           state: state.id,
@@ -101,7 +103,7 @@ export function useLayer(entry: ContainerEntry | undefined, nodeId: string | und
         return
       }
 
-      updateAndRecord(store, key, "Reset change", update, {
+      updateAndRecord(doc, key, "Reset change", update, {
         field: "overrides",
         layers: [nodeId],
         state: state.id,
@@ -146,7 +148,7 @@ export function useLayer(entry: ContainerEntry | undefined, nodeId: string | und
     }
   }
 
-  const library = projectLibrary(store)
+  const library = projectLibrary(session)
   const inner = locateInner(container, nodeId, library, { state, variants: container.view?.variants })
 
   if (!inner) {
@@ -167,8 +169,8 @@ export function useLayer(entry: ContainerEntry | undefined, nodeId: string | und
     override,
     ...edits(
       inner.shown,
-      (current, at, value) => editLayer(store, current, at, nodeId, value),
-      (current, at, field) => resetLayer(store, current, at, nodeId, field),
+      (current, at, value) => editLayer(session, current, at, nodeId, value),
+      (current, at, field) => resetLayer(session, current, at, nodeId, field),
       // The layer as the copy shows it in the state being edited, to read what a reset changed.
       (current) =>
         locateInner(current, nodeId, library, {

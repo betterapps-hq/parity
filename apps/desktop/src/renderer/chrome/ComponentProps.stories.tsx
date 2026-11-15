@@ -1,4 +1,5 @@
 import { setSlot } from "@parity-app/core"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
@@ -26,7 +27,7 @@ const selecting = (designName: string) => inspecting("design", () => ({ design: 
 /** App top bar with its actions layout made a named slot, `actions`. */
 const topBarWithSlot = () => {
   const key = design("App top bar")
-  example().store.updateContainer(key, "Make slot", (container) =>
+  updateContainer(example().doc, key, "Make slot", (container) =>
     setSlot(container, node("App top bar", "Top bar actions"), "actions")
   )
 
@@ -50,7 +51,7 @@ export const WithSeveralSlots: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Plan card")
-      example().store.updateContainer(key, "Make slot", (container) =>
+      updateContainer(example().doc, key, "Make slot", (container) =>
         setSlot(
           setSlot(container, node("Plan card", "Features"), "features"),
           node("Plan card", "Price block"),

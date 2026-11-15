@@ -25,11 +25,11 @@ import {
   findNode,
   walkNodes
 } from "@parity-app/core"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { Braces, Columns3, Hash, type LucideIcon, Plus, Rows3, SquareDashed, ToggleRight, Type, X } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
 import { focusOnMount, kindColors } from "../canvas/kinds.tsx"
-import type { ContainerEntry } from "../design-store.ts"
 import { Hint } from "./Hint.tsx"
 import { paramValue, updateAndRecord } from "./inspector-events.ts"
 import { refuseNewProp, startNewProp, useNewProp } from "./new-prop.ts"
@@ -152,7 +152,7 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
                     }
 
                     updateAndRecord(
-                      session.store,
+                      session.doc,
                       key,
                       "Make slot",
                       (current) => setSlot(current, node.id, name),
@@ -179,7 +179,7 @@ export function AddProp({ entry }: { entry: ContainerEntry }) {
  */
 export function NewPropRow({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
-  const { store } = session
+  const { doc } = session
   const adding = useNewProp(session, entry.key)
 
   if (!adding) {
@@ -201,7 +201,7 @@ export function NewPropRow({ entry }: { entry: ContainerEntry }) {
       return refuseNewProp(session, problem)
     }
 
-    updateAndRecord(store, entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type), {
+    updateAndRecord(doc, entry.key, `Add ${name}`, (current) => addValueProp(current, name, adding.type), {
       field: `params.${name}`,
       read: (current) => paramValue(current, name)
     })
@@ -281,7 +281,7 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
     }
 
     refuseSlotName(session, key, node.id, undefined)
-    updateAndRecord(session.store, key, "Rename slot", (current) => setSlot(current, node.id, next), slotField(node.id))
+    updateAndRecord(session.doc, key, "Rename slot", (current) => setSlot(current, node.id, next), slotField(node.id))
   }
 
   return (
@@ -328,7 +328,7 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
               className="absolute top-1/2 right-1 grid size-5 -translate-y-1/2 place-items-center rounded text-muted-foreground opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 hover:bg-accent hover:text-foreground"
               onClick={() =>
                 updateAndRecord(
-                  session.store,
+                  session.doc,
                   key,
                   "Remove slot",
                   (current) => setSlot(current, node.id, undefined),
@@ -358,7 +358,7 @@ export function SlotPropRow({ entry, slot }: { entry: ContainerEntry; slot: Desi
  */
 export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutNode }) {
   const session = useProject()
-  const { store } = session
+  const { doc } = session
   const place = slotPlaceProblem(entry.container, node.id)
 
   if (node.slot === undefined) {
@@ -387,13 +387,7 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
         size="sm"
         className="flex-1"
         onClick={() =>
-          updateAndRecord(
-            store,
-            entry.key,
-            "Make slot",
-            (current) => setSlot(current, node.id, name),
-            slotField(node.id)
-          )
+          updateAndRecord(doc, entry.key, "Make slot", (current) => setSlot(current, node.id, name), slotField(node.id))
         }
       >
         <SquareDashed style={{ color: slotColor }} /> Make slot
@@ -428,7 +422,7 @@ export function MakeSlot({ entry, node }: { entry: ContainerEntry; node: LayoutN
           aria-label={`Remove the ${slot} slot`}
           onClick={() =>
             updateAndRecord(
-              store,
+              doc,
               entry.key,
               "Remove slot",
               (current) => setSlot(current, node.id, undefined),

@@ -1,6 +1,6 @@
 import type { CanvasDocument } from "@parity-app/core"
 import { sameDesign, sameValue } from "./document-equality.ts"
-import { type DesignHistory, type SaveState, unsavedPaths } from "./history.ts"
+import type { DesignSnapshot, SaveState } from "./snapshot.ts"
 import { tokenWrites } from "./token-edits.ts"
 
 /** Designs a file's changes add, change and remove, by id. */
@@ -25,7 +25,7 @@ export interface UnsavedFile {
   more?: number
 }
 
-/** Steps in one direction of the history: how many, and with a summary their labels, newest first. */
+/** Steps in one direction of undo: how many, and with a summary their labels, newest first. */
 export interface HistorySide {
   count: number
   labels?: string[]
@@ -36,8 +36,6 @@ export interface HistorySide {
  * what failed to write. Reading it changes nothing.
  */
 export interface EditStatus {
-  /** Counts content changes since the project opened, whoever made them (see `DesignHistory.revision`). */
-  revision: number
   /** Whether anything applied here isn't on disk yet. */
   dirty: boolean
   unsaved: UnsavedFile[]
@@ -51,19 +49,36 @@ export interface EditStatus {
 }
 
 export interface StatusOptions {
-  /** Add each unsaved file's designs and token values, and the history's labels. */
+  /** Add each unsaved file's designs and token values, and undo's labels. */
   summary?: boolean
   /** The most ids or labels each list gives. */
   limit?: number
 }
 
-/** Where a project's edits stand, from its history, with a bounded summary of what's unsaved when asked for. */
-export function editStatus(history: DesignHistory, options: StatusOptions = {}): EditStatus {
-  const { summary = false, limit = 10 } = options
-  const tokens = tokenWrites(history.current.tokens, history.saved.tokens)
+/** What a project's edits are worked out from: what's here, what its files hold, and where saving and undo stand. */
+export interface StatusInput {
+  current: DesignSnapshot
+  /** What the files hold: as loaded, or as last saved. */
+  saved: DesignSnapshot
+  mainPath: string
+  /** The files with changes not yet on disk, and the stylesheet when token values are waiting for it. */
+  unsaved: readonly string[]
+  save: SaveState
+  /** Writes that failed and haven't succeeded since, with why. */
+  errors: readonly { path: string; error: string }[]
+  /** Undo's and Redo's step labels, newest first. */
+  undo: readonly string[]
+  redo: readonly string[]
+}
 
-  const unsaved = unsavedPaths(history).map((path): UnsavedFile => {
-    const kind = path === history.stylesheet && !history.current.documents.has(path) ? "stylesheet" : "document"
+/** Where a project's edits stand, with a bounded summary of what's unsaved when asked for. */
+export function editStatus(input: StatusInput, options: StatusOptions = {}): EditStatus {
+  const { summary = false, limit = 10 } = options
+  const { current, saved } = input
+  const tokens = tokenWrites(current.tokens, saved.tokens)
+
+  const unsaved = input.unsaved.map((path): UnsavedFile => {
+    const kind = current.documents.has(path) || saved.documents.has(path) ? "document" : "stylesheet"
 
     if (!summary) {
       return { path, kind }
@@ -75,8 +90,8 @@ export function editStatus(history: DesignHistory, options: StatusOptions = {}):
       return withMore({ path, kind, tokens: names.slice(0, limit) }, names.length - limit)
     }
 
-    const designs = designChanges(history.current.documents.get(path), history.saved.documents.get(path))
-    const modes = path === history.mainPath && !sameValue(history.current.modes, history.saved.modes)
+    const designs = designChanges(current.documents.get(path), saved.documents.get(path))
+    const modes = path === input.mainPath && !sameValue(current.modes, saved.modes)
     const all = designs.added.length + designs.changed.length + designs.removed.length
 
     const kept: DesignIds = {
@@ -96,28 +111,24 @@ export function editStatus(history: DesignHistory, options: StatusOptions = {}):
     return withMore(file, all - shown)
   })
 
-  const side = (steps: readonly { label: string }[]): HistorySide => {
-    const listed: HistorySide = { count: steps.length }
+  const side = (labels: readonly string[]): HistorySide => {
+    const listed: HistorySide = { count: labels.length }
 
     if (summary) {
-      listed.labels = steps
-        .slice(-limit)
-        .map((step) => step.label)
-        .reverse()
+      listed.labels = labels.slice(0, limit)
     }
 
     return listed
   }
 
   return {
-    revision: history.revision,
     dirty: unsaved.length > 0,
     unsaved,
     tokenEdits: tokens.length,
-    save: history.saveState,
-    errors: [...history.failures].map(([path, error]) => ({ path, error })),
-    undo: side(history.past),
-    redo: side(history.future)
+    save: input.save,
+    errors: [...input.errors],
+    undo: side(input.undo),
+    redo: side(input.redo)
   }
 }
 

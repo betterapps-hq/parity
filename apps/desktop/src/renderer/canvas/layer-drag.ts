@@ -16,7 +16,14 @@ import {
   layersSelection,
   selectedNodes
 } from "@parity-app/editor"
-import { type ContainerEntry, containerKey } from "../design-store.ts"
+import {
+  type ContainerEntry,
+  containerEntry,
+  designKey,
+  editFrame,
+  updateContainer,
+  updateContainers
+} from "@parity-app/multiplayer"
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
@@ -35,7 +42,7 @@ import { StylePreview } from "./style-preview.ts"
  * its insets instead, snapping to its siblings and its parent. Where they land and how they move are
  * `@parity-app/editor`'s (`dropTargetAt`, `moveLayersWithin`, `moveLayersAcross`, `absoluteDrag`); this follows the
  * pointer, measures the frames, shows the
- * preview and applies the move to the store and the selection.
+ * preview and applies the move to the document and the selection.
  */
 
 export type { MoveTarget } from "@parity-app/editor"
@@ -68,7 +75,7 @@ export function pressLayers(
   onClick: () => void
 ): void {
   const current = session.selection.get()
-  const entry = current.design ? session.store.getEntry(current.design) : undefined
+  const entry = current.design ? containerEntry(session.doc, current.design) : undefined
 
   if (!entry) {
     return
@@ -99,7 +106,7 @@ export function pressLayers(
     bottom: Math.max(...rects.map((rect) => rect.bottom))
   }
 
-  const edited = session.store.editFrame(current)
+  const edited = editFrame(session.doc, current)
 
   if (!edited) {
     return
@@ -123,7 +130,7 @@ export function pressLayers(
   // Dropped into another design, the layers change that one too.
   const moves = { designs: [entry.key], layers: ids }
 
-  followPress(absolute ? gestures.absoluteDrag : gestures.layerDrag, session.store, start, {
+  followPress(absolute ? gestures.absoluteDrag : gestures.layerDrag, session.doc, start, {
     design: absolute ? entry.key : undefined,
     moves,
     cursor: "grabbing",
@@ -186,13 +193,13 @@ export function pressLayers(
  */
 export function moveTarget(
   area: ParentNode,
-  session: Pick<ProjectSession, "editor" | "store">,
+  session: Pick<ProjectSession, "editor" | "doc">,
   point: Point,
   source: ContainerEntry,
   ids: readonly string[],
   layouts: DragLayouts
 ): DropAt | undefined {
-  const frame = frameAt(area, session.store, point, session.editor)
+  const frame = frameAt(area, session.doc, point, session.editor)
 
   return frame && dropInFrame(layouts, frame.entry, frame.host, point, source.key, ids)
 }
@@ -300,7 +307,7 @@ export function moveLayers(
   target: MoveTarget,
   gesture?: string
 ): boolean {
-  const { store, selection } = session
+  const { doc, selection } = session
   const frame = { mode: selection.get().mode, state: selection.get().state }
   const label = ids.length === 1 ? "Move layer" : `Move ${ids.length} layers`
 
@@ -309,19 +316,19 @@ export function moveLayers(
       return false
     }
 
-    store.updateContainer(source.key, label, (container) => moveLayersWithin(container, ids, target), { gesture })
+    updateContainer(doc, source.key, label, (container) => moveLayersWithin(container, ids, target), { gesture })
     selection.set(layersSelection(source.key, [...ids], frame))
 
     return true
   }
 
-  const destination = store.getEntry(target.design)
+  const destination = containerEntry(doc, target.design)
 
   if (!destination) {
     return false
   }
 
-  const edited = store.editFrame({ design: source.key, ...frame })
+  const edited = editFrame(doc, { design: source.key, ...frame })
 
   if (!edited) {
     return false
@@ -329,7 +336,8 @@ export function moveLayers(
 
   const { state, viewport } = edited
   let copies: string[] = []
-  store.updateContainers(
+  updateContainers(
+    doc,
     [source.key, destination.key],
     label,
     ([from, to]) => {
@@ -345,7 +353,7 @@ export function moveLayers(
     return false
   }
 
-  selection.set(layersSelection(containerKey(destination.path, destination.container.id), copies))
+  selection.set(layersSelection(designKey(destination.path, destination.container.id), copies))
 
   return true
 }
@@ -365,10 +373,10 @@ function followAbsolute(
   host: HTMLElement,
   drag: Drag
 ): { move(delta: Point, held: { ctrlKey: boolean; metaKey: boolean }): void; end(kept: boolean): void } | undefined {
-  const { store, editor } = session
+  const { doc, editor } = session
   const current = session.selection.get()
   const unit = spacingUnit(session.tokens.get())
-  const edited = store.editFrame(current)
+  const edited = editFrame(doc, current)
   const location = locateNode(entry.container.root, id)
 
   if (!location || !edited) {
@@ -395,7 +403,7 @@ function followAbsolute(
     editNode(container, boardTarget(container, state.id), id, { style })
 
   const write = (style: NodeStyle) =>
-    store.updateContainer(entry.key, "Move layer", moved(style), { gesture: drag.gesture })
+    updateContainer(doc, entry.key, "Move layer", moved(style), { gesture: drag.gesture })
 
   const preview = new StylePreview(session, entry.key)
   // Whether the move is written as it goes, for a layer the preview can't show.

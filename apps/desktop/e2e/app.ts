@@ -302,11 +302,11 @@ export class App {
 
     await this.page.evaluate(() => {
       const e2e = window.e2e!
-      const { store, selection, editor } = e2e.session()
+      const { doc, selection, editor } = e2e.session()
       editor?.stopCameraAnimation()
 
-      while (store.getHistory().canUndo) {
-        store.undo()
+      while (doc.history().canUndo) {
+        doc.undo()
       }
 
       selection.setTool("select")
@@ -479,24 +479,23 @@ export class App {
   }
 
   undoLabel(): Promise<string | undefined> {
-    return this.page.evaluate(() => window.e2e!.session().store.getHistory().undoLabel)
+    return this.page.evaluate(() => window.e2e!.session().doc.history().undo[0])
   }
 
   unsaved(): Promise<string[]> {
-    return this.page.evaluate(() => window.e2e!.session().store.unsavedPaths())
+    return this.page.evaluate(() => window.e2e!.session().saver.unsaved())
   }
 
   designs(): Promise<{ key: string; name: string; kind: string; position: Point }[]> {
     return this.page.evaluate(() =>
-      window
-        .e2e!.session()
-        .store.getEntries()
-        .map((entry) => ({
-          key: entry.key,
-          name: entry.container.name,
-          kind: entry.container.kind ?? "screen",
-          position: entry.container.position
+      [...window.e2e!.session().doc.files()].flatMap(([file, canvas]) =>
+        canvas.containers.map((container) => ({
+          key: `${file}#${container.id}`,
+          name: container.name,
+          kind: container.kind ?? "screen",
+          position: container.position
         }))
+      )
     )
   }
 
@@ -1233,8 +1232,8 @@ function install(): void {
     return current
   }
 
-  const entry = (key: string) => {
-    const found = session().store.getEntry(key)
+  const containerOf = (key: string) => {
+    const found = session().doc.design(key)
 
     if (!found) {
       throw new Error(`No design ${key}`)
@@ -1335,18 +1334,18 @@ function install(): void {
   window.e2e = {
     session,
     key: (design) => {
-      const found = session()
-        .store.getEntries()
-        .find((candidate) => candidate.container.name === design)
+      for (const [file, canvas] of session().doc.files()) {
+        const found = canvas.containers.find((container) => container.name === design)
 
-      if (!found) {
-        throw new Error(`No design named ${design}`)
+        if (found) {
+          return `${file}#${found.id}`
+        }
       }
 
-      return found.key
+      throw new Error(`No design named ${design}`)
     },
-    node: (key, id) => path(entry(key).container.root, id)?.at(-1),
-    path: (key, id) => (path(entry(key).container.root, id) ?? []).map((node) => node.id),
+    node: (key, id) => path(containerOf(key).root, id)?.at(-1),
+    path: (key, id) => (path(containerOf(key).root, id) ?? []).map((node) => node.id),
     frame: (key, mode) => {
       const host = frames
         .findFrames(document, key)

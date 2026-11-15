@@ -1,6 +1,6 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import {
   boardClick,
   boxSelection,
@@ -261,41 +261,39 @@ describe("Enter", () => {
     }
   }
 
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [dashboard, stat] } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers: [dashboard, stat] } }], {
+    modes: defaultModeSettings,
+    main: "app.par"
+  })
 
   const dash = "app.par#dash"
 
   it("selects every top-level layer of the selected design, or of a selected mode's frame", () => {
-    expect(enterTarget(store, { design: dash })).toEqual({
+    expect(enterTarget(designs, { design: dash })).toEqual({
       select: { design: dash, node: "spacer", nodes: ["greeting", "stats", "export", "spacer"] }
     })
-    expect(enterTarget(store, { design: dash, mode: "mobile-light" })).toEqual({
+    expect(enterTarget(designs, { design: dash, mode: "mobile-light" })).toEqual({
       select: { design: dash, node: "spacer", nodes: ["greeting", "stats", "export", "spacer"], mode: "mobile-light" }
     })
   })
 
   it("selects every layer inside the selected layer, in the frame it was picked in", () => {
-    expect(enterTarget(store, { design: dash, node: "stats", mode: "desktop-light", state: "loading" })).toEqual({
+    expect(enterTarget(designs, { design: dash, node: "stats", mode: "desktop-light", state: "loading" })).toEqual({
       select: { design: dash, node: "users", nodes: ["revenue", "users"], mode: "desktop-light", state: "loading" }
     })
   })
 
   it("selects an instance's layers, and the layers inside one of them, by path", () => {
-    expect(enterTarget(store, { design: dash, node: "revenue" })).toEqual({
+    expect(enterTarget(designs, { design: dash, node: "revenue" })).toEqual({
       select: { design: dash, node: "revenue/note", nodes: ["revenue/header", "revenue/note"] }
     })
-    expect(enterTarget(store, { design: dash, node: "revenue/header" })).toEqual({
+    expect(enterTarget(designs, { design: dash, node: "revenue/header" })).toEqual({
       select: { design: dash, node: "revenue/value", nodes: ["revenue/label", "revenue/value"] }
     })
   })
 
   it("selects the layers inside each of several selected layers", () => {
-    expect(enterTarget(store, { design: dash, node: "users", nodes: ["revenue", "users"] })).toEqual({
+    expect(enterTarget(designs, { design: dash, node: "users", nodes: ["revenue", "users"] })).toEqual({
       select: {
         design: dash,
         node: "users/note",
@@ -305,17 +303,17 @@ describe("Enter", () => {
   })
 
   it("starts editing a text layer, or a component whose child is text, in the frame it was picked in", () => {
-    expect(enterTarget(store, { design: dash, node: "greeting", mode: "desktop-light", state: "default" })).toEqual({
+    expect(enterTarget(designs, { design: dash, node: "greeting", mode: "desktop-light", state: "default" })).toEqual({
       edit: { design: dash, node: "greeting", mode: "desktop-light", state: "default" }
     })
-    expect(enterTarget(store, { design: dash, node: "export" })).toEqual({ edit: { design: dash, node: "export" } })
-    expect(enterTarget(store, { design: dash, node: "revenue/value" })).toEqual({
+    expect(enterTarget(designs, { design: dash, node: "export" })).toEqual({ edit: { design: dash, node: "export" } })
+    expect(enterTarget(designs, { design: dash, node: "revenue/value" })).toEqual({
       edit: { design: dash, node: "revenue/value" }
     })
   })
 
   it("does nothing on a layer with nothing inside, or with nothing selected", () => {
-    expect(enterTarget(store, { design: dash, node: "spacer" })).toBeUndefined()
-    expect(enterTarget(store, {})).toBeUndefined()
+    expect(enterTarget(designs, { design: dash, node: "spacer" })).toBeUndefined()
+    expect(enterTarget(designs, {})).toBeUndefined()
   })
 })

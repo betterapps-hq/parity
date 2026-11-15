@@ -6,7 +6,7 @@ import {
   withCodeDesignSettings,
   withPrunedView
 } from "@parity-app/editor"
-import type { DesignStore } from "../design-store.ts"
+import { changeSnapshot, containerEntries, type ProjectDoc } from "@parity-app/multiplayer"
 import { storyScreensFile } from "./story-screens.ts"
 
 type Drawn = readonly { path: string; document: CanvasDocument }[]
@@ -95,7 +95,7 @@ export function openCodeDesigns(
  * time the project opens, so it's the only place it lasts. Only a story keeps its tried sizes, since a page's and a
  * board's layers are drawn afresh, and a design missing for now, such as a story whose file fails, keeps what it had.
  */
-export function keepCodeDesigns(store: DesignStore, drawn: Drawn): void {
+export function keepCodeDesigns(doc: ProjectDoc, drawn: Drawn): void {
   const paths = new Set(drawn.map(({ path }) => path))
 
   const asDrawn = new Map<string, ContainerSpec>(
@@ -119,7 +119,7 @@ export function keepCodeDesigns(store: DesignStore, drawn: Drawn): void {
   }
 
   const keep = () => {
-    const main = store.getDocuments().find(({ path }) => path === store.mainPath)?.document
+    const main = doc.file(doc.main)
 
     if (!main) {
       return
@@ -127,7 +127,7 @@ export function keepCodeDesigns(store: DesignStore, drawn: Drawn): void {
 
     const kept: NonNullable<CanvasDocument["codeDesigns"]> = { ...main.codeDesigns }
 
-    for (const { key, path, container } of store.getEntries()) {
+    for (const { key, path, container } of containerEntries(doc)) {
       if (!paths.has(path)) {
         continue
       }
@@ -151,12 +151,13 @@ export function keepCodeDesigns(store: DesignStore, drawn: Drawn): void {
       delete next.codeDesigns
     }
 
-    store.change(
+    changeSnapshot(
+      doc,
       "Keep what's shown",
-      (snapshot) => ({ ...snapshot, documents: new Map(snapshot.documents).set(store.mainPath, next) }),
-      { history: false }
+      (snapshot) => ({ ...snapshot, documents: new Map(snapshot.documents).set(doc.main, next) }),
+      { undoable: false }
     )
   }
 
-  store.subscribe(keep)
+  doc.subscribe(() => keep())
 }

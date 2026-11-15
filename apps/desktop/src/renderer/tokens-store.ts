@@ -10,15 +10,16 @@ import {
   tokensWithEdits,
   withTokenOverrides
 } from "@parity-app/editor"
+import { changeTokens } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
-import type { DesignStore } from "./design-store.ts"
 import { previewToken } from "./guest.ts"
+import type { DocSession } from "./project-doc.ts"
 import { signal } from "./store.ts"
 import { inTokenOrder } from "./token-values.ts"
 
 /**
- * A project's tokens, editable. An edit is a change like any other, in the design store's history: it shows in every
+ * A project's tokens, editable. An edit is a change like any other, in the project document's undo: it shows in every
  * frame at once (the shared stylesheet is edited in place), undo and redo take it back and forth, and Save writes it
  * to the project's stylesheet, so the project's own build picks it up then. Closing without saving leaves the
  * stylesheet as it was.
@@ -36,19 +37,19 @@ export class TokenStore {
     private readonly loaded: Token[],
     private readonly sheet: CSSStyleSheet,
     write: (changes: TokenWrite[]) => Promise<void>,
-    private readonly history: DesignStore,
+    private readonly designs: DocSession,
     /** The stylesheet the tokens are written to, as the project names it. */
     readonly stylesheet = "the stylesheet",
     /** The tokens the project's `.lib.par` files describe, whose DTCG types say what kind a token is. */
     private readonly described?: readonly DescribedTokens[]
   ) {
     this.tokens = loaded
-    history.writeTokensWith({ path: stylesheet, write })
+    designs.saver.writeTokensWith({ path: stylesheet, write })
     this.follow()
-    this.unfollow = history.subscribe(() => this.follow())
+    this.unfollow = designs.doc.subscribe(() => this.follow())
   }
 
-  /** Stops following the design store, once a new guest's token store has taken this one's place. */
+  /** Stops following the project document, once a new guest's token store has taken this one's place. */
   dispose(): void {
     this.unfollow()
   }
@@ -84,9 +85,9 @@ export class TokenStore {
   /** The keyframes the project's stylesheet declares by this name, which an animation token's preview runs. */
   keyframes = (name: string): Keyframe[] | undefined => keyframesNamed(this.sheet.cssRules, name)
 
-  /** Why the last save couldn't write some token values, and which. It changes with saving, in the design store. */
-  failure = (): TokenFailure | undefined => this.history.getTokenFailure()
-  subscribeToSaves = (listener: () => void) => this.history.subscribe(listener)
+  /** Why the last save couldn't write some token values, and which. It changes with saving, in the project's saver. */
+  failure = (): TokenFailure | undefined => this.designs.saver.tokenFailure()
+  subscribeToSaves = (listener: () => void) => this.designs.saver.subscribe(listener)
 
   /** Changes token values as one undoable step, unsaved until the project is saved. */
   set(changes: TokenChange[], label = editLabel(changes)): void {
@@ -94,7 +95,7 @@ export class TokenStore {
       return
     }
 
-    this.history.changeTokens(label, this.edits(changes))
+    changeTokens(this.designs.doc, label, this.edits(changes))
   }
 
   /** Changes as edits, each with the value the stylesheet had when the guest loaded, to undo to. */
@@ -106,9 +107,9 @@ export class TokenStore {
     })
   }
 
-  /** Shows the store's token edits in the shared stylesheet and the token list, after an edit, undo or redo. */
+  /** Shows the document's token edits in the shared stylesheet and the token list, after an edit, undo or redo. */
   private follow(): void {
-    const edits = this.history.getTokenEdits()
+    const edits = this.designs.doc.tokens()
 
     if (edits === this.shown) {
       return

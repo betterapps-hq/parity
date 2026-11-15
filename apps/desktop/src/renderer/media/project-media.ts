@@ -1,6 +1,6 @@
 import { type CodeReference, type ImageFile, type ProjectImage, projectImages } from "@parity-app/editor"
+import type { ProjectDoc } from "@parity-app/multiplayer"
 import { useEffect, useMemo, useSyncExternalStore } from "react"
-import { useContainerEntries } from "../design-store.ts"
 import { projectPart } from "../project-part.ts"
 import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
@@ -120,6 +120,13 @@ export const mediaFilesOf = projectPart(
   (session: Pick<ProjectSession, "id" | "untilClosed">) => new MediaFiles(session.id)
 )
 
+/** The document's files, following its changes. */
+function useDocuments(doc: ProjectDoc) {
+  const subscribe = useMemo(() => (listener: () => void) => doc.subscribe(() => listener()), [doc])
+
+  return useSyncExternalStore(subscribe, () => doc.files())
+}
+
 /** A project's media for the tab. */
 export interface ProjectMedia {
   images: readonly ProjectImage[]
@@ -132,16 +139,17 @@ export interface ProjectMedia {
  * The project's media, following its designs as they change. It scans as the tab opens, and again when a design names
  * an image file the last scan didn't have, as one pasted or dropped onto the canvas meanwhile.
  */
-export function useProjectMedia(session: Pick<ProjectSession, "id" | "store" | "untilClosed">): ProjectMedia {
+export function useProjectMedia(session: Pick<ProjectSession, "id" | "doc" | "untilClosed">): ProjectMedia {
   const files = mediaFilesOf(session)
   const { scanned, fresh } = useSyncExternalStore(files.subscribe, files.get)
-  const entries = useContainerEntries(session.store)
+  const documents = useDocuments(session.doc)
 
   const images = useMemo(
-    () => (scanned ? projectImages({ ...scanned, documents: session.store.getDocuments() }) : []),
-    // The documents are the store's own, read as the designs change, which `entries` says.
-    // oxlint-disable-next-line react-hooks/exhaustive-deps
-    [scanned, entries, session.store]
+    () =>
+      scanned
+        ? projectImages({ ...scanned, documents: [...documents].map(([path, document]) => ({ path, document })) })
+        : [],
+    [scanned, documents]
   )
 
   useEffect(() => {

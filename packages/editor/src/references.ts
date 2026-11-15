@@ -1,8 +1,8 @@
 import { type CanvasDocument, emptyDocument, type ReferenceSpec } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
 import type { Point } from "./drop-slot.ts"
-import type { DesignSnapshot } from "./history.ts"
 import { type Bounds, designGap } from "./placement.ts"
+import type { DesignSnapshot } from "./snapshot.ts"
 
 /*
  * References on the canvas (PAR-840): screens from real apps, placed beside a design to look at, never in it. They're

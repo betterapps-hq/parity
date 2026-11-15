@@ -1,6 +1,5 @@
 import {
   childNodes,
-  type ComponentLibrary,
   type ContainerSpec,
   type DesignNode,
   editInner,
@@ -16,19 +15,16 @@ import {
   resetOverride,
   type StateSpec
 } from "@parity-app/core"
-import type { DesignStore } from "../design-store.ts"
+import { type DocSession, projectLibrary } from "../project-doc.ts"
 
-/** Every component design instances can place by id, the project's and its libraries', for expanding them. */
-export function projectLibrary(store: DesignStore): ComponentLibrary {
-  return store.getComponentLibrary()
-}
+export { projectLibrary }
 
 /**
  * A selected layer by id: one of the design's own nodes, or a node inside one of its instances (`card/title`), as that
  * copy shows it in `state`.
  */
 export function findLayer(
-  store: DesignStore,
+  designs: DocSession,
   container: ContainerSpec,
   id: string,
   state?: StateSpec
@@ -37,42 +33,42 @@ export function findLayer(
     return findNode(container.root, id)
   }
 
-  return locateInner(container, id, projectLibrary(store), { state, variants: container.view?.variants })?.shown
+  return locateInner(container, id, projectLibrary(designs), { state, variants: container.view?.variants })?.shown
 }
 
 /** Writes a change to a layer: one of the design's own nodes, or one inside an instance, which only that copy shows. */
 export function editLayer(
-  store: DesignStore,
+  designs: DocSession,
   container: ContainerSpec,
   target: string | EditTarget,
   id: string,
   change: NodeChange
 ): ContainerSpec {
   return isInnerPath(id)
-    ? editInner(container, target, id, change, projectLibrary(store))
+    ? editInner(container, target, id, change, projectLibrary(designs))
     : editNode(container, target, id, change)
 }
 
 /** Undoes a change to a layer in the state or variant being edited: one field, or all of them. */
 export function resetLayer(
-  store: DesignStore,
+  designs: DocSession,
   container: ContainerSpec,
   target: string | EditTarget,
   id: string,
   field?: PatchField
 ): ContainerSpec {
   return isInnerPath(id)
-    ? resetInner(container, target, id, projectLibrary(store), field)
+    ? resetInner(container, target, id, projectLibrary(designs), field)
     : resetOverride(container, target, id, field)
 }
 
 /** The layer a layer sits in, inside instances too, where the component's root stands for the instance itself. */
-export function parentLayer(store: DesignStore, container: ContainerSpec, id: string): string | undefined {
+export function parentLayer(designs: DocSession, container: ContainerSpec, id: string): string | undefined {
   if (!isInnerPath(id)) {
     return locateNode(container.root, id)?.ancestors.at(-1)?.id
   }
 
-  const inner = locateInner(container, id, projectLibrary(store))
+  const inner = locateInner(container, id, projectLibrary(designs))
 
   if (!inner) {
     return undefined
@@ -89,12 +85,12 @@ export function parentLayer(store: DesignStore, container: ContainerSpec, id: st
  * Tab and Shift+Tab select. Inside instances too.
  */
 export function siblingLayer(
-  store: DesignStore,
+  designs: DocSession,
   container: ContainerSpec,
   id: string,
   step: 1 | -1
 ): string | undefined {
-  const inner = isInnerPath(id) ? locateInner(container, id, projectLibrary(store)) : undefined
+  const inner = isInnerPath(id) ? locateInner(container, id, projectLibrary(designs)) : undefined
   const location = inner ? inner.location : locateNode(container.root, id)
   const parent = location?.ancestors.at(-1)
 
@@ -117,8 +113,8 @@ export function siblingLayer(
  * Every layer inside a layer, in order, going into instances too: what Enter selects. Inside an instance they're the
  * component's layers, by path (`card/title`).
  */
-export function childLayers(store: DesignStore, container: ContainerSpec, id: string): string[] {
-  const library = projectLibrary(store)
+export function childLayers(designs: DocSession, container: ContainerSpec, id: string): string[] {
+  const library = projectLibrary(designs)
   const node = isInnerPath(id) ? locateInner(container, id, library)?.node : findNode(container.root, id)
 
   if (!node) {

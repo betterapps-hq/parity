@@ -1,6 +1,7 @@
+import { updateNote } from "@parity-app/multiplayer"
 import { useLayoutEffect, useRef } from "react"
 import { HTMLContainer, Rectangle2d, type RecordProps, stopEventPropagation, T, useEditor, useValue } from "tldraw"
-import { useNotes } from "../design-store.ts"
+import { useNotes } from "../project-doc.ts"
 import { useProject } from "./context.ts"
 import { focusOnMount } from "./kinds.tsx"
 import { type CanvasRecord, CanvasUtil } from "./tldraw-names.ts"
@@ -61,8 +62,8 @@ export class NoteUtil extends CanvasUtil<NoteRecord> {
 
 function NoteContent({ note }: { note: NoteRecord }) {
   const editor = useEditor()
-  const { store } = useProject()
-  const stored = useNotes(store).find((entry) => entry.key === note.props.key)?.note
+  const session = useProject()
+  const stored = useNotes(session).find((entry) => entry.key === note.props.key)?.note
   const editing = useValue("editing note", () => editor.getEditingShapeId() === note.id, [editor, note.id])
   const ref = useRef<HTMLDivElement>(null)
 
@@ -100,7 +101,7 @@ function NoteContent({ note }: { note: NoteRecord }) {
 
   const commit = (text: string) => {
     editor.setEditingShape(null)
-    store.updateNote(note.props.key, text.trim() ? "Edit text" : "Delete text", (current) => {
+    updateNote(session.doc, note.props.key, text.trim() ? "Edit text" : "Delete text", (current) => {
       if (!text.trim()) {
         return undefined
       }

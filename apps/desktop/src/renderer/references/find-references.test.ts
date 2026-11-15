@@ -1,9 +1,10 @@
 import type { Found } from "@parity-app/connectors"
-import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import type { ContainerSpec } from "@parity-app/core"
 import { newDesign } from "@parity-app/editor"
+import { referenceEntries } from "@parity-app/multiplayer"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { actions } from "../chrome/actions.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { SelectionStore } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { placeReferences } from "./find-references.ts"
@@ -27,36 +28,28 @@ function screen(id: string, platform: "web" | "ios" = "web"): Found {
 }
 
 function session(containers: ContainerSpec[] = []): ProjectSession {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers } }],
-    defaultModeSettings,
-    "app.par",
-    {
-      saveDocument: async () => undefined,
-      autosave: () => false
-    }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers } }])
 
-  // SAFETY: placing and deleting references, and whether Delete applies, read only the store, the selection and the
+  // SAFETY: placing and deleting references, and whether Delete applies, read only the document, the selection and the
   // canvas, which isn't drawn here.
-  return { store, selection: new SelectionStore() } as ProjectSession
+  return { ...designs, selection: new SelectionStore() } as ProjectSession
 }
 
 describe("placing references", () => {
   it("puts what's picked in a row as one step, each with the search that found it, and selects the last", () => {
     const placing = session()
-    const { store, selection } = placing
+    const { doc, selection } = placing
 
     placeReferences(placing, [screen("ledgerly"), screen("quill", "ios")], undefined, new Map([["quill", "paywall"]]))
 
-    const placed = store.getReferences().map(({ reference }) => reference)
+    const placed = referenceEntries(doc).map(({ reference }) => reference)
 
     expect(placed.map(({ app, position, query }) => ({ app, position, query }))).toEqual([
       { app: "Ledgerly", position: { x: -859, y: -400 }, query: undefined },
       { app: "Quill", position: { x: 469, y: -400 }, query: "paywall" }
     ])
-    expect(store.getHistory().undoLabel).toBe("Place 2 references")
-    expect(selection.get()).toEqual({ reference: store.getReferences()[1]!.key })
+    expect(doc.history().undo[0]).toBe("Place 2 references")
+    expect(selection.get()).toEqual({ reference: referenceEntries(doc)[1]!.key })
   })
 
   it("records the design they were found for, in its file", () => {
@@ -65,18 +58,18 @@ describe("placing references", () => {
 
     placeReferences(placing, [screen("ledgerly")], "app.par#pricing")
 
-    expect(placing.store.getReferences().map(({ reference }) => reference.design)).toEqual(["pricing"])
+    expect(referenceEntries(placing.doc).map(({ reference }) => reference.design)).toEqual(["pricing"])
   })
 
   it("deletes the selected one, and Undo brings it back", () => {
     const placing = session()
-    const { store } = placing
+    const { doc } = placing
 
     placeReferences(placing, [screen("ledgerly")])
     void actions.delete.run("key", { session: placing })
 
-    expect(store.getReferences()).toEqual([])
-    store.undo()
-    expect(store.getReferences().map(({ reference }) => reference.app)).toEqual(["Ledgerly"])
+    expect(referenceEntries(doc)).toEqual([])
+    doc.undo()
+    expect(referenceEntries(doc).map(({ reference }) => reference.app)).toEqual(["Ledgerly"])
   })
 })

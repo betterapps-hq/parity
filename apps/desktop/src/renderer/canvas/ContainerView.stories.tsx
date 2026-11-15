@@ -1,4 +1,5 @@
 import { newDesign, turnInto } from "@parity-app/editor"
+import { addContainer, addNote, containerEntries, updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
@@ -35,7 +36,7 @@ export const Components: Story = onCanvas(["Stat card", "Plan card", "Activity i
 
 /** A design showing every one of its states at once, each frame labelled with its state. */
 export const EveryState: Story = onCanvas(["Button"], () =>
-  example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true }))
+  updateView(example().doc, design("Button"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
 /**
@@ -44,7 +45,7 @@ export const EveryState: Story = onCanvas(["Button"], () =>
  */
 export const EveryStateZoomedOut: Story = onCanvas(
   ["Button"],
-  () => example().store.updateView(design("Button"), "Show every state", (view) => ({ ...view, allStates: true })),
+  () => updateView(example().doc, design("Button"), "Show every state", (view) => ({ ...view, allStates: true })),
   () => {
     const { editor } = example()
     const bounds = editor?.getShapePageBounds(canvasIdFor(design("Button")))
@@ -57,12 +58,12 @@ export const EveryStateZoomedOut: Story = onCanvas(
 
 /** Every state of a design with only one: a single frame, with no label beside it, since there's nothing to tell apart. */
 export const EveryStateOfOne: Story = onCanvas(["Plan card"], () =>
-  example().store.updateView(design("Plan card"), "Show every state", (view) => ({ ...view, allStates: true }))
+  updateView(example().doc, design("Plan card"), "Show every state", (view) => ({ ...view, allStates: true }))
 )
 
 /** A component showing one state, the one picked on its board, rather than all of them. */
 export const OneState: Story = onCanvas(["Stat card"], () =>
-  example().store.updateView(design("Stat card"), "Show Loading", (view) => ({ ...view, state: "loading" }))
+  updateView(example().doc, design("Stat card"), "Show Loading", (view) => ({ ...view, state: "loading" }))
 )
 
 /**
@@ -74,7 +75,7 @@ export const ZoomedOut: Story = onCanvas(
   [],
   () => {
     for (const name of ["Button", "Sign in"]) {
-      example().store.updateView(design(name), "Show every state", (view) => ({ ...view, allStates: true }))
+      updateView(example().doc, design(name), "Show every state", (view) => ({ ...view, allStates: true }))
     }
   },
   () => example().editor?.zoomToFit()
@@ -82,8 +83,8 @@ export const ZoomedOut: Story = onCanvas(
 
 /** Adds two frames: a new one at 480 by 320, and the Sign in screen turned into one. */
 function addFrames(): void {
-  const { store } = example()
-  const taken = store.getEntries().map((entry) => entry.container.id)
+  const { doc } = example()
+  const taken = containerEntries(doc).map((entry) => entry.container.id)
   const blank = newDesign("frame", taken, { x: -1400, y: -900 }, { size: { width: 480, height: 320 } })
 
   const root =
@@ -104,10 +105,10 @@ function addFrames(): void {
         }
       : blank.root
 
-  store.addContainer(store.mainPath, { ...blank, id: "pricing-ideas", name: "Pricing ideas", root })
-  const signIn = store.getEntries().find((entry) => entry.container.name === "Sign in")!.container
-  const { design: turned } = turnInto(signIn, "frame", store.getModes())
-  store.addContainer(store.mainPath, {
+  addContainer(doc, doc.main, { ...blank, id: "pricing-ideas", name: "Pricing ideas", root })
+  const signIn = containerEntries(doc).find((entry) => entry.container.name === "Sign in")!.container
+  const { design: turned } = turnInto(signIn, "frame", doc.modes())
+  addContainer(doc, doc.main, {
     ...turned,
     id: "sign-in-sketch",
     name: "Sign in sketch",
@@ -128,7 +129,7 @@ export const SelectedFrame: Story = onCanvas(["Pricing ideas", "Sign in sketch"]
 
 /** Free text notes beside a design, for comments and to-dos on the canvas. */
 export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
-  const { store, editor } = example()
+  const { doc, editor } = example()
   const bounds = editor?.getShapePageBounds(canvasIdFor(design("Pricing")))
 
   if (!editor || !bounds) {
@@ -136,13 +137,13 @@ export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
   }
 
   const notes = [
-    store.addNote(store.mainPath, {
+    addNote(doc, doc.main, {
       id: "story-note-plans",
       text: "Plans: should Business say 'Contact us' instead of a price?",
       position: { x: bounds.maxX + 80, y: bounds.y + 40 },
       width: 280
     }),
-    store.addNote(store.mainPath, {
+    addNote(doc, doc.main, {
       id: "story-note-faq",
       text: "FAQ answers still need legal review",
       position: { x: bounds.maxX + 80, y: bounds.y + 260 }
@@ -159,8 +160,8 @@ export const Notes: Story = onCanvas(["Pricing"], undefined, async () => {
  * placeholder naming it, and the rest of the design still renders.
  */
 export const MissingComponents: Story = onCanvas(["Gallery"], () => {
-  const { store } = example()
-  store.addContainer(store.mainPath, {
+  const { doc } = example()
+  addContainer(doc, doc.main, {
     id: "story-gallery",
     name: "Gallery",
     kind: "screen",
@@ -188,8 +189,8 @@ export const MissingComponents: Story = onCanvas(["Gallery"], () => {
 export const FailingLayer: Story = onCanvas(
   ["Team settings"],
   () => {
-    const { store } = example()
-    store.addContainer(store.mainPath, {
+    const { doc } = example()
+    addContainer(doc, doc.main, {
       id: "story-team",
       name: "Team settings",
       kind: "screen",

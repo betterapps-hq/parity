@@ -1,7 +1,9 @@
 import { boardRoot, type ContainerSpec, designStates, type RenderNode, resolveDesign } from "@parity-app/core"
 import { styleChanges } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import { useEffect, useMemo } from "react"
 import { findFrames, findNodeElement, previewFrameRules } from "../frame.ts"
+import { type DocSession, libraryOf } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /** A root-relative `url()`. */
@@ -14,8 +16,8 @@ interface Written {
 
 /**
  * A style edit shown on a design's frames before it's made, as the inspector's fields preview what's typed or scrubbed.
- * It shows in the next frame, without the store, the panels or the frames' own React drawing again; making the change
- * draws them as usual. It shows only what changes between the design as the store holds it and the design with the
+ * It shows in the next frame, without the document, the panels or the frames' own React drawing again; making the change
+ * draws them as usual. It shows only what changes between the design as the document holds it and the design with the
  * edit, worked out for each frame's state and viewport as the frame works out its own.
  *
  * An element is drawn from its frame's rules, so its edit is a rule laid over them (core's `previewRules`), which the
@@ -31,13 +33,13 @@ export class StylePreview {
   private previewed = new Set<HTMLElement>()
 
   constructor(
-    private readonly session: Pick<ProjectSession, "editor" | "info" | "loaded" | "store">,
+    private readonly session: DocSession & Pick<ProjectSession, "editor" | "info" | "loaded">,
     private readonly design: string
   ) {}
 
-  /** Shows `update` of the design as the store holds it now, in place of what this preview showed before. */
+  /** Shows `update` of the design as the document holds it now, in place of what this preview showed before. */
   show(update: (container: ContainerSpec) => ContainerSpec): void {
-    const entry = this.session.store.getEntry(this.design)
+    const entry = containerEntry(this.session.doc, this.design)
 
     if (!entry) {
       return
@@ -206,7 +208,7 @@ export class StylePreview {
       boardRoot(container),
       state,
       host.dataset.viewport ?? "",
-      this.session.store.getLibrary(this.design),
+      libraryOf(this.session, this.design),
       { params: container.params, choices: container.view?.variants }
     )
   }
@@ -214,7 +216,7 @@ export class StylePreview {
 
 /** A preview of a design's style edits for a panel, taken back if the panel goes while it shows, as when the selection changes. */
 export function useStylePreview(
-  session: Pick<ProjectSession, "editor" | "info" | "loaded" | "store">,
+  session: DocSession & Pick<ProjectSession, "editor" | "info" | "loaded">,
   design: string
 ): StylePreview {
   const preview = useMemo(() => new StylePreview(session, design), [session, design])

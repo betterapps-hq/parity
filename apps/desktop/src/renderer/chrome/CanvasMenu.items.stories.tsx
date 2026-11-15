@@ -43,7 +43,7 @@ function OpenMenu({ target }: { target: () => MenuTarget | undefined }) {
 function over(designName: string, layers: readonly string[] = []): () => MenuTarget {
   return () => {
     const key = design(designName)
-    const root = example().store.getEntry(key)!.container.root.id
+    const root = example().doc.design(key)!.root.id
 
     return { design: key, path: [root, ...layers.map((layer) => node(designName, layer))] }
   }

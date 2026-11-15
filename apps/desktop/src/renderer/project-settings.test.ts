@@ -1,7 +1,7 @@
-import { type CanvasDocument, defaultModeSettings } from "@parity-app/core"
+import type { CanvasDocument } from "@parity-app/core"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { getPreferences, setPreferences } from "./chrome/preferences.ts"
-import { DesignStore } from "./design-store.ts"
+import { openTestSession } from "./doc-fixtures.ts"
 import {
   clearProjectExtensionSetting,
   clearProjectPreference,
@@ -15,14 +15,14 @@ import { resetWindowStores } from "./store.ts"
 function open(documents: { path: string; document: CanvasDocument }[] = []) {
   const writes: string[] = []
 
-  const store = new DesignStore(documents, defaultModeSettings, "app.par", {
+  const { doc, saver } = openTestSession(documents, {
+    main: "app.par",
     saveDocument: async (path) => {
       writes.push(path)
-    },
-    autosave: () => false
+    }
   })
 
-  return { store, writes }
+  return { doc, saver, writes }
 }
 
 afterEach(() => {
@@ -31,70 +31,70 @@ afterEach(() => {
 
 describe("a project's settings", () => {
   it("are each an undo step on the main file, saved with it", async () => {
-    const { store, writes } = open([{ path: "app.par", document: { version: 4, containers: [] } }])
+    const { doc, saver, writes } = open([{ path: "app.par", document: { version: 4, containers: [] } }])
 
-    setProjectPreference({ key: "snapping", value: false }, store)
-    setProjectExtensionSetting("storybook", "configDir", "web/.storybook", store)
+    setProjectPreference({ key: "snapping", value: false }, doc)
+    setProjectExtensionSetting("storybook", "configDir", "web/.storybook", doc)
 
-    expect(store.getMainDocument()).toMatchObject({
+    expect(doc.file(doc.main)).toMatchObject({
       preferences: { snapping: false },
       extensions: { storybook: { configDir: "web/.storybook" } }
     })
-    expect(store.getHistory().undoLabel).toBe("Set storybook configDir")
-    expect(store.unsavedPaths()).toEqual(["app.par"])
+    expect(doc.history().undo[0]).toBe("Set storybook configDir")
+    expect(saver.unsaved()).toEqual(["app.par"])
 
-    store.undo()
-    expect(store.getMainDocument()?.extensions).toBeUndefined()
-    store.redo()
+    doc.undo()
+    expect(doc.file(doc.main)?.extensions).toBeUndefined()
+    doc.redo()
 
-    await store.flush()
+    await saver.flush()
     expect(writes).toEqual(["app.par"])
-    expect(store.hasUnsaved()).toBe(false)
+    expect(saver.hasUnsaved()).toBe(false)
 
-    clearProjectPreference("snapping", store)
-    clearProjectExtensionSetting("storybook", "configDir", store)
-    expect(store.getMainDocument()).toEqual({ version: 4, containers: [] })
+    clearProjectPreference("snapping", doc)
+    clearProjectExtensionSetting("storybook", "configDir", doc)
+    expect(doc.file(doc.main)).toEqual({ version: 4, containers: [] })
   })
 
   it("make the main file when the project has none yet", () => {
-    const { store } = open()
-    setProjectPreference({ key: "autosave", value: true }, store)
+    const { doc } = open()
+    setProjectPreference({ key: "autosave", value: true }, doc)
 
-    expect(store.getMainDocument()).toEqual({ version: 4, containers: [], preferences: { autosave: true } })
+    expect(doc.file(doc.main)).toEqual({ version: 4, containers: [], preferences: { autosave: true } })
   })
 
-  it("leave the history alone when clearing what the project doesn't set", () => {
-    const { store } = open([{ path: "app.par", document: { version: 4, containers: [] } }])
-    clearProjectPreference("layoutGrid", store)
-    clearProjectExtensionSetting("storybook", "configDir", store)
+  it("leave undo alone when clearing what the project doesn't set", () => {
+    const { doc } = open([{ path: "app.par", document: { version: 4, containers: [] } }])
+    clearProjectPreference("layoutGrid", doc)
+    clearProjectExtensionSetting("storybook", "configDir", doc)
 
-    expect(store.getHistory().canUndo).toBe(false)
+    expect(doc.history().canUndo).toBe(false)
   })
 })
 
 describe("the preferences in effect", () => {
   it("are the person's, with the project's own over them", () => {
-    const { store } = open()
+    const { doc } = open()
     setPreferences({ snapping: true, layoutGrid: false })
-    const before = getEffectivePreferences(store)
+    const before = getEffectivePreferences(doc)
 
-    expect(before).toBe(getEffectivePreferences(store))
+    expect(before).toBe(getEffectivePreferences(doc))
     expect(before.snapping).toBe(true)
 
-    setProjectPreference({ key: "snapping", value: false }, store)
-    expect(getEffectivePreferences(store).snapping).toBe(false)
+    setProjectPreference({ key: "snapping", value: false }, doc)
+    expect(getEffectivePreferences(doc).snapping).toBe(false)
     expect(getEffectivePreferences(undefined).snapping).toBe(true)
   })
 
   it("change where they take effect: the project's own value when it sets one, else the person's", () => {
-    const { store } = open()
-    setProjectPreference({ key: "snapping", value: false }, store)
+    const { doc } = open()
+    setProjectPreference({ key: "snapping", value: false }, doc)
 
-    setEffectivePreference({ key: "snapping", value: true }, store)
-    expect(store.getMainDocument()?.preferences).toEqual({ snapping: true })
+    setEffectivePreference({ key: "snapping", value: true }, doc)
+    expect(doc.file(doc.main)?.preferences).toEqual({ snapping: true })
 
-    setEffectivePreference({ key: "layoutGrid", value: true }, store)
+    setEffectivePreference({ key: "layoutGrid", value: true }, doc)
     expect(getPreferences().layoutGrid).toBe(true)
-    expect(store.getMainDocument()?.preferences).toEqual({ snapping: true })
+    expect(doc.file(doc.main)?.preferences).toEqual({ snapping: true })
   })
 })

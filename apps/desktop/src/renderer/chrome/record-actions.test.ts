@@ -1,9 +1,10 @@
-import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import type { ContainerSpec } from "@parity-app/core"
 import { newDesign } from "@parity-app/editor"
+import { containerEntries } from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { ComponentStore } from "../components-store.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { keepRecovery } from "../recovery.ts"
 import { SelectionStore } from "../selection.ts"
 import { traceWith } from "../tracing.ts"
@@ -32,22 +33,17 @@ const recorded = () => sink.spans.map(({ name, outcome, attributes }) => ({ name
 
 /** A tab holding `containers`, saved nowhere, with no canvas drawn. */
 function tab(containers: ContainerSpec[] = []): ProjectSession {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers } }])
 
   return new ProjectSession(
     {
       id: "project",
-      store,
+      designs,
       selection: new SelectionStore(),
       components: new ComponentStore(),
-      recovery: keepRecovery(store, async () => undefined)
+      recovery: keepRecovery(designs, async () => undefined)
     },
-    // SAFETY: the commands run here, and whether they apply, read the stores, not the project's info, guest or tokens.
+    // SAFETY: the commands run here, and whether they apply, read the document and the selection, not the project's info, guest or tokens.
     {} as SessionParts
   )
 }
@@ -194,16 +190,16 @@ describe("the action list", () => {
   it("runs a command only when its state says it applies, on the tab it's given, and records it either way", () => {
     sink.clear()
     const session = tab([pricing])
-    const { store, selection } = session
+    const { doc, selection } = session
 
     expect(registry.commandsFor(session).duplicate.enabled).toBe(false)
     void registry.actions.duplicate.run("menu", { session })
-    expect(store.getEntries()).toHaveLength(1)
+    expect(containerEntries(doc)).toHaveLength(1)
 
     selection.set({ design: "app.par#pricing" })
     expect(registry.commandsFor(session).duplicate.enabled).toBe(true)
     void registry.actions.duplicate.run("menu", { session })
-    expect(store.getEntries()).toHaveLength(2)
+    expect(containerEntries(doc)).toHaveLength(2)
 
     expect(recorded().map(({ outcome, attributes }) => ({ outcome, ...attributes }))).toEqual([
       { outcome: "cancelled", action: "duplicate", from: "menu", enabled: false, layers: 0, designs: 0 },

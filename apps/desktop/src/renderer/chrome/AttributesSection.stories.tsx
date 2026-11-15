@@ -1,5 +1,6 @@
 import { designStates, editNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { AttributesSection } from "../inspector/sections/PropsSection.tsx"
@@ -48,7 +49,7 @@ export const AttributeWithOptions: Story = {
     inspecting("design", () => {
       const key = design("Sign in")
       const id = node("Sign in", "Sign in button")
-      example().store.updateContainer(key, "Change type", (container) =>
+      updateContainer(example().doc, key, "Change type", (container) =>
         editNode(container, designStates(container)[0]!.id, id, { props: { type: "submit" } })
       )
 

@@ -1,7 +1,7 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import type { ContainerSpec, ModeSettings } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "../project-doc.ts"
 import { projectPart } from "../project-part.ts"
 import { request } from "../service.ts"
 import { signal } from "../store.ts"
@@ -31,7 +31,7 @@ export function findingsOf(check: Check | undefined): DoneCheck | undefined {
   return undefined
 }
 
-type CheckedSession = Pick<ProjectSession, "id" | "store" | "untilClosed">
+type CheckedSession = Pick<ProjectSession, "id" | "doc" | "untilClosed">
 
 /** One open project's accessibility checks, by design, while its tab is open. */
 class Checks {
@@ -61,7 +61,7 @@ class Checks {
 
     const asked = ++this.asked
     this.newest.set(entry.key, asked)
-    const checked = { container: entry.container, modes: this.session.store.getModes() }
+    const checked = { container: entry.container, modes: this.session.doc.modes() }
     const checking: Check = { ...checked, status: "checking" }
     const previous = findingsOf(this.checks.get(entry.key))
 

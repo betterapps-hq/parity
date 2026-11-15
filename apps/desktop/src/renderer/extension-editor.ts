@@ -1,5 +1,6 @@
 import { designOwner, designStates, type NodeRef, resolveModes, shownModes } from "@parity-app/core"
 import { selectedNodes, selectionForRefs } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import type { ExtensionUiAnswer } from "../shared/protocol.ts"
 import { routePageDesign, routePageTarget } from "./canvas/route-pages.ts"
 import { actions, commandsFor } from "./chrome/actions.ts"
@@ -64,7 +65,7 @@ export function followSelection(session: ProjectSession): () => void {
 function selectRefs(session: ProjectSession, refs: NodeRef[]): void {
   session.selection.set(
     selectionForRefs(refs, {
-      isDesign: (key) => !!session.store.getEntry(key),
+      isDesign: (key) => !!session.doc.design(key),
       pageOf: (route) => routePageDesign(session.id, route.key)
     })
   )
@@ -84,7 +85,7 @@ function highlightRefs(session: ProjectSession, refs: NodeRef[]): void {
   const page = first.type === "route" ? routePageDesign(session.id, first.key) : undefined
 
   const selection = selectionForRefs([first], {
-    isDesign: (key) => !!session.store.getEntry(key),
+    isDesign: (key) => !!session.doc.design(key),
     pageOf: () => page
   })
 
@@ -95,7 +96,7 @@ function highlightRefs(session: ProjectSession, refs: NodeRef[]): void {
 
 /** The design an extension names, or a failure saying there's none. */
 function designOf(session: ProjectSession, key: string) {
-  const entry = session.store.getEntry(key)
+  const entry = containerEntry(session.doc, key)
 
   if (!entry) {
     throw new Error(`There's no design ${key}`)
@@ -214,7 +215,7 @@ async function navigate(
     case "pageUrl": {
       // The page's screen, by its design key, whose view gives the values its route's path params draw with.
       const page = to.ref.type === "route" ? routePageDesign(session.id, to.ref.key) : undefined
-      const entry = page === undefined ? undefined : session.store.getEntry(page)
+      const entry = page === undefined ? undefined : containerEntry(session.doc, page)
       const url = entry && routePageTarget(session.id, entry.container)?.url
 
       return url === undefined ? {} : { url }

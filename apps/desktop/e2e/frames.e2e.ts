@@ -23,7 +23,7 @@ async function added(before: { key: string }[]) {
 
 function frameOf(key: string) {
   return app.page.evaluate((key) => {
-    const { container } = window.e2e!.session().store.getEntry(key)!
+    const container = window.e2e!.session().doc.design(key)!
 
     return { kind: container.kind, size: container.size, name: container.name }
   }, key)

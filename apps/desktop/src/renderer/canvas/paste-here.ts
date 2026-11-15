@@ -15,6 +15,7 @@ import {
   type Rect,
   slotHere
 } from "@parity-app/editor"
+import { editFrame } from "@parity-app/multiplayer"
 import { findNodeElement, flowingBoxes, nodeBox } from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -87,20 +88,20 @@ export type PointPlace =
  * layout under the pointer is measured once while it stays over it.
  */
 export function placeAtPoint(
-  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
   area: ParentNode,
   point: Point,
   measures?: HereMeasures
 ): PointPlace {
-  const { store, editor } = session
-  const hit = hitTest(area, store, point, editor)
+  const { doc, editor } = session
+  const hit = hitTest(area, doc, point, editor)
 
   if (!hit) {
     return { kind: "canvas" }
   }
 
   const here = measureHere(hit, point, spacingUnit(session.tokens.get()), measures)
-  const frame = store.editFrame(pickedIn(hit))
+  const frame = editFrame(doc, pickedIn(hit))
   const slot = here && frame && slotHere(frame.container, here, frame.state, frame.viewport)
 
   return here && frame && slot ? { kind: "layout", hit, here, frame, slot } : { kind: "none", hit }

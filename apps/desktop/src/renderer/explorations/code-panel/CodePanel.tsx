@@ -41,9 +41,9 @@ import { openSource, viewCode } from "../../chrome/code-editor.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { Name } from "../../chrome/Name.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../design-store.ts"
 import { watchFrame } from "../../frame-host.ts"
 import { findFrames, findNodeElements, subscribeFrames } from "../../frame.ts"
+import { type ContainerEntry, useContainerEntries, useContainerEntry } from "../../project-doc.ts"
 import { useSelection } from "../../selection.ts"
 import type { ProjectDesigns, ProjectSession } from "../../workspace.ts"
 import { sourcedElements } from "./element-list.ts"
@@ -64,11 +64,10 @@ type ComponentLayer = Extract<DesignNode, { type: "component" }>
  */
 export function CodePanel() {
   const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
-  const entries = useContainerEntries(store)
-  const label = (node: DesignNode) => layerLabel(node, entries, store.getComponentLibrary(), session.info.libraries)
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
+  const entries = useContainerEntries(session)
+  const label = (node: DesignNode) => layerLabel(node, entries, projectLibrary(session), session.info.libraries)
   const several = (selected.nodes?.length ?? 0) > 1 || (selected.designs?.length ?? 0) > 1
   const node = entry && selected.node && !several ? selectedLayer(session, entry, selected.node) : undefined
 
@@ -105,7 +104,7 @@ function selectedLayer(session: ProjectDesigns, entry: ContainerEntry, nodeId: s
   }
 
   const state = editingState(container, session.selection.get().state)
-  const library = projectLibrary(session.store)
+  const library = projectLibrary(session)
 
   return locateInner(container, nodeId, library, { state, variants: container.view?.variants })?.shown
 }

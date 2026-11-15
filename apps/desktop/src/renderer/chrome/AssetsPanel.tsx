@@ -38,6 +38,7 @@ import {
   previewVariants,
   searchOption
 } from "@parity-app/editor"
+import { applyDocuments, type ProjectDoc } from "@parity-app/multiplayer"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   ChevronRight,
@@ -69,9 +70,9 @@ import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
-import { type ContainerEntry, type DesignStore, useContainerEntries } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import type { LoadedGuest } from "../guest.ts"
+import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
@@ -107,14 +108,16 @@ function useRenderStatus(loaded: LoadedGuest): Record<string, ComponentRenderSta
  * Puts an export on the component list, as an undoable change to the main project file, saved with it. The list follows
  * straight away.
  */
-function listByHand(store: DesignStore, target: ComponentRef, name: string): void {
+function listByHand(doc: ProjectDoc, target: ComponentRef, name: string): void {
   const ref = { path: target.path, export: target.export }
 
-  const main = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? emptyDocument()
+  const main = doc.file(doc.main) ?? emptyDocument()
 
   const { detection: _, ...rest } = main
   const detection = includeComponent(main.detection, ref)
-  store.applyDocuments(`List ${name} as a component`, [{ path: store.mainPath, document: { ...rest, detection } }])
+  applyDocuments(doc, `List ${name} as a component`, [{ path: doc.main, document: { ...rest, detection } }], {
+    origin: "edit"
+  })
 }
 
 /** A panel's search field, with a magnifier; the Layers panel's too. It matches names, so it shows their letters. */
@@ -374,8 +377,8 @@ const views: { view: ComponentsView; label: string; Icon: typeof List }[] = [
  */
 export function ComponentsPanel() {
   const session = useProject()
-  const { info, store } = session
-  const entries = useContainerEntries(store)
+  const { info } = session
+  const entries = useContainerEntries(session)
   const [query, setQuery] = useState("")
   const { componentsView: view } = usePreferences()
 
@@ -504,7 +507,7 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
               variant="ghost"
               size="sm"
               className="h-6 shrink-0 px-2"
-              onClick={() => listByHand(session.store, entry, entry.name)}
+              onClick={() => listByHand(session.doc, entry, entry.name)}
             >
               List it
             </Button>

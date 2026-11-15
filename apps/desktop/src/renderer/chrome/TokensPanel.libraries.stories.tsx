@@ -79,14 +79,18 @@ function openLibrary(file: string) {
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(css)
     const describedTokens = [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
+    const { id, selection, components, recovery } = project
 
-    // A session of its own over the example's stores, so the open tab's stays as it was.
-    const session = new ProjectSession(project, {
-      ...project.getParts(),
-      info: { ...project.info, styles: undefined, describedTokens },
-      // Edits go nowhere: the story is for looking.
-      tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file, describedTokens)
-    })
+    // A session of its own over the example's document and stores, so the open tab's stays as it was.
+    const session = new ProjectSession(
+      { id, selection, components, recovery, designs: project },
+      {
+        ...project.getParts(),
+        info: { ...project.info, styles: undefined, describedTokens },
+        // Edits go nowhere: the story is for looking.
+        tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project, file, describedTokens)
+      }
+    )
 
     return { session }
   }

@@ -1,5 +1,6 @@
 import { frameViewport, previewMode, type RenderNode, resolveModes } from "@parity-app/core"
 import { componentPreviewTree, type PreviewContext, previewFrameWidth } from "@parity-app/editor"
+import { componentLibrary } from "@parity-app/multiplayer"
 import { nextPreview, previewSettleMs } from "@parity-app/processes"
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import type { ComponentPreview, PreviewImage, PreviewJob } from "../shared/protocol.ts"
@@ -44,7 +45,7 @@ export type PreviewState =
  * kept. Unsaved token previews aren't drawn, so trying a token re-makes nothing.
  */
 export function previewJob(
-  session: Pick<ProjectSession, "added" | "components" | "id" | "info" | "store">,
+  session: Pick<ProjectSession, "added" | "components" | "doc" | "id" | "info" | "libraryDesigns">,
   component: string,
   appearance: ResolvedTheme = getResolvedTheme(),
   variant?: Variant
@@ -55,7 +56,7 @@ export function previewJob(
     (viewport) => {
       const context: PreviewContext = {
         sources: session.info.sources,
-        library: session.store.getComponentLibrary(),
+        library: componentLibrary(session.doc, session.libraryDesigns),
         viewport
       }
 
@@ -80,12 +81,12 @@ export function previewJob(
  * in a window the mode's width, at `previewScale`. `tree` is given the mode's viewport option.
  */
 export function treePreviewJob(
-  session: Pick<ProjectSession, "added" | "id" | "info" | "store">,
+  session: Pick<ProjectSession, "added" | "doc" | "id" | "info">,
   id: string,
   tree: (viewport: string) => RenderNode[],
   appearance: ResolvedTheme = getResolvedTheme()
 ): PreviewJob | undefined {
-  const mode = previewMode(resolveModes(session.store.getModes()), appearance)
+  const mode = previewMode(resolveModes(session.doc.modes()), appearance)
 
   if (!mode) {
     return undefined
@@ -245,7 +246,7 @@ class ProjectPreviews {
       }
     })
     // An edit, the person's or an agent's, counts as working.
-    this.stops.push(this.session.store.subscribe(active))
+    this.stops.push(this.session.doc.subscribe(active))
     this.stops.push(this.session.components.subscribe(() => this.refreshSoon()))
     // A new guest, new sources or newly added components.
     this.stops.push(this.session.subscribe(() => this.refreshSoon()))
@@ -390,8 +391,8 @@ class ProjectPreviews {
       session.info.sources,
       session.added,
       session.components.get(),
-      session.store.getModes(),
-      session.store.getComponentLibrary()
+      session.doc.modes(),
+      componentLibrary(session.doc, session.libraryDesigns)
     ]
 
     if (drawnFrom.every((value, index) => value === this.lookedUpFor[index])) {

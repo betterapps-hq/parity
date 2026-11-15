@@ -18,8 +18,9 @@ import {
   withSavedPreviewValues
 } from "@parity-app/core"
 import { pickPreviews } from "@parity-app/editor"
+import { updateView } from "@parity-app/multiplayer"
 import { RotateCcw, Search, SlidersHorizontal } from "lucide-react"
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import { stopEventPropagation } from "tldraw"
 import { AppSelect } from "../chrome/AppSelect.tsx"
 import { Hint } from "../chrome/Hint.tsx"
@@ -31,6 +32,7 @@ import { PixelField } from "../inspector/controls/controls.tsx"
 import { ChangeMark, Changed } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { PercentField } from "../inspector/controls/number-field.tsx"
+import { savedViewOf } from "../project-doc.ts"
 import { useCarry } from "./board-carry.tsx"
 import { useProject } from "./context.ts"
 import { kindColors } from "./kinds.tsx"
@@ -68,13 +70,26 @@ interface Selected extends PreviewTarget {
 export type ChangeView = (label: string, update: (view: ContainerViewSettings) => ContainerViewSettings) => void
 
 /**
- * How a design was shown when last saved, as the store has it, so a preview's change mark and reset follow what's
+ * How a design was shown when last saved, as the saver has it, so a preview's change mark and reset follow what's
  * saved; the same object until a save or a change to it.
  */
 export function useSavedView(designKey: string, path: string): ContainerViewSettings | undefined {
-  const { store } = useProject()
+  const session = useProject()
 
-  return useSyncExternalStore(store.subscribe, () => store.getSavedView(designKey, readFromCode(path)))
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const stops = [session.doc.subscribe(() => listener()), session.saver.subscribe(listener)]
+
+      return () => {
+        for (const stop of stops) {
+          stop()
+        }
+      }
+    },
+    [session]
+  )
+
+  return useSyncExternalStore(subscribe, () => savedViewOf(session, designKey, readFromCode(path)))
 }
 
 function selectedOf(
@@ -483,7 +498,7 @@ export function PreviewHeader({
   /** Moves its mode's column from one place among those shown to another. */
   onMoveColumn: (from: number, to: number) => void
 }) {
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const key = previewKey(state.id, mode.id)
   const own = previewSettingsOf(design, state.id, mode.id)
   const set = previewValues(own)
@@ -514,7 +529,7 @@ export function PreviewHeader({
     onDrop: (to) => onMoveColumn(column, Number(lineTiles(nameButton.current)[0]?.dataset.column ?? 0) + to)
   })
 
-  const onChange: ChangeView = (label, update) => store.updateView(designKey, label, update)
+  const onChange: ChangeView = (label, update) => updateView(doc, designKey, label, update)
 
   // Holding the selected previews' settings, it resets every one of them; otherwise its own.
   const resets = selectedOf(design, saved, targets ?? [{ key, mode, first }])

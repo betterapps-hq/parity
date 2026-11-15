@@ -180,7 +180,7 @@ export function useSettingsProject(): SettingsProject {
     }
 
     if (session && project) {
-      shown.project = { name: session.info.name, file: session.store.mainPath }
+      shown.project = { name: session.info.name, file: session.doc.main }
     }
 
     const shortcuts = shortcutsOf(running.extensions)
@@ -285,7 +285,7 @@ export function watchExtensionSettings(): void {
   const watched = new WeakSet<ProjectSession>()
 
   const send = (session: ProjectSession) => {
-    const extensions = session.store.getMainDocument()?.extensions ?? {}
+    const extensions = session.doc.file(session.doc.main)?.extensions ?? {}
 
     if (sent.get(session) === extensions) {
       return
@@ -305,8 +305,8 @@ export function watchExtensionSettings(): void {
 
       watched.add(session)
       // The service read the saved file as the project opened, so only what changes after is sent.
-      sent.set(session, session.store.getMainDocument()?.extensions ?? {})
-      const unsubscribe = session.store.subscribe(() => send(session))
+      sent.set(session, session.doc.file(session.doc.main)?.extensions ?? {})
+      const unsubscribe = session.doc.subscribe(() => send(session))
       session.untilClosed(unsubscribe)
     }
   }
