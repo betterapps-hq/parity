@@ -179,14 +179,13 @@ interface LibInputs {
 }
 
 /**
- * The global stylesheets the app at `root` loads, asked of the builder that serves it (Vite or Rspack), as the desktop
+ * The global stylesheets the app at `root` loads, asked of Vite's builder when it serves it, as the desktop
  * app asks its builder. None, said on stderr, when no builder serves it or it can't say.
  */
 async function appStylesheets(root: string): Promise<string[] | undefined> {
   // Loaded only here: asking a builder loads the project's own build tool.
   const { viteBuilder } = await import("@parity-app/extension-vite/builder")
-  const { rspackBuilder } = await import("@parity-app/extension-rspack/builder")
-  const builders = [viteBuilder, rspackBuilder]
+  const builders = [viteBuilder]
   const { detectContext, readPackage } = await import("@parity-app/project")
   const pkg = (await readPackage(root))?.manifest ?? {}
   const project = detectContext(root, pkg)
