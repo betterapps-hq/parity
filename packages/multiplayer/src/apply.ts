@@ -5,7 +5,7 @@ import {
   dropPatches,
   emptyDocument,
   findNode,
-  insertNode,
+  placeNode,
   type JsonValue,
   locateNode,
   type ModeSettings,
@@ -171,17 +171,19 @@ function insert(state: DocState, op: Extract<DocOp, { op: "insert" }>, index: nu
 
   holdsLayers(parent, op.slot, op.design, index)
   const taken = nodeIds(root)
+  const added = nodeIds(op.node)
 
-  for (const id of nodeIds(op.node)) {
+  for (const id of added) {
     if (taken.has(id)) {
       throw new OpProblem({ kind: "takenId", op: index, design: op.design, id })
     }
   }
 
   const at = placeBefore(parent, op.slot, op.before, op.design, op.node.id, index)
-  const next = insertNode(root, op.parent, op.node, slotted(at, op.slot))
+  // The ids were checked just above.
+  const next = placeNode(root, op.parent, op.node, slotted(at, op.slot))
 
-  for (const id of nodeIds(op.node)) {
+  for (const id of added) {
     recorder.layerAdded({ design: op.design, node: id }, found.path)
   }
 
