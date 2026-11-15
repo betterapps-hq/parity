@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "The editor's designs live in a project document on the local provider, with operation-based undo and a saver, in place of the design store.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

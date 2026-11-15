@@ -5,8 +5,8 @@ import type { ReactNode } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { tally, useConsole } from "../console-store.ts"
-import { type DesignStore, useSaveState } from "../design-store.ts"
 import { runCommand, statusItems, statusTooltip, useExtensions } from "../extensions.ts"
+import { type DocSession, useSaveState } from "../project-doc.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
@@ -23,7 +23,7 @@ import { Processes } from "./Processes.tsx"
  */
 export function StatusBar() {
   const session = useProject()
-  const { info, store, tokens: tokenStore } = session
+  const { info, tokens: tokenStore } = session
   const tokens = useTokenList(tokenStore)
   const semantic = tokens.filter((token) => token.source === "semantic").length
   const { performanceStats } = usePreferences()
@@ -90,7 +90,7 @@ export function StatusBar() {
       </Item>
       <span className="min-w-0 flex-1" />
       <ConsoleStatus projectId={session.id} />
-      <SaveFailure store={store} />
+      <SaveFailure designs={session} />
       <Processes />
       {performanceStats && <PerformanceStats />}
     </footer>
@@ -251,8 +251,8 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
  * A save that failed, which nothing else would show. Unsaved changes show as a dot on the project's tab, so the status
  * bar doesn't repeat them.
  */
-function SaveFailure({ store }: { store: DesignStore }) {
-  const state = useSaveState(store)
+function SaveFailure({ designs }: { designs: DocSession }) {
+  const state = useSaveState(designs)
 
   if (state.status !== "failed") {
     return null

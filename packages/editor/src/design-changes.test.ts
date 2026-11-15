@@ -20,7 +20,7 @@ import {
   reorderDesign,
   replaceDocuments
 } from "./design-changes.ts"
-import type { DesignSnapshot } from "./history.ts"
+import type { DesignSnapshot } from "./snapshot.ts"
 import { noTokenEdits } from "./token-edits.ts"
 
 function design(id: string): ContainerSpec {

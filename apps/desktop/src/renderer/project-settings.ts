@@ -12,9 +12,10 @@ import {
   setPreferenceOverride,
   withProjectPreferences
 } from "@parity-app/core"
+import { applyDocuments, type ProjectDoc } from "@parity-app/multiplayer"
 import { useMemo, useSyncExternalStore } from "react"
 import { getPreferences, type Preferences, setPreferences, subscribePreferences } from "./chrome/preferences.ts"
-import type { DesignStore } from "./design-store.ts"
+import { useUnsaved } from "./project-doc.ts"
 import { workspace } from "./workspace.ts"
 
 /**
@@ -22,9 +23,6 @@ import { workspace } from "./workspace.ts"
  * win while it's open, and extensions' project settings. Each change is an undo step on the project's main file, saved
  * with it by Save, or a moment later with autosave on, as any other edit is.
  */
-
-/** A project's store, as far as its settings go. */
-type SettingsStore = Pick<DesignStore, "mainPath" | "getMainDocument" | "applyDocuments" | "subscribe" | "hasUnsaved">
 
 /** What a project's main file sets, as the Settings dialog's project page lists it. */
 export interface ProjectSettings {
@@ -37,39 +35,55 @@ export interface ProjectSettings {
 }
 
 const noExtensions: ProjectExtensions = {}
-const noSubscription = () => () => undefined
-const nothing = () => undefined
 
-/** The active tab's project store, or nothing on Home or while a project opens. */
-function activeStore(): DesignStore | undefined {
-  return workspace.getActive()?.session?.store
+/** The active tab's project, or nothing on Home or while a project opens. */
+function activeSession() {
+  return workspace.getActive()?.session
 }
 
-function useActiveStore(): DesignStore | undefined {
-  return useSyncExternalStore(workspace.subscribe, activeStore)
+function activeDoc(): ProjectDoc | undefined {
+  return activeSession()?.doc
+}
+
+function useActiveDoc(): ProjectDoc | undefined {
+  return useSyncExternalStore(workspace.subscribe, activeDoc)
+}
+
+/** The document's main file, following its changes; nothing without a document. */
+function useMainFile(doc: ProjectDoc | undefined): CanvasDocument | undefined {
+  const subscribe = useMemo(
+    () => (listener: () => void) => (doc ? doc.subscribe(() => listener()) : () => undefined),
+    [doc]
+  )
+
+  return useSyncExternalStore(subscribe, () => mainFile(doc))
+}
+
+function mainFile(doc: ProjectDoc | undefined): CanvasDocument | undefined {
+  return doc?.file(doc.main)
 }
 
 /** The project settings of the active tab's project, or nothing when no project is open there. */
 export function useProjectSettings(): ProjectSettings | undefined {
-  const store = useActiveStore()
-  const main = useSyncExternalStore(store?.subscribe ?? noSubscription, store?.getMainDocument ?? nothing)
-  const unsaved = useSyncExternalStore(store?.subscribe ?? noSubscription, () => store?.hasUnsaved() ?? false)
+  const session = useSyncExternalStore(workspace.subscribe, activeSession)
+  const main = useMainFile(session?.doc)
+  const unsaved = useUnsaved(session)
 
   return useMemo(
     () =>
-      store && {
+      session && {
         overrides: preferenceOverrides(main),
         extensions: main?.extensions ?? noExtensions,
         unsaved
       },
-    [store, main, unsaved]
+    [session, main, unsaved]
   )
 }
 
 /** Changes the project's main file as one undo step, creating it when the project has none yet. */
-function changeMain(store: SettingsStore, label: string, update: (document: CanvasDocument) => CanvasDocument): void {
-  const document = update(store.getMainDocument() ?? emptyDocument())
-  store.applyDocuments(label, [{ path: store.mainPath, document }])
+function changeMain(doc: ProjectDoc, label: string, update: (document: CanvasDocument) => CanvasDocument): void {
+  const document = update(mainFile(doc) ?? emptyDocument())
+  applyDocuments(doc, label, [{ path: doc.main, document }], { origin: "edit" })
 }
 
 /** What a preference is called in the undo step that changes it. */
@@ -81,24 +95,18 @@ const preferenceNames: Record<ProjectPreferenceKey, string> = {
 }
 
 /** Sets the project's own value for a preference, as one undo step. */
-export function setProjectPreference(
-  override: PreferenceOverride,
-  store: SettingsStore | undefined = activeStore()
-): void {
-  if (store) {
-    changeMain(store, `Set ${preferenceNames[override.key]} for the project`, (document) =>
+export function setProjectPreference(override: PreferenceOverride, doc: ProjectDoc | undefined = activeDoc()): void {
+  if (doc) {
+    changeMain(doc, `Set ${preferenceNames[override.key]} for the project`, (document) =>
       setPreferenceOverride(document, override)
     )
   }
 }
 
 /** Takes the project's own value for a preference away, so the person's applies again, as one undo step. */
-export function clearProjectPreference(
-  key: ProjectPreferenceKey,
-  store: SettingsStore | undefined = activeStore()
-): void {
-  if (store?.getMainDocument()?.preferences?.[key] !== undefined) {
-    changeMain(store, `Use your own ${preferenceNames[key]}`, (document) => clearPreferenceOverride(document, key))
+export function clearProjectPreference(key: ProjectPreferenceKey, doc: ProjectDoc | undefined = activeDoc()): void {
+  if (doc && mainFile(doc)?.preferences?.[key] !== undefined) {
+    changeMain(doc, `Use your own ${preferenceNames[key]}`, (document) => clearPreferenceOverride(document, key))
   }
 }
 
@@ -107,10 +115,10 @@ export function setProjectExtensionSetting(
   extension: string,
   key: string,
   value: JsonValue,
-  store: SettingsStore | undefined = activeStore()
+  doc: ProjectDoc | undefined = activeDoc()
 ): void {
-  if (store) {
-    changeMain(store, `Set ${extension} ${key}`, (document) => setExtensionSetting(document, extension, key, value))
+  if (doc) {
+    changeMain(doc, `Set ${extension} ${key}`, (document) => setExtensionSetting(document, extension, key, value))
   }
 }
 
@@ -118,10 +126,10 @@ export function setProjectExtensionSetting(
 export function clearProjectExtensionSetting(
   extension: string,
   key: string,
-  store: SettingsStore | undefined = activeStore()
+  doc: ProjectDoc | undefined = activeDoc()
 ): void {
-  if (store?.getMainDocument()?.extensions?.[extension]?.[key] !== undefined) {
-    changeMain(store, `Reset ${extension} ${key}`, (document) => clearExtensionSetting(document, extension, key))
+  if (doc && mainFile(doc)?.extensions?.[extension]?.[key] !== undefined) {
+    changeMain(doc, `Reset ${extension} ${key}`, (document) => clearExtensionSetting(document, extension, key))
   }
 }
 
@@ -132,11 +140,9 @@ let last: { preferences: Preferences; main: CanvasDocument | undefined; effectiv
  * The preferences in effect in a project, by default the active tab's: the person's, with the project's own values over
  * them. The same object until either changes.
  */
-export function getEffectivePreferences(
-  store: Pick<DesignStore, "getMainDocument"> | undefined = activeStore()
-): Preferences {
+export function getEffectivePreferences(doc: ProjectDoc | undefined = activeDoc()): Preferences {
   const preferences = getPreferences()
-  const main = store?.getMainDocument()
+  const main = mainFile(doc)
 
   if (last?.preferences !== preferences || last.main !== main) {
     last = { preferences, main, effective: withProjectPreferences(preferences, main) }
@@ -146,11 +152,10 @@ export function getEffectivePreferences(
 }
 
 /** The preferences in effect in a project, by default the active tab's (see `getEffectivePreferences`). */
-export function useEffectivePreferences(store?: Pick<DesignStore, "getMainDocument" | "subscribe">): Preferences {
-  const active = useActiveStore()
-  const target = store ?? active
+export function useEffectivePreferences(doc?: ProjectDoc): Preferences {
+  const active = useActiveDoc()
   const preferences = useSyncExternalStore(subscribePreferences, getPreferences)
-  const main = useSyncExternalStore(target?.subscribe ?? noSubscription, target?.getMainDocument ?? nothing)
+  const main = useMainFile(doc ?? active)
 
   return useMemo(() => withProjectPreferences(preferences, main), [preferences, main])
 }
@@ -160,12 +165,9 @@ export function useEffectivePreferences(store?: Pick<DesignStore, "getMainDocume
  * otherwise the person's. The View menu's toggles and the Export section change preferences this way, so what they
  * show is what they change.
  */
-export function setEffectivePreference(
-  override: PreferenceOverride,
-  store: SettingsStore | undefined = activeStore()
-): void {
-  if (store?.getMainDocument()?.preferences?.[override.key] !== undefined) {
-    setProjectPreference(override, store)
+export function setEffectivePreference(override: PreferenceOverride, doc: ProjectDoc | undefined = activeDoc()): void {
+  if (doc && mainFile(doc)?.preferences?.[override.key] !== undefined) {
+    setProjectPreference(override, doc)
 
     return
   }

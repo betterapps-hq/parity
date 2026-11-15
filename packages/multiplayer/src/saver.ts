@@ -21,7 +21,8 @@ import type { DocChange, ProjectDoc } from "./types.ts"
  */
 
 export interface Persistence {
-  saveDocument(path: string, document: CanvasDocument): Promise<void>
+  /** Writes a file; `exportMs` is how long producing its content from the document took. */
+  saveDocument(path: string, document: CanvasDocument, timing: { exportMs: number }): Promise<void>
   /** Removes a file the project no longer has. */
   deleteDocument(path: string): Promise<void>
   /** Whether each change saves itself a moment later, or waits for Save. */
@@ -44,6 +45,10 @@ export interface ProjectSaver {
   saved(path: string): CanvasDocument | undefined
   /** The modes as last written or read. */
   savedModes(): ModeSettings
+  /** The token values the stylesheet was last given. */
+  savedTokens(): TokenEdits
+  /** Writes that failed and haven't succeeded since, with why. */
+  failures(): { path: string; error: string }[]
   /** Writes what's waiting now, as Save does. */
   flush(): Promise<void>
   /** Says how token values reach the stylesheet. The latest writer is used. */
@@ -220,9 +225,11 @@ export function createProjectSaver(
       })
     }
 
+    const exporting = performance.now()
     const document = doc.file(path)
     const modes = doc.modes()
     const content = fileContent(doc.main, path, document, modes)
+    const exportMs = performance.now() - exporting
 
     const taken = () => {
       if (document) {
@@ -237,7 +244,7 @@ export function createProjectSaver(
     }
 
     if (content) {
-      return persistence.saveDocument(path, content).then(() => taken)
+      return persistence.saveDocument(path, content, { exportMs }).then(() => taken)
     }
 
     // Taken out of the project: it's saved once the file is gone too.
@@ -303,6 +310,8 @@ export function createProjectSaver(
     hasUnsaved: () => unsaved().length > 0,
     saved: (path) => saved.get(path),
     savedModes: () => savedModes,
+    savedTokens: () => savedTokens,
+    failures: () => [...failures].map(([path, error]) => ({ path, error })),
 
     flush: async () => {
       for (const timer of timers.values()) {

@@ -1,4 +1,5 @@
 import type { DetectionCorrections } from "@parity-app/core"
+import { applyDocuments } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import {
@@ -258,9 +259,11 @@ async function openWithLeftOut(): Promise<void> {
 
 /** Corrects the component list in the example's main project file, as the panel's menu and buttons do. */
 function correcting(detection: DetectionCorrections): void {
-  const { store } = example()
-  const main = store.getDocuments().find((entry) => entry.path === store.mainPath)!.document
-  store.applyDocuments("Correct the component list", [{ path: store.mainPath, document: { ...main, detection } }])
+  const { doc } = example()
+  const main = doc.file(doc.main)!
+  applyDocuments(doc, "Correct the component list", [{ path: doc.main, document: { ...main, detection } }], {
+    origin: "edit"
+  })
 }
 
 /**
@@ -353,7 +356,7 @@ export const AddingWithNothingSelected: Story = {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Stat card" }))
 
     const made = await waitFor(async () => {
-      const found = example().store.getEntry(example().selection.get().design ?? "")?.container
+      const found = example().doc.design(example().selection.get().design ?? "")
       await expect(found).toMatchObject({
         name: "Stat card",
         root: { children: [{ type: "instance", design: "stat-card" }] }

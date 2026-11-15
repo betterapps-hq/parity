@@ -1,4 +1,5 @@
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
@@ -125,7 +126,7 @@ export const NothingSelected: Story = {
     await openWith("badge")()
     await userEvent.keyboard("{Enter}")
     await waitFor(async () => {
-      const made = example().store.getEntry(example().selection.get().design ?? "")?.container
+      const made = example().doc.design(example().selection.get().design ?? "")
       await expect(made).toMatchObject({
         name: "Badge",
         root: { children: [{ type: "component", component: "Badge" }] }
@@ -143,7 +144,7 @@ export const NowhereToInsertInto: Story = {
     async () => {
       await openProjects("example")
       const card = design("Plan card")
-      example().store.updateContainer(card, "Make the root a card", (container) => ({
+      updateContainer(example().doc, card, "Make the root a card", (container) => ({
         ...container,
         root: { type: "component", id: container.root.id, component: "Card" }
       }))

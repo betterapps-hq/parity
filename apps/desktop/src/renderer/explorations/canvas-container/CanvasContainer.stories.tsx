@@ -1,3 +1,4 @@
+import { setModes } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { openInspector } from "../../chrome/inspector-stories.tsx"
 import { example } from "../../stories/fixtures.tsx"
@@ -33,8 +34,8 @@ const meta = {
   loaders: [
     async () => {
       await openInspector("design")
-      const { store } = example()
-      store.setModes(withManyLocales(store.getModes()))
+      const { doc } = example()
+      setModes(doc, withManyLocales(doc.modes()))
     }
   ]
 } satisfies Meta<typeof ContainerWorkspace>

@@ -19,7 +19,8 @@ import { boardRoot, defaultModeSettings, frameViewport, resolveDesign, resolveMo
 import { createGuest } from "@parity-app/extension-react/guest"
 import { ModeView } from "../ModeView.tsx"
 import { frameCss } from "../guest.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
+import { libraryOf } from "../project-doc.ts"
 import { SelectionStore } from "../selection.ts"
 import { CanvasOverlay } from "./CanvasOverlay.tsx"
 import { ProjectContext } from "./context.ts"
@@ -51,17 +52,14 @@ let root
  * camera, standing in for tldraw's; the camera is \`window.camera\`.
  */
 export function mount(containers, { camera } = {}) {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers } }], {
+    modes: defaultModeSettings
+  })
   const selection = new SelectionStore()
   // As the session's parts never change here, useProject is given the same ones each time it asks.
   const parts = {}
   const session = {
-    id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] },
+    id: "app", ...designs, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] },
     subscribe: () => () => undefined, getParts: () => parts
   }
   window.session = session
@@ -80,15 +78,15 @@ export function mount(containers, { camera } = {}) {
     }
   }
   const draw = () => {
-    const entry = store.getEntry("app.par#dash")
-    const frames = entry.container.states.map((state) =>
+    const container = designs.doc.design("app.par#dash")
+    const frames = container.states.map((state) =>
       h(ModeView, {
         key: state.id,
         loaded,
-        tree: resolveDesign(boardRoot(entry.container), state, mode.viewport, store.getLibrary(entry.key)),
+        tree: resolveDesign(boardRoot(container), state, mode.viewport, libraryOf(designs, "app.par#dash")),
         mode,
         frame: { width: 400, viewport: frameViewport({ width: 400 }, mode) },
-        design: entry.key,
+        design: "app.par#dash",
         state: state.id,
         primary: state.id === "default"
       })
@@ -113,7 +111,7 @@ export function mount(containers, { camera } = {}) {
       const { x, y, z } = window.camera.get()
       layer.style.transform = \`scale(\${z}) translate(\${x}px, \${y}px)\`
     })
-  store.subscribe(draw)
+  designs.doc.subscribe(() => draw())
   return mode.id
 }
 `
@@ -172,9 +170,11 @@ afterAll(async () => {
 const text = (id: string, value: string) => ({ type: "text", id, text: value })
 const stat = (id: string) => ({ type: "instance", id, design: "stat" })
 
+// A component, since only a component or a story has states.
 const dashboard = {
   id: "dash",
   name: "Dashboard",
+  kind: "component",
   position: { x: 0, y: 0 },
   root: {
     type: "layout",
@@ -267,7 +267,7 @@ function reachedTldraw() {
 
 function order() {
   // @ts-expect-error The page's session.
-  return page.evaluate(() => window.session.store.getEntry("app.par#dash").container.root.children.map((n) => n.id))
+  return page.evaluate(() => window.session.doc.design("app.par#dash").root.children.map((n) => n.id))
 }
 
 describe("finding a design's frames", () => {

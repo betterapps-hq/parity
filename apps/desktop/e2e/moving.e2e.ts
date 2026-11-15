@@ -126,19 +126,22 @@ describe("dragging an absolutely placed layer", () => {
     await app.page.evaluate((review) => {
       const e2e = window.e2e!
       const key = e2e.key("Calendar")
-      e2e.session().store.updateContainer(key, "Set up insets", (container) => {
-        const edit = (node: typeof container.root): typeof container.root => {
-          if (node.id === review) {
-            return {
-              ...node,
-              style: { ...node.style, left: { step: -2 }, right: { token: "spacing" }, top: { token: "spacing" } }
-            }
-          }
+      const { doc } = e2e.session()
+      const container = doc.design(key)!
 
-          return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+      const edit = (node: typeof container.root): typeof container.root => {
+        if (node.id === review) {
+          return {
+            ...node,
+            style: { ...node.style, left: { step: -2 }, right: { token: "spacing" }, top: { token: "spacing" } }
+          }
         }
 
-        return { ...container, root: edit(container.root) }
+        return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+      }
+
+      doc.transact("Set up insets", [{ op: "replaceRoot", design: key, root: edit(container.root) }], {
+        origin: "agent"
       })
     }, review)
     await app.show("Calendar", zoom, review)
@@ -408,22 +411,25 @@ describe("empty layouts (PAR-193)", () => {
     await app.page.evaluate(() => {
       const e2e = window.e2e!
       const key = e2e.key("Dashboard")
-      e2e.session().store.updateContainer(key, "Add an empty row", (container) => {
-        const edit = (node: typeof container.root): typeof container.root => {
-          if (node.type !== "layout") {
-            return node
-          }
+      const { doc } = e2e.session()
+      const container = doc.design(key)!
 
-          const children = node.children.map(edit)
-
-          if (node.id === "JWWeK") {
-            children.push({ type: "layout", id: "empty", style: { flexDirection: "row" }, children: [] })
-          }
-
-          return { ...node, children }
+      const edit = (node: typeof container.root): typeof container.root => {
+        if (node.type !== "layout") {
+          return node
         }
 
-        return { ...container, root: edit(container.root) }
+        const children = node.children.map(edit)
+
+        if (node.id === "JWWeK") {
+          children.push({ type: "layout", id: "empty", style: { flexDirection: "row" }, children: [] })
+        }
+
+        return { ...node, children }
+      }
+
+      doc.transact("Add an empty row", [{ op: "replaceRoot", design: key, root: edit(container.root) }], {
+        origin: "agent"
       })
     })
   }

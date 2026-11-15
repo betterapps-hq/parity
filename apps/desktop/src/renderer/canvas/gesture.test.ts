@@ -1,8 +1,9 @@
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { dragThreshold } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { setWindowTelemetry } from "../report-error.ts"
 import { traceWith } from "../tracing.ts"
 import { CameraGestures, followPress, GestureRun, gestures, InsertDrag, onGestureEnd, type Press } from "./gesture.ts"
@@ -108,12 +109,9 @@ const design = "app.par#home"
 
 /** A project with one design, Home, and a stand-in window whose held cursors are listed. */
 function setup() {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [home] } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const { doc, saver } = openTestSession([{ path: "app.par", document: { version: 4, containers: [home] } }], {
+    modes: defaultModeSettings
+  })
 
   const target = new EventTarget()
   const cursors: string[] = []
@@ -124,27 +122,27 @@ function setup() {
     return () => cursors.splice(cursors.indexOf(cursor), 1)
   }
 
-  const name = () => store.getEntry(design)!.container.name
+  const name = () => doc.design(design)!.name
 
   const rename = (to: string, gesture?: string) =>
-    store.updateContainer(design, "Rename", (container) => ({ ...container, name: to }), { gesture })
+    updateContainer(doc, design, "Rename", (container) => ({ ...container, name: to }), { gesture })
 
   // A clock that moves on 10ms each time it's read, and a frame counter that saw 60 a second.
   let time = 0
   const now = () => (time += 10)
   const countFrames = () => () => 60
 
-  return { store, target, cursors, at: { target, holdCursor, now, countFrames }, name, rename }
+  return { doc, saver, target, cursors, at: { target, holdCursor, now, countFrames }, name, rename }
 }
 
 describe("a press on the canvas", () => {
   it("becomes a drag once the pointer has gone the threshold, and is a click if it's released before", () => {
-    const { store, target, cursors, at } = setup()
-    const begin = vi.spyOn(store, "beginGesture")
+    const { doc, target, cursors, at } = setup()
+    const begin = vi.spyOn(doc, "beginGesture")
     const log: string[] = []
     followPress(
       gestures.layerDrag,
-      store,
+      doc,
       { clientX: 100, clientY: 100 },
       {
         cursor: "grabbing",
@@ -164,14 +162,14 @@ describe("a press on the canvas", () => {
   })
 
   it("begins the undo gesture, takes the checkpoint and holds the cursor as it becomes a drag, once", () => {
-    const { store, target, cursors, at } = setup()
-    const checkpoint = vi.spyOn(store, "checkpoint")
-    const end = vi.spyOn(store, "endGesture")
+    const { doc, target, cursors, at } = setup()
+    const checkpoint = vi.spyOn(doc, "checkpoint")
+    const end = vi.spyOn(doc, "endGesture")
     const log: string[] = []
     let gesture: string | undefined
     followPress(
       gestures.resize,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       {
         design,
@@ -190,7 +188,7 @@ describe("a press on the canvas", () => {
     target.dispatchEvent(pointer("pointermove", dragThreshold))
     target.dispatchEvent(pointer("pointermove", 10))
     expect(checkpoint).toHaveBeenCalledOnce()
-    expect(checkpoint).toHaveBeenCalledWith(design, gesture)
+    expect(checkpoint).toHaveBeenCalledWith(gesture, design)
     target.dispatchEvent(new Event("pointerup"))
     // Nothing is left listening once it's over.
     target.dispatchEvent(pointer("pointermove", 20))
@@ -199,11 +197,11 @@ describe("a press on the canvas", () => {
   })
 
   it("does nothing at Escape before it's a drag but end", () => {
-    const { store, target, at } = setup()
+    const { doc, target, at } = setup()
     const log: string[] = []
     followPress(
       gestures.layerDrag,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       { move: () => log.push("move"), end: () => log.push("end"), click: () => log.push("click") },
       at
@@ -215,10 +213,10 @@ describe("a press on the canvas", () => {
   })
 
   it("lets a drag take back what it wrote so far and go on in the same undo step", () => {
-    const { store, target, at, name, rename } = setup()
+    const { doc, target, at, name, rename } = setup()
     followPress(
       gestures.absoluteDrag,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       {
         design,
@@ -235,19 +233,19 @@ describe("a press on the canvas", () => {
     target.dispatchEvent(pointer("pointermove", 10))
     target.dispatchEvent(pointer("pointermove", 20))
     expect(name()).toBe("Home")
-    expect(store.getHistory().canUndo).toBe(false)
+    expect(doc.history().canUndo).toBe(false)
     target.dispatchEvent(pointer("pointermove", 30))
     target.dispatchEvent(new Event("pointerup"))
     expect(name()).toBe("Home 30")
-    store.undo()
+    doc.undo()
     expect(name()).toBe("Home")
-    expect(store.getHistory().canUndo).toBe(false)
+    expect(doc.history().canUndo).toBe(false)
   })
 
   it("leaves the file alone when a drag that wrote nothing is taken back", () => {
-    const { store, target, at } = setup()
-    const revert = vi.spyOn(store, "revert")
-    followPress(gestures.resize, store, { clientX: 0, clientY: 0 }, { design, move: () => undefined }, at)
+    const { doc, target, at } = setup()
+    const revert = vi.spyOn(doc, "revert")
+    followPress(gestures.resize, doc, { clientX: 0, clientY: 0 }, { design, move: () => undefined }, at)
     target.dispatchEvent(pointer("pointermove", 10))
     target.dispatchEvent(press("Escape"))
     expect(revert).not.toHaveBeenCalled()
@@ -270,7 +268,7 @@ const canvasGestures = [
 /** Drags 20px with one of the gestures, then ends it with `ending`, saying what it ended with. */
 function drag(gesture: keyof typeof gestures, writes: (typeof canvasGestures)[number]["writes"], ending: Event) {
   const project = setup()
-  const { store, target, cursors, at, rename } = project
+  const { doc, target, cursors, at, rename } = project
   const kept: boolean[] = []
 
   const handlers: Press = {
@@ -290,7 +288,7 @@ function drag(gesture: keyof typeof gestures, writes: (typeof canvasGestures)[nu
     }
   }
 
-  followPress(gestures[gesture], store, { clientX: 0, clientY: 0 }, handlers, at)
+  followPress(gestures[gesture], doc, { clientX: 0, clientY: 0 }, handlers, at)
 
   for (const x of [10, 20]) {
     target.dispatchEvent(pointer("pointermove", x))
@@ -308,21 +306,25 @@ const keptName = { moving: "Home 20", kept: "Moved", nothing: "Home" }
 describe("each canvas gesture", () => {
   it("leaves no undo after Escape", () => {
     for (const { gesture, writes } of canvasGestures) {
-      const { store, kept, name } = drag(gesture, writes, press("Escape"))
-      expect({ gesture, kept, name: name(), canUndo: store.getHistory().canUndo, unsaved: store.hasUnsaved() }).toEqual(
-        { gesture, kept: [false], name: "Home", canUndo: false, unsaved: false }
-      )
+      const { doc, saver, kept, name } = drag(gesture, writes, press("Escape"))
+      expect({ gesture, kept, name: name(), canUndo: doc.history().canUndo, unsaved: saver.hasUnsaved() }).toEqual({
+        gesture,
+        kept: [false],
+        name: "Home",
+        canUndo: false,
+        unsaved: false
+      })
     }
   })
 
   it("ends when the window loses focus, keeping what it did or calling it off as its policy says", () => {
     for (const { gesture, writes, cutShort } of canvasGestures) {
-      const { store, kept, name } = drag(gesture, writes, new Event("blur"))
+      const { doc, kept, name } = drag(gesture, writes, new Event("blur"))
       const ended = cutShort === "kept" ? { kept: [true], name: keptName[writes] } : { kept: [false], name: "Home" }
       expect({ gesture, kept, name: name() }).toEqual({ gesture, ...ended })
       // What it kept is one undo step, and what it called off is none.
-      store.undo()
-      expect({ gesture, name: name(), canUndo: store.getHistory().canUndo }).toEqual({
+      doc.undo()
+      expect({ gesture, name: name(), canUndo: doc.history().canUndo }).toEqual({
         gesture,
         name: "Home",
         canUndo: false
@@ -332,10 +334,10 @@ describe("each canvas gesture", () => {
 
   it("ends at the release keeping what it did, as one undo step", () => {
     for (const { gesture, writes } of canvasGestures) {
-      const { store, kept, name } = drag(gesture, writes, new Event("pointerup"))
+      const { doc, kept, name } = drag(gesture, writes, new Event("pointerup"))
       expect({ gesture, kept, name: name() }).toEqual({ gesture, kept: [true], name: keptName[writes] })
-      store.undo()
-      expect({ gesture, name: name(), canUndo: store.getHistory().canUndo }).toEqual({
+      doc.undo()
+      expect({ gesture, name: name(), canUndo: doc.history().canUndo }).toEqual({
         gesture,
         name: "Home",
         canUndo: false
@@ -345,7 +347,7 @@ describe("each canvas gesture", () => {
 })
 
 describe("a run of presses", () => {
-  /** A run on a store that logs its gestures. */
+  /** A run on a document that logs its gestures. */
   function running() {
     const log: string[] = []
     let count = 0
@@ -360,7 +362,7 @@ describe("a run of presses", () => {
       endGesture: (gesture) => {
         log.push(`end ${gesture}`)
 
-        return true
+        return { step: true, transactions: 0, transactMs: 0 }
       }
     })
 
@@ -407,10 +409,10 @@ describe("a run of presses", () => {
 
 describe("gesture.ended", () => {
   it("records a drag once, as it ends, with how, what it moved, its frame rate and its undo step", () => {
-    const { target, at, store, rename } = setup()
+    const { target, at, doc, rename } = setup()
     followPress(
       gestures.resize,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       { design, move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture) },
       at
@@ -424,15 +426,25 @@ describe("gesture.ended", () => {
     expect(ended()).toEqual([])
     target.dispatchEvent(new Event("pointerup"))
     expect(ended()).toEqual([
-      { kind: "resize", how: "release", kept: true, durationMs: 10, designs: [design], fps: 60, undoStep: true }
+      {
+        kind: "resize",
+        how: "release",
+        kept: true,
+        durationMs: 10,
+        designs: [design],
+        fps: 60,
+        undoStep: true,
+        transactions: 3,
+        transactMs: expect.any(Number)
+      }
     ])
   })
 
   it("records a drag taken back with Escape as not kept and no undo step, and names the layers it moved", () => {
-    const { target, at, store, rename } = setup()
+    const { target, at, doc, rename } = setup()
     followPress(
       gestures.absoluteDrag,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       {
         design,
@@ -449,10 +461,10 @@ describe("gesture.ended", () => {
   })
 
   it("records a drag in the trace of the gesture.ran it ends (PAR-752)", () => {
-    const { target, at, store, rename } = setup()
+    const { target, at, doc, rename } = setup()
     followPress(
       gestures.resize,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       { design, move: (event, drag) => rename(`Home ${event.clientX}`, drag.gesture) },
       at
@@ -465,10 +477,10 @@ describe("gesture.ended", () => {
   })
 
   it("counts a step a drag makes as it ends, outside its undo gesture, as a design dragged by its title does", () => {
-    const { target, at, store, rename } = setup()
+    const { target, at, doc, rename } = setup()
     followPress(
       gestures.titleDrag,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       { move: () => undefined, end: () => rename("Moved") },
       at
@@ -479,11 +491,11 @@ describe("gesture.ended", () => {
   })
 
   it("counts no undo step for a drag that changed something and put it back before the release", () => {
-    const { target, at, store, name, rename } = setup()
+    const { target, at, doc, name, rename } = setup()
     const was = name()
     followPress(
       gestures.resize,
-      store,
+      doc,
       { clientX: 0, clientY: 0 },
       { design, move: (event, drag) => rename(event.clientX === 20 ? was : `Home ${event.clientX}`, drag.gesture) },
       at
@@ -494,29 +506,38 @@ describe("gesture.ended", () => {
     }
 
     target.dispatchEvent(new Event("pointerup"))
-    expect({ canUndo: store.getHistory().canUndo, ended: ended() }).toMatchObject({
+    expect({ canUndo: doc.history().canUndo, ended: ended() }).toMatchObject({
       canUndo: false,
       ended: [{ kind: "resize", kept: true, undoStep: false }]
     })
   })
 
   it("records nothing for a click", () => {
-    const { target, at, store } = setup()
-    followPress(gestures.layerDrag, store, { clientX: 0, clientY: 0 }, { move: () => undefined }, at)
+    const { target, at, doc } = setup()
+    followPress(gestures.layerDrag, doc, { clientX: 0, clientY: 0 }, { move: () => undefined }, at)
     target.dispatchEvent(new Event("pointerup"))
     expect(ended()).toEqual([])
   })
 
   it("records a run of presses once it ends, with how many it took", () => {
-    const { store, rename } = setup()
+    const { doc, rename } = setup()
     let time = 0
-    const run = new GestureRun(store, "fieldNudge", () => (time += 100))
+    const run = new GestureRun(doc, "fieldNudge", () => (time += 100))
     rename("Home 1", run.gesture("badge"))
     rename("Home 2", run.gesture("badge"))
     expect(ended()).toEqual([])
     run.select("title")
     expect(ended()).toEqual([
-      { kind: "fieldNudge", how: "selection", kept: true, durationMs: 100, presses: 2, undoStep: true }
+      {
+        kind: "fieldNudge",
+        how: "selection",
+        kept: true,
+        durationMs: 100,
+        presses: 2,
+        undoStep: true,
+        transactions: 2,
+        transactMs: expect.any(Number)
+      }
     ])
   })
 

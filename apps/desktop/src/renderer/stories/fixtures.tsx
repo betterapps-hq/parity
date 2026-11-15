@@ -1,5 +1,6 @@
 import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity-app/core"
+import { containerEntries, containerEntry } from "@parity-app/multiplayer"
 import type { ReactNode } from "react"
 import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"
@@ -76,9 +77,7 @@ export function sessionAt(root: string): ProjectSession {
 
 /** A design's key in the example, by its name, such as `Pricing`. */
 export function design(name: string): string {
-  const entry = example()
-    .store.getEntries()
-    .find((candidate) => candidate.container.name === name)
+  const entry = containerEntries(example().doc).find((candidate) => candidate.container.name === name)
 
   if (!entry) {
     throw new Error(`The example has no design named ${name}`)
@@ -104,7 +103,7 @@ export function node(designName: string, name: string): string {
     return childNodes(current).reduce<string | undefined>((found, child) => found ?? find(child), undefined)
   }
 
-  const entry = example().store.getEntry(design(designName))
+  const entry = containerEntry(example().doc, design(designName))
   const found = entry && find(entry.container.root)
 
   if (!found) {

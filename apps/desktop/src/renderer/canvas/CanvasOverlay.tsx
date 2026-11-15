@@ -26,14 +26,15 @@ import {
   toggleLayer,
   withFrame
 } from "@parity-app/editor"
+import { containerEntries, containerEntry, editFrame, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import { SquareDashed } from "lucide-react"
 import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
 import type { Editor } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
 import { Name } from "../chrome/Name.tsx"
-import type { DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox } from "../frame.ts"
+import { type DocSession, projectLibrary } from "../project-doc.ts"
 import { getEffectivePreferences } from "../project-settings.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
@@ -100,7 +101,7 @@ export function CanvasOverlay() {
       return undefined
     }
 
-    const { store, selection } = session
+    const { doc, selection } = session
 
     const interactive = (target: EventTarget | null) =>
       target instanceof Element &&
@@ -121,7 +122,7 @@ export function CanvasOverlay() {
         return
       }
 
-      const hit = hitTest(area, store, point, session.editor)
+      const hit = hitTest(area, doc, point, session.editor)
 
       // Double-clicks belong to the canvas, not tldraw: inside a design they drill in (see onDoubleClick), and on empty
       // canvas tldraw would make a text shape of its own. Only free text notes keep tldraw's double-click, to edit.
@@ -199,7 +200,7 @@ export function CanvasOverlay() {
       }
 
       const point = { x: event.clientX, y: event.clientY }
-      const hit = hitTest(area, store, point, session.editor)
+      const hit = hitTest(area, doc, point, session.editor)
 
       if (!hit || hit.entry.container.locked || overNote(session.editor, point)) {
         return
@@ -209,7 +210,7 @@ export function CanvasOverlay() {
       event.stopPropagation()
       // Its first click selected what's under the pointer; the double-click goes one level deeper, as in Figma. It
       // edits text only on a selected text layer that's the deepest thing under the pointer, with nothing deeper.
-      const node = selected ? findLayer(store, hit.entry.container, selected.node) : undefined
+      const node = selected ? findLayer(session, hit.entry.container, selected.node) : undefined
       const deepest = !!selected && hit.path.at(-1) === selected.node
 
       if (selected && node && deepest && editableText(node) !== undefined) {
@@ -251,7 +252,7 @@ export function CanvasOverlay() {
 
       // Hovering outlines what a click would select, in the frame under the pointer, in any design. Over a frame's
       // background, or around the frames, nothing is, and tldraw outlines the board.
-      const frame = frameAt(area, store, pointer.current.point!, session.editor)
+      const frame = frameAt(area, doc, pointer.current.point!, session.editor)
 
       if (!frame || frame.entry.container.locked) {
         selection.setHover(undefined)
@@ -310,12 +311,12 @@ export function CanvasOverlay() {
         !!selection.get().design ||
         !!selection.getHover()?.node ||
         !!getDragView() ||
-        getEffectivePreferences(session.store).layoutGrid,
+        getEffectivePreferences(session.doc).layoutGrid,
       designs: () =>
         overlayDesigns({
           selected: selection.get().design,
           hovered: selection.getHover()?.design,
-          layoutGrid: getEffectivePreferences(session.store).layoutGrid
+          layoutGrid: getEffectivePreferences(session.doc).layoutGrid
         }),
       measure: () =>
         selection.getTool() === "interact" ? noMarks : overlayMarks(readScene(session, area, pointer.current.alt)),
@@ -462,7 +463,7 @@ export function CanvasOverlay() {
                 startResize(session, area, handles, edge, event)
               }
             }}
-            onReset={(edge, fill) => resetSize(session.store, handles, edge, fill)}
+            onReset={(edge, fill) => resetSize(session.doc, handles, edge, fill)}
           />
         ))}
       {editing && <TextEditor key={`${editing.design}/${editing.node}`} />}
@@ -470,14 +471,14 @@ export function CanvasOverlay() {
   )
 }
 
-/** A selected layout's padding and gap handles, wired to the store through `spacing-edit.ts`. */
+/** A selected layout's padding and gap handles, wired to the document through `spacing-edit.ts`. */
 function SpacingHandlesFor({
   session,
   spacing,
   dragging,
   onDrag
 }: {
-  session: Pick<ProjectSession, "store" | "tokens">
+  session: DocSession & Pick<ProjectSession, "tokens">
   spacing: NonNullable<OverlayMarks["spacingHandles"]>
   dragging: ({ key: string } & SpacingEdit) | undefined
   onDrag: (edit: ({ key: string } & SpacingEdit) | undefined) => void
@@ -541,7 +542,7 @@ function readScene(
   area: HTMLElement,
   alt: boolean
 ): OverlayScene {
-  const { selection, store } = session
+  const { selection, doc } = session
   const current = selection.get()
   const hover = selection.getHover()
   const drag = getDragView()
@@ -574,7 +575,7 @@ function readScene(
     scale: frameGeometry(host).scale
   })
 
-  const entry = current.design ? store.getEntry(current.design) : undefined
+  const entry = current.design ? containerEntry(doc, current.design) : undefined
   const picked = entry ? selectionFrame(area, entry.key, current) : undefined
 
   if (entry) {
@@ -592,7 +593,7 @@ function readScene(
   scene.locked = layers.some((id) => isLocked(entry!.container, id))
 
   for (const id of layers) {
-    const node = findLayer(store, entry!.container, id)
+    const node = findLayer(session, entry!.container, id)
     // Inside an instance everything is the component's, so it's drawn in the component's color.
     let color: string = kindColors.layer
 
@@ -604,7 +605,7 @@ function readScene(
 
     scene.layers.push({
       id,
-      name: node ? layerLabel(node, store.getEntries(), store.getComponentLibrary(), session.info.libraries) : id,
+      name: node ? layerLabel(node, containerEntries(doc), projectLibrary(session), session.info.libraries) : id,
       color,
       inner: isInnerPath(id),
       boxes: nodeInFrames(area, entry!.key, id, picked).map(({ host, rect, picked: isPicked }) => ({
@@ -623,8 +624,8 @@ function readScene(
   }
 
   if (hover?.node && !(hover.design === current.design && hover.node === current.node)) {
-    const hoverEntry = store.getEntry(hover.design)
-    const node = hoverEntry && findLayer(store, hoverEntry.container, hover.node)
+    const hoverEntry = containerEntry(doc, hover.design)
+    const node = hoverEntry && findLayer(session, hoverEntry.container, hover.node)
     // In the frame under the pointer; hovered in Layers, in the frame the selection was picked in.
     let frame
 
@@ -667,7 +668,7 @@ function readScene(
 
   // A single selected layout's padding and gaps, as the picked frame draws them.
   const single = layers.length === 1 ? layers[0] : undefined
-  const layout = entry && single ? findLayer(store, entry.container, single) : undefined
+  const layout = entry && single ? findLayer(session, entry.container, single) : undefined
 
   if (single && layout?.type === "layout" && picked && !drag) {
     const element = findNodeElement(picked, single)
@@ -689,7 +690,7 @@ function readScene(
   }
 
   // Every frame on screen, for its column grid.
-  if (getEffectivePreferences(store).layoutGrid) {
+  if (getEffectivePreferences(doc).layoutGrid) {
     const view = area.getBoundingClientRect()
 
     scene.grid = allFrames(area).flatMap((host) => {
@@ -714,14 +715,14 @@ function readScene(
  * keeps what it did (see `gestures.resize`).
  */
 function startResize(
-  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
   area: HTMLElement,
   handles: Handles,
   edge: Edge,
   event: ReactPointerEvent
 ): void {
-  const { store, editor, tokens } = session
-  const entry = store.getEntry(handles.design)
+  const { doc, editor, tokens } = session
+  const entry = containerEntry(doc, handles.design)
   const host = findFrames(area, handles.design, { mode: handles.mode, state: handles.state })[0]
 
   if (!entry || !editor || !host) {
@@ -741,7 +742,7 @@ function startResize(
   let last = ""
 
   if (handles.kind === "frame") {
-    const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
+    const mode = resolveModes(doc.modes()).find((candidate) => candidate.id === handles.mode)
 
     if (!mode) {
       return
@@ -749,7 +750,7 @@ function startResize(
 
     const resize = frameResize({ design: entry.container, mode, edge, rect: drawn.rect, scale })
     const label = entry.container.kind === "frame" ? "Resize frame" : "Resize preview"
-    followPress(gestures.resize, store, start, {
+    followPress(gestures.resize, doc, start, {
       design: entry.key,
       cursor: resizeCursors[edge],
       move(moveEvent, { gesture }) {
@@ -761,7 +762,7 @@ function startResize(
         }
 
         last = serialized
-        store.updateContainer(entry.key, label, (container) => withFrame(container, mode.viewport, next), {
+        updateContainer(doc, entry.key, label, (container) => withFrame(container, mode.viewport, next), {
           gesture
         })
       }
@@ -777,7 +778,7 @@ function startResize(
   }
 
   const layer = handles.node
-  const frame = store.editFrame(handles)
+  const frame = editFrame(doc, handles)
   // A layer that draws only text has a box and no element, and isn't resized.
   const measured = layer ? drawn.node(layer) : undefined
 
@@ -800,7 +801,7 @@ function startResize(
   const snapping = boxes.drawn ? LayerSnapping.measure(editor, drawn, entry.container, layer) : undefined
   const resize = layerResize({ edge, layer: shown, ...boxes, scale, unit, snapping })
 
-  followPress(gestures.resize, store, start, {
+  followPress(gestures.resize, doc, start, {
     design: entry.key,
     cursor: resizeCursors[edge],
     move(moveEvent, drag) {
@@ -825,7 +826,8 @@ function startResize(
       }
 
       last = serialized
-      store.updateContainer(
+      updateContainer(
+        doc,
         entry.key,
         "Resize layer",
         (container) => editNode(container, boardTarget(container, state.id), layer, { style }),
@@ -843,17 +845,17 @@ function startResize(
  * as one change, in the drag's one undo step.
  */
 function resizeLayers(
-  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
   area: HTMLElement,
   handles: Handles,
   layers: readonly string[],
   edge: Edge,
   event: ReactPointerEvent
 ): void {
-  const { store, editor, tokens } = session
-  const entry = store.getEntry(handles.design)
+  const { doc, editor, tokens } = session
+  const entry = containerEntry(doc, handles.design)
   const host = findFrames(area, handles.design, { mode: handles.mode, state: handles.state })[0]
-  const frame = store.editFrame(handles)
+  const frame = editFrame(doc, handles)
 
   if (!entry || !editor || !host || !frame) {
     return
@@ -894,7 +896,7 @@ function resizeLayers(
 
   const start = { clientX: event.clientX, clientY: event.clientY }
   let last = ""
-  followPress(gestures.resize, store, start, {
+  followPress(gestures.resize, doc, start, {
     design: entry.key,
     cursor: resizeCursors[edge],
     move(moveEvent, drag) {
@@ -917,7 +919,8 @@ function resizeLayers(
       }
 
       last = serialized
-      store.updateContainer(
+      updateContainer(
+        doc,
         entry.key,
         "Resize layers",
         (container) =>
@@ -936,15 +939,15 @@ function resizeLayers(
  * Double-clicking a handle: a frame goes back to its viewport's width or its content's height; a layer's size on the
  * handle's axes hugs its content, or with Alt fills its parent (PAR-169), for every layer the handle is on.
  */
-function resetSize(store: DesignStore, handles: Handles, edge: Edge, fill = false): void {
-  const entry = store.getEntry(handles.design)
+function resetSize(doc: ProjectDoc, handles: Handles, edge: Edge, fill = false): void {
+  const entry = containerEntry(doc, handles.design)
 
   if (!entry) {
     return
   }
 
   if (handles.kind === "frame") {
-    const mode = resolveModes(store.getModes()).find((candidate) => candidate.id === handles.mode)
+    const mode = resolveModes(doc.modes()).find((candidate) => candidate.id === handles.mode)
 
     if (!mode) {
       return
@@ -953,19 +956,19 @@ function resetSize(store: DesignStore, handles: Handles, edge: Edge, fill = fals
     const { container } = entry
     const next = frameSizeReset(container.kind === "frame" ? container.size : container.frames?.[mode.viewport], edge)
     const label = container.kind === "frame" ? "Reset frame size" : "Reset preview size"
-    store.updateContainer(entry.key, label, (current) => withFrame(current, mode.viewport, next))
+    updateContainer(doc, entry.key, label, (current) => withFrame(current, mode.viewport, next))
 
     return
   }
 
   const layers = handles.nodes ?? (handles.node ? [handles.node] : [])
-  const frame = store.editFrame(handles)
+  const frame = editFrame(doc, handles)
 
   if (layers.length === 0 || !frame) {
     return
   }
 
-  store.updateContainer(frame.design, fill ? "Set to fill" : "Set to hug", (container) =>
+  updateContainer(doc, frame.design, fill ? "Set to fill" : "Set to hug", (container) =>
     layers.reduce((next, layer) => {
       const shown = resizeStart(next, layer, { state: frame.state, viewport: frame.viewport })
 
@@ -984,7 +987,7 @@ function addText(
   area: ParentNode,
   point: Point
 ): void {
-  const { store, selection, editor } = session
+  const { doc, selection, editor } = session
   const place = placeAtPoint(session, area, point)
 
   if (place.kind === "none") {
@@ -994,7 +997,7 @@ function addText(
   if (place.kind === "layout") {
     const { hit, here, frame } = place
     let node: string | undefined
-    store.updateContainer(frame.design, "Add text", (container) => {
+    updateContainer(doc, frame.design, "Add text", (container) => {
       const placed = pasteHere(container, [textLayer("Text")], here, frame.state, frame.viewport)
       node = placed.copies[0]
 
@@ -1019,9 +1022,9 @@ function addText(
 
   const page = editor.screenToPage(point)
   const { key, node } = addFrameOfText(session, "Text", page, "Add text")
-  const mode = resolveModes(store.getModes())[0]?.id
-  const entry = store.getEntry(key)
-  const state = entry && designStates(entry.container)[0]!.id
+  const mode = resolveModes(doc.modes())[0]?.id
+  const design = doc.design(key)
+  const state = design && designStates(design)[0]!.id
 
   if (!mode || !state) {
     return

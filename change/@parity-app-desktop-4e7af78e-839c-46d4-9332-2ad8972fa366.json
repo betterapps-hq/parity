@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the extension API",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

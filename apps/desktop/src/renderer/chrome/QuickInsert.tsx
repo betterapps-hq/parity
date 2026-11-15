@@ -22,6 +22,7 @@ import {
   type InsertRow,
   insertRows
 } from "@parity-app/editor"
+import { containerEntries } from "@parity-app/multiplayer"
 import { useVirtualizer } from "@tanstack/react-virtual"
 // oxlint-disable-next-line anti-slop/no-shape-in-symbol-names -- lucide names this icon Shapes; it is InsertIcon here.
 import { Columns3, Component, Diamond, Rows3, SearchIcon, Shapes as InsertIcon, Type } from "lucide-react"
@@ -42,7 +43,7 @@ import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { usePreviewOnScreen } from "../component-previews.ts"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
 import { useStore, windowStore } from "../store.ts"
 import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { componentSources, useComponentCard } from "./AssetsPanel.tsx"
@@ -218,7 +219,7 @@ export function QuickInsert() {
         return
       }
 
-      offerOf(idle.info, idle.store.getEntries())
+      offerOf(idle.info, containerEntries(idle.doc))
       // Listing a set's icons asks the project's own copy of it, 40 to 50ms for Lucide's 1,900.
       iconSetsOf(idle)
     })
@@ -273,7 +274,7 @@ const listHeight = 384
  * `insertRows` (`@parity-app/editor`), which ranks, hides and merges them.
  */
 function InsertList({ session }: { session: ProjectSession }) {
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   const offer = offerOf(session.info, entries)
   const iconSets = iconSetsOf(session)
   const iconCount = iconSets.reduce((sum, set) => sum + set.catalog.entries.length, 0)

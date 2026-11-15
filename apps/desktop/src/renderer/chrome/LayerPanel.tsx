@@ -23,6 +23,7 @@ import {
   type PanelSection as TypeSection,
   panelData
 } from "@parity-app/layer-types"
+import { updateView } from "@parity-app/multiplayer"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
@@ -30,14 +31,13 @@ import { useProject } from "../canvas/context.ts"
 import { frameGeometry, frameSize } from "../canvas/frame-geometry.ts"
 import { nodeInFrames, selectionFrame } from "../canvas/hit.ts"
 import { designNamer, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
-import { projectLibrary } from "../canvas/layers.ts"
 import { useComponents } from "../components-store.ts"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
+import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
@@ -77,12 +77,11 @@ import { TextPanel } from "./TextPanel.tsx"
  */
 export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: string }) {
   const session = useProject()
-  const { store } = session
   const components = useComponents(session.components)
   const layer = useSelectedLayer()
 
   // A slot of one of the design's instances is selected as a layer is, and has a panel of its own (PAR-84).
-  const slot = isInnerPath(nodeId) && slotAtPath(entry.container.root, nodeId, projectLibrary(store))
+  const slot = isInnerPath(nodeId) && slotAtPath(entry.container.root, nodeId, projectLibrary(session))
 
   if (slot) {
     return <SlotPanel entry={entry} {...slot} />
@@ -196,7 +195,7 @@ const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   const component = layerComponent(node, session.info.libraries)
   const { extensions } = useExtensions(session)
   const design = node.type === "instance" ? entries.find((entry) => entry.container.id === node.design) : undefined
@@ -224,8 +223,7 @@ function LayerActions({ node }: { node: DesignNode }) {
  */
 export function LayerHeader() {
   const session = useProject()
-  const { store } = session
-  const entries = useContainerEntries(store)
+  const entries = useContainerEntries(session)
   const layer = useSelectedLayer()
 
   if (!layer) {
@@ -239,14 +237,9 @@ export function LayerHeader() {
 
   const kind = layer.layer.element
     ? elementKind(layer.layer.element)
-    : layerKind(
-        layer.layer,
-        designNamer(entries, store.getComponentLibrary()),
-        session.info.libraries,
-        session.info.routes
-      )
+    : layerKind(layer.layer, designNamer(entries, projectLibrary(session)), session.info.libraries, session.info.routes)
 
-  const label = layerLabel(layer.layer, entries, store.getComponentLibrary(), session.info.libraries)
+  const label = layerLabel(layer.layer, entries, projectLibrary(session), session.info.libraries)
 
   const heading = (name: ReactNode) => (
     <SelectionHeading
@@ -333,8 +326,7 @@ export function LayerStateSelector() {
  */
 function CopyBar() {
   const session = useProject()
-  const { store } = session
-  const entries = useContainerEntries(store)
+  const entries = useContainerEntries(session)
   const layer = useSelectedLayer()
 
   if (!layer?.inner) {
@@ -346,7 +338,7 @@ function CopyBar() {
   const main = entries.find((candidate) => candidate.container.id === inner.instance.design)
 
   const push = () =>
-    main && pushAndRecord(store, entry.key, main.key, inner.instance.id, { key: inner.key, path: nodeId })
+    main && pushAndRecord(session.doc, entry.key, main.key, inner.instance.id, { key: inner.key, path: nodeId })
 
   // The component this layer belongs to: the nested one for a layer inside a nested instance.
   const owner = entries.find((candidate) => candidate.container.id === inner.component.id)
@@ -509,14 +501,14 @@ function LayerStyleSections({
 /** Export, for the selected layer. */
 export function LayerExport() {
   const session = useProject()
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   const layer = useSelectedLayer()
 
   if (!layer) {
     return null
   }
 
-  const name = layerLabel(layer.node, entries, session.store.getComponentLibrary(), session.info.libraries)
+  const name = layerLabel(layer.node, entries, projectLibrary(session), session.info.libraries)
 
   return <ExportSection targets={[{ design: layer.entry.key, node: layer.nodeId, name }]} label={`Export ${name}`} />
 }
@@ -661,7 +653,7 @@ function ComponentStateSelector({
   state: StateSpec
   target: EditTarget
 }) {
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const selected = useSelection(selection)
 
   if (entry.container.kind !== "component") {
@@ -708,7 +700,7 @@ function ComponentStateSelector({
           }
 
           const name = states.find((candidate) => candidate.id === id)?.name ?? id
-          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
+          updateView(doc, entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
       />
@@ -782,12 +774,12 @@ type MediaNode = ImageNode | VideoNode
  * video, whether it shows its controls or plays by itself (PAR-841).
  */
 function MediaSection({ entry, node }: { entry: ContainerEntry; node: MediaNode }) {
-  const { store } = useProject()
+  const { doc } = useProject()
   const kind = node.type
   const noun = kind === "video" ? "video" : "image"
 
   const edit = (label: string, field: "src" | "alt" | "fit" | "controls", fields: OwnFields) =>
-    updateAndRecord(store, entry.key, label, (container) => setOwnFields(container, node.id, fields), {
+    updateAndRecord(doc, entry.key, label, (container) => setOwnFields(container, node.id, fields), {
       field: `${kind}.${field}`,
       layers: [node.id],
       read: (container) => {

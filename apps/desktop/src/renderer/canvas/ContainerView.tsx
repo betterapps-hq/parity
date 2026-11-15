@@ -55,6 +55,7 @@ import {
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
+import { updateContainer, updateView } from "@parity-app/multiplayer"
 import { ChevronDown, TriangleAlert } from "lucide-react"
 import {
   type CSSProperties,
@@ -76,11 +77,10 @@ import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../c
 import { Hint } from "../chrome/Hint.tsx"
 import { shortcutOf } from "../chrome/keymap.ts"
 import { Name, NameInput } from "../chrome/Name.tsx"
-import type { ContainerEntry } from "../design-store.ts"
-import { useLibrary, useModeSettings } from "../design-store.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
+import { type ContainerEntry, useLibrary, useModeSettings } from "../project-doc.ts"
 import {
   useBoardOutline,
   useDesignSelection,
@@ -144,11 +144,12 @@ export function ContainerView(props: ContainerViewProps) {
 function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: ContainerViewProps) {
   const own = useRef<HTMLDivElement>(null)
   const board = ref ?? own
-  const { id: project, store, loaded, selection } = useProject()
-  const settings = useModeSettings(store)
+  const session = useProject()
+  const { id: project, loaded, selection } = session
+  const settings = useModeSettings(session)
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
   const change = useDesignChange(project, entry.key)
-  const library = useLibrary(store, entry.key)
+  const library = useLibrary(session, entry.key)
   const { container, key } = entry
   const { primary } = useMemo(() => containerModes(settings, container), [settings, container])
   const state = designStates(container)[0]!
@@ -207,7 +208,7 @@ function FrameView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
  * its own to undo: undo puts back the size the layers had then, and the root is measured again.
  */
 function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: ContainerEntry): void {
-  const { store } = useProject()
+  const { doc } = useProject()
   const hugs = fitsDrawn(entry.container)
   const perMode = fitsContent(entry.container)
   const { key } = entry
@@ -241,7 +242,7 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
 
     const fitFrame = (host: HTMLElement) => {
       const rootElement = () => {
-        const current = store.getEntry(key)?.container
+        const current = doc.design(key)
 
         return current && findNodeElement(host, current.root.id)
       }
@@ -250,7 +251,7 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
 
       const fit = () => {
         const width = contentWidth(rootElement())
-        const current = store.getEntry(key)?.container
+        const current = doc.design(key)
 
         if (!width || !current || !fittedFrame(current, width, viewport, state)) {
           return
@@ -258,9 +259,9 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
 
         // A component's board and a story are drawn from the project's code each time, so the width they're drawn at
         // isn't to be saved.
-        store.updateContainer(key, "Fit frame", (design) => fittedFrame(design, width, viewport, state) ?? design, {
-          history: false,
-          persist: !key.startsWith(`${componentBoardsFile}#`) && !key.startsWith(`${storyScreensFile}#`)
+        const drawn = key.startsWith(`${componentBoardsFile}#`) || key.startsWith(`${storyScreensFile}#`)
+        updateContainer(doc, key, "Fit frame", (design) => fittedFrame(design, width, viewport, state) ?? design, {
+          origin: drawn ? "code" : "view"
         })
       }
 
@@ -292,10 +293,10 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
 
       // A design drawn afresh from code, as a board whose part found the parents it needs, starts without its width, though
       // its root may be drawn as wide as before, so nothing above notices: it's measured once it's drawn.
-      let last = store.getEntry(key)?.container
+      let last = doc.design(key)
 
-      const stopChanges = store.subscribe(() => {
-        const current = store.getEntry(key)?.container
+      const stopChanges = doc.subscribe(() => {
+        const current = doc.design(key)
 
         if (current !== last) {
           last = current
@@ -324,7 +325,7 @@ function useFitToContent(board: RefObject<HTMLDivElement | null>, entry: Contain
         detach()
       }
     }
-  }, [board, hugs, perMode, key, store])
+  }, [board, hugs, perMode, key, doc])
 }
 
 /**
@@ -366,15 +367,16 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
   useGutterStyle(board, "board")
   // A screen that fits its content, as a story, is fitted in each mode's frame.
   useFitToContent(board, entry)
-  const { id: project, store, loaded, selection } = useProject()
+  const session = useProject()
+  const { id: project, doc, loaded, selection } = session
   // Where a page landed instead of its own path, as its frames say.
   const landed = useStore(pageLandings).get(entry.key)
   // Whether its frames changed since they were first looked at, marked on the board for tools to read (PAR-997).
   const change = useDesignChange(project, entry.key)
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(session)
   const { selected: isSelected } = useDesignSelection(selection, entry.key)
   const outline = useBoardOutline(selection, entry.key, hovered)
-  const library = useLibrary(store, entry.key)
+  const library = useLibrary(session, entry.key)
   const { container, key } = entry
   const saved = useSavedView(key, entry.path)
 
@@ -463,7 +465,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
     )
 
   const moveRow = (from: number, to: number) =>
-    store.updateView(key, `Move ${rows[from]?.name ?? "row"}`, (view) =>
+    updateView(doc, key, `Move ${rows[from]?.name ?? "row"}`, (view) =>
       withStateOrder(
         view,
         container,
@@ -478,7 +480,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
 
   // A header carried along its line moves its mode's column; the first shown is drawn at full size.
   const moveColumn = (from: number, to: number) =>
-    store.updateView(key, `Move ${columns[from]?.name ?? "column"}`, (view) =>
+    updateView(doc, key, `Move ${columns[from]?.name ?? "column"}`, (view) =>
       withModes(
         view,
         reorderShown(
@@ -507,7 +509,8 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
             params={container.params!}
             choices={variantChoices(container.params, container.view?.variants)}
             onSelect={(param, option) =>
-              store.updateView(
+              updateView(
+                doc,
                 key,
                 `Show ${container.params?.[param]?.options?.find(({ id }) => id === option)?.name ?? option}`,
                 (view) => ({ ...view, variants: { ...view.variants, [param]: option } })
@@ -1024,7 +1027,7 @@ function TitleButton({
           aria-label={`${kindTitle(container.kind)} name`}
           className="h-7 w-56 min-w-0 rounded-md border bg-background px-2 text-sm font-medium outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-background"
           onBlur={(event) => {
-            renameDesign(session.store, entry, event.currentTarget.value)
+            renameDesign(session.doc, entry, event.currentTarget.value)
             setRenaming(false)
           }}
           onKeyDown={(event) => {

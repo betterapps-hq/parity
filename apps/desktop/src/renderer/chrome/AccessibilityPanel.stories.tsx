@@ -1,5 +1,6 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import { mapNode } from "@parity-app/core"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
@@ -169,7 +170,7 @@ export const ContrastFix: Story = {
     const [apply] = panel.getAllByRole("button", { name: "Apply" })
     await userEvent.click(apply!)
     await panel.findByText("Checking again", undefined, slowly)
-    const root = example().store.getEntry(design("Pricing"))!.container.root
+    const root = example().doc.design(design("Pricing"))!.root
     await expect(JSON.stringify(root)).toContain('"foreground":"foreground"')
     // Checked after the change, so it's not out of date.
     await waitFor(() => expect(panel.queryByText("Checking again")).toBeNull(), slowly)
@@ -231,7 +232,7 @@ export const OutOfDate: Story = {
     await checkAgain(canvasElement, "Button has no name")
     const key = design("Sign in")
     const terms = node("Sign in", "Terms")
-    example().store.updateContainer(key, "Edit text", (container) => ({
+    updateContainer(example().doc, key, "Edit text", (container) => ({
       ...container,
       root: mapNode(container.root, terms, (current) =>
         current.type === "text" ? { ...current, text: "By continuing you agree to our terms." } : current
@@ -245,7 +246,7 @@ export const OutOfDate: Story = {
 export const LongDesignName: Story = {
   loaders: [
     checking("Order line", (key) =>
-      example().store.updateContainer(key, "Rename design", (container) => ({
+      updateContainer(example().doc, key, "Rename design", (container) => ({
         ...container,
         name: "Order line with the discount code applied and the tax shown separately"
       }))

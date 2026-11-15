@@ -46,7 +46,7 @@ function session(reverts = true) {
       endGesture: (gesture) => {
         log.push(`end ${gesture}`)
 
-        return true
+        return { step: true, transactions: 0, transactMs: 0 }
       }
     },
     "fieldNudge"

@@ -1,7 +1,8 @@
-import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import type { ContainerSpec } from "@parity-app/core"
+import { containerEntry } from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { setWindowTelemetry } from "../report-error.ts"
 import { detachAndRecord, pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
@@ -53,54 +54,49 @@ function setup() {
     }
   }
 
-  return new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [card, home] } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  return openTestSession([{ path: "app.par", document: { version: 4, containers: [card, home] } }])
 }
 
 describe("component.changed (PAR-728)", () => {
   it("records an instance detached, with its design, the instance and the component it followed", () => {
-    const store = setup()
-    detachAndRecord(store, "app.par#home", "first")
-    expect(store.getEntry("app.par#home")?.container.root).toMatchObject({
+    const session = setup()
+    detachAndRecord(session, "app.par#home", "first")
+    expect(session.doc.design("app.par#home")?.root).toMatchObject({
       children: [{ type: "layout", id: "first" }, { type: "instance" }, {}]
     })
     expect(recorded()).toEqual([{ action: "detach", design: "app.par#home", layers: ["first"], component: "card" }])
   })
 
   it("records nothing for a layer that isn't an instance", () => {
-    const store = setup()
-    detachAndRecord(store, "app.par#home", "page")
+    const session = setup()
+    detachAndRecord(session, "app.par#home", "page")
     expect(recorded()).toEqual([])
   })
 
   it("records a copy's overrides pushed to its component", () => {
-    const store = setup()
-    pushAndRecord(store, "app.par#home", "app.par#card", "first")
-    expect(store.getEntry("app.par#card")?.container.root).toMatchObject({ children: [{ text: "Welcome" }] })
+    const { doc } = setup()
+    pushAndRecord(doc, "app.par#home", "app.par#card", "first")
+    expect(doc.design("app.par#card")?.root).toMatchObject({ children: [{ text: "Welcome" }] })
     expect(recorded()).toEqual([{ action: "push", design: "app.par#home", layers: ["first"], component: "card" }])
   })
 
   it("records a layer's overrides pushed from inside a copy against the layer's path", () => {
-    const store = setup()
-    pushAndRecord(store, "app.par#home", "app.par#card", "first", { key: "title", path: "first/title" })
+    const { doc } = setup()
+    pushAndRecord(doc, "app.par#home", "app.par#card", "first", { key: "title", path: "first/title" })
     expect(recorded()).toEqual([{ action: "push", design: "app.par#home", layers: ["first/title"], component: "card" }])
   })
 
   it("records layers made a component, with the component made", () => {
-    const store = setup()
-    const key = extractIntoComponent({ store, editor: undefined }, store.getEntry("app.par#home")!, ["note"], "Note")
-    const made = store.getEntry(key)!.container
+    const { doc } = setup()
+    const key = extractIntoComponent({ doc, editor: undefined }, containerEntry(doc, "app.par#home")!, ["note"], "Note")
+    const made = doc.design(key)!
     expect(made).toMatchObject({ name: "Note", kind: "component" })
     expect(recorded()).toEqual([{ action: "extract", design: "app.par#home", layers: ["note"], component: made.id }])
   })
 
   it("records nothing for a push that throws", () => {
-    const store = setup()
-    expect(() => pushAndRecord(store, "app.par#home", "app.par#card", "page")).toThrow("isn't an instance")
+    const { doc } = setup()
+    expect(() => pushAndRecord(doc, "app.par#home", "app.par#card", "page")).toThrow("isn't an instance")
     expect(recorded()).toEqual([])
   })
 })

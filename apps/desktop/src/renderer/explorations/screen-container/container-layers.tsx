@@ -1,5 +1,6 @@
 import { childNodes, type DesignNode, designStates, locateNode, nodeOnBoard } from "@parity-app/core"
 import { activeState, selectedNodes, type Selection } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import { ChevronRight, EyeOff, MonitorSmartphone, PenLine, Plus } from "lucide-react"
 import { type KeyboardEvent, useMemo, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -7,7 +8,7 @@ import { DesignIcon, designColor, kindColors, layerLabel, nodeColor, NodeIcon } 
 import { createDesign } from "../../chrome/create.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
-import { type ContainerEntry, useContainerEntries } from "../../design-store.ts"
+import { type ContainerEntry, projectLibrary, useContainerEntries } from "../../project-doc.ts"
 import { useHover, useSelection } from "../../selection.ts"
 
 /*
@@ -47,8 +48,8 @@ function selectedRows(selected: Selection, root: string | undefined): Set<string
 
 export function ContainerLayers() {
   const session = useProject()
-  const { store, selection } = session
-  const entries = useContainerEntries(store)
+  const { selection } = session
+  const entries = useContainerEntries(session)
   const selected = useSelection(selection)
   const hover = useHover(selection)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
@@ -59,7 +60,7 @@ export function ContainerLayers() {
 
   if (revealed !== revealKey) {
     setRevealed(revealKey)
-    const entry = selected.design ? store.getEntry(selected.design) : undefined
+    const entry = selected.design ? containerEntry(session.doc, selected.design) : undefined
 
     if (entry) {
       const ancestors = selected.node ? (locateNode(entry.container.root, selected.node)?.ancestors ?? []) : []
@@ -140,10 +141,7 @@ export function ContainerLayers() {
   const select = (row: Row) =>
     selection.set(row.node ? { design: row.entry.key, node: row.node.id } : { design: row.entry.key })
 
-  const highlighted = selectedRows(
-    selected,
-    selected.design ? store.getEntry(selected.design)?.container.root.id : undefined
-  )
+  const highlighted = selectedRows(selected, selected.design ? session.doc.design(selected.design)?.root.id : undefined)
 
   const focused = rows.find((row) => highlighted.has(row.id))?.id
 
@@ -258,11 +256,11 @@ function LayerRow({
   onHover: (on: boolean) => void
 }) {
   const session = useProject()
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   const { container } = row.entry
   const state = activeState(container)
   const color = row.node ? nodeColor(row.node) : designColor(container.kind)
-  const label = row.node ? layerLabel(row.node, entries, session.store.getComponentLibrary()) : container.name
+  const label = row.node ? layerLabel(row.node, entries, projectLibrary(session)) : container.name
   // The root's own changes, in the state shown or on a viewport, mark the screen's row, since the root has no row.
   const own = row.node ?? container.root
   const changed = state.overrides?.[own.id]

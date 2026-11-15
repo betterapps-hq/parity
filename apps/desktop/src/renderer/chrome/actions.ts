@@ -1,5 +1,13 @@
 import { type MadeKind, findNode } from "@parity-app/core"
 import { type Alignment, arrowOf, type Order, reviewToolFor, selectedDesigns, selectedNodes } from "@parity-app/editor"
+import {
+  containerEntries,
+  containerEntry,
+  noteEntries,
+  referenceEntries,
+  updateNote,
+  updateReference
+} from "@parity-app/multiplayer"
 import { toast } from "sonner"
 import type { ServiceMethods } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
@@ -17,6 +25,7 @@ import { parentLayer, siblingLayer } from "../canvas/layers.ts"
 import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import { type DocSession, mergedFile, projectLibrary, redo as redoStep, undo as undoStep } from "../project-doc.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { findReferences, referenceLibrary } from "../references/find-references.ts"
 import { errorMessage, reportError } from "../report-error.ts"
@@ -83,20 +92,20 @@ function contextOf(
   session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined,
   repeat = true
 ): CommandContext {
-  const history = session?.store.getHistory()
+  const history = session?.doc.history()
   const last = repeat ? lastAction() : undefined
 
   return {
     selection: session?.selection.get(),
-    entries: session?.store.getEntries() ?? [],
-    notes: session?.store.getNotes().length ?? 0,
-    placedReferences: session?.store.getReferences().length ?? 0,
+    entries: session ? containerEntries(session.doc) : [],
+    notes: session ? noteEntries(session.doc).length : 0,
+    placedReferences: session ? referenceEntries(session.doc).length : 0,
     canvas: !!session?.editor,
     history: {
       canUndo: !!history?.canUndo,
       canRedo: !!history?.canRedo,
-      undoLabel: history?.undoLabel,
-      redoLabel: history?.redoLabel
+      undoLabel: history?.undo[0],
+      redoLabel: history?.redo[0]
     },
     repeat: last && { label: last.label, enabled: last.available?.() !== false },
     references: !!referenceLibrary
@@ -131,15 +140,15 @@ async function openProjectFile(): Promise<void> {
 }
 
 /** Writes every file with unsaved changes and says which ones it wrote. */
-async function save(session: Pick<ProjectSession, "id" | "store"> | undefined): Promise<void> {
+async function save(session: Pick<ProjectSession, "id" | "doc" | "saver"> | undefined): Promise<void> {
   if (!session) {
     return
   }
 
   try {
-    const paths = session.store.unsavedPaths()
-    await session.store.flush()
-    toast.success("Saved", { description: paths.join(", ") || session.store.mainPath, duration: 2000 })
+    const paths = session.saver.unsaved()
+    await session.saver.flush()
+    toast.success("Saved", { description: paths.join(", ") || session.doc.main, duration: 2000 })
   } catch (error) {
     reportError(error, {
       operation: "project.save",
@@ -155,7 +164,7 @@ async function save(session: Pick<ProjectSession, "id" | "store"> | undefined): 
  * keep. The project keeps working from its own files. It suggests a place outside the project, since a `.par` inside
  * it would show up as more designs.
  */
-async function saveCopy(session: Pick<ProjectSession, "info" | "store"> | undefined): Promise<void> {
+async function saveCopy(session: (DocSession & Pick<ProjectSession, "info">) | undefined): Promise<void> {
   if (!session) {
     return
   }
@@ -173,8 +182,8 @@ async function saveCopy(session: Pick<ProjectSession, "info" | "store"> | undefi
   }
 
   try {
-    await session.store.flush()
-    await request("document.saveCopy", { path, document: session.store.merged() })
+    await session.saver.flush()
+    await request("document.saveCopy", { path, document: mergedFile(session) })
     toast.success("Saved a copy", {
       description: path,
       action: { label: "Show", onClick: () => void window.canvasHost.showItem(path) }
@@ -211,7 +220,7 @@ async function exportSelected(
     return
   }
 
-  await exportLayers(session.id, targets, getEffectivePreferences(session.store).exportSizes)
+  await exportLayers(session.id, targets, getEffectivePreferences(session.doc).exportSizes)
 }
 
 /**
@@ -243,7 +252,7 @@ async function copySelectedAsPng(
           const layer: PicturedLayer = {
             design,
             name,
-            at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
+            at: session.doc.design(design)?.position ?? { x: 0, y: 0 }
           }
 
           if (node) {
@@ -299,12 +308,16 @@ function closeTab(id = workspace.getActiveId()): void {
   }
 }
 
-function undo(session: Pick<ProjectSession, "store"> | undefined): void {
-  session?.store.undo()
+function undo(session: DocSession | undefined): void {
+  if (session) {
+    undoStep(session)
+  }
 }
 
-function redo(session: Pick<ProjectSession, "store"> | undefined): void {
-  session?.store.redo()
+function redo(session: DocSession | undefined): void {
+  if (session) {
+    redoStep(session)
+  }
 }
 
 /** Duplicates the selected layers, or the selected designs. */
@@ -318,7 +331,7 @@ function duplicateSelection(session: (ProjectDesigns & Pick<ProjectSession, "edi
   }
 
   const designs = selectedDesigns(session.selection.get())
-  const entry = designs.length === 1 ? session.store.getEntry(designs[0]!) : undefined
+  const entry = designs.length === 1 ? containerEntry(session.doc, designs[0]!) : undefined
 
   if (entry) {
     duplicateDesign(session, entry)
@@ -333,7 +346,7 @@ function deleteSelection(session: ProjectDesigns | undefined): void {
     return
   }
 
-  const { store, selection } = session
+  const { doc, selection } = session
   const current = selection.get()
 
   if (deleteLayers(session) || deleteDesigns(session)) {
@@ -341,10 +354,10 @@ function deleteSelection(session: ProjectDesigns | undefined): void {
   }
 
   if (current.note) {
-    store.updateNote(current.note, "Delete text", () => undefined)
+    updateNote(doc, current.note, "Delete text", () => undefined)
     selection.set({})
   } else if (current.reference) {
-    store.updateReference(current.reference, "Delete reference", () => undefined)
+    updateReference(doc, current.reference, "Delete reference", () => undefined)
     selection.set({})
   }
 }
@@ -406,13 +419,13 @@ function selectEverything(session: ProjectDesigns | undefined): void {
 /** Ctrl+Shift+A: what Select all would select, less what's selected. */
 function selectInverse(session: ProjectDesigns | undefined): void {
   if (session) {
-    session.selection.set(inverseSelection(session.store, session.selection.get()))
+    session.selection.set(inverseSelection(session.doc, session.selection.get()))
   }
 }
 
 /** Ctrl+Alt+A: every layer in the design like the selected ones, or every design of the same kind. */
 function selectMatching(session: ProjectDesigns | undefined): void {
-  const next = session && matchingSelection(session.store, session.selection.get())
+  const next = session && matchingSelection(session.doc, session.selection.get())
 
   if (next) {
     session.selection.set(next)
@@ -431,7 +444,7 @@ function selectAdjacentDesign(
     return
   }
 
-  const key = adjacentDesign(session.store.getEntries(), session.selection.get(), step)
+  const key = adjacentDesign(containerEntries(session.doc), session.selection.get(), step)
 
   if (!key) {
     return
@@ -460,7 +473,7 @@ function nudge(
 
   const blocked = nudgeSelection(
     {
-      store: session.store,
+      doc: session.doc,
       selection: session.selection,
       unit,
       drawn: area ? (design) => frameDrawn(area, design, session.selection.get(), unit) : undefined
@@ -596,15 +609,15 @@ function selectParent(session: ProjectDesigns | undefined): void {
     return
   }
 
-  const { store, selection } = session
+  const { doc, selection } = session
   const current = selection.get()
-  const entry = current.design ? store.getEntry(current.design) : undefined
+  const entry = current.design ? containerEntry(doc, current.design) : undefined
 
   if (!entry || !current.node) {
     return
   }
 
-  const parent = parentLayer(store, entry.container, current.node)
+  const parent = parentLayer(session, entry.container, current.node)
   selection.set(
     !parent || parent === entry.container.root.id
       ? { design: entry.key }
@@ -621,7 +634,7 @@ function selectChildren(session: ProjectDesigns | undefined): void {
     return
   }
 
-  const target = enterTarget(session.store, session.selection.get())
+  const target = enterTarget(session, session.selection.get())
 
   if (!target) {
     return
@@ -640,15 +653,15 @@ function selectSibling(step: 1 | -1, session: ProjectDesigns | undefined): void 
     return
   }
 
-  const { store, selection } = session
+  const { doc, selection } = session
   const current = selection.get()
-  const entry = current.design ? store.getEntry(current.design) : undefined
+  const entry = current.design ? containerEntry(doc, current.design) : undefined
 
   if (!entry || !current.node) {
     return
   }
 
-  const sibling = siblingLayer(store, entry.container, current.node, step)
+  const sibling = siblingLayer(session, entry.container, current.node, step)
 
   if (sibling) {
     selection.set({ design: entry.key, node: sibling, mode: current.mode, state: current.state })
@@ -685,7 +698,7 @@ function toggleComponent(session: ProjectDesigns | undefined): void {
 /** The one layer selected, when it's one of its design's own layers, not the root or a layer inside an instance. */
 function selectedOwnLayer(session: ProjectDesigns | undefined) {
   const current = session?.selection.get()
-  const entry = current?.design ? session?.store.getEntry(current.design) : undefined
+  const entry = current?.design && session ? containerEntry(session.doc, current.design) : undefined
 
   const node =
     entry && current?.node && !current.nodes?.length ? findNode(entry.container.root, current.node) : undefined
@@ -715,12 +728,7 @@ function makeComponent(session: (ProjectDesigns & Pick<ProjectSession, "editor" 
   }
 
   try {
-    const name = layerLabel(
-      layer.node,
-      session.store.getEntries(),
-      session.store.getComponentLibrary(),
-      session.info.libraries
-    )
+    const name = layerLabel(layer.node, containerEntries(session.doc), projectLibrary(session), session.info.libraries)
 
     session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
     revealSelection(session)
@@ -732,7 +740,7 @@ function makeComponent(session: (ProjectDesigns & Pick<ProjectSession, "editor" 
 /** The selected layer, when it's one instance of a component. */
 function selectedInstance(session: ProjectDesigns | undefined) {
   const current = session?.selection.get()
-  const entry = current?.design ? session?.store.getEntry(current.design) : undefined
+  const entry = current?.design && session ? containerEntry(session.doc, current.design) : undefined
 
   const node =
     entry && current?.node && !current.nodes?.length ? findNode(entry.container.root, current.node) : undefined
@@ -748,7 +756,7 @@ function detachSelection(session: ProjectDesigns | undefined): void {
     return
   }
 
-  detachAndRecord(session.store, instance.entry.key, instance.node.id)
+  detachAndRecord(session, instance.entry.key, instance.node.id)
 }
 
 /** Selects the component the selected instance is a copy of, and shows it. */
@@ -759,7 +767,7 @@ function goToMainComponent(session: (ProjectDesigns & Pick<ProjectSession, "edit
     return
   }
 
-  const main = session.store.getEntries().find((entry) => entry.container.id === instance.node.design)
+  const main = containerEntries(session.doc).find((entry) => entry.container.id === instance.node.design)
 
   if (!main) {
     return

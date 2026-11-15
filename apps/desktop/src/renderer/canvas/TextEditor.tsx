@@ -6,8 +6,10 @@ import {
   textToEdit,
   withEditedText
 } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Attributes } from "../chrome/event-attributes.ts"
+import { libraryOf } from "../project-doc.ts"
 import { track } from "../report-error.ts"
 import { useProject } from "./context.ts"
 import { type AreaSpace, areaSpace, type ElementGeometry, frameGeometry } from "./frame-geometry.ts"
@@ -34,7 +36,7 @@ interface EditorLayout {
  */
 export function TextEditor() {
   const session = useProject()
-  const { selection, store } = session
+  const { selection, doc } = session
   const editing = selection.getEditing()!
   const ref = useRef<HTMLTextAreaElement>(null)
   const [layout, setLayout] = useState<EditorLayout>()
@@ -81,9 +83,9 @@ export function TextEditor() {
   useEffect(() => {
     const textarea = ref.current
     const area = textarea?.closest<HTMLElement>(".canvas-area")
-    const entry = store.getEntry(editing.design)
+    const design = doc.design(editing.design)
     // The text as the frame shows it: the state's and the variant's, or the param's default it's bound to.
-    const shown = entry && textToEdit(entry.container, editing.state, editing.node, store.getLibrary(editing.design))
+    const shown = design && textToEdit(design, editing.state, editing.node, libraryOf(session, editing.design))
 
     const find = () => {
       const host = area && selectionFrame(area, editing.design, editing)
@@ -139,7 +141,7 @@ export function TextEditor() {
       stop()
       hidden.restore()
     }
-  }, [editing, selection, store, session])
+  }, [editing, selection, doc, session])
 
   const shown = layout !== undefined
   useEffect(() => {
@@ -165,7 +167,7 @@ export function TextEditor() {
     const original = opened.current?.text
 
     // Written to the state it was read from, by the same rule (see `textToEdit`).
-    if (original === undefined || !store.getEntry(editing.design)) {
+    if (original === undefined || !doc.design(editing.design)) {
       return record("cancelled", how, text.length)
     }
 
@@ -175,9 +177,9 @@ export function TextEditor() {
 
     record("committed", how, text.length)
     // A text frame named after its text follows it (see `textFrameRenamed`), in the same step.
-    store.updateContainer(editing.design, "Edit text", (container) =>
+    updateContainer(doc, editing.design, "Edit text", (container) =>
       textFrameRenamed(
-        withEditedText(container, editing.state, editing.node, text, store.getLibrary(editing.design)),
+        withEditedText(container, editing.state, editing.node, text, libraryOf(session, editing.design)),
         editing.node,
         original,
         text
