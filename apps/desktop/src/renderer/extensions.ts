@@ -9,7 +9,7 @@ import type {
 } from "@parity-app/extension-api"
 import { type ExtensionKey, holdsWhen, type ResolvedKeys, resolveKeys, type WhenValue } from "@parity-app/extensions"
 import { toast } from "sonner"
-import type { ExtensionStatus, ExtensionUiRequest, LogLine } from "../shared/protocol.ts"
+import type { ExtensionStatus, ExtensionUiRequest, LogLine, ProjectProcess } from "../shared/protocol.ts"
 import { type Command, keymap, keysOf } from "./chrome/keymap.ts"
 import { matches } from "./chrome/keys.ts"
 import { projectPart } from "./project-part.ts"
@@ -133,6 +133,8 @@ export interface PlacedCommand {
  */
 export interface WhenFacts {
   node?: NodeRef
+  /** The process a command shows for, in its menu in the processes list. */
+  process?: ProjectProcess
   selectionCount?: number
   tool?: string
   /** The project's tools, by the prefixes of their extensions and the ids of their adapters. */
@@ -202,6 +204,10 @@ export function holdsFor(
         break
     }
 
+    if (name.startsWith("process.")) {
+      return facts.process && processKey(facts.process, extension, name)
+    }
+
     if (name.startsWith("fact.")) {
       const id = name.slice("fact.".length)
       const found = [extension, ...extensions].flatMap((each) => (key === undefined ? [] : (each.facts[key] ?? [])))
@@ -219,11 +225,44 @@ export function holdsFor(
 }
 
 /**
+ * What Parity's `process.*` keys say of the process a menu is for (PAR-1127): whether it's a server, has an endpoint,
+ * is running, was started or adopted by the menu item's extension, or is one of Parity's own.
+ */
+function processKey(process: ProjectProcess, extension: ExtensionStatus, name: string): boolean | undefined {
+  const { owner } = process
+
+  switch (name) {
+    case "process.isServer":
+      return process.lifetime === "server"
+    case "process.hasEndpoint":
+      return process.lifetime === "server" && process.endpoint !== undefined
+    case "process.isRunning":
+      return process.state === "running"
+    case "process.isMine":
+      return (
+        (owner.kind === "extension" && owner.extension === extension.id) ||
+        (owner.kind === "adopted" && owner.by === extension.id)
+      )
+    case "process.isParitys":
+      return owner.kind === "parity"
+    default:
+      return undefined
+  }
+}
+
+/**
  * What a context key's list holds for a target: a component's key, a layer's as `app.par#home/title`, a page's route
  * id, or a view's item's key.
  */
 function targetKey(target: CommandTarget): string {
-  return target.type === "layer" ? `${target.design}/${target.node}` : target.key
+  switch (target.type) {
+    case "layer":
+      return `${target.design}/${target.node}`
+    case "process":
+      return target.id
+    default:
+      return target.key
+  }
 }
 
 /**
@@ -238,6 +277,7 @@ function targetNode(target: CommandTarget): NodeRef | undefined {
       return { owner: "", type: "route", key: target.key }
     case "layer":
       return { owner: "design", type: "layer", key: targetKey(target) }
+    case "process":
     case "item":
       return undefined
   }

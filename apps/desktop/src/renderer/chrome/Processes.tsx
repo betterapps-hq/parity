@@ -1,5 +1,10 @@
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -12,6 +17,7 @@ import {
   Braces,
   Check,
   Drama,
+  Ellipsis,
   ExternalLink,
   FlaskConical,
   Hammer,
@@ -28,8 +34,11 @@ import {
   Zap
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from "react"
+import { listedId } from "../../shared/process-ids.ts"
 import type { ProcessRole, ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
+import { commandsAt, type PlacedCommand, runCommand, useExtensions } from "../extensions.ts"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { Hint } from "./Hint.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 import {
@@ -198,7 +207,7 @@ export function Processes() {
               </GroupLabel>
               <ul>
                 {group.processes.map((process) => (
-                  <ProcessRow key={process.id} process={process} now={now} />
+                  <ProcessRow key={process.id} process={process} all={processes} now={now} />
                 ))}
               </ul>
             </section>
@@ -217,7 +226,7 @@ export function Processes() {
               </GroupLabel>
               <ul>
                 {finished.map((process) => (
-                  <ProcessRow key={process.id} process={process} now={now} showProject={manyProjects} />
+                  <ProcessRow key={process.id} process={process} all={processes} now={now} showProject={manyProjects} />
                 ))}
               </ul>
             </section>
@@ -422,15 +431,30 @@ export function KindTile({ process }: { process: ProjectProcess }) {
 
 function ProcessRow({
   process,
+  all,
   now,
   showProject = false
 }: {
   process: ProjectProcess
+  /** Every process listed, which names this one as extensions know it. */
+  all: ProjectProcess[]
   now: number
   /** Name its project, as in the last results when more than one project is open. */
   showProject?: boolean
 }) {
   const [confirming, setConfirming] = useState(false)
+  // While its menu is open, the row keeps its buttons showing, as while it asks to stop.
+  const [menuOpen, setMenuOpen] = useState(false)
+  const pinned = confirming || menuOpen
+  const session = useProject()
+  const { extensions } = useExtensions(session)
+  // What the open project's extensions place in a process's menu; another project's are its own tab's. The menu names
+  // the process by its id in `parity.processes.list()`, so their context keys and handlers get the id they know.
+  const sameProject = all.filter((each) => each.projectId === process.projectId)
+  const target = { type: "process", id: listedId(process, sameProject) } as const
+
+  const commands = process.projectId === session.id ? commandsAt(extensions, "process", target, { process }) : []
+
   const done = ended.has(process.state)
   const task = process.lifetime === "task"
   const word = (task ? taskWords : serverWords)[process.state]
@@ -438,7 +462,7 @@ function ProcessRow({
   const time =
     task && done ? ago(now - (process.stoppedAt ?? now)) : formatUptime((process.stoppedAt ?? now) - process.startedAt)
 
-  const hasActions = process.canStop || process.canRestart || canOpen(process) || done
+  const hasActions = process.canStop || process.canRestart || canOpen(process) || done || commands.length > 0
   let again = "Restart"
 
   if (task) {
@@ -467,13 +491,13 @@ function ProcessRow({
         </div>
         <div className="grid shrink-0 [grid-template-areas:'stack'] *:[grid-area:stack]">
           <div
-            className={`flex items-center justify-end tabular-nums transition-all duration-150 ${hasActions ? "group-focus-within/row:pointer-events-none group-focus-within/row:opacity-0 group-hover/row:pointer-events-none group-hover/row:opacity-0" : ""} ${confirming ? "pointer-events-none opacity-0" : ""}`}
+            className={`flex items-center justify-end tabular-nums transition-all duration-150 ${hasActions ? "group-focus-within/row:pointer-events-none group-focus-within/row:opacity-0 group-hover/row:pointer-events-none group-hover/row:opacity-0" : ""} ${pinned ? "pointer-events-none opacity-0" : ""}`}
           >
             <span className={`text-xs ${done ? "text-muted-foreground" : "text-foreground"}`}>{time}</span>
           </div>
           {hasActions && (
             <div
-              className={`flex items-center justify-end gap-0.5 transition-all duration-150 ${confirming ? "" : "pointer-events-none translate-x-1 opacity-0 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100"}`}
+              className={`flex items-center justify-end gap-0.5 transition-all duration-150 ${pinned ? "" : "pointer-events-none translate-x-1 opacity-0 group-focus-within/row:pointer-events-auto group-focus-within/row:translate-x-0 group-focus-within/row:opacity-100 group-hover/row:pointer-events-auto group-hover/row:translate-x-0 group-hover/row:opacity-100"}`}
             >
               {confirming ? (
                 <StopConfirm
@@ -487,6 +511,13 @@ function ProcessRow({
                 />
               ) : (
                 <>
+                  {commands.length > 0 && (
+                    <MoreMenu
+                      commands={commands}
+                      onOpenChange={setMenuOpen}
+                      run={(placed) => void runCommand(session, placed, target)}
+                    />
+                  )}
                   {canOpen(process) && (
                     <Action label="Open in your browser" onClick={() => window.open(opensAt(process), "_blank")}>
                       <ExternalLink />
@@ -709,6 +740,50 @@ function Action({
       />
       <TooltipContent side="top">{label}</TooltipContent>
     </Tooltip>
+  )
+}
+
+/** The commands extensions place in a process's menu, each with its icon, one that can't run greyed with why. */
+function MoreMenu({
+  commands,
+  run,
+  onOpenChange
+}: {
+  commands: PlacedCommand[]
+  run: (placed: PlacedCommand) => void
+  onOpenChange: (open: boolean) => void
+}) {
+  return (
+    <DropdownMenu onOpenChange={onOpenChange}>
+      <Hint label="More">
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              aria-label="More"
+              className="grid size-7 place-items-center rounded-md text-muted-foreground transition-colors outline-none hover:bg-background hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-background aria-expanded:text-foreground [&_svg]:size-3.5"
+            >
+              <Ellipsis />
+            </button>
+          }
+        />
+      </Hint>
+      <DropdownMenuContent align="end" className="min-w-48">
+        {commands.map((placed) => (
+          <DropdownMenuItem
+            key={`${placed.extension.id}:${placed.command.id}`}
+            disabled={!placed.enabled}
+            onClick={() => run(placed)}
+          >
+            <ContributionIcon name={placed.command.icon} logo={placed.extension.icon} />
+            {placed.command.title}
+            {!placed.enabled && placed.disabledReason && (
+              <DropdownMenuShortcut className="pl-4 whitespace-nowrap">{placed.disabledReason}</DropdownMenuShortcut>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

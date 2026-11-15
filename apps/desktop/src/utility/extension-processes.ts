@@ -24,8 +24,9 @@ import {
 import { detectPackageManager } from "@parity-app/project"
 import { z } from "zod"
 import { logNote } from "../shared/log.ts"
+import { managedId } from "../shared/process-ids.ts"
 import { track } from "../shared/tracing.ts"
-import { managedId, seenBy } from "./process-ids.ts"
+import { seenBy } from "./process-ids.ts"
 import {
   accepts,
   adoptProcess,

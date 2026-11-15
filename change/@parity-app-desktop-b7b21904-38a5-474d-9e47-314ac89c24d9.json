@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Extensions can place commands in a process's menu in the processes list; no built-in extension does yet.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

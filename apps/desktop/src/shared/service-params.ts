@@ -166,6 +166,7 @@ export const serviceParams = {
         z.object({ type: z.literal("component"), key: z.string() }),
         z.object({ type: z.literal("layer"), design: z.string(), node: z.string() }),
         z.object({ type: z.literal("route"), key: z.string() }),
+        z.object({ type: z.literal("process"), id: z.string() }),
         z.object({ type: z.literal("item"), view: z.string(), key: z.string() })
       ])
       .optional()

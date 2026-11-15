@@ -489,7 +489,8 @@ const componentTarget = z.strictObject({ type: z.literal("component"), key: z.st
 const commandTarget = z.discriminatedUnion("type", [
   componentTarget,
   z.strictObject({ type: z.literal("layer"), design: z.string().max(2000), node: z.string().max(500) }),
-  z.strictObject({ type: z.literal("route"), key: z.string().max(2000) })
+  z.strictObject({ type: z.literal("route"), key: z.string().max(2000) }),
+  z.strictObject({ type: z.literal("process"), id: z.string().max(500) })
 ])
 
 const routePath = z.string().max(2000)

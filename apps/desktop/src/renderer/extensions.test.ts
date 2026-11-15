@@ -2,7 +2,7 @@ import storybookPackage from "@parity-app/extension-storybook/package.json" with
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import { readExtension } from "@parity-app/extensions"
 import { describe, expect, it } from "vite-plus/test"
-import type { ExtensionStatus } from "../shared/protocol.ts"
+import type { ExtensionStatus, ProjectProcess } from "../shared/protocol.ts"
 import { commandsAt, extensionKeyFor, extensionKeys, statusItems, statusTooltip } from "./extensions.ts"
 
 const { id, manifest } = readExtension(storybookPackage)
@@ -96,6 +96,93 @@ describe("commandsAt for a page (PAR-1095)", () => {
 
     expect(commandsAt([tanstack], "layers", button)).toEqual([])
     expect(commandsAt([tanstack], "layers", title)).toEqual([])
+  })
+})
+
+describe("commandsAt for a process (PAR-1127)", () => {
+  /** A server in the processes list, started by the extension `extension`. */
+  const server = (extension: string, change: Partial<ProjectProcess> = {}): ProjectProcess => ({
+    id: `extension:${extension}:/example:server`,
+    owner: { kind: "extension", extension },
+    lifetime: "server",
+    name: "Server",
+    projectId: "/example",
+    project: "example",
+    state: "running",
+    startedAt: 0,
+    endpoint: { url: "http://localhost:6006", port: 6006, protocol: "http" },
+    addresses: [],
+    run: 1,
+    canStop: true,
+    canRestart: true,
+    ...change
+  })
+
+  /** An extension that places Show logs on the servers it runs, greyed until one listens. */
+  const logs = storybook({
+    id: "parity-logs",
+    prefix: "logs",
+    contributes: {
+      commands: [{ id: "logs.show", title: "Show logs" }],
+      menus: {
+        process: [
+          {
+            command: "logs.show",
+            when: "process.isMine && process.isServer",
+            enablement: "process.hasEndpoint",
+            disabledReason: "Not listening yet"
+          }
+        ]
+      }
+    },
+    context: {}
+  })
+
+  const target = (process: ProjectProcess) => ({ type: "process", id: process.id }) as const
+
+  it("places a command on a process its extension runs, and on none another runs or Parity does", () => {
+    const mine = server("parity-logs")
+    const theirs = server("other")
+    const build = server("", { owner: { kind: "parity", role: "builder" } })
+
+    expect(commandsAt([logs], "process", target(mine), { process: mine })).toMatchObject([
+      { command: { id: "logs.show" }, enabled: true }
+    ])
+    expect(commandsAt([logs], "process", target(theirs), { process: theirs })).toEqual([])
+    expect(commandsAt([logs], "process", target(build), { process: build })).toEqual([])
+  })
+
+  it("counts a process the extension adopted as its own, and greys the command until the server listens", () => {
+    const adopted = server("", { owner: { kind: "adopted", by: "parity-logs" }, endpoint: undefined })
+
+    expect(commandsAt([logs], "process", target(adopted), { process: adopted })).toMatchObject([
+      { enabled: false, disabledReason: "Not listening yet" }
+    ])
+  })
+
+  it("tests the extension's context lists by the id it knows the process by", () => {
+    const watching = storybook({
+      ...logs,
+      contributes: {
+        commands: [{ id: "logs.show", title: "Show logs" }],
+        menus: { process: [{ command: "logs.show", when: "logs.watched" }] }
+      },
+      context: { "logs.watched": ["parity:builder"] }
+    })
+
+    const build = server("", { id: "builder:/example", owner: { kind: "parity", role: "builder" } })
+
+    expect(
+      commandsAt([watching], "process", { type: "process", id: "parity:builder" }, { process: build })
+    ).toHaveLength(1)
+    expect(commandsAt([watching], "process", { type: "process", id: "parity:typecheck" }, { process: build })).toEqual(
+      []
+    )
+  })
+
+  it("leaves process keys false off a process, and process commands off other placements", () => {
+    expect(commandsAt([logs], "process", target(server("parity-logs")))).toEqual([])
+    expect(commandsAt([logs], "layers", button, { process: server("parity-logs") })).toEqual([])
   })
 })
 

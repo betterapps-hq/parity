@@ -196,10 +196,10 @@ export function whenKeys(when: When): string[] {
 }
 
 /**
- * The first part of each key Parity sets itself: what a command shows for, the selection, the tool, facts, and `layer`,
- * which holds for a layer that isn't a component's.
+ * The first part of each key Parity sets itself: what a command shows for, the selection, the tool, facts, `layer`,
+ * which holds for a layer that isn't a component's, and `process`, what a process's menu is for.
  */
-export const builtInKeys: readonly string[] = ["node", "selection", "tool", "fact", "layer"]
+export const builtInKeys: readonly string[] = ["node", "selection", "tool", "fact", "layer", "process"]
 
 /** Whether a key is one Parity sets rather than an extension. */
 export function isBuiltInKey(key: string): boolean {
