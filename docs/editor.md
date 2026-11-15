@@ -1221,9 +1221,9 @@ Fast Refresh's preamble, with hooks that do nothing, before any of the app's mod
 `packages/extension-vite/src/builder.ts`). Components that need the app's router, such as one rendering a `Link`, still
 fail to draw on their own until the project's preview decorators are applied.
 
-Tried in the running app on 2026-11-15 on `examples/react-router-vite`: React Router 8.5.1 found, 20 routes in Layers
-and the status bar, each page drawn from the app at its URL with its styles, and the route's path, params, file,
-component and whether it loads data in the Design tab.
+Tried in the running app on 2026-11-15 on the example that became `fixtures/react-router-framework`: React Router 8.5.1
+found, 20 routes in Layers and the status bar, each page drawn from the app at its URL with its styles, and the route's
+path, params, file, component and whether it loads data in the Design tab.
 
 Code: `packages/extension-react-router` (its manifest, `extension.ts`, `routes.ts`, `routes-file.ts`, `flat-routes.ts`
 and `library.ts`); `files.list` in `packages/extension-api/src/api.ts`, in `host-files.ts`, `hosts.ts` and `protocol.ts`
@@ -1235,8 +1235,8 @@ status item says, the page a command was run for), `routes.test.ts` (the example
 children, with their modules' components and loaders; `appDirectory`; library mode found from `index.html`),
 `routes-file.test.ts`, `flat-routes.test.ts` and `library.test.ts`; "lists a folder the read permission names" in
 `packages/extensions/src/hosts.test.ts`; the Fast Refresh preamble in `packages/extension-vite/src/builder.test.ts`; and
-the example's detection snapshot, `examples/react-router-vite/expected.json`. Gaps: `relative()` helpers in `routes.ts`,
-`ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
+the example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
+`routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
 
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 

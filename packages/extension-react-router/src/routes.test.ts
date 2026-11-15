@@ -35,7 +35,7 @@ function recordFiles(files: Record<string, string>): ProjectFiles {
 
 describe("readRoutes", () => {
   it("reads the React Router example's routes, each parent before its children", async () => {
-    const found = await readRoutes(folderFiles(join(import.meta.dirname, "../../../examples/react-router-vite")))
+    const found = await readRoutes(folderFiles(join(import.meta.dirname, "../../../fixtures/react-router-framework")))
 
     expect(found.mode).toBe("framework")
     expect(found.unread).toEqual([])
@@ -132,7 +132,7 @@ describe("readRoutes", () => {
   })
 
   it("reads what each of the example's route modules says: its component and whether it loads data", async () => {
-    const found = await readRoutes(folderFiles(join(import.meta.dirname, "../../../examples/react-router-vite")))
+    const found = await readRoutes(folderFiles(join(import.meta.dirname, "../../../fixtures/react-router-framework")))
     const byId = new Map(found.routes.map((route) => [route.id, route]))
 
     expect(byId.get("root")).toMatchObject({ component: "App", loads: false, guards: false })

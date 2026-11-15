@@ -526,11 +526,11 @@ of every axis at least once. The more of each project that's tested end to end, 
 | `react18-mui-js` (exists) | React 18, Vite 6, React Router 7 in library mode, MUI 9 on Emotion, MUI's icons, JavaScript, Yarn Berry                     | Components drawn on React 18, MUI in plain JavaScript, routes as route objects  | ✅    |
 | `rspack` (exists)         | React 19, Rspack 2 with `builtin:swc-loader` and `rspack.config.mjs`, plain CSS with custom properties, TypeScript, npm     | The Rspack builder                                                              | ✅    |
 
-`react-router-vite` is in `examples/`, not `fixtures/`: it's installed with the workspace, and its detection snapshot
-runs with the others (PAR-1145). It has no shadcn on Radix yet, which no project covers now. `react-aria` runs on Vite
-7, not 8 as first planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on Vite 8 can't be installed
-cleanly. Its Yarn Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no project yet. By the version
-cutoff, Mantine 8 should be tested too, since it drops in May 2027; no project covers it yet.
+`react-router-framework` is generated from `create-react-router` like the others, with its styles, Radix and Phosphor
+laid over the template (PAR-1145). No project covers shadcn on Radix now. `react-aria` runs on Vite 7, not 8 as first
+planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on Vite 8 can't be installed cleanly. Its Yarn
+Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no project yet. By the version cutoff, Mantine 8
+should be tested too, since it drops in May 2027; no project covers it yet.
 
 What the detection snapshots record on 2026-10-29, gaps included:
 
