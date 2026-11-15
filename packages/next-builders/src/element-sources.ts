@@ -41,8 +41,9 @@ module.exports = function (source, map) {
 export const elementSourcesConfigFile = "element-sources.mjs"
 
 /**
- * The module that adds the loader to the guest app's config: first on the project's JSX in Turbopack's rules, ahead of
- * any loader of the project's own for it, and as a \`pre\` rule in webpack's, after the project's own \`webpack\` hook.
+ * The module that adds the loader to the guest app's config: running first on the project's JSX in Turbopack's rules,
+ * before any loader of the project's own for it, under each of a rule's conditions, and as a \`pre\` rule in webpack's,
+ * after the project's own \`webpack\` hook.
  */
 export function elementSourcesConfigSource(origin: string): string {
   const endpoint = JSON.stringify(`${origin}${elementSourcesRoute}`)
@@ -55,7 +56,13 @@ const elementSources = {
   options: { endpoint: ${endpoint} }
 }
 
-/** Turbopack's rules, with the element-sources loader first on JSX. */
+/**
+ * A rule with the element-sources loader last, so it runs first: loaders run from the last to the first, as webpack's
+ * do, and the tagger has to see the project's JSX before any other loader compiles it.
+ */
+const withTagger = (rule) => (Array.isArray(rule?.loaders) ? { ...rule, loaders: [...rule.loaders, elementSources] } : rule)
+
+/** Turbopack's rules, with the element-sources loader running first on JSX, under each of a rule's conditions. */
 export function rulesWithElementSources(rules) {
   const tagged = { ...rules }
 
@@ -64,8 +71,8 @@ export function rulesWithElementSources(rules) {
 
     if (rule === undefined) {
       tagged[glob] = { loaders: [elementSources] }
-    } else if (Array.isArray(rule?.loaders)) {
-      tagged[glob] = { ...rule, loaders: [elementSources, ...rule.loaders] }
+    } else {
+      tagged[glob] = Array.isArray(rule) ? rule.map(withTagger) : withTagger(rule)
     }
   }
 
