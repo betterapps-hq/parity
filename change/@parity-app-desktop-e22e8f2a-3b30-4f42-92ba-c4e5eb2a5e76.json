@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "TanStack Router apps that declare their routes in code, with createRootRoute and createRoute, now have their pages listed and drawn.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

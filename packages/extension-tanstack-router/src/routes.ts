@@ -1,15 +1,22 @@
-import type { Route, RouteSegment } from "@parity-app/extension-api"
+import type { Route } from "@parity-app/extension-api"
 import ts from "typescript"
 import { z } from "zod"
+import { codeRouteTree, readCodeRoutes } from "./code-routes.ts"
+import {
+  parentRouteName,
+  propertyValue,
+  resolvePath,
+  scriptExtensions,
+  segmentsOf,
+  stringProperty,
+  unwrap
+} from "./syntax.ts"
 
 /** The root route's id, as TanStack Router names it. */
 const rootId = "__root__"
 
 /** Where TanStack Router's tooling writes the route tree when `tsr.config.json` doesn't say. */
 const defaultTree = "src/routeTree.gen.ts"
-
-/** The extensions an import without one may leave off, tried in this order. */
-const scriptExtensions = [".tsx", ".ts", ".jsx", ".js"]
 
 /** A route as the generated tree declares it, before its full id and path are known. */
 interface TreeRoute {
@@ -44,14 +51,15 @@ const routerConfig = z.looseObject({ generatedRouteTree: z.string().optional() }
  * Every route of a project that uses TanStack Router's file-based routes, each parent before its children (PAR-1073).
  * It reads the route tree the router's tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` says),
  * which names each route's id, path, parent and file, then each route's file for what it draws, whether it loads data
- * and whether it guards the page. Empty without a route tree.
+ * and whether it guards the page. Without a route tree, the routes the app declares in code with `createRootRoute` and
+ * `createRoute` (PAR-1156). Empty when it has neither.
  */
 export function readRoutes(read: (path: string) => string | undefined): Route[] {
   const treeFile = routeTreeFile(read("tsr.config.json"))
   const tree = read(treeFile)
 
   if (tree === undefined) {
-    return []
+    return codeRouteTree(readCodeRoutes(read), (route) => optionsSaid(route.options))
   }
 
   const { root, routes } = parseRouteTree(tree, treeFile)
@@ -164,24 +172,6 @@ function parseRouteTree(text: string, treeFile: string): RouteTree {
   return tree
 }
 
-/**
- * A relative path resolved against a folder, both from the project root with forward slashes: `./routes/pricing` in
- * `src` is `src/routes/pricing`, and `..` steps up a folder.
- */
-function resolvePath(folder: string, relative: string): string {
-  const parts: string[] = folder === "" ? [] : folder.split("/")
-
-  for (const part of relative.split("/")) {
-    if (part === "..") {
-      parts.pop()
-    } else if (part !== "." && part !== "") {
-      parts.push(part)
-    }
-  }
-
-  return parts.join("/")
-}
-
 /** The names an import binds, such as `PricingRouteImport` in `import { Route as PricingRouteImport } from …`. */
 function importedNames(statement: ts.ImportDeclaration): string[] {
   const bindings = statement.importClause?.namedBindings
@@ -203,57 +193,6 @@ function updateCall(expression: ts.Expression): { imported: string; options: ts.
   }
 
   return updateCall(callee.expression)
-}
-
-/** An expression without the `as any` or parentheses around it. */
-function unwrap(expression: ts.Expression): ts.Expression {
-  return ts.isAsExpression(expression) || ts.isParenthesizedExpression(expression)
-    ? unwrap(expression.expression)
-    : expression
-}
-
-/** A property's value when it's a string, as `id: '/pricing'`. */
-function stringProperty(object: ts.ObjectLiteralExpression, name: string): string | undefined {
-  const value = propertyValue(object, name)
-
-  return value && ts.isStringLiteralLike(value) ? value.text : undefined
-}
-
-/** The variable `getParentRoute: () => SettingsRoute` names. */
-function parentRouteName(object: ts.ObjectLiteralExpression): string | undefined {
-  const value = propertyValue(object, "getParentRoute")
-
-  if (!value || !ts.isArrowFunction(value) || ts.isBlock(value.body)) {
-    return undefined
-  }
-
-  const body = unwrap(value.body)
-
-  return ts.isIdentifier(body) ? body.text : undefined
-}
-
-/** A property's value in an object literal, by its name, or the method itself when it's written as one. */
-function propertyValue(object: ts.ObjectLiteralExpression, name: string): ts.Node | undefined {
-  for (const property of object.properties) {
-    if (ts.isPropertyAssignment(property) && propertyName(property.name) === name) {
-      return property.initializer
-    }
-
-    if (ts.isShorthandPropertyAssignment(property) && property.name.text === name) {
-      return property.name
-    }
-
-    if (ts.isMethodDeclaration(property) && propertyName(property.name) === name) {
-      return property
-    }
-  }
-
-  return undefined
-}
-
-/** A property's name when it's written plainly or as a string. */
-function propertyName(name: ts.PropertyName): string | undefined {
-  return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined
 }
 
 /** A module's file and text: the first of its extensions that's there, else `.tsx`, with no text. */
@@ -292,45 +231,34 @@ function kindOf(route: TreeRoute, inside: readonly TreeRoute[]): Route["kind"] {
 }
 
 /**
- * A path's parts in Parity's terms: `$projectId` is a param named `projectId`, and a lone `$`, the rest of the URL, is a
- * catch-all named `_splat`, as the router names it among a route's params. Anything else matches itself.
- */
-export function segmentsOf(path: string): RouteSegment[] {
-  return path
-    .split("/")
-    .filter((part) => part !== "")
-    .map((part): RouteSegment => {
-      if (part === "$") {
-        return { type: "catchAll", name: "_splat" }
-      }
-
-      const param = /^\$([A-Za-z_]\w*)$/.exec(part)
-
-      return param?.[1] ? { type: "param", name: param[1] } : { type: "static", value: part }
-    })
-}
-
-/**
  * What a route's file says of it, from the options of `export const Route = createFileRoute(…)({…})` or
  * `createRootRoute({…})`: the component it names, whether it has a `loader` or a `beforeLoad`, and where it always
  * redirects (see `alwaysRedirects`).
  */
 function routeOptions(text: string | undefined): Pick<Route, "component" | "loads" | "guards" | "redirect"> {
   const options = text === undefined ? undefined : exportedRouteOptions(text)
+  const said: Pick<Route, "component" | "loads" | "guards" | "redirect"> = optionsSaid(options)
+  const component = options && propertyValue(options, "component")
 
+  if (component && ts.isIdentifier(component)) {
+    said.component = component.text
+  }
+
+  return said
+}
+
+/**
+ * What a route's options say of it, as `createFileRoute(…)({…})` or `createRoute({…})` take them: whether it has a
+ * `loader` or a `beforeLoad`, and where it always redirects (see `alwaysRedirects`).
+ */
+function optionsSaid(options: ts.ObjectLiteralExpression | undefined): Pick<Route, "loads" | "guards" | "redirect"> {
   if (!options) {
     return { loads: false, guards: false }
   }
 
-  const said: Pick<Route, "component" | "loads" | "guards" | "redirect"> = {
+  const said: Pick<Route, "loads" | "guards" | "redirect"> = {
     loads: propertyValue(options, "loader") !== undefined,
     guards: propertyValue(options, "beforeLoad") !== undefined
-  }
-
-  const component = propertyValue(options, "component")
-
-  if (component && ts.isIdentifier(component)) {
-    said.component = component.text
   }
 
   const redirect =
