@@ -159,6 +159,21 @@ describe("readExtension", () => {
     expect(() => readExtension(packageJson({ detect: { entities: true } }))).toThrow("/parity/detect/entities")
   })
 
+  it("takes a router's frame decorators as data, and refuses a value form that doesn't read (PAR-1152)", () => {
+    const router = (decorators: JsonValue) =>
+      packageJson({ contributes: { ...contributes, providers: { router: { decorators } } } })
+
+    const wrap = { import: "react-router", component: "MemoryRouter", props: { initialEntries: [{ $frame: "url" }] } }
+
+    expect(readExtension(router([{ wrap }])).manifest.contributes.providers?.router?.decorators).toEqual([{ wrap }])
+    expect(() =>
+      readExtension(router([{ wrap: { ...wrap, props: { initialEntries: [{ $frame: "window" }] } } }]))
+    ).toThrow("/parity/contributes/providers/router/decorators/0")
+    expect(() => readExtension(router([{ wrap: { import: "react-router" } }]))).toThrow(
+      "/parity/contributes/providers/router/decorators/0/wrap/component"
+    )
+  })
+
   it("refuses an unknown activation event, placement or contributes key", () => {
     expect(() => readExtension(packageJson({ activates: ["onOpen"] }))).toThrow("/parity/activates/0")
     expect(() =>

@@ -320,6 +320,7 @@ export {
   type LibraryComponent,
   type LibraryComponents,
   type LibraryDecorator,
+  libraryDecorator,
   libraryDesigns,
   type LibraryEdits,
   type LibraryIcons,
@@ -396,6 +397,7 @@ export {
 export {
   type ComponentSource,
   type DescribedTokens,
+  type ExtensionDecorator,
   type LibraryInfo,
   type OpenProp,
   type ProjectConfig
