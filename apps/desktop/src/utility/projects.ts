@@ -142,7 +142,11 @@ export interface DetectionCache {
 }
 
 /** A tool an extension gives: its prefix and name, and where its version is installed, from its manifest. */
-export type ExtensionTool = Pick<Adapter, "id" | "name"> & { versions: NonNullable<Adapter["versions"]> }
+export type ExtensionTool = Pick<Adapter, "id" | "name"> & {
+  versions: NonNullable<Adapter["versions"]>
+  /** Whether it styles the project, which detection lists before the tools whose files are entities, as it always has. */
+  styles: boolean
+}
 
 /** An open project as its providers' extensions see it. */
 function providerProject(project: OpenProject): ProviderProject {
@@ -459,13 +463,20 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const usedBy = <A extends Adapter>(found: AdapterFound<A>[]) => found.filter(({ detection }) => detection.found)
 
     const entitiesFound = await detectAdapters(project, adapters.entities ?? []).then(usedBy)
-    const others = entitiesFound
 
     const tools = (adapters.tools ?? []).flatMap((tool) => {
       const detection = detectPeers(pkg, tool.versions)
 
       return detection.found ? [{ adapter: tool, detection }] : []
     })
+
+    // What detection lists after the renderer and builder, in the order it always has: the styling framework, then the
+    // tools whose files are entities, then the rest.
+    const others = [
+      ...tools.filter(({ adapter }) => adapter.styles),
+      ...entitiesFound,
+      ...tools.filter(({ adapter }) => !adapter.styles)
+    ]
 
     const usedEntities = entitiesFound.map(({ adapter }) => adapter)
 
@@ -477,17 +488,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
     const found = await findBuilder(adapters.builders, project).catch(async (cause: unknown) => {
       // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others, ...tools]))
+      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
       throw cause
     })
 
-    const used: AdapterFound[] = [
-      rendererFound,
-      ...(found.builder ? [{ adapter: found.builder, detection: found.detection }] : []),
-      ...others
-    ]
+    const builderFound: AdapterFound[] = found.builder ? [{ adapter: found.builder, detection: found.detection }] : []
+    const used: AdapterFound[] = [rendererFound, ...builderFound, ...entitiesFound]
 
-    const detection = await detectProject(root, pkg, [...used, ...tools])
+    const detection = await detectProject(root, pkg, [rendererFound, ...builderFound, ...others])
 
     opening.versions = await toolVersions(root, detection)
     // An untested version may be why something below fails, so any error ends with the note naming it.

@@ -111,18 +111,22 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
 
   const builderAdapter = builders.find((adapter) => adapter.id === builder?.id)
 
+  const tools = extensionTools.flatMap((tool) => {
+    const found = detectPeers(pkg, tool.versions)
+
+    return found.found ? [{ adapter: tool, detection: found }] : []
+  })
+
   const detection = await detectProject(
     root,
     pkg,
     [
       ...(rendererFound ? [rendererFound] : []),
       ...(builder && builderAdapter ? [{ adapter: builderAdapter, detection: builder }] : []),
+      // In the order detection has always listed them: the styling framework, then the entities, then the rest.
+      ...tools.filter(({ adapter }) => adapter.styles),
       ...others,
-      ...extensionTools.flatMap((tool) => {
-        const found = detectPeers(pkg, tool.versions)
-
-        return found.found ? [{ adapter: tool, detection: found }] : []
-      })
+      ...tools.filter(({ adapter }) => !adapter.styles)
     ],
     checkedOn
   )
