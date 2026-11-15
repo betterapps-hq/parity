@@ -4,13 +4,8 @@ import { ModeViewportIcon } from "../chrome/viewports.tsx"
 import { type ContainerEntry, useModeSettings } from "../design-store.ts"
 import { moved } from "../inspector/controls/list-parts.tsx"
 import { useProject } from "./context.ts"
-import { storyScreensFile } from "./story-screens.ts"
+import { stateNouns } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
-
-/** What a design's states are called: a Storybook file's are its stories. */
-export function stateNouns(entry: Pick<ContainerEntry, "path">): { one: string; many: string } {
-  return entry.path === storyScreensFile ? { one: "story", many: "stories" } : { one: "state", many: "states" }
-}
 
 /**
  * A design's modes in its own order, as its board's Modes menu lists them: each one's switch
@@ -54,11 +49,11 @@ export function ModesList({ entry, group }: { entry: ContainerEntry; group: stri
 }
 
 /**
- * A design's states in its own order, as its board's menu lists them: a Storybook file's stories, as many as it has,
+ * A design's states in its own order, as its board's menu lists them: a story file's stories, as many as it has,
  * each shown as a row or not by its switch and put in order as modes are (PAR-1071).
  */
 export function StatesList({ entry, group }: { entry: ContainerEntry; group: string }) {
-  const { store } = useProject()
+  const { store, info } = useProject()
   const { container, key } = entry
   const ordered = orderedStates(container)
   const shown = new Set(shownStates(container).map((state) => state.id))
@@ -68,7 +63,7 @@ export function StatesList({ entry, group }: { entry: ContainerEntry; group: str
       group={group}
       entries={ordered.map((state) => ({ id: state.id, name: state.name }))}
       shown={shown}
-      only={`At least one ${stateNouns(entry).one} always shows`}
+      only={`At least one ${stateNouns(entry, info).one} always shows`}
       onMove={(from, to) =>
         store.updateView(key, `Move ${ordered[from]!.name}`, (view) =>
           withStateOrder(

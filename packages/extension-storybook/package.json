@@ -179,7 +179,16 @@
             ".storybook/main.js",
             ".storybook/main.mjs",
             ".storybook/main.cjs"
-          ]
+          ],
+          "group": "Stories",
+          "states": {
+            "one": "story",
+            "many": "stories"
+          },
+          "color": {
+            "light": "oklch(0.6 0.1 195)",
+            "dark": "oklch(0.8 0.12 190)"
+          }
         }
       }
     }

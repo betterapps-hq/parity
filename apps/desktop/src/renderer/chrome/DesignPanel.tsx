@@ -5,7 +5,7 @@ import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
 import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
-import { pickedStory, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
+import { pickedStory, screensLook, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
@@ -242,8 +242,11 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
     kind = "Component"
     detail = "Component, drawn from the project's code"
   } else if (story) {
-    kind = "Story"
-    detail = "Story, read from its Storybook file"
+    // Named as its provider's manifest calls its states, read from that tool's file (PAR-1131).
+    const look = screensLook(session.info, container.id)
+    const one = look?.states.one ?? "story"
+    kind = one[0]!.toUpperCase() + one.slice(1)
+    detail = `${kind}, read from its ${look?.name ?? "tool's"} file`
   }
 
   return (
@@ -262,8 +265,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
           kind={kind}
           detail={detail}
           action={
-            // What the project's extensions offer for a board's component, as Open in Storybook, or for a page, as Open
-            // in browser.
+            // What the project's extensions offer for a board's component or for a page, as Open in browser.
             (board || target) && (
               <HeaderActions
                 offers={
