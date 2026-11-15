@@ -275,7 +275,7 @@ ring the mode green, a layer its own kind's color. Selecting or hovering somethi
 - **Hovering** outlines the hovered thing in its own color, at half opacity. A layer under the pointer is outlined, not
   its board.
 - **Notes and references** keep their colors: a note the screen blue, a reference the layer blue. Several selected by a
-  box are each outlined, though the selection holds one at a time.
+  box are each outlined, though the selection holds one at a time, and so is a board selected by a box with them.
 
 Code: `canvasOutlines` in `packages/editor/src/outlines.ts` takes the selection and what's hovered and returns each
 outline, with what it goes round and whether it's hovered. In the app, `KindOutlines` in `canvas/CanvasEditor.tsx` draws

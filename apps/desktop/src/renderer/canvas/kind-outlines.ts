@@ -55,11 +55,19 @@ export class KindOutlines extends IndicatorOverlayUtil {
       }
     }
 
-    // Several notes or references selected by a box are selected in tldraw alone: the selection holds one at a time.
+    // A box can select what the selection doesn't hold, such as several notes, or a board with a note, which tldraw
+    // alone has: each is outlined too. A board selected in tldraw for a layer or previews in it isn't.
+    const selection = source.selection.get()
+
     for (const id of showing ? this.editor.getSelectedShapeIds() : []) {
       const target = this.targetOf(id)
 
-      if (target && target.kind !== "design") {
+      const holdsInside =
+        target?.kind === "design" &&
+        selection.design === target.design &&
+        (selection.node !== undefined || selection.mode !== undefined)
+
+      if (target && !holdsInside && this.shown.get(id)?.hovered !== false) {
         this.shown.set(id, { color: drawableColor(source.colorOf(target)), hovered: false })
       }
     }
