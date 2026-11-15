@@ -1,7 +1,7 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
 import { type Picked, type Selection, unlockedPath } from "@parity-app/editor"
+import { type ContainerEntry, containerEntry, type ProjectDoc } from "@parity-app/multiplayer"
 import type { Editor } from "tldraw"
-import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, nodeParent, nodesAt } from "../frame.ts"
 import type { Selected, Under } from "./pick.ts"
 
@@ -39,8 +39,8 @@ export function inside(rect: DOMRect, point: Point): boolean {
  * pointer events, so this goes by layout boxes rather than the browser's hit testing. With the canvas's editor, only
  * the frames of the board under the point are measured.
  */
-export function hitTest(area: ParentNode, store: DesignStore, point: Point, editor?: Editor): Hit | undefined {
-  const frame = frameAt(area, store, point, editor)
+export function hitTest(area: ParentNode, doc: ProjectDoc, point: Point, editor?: Editor): Hit | undefined {
+  const frame = frameAt(area, doc, point, editor)
 
   return frame && hitInFrame(frame.entry, frame.host, point)
 }
@@ -51,7 +51,7 @@ export function hitTest(area: ParentNode, store: DesignStore, point: Point, edit
  */
 export function frameAt(
   area: ParentNode,
-  store: DesignStore,
+  doc: ProjectDoc,
   point: Point,
   editor?: Editor
 ): { entry: ContainerEntry; host: HTMLElement } | undefined {
@@ -73,7 +73,7 @@ export function frameAt(
       continue
     }
 
-    const entry = store.getEntry(host.dataset.design ?? "")
+    const entry = containerEntry(doc, host.dataset.design ?? "")
 
     if (entry) {
       return { entry, host }

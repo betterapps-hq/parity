@@ -1,6 +1,7 @@
 import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { isBaseState } from "@parity-app/core"
 import { kindsName } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -17,7 +18,7 @@ import {
 } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors, layerLabel } from "../canvas/kinds.tsx"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { actions } from "./actions.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
@@ -77,8 +78,8 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
 
 /** Several designs selected: line them up, space them out, copy or delete them together. */
 export function ArrangePanel({ keys }: { keys: string[] }) {
-  const { store } = useProject()
-  const entries = keys.flatMap((key) => store.getEntry(key) ?? [])
+  const { doc } = useProject()
+  const entries = keys.flatMap((key) => containerEntry(doc, key) ?? [])
 
   return (
     <>
@@ -120,8 +121,9 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
  * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value.
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
-  const { store, info } = useProject()
-  const entries = useContainerEntries(store)
+  const session = useProject()
+  const { info } = session
+  const entries = useContainerEntries(session)
   const editor = useStyleEditor(entry, ids)
 
   if (!editor) {
@@ -171,7 +173,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
         targets={selection.layers.map((layer) => ({
           design: entry.key,
           node: layer.id,
-          name: layerLabel(layer.node, entries, store.getComponentLibrary(), info.libraries)
+          name: layerLabel(layer.node, entries, projectLibrary(session), info.libraries)
         }))}
         label={`Export ${selection.layers.length} layers`}
       />

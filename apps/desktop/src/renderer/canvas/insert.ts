@@ -9,9 +9,16 @@ import {
   type Point,
   whereToInsert
 } from "@parity-app/editor"
+import {
+  addContainer,
+  type ContainerEntry,
+  containerEntries,
+  containerEntry,
+  updateContainer
+} from "@parity-app/multiplayer"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
-import type { ContainerEntry } from "../design-store.ts"
+import { type DocSession, projectLibrary } from "../project-doc.ts"
 import { track } from "../report-error.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { designNames, viewCenter } from "./new-screen.ts"
@@ -70,7 +77,7 @@ function insertSource(info: ProjectInfo, item: InsertItem): "components" | "icon
 
 /**
  * Inserting from the Assets panel, by a drop on the canvas or a click. The rules are `@parity-app/editor`'s; this
- * measures the layout under the pointer, and applies them to the selection and the store.
+ * measures the layout under the pointer, and applies them to the selection and the document.
  */
 
 /** The drag data type for items dragged from the Components panel onto the canvas. */
@@ -95,7 +102,7 @@ export interface DropTarget extends InsertAt {
  * the layout under the pointer is measured once while it stays over it, not at every event.
  */
 export function dropTarget(
-  session: Pick<ProjectSession, "editor" | "store" | "tokens">,
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
   area: ParentNode,
   point: Point,
   measures?: HereMeasures
@@ -135,13 +142,13 @@ export function dropTarget(
 
 /** What inserting an item needs to know from the project: its component's props, the sources and the library. */
 export function insertContext(
-  session: Pick<ProjectSession, "components" | "info" | "store">,
+  session: DocSession & Pick<ProjectSession, "components" | "info">,
   item: InsertItem
 ): InsertContext {
   return {
     info: item.kind === "component" ? session.components.get()[item.component] : undefined,
     sources: session.info.sources,
-    library: session.store.getComponentLibrary()
+    library: projectLibrary(session)
   }
 }
 
@@ -152,10 +159,10 @@ export function insertItem(
   item: InsertItem,
   via: InsertVia = "drag"
 ): string | undefined {
-  const { store, selection } = session
+  const { doc, selection } = session
   const context = insertContext(session, item)
   let node: string | undefined
-  store.updateContainer(target.entry.key, insertLabel(item), (container) => {
+  updateContainer(doc, target.entry.key, insertLabel(item), (container) => {
     const inserted = insertIntoDesign(container, target, item, context)
     node = inserted.node
 
@@ -181,17 +188,17 @@ export function addFrameOfItem(
   at = viewCenter(session.editor),
   via: InsertVia = "drag"
 ): string {
-  const { store, selection } = session
+  const { doc, selection } = session
 
   const { design } = designOfItem(
     item,
     insertContext(session, item),
-    store.getEntries().map((entry) => entry.container.id),
+    containerEntries(doc).map((entry) => entry.container.id),
     at,
-    designNames(session.store)
+    designNames(session)
   )
 
-  const key = store.addContainer(store.mainPath, design, insertLabel(item))
+  const key = addContainer(doc, doc.main, design, insertLabel(item))
   selection.set({ design: key })
   recordInsert(session.info, item, via, key, true)
 
@@ -216,13 +223,13 @@ export function insertAtSelection(
     return true
   }
 
-  const entry = session.store.getEntry(current.design)
+  const entry = containerEntry(session.doc, current.design)
 
   if (!entry) {
     return false
   }
 
-  const at = whereToInsert(entry.container.root, current.node, session.store.getComponentLibrary())
+  const at = whereToInsert(entry.container.root, current.node, projectLibrary(session))
 
   if (!at) {
     return false

@@ -1,11 +1,13 @@
 import { type ImageCredit, walkNodes } from "@parity-app/core"
 import { type ImageFile, type InsertItem, insertIntoDesign, whereToInsert } from "@parity-app/editor"
+import { containerEntry, updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { insertContext } from "../canvas/insert.ts"
 import { panelLimits, setLayout } from "../chrome/layout.ts"
 import { LeftPanel } from "../chrome/LeftPanel.tsx"
 import { LibraryBrowserHost } from "../library/LibraryBrowser.tsx"
+import { projectLibrary } from "../project-doc.ts"
 import { design, example, never, openProjects, ProjectStage, typeInto } from "../stories/fixtures.tsx"
 import { answering, answeringSearches, media, requests } from "../stories/host.ts"
 import { storyResults } from "../stories/library-results.ts"
@@ -57,11 +59,11 @@ function showIn(designName: string, image: { src: string; alt?: string; credit?:
   const session = example()
   const item: InsertItem = { kind: "image", width: 320, height: 200, ...image }
 
-  session.store.updateContainer(design(designName), "Add images", (container) => {
+  updateContainer(session.doc, design(designName), "Add images", (container) => {
     let next = container
 
     for (let copy = 0; copy < copies; copy++) {
-      const at = whereToInsert(next.root, undefined, session.store.getComponentLibrary())
+      const at = whereToInsert(next.root, undefined, projectLibrary(session))
       next = at ? insertIntoDesign(next, at, item, insertContext(session, item)).container : next
     }
 
@@ -137,7 +139,7 @@ async function search(canvasElement: HTMLElement, text: string): Promise<void> {
 
 /** The `src` of every image layer in a design. */
 function imagesIn(designName: string): string[] {
-  const entry = example().store.getEntry(design(designName))
+  const entry = containerEntry(example().doc, design(designName))
   const srcs: string[] = []
 
   if (entry) {

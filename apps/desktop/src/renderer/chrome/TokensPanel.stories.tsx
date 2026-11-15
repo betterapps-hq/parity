@@ -446,8 +446,8 @@ export const ReferenceToAnotherToken: Story = {
     await within(dialog).findByText("Applied. Saving writes it to src/index.css.")
     // Apply took away the button that had the keyboard, so Edit has it now.
     await waitFor(() => expect(within(dialog).getByRole("button", { name: "Edit" })).toHaveFocus())
-    await expect(example().store.getHistory().undoLabel).toBe("Edit primary")
-    await expect(example().store.hasUnsaved()).toBe(true)
+    await expect(example().doc.history().undo[0]).toBe("Edit primary")
+    await expect(example().saver.hasUnsaved()).toBe(true)
     // Editing again and cancelling changes nothing, so Undo is still there.
     await userEvent.click(within(dialog).getByRole("button", { name: "Edit" }))
     await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }))
@@ -455,7 +455,7 @@ export const ReferenceToAnotherToken: Story = {
     // The detail's Undo takes it back, as Ctrl+Z would.
     await userEvent.click(within(dialog).getByRole("button", { name: "Undo" }))
     await within(dialog).findByText("oklch(0.205 0 0)")
-    await expect(example().store.hasUnsaved()).toBe(false)
+    await expect(example().saver.hasUnsaved()).toBe(false)
   }
 }
 
@@ -515,7 +515,7 @@ export const SaveFails: Story = {
     await retype(dialog, "default", "oklch(0.55 0.2 260)")
     await userEvent.click(within(dialog).getByRole("button", { name: "Apply" }))
     await example()
-      .store.flush()
+      .saver.flush()
       .catch(() => undefined)
     const canvas = within(canvasElement)
     const title = await canvas.findByText(/^Couldn't write primary to .+\.css$/)

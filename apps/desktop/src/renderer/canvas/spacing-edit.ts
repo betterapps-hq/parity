@@ -1,5 +1,6 @@
 import { boardTarget, editNode, type FieldLength, lengthToken, type NodeStyle } from "@parity-app/core"
 import {
+  type EditFrame,
   type LengthToken,
   paddingSides,
   pickedSpacing,
@@ -12,9 +13,9 @@ import {
   spacingStep,
   typedSpacing
 } from "@parity-app/editor"
+import { containerEntry, editFrame, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
 import type { PointerEvent as ReactPointerEvent } from "react"
-import type { DesignStore } from "../design-store.ts"
 import { px } from "../lengths.ts"
 import { resolveTokenValue, spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -103,14 +104,14 @@ export function lengthTokens(tokens: readonly Token[]): LengthToken[] {
 
 /** What an edit of the target starts from: its style as the frame shows it, and what it draws at. */
 function editStart(
-  session: Pick<ProjectSession, "store" | "tokens">,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
-): { start: SpacingEditStart; frame: NonNullable<ReturnType<DesignStore["editFrame"]>> } | undefined {
-  const { store, tokens } = session
-  const entry = store.getEntry(target.design)
-  const frame = store.editFrame(target)
+): { start: SpacingEditStart; frame: EditFrame } | undefined {
+  const { doc, tokens } = session
+  const entry = containerEntry(doc, target.design)
+  const frame = editFrame(doc, target)
 
   if (!entry || !frame) {
     return undefined
@@ -145,7 +146,7 @@ export interface SpacingValue {
 
 /** What a handle shows when it isn't being dragged: what it draws at, and the token it's bound to. */
 export function spacingValue(
-  session: Pick<ProjectSession, "store" | "tokens">,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
@@ -161,14 +162,15 @@ export function spacingValue(
 }
 
 function write(
-  store: DesignStore,
+  doc: ProjectDoc,
   frame: { design: string; state: { id: string } },
   node: string,
   edit: SpacingEdit,
   gesture?: string
 ): void {
   const label = "gap" in edit.change ? "Change gap" : "Change padding"
-  store.updateContainer(
+  updateContainer(
+    doc,
     frame.design,
     label,
     (container) => editNode(container, boardTarget(container, frame.state.id), node, { style: edit.change }),
@@ -191,7 +193,7 @@ export function spacingCursor(handle: SpacingHandle): string {
  * opens the box to type a value in.
  */
 export function pressSpacing(
-  session: Pick<ProjectSession, "store" | "tokens">,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -208,7 +210,7 @@ export function pressSpacing(
   const drag = spacingDrag(edit.start)
   const start = { clientX: event.clientX, clientY: event.clientY }
   let last = ""
-  followPress(gestures.resize, session.store, start, {
+  followPress(gestures.resize, session.doc, start, {
     design: edit.frame.design,
     cursor: spacingCursor(handle),
     move(moveEvent, { gesture }) {
@@ -230,7 +232,7 @@ export function pressSpacing(
       }
 
       last = serialized
-      write(session.store, edit.frame, target.node, next, gesture)
+      write(session.doc, edit.frame, target.node, next, gesture)
     },
     end: () => show(undefined),
     click: type
@@ -239,7 +241,7 @@ export function pressSpacing(
 
 /** A value typed after a click; the reason when it can't be read. */
 export function typeSpacing(
-  session: Pick<ProjectSession, "store" | "tokens">,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -258,14 +260,14 @@ export function typeSpacing(
     return next.reason
   }
 
-  write(session.store, edit.frame, target.node, next)
+  write(session.doc, edit.frame, target.node, next)
 
   return undefined
 }
 
 /** A token or a step picked from the list beside the box. */
 export function pickSpacing(
-  session: Pick<ProjectSession, "store" | "tokens">,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -275,13 +277,13 @@ export function pickSpacing(
   const edit = editStart(session, target, handle, measure)
 
   if (edit) {
-    write(session.store, edit.frame, target.node, pickedSpacing(edit.start, value, keys))
+    write(session.doc, edit.frame, target.node, pickedSpacing(edit.start, value, keys))
   }
 }
 
 /** Up or Down on a focused handle. */
 export function stepSpacing(
-  session: Pick<ProjectSession, "store" | "tokens">,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -291,6 +293,6 @@ export function stepSpacing(
   const edit = editStart(session, target, handle, measure)
 
   if (edit) {
-    write(session.store, edit.frame, target.node, spacingStep(edit.start, count, keys))
+    write(session.doc, edit.frame, target.node, spacingStep(edit.start, count, keys))
   }
 }

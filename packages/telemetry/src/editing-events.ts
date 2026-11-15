@@ -70,7 +70,9 @@ export const editingEvents = [
       layers: layerIds.optional().describe("The layers it moved"),
       fps: z.number().optional().describe("Frames the window drew per second during it"),
       presses: z.int().min(0).optional().describe("How many presses a run took"),
-      undoStep: z.boolean().describe("Whether it became an undo step")
+      undoStep: z.boolean().describe("Whether it became an undo step"),
+      transactions: z.int().min(0).optional().describe("Transactions the gesture applied"),
+      transactMs: z.number().optional().describe("Time spent checking and applying them, in milliseconds")
     }),
     { level: "info", sentBy, when: "A gesture ends: a drag, a resize, a run of presses, a pan or a zoom." }
   ),

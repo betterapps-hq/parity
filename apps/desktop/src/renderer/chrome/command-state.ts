@@ -7,7 +7,7 @@ import {
   selectedNodes,
   type Selection
 } from "@parity-app/editor"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { type Command, keymap } from "./keymap.ts"
 
 /**

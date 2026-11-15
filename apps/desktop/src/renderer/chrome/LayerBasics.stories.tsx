@@ -1,5 +1,6 @@
 import { mapNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
@@ -32,7 +33,7 @@ export const LongLayerName: Story = {
     inspecting("design", () => {
       const key = design("Pricing")
       const id = node("Pricing", "Billing period")
-      example().store.updateContainer(key, "Rename layer", (container) => ({
+      updateContainer(example().doc, key, "Rename layer", (container) => ({
         ...container,
         root: mapNode(container.root, id, (current) => ({
           ...current,

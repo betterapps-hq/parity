@@ -6,8 +6,8 @@ import {
   readStyles
 } from "@parity-app/editor"
 import { panelAttributes } from "@parity-app/layer-types"
+import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import { type RefObject, useEffect } from "react"
-import type { ContainerEntry } from "../design-store.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findNodeElements, setInnerNodes } from "../frame.ts"
 import { componentBoardsFile } from "./component-boards.ts"
@@ -22,7 +22,7 @@ const keptAttributes = [...new Set(["data-slot", "popover", ...panelAttributes])
  * isn't a step to undo, and it isn't saved, since the board is drawn from the code.
  */
 export function useBoardInternals(board: RefObject<HTMLDivElement | null>, entry: ContainerEntry): void {
-  const { store } = useProject()
+  const { doc } = useProject()
   const { key } = entry
   const isBoard = entry.path === componentBoardsFile
 
@@ -34,7 +34,7 @@ export function useBoardInternals(board: RefObject<HTMLDivElement | null>, entry
     }
 
     const read = (host: Element) => {
-      const design = store.getEntry(key)?.container
+      const design = doc.design(key)
       const layer = design && boardComponentLayer(design)
 
       if (!design || !layer) {
@@ -53,9 +53,8 @@ export function useBoardInternals(board: RefObject<HTMLDivElement | null>, entry
       const internals = elementLayers(snapshots)
 
       if (boardWithInternals(design, internals) !== design) {
-        store.updateContainer(key, "Read inside", (current) => boardWithInternals(current, internals), {
-          history: false,
-          persist: false
+        updateContainer(doc, key, "Read inside", (current) => boardWithInternals(current, internals), {
+          origin: "code"
         })
       }
     }
@@ -88,7 +87,7 @@ export function useBoardInternals(board: RefObject<HTMLDivElement | null>, entry
       observer.disconnect()
       stopWatching?.()
     }
-  }, [board, isBoard, key, store])
+  }, [board, isBoard, key, doc])
 }
 
 /** An element or text as a snapshot, with the ids of what's inside it from its own, or undefined when it shows nothing. */

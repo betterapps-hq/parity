@@ -20,6 +20,7 @@ import {
   prunedDocument,
   sameValue
 } from "@parity-app/editor"
+import { changeSnapshot, containerEntries, type ProjectDoc, restoreCopy } from "@parity-app/multiplayer"
 import {
   changeProjectsData,
   type ProjectNote,
@@ -42,10 +43,10 @@ import { getPreferences } from "./chrome/preferences.ts"
 import { askToRestore } from "./chrome/restore.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
-import { DesignStore } from "./design-store.ts"
 import { designFailuresNow, onDesignFailures } from "./failures-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
+import { closeDocSession, type DocSession, openDocSession } from "./project-doc.ts"
 import { keepProjectPicture } from "./project-picture.ts"
 import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
 import { holdRecording } from "./replay.ts"
@@ -56,7 +57,7 @@ import { request } from "./service.ts"
 import { type KnownProject, knownProjects } from "./start/projects.ts"
 import { signal, type Store, createStore } from "./store.ts"
 import { TokenStore } from "./tokens-store.ts"
-import { currentTraceContext } from "./tracing.ts"
+import { currentTraceContext, keepTrace } from "./tracing.ts"
 
 /** What can change in an open project while its tab is open, each part replaced whole. */
 export interface SessionParts {
@@ -80,9 +81,13 @@ export interface SessionParts {
  * Its stores never change; the parts that can, such as its info or its guest, are read through it and change through
  * `update`, which tells whoever subscribed.
  */
-export class ProjectSession {
+export class ProjectSession implements DocSession {
   readonly id: string
-  readonly store: DesignStore
+  readonly doc: DocSession["doc"]
+  readonly saver: DocSession["saver"]
+  readonly libraryDesigns: DocSession["libraryDesigns"]
+  readonly epoch: string
+  readonly autosave: () => boolean
   readonly selection: SelectionStore
   /** Components and their props, inferred from source after the tab opens. */
   readonly components: ComponentStore
@@ -98,11 +103,16 @@ export class ProjectSession {
   private closed = false
 
   constructor(
-    fixed: Pick<ProjectSession, "id" | "store" | "selection" | "components" | "recovery">,
+    fixed: Pick<ProjectSession, "id" | "selection" | "components" | "recovery"> & { designs: DocSession },
     parts: SessionParts
   ) {
     this.id = fixed.id
-    this.store = fixed.store
+    this.doc = fixed.designs.doc
+    this.saver = fixed.designs.saver
+    this.libraryDesigns = fixed.designs.libraryDesigns
+    this.epoch = fixed.designs.epoch
+    const { autosave } = fixed.designs
+    this.autosave = () => autosave()
     this.selection = fixed.selection
     this.components = fixed.components
     this.recovery = fixed.recovery
@@ -160,6 +170,10 @@ export class ProjectSession {
    * until it renders again, so the session can outlive its tab; without its editor it holds no canvas (PAR-624).
    */
   close(): void {
+    if (this.closed) {
+      return
+    }
+
     this.closed = true
 
     for (const stop of this.stops.splice(0)) {
@@ -167,6 +181,7 @@ export class ProjectSession {
     }
 
     this.update({ editor: undefined })
+    closeDocSession(this)
   }
 }
 
@@ -174,7 +189,7 @@ export class ProjectSession {
  * A project's designs and what's selected in them, which most edits read and change. A function that reads these takes
  * them, with a `Pick` of any other part it reads, rather than the whole session, so its tests build only that (PAR-1006).
  */
-export type ProjectDesigns = Pick<ProjectSession, "store" | "selection">
+export type ProjectDesigns = DocSession & Pick<ProjectSession, "selection">
 
 export interface Tab {
   /** The project's root once known; a placeholder while it opens. */
@@ -470,7 +485,7 @@ export class Workspace {
       return true
     }
 
-    if (tab.session?.store.hasUnsaved()) {
+    if (tab.session?.saver.hasUnsaved()) {
       const choice = await askAboutUnsaved([tab.title], "close")
 
       if (choice === "cancel") {
@@ -494,7 +509,7 @@ export class Workspace {
    */
   async confirmQuit(): Promise<boolean> {
     const sessions = this.tabs.flatMap((tab) => (tab.session ? [tab.session] : []))
-    const unsaved = sessions.filter((session) => session.store.hasUnsaved())
+    const unsaved = sessions.filter((session) => session.saver.hasUnsaved())
 
     const settle = (discarded: boolean) =>
       Promise.all(sessions.map((session) => (discarded ? session.recovery.drop() : session.recovery.settle())))
@@ -542,7 +557,7 @@ export class Workspace {
       }
 
       if (choice === "restore") {
-        session.store.restoreRecovery(copy)
+        restoreCopy(session.doc, copy)
       } else {
         await request("recovery.keep", { projectId: session.id }).catch(() => undefined)
       }
@@ -609,7 +624,7 @@ export class Workspace {
       return
     }
 
-    if (before.session?.store.hasUnsaved() && !(await saveOrSay(before.session))) {
+    if (before.session?.saver.hasUnsaved() && !(await saveOrSay(before.session))) {
       return
     }
 
@@ -875,7 +890,7 @@ export class Workspace {
   private drawFrom(tab: Tab, session: ProjectSession, info: ProjectInfo, loaded: LoadedGuest): void {
     const { tokens } = session
     drawImported(info, loaded)
-    this.updateSession(tab, session, { info, loaded, tokens: tokenStore(info, loaded, session.store) })
+    this.updateSession(tab, session, { info, loaded, tokens: tokenStore(info, loaded, session) })
     tokens.dispose()
   }
 
@@ -894,7 +909,7 @@ export class Workspace {
   /** Saves every open project's unsaved changes. */
   async flush(): Promise<void> {
     const results = await Promise.allSettled(
-      this.tabs.flatMap((tab) => (tab.session ? [tab.session.store.flush()] : []))
+      this.tabs.flatMap((tab) => (tab.session ? [tab.session.saver.flush()] : []))
     )
 
     const failed = results.find((result) => result.status === "rejected")
@@ -1046,7 +1061,7 @@ export class Workspace {
           root: tab.session?.info.root ?? tab.id,
           active: tab.id === this.activeId,
           status: tab.status,
-          designs: tab.session?.store.getEntries().length ?? 0
+          designs: tab.session ? containerEntries(tab.session.doc).length : 0
         }
 
         if (tab.message && tab.status === "error") {
@@ -1207,7 +1222,7 @@ export class Workspace {
 /** Saves a project, or says why it couldn't. Resolves whether it saved. */
 async function saveOrSay(session: ProjectSession): Promise<boolean> {
   try {
-    await session.store.flush()
+    await session.saver.flush()
 
     return true
   } catch (error) {
@@ -1232,11 +1247,11 @@ export function saveFailureToast(projectId: string): string {
  * quiet, with the status bar still showing it, until one succeeds.
  */
 function sayWhenSavesFail(session: ProjectSession): void {
-  const { store } = session
+  const { saver } = session
   const id = saveFailureToast(session.id)
   let said = false
-  store.subscribe(() => {
-    const state = store.getSaveState()
+  saver.subscribe(() => {
+    const state = saver.state()
 
     if (state.status === "saved" || state.status === "unsaved") {
       if (said) {
@@ -1301,44 +1316,48 @@ async function createSession(
     }
   }
 
-  const store = new DesignStore(
-    [...opening, ...code.designs],
+  const designs: DocSession = openDocSession({
+    files: opening,
+    drawn: code.designs,
     modes,
-    info.mainDocument,
-    {
+    main: info.mainDocument,
+    persistence: {
       // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
       // stories are written back to their own files, through the adapter that read them.
-      saveDocument: (path, document) => {
+      saveDocument: (path, document, { exportMs }) => {
         if (path === storyScreensFile) {
           return request("entities.save", { projectId: info.id, document })
         }
 
-        return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document)
+        return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document, exportMs)
       },
+      // The service writes files and has no way to delete one, so a file taken out of the project stays on disk.
+      deleteDocument: () => Promise.resolve(),
       // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
-      autosave: (): boolean => withProjectPreferences(getPreferences(), store.getMainDocument()).autosave
+      autosave: (): boolean => withProjectPreferences(getPreferences(), designs.doc.file(designs.doc.main)).autosave,
+      keepTrace
     },
-    info.libraries.flatMap((library) => library.designs ?? [])
-  )
+    libraryDesigns: info.libraries.flatMap((library) => library.designs ?? [])
+  })
 
-  keepCodeDesigns(store, fromCode)
+  keepCodeDesigns(designs.doc, fromCode)
   const components = new ComponentStore()
   inferComponents(info, components)
-  sampleBoards(info, store, components)
+  sampleBoards(info, designs.doc, components)
 
   const session = new ProjectSession(
     {
       id: info.id,
-      store,
+      designs,
       components,
       selection: new SelectionStore(),
-      recovery: keepRecovery(store, (copy) => {
+      recovery: keepRecovery(designs, (copy) => {
         const kept = copy && ownWork(copy)
 
         return request("recovery.keep", kept ? { projectId: info.id, copy: kept } : { projectId: info.id })
       })
     },
-    { info, loaded, tokens: tokenStore(info, loaded, store), added: drawn }
+    { info, loaded, tokens: tokenStore(info, loaded, designs), added: drawn }
   )
 
   sayWhenSavesFail(session)
@@ -1384,10 +1403,10 @@ function firstFrameOf(session: ProjectSession, record: (from: FirstFrame) => voi
  * file changing on disk, so the list follows them before they're saved.
  */
 function followCorrections(session: ProjectSession): void {
-  const { store } = session
-  const corrections = () => store.getDocuments().find((entry) => entry.path === store.mainPath)?.document.detection
+  const { doc } = session
+  const corrections = () => doc.file(doc.main)?.detection
   let sent = corrections()
-  store.subscribe(() => {
+  doc.subscribe(() => {
     const next = corrections()
 
     if (next === sent) {
@@ -1425,13 +1444,13 @@ function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
  * the parents it's found to need, as a change that's neither undone nor saved. Only a board drawn differently changes
  * (`redrawnBoards`): the rest keep what's been read inside them and their size, so nothing they show draws again.
  */
-function sampleBoards(info: ProjectInfo, store: DesignStore, components: ComponentStore): void {
+function sampleBoards(info: ProjectInfo, doc: ProjectDoc, components: ComponentStore): void {
   const parents = new Map<string, BoardParents>()
 
   const designs = (drawn: ReturnType<typeof componentBoardsDocument>) =>
     new Map((drawn[0]?.document.containers ?? []).map((board) => [board.id, board]))
 
-  // What was drawn last, as the store began with.
+  // What was drawn last, as the document began with.
   let before = designs(componentBoardsDocument(info))
 
   const draw = () => {
@@ -1445,7 +1464,7 @@ function sampleBoards(info: ProjectInfo, store: DesignStore, components: Compone
 
     const current = new Map(
       boards.document.containers.flatMap((board) => {
-        const now = store.getEntry(`${boards.path}#${board.id}`)?.container
+        const now = doc.design(`${boards.path}#${board.id}`)
 
         return now ? [[board.id, now] as const] : []
       })
@@ -1458,18 +1477,19 @@ function sampleBoards(info: ProjectInfo, store: DesignStore, components: Compone
       return
     }
 
-    store.change(
+    changeSnapshot(
+      doc,
       "Draw components",
       (snapshot) => ({
         ...snapshot,
         documents: new Map(snapshot.documents).set(boards.path, { ...boards.document, containers })
       }),
-      { history: false, persist: false }
+      { origin: "code" }
     )
   }
 
   components.subscribe(draw)
-  searchBoardParents(info, store, parents, draw)
+  searchBoardParents(info, doc, parents, draw)
 }
 
 /**
@@ -1479,7 +1499,7 @@ function sampleBoards(info: ProjectInfo, store: DesignStore, components: Compone
  */
 function searchBoardParents(
   info: ProjectInfo,
-  store: DesignStore,
+  doc: ProjectDoc,
   parents: Map<string, BoardParents>,
   draw: () => void
 ): void {
@@ -1487,7 +1507,7 @@ function searchBoardParents(
   const prefix = `${componentBoardsFile}#`
 
   const step = (design: string, failures: readonly LayerFailure[]) => {
-    const board = design.startsWith(prefix) ? store.getEntry(design)?.container : undefined
+    const board = design.startsWith(prefix) ? doc.design(design) : undefined
     const part = board && boardComponentNode(board)
     const group = part && groups.get(part.component)
 
@@ -1516,7 +1536,7 @@ function searchBoardParents(
     // The canvas tells only when what fails changes, so a chain that draws as the last one did is looked at once drawn.
     // A board far from view is a picture, with nothing of it on the page, so it's left until it's drawn live.
     setTimeout(() => {
-      const outer = store.getEntry(design)?.container.root
+      const outer = doc.design(design)?.root
       const drawn = outer?.type === "layout" && outer.children[0] && drawsPart(outer.children[0].id)
 
       if (parents.get(part.component) === next && drawn) {
@@ -1548,7 +1568,12 @@ function inferComponents(info: ProjectInfo, components: ComponentStore): void {
 }
 
 /** Writes a design file, recording how long it took and how big it was. */
-async function saveDocument(projectId: string, path: string, document: CanvasDocument): Promise<void> {
+async function saveDocument(
+  projectId: string,
+  path: string,
+  document: CanvasDocument,
+  exportMs: number
+): Promise<void> {
   const start = performance.now()
   const bytes = JSON.stringify(document).length
   const measured = () => ({ file: path, durationMs: Math.round(performance.now() - start), bytes })
@@ -1557,7 +1582,7 @@ async function saveDocument(projectId: string, path: string, document: CanvasDoc
 
   try {
     await request("document.save", { projectId, path, document })
-    track("document.saved", measured(), inTrace)
+    track("document.saved", { ...measured(), exportMs }, inTrace)
   } catch (error) {
     const failed: Attributes<"document.saveFailed"> = measured()
     const code = errorCode(error)
@@ -1591,7 +1616,6 @@ async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<Pro
   }
 }
 
-/** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
 /**
  * Gives the guest the code the project's imported screens draw that isn't one of its components, as a story's `render`
  * function, and gives it back for offscreen renders to add to theirs.
@@ -1608,14 +1632,14 @@ function drawImported(info: ProjectInfo, loaded: LoadedGuest): Record<string, Gu
   return sources
 }
 
-function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
+function tokenStore(info: ProjectInfo, loaded: LoadedGuest, designs: DocSession): TokenStore {
   return new TokenStore(
     loaded.tokens,
     loaded.sheet,
     async (changes) => {
       await saveTokens(info.id, changes)
     },
-    store,
+    designs,
     info.styles?.stylesheet,
     info.describedTokens
   )

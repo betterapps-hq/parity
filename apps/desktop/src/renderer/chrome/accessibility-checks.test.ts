@@ -1,8 +1,8 @@
-import { defaultModeSettings } from "@parity-app/core"
 import { newDesign } from "@parity-app/editor"
+import { containerEntry, updateContainer } from "@parity-app/multiplayer"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { ServiceMethods } from "../../shared/protocol.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { preloadAnswers } from "../service.ts"
 import { checksOf } from "./accessibility-checks.ts"
 
@@ -47,18 +47,13 @@ const key = "app.par#pricing"
 
 /** An open project holding Pricing, saved nowhere, with its checks. */
 function openProject() {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 4, containers: [pricing] } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [pricing] } }])
 
-  const checks = checksOf({ id: "/projects/app", store, untilClosed: () => undefined })
+  const checks = checksOf({ id: "/projects/app", doc, untilClosed: () => undefined })
 
   /** Checks Pricing as it is now, and gives what was checked. */
   const check = () => {
-    const entry = store.getEntry(key)!
+    const entry = containerEntry(doc, key)!
     void checks.run(entry)
 
     return entry.container
@@ -66,7 +61,7 @@ function openProject() {
 
   /** Renames Pricing, so the next check checks something else. */
   const rename = (name: string) =>
-    store.updateContainer(key, `Rename to ${name}`, (container) => ({ ...container, name }))
+    updateContainer(doc, key, `Rename to ${name}`, (container) => ({ ...container, name }))
 
   return { checks, check, rename }
 }

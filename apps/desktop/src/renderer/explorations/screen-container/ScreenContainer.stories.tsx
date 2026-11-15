@@ -1,4 +1,5 @@
 import { addVariant } from "@parity-app/core"
+import { updateContainer, updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { createDesign } from "../../chrome/create.ts"
@@ -66,7 +67,7 @@ export const ScreenInLight: Story = { ...Screen, globals: { theme: "light" } }
 /** Plan card with an emphasis variant, Standard or Highlighted, added for this story, selected. */
 const planCard = () => {
   const key = design("Plan card")
-  example().store.updateContainer(key, "Add emphasis variant", (current) =>
+  updateContainer(example().doc, key, "Add emphasis variant", (current) =>
     addVariant(current, "emphasis", ["Standard", "Highlighted"])
   )
 
@@ -136,7 +137,7 @@ export const EditingAnotherState: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Stat card")
-      example().store.updateView(key, "Show Loading", (view) => ({
+      updateView(example().doc, key, "Show Loading", (view) => ({
         ...view,
         state: "loading",
         allStates: false

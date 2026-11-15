@@ -1,8 +1,8 @@
 import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { House, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
-import { type ReactNode, useEffect, useRef, useSyncExternalStore } from "react"
+import { type ReactNode, useEffect, useRef } from "react"
 import { AccountMenu } from "../account/AccountMenu.tsx"
-import type { DesignStore } from "../design-store.ts"
+import { useSaveStatus } from "../project-doc.ts"
 import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
@@ -40,22 +40,15 @@ function CloseButton({ tab, selected, unsaved }: { tab: Tab; selected: boolean; 
   )
 }
 
-/** Whether a tab's project has changes that aren't on disk; tabs still opening have none. */
-function useUnsaved(store: DesignStore | undefined): boolean {
-  const status = useSyncExternalStore(store?.subscribe ?? ignore, () => store?.getSaveState().status)
-
-  return status === "unsaved" || status === "failed"
-}
-
-const ignore = () => () => undefined
-
 /**
  * A project's tab. Its tooltip names the project's folder, and says when the project has unsaved changes; the close
  * button shows that as a dot. It's given the tab's id, so the strip's last props don't keep a closed tab's session.
  */
 function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
-  const unsaved = useUnsaved(tab?.session?.store)
+  // A save that failed leaves the changes unsaved too.
+  const status = useSaveStatus(tab?.session)
+  const unsaved = status === "unsaved" || status === "failed"
 
   if (!tab) {
     return null

@@ -1,4 +1,5 @@
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
+import { updateNote } from "@parity-app/multiplayer"
 import { Crown, MousePointerClick } from "lucide-react"
 import type { ComponentType, ReactNode } from "react"
 import { boardComponent } from "../canvas/component-boards.ts"
@@ -8,10 +9,10 @@ import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } f
 import { pickedStory, screensLook, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
-import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
+import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { componentOffers, pageOffers } from "./command-offers.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
@@ -51,9 +52,9 @@ export function DesignTab() {
  * state's name. A story drawing one section alone puts it in this.
  */
 export function DesignTabFields({ children }: { children: ReactNode }) {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
 
   return (
     <FieldTarget value={selectionKey(selected)}>
@@ -63,9 +64,10 @@ export function DesignTabFields({ children }: { children: ReactNode }) {
 }
 
 function SelectedPanel() {
-  const { id, store, selection } = useProject()
+  const session = useProject()
+  const { id, selection } = session
   const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const entry = useContainerEntry(session, selected.design)
   const pickedGroup = selectedPageGroup(id, selected)
   // A layout group isn't a design: the selection holds its route by ref.
   const group = routePageGroups(id).find(({ key }) => key === pickedGroup)
@@ -222,8 +224,7 @@ function DesignExport({ entry }: { entry: ContainerEntry }) {
 function DesignHeader({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { extensions } = useExtensions(session)
-  const { store } = session
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(session)
   const { container } = entry
   const { primary } = containerModes(settings, container)
   // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
@@ -309,8 +310,8 @@ function FrameStyles({ entry }: { entry: ContainerEntry }) {
 }
 
 function NotePanel({ noteKey }: { noteKey: string }) {
-  const { store } = useProject()
-  const note = useNotes(store).find((entry) => entry.key === noteKey)
+  const session = useProject()
+  const note = useNotes(session).find((entry) => entry.key === noteKey)
 
   if (!note) {
     return null
@@ -326,7 +327,7 @@ function NotePanel({ noteKey }: { noteKey: string }) {
           const text = event.currentTarget.value
 
           if (text !== note.note.text) {
-            store.updateNote(noteKey, text.trim() ? "Edit text" : "Delete text", (current) =>
+            updateNote(session.doc, noteKey, text.trim() ? "Edit text" : "Delete text", (current) =>
               text.trim() ? { ...current, text } : undefined
             )
           }

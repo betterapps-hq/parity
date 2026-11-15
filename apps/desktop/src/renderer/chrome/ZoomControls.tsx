@@ -3,7 +3,7 @@ import { Maximize, Minus, Plus } from "lucide-react"
 import type { ReactNode } from "react"
 import { useValue } from "tldraw"
 import { useProject } from "../canvas/context.ts"
-import { useContainerEntries, useNotes } from "../design-store.ts"
+import { useContainerEntries, useNotes } from "../project-doc.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { IconButton } from "./IconButton.tsx"
 import { keymap } from "./keymap.ts"
@@ -20,8 +20,8 @@ export function ZoomControls() {
   const zoom = Math.round(useValue("zoom", () => editor?.getZoomLevel() ?? 1, [editor]) * 100)
 
   // Zoom to fit has nothing to fit until the canvas holds a design or a note.
-  useContainerEntries(session.store)
-  useNotes(session.store)
+  useContainerEntries(session)
+  useNotes(session)
   const states = commandsFor(session)
 
   const run = (command: "zoomIn" | "zoomOut" | "zoomTo100" | "zoomToFit") =>

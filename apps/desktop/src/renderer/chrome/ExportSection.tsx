@@ -15,7 +15,7 @@ import { PanelSection } from "./PanelSection.tsx"
  */
 export function ExportSection({ targets, label }: { targets: ExportTarget[]; label: string }) {
   const session = useProject()
-  const { exportSizes: sizes } = useEffectivePreferences(session.store)
+  const { exportSizes: sizes } = useEffectivePreferences(session.doc)
 
   const files = exportFiles(
     targets.map((target) => target.name),
@@ -25,7 +25,7 @@ export function ExportSection({ targets, label }: { targets: ExportTarget[]; lab
   const next = nextExportSize(sizes)
 
   const setSizes = (exportSizes: ExportSize[]) =>
-    setEffectivePreference({ key: "exportSizes", value: exportSizes }, session.store)
+    setEffectivePreference({ key: "exportSizes", value: exportSizes }, session.doc)
 
   const change = (index: number, size: Partial<ExportSize>) =>
     setSizes(sizes.map((current, at) => (at === index ? { ...current, ...size } : current)))

@@ -1,22 +1,32 @@
 import { type MadeKind, designId } from "@parity-app/core"
 import { designGap, detachInstancesOf, freeSpotBeside, instanceCount, kindName, turnInto } from "@parity-app/editor"
+import {
+  addContainer,
+  type ContainerEntry,
+  containerEntries,
+  containerEntry,
+  type ProjectDoc,
+  removeContainer,
+  updateContainer,
+  updateContainers
+} from "@parity-app/multiplayer"
 import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
-import type { ContainerEntry, DesignStore } from "../design-store.ts"
+import { libraryOf, undo } from "../project-doc.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { droppedStatesLine, dropLines, frameDrops } from "./convert-to-frame.ts"
 import { askToConvertToFrame } from "./ConvertToFrameDialog.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
 
-export function renameDesign(store: DesignStore, entry: ContainerEntry, name: string): void {
+export function renameDesign(doc: ProjectDoc, entry: ContainerEntry, name: string): void {
   const trimmed = name.trim()
 
   if (!trimmed || trimmed === entry.container.name) {
     return
   }
 
-  renameAndRecord(store, entry.key, trimmed)
+  renameAndRecord(doc, entry.key, trimmed)
 }
 
 /**
@@ -27,8 +37,8 @@ export function duplicateDesign(
   session: ProjectDesigns & Pick<ProjectSession, "editor">,
   entry: ContainerEntry
 ): string {
-  const { store, editor } = session
-  const taken = store.getEntries().map((candidate) => candidate.container.id)
+  const { doc, editor } = session
+  const taken = containerEntries(doc).map((candidate) => candidate.container.id)
   const name = `${entry.container.name} copy`
   const id = designId(name, taken)
   const bounds = editor?.getShapePageBounds(canvasIdFor(entry.key))
@@ -38,7 +48,8 @@ export function duplicateDesign(
       ? freeSpotBeside(bounds, takenBounds(editor)).x + entry.container.position.x - bounds.minX
       : entry.container.position.x + 1400 + designGap
 
-  const key = store.addContainer(
+  const key = addContainer(
+    doc,
     entry.path,
     { ...structuredClone(entry.container), id, name, position: { x: Math.round(x), y: entry.container.position.y } },
     `Duplicate ${kindName(entry.container.kind)}`
@@ -73,7 +84,7 @@ const convertedHints: Record<Exclude<MadeKind, "frame">, string> = {
  * `ConvertToFrameDialog`). Each is one undo step.
  */
 export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, kind: MadeKind): void {
-  const { store } = session
+  const { doc } = session
   const from = entry.container.kind ?? "screen"
 
   // A story is its tool's file of stories, so it isn't made into anything else.
@@ -84,8 +95,8 @@ export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, ki
   if (kind === "frame") {
     const drops = frameDrops(
       entry.container,
-      store.getEntries().map((other) => other.container),
-      store.getModes()
+      containerEntries(doc).map((other) => other.container),
+      doc.modes()
     )
 
     const convert = () => convertToFrame(session, entry.key)
@@ -99,26 +110,27 @@ export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, ki
     return
   }
 
-  const { dropped } = turnInto(entry.container, kind, store.getModes())
+  const { dropped } = turnInto(entry.container, kind, doc.modes())
 
-  store.updateContainer(
+  updateContainer(
+    doc,
     entry.key,
     `Convert to ${kindName(kind)}`,
-    (container) => turnInto(container, kind, store.getModes()).design
+    (container) => turnInto(container, kind, doc.modes()).design
   )
 
   // Only a component has states, so a component made a screen keeps its first state's look and loses the others.
   if (dropped.states.length > 0) {
     toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
       description: droppedStatesLine(dropped.states.map((state) => state.name)),
-      action: { label: "Undo", onClick: () => store.undo() }
+      action: { label: "Undo", onClick: () => undo(session) }
     })
   }
 
   if (from === "frame") {
     toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
       description: convertedHints[kind],
-      action: { label: "Undo", onClick: () => store.undo() }
+      action: { label: "Undo", onClick: () => undo(session) }
     })
   }
 }
@@ -129,8 +141,8 @@ export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, ki
  * can place a frame.
  */
 function convertToFrame(session: ProjectDesigns, key: string): void {
-  const { store, selection } = session
-  const entry = store.getEntry(key)
+  const { doc, selection } = session
+  const entry = containerEntry(doc, key)
 
   if (!entry) {
     return
@@ -140,17 +152,17 @@ function convertToFrame(session: ProjectDesigns, key: string): void {
 
   const placing =
     entry.container.kind === "component"
-      ? store.getEntries().filter((other) => other.key !== key && instanceCount(other.container, id) > 0)
+      ? containerEntries(doc).filter((other) => other.key !== key && instanceCount(other.container, id) > 0)
       : []
 
-  store.updateContainers([key, ...placing.map((other) => other.key)], "Convert to frame", ([design, ...others]) => [
-    turnInto(design!, "frame", store.getModes()).design,
-    ...others.map((other, index) => detachInstancesOf(other, id, store.getLibrary(placing[index]!.key)))
+  updateContainers(doc, [key, ...placing.map((other) => other.key)], "Convert to frame", ([design, ...others]) => [
+    turnInto(design!, "frame", doc.modes()).design,
+    ...others.map((other, index) => detachInstancesOf(other, id, libraryOf(session, placing[index]!.key)))
   ])
   selection.set({ design: key })
 }
 
 export function deleteDesign(session: ProjectDesigns, entry: ContainerEntry): void {
-  session.store.removeContainer(entry.key)
+  removeContainer(session.doc, entry.key)
   session.selection.set({})
 }

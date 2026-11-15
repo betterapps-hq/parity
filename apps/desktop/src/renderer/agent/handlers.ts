@@ -1,6 +1,7 @@
 import type { IconNames, IconSet } from "@parity-app/agent"
 import { activeTab, matchTab } from "@parity-app/agent/routing"
 import { type ChangeConflict, CodedError, errorDetails, type LibraryInfo, unknownReference } from "@parity-app/core"
+import { applyAgentChanges, applyOperations, containerEntries } from "@parity-app/multiplayer"
 import { toast } from "sonner"
 import type {
   AgentChanges,
@@ -16,6 +17,7 @@ import { announceEdit } from "../chrome/project-edits.tsx"
 import { answerExtension } from "../extension-ui.ts"
 import { revealView } from "../extension-views.ts"
 import { extensionsOf, isEditorRequest } from "../extensions.ts"
+import { editStatusOf, problemMessage, reloadFile, revisionOf } from "../project-doc.ts"
 import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../project-settings.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
@@ -94,7 +96,7 @@ const handlers: Handlers = {
   "agent.status": ({ tab: reference, ...options }) => {
     const tab = findTab(reference)
 
-    return { tab: summary(tab), ...ready(tab).store.status(options) }
+    return { tab: summary(tab), ...editStatusOf(ready(tab), options) }
   },
   "agent.iconNames": (params) => iconNames(params),
   "agent.supports": (queries) => queries.map(({ property, value }) => CSS.supports(property, value)),
@@ -193,7 +195,12 @@ const handlers: Handlers = {
       throw new Error("The project isn't open in this window")
     }
 
-    session.store.applyOperations(label, operations)
+    const applied = applyOperations(session.doc, label, operations)
+
+    // The extension gets the problem as the call's error.
+    if (!applied.ok) {
+      throw new Error(problemMessage(applied.problem))
+    }
 
     return undefined
   },
@@ -203,16 +210,16 @@ const handlers: Handlers = {
     return undefined
   },
   "extensions.setting": ({ projectId, extension, key, value }) => {
-    const store = sessionOf(projectId)?.store
+    const doc = sessionOf(projectId)?.doc
 
-    if (!store) {
+    if (!doc) {
       throw new Error(`No project ${projectId} is open in this window`)
     }
 
     if (value === undefined) {
-      clearProjectExtensionSetting(extension, key, store)
+      clearProjectExtensionSetting(extension, key, doc)
     } else {
-      setProjectExtensionSetting(extension, key, value, store)
+      setProjectExtensionSetting(extension, key, value, doc)
     }
 
     return undefined
@@ -226,10 +233,10 @@ const handlers: Handlers = {
     return undefined
   },
   "project.fileChanged": ({ projectId, path, document }) => {
-    const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
+    const session = sessionOf(projectId)
 
     // Unsaved changes here win until the person says otherwise.
-    if (store && !store.reloadDocument(path, document)) {
+    if (session && !reloadFile(session, path, document)) {
       track("document.conflicted", { file: path })
       toast.warning(`${path} changed on disk`, {
         description: "Your unsaved changes are kept. Saving writes them over it.",
@@ -237,7 +244,7 @@ const handlers: Handlers = {
         action: {
           label: "Load from disk",
           onClick: () => {
-            store.reloadDocument(path, document, true)
+            reloadFile(session, path, document, true)
             track("document.loadedFromDisk", { file: path })
           }
         }
@@ -316,7 +323,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
   const bounds = editor?.getViewportPageBounds()
   const boards: TabSnapshot["bounds"] = {}
 
-  for (const entry of session.store.getEntries()) {
+  for (const entry of containerEntries(session.doc)) {
     const box = editor?.getShapePageBounds(canvasIdFor(entry.key))
 
     if (box) {
@@ -326,7 +333,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
 
   const answer: TabSnapshot = {
     tab: summary(tab),
-    revision: session.store.getRevision(),
+    revision: revisionOf(session),
     projectId: session.id,
     guestUrl: session.info.guestUrl,
     // The guest keeps components whose files were deleted since it loaded; they aren't the project's any more.
@@ -335,12 +342,12 @@ function snapshot(reference: string | undefined): TabSnapshot {
     iconSets: session.info.libraries.filter((library) => library.kind === "icons").map(iconSet),
     tokens: session.tokens.get(),
     theme: session.info.theme,
-    modes: session.store.getModes(),
-    documents: session.store.getDocuments(),
+    modes: session.doc.modes(),
+    documents: [...session.doc.files()].map(([path, document]) => ({ path, document })),
     // The same library and token values the canvas draws with, so agents' frames match it.
-    libraryDesigns: [...session.store.getLibraryDesigns()],
+    libraryDesigns: [...session.libraryDesigns],
     tokenOverrides: [...session.tokens.previews()],
-    mainDocument: session.store.mainPath,
+    mainDocument: session.doc.main,
     props: session.components.get(),
     selection: { design: current.design ?? current.note, node: current.node, mode: current.mode },
     viewport: {
@@ -418,7 +425,8 @@ async function apply(changes: AgentChanges): Promise<ChangeConflict[]> {
   const session = ready(findTab(changes.tab))
   const tokens = session.tokens.edits(changes.tokens ?? [])
 
-  return session.store.applyAgentChanges(changes.label, changes.designs, changes.modes, tokens, changes.references)
+  return applyAgentChanges(session.doc, changes.label, changes.designs, changes.modes, tokens, changes.references)
+    .conflicts
 }
 
 /** The open project's session, in whichever tab has it. */

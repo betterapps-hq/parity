@@ -23,7 +23,7 @@ import {
   useState
 } from "react"
 import { useProject } from "../canvas/context.ts"
-import { useHistory, useModeSettings } from "../design-store.ts"
+import { undo, useHistory, useModeSettings } from "../project-doc.ts"
 import { comesTo } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
@@ -191,7 +191,7 @@ export function TokensPanel() {
   const counts = { semantic: tokens.filter((t) => t.source === "semantic").length, theme: 0 }
   counts.theme = tokens.length - counts.semantic
   const unmatched = described.unmatched.filter((token) => !needle || token.path.toLowerCase().includes(needle))
-  const modes = useModeSettings(session.store)
+  const modes = useModeSettings(session)
   const themeNames = useMemo(() => themeNamesOf(modes), [modes])
 
   const items = panelItems({
@@ -837,7 +837,7 @@ function Detail({ entry }: { entry: Kinded }) {
   const session = useProject()
   const { tokens: store } = session
   const panel = useContext(Panel)!
-  const { undoLabel } = useHistory(session.store)
+  const undoLabel = useHistory(session).undo[0]
   const { token, kind } = entry
   const described = panel.described.get(token.name)
 
@@ -864,7 +864,7 @@ function Detail({ entry }: { entry: Kinded }) {
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
       references={(name, theme) => builtOn(panel.tokens.get(name), theme)}
       onApply={(changes) => applyToken(store, token.name, changes)}
-      undo={undoLabel === `Edit ${token.name}` ? () => session.store.undo() : undefined}
+      undo={undoLabel === `Edit ${token.name}` ? () => undo(session) : undefined}
     />
   )
 }
