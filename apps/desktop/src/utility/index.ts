@@ -2,9 +2,9 @@ import { adapters, extensionTools } from "@parity-app/adapters"
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
+import { portFree } from "@parity-app/extension-vite/builder"
 import { agentExtensions } from "@parity-app/extensions"
 import { errorCode } from "@parity-app/telemetry"
-import { portFree } from "@parity-app/vite-adapter"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
@@ -30,7 +30,14 @@ import { applyProjectEdit, undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { builtInRenderers, closeExtensions, openExtensions, projectProviders, startExtensions } from "./extensions.ts"
+import {
+  builtInBuilders,
+  builtInRenderers,
+  closeExtensions,
+  openExtensions,
+  projectProviders,
+  startExtensions
+} from "./extensions.ts"
 import { frameTraces } from "./frame-traces.ts"
 import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
@@ -68,6 +75,7 @@ function whenWindow(): Promise<Channel<ServiceMethods, WindowMethods>> {
 const projects = openProjects({
   ...adapters,
   renderers: builtInRenderers,
+  builders: builtInBuilders,
   tools: extensionTools,
   // The extensions' hosts start below, before any project opens.
   get providers() {

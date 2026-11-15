@@ -1,6 +1,6 @@
 import { createServer } from "node:net"
 import { describe, expect, it } from "vitest"
-import { freePort, portFree } from "./index.ts"
+import { freePort, portFree } from "./builder.ts"
 
 describe("portFree", () => {
   it("tells a port something listens on from one that's free again", async () => {

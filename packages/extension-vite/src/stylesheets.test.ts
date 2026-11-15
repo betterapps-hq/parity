@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { BuilderSession, CodeChange } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { viteBuilder } from "./index.ts"
+import { viteBuilder } from "./builder.ts"
 
 // docs/editor.md, Stylesheet edits redraw frames (PAR-821): a real Vite server, with the project's stylesheet edited.
 

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import type { BuilderSession, BuilderStartOptions } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
-import { developmentStandIn, productionDependencies, viteBuilder } from "./index.ts"
+import { developmentStandIn, productionDependencies, viteBuilder } from "./builder.ts"
 
 const viteFolder = dirname(createRequire(import.meta.url).resolve("vite/package.json"))
 

@@ -1,5 +1,5 @@
 import type { BuilderAdapter } from "@parity-app/core"
-import { viteBuilder } from "@parity-app/vite-adapter"
+import { viteBuilder } from "@parity-app/extension-vite/builder"
 
 /**
  * The builders Parity opens projects with. A builder's own process imports only these, so it doesn't load the other

@@ -55,7 +55,7 @@ export interface ProcessTimes {
 }
 
 /** Start options as data, for a builder's process. */
-export function builderProcessOptions(builder: BuilderAdapter, options: BuilderStartOptions): BuilderProcessOptions {
+export function builderProcessOptions(builder: { id: string }, options: BuilderStartOptions): BuilderProcessOptions {
   const { id, name, guestModule, runtimePackages, runtimeImports, developmentStandIns } = options.renderer
   const renderer: BuilderRenderer = { id, name, guestModule, runtimePackages, runtimeImports }
 

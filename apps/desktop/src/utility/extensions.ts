@@ -3,7 +3,14 @@ import { readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { detectPeers, extensionRenderer, type PackageManifest, type RendererDescription } from "@parity-app/core"
+import {
+  type BuilderDescription,
+  detectPeers,
+  extensionBuilder,
+  extensionRenderer,
+  type PackageManifest,
+  type RendererDescription
+} from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
@@ -11,6 +18,7 @@ import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.j
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
   type ExtensionFiles,
@@ -64,11 +72,19 @@ function builtIn(
   }
 }
 
-/** An extension found by its peer dependencies in the project's package.json, which Parity reads as it opens. */
+/**
+ * An extension found by its peer dependencies in the project's package.json, which Parity reads as it opens, or by a
+ * package that ships its tool in their place, as Vite+ ships Vite.
+ */
 function byPeers(found: InstalledExtension<ExtensionProject>): InstalledExtension<ExtensionProject> {
   const { versions } = found.package
 
-  return { ...found, detect: ({ pkg }) => (versions && detectPeers(pkg, versions).found ? {} : undefined) }
+  const packages = versions && [...versions.packages, ...Object.keys(versions.distributions ?? {})]
+
+  return {
+    ...found,
+    detect: ({ pkg }) => (versions && packages && detectPeers(pkg, { ...versions, packages }).found ? {} : undefined)
+  }
 }
 
 /** The renderers Parity's own extensions describe, which read components through their hosts (PAR-1095). */
@@ -76,8 +92,15 @@ export const builtInRenderers: RendererDescription[] = [extensionRenderer(reactP
   (renderer) => renderer !== undefined
 )
 
+/** The builders Parity's own extensions describe, which say whether they serve a project through their hosts. */
+export const builtInBuilders: BuilderDescription[] = [extensionBuilder(vitePackage)].filter(
+  (builder) => builder !== undefined
+)
+
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
+  // In the order the status bar shows their items: the builder, then the renderer, then the rest.
+  byPeers(builtIn(vitePackage, "vite", () => undefined)),
   byPeers(builtIn(reactPackage, "react", () => undefined)),
   byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
