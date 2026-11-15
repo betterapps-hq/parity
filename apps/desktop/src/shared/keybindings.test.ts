@@ -250,6 +250,22 @@ describe("swapKeys (PAR-1042)", () => {
       hide: ["Ctrl Shift H"]
     })
   })
+
+  it("gives this command the keys though an earlier entry than the holder's also claims them", () => {
+    // Redo's entry outranks Undo's for Ctrl Q, and Save's comes before both.
+    const entries: KeyEntry[] = [
+      { command: "save", keys: ["Ctrl S"] },
+      { command: "undo", keys: ["Ctrl Q"] },
+      { command: "redo", keys: ["Ctrl Q"] }
+    ]
+
+    expect(keysAfter(entries, swapKeys(defaults, entries, "save", ["Ctrl Q"]).replacements)).toEqual({
+      ...keymapKeys,
+      save: ["Ctrl Q"],
+      undo: [],
+      redo: ["Ctrl S"]
+    })
+  })
 })
 
 describe("resetAllKeys (PAR-1042)", () => {

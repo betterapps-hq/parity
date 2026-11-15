@@ -295,22 +295,23 @@ export function changeKeys<C extends string>(
 
   replacements.push({ command, keys: sameKeys(next, defaults[command].keys) ? null : next })
 
-  const wanted = (each: C) => replacements.find((one) => one.command === each)?.keys ?? defaults[each].keys
+  const wanted = (each: string) =>
+    replacements.find((one) => one.command === each)?.keys ?? (isCommand(defaults, each) ? defaults[each].keys : [])
+
   const intended = (each: C) => (replacements.some((one) => one.command === each) ? wanted(each) : now[each])
-  const after = resolveBindings(defaults, entriesAfter(entries, replacements)).keys
+  const written = replacements.map((one) => ({ command: one.command, keys: [...wanted(one.command)] }))
 
-  // Removing an entry can hand its keys to an earlier one it outranked, so it's written out in full instead.
-  if (Object.keys(now).some((each) => isCommand(defaults, each) && !sameKeys(after[each], intended(each)))) {
-    return {
-      replacements: replacements.map((one) => ({
-        ...one,
-        keys: one.keys ?? (isCommand(defaults, one.command) ? [...wanted(one.command)] : null)
-      })),
-      lost
-    }
-  }
+  // Removing an entry can hand its keys to an earlier one it outranked, so it's written out in full instead, and moved
+  // to the end when an earlier entry would still win them where it is.
+  const tries = [replacements, written, [...written.map(({ command }) => ({ command, keys: null })), ...written]]
 
-  return { replacements, lost }
+  const kept = tries.find((each) => {
+    const after = resolveBindings(defaults, entriesAfter(entries, each)).keys
+
+    return Object.keys(now).every((one) => !isCommand(defaults, one) || sameKeys(after[one], intended(one)))
+  })
+
+  return { replacements: kept ?? tries[2], lost }
 }
 
 /**
