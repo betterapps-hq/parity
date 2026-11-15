@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { cp, mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
@@ -6,23 +7,29 @@ import { describe, expect, it } from "vite-plus/test"
 import { snapshotProject } from "./detect.ts"
 
 const fixturesDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../fixtures")
+const examplesDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../examples")
 
-const projects = (await readdir(fixturesDir, { withFileTypes: true }))
+const fixtures = (await readdir(fixturesDir, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name)
-  .sort()
+  .map((entry) => join(fixturesDir, entry.name))
+
+/** The example apps with a snapshot of their own, which the workspace's install installs with the repo's packages. */
+const examples = (await readdir(examplesDir, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => join(examplesDir, entry.name))
+  .filter((dir) => existsSync(join(dir, "expected.json")))
+
+const projects = [...fixtures, ...examples].sort((a, b) => basename(a).localeCompare(basename(b)))
 
 /**
- * Level 1 of the validation projects (docs/support.md): Parity's detection on each project in `fixtures/`, compared
- * with the `expected.json` committed beside it. Gaps are recorded as they are, so a change to detection shows here as
+ * Level 1 of the validation projects (docs/support.md): Parity's detection on each project in `fixtures/`, and on each
+ * example app in `examples/` that has one, compared with the `expected.json` committed beside it. Gaps are recorded as they are, so a change to detection shows here as
  * a diff. When detection gets better, `pnpm vitest run packages/fixtures -u` rewrites the files; review the diff.
  * It runs only in CI, which installs the projects with npm, Yarn and Bun: they're a cross-compatibility check, not
  * something to install locally.
  */
 describe.skipIf(!process.env.CI)("detection snapshot", { timeout: 120_000 }, () => {
-  it.each(projects)("%s", async (name) => {
-    const source = join(fixturesDir, name)
-
+  it.each(projects.map((source) => [basename(source), source]))("%s", async (name, source) => {
     if (!(await exists(join(source, "node_modules")))) {
       throw new Error(`fixtures/${name} isn't installed. Run: pnpm --filter @parity-app/fixtures install-projects`)
     }
