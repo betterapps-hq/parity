@@ -1,4 +1,5 @@
 import { posix } from "node:path"
+import { readModuleExports } from "@parity-app/code"
 import type { GuestAppFile } from "./guest-app.ts"
 
 /*
@@ -123,12 +124,28 @@ export function projectPageFiles(folders: RouteFolders, files: readonly ProjectR
 /** A mirror's text: the project's file's default and named exports, and its segment config's literal values. */
 function reexport(path: string, file: ProjectRouteFile, router: "app" | "pages"): string {
   const from = JSON.stringify(projectSpecifier(path, file.path))
-  const names = exportNames(file.text)
+  const read = readModuleExports(file.text)
+
+  // An MDX page's Markdown is its default export, which MDX's loader writes whether the file exports one or not.
+  const names = file.path.endsWith(".mdx") ? [...new Set(["default", ...read.names])] : read.names
   const lines = [`// Written by Parity's Next.js builder: ${file.path}, as a route of the guest app.`]
-  const copied = router === "app" ? segmentLiterals(file.text) : []
+
+  // Next checks the directive on the route's file itself, as an error boundary's, so the mirror says it too.
+  if (read.usesClient) {
+    lines.push('"use client"')
+  }
+
+  // What the file passes on from another module by `export *`, whose names only that module knows.
+  if (read.reexportsAll) {
+    lines.push(`export * from ${from}`)
+  }
+
+  const copied = router === "app" ? read.literals.filter(([name]) => segmentConfig.has(name)) : []
   const reexported = names.filter((name) => name !== "default" && !copied.some(([copy]) => copy === name))
-  // The Pages Router reads a page's `config` from its own file alone, and an API route's isn't a page's concern.
-  const kept = router === "pages" ? reexported.filter((name) => name !== "config") : reexported
+  // The Pages Router reads a page's `config` from its own file alone, but an API route's when it answers, as its body
+  // parser's settings, so an API route's is passed on.
+  const api = router === "pages" && path.startsWith("pages/api/")
+  const kept = router === "pages" && !api ? reexported.filter((name) => name !== "config") : reexported
 
   if (names.includes("default")) {
     lines.push(`export { default } from ${from}`)
@@ -153,57 +170,12 @@ export function projectSpecifier(path: string, projectPath: string): string {
   return relative.startsWith(".") ? relative : `./${relative}`
 }
 
-/** The names a module exports, `default` among them, read from its text: declarations and export lists. */
+/** The names a module exports, `default` among them, read from its source by TypeScript's parser. */
 export function exportNames(text: string): string[] {
-  const names = new Set<string>()
-  const code = text.replaceAll(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "")
-
-  if (/\bexport\s+default\b/.test(code)) {
-    names.add("default")
-  }
-
-  for (const match of code.matchAll(
-    /\bexport\s+(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g
-  )) {
-    names.add(match[1]!)
-  }
-
-  for (const match of code.matchAll(/\bexport\s+(type\s+)?\{([^}]*)\}/g)) {
-    if (match[1]) {
-      continue
-    }
-
-    for (const part of match[2]!.split(",")) {
-      const spec = part.trim()
-
-      if (spec === "" || spec.startsWith("type ")) {
-        continue
-      }
-
-      const name = spec
-        .split(/\s+as\s+/)
-        .pop()!
-        .trim()
-
-      if (/^[A-Za-z_$][\w$]*$/.test(name)) {
-        names.add(name)
-      }
-    }
-  }
-
-  return [...names]
+  return readModuleExports(text).names
 }
 
 /** The segment config a route's file gives as literals, by name, with each value's text. */
 export function segmentLiterals(text: string): [string, string][] {
-  const literal = /^(?:"[^"\n]*"|'[^'\n]*'|-?\d+(?:\.\d+)?|true|false|\[[^\]\n]*\])$/
-
-  return [...text.matchAll(/^export\s+const\s+([A-Za-z_]\w*)\s*(?::[^=\n]+)?=\s*([^\n;]+?)\s*;?\s*$/gm)].flatMap(
-    (match): [string, string][] => {
-      const name = match[1]!
-      const value = match[2]!.replace(/\s+as\s+const$/, "")
-
-      return segmentConfig.has(name) && literal.test(value) ? [[name, value]] : []
-    }
-  )
+  return readModuleExports(text).literals.filter(([name]) => segmentConfig.has(name))
 }

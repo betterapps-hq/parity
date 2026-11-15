@@ -78,17 +78,19 @@ describe("the project's pages in the guest app", () => {
   })
 
   it("leaves a page's config out of the Pages Router's re-exports, as Next reads it from the page itself", () => {
-    const [page] = projectPageFiles({ pages: "pages" }, [
+    const [api, page] = projectPageFiles({ pages: "pages" }, [
       {
         path: "pages/api/upload.ts",
         text: "export const config = { api: { bodyParser: false } }\nexport default function handler() {}"
       },
       {
         path: "pages/about.tsx",
-        text: "export default function About() {}\nexport async function getServerSideProps() {}"
+        text: "export const config = { amp: true }\nexport default function About() {}"
       }
     ])
 
+    // An API route's config is read as it answers, for its body parser.
+    expect(api!.text).toContain('export { config } from "../../../../pages/api/upload"')
     expect(page!.text).not.toContain("config")
     expect(
       projectPageFiles({ pages: "pages" }, [
@@ -119,7 +121,55 @@ describe("the project's pages in the guest app", () => {
       "export { f as default }"
     ].join("\n")
 
-    expect(exportNames(source)).toEqual(["gen", "Shape", "a", "c", "default"])
+    expect(exportNames(source)).toEqual(["a", "c", "gen", "Shape", "default"])
+  })
+
+  it("reads every binding a variable statement exports: each declarator, and what a pattern destructures", () => {
+    const source = [
+      "export const { GET, POST: post, ...rest } = handlers",
+      "export const [first, , second = 2] = pair",
+      'export const PUT = handler, DELETE = make({ a: 1, b: "x, y" });',
+      "export let one = 1,",
+      "  two = 2",
+      "export const three = {",
+      "  four: 4",
+      "}"
+    ].join("\n")
+
+    expect(exportNames(source)).toEqual([
+      "GET",
+      "post",
+      "rest",
+      "first",
+      "second",
+      "PUT",
+      "DELETE",
+      "one",
+      "two",
+      "three"
+    ])
+  })
+
+  it("reads type arguments and annotations as types, not further bindings", () => {
+    const source = [
+      "export const GET = createHandler<Request, Response>(handler)",
+      "export const POST: Handler<Request, Context> = handler",
+      "export declare const ambient: string",
+      "export interface Props { a: string }"
+    ].join("\n")
+
+    expect(exportNames(source)).toEqual(["GET", "POST"])
+  })
+
+  it("leaves segment config in a comment out", () => {
+    const source = ["/*", 'export const dynamic = "force-static"', "*/", 'export const dynamic = "force-dynamic"'].join(
+      "\n"
+    )
+
+    expect(segmentLiterals(source)).toEqual([["dynamic", '"force-dynamic"']])
+    expect(segmentLiterals('// export const revalidate = 60\nexport const runtime = "edge"')).toEqual([
+      ["runtime", '"edge"']
+    ])
   })
 
   it("copies segment config whose value is a literal", () => {
@@ -138,5 +188,51 @@ describe("the project's pages in the guest app", () => {
       ["runtime", "'edge'"],
       ["preferredRegion", "['iad1']"]
     ])
+  })
+
+  it("copies segment config with a comment after it, or an array over several lines, and not an expression", () => {
+    expect(
+      segmentLiterals(
+        [
+          "export const dynamic = 'force-dynamic' // reads cookies",
+          "export const fetchCache = 'force-no-store' /* no cache */",
+          "export const preferredRegion = [",
+          "  'iad1',",
+          "  'sfo1'",
+          "]",
+          "export const revalidate = 60 * 2"
+        ].join("\n")
+      )
+    ).toEqual([
+      ["dynamic", "'force-dynamic'"],
+      ["fetchCache", "'force-no-store'"],
+      ["preferredRegion", "[\n  'iad1',\n  'sfo1'\n]"]
+    ])
+  })
+
+  it("says `use client` when the route's file does, as Next checks an error boundary's own file", () => {
+    const [boundary] = projectPageFiles({ app: "app" }, [
+      { path: "app/error.tsx", text: '// The app\'s errors.\n"use client"\nexport default function Error() {}\n' }
+    ])
+
+    expect(boundary?.text.split("\n").slice(1, 3)).toEqual([
+      '"use client"',
+      'export { default } from "../../../../app/error"'
+    ])
+  })
+
+  it("passes on what the route's file re-exports with `export *`, and a namespace by its name", () => {
+    const [handler] = projectPageFiles({ app: "app" }, [
+      { path: "app/api/route.ts", text: 'export * from "./handlers"\nexport * as helpers from "./helpers"\n' }
+    ])
+
+    expect(handler?.text).toContain('export * from "../../../../../app/api/route"')
+    expect(handler?.text).toContain('export { helpers } from "../../../../../app/api/route"')
+  })
+
+  it("re-exports an MDX page's Markdown, which is its default export without saying so", () => {
+    const [page] = projectPageFiles({ app: "app" }, [{ path: "app/docs/page.mdx", text: "# Docs\n\nSome words.\n" }])
+
+    expect(page?.text).toContain('export { default } from "../../../../../app/docs/page.mdx"')
   })
 })

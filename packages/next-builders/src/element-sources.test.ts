@@ -30,7 +30,7 @@ describe("the project's JSX tagged for Next", () => {
     expect(taggedNextSource(root, join(root, "src/lib/util.ts"), card)).toBeUndefined()
   })
 
-  it("is in the guest app, whose config puts the loader first on JSX, after the project's own rules and hook", async () => {
+  it("is in the guest app, whose config runs the loader first on JSX, after the project's own rules and hook", async () => {
     const files = guestAppFiles({
       root: "D:/work/app",
       next: "D:/work/app/node_modules/next",
@@ -60,9 +60,20 @@ describe("the project's JSX tagged for Next", () => {
       "*.tsx": { loaders: [loader] },
       "*.jsx": { loaders: [loader] }
     })
+    // Loaders run last to first, so the tagger, last, sees the project's JSX before the project's own loader compiles it.
     expect(rulesWithElementSources({ "*.tsx": { loaders: ["own-loader"] } })["*.tsx"]).toEqual({
-      loaders: [loader, "own-loader"]
+      loaders: ["own-loader", loader]
     })
+
+    const conditioned = [
+      { condition: "browser", loaders: ["browser-loader"] },
+      { condition: { not: "browser" }, loaders: [] }
+    ]
+
+    expect(rulesWithElementSources({ "*.jsx": conditioned })["*.jsx"]).toEqual([
+      { condition: "browser", loaders: ["browser-loader", loader] },
+      { condition: { not: "browser" }, loaders: [loader] }
+    ])
 
     const config = { module: { rules: [{ test: "own" }] } }
     const hooked = webpackWithElementSources((given: typeof config) => given)(config, {})
