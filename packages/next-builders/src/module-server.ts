@@ -93,7 +93,7 @@ export function projectModules(root: string, folder: string, exported: (path: st
       }
 
       const text = await readFile(join(root, path), "utf8")
-      const names = [...new Set([...exportNames(text), ...exported(path)])]
+      const names = [...new Set([...exportNames(text, path), ...exported(path)])]
       const module: ProjectModule = { path, reference: read.guest, stylesheets: read.stylesheets, names }
 
       return stamp === undefined ? module : { ...module, stamp }

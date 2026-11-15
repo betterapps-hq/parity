@@ -80,10 +80,11 @@ const extensions = [".tsx", ".ts", ".jsx", ".js", ".mjs", ".cjs"]
 
 /**
  * What the project's modules import, file by file, read from their sources as written: enough to tell which of the
- * project's components reach a file that changed, through imports however deep. A file reads again once it changes.
+ * project's components reach a file that changed, through imports however deep. A file reads again once it changes,
+ * and its imports resolve again each time, as files come and go.
  */
 export function projectImports(root: string, tsconfig: ProjectTsconfig) {
-  const imports = new Map<string, Promise<string[]>>()
+  const specifiers = new Map<string, Promise<string[]>>()
 
   const exists = (path: string) =>
     stat(join(root, path)).then(
@@ -116,31 +117,50 @@ export function projectImports(root: string, tsconfig: ProjectTsconfig) {
     return undefined
   }
 
-  const read = (path: string): Promise<string[]> => {
-    let found = imports.get(path)
+  /** What a file's source imports, as written, read once until it changes. */
+  const specifiersOf = (path: string): Promise<string[]> => {
+    let found = specifiers.get(path)
 
     if (!found) {
       found = readFile(join(root, path), "utf8").then(
-        async (source) => {
-          const specifiers = importSpecifiers(source, isStylesheetFile(path))
-          const files = await Promise.all(specifiers.map((specifier) => resolved(path, specifier)))
-
-          return files.filter((file) => file !== undefined)
-        },
+        (source) => importSpecifiers(source, isStylesheetFile(path)),
         () => []
       )
-      imports.set(path, found)
+      specifiers.set(path, found)
     }
 
     return found
   }
 
+  /**
+   * The files a file imports, resolved as each walk starts: a file that comes or goes can change what an import names,
+   * as a new `label.ts` takes `./label` from `label/index.ts`, without the importer changing.
+   */
+  const read = async (path: string, resolutions: Map<string, Promise<string | undefined>>): Promise<string[]> => {
+    const files = await Promise.all(
+      (await specifiersOf(path)).map((specifier) => {
+        const key = `${path}\0${specifier}`
+        let found = resolutions.get(key)
+
+        if (!found) {
+          found = resolved(path, specifier)
+          resolutions.set(key, found)
+        }
+
+        return found
+      })
+    )
+
+    return files.filter((file) => file !== undefined)
+  }
+
   return {
     /** Forgets what a changed file imports, so it reads again. */
-    changed: (path: string) => imports.delete(path),
+    changed: (path: string) => specifiers.delete(path),
     /** The modules among `modules` that are `file` or import it, however deep. */
     async reaching(modules: Iterable<string>, file: string): Promise<string[]> {
       const reached: string[] = []
+      const resolutions = new Map<string, Promise<string | undefined>>()
 
       for (const module of modules) {
         const seen = new Set<string>()
@@ -156,7 +176,7 @@ export function projectImports(root: string, tsconfig: ProjectTsconfig) {
 
           if (!seen.has(path)) {
             seen.add(path)
-            queue.push(...(await read(path)))
+            queue.push(...(await read(path, resolutions)))
           }
         }
       }

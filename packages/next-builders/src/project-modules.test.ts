@@ -89,4 +89,16 @@ describe("what the project's modules import", () => {
 
     expect(await imports.reaching(["src/Card.tsx"], "src/label.ts")).toEqual(["src/Card.tsx"])
   })
+
+  it("resolves imports again as files come, as a new `label.ts` takes `./label` from `label/index.ts`", async () => {
+    const root = await project({ "src/Card.tsx": 'import "./label"\n', "src/label/index.ts": "export {}\n" })
+    const imports = projectImports(root, readTsconfig(root))
+
+    expect(await imports.reaching(["src/Card.tsx"], "src/label/index.ts")).toEqual(["src/Card.tsx"])
+
+    await writeFile(join(root, "src/label.ts"), "export {}\n")
+
+    expect(await imports.reaching(["src/Card.tsx"], "src/label.ts")).toEqual(["src/Card.tsx"])
+    expect(await imports.reaching(["src/Card.tsx"], "src/label/index.ts")).toEqual([])
+  })
 })
