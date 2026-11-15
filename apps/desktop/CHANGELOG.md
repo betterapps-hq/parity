@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 14:54:03 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 22:03:29 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.95.0
+
+Sun, 15 Nov 2026 22:03:29 GMT
+
+### Minor changes
+
+- Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the
+  extension API (ajcraswell@gmail.com)
 
 ## 0.94.0
 

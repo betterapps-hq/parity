@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 22:03:29 GMT",
+      "version": "0.95.0",
+      "tag": "@parity-app/desktop_v0.95.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d555e20f1d31e094ccd85cef3c983aee3112e9d2",
+            "comment": "Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the extension API"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 14:54:03 GMT",
       "version": "0.94.0",
       "tag": "@parity-app/desktop_v0.94.0",
