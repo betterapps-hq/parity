@@ -254,8 +254,8 @@ describe("signing in", () => {
       user: { email: "ada@kestrel.dev" },
       organizations
     })
-    // The browser's page says to continue in Parity, not that signing in failed.
-    expect(await test.account.takeLink(test.callback({ code: "1" }))).toBe("continue")
+    // The browser's page says they're signed in and to pick the organization in Parity, not that signing in failed.
+    expect(await test.account.takeLink(test.callback({ code: "1" }))).toBe("choose-organization")
     expect(test.account.state().attempt).toMatchObject({
       problem: "choose-organization",
       email: "ada@kestrel.dev",

@@ -10,7 +10,7 @@ import { ZoomControls } from "./ZoomControls.tsx"
  * each story shows the whole window with designs framed.
  */
 const meta = {
-  title: "Parity/Chrome/Zoom controls",
+  title: "Parity/Chrome/Window/Zoom controls",
   component: ZoomControls,
   render: () => <AppWindow />,
   decorators: [Window],

@@ -7,7 +7,7 @@ import { exampleOpen, Window } from "./chrome-fixtures.tsx"
 
 /**
  * What the App menu's stories share, one file to a menu (`AppMenu.<menu>.stories.tsx`), so Storybook groups them under
- * Parity/Chrome/App menu by menu. Each story opens its menu on its own, in a strip like the title bar, over a project
+ * Parity/Chrome/Menus/App menu by menu. Each story opens its menu on its own, in a strip like the title bar, over a project
  * in some state. Each menu reads the active tab when it opens, so what it offers depends on what's selected. With no
  * canvas beside them, zooming is unavailable.
  */
@@ -17,7 +17,7 @@ export type MenuName = "File" | "Edit" | "View" | "Object" | "Arrange" | "Help"
 export type MenuStory = StoryObj<Meta<typeof AppMenu>>
 
 /**
- * What every menu's stories share. Each file writes its own title, `Parity/Chrome/App menu/<menu>`, which Storybook
+ * What every menu's stories share. Each file writes its own title, `Parity/Chrome/Menus/App menu/<menu>`, which Storybook
  * reads without running the file.
  */
 export const menuStories = {

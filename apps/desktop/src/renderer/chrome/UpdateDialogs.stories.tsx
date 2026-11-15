@@ -41,7 +41,7 @@ function Preview({ state, dialog, build }: { state: UpdateState; dialog: "about"
 }
 
 const meta = {
-  title: "Parity/Chrome/Update controls",
+  title: "Parity/Chrome/Notices/Update controls",
   component: Preview,
   args: { state: { phase: "current", beta: false }, dialog: "about" }
 } satisfies Meta<typeof Preview>

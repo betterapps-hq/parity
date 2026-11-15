@@ -5,7 +5,7 @@ import { ShortcutsDialog } from "./ShortcutsDialog.tsx"
 
 /** Keyboard shortcuts, from Help > Keyboard shortcuts or Ctrl+Shift+?, over the window. */
 const meta = {
-  title: "Parity/Chrome/Keyboard shortcuts",
+  title: "Parity/Chrome/Dialogs/Keyboard shortcuts",
   component: ShortcutsDialog,
   ...dialogStories
 } satisfies Meta<typeof ShortcutsDialog>

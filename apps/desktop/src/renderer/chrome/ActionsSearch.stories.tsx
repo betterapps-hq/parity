@@ -11,7 +11,7 @@ import { formatKeys } from "./keys.ts"
  * Search, from Help > Search actions or Ctrl+K, over the window: every command, and anything in the project (PAR-180).
  */
 const meta = {
-  title: "Parity/Chrome/Search",
+  title: "Parity/Chrome/Menus/Search",
   component: ActionsSearch,
   ...dialogStories
 } satisfies Meta<typeof ActionsSearch>

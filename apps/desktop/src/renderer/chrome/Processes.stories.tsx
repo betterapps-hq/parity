@@ -13,7 +13,7 @@ import { StatusBar } from "./StatusBar.tsx"
  * and finish with a result, and the last result of each stays listed.
  */
 const meta = {
-  title: "Parity/Chrome/Processes",
+  title: "Parity/Chrome/Panels/Processes",
   component: StatusBar,
   decorators: [AtBottom]
 } satisfies Meta<typeof StatusBar>
