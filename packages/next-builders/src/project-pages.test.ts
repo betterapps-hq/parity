@@ -160,6 +160,26 @@ describe("the project's pages in the guest app", () => {
     ])
   })
 
+  it("says `use client` when the route's file does, as Next checks an error boundary's own file", () => {
+    const [boundary] = projectPageFiles({ app: "app" }, [
+      { path: "app/error.tsx", text: '// The app\'s errors.\n"use client"\nexport default function Error() {}\n' }
+    ])
+
+    expect(boundary?.text.split("\n").slice(1, 3)).toEqual([
+      '"use client"',
+      'export { default } from "../../../../app/error"'
+    ])
+  })
+
+  it("passes on what the route's file re-exports with `export *`, and a namespace by its name", () => {
+    const [handler] = projectPageFiles({ app: "app" }, [
+      { path: "app/api/route.ts", text: 'export * from "./handlers"\nexport * as helpers from "./helpers"\n' }
+    ])
+
+    expect(handler?.text).toContain('export * from "../../../../../app/api/route"')
+    expect(handler?.text).toContain('export { helpers } from "../../../../../app/api/route"')
+  })
+
   it("re-exports an MDX page's Markdown, which is its default export without saying so", () => {
     const [page] = projectPageFiles({ app: "app" }, [{ path: "app/docs/page.mdx", text: "# Docs\n\nSome words.\n" }])
 

@@ -130,6 +130,17 @@ function reexport(path: string, file: ProjectRouteFile, router: "app" | "pages")
     : exportNames(file.text)
 
   const lines = [`// Written by Parity's Next.js builder: ${file.path}, as a route of the guest app.`]
+
+  // Next checks the directive on the route's file itself, as an error boundary's, so the mirror says it too.
+  if (/^\s*(?:(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)*["']use client["']/.test(file.text)) {
+    lines.push('"use client"')
+  }
+
+  // What the file passes on from another module by `export *`, whose names only that module knows.
+  if (/\bexport\s*\*\s*from\b/.test(withoutComments(file.text))) {
+    lines.push(`export * from ${from}`)
+  }
+
   const copied = router === "app" ? segmentLiterals(file.text) : []
   const reexported = names.filter((name) => name !== "default" && !copied.some(([copy]) => copy === name))
   // The Pages Router reads a page's `config` from its own file alone, and an API route's isn't a page's concern.
@@ -161,7 +172,7 @@ export function projectSpecifier(path: string, projectPath: string): string {
 /** The names a module exports, `default` among them, read from its text: declarations and export lists. */
 export function exportNames(text: string): string[] {
   const names = new Set<string>()
-  const code = text.replaceAll(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "")
+  const code = withoutComments(text)
 
   if (/\bexport\s+default\b/.test(code)) {
     names.add("default")
@@ -170,6 +181,10 @@ export function exportNames(text: string): string[] {
   for (const match of code.matchAll(
     /\bexport\s+(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g
   )) {
+    names.add(match[1]!)
+  }
+
+  for (const match of code.matchAll(/\bexport\s*\*\s*as\s+([A-Za-z_$][\w$]*)/g)) {
     names.add(match[1]!)
   }
 
@@ -197,6 +212,11 @@ export function exportNames(text: string): string[] {
   }
 
   return [...names]
+}
+
+/** A module's text without its comments, which may mention exports it doesn't make. */
+function withoutComments(text: string): string {
+  return text.replaceAll(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, "")
 }
 
 /**
