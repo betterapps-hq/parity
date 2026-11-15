@@ -13,7 +13,6 @@ import {
   typeCheckSummary
 } from "@parity-app/code"
 import {
-  type ActionResult,
   type Adapter,
   type BuilderDescription,
   type BuilderDetection,
@@ -59,7 +58,6 @@ import {
   findPackage,
   findProjectDocuments,
   exportEntities,
-  adapterActions,
   adapterStatus,
   importEntities,
   importersOf,
@@ -67,7 +65,6 @@ import {
   type OpenedProjectInfo,
   openedProjectInfo,
   pickMainDocument,
-  projectSource,
   type ProjectDetection,
   projectFileChange,
   readChangedFiles,
@@ -374,8 +371,6 @@ export interface OpenProjects {
   previewProject: (projectId: string) => PreviewProject | undefined
   /** The project files the modules of `files` load, by its builder's account (PAR-994); none when it can't say. */
   loadedFiles: (projectId: string, files: string[]) => Promise<string[] | undefined>
-  /** Does one of an adapter's actions, as opening a component's stories in Storybook. */
-  runAction: (params: ServiceMethods["adapter.run"]["params"]) => Promise<ActionResult>
 }
 
 /**
@@ -782,7 +777,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       throw cause
     })
 
-    // The adapters the project uses, each told what Parity found of its tool for its status items and actions.
+    // The adapters the project uses, each told what Parity found of its tool for its status items.
     const told = [
       { adapter: renderer },
       { adapter: builder, version: session.toolVersion },
@@ -799,8 +794,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       guestUrl: session.guestUrl,
       routes: routed?.routes ?? [],
       entities,
-      actions: adapterActions(told, detection, entities),
-      status: adapterStatus(told, detection, entities),
+      status: adapterStatus(told, detection),
       config,
       detection,
       documents,
@@ -1948,27 +1942,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
     },
 
-    loadedFiles: (projectId, files) =>
-      projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined),
-
-    async runAction({ projectId, adapter: id, action, component, page }) {
-      const project = getProject(projectId)
-      const found = project.used.find(({ adapter }) => adapter.id === id)
-
-      if (!found?.adapter.run || !found.adapter.actions?.some((each) => each.id === action)) {
-        throw new Error(`${project.info.name} has no ${id} action ${action}`)
-      }
-
-      const { info } = project
-
-      return found.adapter.run(action, {
-        project: detectContext(info.root, project.pkg),
-        source: projectSource(info.root, project.list.sources),
-        detection: found.detection,
-        component,
-        page
-      })
-    }
+    loadedFiles: (projectId, files) => projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined)
   }
 }
 

@@ -1,7 +1,6 @@
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
-import { portFree } from "@parity-app/extension-vite/builder"
 import { agentExtensions } from "@parity-app/extensions"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
@@ -45,8 +44,8 @@ import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts
 import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
+import { freePort, portFree } from "./ports.ts"
 import { componentPreviews } from "./previews.ts"
-import { freePort } from "./process-manager.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
@@ -253,7 +252,6 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.viewOpened": ({ projectId, view }) => extensions.viewOpened(projectId, view),
   "extensions.viewChanged": ({ projectId, extension, view, key, value }) =>
     extensions.viewChanged(projectId, extension, { view, key, value }),
-  "adapter.run": (params) => projects.runAction(params),
   "designs.export": (params) => exportDesigns(editorWindow(), params),
   "layers.export": (params) => exportLayers(editorWindow(), params),
   "layers.picture": (params) => layersPicture(editorWindow(), params),

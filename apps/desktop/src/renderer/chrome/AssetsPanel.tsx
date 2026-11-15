@@ -76,9 +76,9 @@ import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
-import { componentOffers, type PlacedExtensions, runAction } from "./adapter-actions.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
+import { componentOffers, type PlacedExtensions } from "./command-offers.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
 import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
 import type { Attributes } from "./event-attributes.ts"
@@ -90,7 +90,6 @@ import { Name, NameInput } from "./Name.tsx"
 import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
-import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { revealSelection } from "./reveal.ts"
 
@@ -531,21 +530,6 @@ function SourceSection({
   const session = useProject()
   const statuses = useRenderStatus(session.loaded)
 
-  // The tools' servers running for the project, by process id, so an action that starts one says so.
-  const processes = useProcesses(false)
-
-  const running = new Set(
-    processes
-      .filter(
-        (process) =>
-          process.owner.kind === "parity" &&
-          process.owner.role === "tool" &&
-          process.projectId === session.id &&
-          process.state === "running"
-      )
-      .map((process) => process.id)
-  )
-
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
@@ -583,7 +567,6 @@ function SourceSection({
                   view={view}
                   uses={uses.get(entry.key) ?? 0}
                   status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                  running={running}
                 />
               ))}
             </div>
@@ -600,7 +583,7 @@ const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height
  * An item of a source: a component, whose card opens beside it when the pointer rests on it or the right arrow is
  * pressed on it (PAR-515, PAR-208), or a library's component design, with a hint. In the List and Grid views a
  * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): what the
- * project's adapters offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
+ * project's extensions offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
  * why when it can't. A library's design offers its two ways to insert.
  */
 function AssetEntry({
@@ -608,16 +591,13 @@ function AssetEntry({
   source,
   view,
   uses,
-  status,
-  running
+  status
 }: {
   entry: Family["items"][number]
   source: Source
   view: ComponentsView
   uses: number
   status: ComponentRenderStatus | undefined
-  /** The tools' servers running for the project, by process id. */
-  running: ReadonlySet<string>
 }) {
   const session = useProject()
   const { item } = entry
@@ -629,7 +609,7 @@ function AssetEntry({
     placement: "componentCard"
   }
 
-  const offers = componentOffers(session.info, component, placed)
+  const offers = componentOffers(component, placed)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
@@ -737,7 +717,7 @@ function AssetEntry({
 
   const menu = (component || instance) && (
     <ComponentMenu
-      offers={component ? menuOffers(session, component, running, placed) : undefined}
+      offers={component ? menuOffers(component, placed) : undefined}
       code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
@@ -795,21 +775,21 @@ function AssetEntry({
         <div
           className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
         >
-          {offers.map(({ action, unavailable }) => (
+          {offers.map(({ command, unavailable }) => (
             // One that can't act stays, faded and focusable, its hint saying why.
-            <Hint key={`${action.adapter}:${action.id}`} label={unavailable ?? action.name}>
+            <Hint key={`${command.extension}:${command.id}`} label={unavailable ?? command.name}>
               <button
                 type="button"
                 aria-label={
                   unavailable === undefined
-                    ? `${action.name}: ${entry.label}`
-                    : `${action.name}: ${entry.label}, unavailable: ${unavailable}`
+                    ? `${command.name}: ${entry.label}`
+                    : `${command.name}: ${entry.label}, unavailable: ${unavailable}`
                 }
                 aria-disabled={unavailable !== undefined || undefined}
-                onClick={unavailable === undefined ? () => void runAction(session.id, action, component) : undefined}
+                onClick={unavailable === undefined ? () => void command.run() : undefined}
                 className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
               >
-                <AdapterLogo logo={action.icon} className="size-3.5" />
+                <AdapterLogo logo={command.icon} className="size-3.5" />
               </button>
             </Hint>
           ))}
@@ -819,28 +799,18 @@ function AssetEntry({
   )
 }
 
-/**
- * What a component's menu offers from the project's adapters: each action offered for components, greyed with why on
- * one it isn't for, and saying what it starts first while its tool's server isn't running.
- */
-function menuOffers(
-  session: ProjectSession,
-  component: string,
-  running: ReadonlySet<string>,
-  placed: PlacedExtensions
-): MenuOffer[] {
-  return componentOffers(session.info, component, placed).map(({ action, unavailable }) => {
+/** What a component's menu offers from the project's extensions: each command placed for components, greyed with why on one it isn't for. */
+function menuOffers(component: string, placed: PlacedExtensions): MenuOffer[] {
+  return componentOffers(component, placed).map(({ command, unavailable }) => {
     const offer: MenuOffer = {
-      id: `${action.adapter}:${action.id}`,
-      name: action.name,
-      logo: action.icon,
-      run: () => void runAction(session.id, action, component)
+      id: `${command.extension}:${command.id}`,
+      name: command.name,
+      logo: command.icon,
+      run: () => void command.run()
     }
 
     if (unavailable !== undefined) {
       offer.unavailable = unavailable
-    } else if (action.starts && !running.has(`${action.adapter}:${session.id}`)) {
-      offer.starts = action.starts
     }
 
     return offer
@@ -898,12 +868,12 @@ export function useComponentCard(
 
   const placed: PlacedExtensions = { session, extensions, placement: "componentCard" }
 
-  const offers = componentOffers(session.info, component, placed).map(({ action, unavailable }) => ({
-    id: `${action.adapter}:${action.id}`,
-    name: action.name,
-    logo: action.icon,
+  const offers = componentOffers(component, placed).map(({ command, unavailable }) => ({
+    id: `${command.extension}:${command.id}`,
+    name: command.name,
+    logo: command.icon,
     unavailable,
-    run: () => void runAction(session.id, action, component)
+    run: () => void command.run()
   }))
 
   if (offers.length > 0) {

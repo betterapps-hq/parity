@@ -9,14 +9,14 @@ import {
   CommandShortcut,
   Kbd
 } from "@buildkitgg/shadcn-baseui-kit"
-import { type ActionPage, designOwner, locateNode, type NodeRef } from "@parity-app/core"
+import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
-import { ExternalLink, FolderOpen, Palette } from "lucide-react"
+import { FolderOpen, Palette } from "lucide-react"
 import { type ReactNode, useLayoutEffect, useRef, useState } from "react"
 import { z } from "zod"
 import type { ExtensionStatus } from "../../shared/protocol.ts"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
-import { routeRef } from "../canvas/route-pages.ts"
+import { type PageTarget, routeRef } from "../canvas/route-pages.ts"
 import { commandsAt, extensionsOf, runCommand, whenFactsOf } from "../extensions.ts"
 import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
@@ -31,9 +31,8 @@ import {
   workspace
 } from "../workspace.ts"
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
-import { runAction, selectionComponent, selectionPage } from "./adapter-actions.ts"
-import { AdapterLogo } from "./AdapterLogo.tsx"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
+import { selectionComponent, selectionPage } from "./command-offers.ts"
 import { activeSession, clearBitmapCache, exportAllImages, selectedDesign } from "./commands.ts"
 import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { type Command as KeyCommand, type Group, groups, keymap, shortcutOf } from "./keymap.ts"
@@ -308,48 +307,6 @@ function projectItems(session: ProjectSession): Item[] {
 }
 
 /**
- * What the project's adapters can do, under Object: each for the selected component when it's offered for it, as Open
- * in Storybook on a component with stories, with the component's name beside it; greyed with why on a selected
- * component it isn't for, as No story found; and for the whole project with no component selected, as opening
- * Storybook's home. An action for pages is there only with a page it's for selected, with the page's path beside it,
- * as Open in browser.
- */
-function adapterItems(session: Pick<ProjectSession, "id" | "info" | "selection" | "store">): Item[] {
-  const component = selectionComponent(session)
-  const page = selectionPage(session)
-
-  return session.info.actions.flatMap((action): Item[] => {
-    const item = { id: `adapter:${action.adapter}:${action.id}`, group: "Object" as const, label: action.name }
-
-    if (action.routes) {
-      return page && action.routes.includes(page.route)
-        ? [
-            {
-              ...item,
-              detail: new URL(page.url).pathname,
-              icon: <ExternalLink />,
-              run: () => void runAction(session.id, action, undefined, page)
-            }
-          ]
-        : []
-    }
-
-    const offered = component !== undefined && action.components?.includes(component) ? component : undefined
-    const unavailable = component !== undefined && !offered && action.components ? action.unavailable : undefined
-
-    return [
-      {
-        ...item,
-        detail: unavailable ?? offered,
-        icon: <AdapterLogo logo={action.icon} />,
-        available: () => unavailable === undefined,
-        run: () => void runAction(session.id, action, offered)
-      }
-    ]
-  })
-}
-
-/**
  * What the project's extensions place in Search, under Object, from their manifests (PAR-1089): each run on the selected
  * component, with its name beside it where the command acts on it, as Open in Storybook on one with stories, and
  * otherwise on the whole project, as opening Storybook's home.
@@ -392,7 +349,7 @@ function extensionItems(session: ProjectSession): Item[] {
  * What the project's extensions place in Search with one of the app's pages selected: each run on the page, as Open in
  * browser, with its path beside it where the command is placed for routes, and otherwise on the whole project.
  */
-function pageItems(session: ProjectSession, extensions: readonly ExtensionStatus[], page: ActionPage): Item[] {
+function pageItems(session: ProjectSession, extensions: readonly ExtensionStatus[], page: PageTarget): Item[] {
   const target = { type: "route", key: page.route } as const
   const forPage = commandsAt(extensions, "search", target, whenFactsOf(session, routeRef(session.info, page.route)))
   const ids = new Set(forPage.map((placed) => placed.command.id))
@@ -418,7 +375,7 @@ function gatherItems(session: ProjectSession | undefined, projects: readonly { r
   return [
     ...commandItems(),
     ...extras,
-    ...(session ? [...adapterItems(session), ...extensionItems(session), ...projectItems(session)] : []),
+    ...(session ? [...extensionItems(session), ...projectItems(session)] : []),
     ...projects.map((project): Item => ({
       id: `project:${project.root}`,
       group: "Projects",

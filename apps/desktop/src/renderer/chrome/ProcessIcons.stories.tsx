@@ -26,7 +26,6 @@ const tasks: Record<Exclude<ProcessRole, "builder" | "tool">, string> = {
   install: "Install",
   typecheck: "Type check",
   test: "Unit tests",
-  e2e: "Playwright",
   format: "Format",
   lint: "Lint",
   verify: "Verify",

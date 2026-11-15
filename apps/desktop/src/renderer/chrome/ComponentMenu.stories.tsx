@@ -4,19 +4,19 @@ import { Component } from "lucide-react"
 import type { ReactNode } from "react"
 import { expect, fireEvent, fn, userEvent, within } from "storybook/test"
 import { kindColors } from "../canvas/kinds.tsx"
-import { projectInfo, roots } from "../stories/host.ts"
+import { projectInfo, roots, standInExtensions } from "../stories/host.ts"
 import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
 
-/** The example project's Storybook logo, as its adapter offers Open in Storybook with it. */
-const storybook = projectInfo(roots.example).actions.find((action) => action.adapter === "storybook")
+/** The example project's Storybook extension, which offers Open in Storybook with its logo. */
+const storybook = standInExtensions(projectInfo(roots.example)).find((extension) => extension.id === "storybook")
 
 /** Open in Storybook, as the Components panel offers it, changed as a story needs. */
 const openInStorybook = (change: Partial<MenuOffer> = {}): MenuOffer[] => [
-  { id: "storybook:open", name: "Open in Storybook", logo: storybook?.icon, run: fn(), ...change }
+  { id: "storybook:storybook.open", name: "Open in Storybook", logo: storybook?.icon, run: fn(), ...change }
 ]
 
 /**
- * A component's right-click menu in the Components panel (PAR-527): what the project's adapters offer, as Open in
+ * A component's right-click menu in the Components panel (PAR-527): what the project's extensions offer, as Open in
  * Storybook, and View code, each greyed with why when it can't act, then what else the row offers. Each story opens it
  * on a row, as a right-click does.
  */
@@ -79,15 +79,6 @@ export const ChoosingViewCode: Story = {
     await userEvent.click(await within(document.body).findByRole("menuitem", { name: "View code" }))
     await expect(context.args.code?.open).toHaveBeenCalledOnce()
     await expect(context.args.offers?.[0]?.run).not.toHaveBeenCalled()
-  }
-}
-
-/** Storybook isn't running yet: Open in Storybook still opens it, starting Storybook first, and says so. */
-export const StorybookNotRunning: Story = {
-  args: { offers: openInStorybook({ starts: "Starts Storybook" }) },
-  play: async (context) => {
-    await meta.play(context)
-    await within(document.body).findByText("Starts Storybook")
   }
 }
 

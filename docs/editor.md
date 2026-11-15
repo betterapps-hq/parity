@@ -935,10 +935,8 @@ is the same for every component: Open in Storybook says "No story found" for one
 Storybook extension's manifest), and View code "Not in the project" for a library component without type declarations,
 whose declarations are otherwise its code. Open in Storybook runs in the Storybook extension's host ("Extensions in the
 editor", below): it starts the project's Storybook, reusing one already serving it, and opens the component's docs or
-first story once it's up, as the row's Storybook button does. An adapter's action that starts its tool's server says so
-beside it while that server isn't running (the action's `starts`), by the tool's process id. A project without a
-Storybook has no Open in Storybook. A library's component design offers Insert linked instance and Insert detached copy
-after them.
+first story once it's up, as the row's Storybook button does. A project without a Storybook has no Open in Storybook. A
+library's component design offers Insert linked instance and Insert detached copy after them.
 
 Resting the pointer on a component opens its card beside the row (PAR-515, "Component previews" below), which names it
 and its file, or the package a library's comes from, and says when it fails on the canvas and why. One listed by hand
@@ -1106,13 +1104,13 @@ Electron's `console-message` event. Gaps: no end-to-end test draws a design offs
 An extension adds commands, status bar items and facts that the editor draws from its manifest before its code loads,
 and runs its code in a host of its own ([extensions.md](extensions.md)). Storybook is the first.
 
-- **Commands** show where the manifest places them, beside what adapters offer: a component's row, menu and card in the
-  Components panel (`componentCard`), the selection's heading in the layer panel and the Design tab
-  (`selectionHeading`), a row's menu in Layers (`layers`), the canvas's menu (`canvas`), Search under Object (`search`),
-  and the More menu on a process's row in the processes list (`process`, PAR-1127; `ExtensionCommands` in
-  `chrome/Processes.stories.tsx`). A command greyed by its `enablement` says why, as Open in Storybook says "No story
-  found". Running one shows its progress in a toast with Cancel, and a failure in a toast titled "Open in Storybook
-  didn't work", with Restart when its extension has stopped.
+- **Commands** show where the manifest places them: a component's row, menu and card in the Components panel
+  (`componentCard`), the selection's heading in the layer panel and the Design tab (`selectionHeading`), a row's menu in
+  Layers (`layers`), the canvas's menu (`canvas`), Search under Object (`search`), and the More menu on a process's row
+  in the processes list (`process`, PAR-1127; `ExtensionCommands` in `chrome/Processes.stories.tsx`). A command greyed
+  by its `enablement` says why, as Open in Storybook says "No story found". Running one shows its progress in a toast
+  with Cancel, and a failure in a toast titled "Open in Storybook didn't work", with Restart when its extension has
+  stopped.
 - **Status bar items** show their last value at once, then what the code sets, as "3 in Storybook", with the tooltip the
   code gives. Clicking one runs its command.
 - **Facts** on a component's card, as "1 story".
@@ -1182,7 +1180,7 @@ bar.
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
 `packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
 `protocol.ts` and `providers.register` in `host.ts`; `projectProviders` and `byPeers` in `utility/extensions.ts`;
-`routes` and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-actions.ts` and `pageItems` in
+`routes` and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/command-offers.ts` and `pageItems` in
 `ActionsSearch.tsx`.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
@@ -1312,7 +1310,7 @@ An extension with the `edits` permission changes designs through `parity.edits.t
 
 Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `DesignStore.applyOperations`,
 `extensions.transact` and `extensions.edited` in `renderer/agent/handlers.ts`, `layerOffers` in
-`chrome/adapter-actions.ts`, and `commandsAt` in `renderer/extensions.ts`.
+`chrome/command-offers.ts`, and `commandsAt` in `renderer/extensions.ts`.
 
 Tests: `packages/editor/src/design-operations.test.ts` (renaming, taking a field away, inserting, moving and removing,
 and what's refused), `renderer/design-store.test.ts` "an extension's operations" (one step under the extension's name
@@ -4162,10 +4160,10 @@ The actions at the end of the row are icon buttons named by their hints, without
 
 - **Go to component** on an instance of one of the project's component designs, which selects the design and shows it
   (`layerActions`).
-- **What the project's adapters offer for a code component,** each with its adapter's logo, as Open in Storybook. On a
-  component no story links to it stays, faded and focusable, its hint saying "No story found". A component's board
-  offers the same in its header. The same actions end the layer's right-click menu in Layers, after a separator. See
-  [Adapters' actions](#adapters-actions).
+- **What the project's extensions offer for a code component,** each with its extension's logo, as Open in Storybook. On
+  a component no story links to it stays, faded and focusable, its hint saying "No story found". A component's board
+  offers the same in its header. The same commands end the layer's right-click menu in Layers, after a separator. See
+  [Commands offered on components and pages](#commands-offered-on-components-and-pages).
 
 An icon and a layer that isn't a component have only the eye. Other designs' headers have no actions. Open in editor,
 which opened a design's file or a code component's in the person's editor, was set aside with the rest of the code side
@@ -6761,7 +6759,7 @@ hidden and put in order on the canvas.
   one state has no States menu; the Modes menu is there with one mode, for Edit modes. Each menu lists every one with a
   handle and a switch, a mode with its width and its variables' values as chips, and the one left showing can't be
   switched off. A long list scrolls.
-- **A page's title adds Open in browser,** what the project's adapters offer for it, as the Design tab's heading does.
+- **A page's title adds Open in browser,** what the project's extensions offer for it, as the Design tab's heading does.
 - **On a narrow board the controls follow the name,** out over the canvas beside it where the name runs past the board,
   rather than hiding; zoomed so far out that there's no room for them, they hide.
 - **The Design tab has no Modes section** for any design: modes are set on the canvas, from the title.
@@ -8226,65 +8224,42 @@ Gaps: a design that's hovered but not selected shows its menus, and they're in t
 yet keeps a future panel from scrolling the page by putting a focusable element outside its scroller; the root's clip
 keeps the page still, but such an element would sit outside its panel.
 
-### Adapters' actions
+### Commands offered on components and pages
 
-An adapter can offer actions, such as Storybook's Open in Storybook, which the app runs without knowing the tool.
-Before, the service had a `storybook.open` call and the status bar matched Storybook's item by name.
+An extension's command placed for components or routes, as Storybook's Open in Storybook or TanStack Router's Open in
+browser, shows on what it's for, and the app runs it without knowing the tool (PAR-1089). Adapters had actions of their
+own, run through `adapter.run`; once every one was an extension command, they went (PAR-1134).
 
-- **An adapter lists its actions** (`actions`): an id, a name, which of the project's components it's offered for
-  (`components`, from the same facts its status items get), and what the app says while it runs and when it fails. The
-  windows get them with the project (`info.actions`, from `adapterActions`), by adapter, with its logo and the
-  components' keys. Storybook offers Open in Storybook for each component a story's meta names.
-- **The adapter decides what a component it isn't for shows** (`unavailable`): with a reason, the action stays there,
-  disabled, with the reason as its hint or beside it in a menu; without one, it's left out. Storybook's reason is "No
-  story found", so a component no story's meta names still shows Open in Storybook, disabled, in every place below.
-- **The app runs one by its adapter and id** (`adapter.run`), for the project or for a component. The service gives the
-  adapter's `run` an `ActionContext`: the project, its files and components, what the adapter's `detect` found, and the
-  component. An address the action gives opens in the browser. A tool's server is an extension's now, through
-  `parity.processes` ([extensions.md](extensions.md)).
-- **A status item runs one with `opens: { action }`.** Storybook's stories item runs Open in Storybook for the project.
-- **A code component offers the actions for it wherever it's picked,** each with its adapter's logo and the action's
-  name: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on the canvas,
-  after a separator, and its row in the Components panel, as a button beside it, in its right-click menu and on its
-  card. A component's board offers them too (`selectionComponent`, `componentOffers`, `layerComponent`). A button for
-  one that can't act stays faded and focusable, its hint the reason, and a menu item is greyed with the reason beside it
-  (`AdapterMenuItems`). Search actions lists each of the project's actions under Object, for the selected component when
-  it's offered for it, with the component's name beside it; greyed with the reason on a selected component it isn't for;
-  else for the whole project, as opening Storybook's home. Which components an action is for comes only from its
-  adapter: Storybook's are those its story files' metas name. The stories count on a component's card still reads
-  `info.storybook`, until adapters give facts about components.
-- **A page of the app offers the actions for its route** (`routes`, from the app's routes): the end of its header in the
-  Design panel, of its right-click menu in Layers and on the canvas, and in Search actions under Object, with the page's
-  path beside it, only while that page is selected (`routePageTarget`, `selectionPage`, `pageOffers`). The action is run
-  with the page (`ActionContext.page`): its route's id and the URL the canvas draws it at, with the values set in its
-  Props. TanStack Router offers Open in browser for each page but the root, which opens that URL in the browser.
-- **What the example shows:** clicking 12 stories opens Storybook's home, starting it first on port 6006 when it isn't
-  running, and the processes list it as Storybook, a tool's server. Selecting Badge's story's `nova/Badge` layer, or the
-  PlanCard board, shows Open in Storybook in its header and its right-click menus, which opens the component's docs
-  page. Searching "storybook" with PlanCard selected lists Open in Storybook with PlanCard beside it; Calendar's menu in
-  the Components panel greys it with "No story found". PageHeader, which no story names, shows it disabled in its
-  header, with the hint "No story found", and greyed in its right-click menus and in Search actions. Selecting Project
-  detail shows Open in browser in its header and at the end of its right-click menus in Layers and on the canvas, with
-  an external link icon, since it opens the page outside Parity, and searching "open in" lists it with `/projects/atlas`
-  beside it once its ProjectId is `atlas`.
+- **A code component offers the commands placed for it wherever it's picked,** each with its extension's logo and the
+  command's title: the end of its layer's header in the Design panel, the end of its right-click menu in Layers and on
+  the canvas, after a separator, and its row in the Components panel, as a button beside it, in its right-click menu and
+  on its card. A component's board offers them too (`selectionComponent`, `componentOffers`, `layerComponent`). One
+  whose `enablement` doesn't hold stays: a button faded and focusable, its hint the reason, and a menu item greyed with
+  the reason beside it (`OfferMenuItems`). Storybook's reason is "No story found".
+- **A page of the app offers the commands placed for routes:** the end of its header in the Design panel, of its
+  right-click menu in Layers and on the canvas, and in Search actions under Object, with the page's path beside it, only
+  while that page is selected (`routePageTarget`, `selectionPage`, `pageOffers`). TanStack Router places Open in browser
+  for each page but the root, which opens the URL the canvas draws it at, with the values set in its Props.
+- **A status item opens a left panel tab** (`opens: { tab }`); an extension's item runs its command.
+- **What the example shows:** selecting Badge's story's `nova/Badge` layer, or the PlanCard board, shows Open in
+  Storybook in its header and its right-click menus, which opens the component's docs page. PageHeader, which no story
+  names, shows it disabled in its header, with the hint "No story found", and greyed in its right-click menus. Selecting
+  Project detail shows Open in browser in its header and at the end of its right-click menus in Layers and on the
+  canvas, with an external link icon, since it opens the page outside Parity, and searching "open in" lists it with
+  `/projects/atlas` beside it once its ProjectId is `atlas`.
 
-Code: `AdapterAction`, `ActionContext`, `ProjectAction` and `StatusItem.opens` in `packages/core/src/adapters.ts`; Open
-in Storybook in `packages/extension-storybook/src/extension.ts`; `runAction` in `apps/desktop/src/utility/projects.ts`;
-`adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
-`adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
-`renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
+Code: Open in Storybook in `packages/extension-storybook/src/extension.ts`; `componentOffers`, `pageOffers`,
+`layerOffers`, `selectionComponent` and `selectionPage` in `renderer/chrome/command-offers.ts`; `routePageTarget` in
 `renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
 `layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
-`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
-`ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`,
+`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `extensionItems` and
+`pageItems` in `ActionsSearch.tsx`, `OfferMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`,
 `ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` (Open in browser placed only for routes, run for the
-page or, from Search, the page selected); `packages/project/src/adapter-status.test.ts`, "tells the windows the routes
-an action is for"; `packages/extension-storybook/src/storybook.test.ts` (a component's docs page, else its first story,
-else Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
-action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
-Gaps: the story play functions weren't run.
+page or, from Search, the page selected) and `packages/extension-storybook/src/storybook.test.ts` (a component's docs
+page, else its first story, else Storybook's home; the server it asks for; a component without stories). Gaps: the story
+play functions weren't run.
 
 ### Each adapter detects its own tool
 
@@ -8339,7 +8314,7 @@ Shadcn Nova".
 
 - **An adapter says what its item is.** Any adapter (renderer, builder, styles, router or entities) can have `status`,
   which returns `StatusItem`s: an icon, a bold value, the words after it, the tooltip's title and line, and what a click
-  does, which is open a left panel tab or run one of its adapter's actions, as Storybook's runs Open in Storybook.
+  does, which is open a left panel tab.
 - **An item shows its tool's logo unless it names an icon.** An adapter's `icon` is its tool's logo as path data (an
   `AdapterIcon`: a `viewBox`, one path, and `evenodd` where one part is cut out of another), which the window fills with
   the text's colour, so it reads like the Lucide icons beside it in either theme. Path data draws nothing but the shape,
@@ -8366,8 +8341,8 @@ React's, Tailwind's and TanStack Router's from their extensions' manifests; the 
 `apps/desktop/src/utility/extensions.ts`; and `chrome/StatusBar.tsx`, which draws `info.status` and the extensions'
 items.
 
-Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
-an item without an icon carries its adapter's logo; an untested version says so), and
+Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version and the package manager; an item
+without an icon carries its adapter's logo; an untested version says so), and
 `packages/extension-tailwind/src/extension.test.ts` (Tailwind's item). Storybook, `chrome/StatusBar.stories.tsx`, whose
 stand-in host lists Vite's, React's, Tailwind's and Storybook's extensions with what their code sets
 (`standInExtensions` in `renderer/stories/host.ts`). Gaps: the story play functions weren't run.

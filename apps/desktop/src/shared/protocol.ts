@@ -11,7 +11,6 @@ import type { CopyReport } from "@parity-app/agent/routing"
 import type { FrameChange } from "@parity-app/change-detection"
 import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
-  ActionResult,
   CanvasDocument,
   ChangeConflict,
   CodeChange,
@@ -173,11 +172,6 @@ export interface ServiceMethods {
    * before they're saved, so extensions see them at once (PAR-1090).
    */
   "extensions.projectSettings": { params: ServiceParams["extensions.projectSettings"]; result: undefined }
-  /**
-   * Does one of an adapter's actions for the project, or for one of its components, as opening a component's stories in
-   * Storybook, which starts it first if needed. Returns an address to open in the browser when it gives one.
-   */
-  "adapter.run": { params: ServiceParams["adapter.run"]; result: ActionResult }
   /** Writes a copy of the project's designs to a `.par` file anywhere, chosen by the person. */
   "document.saveCopy": { params: ServiceParams["document.saveCopy"]; result: undefined }
   /**
@@ -297,9 +291,8 @@ export type ProcessStatus = ProcessState
 
 /**
  * What one of Parity's own processes does: a project's build server, which the canvas renders through, a tool's
- * server an adapter started, as its Storybook, or a task that installs packages, checks types, runs unit tests or
- * Playwright, formats, lints, verifies the whole project, builds it, exports designs, or checks a design's
- * accessibility.
+ * server an adapter started, or a task that installs packages, checks types, runs unit tests, formats, lints, verifies
+ * the whole project, builds it, exports designs, or checks a design's accessibility.
  */
 export type ProcessRole = ParityRole
 

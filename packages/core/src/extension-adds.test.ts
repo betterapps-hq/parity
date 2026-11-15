@@ -11,7 +11,6 @@ const project: AdapterFacts = {
   entities: {
     screens: [{ adapter: "storybook" }, { adapter: "storybook" }]
   },
-  actions: [{ adapter: "tanstack-router", name: "Open in browser" }],
   status: [{ adapter: "react" }, { adapter: "tanstack-router" }]
 }
 
@@ -22,6 +21,8 @@ const storybook = {
   }
 }
 
+const router = { contributes: { commands: [{ id: "tanstack-router.open", title: "Open in browser" }] } }
+
 describe("what an extension adds", () => {
   it("says what its adapter does for its role, and that it shows in the status bar", () => {
     expect(extensionAdds("react", project)).toEqual(["Renders the project's components", "A status bar item"])
@@ -29,8 +30,8 @@ describe("what an extension adds", () => {
     expect(extensionAdds("tailwind", project)).toEqual(["Reads the theme as tokens", "Writes styles as classes"])
   })
 
-  it("counts a router's pages, leaving out the root, and lists its actions by name", () => {
-    expect(extensionAdds("tanstack-router", project)).toEqual([
+  it("counts a router's pages, leaving out the root, and lists its extension's commands by name", () => {
+    expect(extensionAdds("tanstack-router", project, [router])).toEqual([
       "Reads the app's routes as pages (2)",
       "Open in browser",
       "A status bar item"
