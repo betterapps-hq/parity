@@ -5675,12 +5675,14 @@ every design's frame to be inside a tile with a bitmap, rather than comparing co
 and no design's frame (PAR-1106). The retry delays, and that a frame which leaves the canvas or changes stops retrying,
 have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four times under
 extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design
-into view before finding a layer in it, so the other files' tests work on frames that slept. Gaps: the order frames wake
-in has no test of its own; it was checked by reading `wakeNext`. The memory it gives back and the time waking takes were
-measured by hand in a debug copy, not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing
-with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and any other failure
-is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the failure came from
-about one capture in each CI run, and Sentry's count from CI after the change is the check.
+into view before finding a layer in it, so the other files' tests work on frames that slept. Coming from another zoom,
+`App.show` places the design again once its board has taken its size at the new one, since the board's gutter keeps its
+screen size (PAR-1106). Gaps: the order frames wake in has no test of its own; it was checked by reading `wakeNext`. The
+memory it gives back and the time waking takes were measured by hand in a debug copy, not by the suite.
+`apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken again after a
+repaint until it works, gives up after three tries, and any other failure is thrown at once). That a repaint is what
+lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI run, and Sentry's
+count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 

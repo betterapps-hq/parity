@@ -629,7 +629,24 @@ export class App {
       await this.show(design, 1)
     }
 
-    await this.page.evaluate(
+    // A board takes its size at a zoom once the zoom settles (PAR-655), and its gutter keeps its screen size (PAR-602),
+    // so coming from far out, where it's tall on the canvas, the frame moves up within the board once it settles: the
+    // design is placed again at its settled size. Without that, a title came out above the canvas, under the tab bar.
+    const zoomed = await this.place(design, zoom, layer, mode)
+    await this.settle(design)
+
+    if (zoomed) {
+      await this.place(design, zoom, layer, mode)
+      await this.settle(design)
+    }
+  }
+
+  /**
+   * Moves the camera to put a design's main frame, or a layer in it, where `show` wants it, as it's drawn now. Says
+   * whether that changed the zoom.
+   */
+  private place(design: string, zoom: number, layer?: string, mode?: string): Promise<boolean> {
+    return this.page.evaluate(
       ([design, zoom, layer, mode]) => {
         const e2e = window.e2e!
         const editor = e2e.session().editor!
@@ -659,10 +676,11 @@ export class App {
           : [toPage(frame.left, frame.top), { x: 64, y: 140 }]
 
         editor.setCamera({ x: screen.x / zoom - page.x, y: screen.y / zoom - page.y, z: zoom }, { immediate: true })
+
+        return Math.abs(camera.z - zoom) > 0.0001
       },
       [design, zoom, layer, mode] as const
     )
-    await this.settle(design)
   }
 
   /**
@@ -834,7 +852,10 @@ export class App {
     const under = await this.page.evaluate(
       ({ x, y, key }) => {
         const element = document.elementFromPoint(x, y)
-        const frame = window.e2e!.frame(key).getBoundingClientRect()
+
+        const frame = document
+          .querySelector(`[data-frame][data-design="${CSS.escape(key)}"][data-primary="true"]`)
+          ?.getBoundingClientRect()
 
         const board = document
           .querySelector(`.container-view[data-design="${CSS.escape(key)}"]`)
