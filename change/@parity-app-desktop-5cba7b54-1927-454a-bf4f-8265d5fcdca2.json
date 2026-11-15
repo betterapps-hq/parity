@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Tab from a design's title no longer goes on to another design's console badge",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

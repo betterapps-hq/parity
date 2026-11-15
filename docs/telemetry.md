@@ -135,13 +135,13 @@ The end-to-end suite reads back what the app recorded and checks the main workfl
   `e2e_test` with the test's full name and `test_run` with the run. The job's log says where to watch it, in a line
   starting `Replay of "<test>":` after the failure. `e2e/failed-replay.ts` asks for it once the test's `afterEach` has
   run, so a reset that fails is in it too. Passing tests send none.
-- **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), named `telemetry-github-<run>-<attempt>`
-  after its `test_run` and kept for 7 days, whether the tests passed or not. Before the suite removes the copy's
-  profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands' `cli-logs/` and the app's output, `app.log`,
-  to the folder `PARITY_E2E_TELEMETRY` names, which `app.yml` uploads. Download it from the run's summary page or with
-  `gh run download <run> -n telemetry-github-<run>-<attempt>`, and read it with
-  `PARITY_USER_DATA=<folder> parity logs --session all`, which takes the same filters as the app's own copy. The CLI's
-  files are JSON lines too, read directly.
+- **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), one for each of its 3 shards, named
+  `telemetry-github-<run>-<attempt>-<shard>` after its `test_run` and kept for 7 days, whether the tests passed or not.
+  Before the suite removes the copy's profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands'
+  `cli-logs/` and the app's output, `app.log`, to the folder `PARITY_E2E_TELEMETRY` names, which `app.yml` uploads.
+  Download it from the run's summary page or with `gh run download <run> -n telemetry-github-<run>-<attempt>-<shard>`,
+  and read it with `PARITY_USER_DATA=<folder> parity logs --session all`, which takes the same filters as the app's own
+  copy. The CLI's files are JSON lines too, read directly.
 
 ## Agents and the CLI
 

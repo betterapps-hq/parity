@@ -500,7 +500,7 @@ function BoardView({ ref, entry, hovered, onTitlePointerDown, title, rest }: Con
         color={isSelected ? color : undefined}
         onPointerDown={onTitlePointerDown}
       />
-      <ConsoleBadge design={key} name={container.name} />
+      <ConsoleBadge design={key} name={container.name} selected={isSelected} />
       <TitleControls>
         {Object.values(container.params ?? {}).some((param) => param.type === "variant") && (
           <VariantMenu

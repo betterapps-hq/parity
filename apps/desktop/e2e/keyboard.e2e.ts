@@ -125,7 +125,8 @@ describe("Tab from a design's title", () => {
     for (let press = 0; press < 12 && (await focused()).canvas; press++) {
       await app.page.keyboard.press("Tab")
       const now = await focused()
-      expect(now.title).toBe(false)
+      // The whole of it, so a failure names the title Tab reached.
+      expect(now).toMatchObject({ title: false })
 
       if (now.board) {
         boards.add(now.board)

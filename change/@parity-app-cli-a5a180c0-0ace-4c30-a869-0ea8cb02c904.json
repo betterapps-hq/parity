@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A stopped agent snippet no longer goes on calling the tab's next call",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

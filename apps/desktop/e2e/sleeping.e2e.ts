@@ -50,12 +50,17 @@ const boards = () =>
   )
 
 /**
- * Every frame's size on the canvas, in the order the page draws them. A board's gutter keeps its screen size (PAR-602),
- * so zoomed out its board grows on the canvas while its frames keep theirs.
+ * Every frame's size on the canvas, by design, state and mode, so a failure names the frame. A board's gutter keeps its
+ * screen size (PAR-602), so zoomed out its board grows on the canvas while its frames keep theirs.
  */
 const frameSizes = () =>
   app.page.evaluate(() =>
-    [...document.querySelectorAll<HTMLElement>("[data-frame]")].map((host) => [host.offsetWidth, host.offsetHeight])
+    Object.fromEntries(
+      [...document.querySelectorAll<HTMLElement>("[data-frame]")].map((host) => [
+        `${host.dataset.design} ${host.dataset.state}/${host.dataset.mode}`,
+        [host.offsetWidth, host.offsetHeight]
+      ])
+    )
   )
 
 /**
@@ -129,7 +134,12 @@ describe("zoomed far out", () => {
     "lets go of frames showing bitmaps, and draws them again in view at the same size",
     { timeout: 240_000 },
     async () => {
+      // The first zoom out draws every board's title and gutter, which stay, and fits a frame or two drawn for the
+      // first time. Zoomed out once already, the counts and sizes below are the same whichever files ran before this
+      // one: with the suite split across runners, this file may be the first to zoom out (PAR-1121).
+      await zoomOut()
       await app.show("Members", 1)
+      await expect.poll(() => drawn("Members")).toBe(true)
       const sizes = await boards()
       const framed = await frameSizes()
       // Session Replay records the window in CI too, and the attributes it reads from what the zoom draws are nodes, so
