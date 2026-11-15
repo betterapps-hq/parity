@@ -1489,6 +1489,7 @@ function searchBoardParents(
   const groups = new Map(
     boardGroups(info.sources, routeFiles(info.routes)).flatMap(({ ids }) => ids.map((id) => [id, ids]))
   )
+
   const prefix = `${componentBoardsFile}#`
 
   const step = (design: string, failures: readonly LayerFailure[]) => {

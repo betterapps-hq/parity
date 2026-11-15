@@ -158,6 +158,7 @@ describe("what renders the app's `/`", () => {
 
   it("passes the routes on from the designs a project opens with", () => {
     const pages = { ...viteApp, Home: { path: "src/routes/index.tsx", export: "Home" } }
+
     const [opened] = openingDesigns(
       [],
       "shop.par",
