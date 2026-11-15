@@ -147,6 +147,15 @@ describe("what renders the app's `/`", () => {
     expect(homeComponent(next)).toBe("App")
   })
 
+  it("is App in the file that declares the routes, as a library-mode router's root, with no page at `/`", () => {
+    const declared = routesOf(["root", "src/App.tsx"], ["page", "src/About.tsx", [{ type: "static", value: "about" }]])
+
+    expect(homeComponent({ ...viteApp, About: { path: "src/About.tsx", export: "About" } }, declared)).toBe("App")
+    expect(
+      homeComponent({ App: { path: "src/pages/App.tsx", export: "App" } }, routesOf(["page", "src/pages/App.tsx"]))
+    ).toBe("App")
+  })
+
   it("takes a route file's default export over its other parts", () => {
     const remix = {
       ErrorBoundary: { path: "app/routes/_index.tsx", export: "ErrorBoundary" },

@@ -2,7 +2,6 @@ import {
   addDesigns,
   type CanvasDocument,
   type ComponentSource,
-  componentRole,
   type ContainerSpec,
   type DesignNode,
   type DeviceKind,
@@ -107,7 +106,10 @@ export function homeComponent(
 ): string | undefined {
   const own = Object.entries(components).filter(([, source]) => !source.library)
   const pages = own.filter(([, source]) => rendersRoot(source, routes))
-  const apps = own.filter(([, source]) => componentRole(source, routes) !== "page" && isApp(source))
+
+  // An `App` in a file that declares the routes, as a library-mode router's root, still renders the app; one that's
+  // a page route's file is that page.
+  const apps = own.filter(([, source]) => routes.get(source.path)?.kind !== "page" && isApp(source))
 
   return (pages.length > 0 ? pages : apps).sort(nearestFirst)[0]?.[0]
 }
