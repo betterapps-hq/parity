@@ -164,6 +164,8 @@ Tests:
   component that draws only text has its text's box, no elements, and is under a point over its text (PAR-201). A field
   given a width is drawn in a div of that width which the whole field fills, its input left as the field lays it out,
   while a field with no style and a link that puts its style on its root are drawn as they are (PAR-201).
+- `packages/extension-react/src/guest.react-18.test.ts`: on React 18 (PAR-1157), a ref from a parent cloning a layer, as
+  Radix's `Slot` does for `asChild`, reaching a component given eagerly and one loaded on demand.
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerInstances.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
@@ -1180,17 +1182,27 @@ bar.
 - **It reads through the files API** (PAR-1163), with `read: ["**"]` in its manifest, since `tsr.config.json` can put
   the route tree and route files anywhere. Each round of reading names the next files, the config, the tree, then each
   route's module an extension at a time, so it reads again until a round asks for nothing new (`projectRoutes`).
+- **Code-based routes too** (PAR-1156). Without a generated route tree, it reads the routes the app makes itself with
+  `createRootRoute` (or `createRootRouteWithContext<…>()`) and `createRoute`, from the app's entry (the module script
+  `index.html` loads, else `src/main` or `src/index`) and the files it imports by relative paths, nearest first. Each
+  route's parent is the one its `getParentRoute` names, in its own file or imported from another; `addChildren` isn't
+  needed. Ids are TanStack Router's: a route's full path, an index's with a slash after (`/projects/`), and a pathless
+  route's `id` below its parent's (`/_auth`). A route's file is the one its `component` is imported from, else its own,
+  as React Router's library mode does; `loader` and `beforeLoad` say it loads data and guards the page. Routes come in
+  the order their files are read. Routes made at run time, or whose parent is reached through anything but a plain
+  variable, are left out.
 
-Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
-`packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
-`protocol.ts` and `providers.register` in `host.ts`; `projectProviders` and `byPeers` in `utility/extensions.ts`;
-`routes` and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/command-offers.ts` and `pageItems` in
-`ActionsSearch.tsx`.
+Code: `packages/extension-tanstack-router` (its manifest, `extension.ts`, `routes.ts`, `code-routes.ts` and
+`syntax.ts`); `providers` in `packages/extension-api/src/api.ts`; `provide` and `provider` in
+`packages/extensions/src/hosts.ts`, `readAnswer` in `protocol.ts` and `providers.register` in `host.ts`;
+`projectProviders` and `byPeers` in `utility/extensions.ts`; `routes` and `tools` in `utility/projects.ts`; `pageOffers`
+in `renderer/chrome/command-offers.ts` and `pageItems` in `ActionsSearch.tsx`.
 
-Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
-`packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a
-route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
-router, and Open in browser's placements in the window, have no unit test of their own.
+Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts` (with app H's code-based routes,
+and parents across files), and "providers (PAR-1095)" in `packages/extensions/src/hosts.test.ts`
+([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a route's page found by its design key
+gives the URL Open in browser opens). Gaps: the service's open path asking the router, and Open in browser's placements
+in the window, have no unit test of their own.
 
 ### React Router as an extension (PAR-1145)
 
@@ -1225,9 +1237,8 @@ are declared anywhere it reads, that routes made while the app runs aren't suppo
 
 Components the project's Vite plugin wraps for Fast Refresh, as React Router's does, draw on the canvas: the guest sets
 Fast Refresh's preamble, with hooks that do nothing, before any of the app's modules load (`viteGuestModule` in
-`packages/extension-vite/src/builder.ts`). Components that need the app's router, such as one rendering a `Link`, still
-fail to draw on their own, with "Needs a provider" in the Components panel, until a router extension can wrap each frame
-in a router (PAR-1152).
+`packages/extension-vite/src/builder.ts`). Components that need the app's router, such as one rendering a `Link`, draw
+on their own too, inside the memory router the extension puts around every frame (see the next section).
 
 Tried in the running app on 2026-11-15 on the example that became `fixtures/react-router-framework`: React Router 8.5.1
 found, 20 routes in Layers and the status bar, each page drawn from the app at its URL with its styles, and the route's
@@ -1246,6 +1257,38 @@ permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh p
 `packages/extension-vite/src/builder.test.ts`; the missing router in `packages/core/src/render-status.test.ts`; and the
 example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
 `routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
+
+### A router around every frame (PAR-1152)
+
+A component that renders its router's `Link`, or calls one of its hooks, draws on the canvas on its own rather than
+failing with "Needs a provider": a router's extension declares what goes around every frame, and the canvas puts it
+there.
+
+- **Declared in the manifest, as data.** `providers.router.decorators` lists components to wrap each frame in, outermost
+  first, in the same form as libraries' decorators in their `.lib.par`: a module the project imports, the export to
+  render and its props, with the value forms (`$call`, `$frame`) worked out in the frame. Parity reads them before the
+  extension's code runs, so they're in the guest module the builder writes as the project opens, for every builder.
+- **Outside the libraries' decorators,** as an app puts its router around its theme's provider.
+- **At the frame's URL.** `{ "$frame": "url" }` is the URL the frame stands for, `/` unless a frame says otherwise
+  through the mount's `url`. No frame does yet: pages are drawn from the app at their URL, so the frames the guest
+  draws, components and designs, all start at `/`.
+- **React Router** wraps each frame in its `MemoryRouter`, so `Link`, `NavLink`, `useNavigate` and `useLocation` work,
+  in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
+  with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
+  router (`useLoaderData`, `useFetcher`) still need their route's loader to run, which the canvas doesn't do.
+- **TanStack Router** wraps each frame in `RouterContextProvider`, with a router `createRouter` makes from an empty root
+  route and memory history at the frame's URL, so `Link` draws. `Outlet` draws nothing, as no route matches.
+
+Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
+`packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
+`packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
+`ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
+`packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
+`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`; each router's manifest.
+
+Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
+frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
+around the libraries'" in `packages/extension-vite/src/builder.test.ts`.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1471,8 +1514,9 @@ Code: `packages/extension-rsbuild` (its manifest, `extension.ts` and `builder.ts
 Tests: `packages/extension-rsbuild/src/builder.test.ts` (detection, and the config Rsbuild gives) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/guest-config.test.ts` (the extractor and HTML plugin).
 Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3.2 and its config found, Chakra UI's
-components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its root route's component
-needs a router, which waits on reading code-based routes (PAR-1156).
+components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
+code since PAR-1156, and its root route's component, `AppShell`, draws inside the router TanStack Router's extension
+puts around every frame (PAR-1152).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 
@@ -6438,9 +6482,14 @@ files among them given, nothing for a file never imported, a burst gathered into
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
 changed files stamped, none without a change). `packages/extension-react/src/guest.test.ts` (the revision moving once
-per new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key
-new with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
-console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
+per new version). `packages/extension-react/src/guest.react-18.test.ts` (on React 18, PAR-1157: a component's error
+reaching the frame with its name, and an error outside every component's boundary blanking the frame until the next
+update draws it). Those run in a project of their own, `packages/extension-react/vite.react-18.config.ts`, in happy-dom,
+with `react` and `react-dom` aliased to the package's `react-18` and `react-dom-18`. pnpm links React 18's react-dom to
+the package's React 19, its peer, so the project's setup file also sends Node's `react` to React 18.
+`apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new with the
+components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the console's row
+are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
 `chrome/ConsolePanel.stories.tsx` OneDesign and WarningsOnly have the console's design focus and levels menu. Checked in
 the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
 with no sheet over any frame, and kept every board's picture; fixing it cleared them, with every bitmap back 2.4 s

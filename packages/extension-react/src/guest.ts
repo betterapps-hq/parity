@@ -846,7 +846,7 @@ export function createGuest(init: GuestInit): Guest {
     css: init.css,
     mount(target, tree, options = {}): MountHandle {
       const report = (cause: unknown) => options.onError?.(cause)
-      const frame = frameOf(target, options.globals ?? {})
+      const frame = frameOf(target, options.globals ?? {}, options.url ?? "/")
       const decorate = options.bare ? (content: ReactNode) => content : decorators(init.decorators, frame, report)
       const failing = frameFailures(options.onFailures && ((failures) => options.onFailures?.(failures)))
 
@@ -1186,6 +1186,8 @@ const bodySelector = "[data-canvas-body]"
 /** What a decorator can know about the frame it decorates. */
 interface Frame {
   globals: Record<string, string>
+  /** The URL the frame stands for, `/` unless it's a page's. */
+  url: string
   /** The frame's shadow root, where its styles live. */
   root: ShadowRoot | Document
   /** The element standing in for the frame's `<body>`. */
@@ -1197,11 +1199,12 @@ interface Frame {
   undo(): void
 }
 
-function frameOf(target: HTMLElement, globals: Record<string, string>): Frame {
+function frameOf(target: HTMLElement, globals: Record<string, string>, url: string): Frame {
   const undos: (() => void)[] = []
 
   return {
     globals,
+    url,
     root: shadowOf(target) ?? target.ownerDocument,
     body: target.parentElement ?? target,
     made: new Map(),
@@ -1374,6 +1377,8 @@ function frameHost(setup: GuestDecorators, frame: Frame): ValueHost {
         // A selector for the body alone, for libraries that write their variables to a selector they're given.
         case "selector":
           return bodySelector
+        case "url":
+          return frame.url
       }
     },
     made: frame.made

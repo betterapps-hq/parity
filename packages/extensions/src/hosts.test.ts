@@ -92,7 +92,12 @@ const router = readExtension({
     prefix: "tanstack-router",
     icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
     activates: [],
-    contributes: { nodeTypes: [{ id: "route", name: "Route" }], providers: { router: {} } }
+    contributes: {
+      nodeTypes: [{ id: "route", name: "Route" }],
+      providers: {
+        router: { decorators: [{ wrap: { import: "@tanstack/react-router", component: "RouterContextProvider" } }] }
+      }
+    }
   }
 })
 
@@ -1220,6 +1225,20 @@ describe("providers (PAR-1095)", () => {
     expect(await hosts.provide("shop", { kind: "router", method: "routes" })).toEqual([root, settings])
     expect(started.map((each) => each.extension)).toEqual(["@parity-app/extension-tanstack-router"])
     expect(hosts.provider("shop", "router")).toEqual({ id: "tanstack-router", name: "TanStack Router" })
+  })
+
+  it("gives the routers' frame decorators from their manifests, before their code runs (PAR-1152)", () => {
+    const { hosts, started } = setUp({
+      "@parity-app/extension-tanstack-router": { activate: () => undefined }
+    })
+
+    hosts.open(project)
+
+    expect(hosts.decorators("shop").map(({ extension, decorator }) => [extension, decorator.wrap.component])).toEqual([
+      ["tanstack-router", "RouterContextProvider"]
+    ])
+    expect(started).toEqual([])
+    expect(hosts.decorators("elsewhere")).toEqual([])
   })
 
   it("gives nothing when none of the project's extensions declares the provider", async () => {

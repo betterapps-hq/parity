@@ -1,7 +1,7 @@
 import { availableParallelism } from "node:os"
 import { join } from "node:path"
 import base from "@buildkitgg/oxlint-config/base"
-import { defineConfig } from "vite-plus"
+import { configDefaults, defineConfig } from "vite-plus"
 
 /*
  * What each package may import (PKG-1, docs/proposals/packages.md: The rule). A package is pure unless it's named below:
@@ -78,6 +78,9 @@ const readOnly =
  * `.vitest-cache`, `.vite/vitest`), so without this every task misses on a fresh checkout and `check` misses after
  * `test`. The files a task reads inside `node_modules` still count, so an install that changes them reruns it.
  */
+/** The React guest's tests on React 18, which run in a project of their own (`vite.react-18.config.ts`). */
+const reactEighteenTests = "packages/extension-react/src/**/*.react-18.test.ts"
+
 const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"]
 
 /**
@@ -319,7 +322,12 @@ export default defineConfig({
     // each run, with Chrome and the fixture projects on four cores. Locally a slow test still fails at 5.
     testTimeout: process.env.CI ? 20_000 : 5_000,
     // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533).
-    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } }
+    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } },
+    // The React guest's React 18 tests run as a project of their own, with React 18 for `react` (PAR-1157).
+    projects: [
+      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, reactEighteenTests] } },
+      "packages/extension-react/vite.react-18.config.ts"
+    ]
   },
   // The checks, as tasks so Vite Task replays one whose inputs haven't changed since it last passed, here and in CI.
   // `pnpm verify` runs `check` and `test`, and `pnpm check:types` runs `types`; a task can't share a script's name.

@@ -631,8 +631,13 @@ export interface MountOptions {
    * Decorators read them.
    */
   globals?: Record<string, string>
-  /** Renders without the libraries' decorators, as the Icons panel's previews do. */
+  /** Renders without the libraries' and extensions' decorators, as the Icons panel's previews do. */
   bare?: boolean
+  /**
+   * The URL the frame stands for, as a page's does, which decorators read as `{ "$frame": "url" }`: a router's
+   * extension starts its router there. `/` when unset.
+   */
+  url?: string
   /**
    * The window the frame stands for. The project's code that asks the window its size (`matchMedia`, `innerWidth`,
    * resize events) gets this instead of Parity's window while it renders the frame or handles its events.

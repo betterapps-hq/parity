@@ -7,6 +7,7 @@ import type {
   Fact,
   FileEdit,
   FindQuery,
+  FrameDecorator,
   JsonValue,
   NodeRef,
   PathIcon,
@@ -343,6 +344,11 @@ export interface ExtensionHosts<Project extends OpenedProject> {
    * prefix and name, or nothing.
    */
   provider(projectId: string, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
+  /**
+   * What the project's extensions put around every frame, from their manifests, so it's known before their code runs:
+   * each router's decorators, with its prefix, in the order the extensions were given.
+   */
+  decorators(projectId: string): { extension: string; decorator: FrameDecorator }[]
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -1318,6 +1324,16 @@ export function extensionHosts<Project extends OpenedProject>(
       const manifest = open && providerHost(open, kind, extension)?.extension.package.manifest
 
       return manifest && { id: manifest.prefix, name: manifest.displayName }
+    },
+    decorators(projectId) {
+      const open = projects.get(projectId)
+
+      return [...(open?.hosts.values() ?? [])].flatMap(({ extension: { package: found } }) =>
+        (found.manifest.contributes.providers?.router?.decorators ?? []).map((decorator) => ({
+          extension: found.manifest.prefix,
+          decorator
+        }))
+      )
     },
     async provide(projectId, call, extension) {
       const open = projectOf(projectId)

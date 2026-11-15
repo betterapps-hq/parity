@@ -562,6 +562,10 @@ async function trialHost(load: Load, imports: string[]): Promise<ValueHost> {
         return "ltr"
       }
 
+      if (part === "url") {
+        return "/"
+      }
+
       return part === "lang" ? "en-US" : undefined
     },
     made: new Map()
