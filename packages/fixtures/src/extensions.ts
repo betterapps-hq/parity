@@ -18,6 +18,8 @@ import storybookExtension from "@parity-app/extension-storybook/package.json" wi
 import { exportStoryScreen, importStoryScreens } from "@parity-app/extension-storybook/screens"
 import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
+import turbopackExtension from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import { viteBuilder } from "@parity-app/extension-vite/builder"
 import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
 
@@ -29,11 +31,12 @@ import viteExtension from "@parity-app/extension-vite/package.json" with { type:
 /** React's renderer, reading components here. */
 export const renderers: RendererAdapter[] = [{ ...extensionRenderer(reactExtension)!, findComponents }]
 
-/** Vite's, Rspack's and Rsbuild's builders, each with its entry module's detection and start. */
+/** Vite's, Rspack's, Rsbuild's and Turbopack's builders, each with its entry module's detection and start. */
 export const builders: BuilderAdapter[] = [
   { ...viteBuilder, ...extensionBuilder(viteExtension)! },
   { ...rspackBuilder, ...extensionBuilder(rspackExtension)! },
-  { ...rsbuildBuilder, ...extensionBuilder(rsbuildExtension)! }
+  { ...rsbuildBuilder, ...extensionBuilder(rsbuildExtension)! },
+  { ...turbopackBuilder, ...extensionBuilder(turbopackExtension)! }
 ]
 
 /** Storybook's entities provider, importing and exporting here. */

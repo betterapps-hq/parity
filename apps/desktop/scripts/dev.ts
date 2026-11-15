@@ -134,6 +134,7 @@ const builds: BuildContext[] = [
       "extensions/vite": join(appDir, "../../packages/extension-vite/src/extension.ts"),
       "extensions/rspack": join(appDir, "../../packages/extension-rspack/src/extension.ts"),
       "extensions/rsbuild": join(appDir, "../../packages/extension-rsbuild/src/extension.ts"),
+      "extensions/turbopack": join(appDir, "../../packages/extension-turbopack/src/extension.ts"),
       "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts"),
       "extensions/portless": join(appDir, "../../packages/extension-portless/src/extension.ts")
     },

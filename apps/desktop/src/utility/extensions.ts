@@ -23,6 +23,7 @@ import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.j
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import turbopackPackage from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
   detectByManifest,
@@ -95,7 +96,8 @@ export const builtInRenderers: RendererDescription[] = [extensionRenderer(reactP
 export const builtInBuilders: BuilderDescription[] = [
   extensionBuilder(vitePackage),
   extensionBuilder(rspackPackage),
-  extensionBuilder(rsbuildPackage)
+  extensionBuilder(rsbuildPackage),
+  extensionBuilder(turbopackPackage)
 ].filter((builder) => builder !== undefined)
 
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
@@ -116,6 +118,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   builtIn(vitePackage, "vite"),
   builtIn(rspackPackage, "rspack"),
   builtIn(rsbuildPackage, "rsbuild"),
+  builtIn(turbopackPackage, "turbopack"),
   builtIn(reactPackage, "react"),
   builtIn(tailwindPackage, "tailwind"),
   builtIn(routerPackage, "tanstack-router"),
@@ -218,8 +221,8 @@ export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): Proje
   }
 
   return {
-    call: (project, call) => hosts.provide(told(project), call),
-    owner: (project, kind) => hosts.provider(told(project), kind)
+    call: (project, call, extension) => hosts.provide(told(project), call, extension),
+    owner: (project, kind, extension) => hosts.provider(told(project), kind, extension)
   }
 }
 

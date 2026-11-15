@@ -1,0 +1,8 @@
+# A workspace of its own, so pnpm doesn't treat this project as part of the Parity repo around it.
+packages:
+  - .
+allowBuilds:
+  # Storybook's Vite bundles with it; its binary comes from its platform package, which the script only checks.
+  esbuild: true
+  # Next.js's image optimizer; its prebuilt binary comes from its platform package.
+  sharp: false

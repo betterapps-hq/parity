@@ -46,7 +46,8 @@ async function copyProject(source: string): Promise<string> {
   const root = await mkdtemp(join(tmpdir(), `parity-${basename(source)}-`))
   await cp(source, root, {
     recursive: true,
-    filter: (path) => !(basename(path) === "node_modules" && dirname(path) === source)
+    // Nor what a builder built there, which the Turbopack builder's check may be writing as this copies.
+    filter: (path) => !(["node_modules", ".next"].includes(basename(path)) && dirname(path) === source)
   })
   // A junction on Windows needs no special rights; elsewhere the type is ignored and it's a plain symlink.
   await symlink(join(source, "node_modules"), join(root, "node_modules"), "junction")
