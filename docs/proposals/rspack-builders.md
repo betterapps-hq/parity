@@ -40,7 +40,7 @@ config files whose coming or going detects the project again.
 An Rsbuild project always has `@rspack/core` installed, as Rsbuild's own dependency, but no `rspack.config.*`, so the
 two don't both claim a project. Where a project has both config files, Rsbuild wins, since `rsbuild dev` is what its
 scripts run. The version is the tool's own: `@rsbuild/core`'s `version`, or `rspack.rspackVersion`. Peer dependencies in
-each manifest give the supported versions: Rspack `^1.4.0 || ^2.0.0`, Rsbuild `^1.4.0 || ^2.0.0`.
+each manifest give the supported versions: Rspack `^1.0.0 || ^2.0.0`, Rsbuild `^1.0.0 || ^2.0.0`.
 
 ## Driving the project's own compiler
 

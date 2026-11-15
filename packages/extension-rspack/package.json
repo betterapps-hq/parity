@@ -22,7 +22,7 @@
     "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
-    "@rspack/core": "^1.4.0 || ^2.0.0"
+    "@rspack/core": "^1.0.0 || ^2.0.0"
   },
   "peerDependenciesMeta": {
     "@rspack/core": {

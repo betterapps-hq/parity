@@ -55,7 +55,7 @@ describe("the Rspack extension", () => {
     expect(found.manifest.activates).toEqual(["onDetect"])
     expect(found.manifest.contributes.providers?.builder?.entry).toBe("./builder")
     expect(found.manifest.contributes.providers?.builder?.watches).toEqual(rspackBuilder.watches)
-    expect(found.versions).toEqual({ packages: ["@rspack/core"], range: "^1.4.0 || ^2.0.0" })
+    expect(found.versions).toEqual({ packages: ["@rspack/core"], range: "^1.0.0 || ^2.0.0" })
   })
 
   it("names an entry module its package exports", () => {

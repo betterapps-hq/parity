@@ -907,7 +907,7 @@ importers:
         specifier: workspace:*
         version: link:../project
       '@rspack/core':
-        specifier: ^1.4.0 || ^2.0.0
+        specifier: ^1.0.0 || ^2.0.0
         version: 2.3.2(@swc/helpers@0.5.24)
       zod:
         specifier: 'catalog:'
