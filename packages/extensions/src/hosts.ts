@@ -327,11 +327,20 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   runForAgent(projectId: string, request: AgentRun, agent: string): Promise<JsonValue | undefined>
   /**
    * Calls the provider of `kind` an extension of the project's declares, starting its host first when it isn't
-   * running, and reads its answer. Nothing when none of the project's extensions declares one.
+   * running, and reads its answer. Nothing when none of the project's extensions declares one. With `extension`, a
+   * prefix, only that extension's provider is asked: a project can have several builders' extensions running, as
+   * Vite's beside Next's, and only one of them serves it.
    */
-  provide<C extends ProviderCall>(projectId: string, call: C): Promise<ProviderResult<C> | undefined>
-  /** The extension of the project's that declares a provider of `kind`: its prefix and name, or nothing. */
-  provider(projectId: string, kind: ProviderKind): { id: string; name: string } | undefined
+  provide<C extends ProviderCall>(
+    projectId: string,
+    call: C,
+    extension?: string
+  ): Promise<ProviderResult<C> | undefined>
+  /**
+   * The extension of the project's that declares a provider of `kind`, or with `extension`, that one if it does: its
+   * prefix and name, or nothing.
+   */
+  provider(projectId: string, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -1138,9 +1147,11 @@ export function extensionHosts<Project extends OpenedProject>(
   }
 
   /** The host of the extension that declares a provider of `kind`, if any. */
-  const providerHost = (open: OpenProject<Project>, kind: ProviderKind) =>
+  const providerHost = (open: OpenProject<Project>, kind: ProviderKind, extension?: string) =>
     [...open.hosts.values()].find(
-      (candidate) => candidate.extension.package.manifest.contributes.providers?.[kind] !== undefined
+      ({ extension: { package: found } }) =>
+        found.manifest.contributes.providers?.[kind] !== undefined &&
+        (extension === undefined || found.manifest.prefix === extension)
     )
 
   /** The host of the extension that declares a command, if any. */
@@ -1297,15 +1308,15 @@ export function extensionHosts<Project extends OpenedProject>(
     async run(projectId, command, target) {
       await runCommand(projectOf(projectId), command, target)
     },
-    provider(projectId, kind) {
+    provider(projectId, kind, extension) {
       const open = projects.get(projectId)
-      const manifest = open && providerHost(open, kind)?.extension.package.manifest
+      const manifest = open && providerHost(open, kind, extension)?.extension.package.manifest
 
       return manifest && { id: manifest.prefix, name: manifest.displayName }
     },
-    async provide(projectId, call) {
+    async provide(projectId, call, extension) {
       const open = projectOf(projectId)
-      const host = providerHost(open, call.kind)
+      const host = providerHost(open, call.kind, extension)
 
       if (!host) {
         return undefined

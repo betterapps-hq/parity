@@ -59,7 +59,13 @@ export async function loadDesignSystem(root: string, stylesheet: string): Promis
  */
 async function loadTailwindNode(root: string): Promise<TailwindNode> {
   // `@tailwindcss/node` is usually a dependency of the project's Tailwind plugin rather than of the project itself.
-  for (const via of [undefined, "@tailwindcss/vite", "@tailwindcss/postcss", "@tailwindcss/cli"]) {
+  for (const via of [
+    undefined,
+    "@tailwindcss/vite",
+    "@tailwindcss/postcss",
+    "@tailwindcss/turbopack",
+    "@tailwindcss/cli"
+  ]) {
     const from = via ? (await findPackage(root, via))?.dir : root
     const tailwind = from && (await findPackage(from, "@tailwindcss/node"))
     const entry = tailwind && packageEntry(tailwind, "runtime")

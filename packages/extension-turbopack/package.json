@@ -1,0 +1,62 @@
+{
+  "name": "@parity-app/extension-turbopack",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Turbopack in Parity: the project’s own Next.js and config build its components for the canvas.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./builder": "./src/builder.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "@parity-app/next-builders": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extensions": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "parity": {
+    "displayName": "Turbopack",
+    "prefix": "turbopack",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M12 2 3 7v10l9 5 9-5V7zm0 2.3 6.9 3.8L12 12 5.1 8.1zM5 9.8l6 3.4v6.6l-6-3.3zm8 10V13.2l6-3.4v6.7z"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "contributes": {
+      "statusItems": [
+        {
+          "id": "turbopack.status",
+          "title": "Turbopack"
+        }
+      ],
+      "providers": {
+        "builder": {
+          "entry": "./builder",
+          "watches": [
+            "next.config.js",
+            "next.config.mjs",
+            "next.config.ts",
+            "next.config.mts"
+          ]
+        }
+      }
+    }
+  }
+}

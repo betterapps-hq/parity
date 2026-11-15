@@ -1300,6 +1300,49 @@ graph walks and the server's paths); the `rspack` validation project. Tried in t
 of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
 properties, and a component's code and a token edited together, both drawn afresh.
 
+### Turbopack as an extension, through its builder provider (PAR-1149)
+
+A Next.js 16 app whose dev server runs Turbopack draws its components and pages with the project's own Next and
+`next.config.*`, and "Turbopack" leads the status bar. Turbopack has no API of its own, so the builder runs the
+project's Next on a small Next.js app of Parity's own, the guest app, as [the proposal](proposals/nextjs-builders.md)
+sets out. What any Next.js builder needs is in `packages/next-builders`, for the webpack builder to share.
+
+- **Its builder provider says whether Turbopack builds the project,** asked of the project's own Next: Next.js 16 runs
+  Turbopack unless the script that runs `next dev` passes `--webpack`, and 15 only with `--turbopack`. It gives Next's
+  version and config file.
+- **The guest app lives in the project, in `.next/parity`,** since Next compiles nothing outside the project. Its config
+  is the project's, loaded the way Next loads it, without its output, base path, locales, rewrites and redirects, with
+  assets served from the builder's own server, and built to `.next/parity-build`. Its pages are the guest module, a
+  client module, and one each for the project's and packages' global stylesheets. Its tsconfig and PostCSS config are
+  the project's. Next starts from the project's folder, as `next dev` does, so the config's plugins work as they do in
+  the app: vanilla-extract's adds its Turbopack rules. Tailwind's PostCSS plugin and Turbopack loader are given the
+  project's root to look for class names from, since Next runs them from the guest app's folder.
+- **The canvas imports a module of the builder's own,** which loads Turbopack's runtime without what would start Next's
+  router, then the guest page's chunks, and asks the runtime for the guest module by the id Next's page names. The
+  stylesheets come from the stylesheet pages. What the runtime links for a module's CSS stays in the page, muted, since
+  the runtime waits for it to load.
+- **A page or layout only a server can build** shows why on the canvas: one that exports `metadata` or a viewport, or
+  imports `next/headers` or `server-only`, is imported from a stand-in that throws the reason, so the rest still builds.
+- **The global stylesheets** are the ones the root layout imports, or the Pages Router's `_app`, following the project's
+  own modules through its path aliases until some import stylesheets, the choice the other builders make too
+  (`chooseAppStyles`). CSS modules are left out.
+- **Not yet:** a changed component starts the builder again rather than loading afresh, and the canvas can't load a
+  module the guest didn't import at the start, so stories drawn from their stories file don't draw. Components get no
+  element sources, CSS modules don't reach frames, as with Vite, and components that read Next's router
+  (`next/navigation`) fail without it.
+
+Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts` and `loader.ts`);
+`packages/next-builders` (`next.ts`, `bundler.ts`, `guest-app.ts`, `guest-runtime.ts`, `server-modules.ts`, `page.ts`,
+`app-styles.ts` and `server.ts`); the builder provider calls addressed to the serving builder's extension in
+`packages/extensions` and `apps/desktop/src/utility/projects.ts`.
+
+Tests: `packages/extension-turbopack/src/extension.test.ts` (its manifest) and `loader.test.ts` (the runtime chunk and
+the guest module); `packages/next-builders/src/*.test.ts` (detection, the bundler, the guest app, the runtime's copy,
+server-only modules, reading Next's pages and the global stylesheets); the `nextjs-turbopack` validation project. Tried
+in the running app on 2026-11-15 on `fixtures/nextjs-turbopack`: Next.js 16.4.6 on Turbopack found, its components, its
+stories and Home drawn with Tailwind and Recharts. On a Next.js 16.3.1 app with vanilla-extract, Sentry and Radix: it
+opened with 97 components and 441 theme variables, and the components that need no provider drew.
+
 ### Storybook's stories through its entities provider (PAR-1095)
 
 Storybook's stories are read and written back by its extension, through Parity's public API alone, rather than by an

@@ -24,6 +24,7 @@ import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.j
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import turbopackPackage from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
@@ -106,7 +107,8 @@ export const builtInRenderers: RendererDescription[] = [extensionRenderer(reactP
 /** The builders Parity's own extensions describe, which say whether they serve a project through their hosts. */
 export const builtInBuilders: BuilderDescription[] = [
   extensionBuilder(vitePackage),
-  extensionBuilder(rspackPackage)
+  extensionBuilder(rspackPackage),
+  extensionBuilder(turbopackPackage)
 ].filter((builder) => builder !== undefined)
 
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
@@ -127,6 +129,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   // In the order the status bar shows their items: the builder, then the renderer, then the rest.
   byPeers(builtIn(vitePackage, "vite", () => undefined)),
   byPeers(builtIn(rspackPackage, "rspack", () => undefined)),
+  byPeers(builtIn(turbopackPackage, "turbopack", () => undefined)),
   byPeers(builtIn(reactPackage, "react", () => undefined)),
   byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
@@ -242,8 +245,8 @@ export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): Proje
   }
 
   return {
-    call: (project, call) => hosts.provide(told(project), call),
-    owner: (project, kind) => hosts.provider(told(project), kind)
+    call: (project, call, extension) => hosts.provide(told(project), call, extension),
+    owner: (project, kind, extension) => hosts.provider(told(project), kind, extension)
   }
 }
 

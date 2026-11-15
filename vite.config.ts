@@ -25,10 +25,12 @@ const edge = [
   "extension-storybook-a11y",
   "extension-tailwind",
   "extension-tanstack-router",
+  "extension-turbopack",
   "extension-vite",
   "fixtures",
   "libgen",
-  "media-player"
+  "media-player",
+  "next-builders"
 ]
 
 const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
