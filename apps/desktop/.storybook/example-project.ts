@@ -20,7 +20,7 @@ import { exportStoryScreen, importStoryScreens } from "@parity-app/extension-sto
 import { handles, readTheme } from "@parity-app/extension-tailwind"
 import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
-import { guestModuleSource, taggedModule } from "@parity-app/extension-vite/builder"
+import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/extension-vite/builder"
 import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
   adapterActions,
@@ -199,8 +199,9 @@ async function discover(): Promise<{
   }
 
   const renderer = rendererFound.adapter
-  // The builder isn't started, so it isn't asked either: stories use the example's Vite as installed.
-  const builder = extensionBuilder(viteExtension)!
+  // The builder isn't started or asked whether it serves the example: stories use the example's Vite as installed. It's
+  // asked which stylesheets the app loads, as the app asks it.
+  const builder = { ...viteBuilder, ...extensionBuilder(viteExtension)! }
   const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
 
   const entitiesFound = await found([
@@ -219,7 +220,7 @@ async function discover(): Promise<{
     return detection.found ? [{ adapter: tool, detection }] : []
   })
 
-  const config = await discoverProject(root, renderer, pkg)
+  const config = await discoverProject(root, renderer, pkg, { styles: builder.styles?.(detectContext(root, pkg)) })
   const stylesheet = config.styles[0]
   const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
   // Tailwind reads the theme, as its extension's styles provider does in the app.

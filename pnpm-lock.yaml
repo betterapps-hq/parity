@@ -670,9 +670,15 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension-vite':
+        specifier: workspace:*
+        version: link:../extension-vite
       '@parity-app/libgen':
         specifier: workspace:*
         version: link:../libgen
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
       '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry

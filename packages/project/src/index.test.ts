@@ -39,7 +39,7 @@ afterEach(async () => {
 })
 
 describe("discoverProject", () => {
-  it("follows components.json and tsconfig paths", async () => {
+  it("reads every component file and .par design, and leaves components.json to shadcn", async () => {
     await write("components.json", JSON.stringify({ tailwind: { css: "app/global.css" }, aliases: { ui: "~/ui" } }))
     await write("tsconfig.json", '{ "compilerOptions": { /* paths */ "paths": { "~/*": ["./lib/*"] } } }')
     await write("lib/ui/card.tsx", "export function Card() {}\nexport function CardTitle() {}")
@@ -47,40 +47,28 @@ describe("discoverProject", () => {
     await write("node_modules/pkg/ignored.par", "{}")
 
     const project = await discoverProject(root, renderer)
-    expect(project.styles).toEqual(["app/global.css"])
+    expect(project.styles).toEqual([])
     expect(project.components).toEqual({
-      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function" },
-      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function" }
+      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function", lazy: true },
+      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function", lazy: true }
     })
     expect(project.documents).toEqual(["designs/team.par"])
   })
 
-  it("keeps the UI kit folder components.json names while it's empty, rather than taking the app's components", async () => {
-    await write("components.json", JSON.stringify({ aliases: { ui: "@/components/ui" } }))
-    await write("src/components/status-badge.tsx", "export function StatusBadge() {}")
-
-    const project = await discoverProject(root, renderer)
-    expect(project.uiKit).toBe("src/components/ui")
-    expect(project.notes).toContain("the UI kit is in src/components/ui")
-  })
-
-  it("falls back to the app entry's CSS imports and conventional folders", async () => {
-    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
-    await write("src/main.tsx", 'import "./styles/app.css"\nimport App from "./App"')
-    await write("src/components/ui/button.tsx", "export function Button() {}")
-
-    const project = await discoverProject(root, renderer)
-    expect(project.styles).toEqual(["src/styles/app.css"])
-    expect(Object.keys(project.components)).toEqual(["Button"])
-  })
-
-  it("keeps a package's stylesheet the entry imports by its specifier, apart from the project's own", async () => {
+  it("takes the stylesheets the builder says the app loads, and reads no entry itself", async () => {
     await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     await write("src/main.tsx", "import '@mantine/core/styles.css'\nimport './index.css'")
+    await write("src/index.css", ":root { --a: red; }")
 
-    const project = await discoverProject(root, renderer)
+    const styles = { styles: ["src/index.css"], packageStyles: ["@mantine/core/styles.css"], from: ["src/main.tsx"] }
+    const project = await discoverProject(root, renderer, {}, { styles: Promise.resolve(styles) })
     expect(project.styles).toEqual(["src/index.css"])
     expect(project.packageStyles).toEqual(["@mantine/core/styles.css"])
+    expect(project.notes[0]).toBe("styles the builder found: @mantine/core/styles.css, src/index.css")
+
+    const unasked = await discoverProject(root, renderer)
+    expect(unasked.styles).toEqual([])
+    expect(unasked.notes[0]).toBe("the builder didn't say which stylesheets the app loads")
   })
 })
 
@@ -182,7 +170,7 @@ describe("libraries", () => {
     const project = await discoverProject(root, renderer, { name: "@buildkitgg/shadcn-baseui-nova" })
     expect(project.namespace).toBe("nova")
     expect(project.components).toEqual({
-      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function" }
+      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function", lazy: true }
     })
 
     // Without an id, the package's name names them, as it does in the apps that install the library.

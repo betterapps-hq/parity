@@ -159,9 +159,8 @@ describe("the insert picker", () => {
       return seen
     })
 
-    // The example takes its UI kit from Shadcn Nova, so the folder components.json names is empty and has no heading.
-    // App and ThemeProvider aren't listed until searched for, so the app's own section holds StatusBadge, PlanCard and
-    // PageHeader, and the run's MemberRow, MemberNames and EmailField.
+    // The example takes its UI kit from Shadcn Nova. App and ThemeProvider aren't listed until searched for, so the
+    // app's own section holds StatusBadge, PlanCard and PageHeader, and the run's MemberRow, MemberNames and EmailField.
     expect(headings).toEqual(["Basics", "Local components", "shadcn-vite", "Shadcn Nova"])
   })
 

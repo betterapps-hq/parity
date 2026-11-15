@@ -1,7 +1,10 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
 import {
+  type AppStyles,
+  type BuilderAdapter,
   type BuilderDetection,
+  type DetectContext,
   detectPeers,
   type ComponentSource,
   type JsonValue,
@@ -132,7 +135,10 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     problems.push(`No builder supports ${root}.\n${misses.join("\n")}`)
   }
 
-  const config = renderer ? await discoverProject(root, renderer, pkg) : undefined
+  // The stylesheets the app loads, as the builder says, as the desktop app asks its builder's extension.
+  const appStyles = builderAdapter ? stylesOf(builderAdapter, project, problems) : undefined
+
+  const config = renderer ? await discoverProject(root, renderer, pkg, { styles: appStyles }) : undefined
   const stylesheets = config?.styles ?? []
 
   const sources = await Promise.all(
@@ -260,6 +266,21 @@ function withoutRoot<T>(value: T, root: string): T {
   return JSON.parse(JSON.stringify(value), (_key, item: JsonValue) =>
     isText(item) ? forms.reduce((text, form) => text.replaceAll(form, "<project>"), item) : item
   )
+}
+
+/** The stylesheets the builder says the app loads, or nothing when it can't say, with why among the problems. */
+async function stylesOf(
+  builder: BuilderAdapter,
+  project: DetectContext,
+  problems: string[]
+): Promise<AppStyles | undefined> {
+  try {
+    return await builder.styles?.(project)
+  } catch (error) {
+    problems.push(message(error))
+
+    return undefined
+  }
 }
 
 function message(cause: unknown): string {

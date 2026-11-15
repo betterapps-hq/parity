@@ -210,7 +210,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         case "renderer":
           return await callRenderer(renderer ?? missing(), call)
         case "builder":
-          return await callBuilder(builder ?? missing())
+          return await callBuilder(builder ?? missing(), call)
         case "entities":
           return await callEntities(entities ?? missing(), call)
         case "addresses":
@@ -651,9 +651,23 @@ async function callRenderer(
   return renderer.components(call.params)
 }
 
-/** Asks the builder the extension registered whether the project's own build tool serves it. */
-async function callBuilder(builder: ProviderKinds["builder"]): Promise<ProviderAnswer> {
-  return builder.detect()
+/**
+ * Asks the builder the extension registered whether the project's own build tool serves it, or which global stylesheets
+ * the app loads. A builder that can't say which stylesheets fails the call, so Parity knows it didn't answer.
+ */
+async function callBuilder(
+  builder: ProviderKinds["builder"],
+  call: Extract<ProviderCall, { kind: "builder" }>
+): Promise<ProviderAnswer> {
+  if (call.method === "detect") {
+    return builder.detect()
+  }
+
+  if (!builder.styles) {
+    throw new Error("The builder doesn't say which stylesheets the app loads")
+  }
+
+  return builder.styles()
 }
 
 /** Calls the method an entities call names on the entities provider the extension registered. */

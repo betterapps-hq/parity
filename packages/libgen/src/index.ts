@@ -31,7 +31,6 @@ import {
 } from "@parity-app/core"
 import {
   findPackage,
-  findStyles,
   packageEntry,
   packageStylesheet,
   readPackage,
@@ -103,6 +102,11 @@ export interface GenerateOptions {
   tags?: boolean
   /** Why parts failed in the running app, by part, as `parity lib check --record` keeps them. */
   appErrors?: Record<string, string>
+  /**
+   * For an app, the global stylesheets it loads, by path from its root, as its builder reports them: where its tokens
+   * are read from. None when unset.
+   */
+  styles?: string[]
 }
 
 /** What generating found, for the person to check: counts, and what couldn't be decided. */
@@ -771,8 +775,8 @@ async function describeApp(options: GenerateOptions): Promise<GeneratedLibrary> 
 
   const tokens = new Map<string, CollectedToken>()
 
-  // The stylesheets project detection loads on the canvas, so the library's tokens are the ones the app renders with.
-  for (const stylesheet of (await findStyles(root)).styles) {
+  // The stylesheets the app's builder says it loads, so the library's tokens are the ones the app renders with.
+  for (const stylesheet of options.styles ?? []) {
     for (const token of cssTokens(await readStylesheet(join(root, stylesheet)))) {
       tokens.set(token.var, token)
     }

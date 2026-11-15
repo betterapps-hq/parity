@@ -17,6 +17,7 @@ import {
   type Adapter,
   type BuilderDescription,
   type BuilderDetection,
+  type AppStyles,
   type BuilderStartOptions,
   type CodeChange,
   type ComponentInfo,
@@ -247,9 +248,8 @@ interface Project extends OpenProject {
   watcher?: Watching
   /** The props inferred from each component's source, read again as the list says. */
   components: Promise<Record<string, ComponentInfo>>
-  /** What reads the app's files for components when they change, and the UI kit folder whose components load eagerly. */
+  /** What reads the app's files for components when they change. */
   renderer: RendererAdapter
-  uiKit?: string
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
   drawnGuestUrl: string
   /**
@@ -451,13 +451,16 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * take turns on its thread, and start the builder later.
    */
   async function detect(root: string, opening: Opening, early?: (read: EarlyStart) => void) {
-    // Read first, so a change made while the project opens is a change from what it opened with.
-    const inputs = await detectionInputs(root, watched).catch(() => undefined)
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
       throw unsupported("no_package", `There's no package.json in ${root}`)
     }
+
+    // Asked first, so the builder reads the app while its files are, and a change made while the project opens is a
+    // change from what it opened with.
+    const styles = appStyles({ root, name: pkg.name ?? basename(root), pkg })
+    const readingInputs = styles.then((found) => detectionInputs(root, watched, found)).catch(() => undefined)
 
     // Every adapter is asked whether the project uses its tool, through the same context, and only those that find it
     // are used: the first renderer and builder, and every other.
@@ -491,7 +494,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const usedEntities = entitiesFound.map(({ adapter }) => adapter)
 
-    const reading = await readProject(root, renderer, pkg, name, usedEntities, early).then(
+    const reading = await readProject(root, renderer, pkg, name, usedEntities, styles, early).then(
       (read) => ({ read }),
       (cause: unknown) => ({ cause })
     )
@@ -531,6 +534,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const { read } = reading
     opening.cached = !!read.saved
+    const inputs = await readingInputs
 
     // Asked now, so the router's extension reads them while the builder starts.
     const routing = provide({ root, name, pkg }, { kind: "router", method: "routes" }).then(
@@ -568,6 +572,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     pkg: PackageManifest,
     name: string,
     usedEntities: EntitiesDescription[],
+    styles: Promise<AppStyles | undefined>,
     early?: (read: EarlyStart) => void
   ) {
     // The project files are read before discovery, which follows what the main one sets, such as the Storybook config
@@ -590,7 +595,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const config = await discoverProject(root, renderer, pkg, {
       documents: paths,
-      storybookConfigDir: storybookConfigDir(main)
+      storybookConfigDir: storybookConfigDir(main),
+      styles
     })
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
@@ -816,7 +822,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
       renderer,
-      uiKit: config.uiKit || undefined,
       openedAt: performance.now(),
       stylesVersion: 0,
       detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
@@ -1120,6 +1125,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   }
 
   /**
+   * The global stylesheets the project's builder says the app loads: the only source of them. Nothing when it can't
+   * say, as when its extension isn't running or doesn't answer, which its log records.
+   */
+  async function appStyles(project: ProviderProject): Promise<AppStyles | undefined> {
+    return provide(project, { kind: "builder", method: "styles" }).catch((cause: unknown) => {
+      logNote(`[service] couldn't ask ${project.name}'s builder which stylesheets it loads: ${message(cause)}`)
+
+      return undefined
+    })
+  }
+
+  /**
    * An entities provider an extension describes, importing and exporting through it: the project's components go with
    * each call, as `components` has them then, by file and export.
    */
@@ -1418,12 +1435,13 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /**
    * Reads what detection reads of the project again (PAR-820), and whether it changed since the project opened:
-   * `components.json` added, a stylesheet created, a dependency added. Only opening it again takes that in. A file
-   * caught mid-write reads as no change, and the next event reads it again.
+   * a stylesheet created, a dependency added. Only opening it again takes that in. A file caught mid-write reads as no
+   * change, and the next event reads it again.
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
-    const inputs = await detectionInputs(root, watched).catch(() => undefined)
+    const styles = await appStyles(providerProject(project))
+    const inputs = await detectionInputs(root, watched, styles).catch(() => undefined)
 
     if (!inputs || projects.get(root) !== project) {
       return false
@@ -1466,7 +1484,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     }
 
     logNote(`[service] ${project.info.name}'s config or dependencies changed, so its components are found again`)
-    const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.uiKit, project.list.sources)
+    const read = await rediscoveredFiles(root, project.renderer, tsconfig, project.list.sources)
     // The files discovery gives the checker, so never the entry that mounts the app, which the guest must not import.
     const files = await checkedAppFiles(root, project.renderer, tsconfig)
 
@@ -1498,9 +1516,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /**
    * Runs the type checker over the app's files once props are read, so the list gains what the parse can't see, such
-   * as `const Select = SelectPrimitive.Root`, and loses the UI kit's undecided exports that aren't components. The
-   * builder serves the guest from the list, so a guest loaded later has the new ones; the canvas hears about them and
-   * adds them to the guest it has. Whether the checker read them, so what it found can be saved.
+   * as `const Select = SelectPrimitive.Root`, and loses undecided exports that aren't components. The builder serves
+   * the guest from the list, so a guest loaded later has the new ones; the canvas hears about them and adds them to the
+   * guest it has. Whether the checker read them, so what it found can be saved.
    */
   async function checkTypes(project: Project, files: string[]): Promise<boolean> {
     const { root, id } = project.info
@@ -1563,7 +1581,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const { root } = project.info
     const tsconfig = readTsconfig(root)
     const { files } = await appFiles(root, project.renderer, tsconfig)
-    const read = await readChangedFiles(root, project.renderer, files, project.uiKit, paths)
+    const read = await readChangedFiles(root, project.renderer, files, paths)
 
     if (projects.get(root) !== project) {
       return

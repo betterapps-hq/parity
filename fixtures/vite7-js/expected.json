@@ -100,35 +100,39 @@
     "Avatar": {
       "path": "src/components/Avatar.jsx",
       "export": "default",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "Badge": {
       "path": "src/components/Badge.jsx",
       "export": "default",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "Button": {
       "path": "src/components/Button.jsx",
       "export": "Button",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "Card": {
       "path": "src/components/Card.jsx",
       "export": "Card",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "ThemeToggle": {
       "path": "src/components/ThemeToggle.jsx",
       "export": "ThemeToggle",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     }
   },
   "libraries": [],
   "icons": [],
   "storybook": null,
   "notes": [
-    "styles from /src/main.jsx: src/index.css",
-    "the UI kit is in src/components",
+    "styles the builder found: src/index.css",
     "6 components in 7 files from the project's files",
     "not read, since they mount the app: src/main.jsx",
     "no .par project file yet"

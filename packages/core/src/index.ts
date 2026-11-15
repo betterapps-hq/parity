@@ -1,4 +1,5 @@
 export {
+  type AppStyles,
   type BuilderAdapter,
   type BuilderDescription,
   type BuilderPackage,
