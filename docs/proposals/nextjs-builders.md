@@ -131,8 +131,8 @@ imported as its one difference: `?inline` for Vite, a plain import for Next, who
 ## The webpack builder (PAR-1150)
 
 One extension, `extension-webpack`, opens two kinds of project: Next.js apps whose dev script runs webpack, and plain
-webpack 5 apps. The two share no build code: Next.js on webpack runs Next's own server, as Turbopack's builder does,
-and a plain webpack app runs the webpack-compatible core from the [Rspack proposal](rspack-builders.md).
+webpack 5 apps. The two share no build code: Next.js on webpack runs Next's own server, as Turbopack's builder does, and
+a plain webpack app runs the webpack-compatible core from the [Rspack proposal](rspack-builders.md).
 
 ### Detection
 
@@ -161,8 +161,7 @@ fetches the page's CSS as the Turbopack loader does. The spike tried this only o
 same check on `nextjs-webpack`.
 
 Next's config isn't handed to the webpack-compatible core: Next makes several webpack configs (client, server, edge),
-runs its SWC transforms and `next/font` through them, and decides client boundaries itself, so only Next can build
-them.
+runs its SWC transforms and `next/font` through them, and decides client boundaries itself, so only Next can build them.
 
 ### Plain webpack
 
@@ -183,7 +182,8 @@ The core does the work, given a `Bundler` for webpack:
   reopening the project redraws. A plain webpack app redraws through the core.
 - **Projects whose webpack config is hidden in a tool**, such as Create React App's `react-scripts`, CRACO, or a
   framework other than Next.js. An ejected app opens as plain webpack.
-- **webpack 4 and older, Next.js 14 and older,** Module Federation remotes, and configs whose web target isn't the first.
+- **webpack 4 and older, Next.js 14 and older,** Module Federation remotes, and configs whose web target isn't the
+  first.
 
 ### Example apps
 
@@ -198,9 +198,9 @@ Both are in `fixtures/` (PR #677) and go through the validation snapshots:
 
 ### Question
 
-**webpack's own CSS where the project has no extract plugin, or a bundled `mini-css-extract-plugin`?** webpack's own
-CSS needs no dependency, but it's still marked experimental and treats a few `css-loader` options differently. Bundling
-the plugin would be the extension's first runtime dependency on a build tool. Recommended: webpack's own CSS.
+**webpack's own CSS where the project has no extract plugin, or a bundled `mini-css-extract-plugin`?** webpack's own CSS
+needs no dependency, but it's still marked experimental and treats a few `css-loader` options differently. Bundling the
+plugin would be the extension's first runtime dependency on a build tool. Recommended: webpack's own CSS.
 
 ## Testing
 
