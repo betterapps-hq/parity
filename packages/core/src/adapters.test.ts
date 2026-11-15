@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { detectPeers, peerVersions } from "./adapters.ts"
+import { detectPeers, extensionTool, peerVersions } from "./adapters.ts"
 
 describe("peerVersions", () => {
   it("names the packages that carry the version, the main one first, with its range and what the manifest adds", () => {
@@ -38,5 +38,23 @@ describe("detectPeers", () => {
       found: false,
       summary: "None of @tanstack/react-router in package.json"
     })
+  })
+})
+
+describe("extensionTool (PAR-1095)", () => {
+  const tool = (providers: { styles?: Record<string, never>; router?: Record<string, never> }) =>
+    extensionTool({
+      peerDependencies: { tailwindcss: "^4.0.0" },
+      parity: { prefix: "tailwind", displayName: "Tailwind CSS", contributes: { providers } }
+    })
+
+  // Detection lists the styling framework before Storybook and other tools after, as it did before they were extensions.
+  it("says whether the tool styles the project, from the providers its manifest declares", () => {
+    expect(tool({ styles: {} })).toMatchObject({ id: "tailwind", name: "Tailwind CSS", styles: true })
+    expect(tool({ router: {} })?.styles).toBe(false)
+  })
+
+  it("gives nothing for an extension without peer dependencies", () => {
+    expect(extensionTool({ parity: { prefix: "none", displayName: "None" } })).toBeUndefined()
   })
 })

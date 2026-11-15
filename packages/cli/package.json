@@ -55,9 +55,9 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@parity-app/adapters": "workspace:*",
     "@parity-app/agent": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension-vite": "workspace:*",
     "@parity-app/libgen": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",
