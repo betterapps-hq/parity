@@ -2,12 +2,18 @@ import { randomUUID } from "node:crypto"
 import { mkdir, readdir, readFile, realpath, stat } from "node:fs/promises"
 import type { IncomingMessage } from "node:http"
 import { join, posix } from "node:path"
-import type { BuilderSession, BuilderStartOptions } from "@parity-app/core"
-import { guestModule } from "@parity-app/project"
+import type { BuilderSession, BuilderStartOptions, CodeChange } from "@parity-app/core"
+import { guestModule, readTsconfig } from "@parity-app/project"
 import type { NextBundler } from "./bundler.ts"
 import { elementSourcesRoute, taggedNextSource } from "./element-sources.ts"
 import { guestAppFiles, guestAppFolder, type GuestAppOptions, guestModuleFile, projectImport } from "./guest-app.ts"
 import { copyGuestRuntime } from "./guest-runtime.ts"
+import {
+  guestStylesDigest,
+  type ProjectModule,
+  projectModules as moduleServer,
+  watchCodeChanges
+} from "./module-server.ts"
 import { nextRouterDecorator } from "./next-router.ts"
 import { detectNext, postcssConfigFile, projectTsconfigFile } from "./next.ts"
 import { type GuestPage, readGuestPage } from "./page.ts"
@@ -31,6 +37,12 @@ export interface NextGuestLoader {
   guestModule(server: NextServer, session: string): Promise<string>
   /** Other scripts the builder serves under `/__parity/`, by path, as Turbopack's runtime is. */
   scripts?: Record<string, (server: NextServer, url: URL) => Promise<string>>
+  /**
+   * One of the project's modules as an ES module, for the builder's `session`: a component found since the guest
+   * loaded, or one whose code changed, loaded again after the change `module.stamp` (PAR-1159). A loader with it gets
+   * the builder's code changes and restyled guests; one without is started again when the project changes.
+   */
+  module?(server: NextServer, session: string, module: ProjectModule): Promise<string>
 }
 
 /** Next's server once it's started: the builder's own routes answer nothing before. */
@@ -112,6 +124,18 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
   const session = randomUUID()
   const started: StartedServer = {}
 
+  /** The project's own components' files, which the canvas loads from the guest, by path from the root. */
+  const componentFiles = new Map<string, string[]>()
+
+  for (const source of Object.values(options.config.components)) {
+    if (!source.library) {
+      const path = source.path.replaceAll("\\", "/").replace(/^\.?\//, "")
+      componentFiles.set(path, [...(componentFiles.get(path) ?? []), source.export.split(".")[0]!])
+    }
+  }
+
+  const modules = moduleServer(root, folder, (path) => componentFiles.get(path) ?? [])
+
   const own: OwnRoute = async (request, response, url) => {
     // Next's loaders ask for the project's JSX to be tagged as they compile it, which starts before Next's server is.
     if (url.pathname === elementSourcesRoute) {
@@ -129,6 +153,18 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     }
 
     const { server } = started
+    const path = decodeURIComponent(url.pathname).slice(1)
+
+    // A module of the project's the canvas loads on its own: a component found since, or one whose code changed.
+    if (server && loader.module && request.method === "GET" && (await modules.loadable(path))) {
+      const stamp = url.searchParams.has("t") ? Number(url.searchParams.get("t")) : undefined
+      const answer = await loader.module(server, session, await modules.module(server, path, stamp))
+      response.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" })
+      response.end(answer)
+
+      return true
+    }
+
     const script = url.pathname === guestModuleRoute ? undefined : loader.scripts?.[url.pathname]
 
     if (!server || (url.pathname !== guestModuleRoute && !script)) {
@@ -153,7 +189,37 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     throw error
   }
 
-  return { guestUrl: `${origin}${guestModuleRoute}`, toolVersion: found.next.version, close: () => server.close() }
+  const guestUrl = `${origin}${guestModuleRoute}`
+
+  if (!loader.module) {
+    return { guestUrl, toolVersion: found.next.version, close: () => server.close() }
+  }
+
+  const listeners = new Set<(change: CodeChange) => void>()
+
+  const stopWatching = await watchCodeChanges({
+    root,
+    tsconfig: readTsconfig(root),
+    components: () => [...new Set([...componentFiles.keys(), ...modules.served()])],
+    stylesDigest: () => guestStylesDigest(server),
+    send: (change) => listeners.forEach((listener) => listener(change))
+  })
+
+  return {
+    guestUrl,
+    toolVersion: found.next.version,
+    // The guest module is made afresh for each request, with the guest's stylesheets as Next builds them now.
+    restyledGuestUrl: (stamp) => `${guestUrl}?styles=${stamp}`,
+    codeChanges(listener) {
+      listeners.add(listener)
+
+      return () => listeners.delete(listener)
+    },
+    async close() {
+      stopWatching()
+      await server.close()
+    }
+  }
 }
 
 /** The guest app's mirrors of the project's App Router and Pages Router files, so it serves the project's pages. */

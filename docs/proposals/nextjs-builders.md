@@ -79,9 +79,9 @@ drawn, since the guest doesn't render the layout.
 
 ## Out of scope at first
 
-- **Redrawing after a code change.** The Vite builder re-imports the modules a change touches. Turbopack's updates
-  arrive through its own HMR stream instead, which the runtime the guest loads already knows how to apply, so that comes
-  second, as its own issue. Until then the builder has no `codeChanges`, and reopening the project redraws.
+- **Redrawing after a code change.** The Vite builder re-imports the modules a change touches. Turbopack's came second,
+  as its own issue (PAR-1159), and took a page per module rather than Turbopack's HMR stream: the canvas re-imports a
+  module at `/<path>?t=<stamp>`, which loads its page's chunks into the guest's runtime afresh.
 - **Server components rendered on the server**, server actions, route handlers and middleware. Drawing an async server
   component would mean rendering it through Next and reading its payload in the guest: a follow-up once the client side
   works.

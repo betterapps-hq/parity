@@ -51,6 +51,34 @@ export function withoutStartup(runtime: string): string {
     .replace(dummySignature, "signature: () => ($1) => $1")
 }
 
+/**
+ * Lets a chunk loaded again, at an address stamped with a change (`?t=<stamp>`), bring its modules' new code (PAR-1159):
+ * Turbopack's runtime keeps the first factory it's given for a module, so the project's modules in a stamped chunk are
+ * forgotten, factory and instance, before it registers them. Packages' modules are kept, so React stays the one React.
+ */
+const refreshStampedSource = `// Next.js 16.4's runtime keeps modules in maps, and earlier ones in objects.
+const forget = (store, id) => (store instanceof Map ? store.delete(id) : delete store[id])
+const refreshStamped = (context) => {
+  const registerChunk = globalThis.TURBOPACK.push
+  const ours = (id) => typeof id === "string" && id.startsWith("[project]/") && !id.includes("/node_modules/")
+  const stamped = (script) => {
+    try {
+      return new URL(typeof script === "string" ? script : script?.src ?? "", location.href).searchParams.has("t")
+    } catch {
+      return false
+    }
+  }
+  globalThis.TURBOPACK.push = (registration) => {
+    if (Array.isArray(registration) && stamped(registration[0])) {
+      for (const id of registration.slice(1).filter(ours)) {
+        forget(context.M, id)
+        forget(context.c, id)
+      }
+    }
+    return registerChunk(registration)
+  }
+}`
+
 export interface GuestLoader {
   /** Names this builder's session, so a builder started again gets a runtime of its own in the same page. */
   session: string
@@ -77,6 +105,7 @@ export function guestLoaderSource(loader: GuestLoader): string {
   const json = (value: string | readonly string[]) => JSON.stringify(value)
 
   return `const sessions = (globalThis.__parityTurbopack ??= {})
+const contexts = (globalThis.__parityTurbopackContexts ??= {})
 const load = (src) => new Promise((resolve, reject) => {
   const script = document.createElement("script")
   script.src = src
@@ -84,6 +113,7 @@ const load = (src) => new Promise((resolve, reject) => {
   script.onerror = () => reject(new Error(\`\${src} didn't load\`))
   document.head.append(script)
 })
+${refreshStampedSource}
 // One runtime per page and session. Turbopack's runtime starts only on an empty list, so a builder started again, or
 // another, starts its own; the one before goes on with the modules it has.
 sessions[${json(loader.session)}] ??= (async () => {
@@ -95,6 +125,8 @@ sessions[${json(loader.session)}] ??= (async () => {
   return new Promise((resolve, reject) => {
     globalThis.TURBOPACK.push(["parity/guest.js", "parity:guest", (context) => {
       try {
+        contexts[${json(loader.session)}] = context
+        refreshStamped(context)
         resolve(context.r(${json(loader.id)}))
       } catch (error) {
         reject(error)
@@ -133,5 +165,69 @@ export default createGuest({
   css: [libraryCss, css].filter(Boolean).join("\\n"),
   packageCss: [packageCss, componentCss].filter(Boolean).join("\\n")
 })
+`
+}
+
+/** One of the project's modules, as the builder serves it for the canvas to load on its own (PAR-1159). */
+export interface ModuleLoader {
+  /** The builder's session, whose runtime the guest loaded. */
+  session: string
+  /** The client module that imports the project's module whole: its id in Turbopack's runtime. */
+  id: string
+  /** The chunks that hold it and what it imports. */
+  chunks: string[]
+  /** The stylesheets Next links for its page: its CSS modules'. */
+  stylesheets: string[]
+  /** What the module exports, by name. */
+  names: string[]
+  /** The change it's loaded again after, whose stamp its chunks are loaded at, so they bring their new code. */
+  stamp?: number
+}
+
+/**
+ * The module's source: it loads the module's chunks into the guest's runtime, at addresses stamped with the change when
+ * it's loaded again, links its stylesheets (which the guest mutes, as it does the other modules'), and gives what the
+ * project's module exports.
+ */
+export function moduleLoaderSource(loader: ModuleLoader): string {
+  const json = (value: string | readonly string[]) => JSON.stringify(value)
+  const at = (url: string) =>
+    loader.stamp === undefined ? url : `${url}${url.includes("?") ? "&" : "?"}t=${loader.stamp}`
+  const names = [...new Set(loader.names)]
+
+  const exported = names.map((name, index) =>
+    name === "default"
+      ? "export default projectModule.default"
+      : `const export${index} = projectModule[${json(name)}]
+export { export${index} as ${json(name)} }`
+  )
+
+  return `const context = globalThis.__parityTurbopackContexts?.[${json(loader.session)}]
+const forget = (store, id) => (store instanceof Map ? store.delete(id) : delete store[id])
+
+if (!context) {
+  throw new Error("The guest's Turbopack runtime isn't loaded in this page")
+}
+
+const load = (src) => new Promise((resolve, reject) => {
+  const script = document.createElement("script")
+  script.src = src
+  script.onload = () => resolve()
+  script.onerror = () => reject(new Error(\`\${src} didn't load\`))
+  document.head.append(script)
+})
+
+for (const href of ${json(loader.stylesheets.map(at))}) {
+  const link = document.createElement("link")
+  link.rel = "stylesheet"
+  link.href = href
+  document.head.append(link)
+}
+
+await Promise.all(${json(loader.chunks.map(at))}.map(load))
+// The client module is made again, so it imports the project's module as it is now.
+forget(context.c, ${json(loader.id)})
+const projectModule = context.r(${json(loader.id)}).parityModule
+${exported.join("\n")}
 `
 }
