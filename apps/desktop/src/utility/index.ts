@@ -38,8 +38,9 @@ import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
 import { componentPreviews } from "./previews.ts"
+import { targetSeenByExtensions } from "./process-ids.ts"
 import { freePort } from "./process-manager.ts"
-import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
+import { dismissProcess, listProcesses, restartProcess, stopProcess, trackedProcesses } from "./processes.ts"
 import { openProjects, saveDocumentCopy } from "./projects.ts"
 import { checker } from "./props.ts"
 import { createRecovery } from "./recovery.ts"
@@ -235,7 +236,8 @@ const handlers: Handlers<ServiceMethods> = {
   "images.remove": ({ projectId, path }) => removeImage(projects.get(projectId), path),
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "extensions.list": ({ projectId }) => extensions.list(projectId),
-  "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
+  "extensions.run": ({ projectId, command, target }) =>
+    extensions.run(projectId, command, target && targetSeenByExtensions(target, trackedProcesses(projectId))),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
   "extensions.selectionChanged": ({ projectId, refs }) => extensions.selectionChanged(projectId, refs),

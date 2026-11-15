@@ -65,10 +65,10 @@ export interface Project {
 
 /**
  * What a command was run for: a component's card or one of its layers, a layer in Layers, by its design's key
- * (`app.par#home`) and its id, one of the app's pages, by its route, or an item of a view without a `target` of its
- * own. Nothing when it's run from Search actions or a view's toolbar.
+ * (`app.par#home`) and its id, one of the app's pages, by its route, a process in the processes list, or an item of a
+ * view without a `target` of its own. Nothing when it's run from Search actions or a view's toolbar.
  */
-export type CommandTarget = ComponentTarget | LayerTarget | RouteTarget | ItemTarget
+export type CommandTarget = ComponentTarget | LayerTarget | RouteTarget | ProcessTarget | ItemTarget
 
 /** A component of the project, by its key. */
 export type ComponentTarget = { type: "component"; key: string }
@@ -78,6 +78,9 @@ export type LayerTarget = { type: "layer"; design: string; node: string }
 
 /** One of the app's pages, by its route's id, as `/settings/billing`. */
 export type RouteTarget = { type: "route"; key: string }
+
+/** A process in the processes list, by its id as `parity.processes.list()` gives it, as `parity:builder`. */
+export type ProcessTarget = { type: "process"; id: string }
 
 /** An item of one of the extension's views, by the view's id and the item's key. */
 export type ItemTarget = { type: "item"; view: string; key: string }

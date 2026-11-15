@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import type { ProcessRole, ProjectProcess } from "../../shared/protocol.ts"
 import { openProjects, preferring } from "../stories/fixtures.tsx"
-import { roots, running } from "../stories/host.ts"
+import { answering, roots, running } from "../stories/host.ts"
 import { AtBottom } from "./chrome-fixtures.tsx"
 import { StatusBar } from "./StatusBar.tsx"
 
@@ -49,11 +49,11 @@ function rowButton(flyout: HTMLElement, name: string, button: string): Promise<H
   )
 }
 
-/** The example's Storybook, started by Parity 18 minutes ago, with the name Portless gives it. */
+/** The example's Storybook, started by its extension 18 minutes ago, with the name Portless gives it. */
 function storybook(overrides: Partial<ProjectProcess> = {}): ProjectProcess {
   return {
-    id: `storybook:${roots.example}`,
-    owner: { kind: "parity", role: "tool" },
+    id: `extension:@parity-app/extension-storybook:${roots.example}:storybook`,
+    owner: { kind: "extension", extension: "@parity-app/extension-storybook" },
     lifetime: "server",
     name: "Storybook",
     projectId: roots.example,
@@ -68,7 +68,7 @@ function storybook(overrides: Partial<ProjectProcess> = {}): ProjectProcess {
         label: "storybook.shadcn-vite.localhost",
         kind: "name",
         public: false,
-        provider: "parity"
+        provider: "@parity-app/extension-portless"
       }
     ],
     opens: "https://storybook.shadcn-vite.localhost",
@@ -144,6 +144,50 @@ export const Open: Story = {
   play: async () => {
     const flyout = await openFlyout()
     await waitFor(() => expect(within(flyout).getAllByText("storybook")).toHaveLength(1))
+  }
+}
+
+/**
+ * More on a row opens the commands extensions place in that process's menu. Here Storybook's extension places Open in
+ * Storybook and Show Storybook setup on the server it started, which its manifest doesn't do. The build server, which no
+ * extension started, has none.
+ */
+export const ExtensionCommands: Story = {
+  loaders: [
+    async () => {
+      answering({
+        "extensions.list": async (_, usual) => {
+          const listed = await usual()
+
+          const mine = [
+            { command: "storybook.open", when: "process.isMine" },
+            { command: "storybook.setup", when: "process.isMine" }
+          ]
+
+          return {
+            ...listed,
+            extensions: listed.extensions.map((each) =>
+              each.id === "@parity-app/extension-storybook"
+                ? { ...each, contributes: { ...each.contributes, menus: { ...each.contributes.menus, process: mine } } }
+                : each
+            )
+          }
+        }
+      })
+      await runningWith(storybook())
+    }
+  ],
+  play: async () => {
+    const flyout = await openFlyout()
+    // The row's buttons show while it's hovered or has focus.
+    const more = await rowButton(flyout, "Storybook", "More")
+    more.focus()
+    await userEvent.keyboard("{Enter}")
+    const vite = within(flyout).getByText("Vite", { selector: "ul span" }).closest("li")!
+    await expect(within(vite).queryByRole("button", { name: "More" })).toBeNull()
+    const menu = await body().findByRole("menu")
+    await expect(await within(menu).findByRole("menuitem", { name: "Open in Storybook" })).toBeInTheDocument()
+    await expect(within(menu).getByRole("menuitem", { name: "Show Storybook setup" })).toBeInTheDocument()
   }
 }
 
@@ -320,7 +364,7 @@ export const TwoProjects: Story = {
               label: "storybook.dashboard.localhost",
               kind: "name",
               public: false,
-              provider: "parity"
+              provider: "@parity-app/extension-portless"
             }
           ],
           opens: "https://storybook.dashboard.localhost",

@@ -20,12 +20,12 @@ a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id
   and status items name declared commands. A contribution's icon is the name of an icon in the kit's set, such as
   `book-open`.
 - **`when` and `enablement`** (PAR-1092) are expressions: Parity's own keys, `node.type`, `node.owner`, `node.key`,
-  `selection.count`, `tool` and `fact.<id>`, compared with `==`, `!=`, `>`, `>=`, `<` or `<=` to a word, a number or a
-  quoted string; `project.uses(tool)`, true when the project has a tool by its extension's prefix or its adapter's id;
-  and the extension's own context keys on their own, joined with `&&`, `||`, `!` and parentheses. A key on its own holds
-  when it's true, or a list holding the key of what the command is shown for. One that doesn't read is refused, naming
-  what's wrong, as is an extension key in one that doesn't start with the prefix
-  ([`when.ts`](../packages/extensions/src/when.ts)).
+  `selection.count`, `tool`, `fact.<id>` and, in a process's menu, `process.*` (below), compared with `==`, `!=`, `>`,
+  `>=`, `<` or `<=` to a word, a number or a quoted string; `project.uses(tool)`, true when the project has a tool by
+  its extension's prefix or its adapter's id; and the extension's own context keys on their own, joined with `&&`, `||`,
+  `!` and parentheses. A key on its own holds when it's true, or a list holding the key of what the command is shown
+  for. One that doesn't read is refused, naming what's wrong, as is an extension key in one that doesn't start with the
+  prefix ([`when.ts`](../packages/extensions/src/when.ts)).
 - **`keybindings`** write keys as VS Code does, `mod+shift+t`, with `mod` meaning Ctrl, or Cmd on a Mac. Keys Parity
   can't read are refused. Parity's own keys win a clash, with the person's changes, and a key two extensions ask for
   goes to neither; Settings' Keyboard shortcuts page names who has it ([`keys.ts`](../packages/extensions/src/keys.ts)).
@@ -223,6 +223,17 @@ Extensions change designs and files through Parity, never by writing them, so un
       ])
     }
   })
+  ```
+
+- **Commands for a process** (PAR-1127). A command placed at `process` shows in the More menu on a process's row in the
+  processes list, for the project's own processes, and its handler gets `{ type: "process", id }`, with the id
+  `parity.processes.list()` gives it, as `storybook:storybook` or `parity:builder`. Its `when` and `enablement` can test
+  `process.isMine` (the extension started or adopted it), `process.isParitys`, `process.isServer`, `process.hasEndpoint`
+  and `process.isRunning`, which are false anywhere else. A row shows More only when some command holds for it. No
+  built-in extension places one yet:
+
+  ```json
+  "menus": { "process": [{ "command": "storybook.open", "when": "process.isMine" }] }
   ```
 
 ## Working with other extensions and agents

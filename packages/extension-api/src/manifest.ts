@@ -121,7 +121,8 @@ export interface CommandContribution {
 
 /**
  * Where a command shows: a row in Layers, the canvas's right-click menu, a design's title, buttons in the Design tab's
- * heading, a card in the Components panel, a tile in Media, Search actions, or a group of the app menu.
+ * heading, a card in the Components panel, a tile in Media, a process's menu in the processes list, Search actions, or
+ * a group of the app menu.
  */
 export type MenuPlacement =
   | "layers"
@@ -130,6 +131,7 @@ export type MenuPlacement =
   | "selectionHeading"
   | "componentCard"
   | "media"
+  | "process"
   | "search"
   | `appMenu/${string}/${string}`
 

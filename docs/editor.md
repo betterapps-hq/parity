@@ -1107,10 +1107,11 @@ and runs its code in a host of its own ([extensions.md](extensions.md)). Storybo
 
 - **Commands** show where the manifest places them, beside what adapters offer: a component's row, menu and card in the
   Components panel (`componentCard`), the selection's heading in the layer panel and the Design tab
-  (`selectionHeading`), a row's menu in Layers (`layers`), the canvas's menu (`canvas`), and Search under Object
-  (`search`). A command greyed by its `enablement` says why, as Open in Storybook says "No story found". Running one
-  shows its progress in a toast with Cancel, and a failure in a toast titled "Open in Storybook didn't work", with
-  Restart when its extension has stopped.
+  (`selectionHeading`), a row's menu in Layers (`layers`), the canvas's menu (`canvas`), Search under Object (`search`),
+  and the More menu on a process's row in the processes list (`process`, PAR-1127; `ExtensionCommands` in
+  `chrome/Processes.stories.tsx`). A command greyed by its `enablement` says why, as Open in Storybook says "No story
+  found". Running one shows its progress in a toast with Cancel, and a failure in a toast titled "Open in Storybook
+  didn't work", with Restart when its extension has stopped.
 - **Status bar items** show their last value at once, then what the code sets, as "3 in Storybook", with the tooltip the
   code gives. Clicking one runs its command.
 - **Facts** on a component's card, as "1 story".

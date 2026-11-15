@@ -118,6 +118,18 @@ describe("readExtension", () => {
     ).toMatchObject({ menus, keybindings })
   })
 
+  it("takes a command in a process's menu, over Parity's process keys (PAR-1127)", () => {
+    const menus = {
+      process: [
+        { command: "timings.measure", when: "process.isMine && process.isServer", enablement: "process.isRunning" }
+      ]
+    }
+
+    expect(readExtension(packageJson({ contributes: { ...contributes, menus } })).manifest.contributes).toMatchObject({
+      menus
+    })
+  })
+
   it("refuses a when that doesn't read, a key outside the prefix in one, and keys it can't read", () => {
     const broken = { layers: [{ command: "timings.measure", when: "node.type ==" }] }
     const outside = { layers: [{ command: "timings.measure", when: "node.type == route && storybook.hasStories" }] }

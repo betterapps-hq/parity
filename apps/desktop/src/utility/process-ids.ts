@@ -1,4 +1,4 @@
-import type { ProcessInfo } from "@parity-app/extension-api"
+import type { CommandTarget, ProcessInfo } from "@parity-app/extension-api"
 import type { ProcessCaller } from "@parity-app/extensions"
 import { visibleTo } from "@parity-app/processes"
 import type { ProjectProcess } from "../shared/protocol.ts"
@@ -33,6 +33,20 @@ function ownerOf({ owner }: ProjectProcess): string | undefined {
   }
 
   return owner.kind === "extension" ? owner.extension : owner.by
+}
+
+/**
+ * A command's target as an extension sees it: a process the window names by its id here is named by its id in the list
+ * extensions see (`listedId`). Any other target, or a process that has gone, is left as it is.
+ */
+export function targetSeenByExtensions(target: CommandTarget, all: ProjectProcess[]): CommandTarget {
+  if (target.type !== "process") {
+    return target
+  }
+
+  const process = all.find((each) => each.id === target.id)
+
+  return process ? { type: "process", id: listedId(process, all) } : target
 }
 
 /**
