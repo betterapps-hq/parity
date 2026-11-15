@@ -129,10 +129,12 @@ imported as its one difference: `?inline` for Vite, a plain import for Next, who
 
 - Unit tests for each part of `packages/next-builders` on files in a temporary folder: the dev script's bundler, the
   guest app's files, reading a recorded guest page, `styles()` on App Router and Pages Router layouts.
-- An end-to-end test of the Turbopack builder on a small Next.js 16 app, with a Tailwind stylesheet, a CSS module, a
-  `next/font` font and a `next/image`, which starts the builder and imports its guest. It needs `next` as a dev
-  dependency of the extension, alongside the `react` and `react-dom` the workspace has. The `next` validation project in
-  `fixtures/` (PAR-221) is the same app, kept apart for CI's detection checks.
+- An end-to-end test of the Turbopack builder that starts it on an example app and imports its guest. The app is the
+  example matrix's app D: Next.js 16's App Router on Turbopack, React 19, Tailwind v4, Headless UI, Heroicons, a
+  Recharts chart, Storybook, TypeScript and pnpm, isolated like the repository's other example projects. It also gets a
+  CSS module, a `next/font` font and a `next/image`, and nested layouts, a `(group)`, `[id]` and `[...slug]` routes, and
+  `loading` and `not-found` files for the Next.js routes extension. `next` is the example app's dependency, not the
+  extension's.
 - `legislation-web` by hand, with what it draws reported on PAR-1149.
 
 ## Open questions
