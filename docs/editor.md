@@ -1139,7 +1139,8 @@ bar.
   when it opens. A router that fails to answer leaves the project without pages, with the reason in the log.
 - **Open in browser** is its command, placed in Layers, the canvas's menu, a page's heading and Search for routes only
   (`node.type == route`). It's run for the page it's shown on, or from Search, the page selected, and opens the URL the
-  canvas draws the page at, with "Opened in your browser".
+  canvas draws the page at, with the values its view gives the route's params (`pageUrl` in
+  `renderer/extension-editor.ts`), with "Opened in your browser".
 - **The route count** is its status bar item, "6 routes" without the root route, which opens Layers when clicked.
 - **Its version** shows in the project's detection, from its peer dependency, as the adapter's did.
 
@@ -1150,7 +1151,8 @@ and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-a
 `ActionsSearch.tsx`.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
-`packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)). Gaps: the service's open path asking the
+`packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a
+route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
 router, and Open in browser's placements in the window, have no unit test of their own.
 
 ### Extensions' changes to designs and files (PAR-1093)

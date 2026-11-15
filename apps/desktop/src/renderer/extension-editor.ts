@@ -1,7 +1,7 @@
 import { designOwner, designStates, type NodeRef, resolveModes, shownModes } from "@parity-app/core"
 import { selectedNodes, selectionForRefs } from "@parity-app/editor"
 import type { ExtensionUiAnswer } from "../shared/protocol.ts"
-import { routePageDesign, routePageUrl } from "./canvas/route-pages.ts"
+import { routePageDesign, routePageTarget } from "./canvas/route-pages.ts"
 import { actions, commandsFor } from "./chrome/actions.ts"
 import { type Command, keymap } from "./chrome/keymap.ts"
 import { setLayout } from "./chrome/layout.ts"
@@ -212,8 +212,10 @@ async function navigate(
     }
 
     case "pageUrl": {
+      // The page's screen, by its design key, whose view gives the values its route's path params draw with.
       const page = to.ref.type === "route" ? routePageDesign(session.id, to.ref.key) : undefined
-      const url = page === undefined ? undefined : routePageUrl(session.id, page)
+      const entry = page === undefined ? undefined : session.store.getEntry(page)
+      const url = entry && routePageTarget(session.id, entry.container)?.url
 
       return url === undefined ? {} : { url }
     }
