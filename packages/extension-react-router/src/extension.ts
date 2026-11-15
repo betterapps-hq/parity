@@ -1,11 +1,9 @@
-import { readdir } from "node:fs/promises"
-import { join } from "node:path"
 import type { CommandTarget, NodeRef, Parity, Route } from "@parity-app/extension-api"
 import type { ProjectFiles } from "./config.ts"
 import { type ReadRoutes, readRoutes } from "./routes.ts"
 
 /*
- * React Router as an extension (PAR-1145), using Parity's public API. Its router provider reads the app's routes from
+ * React Router as an extension (PAR-1145), using only Parity's public API. Its router provider reads the app's routes from
  * framework mode's `app/routes.ts`, file-based routes included, or from library mode's route objects or `<Route>`
  * elements, so the canvas draws each page and Layers lists them under Routes. Open in browser is offered on each page,
  * and the status bar counts the pages, or says what couldn't be read. Its peer dependency says which versions Parity
@@ -13,22 +11,13 @@ import { type ReadRoutes, readRoutes } from "./routes.ts"
  */
 
 export function activate(parity: Parity): void {
-  const { root } = parity.project
   const count = parity.status.item("react-router.routes")
   parity.subscriptions.push(count)
 
+  // A file or folder that isn't there reads as missing, as a route module or the flat routes' folder may not be yet.
   const files: ProjectFiles = {
     read: (path) => parity.files.read(path).catch(() => undefined),
-    // Parity's API reads files but doesn't list folders, which flat routes are named by, so the folder is listed here.
-    list: async (folder) => {
-      try {
-        const entries = await readdir(join(root, folder), { withFileTypes: true })
-
-        return entries.map((entry) => ({ name: entry.name, folder: entry.isDirectory() }))
-      } catch {
-        return []
-      }
-    }
+    list: (folder) => parity.files.list(folder).catch(() => [])
   }
 
   parity.subscriptions.push(

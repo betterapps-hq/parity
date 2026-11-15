@@ -1,5 +1,5 @@
 import { existsSync, type Stats, unwatchFile, watchFile } from "node:fs"
-import { readFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
 import {
@@ -125,12 +125,14 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
 ]
 
 /**
- * Reading and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
+ * Reading, listing and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
  * file's details each second, which works for a file that isn't there yet, as Portless's routes before it runs.
  */
 const extensionFiles: ExtensionFiles = {
   place: { home: homedir(), variables: process.env, platform: process.platform },
   read: (path) => readFile(path, "utf8"),
+  list: async (path) =>
+    (await readdir(path, { withFileTypes: true })).map((entry) => ({ name: entry.name, folder: entry.isDirectory() })),
   watch(path, listener) {
     const changed = (now: Stats, before: Stats) => {
       if (now.mtimeMs !== before.mtimeMs || now.size !== before.size || now.ino !== before.ino) {
