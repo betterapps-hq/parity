@@ -7760,8 +7760,10 @@ Diagnostics and the Install ID with the versions, and Copy details includes them
 `settings.json`'s `diagnostics` and `installId` and finding the app's data folder on each system. The setting and the
 install ID are in `settings.json` with the person's other settings, written only by main: a window's change can't name
 them. The first run's install ID is written only if the file has none yet, under its lock, so two copies starting
-together keep one. `main/telemetry-setting.test.ts` covers the first run's install ID, saving the switch, a variable
-deciding the run, a new ID on turning off, and an ID that couldn't be saved.
+together keep one, and the copy whose ID lost reports under the saved one. Turning diagnostics off in one copy stops
+every running copy sending. `main/telemetry-setting.test.ts` covers the first run's install ID, saving the switch, a
+variable deciding the run, a new ID on turning off, and an ID that couldn't be saved. `main/settings-store.test.ts`
+covers another copy's change to them reaching main, and windows not told of it.
 `packages/settings/src/settings-file.test.ts` covers main's keys: their defaults, only what a change names written, a
 new install ID kept from the first copy, and refused from a window. `chrome/TelemetrySetting.stories.tsx` shows the
 switch on, turned off by a variable, `DO_NOT_TRACK`, and About, and turns it off with the pointer, checking its

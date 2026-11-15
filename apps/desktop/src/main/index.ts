@@ -165,6 +165,10 @@ const telemetryStart = startTelemetry(process.env, {
   }
 })
 
+// Another copy turning diagnostics off stops this one too, and a first run's install ID follows the one saved, should
+// another copy starting at the same moment have saved its own first. Events this run records keep the ID it started with.
+settings.watchSystem(() => applyTelemetry(telemetrySetting.get()))
+
 // Asks GitHub whether this version has been promoted, so the next start's environment follows it.
 void installedBuild.get()
 

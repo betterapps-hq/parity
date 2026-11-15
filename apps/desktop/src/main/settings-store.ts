@@ -28,6 +28,8 @@ export interface SettingsStore {
   system(): SystemSettings
   /** Changes what main alone keeps. Windows aren't told, since they aren't shown it. Resolves whether it saved. */
   changeSystem(change: SystemChange): Promise<boolean>
+  /** Hears each change to what main alone keeps, this copy's or another's, from now on. */
+  watchSystem(listener: (system: SystemSettings) => void): void
   /** Reads the file again, as when a window gains focus, in case a change from another copy was missed. */
   check(): void
   /** Stops watching and trying again. */
@@ -94,6 +96,7 @@ function settingsState({
 /** `settings.json` in the data folder, which every copy of Parity shares (`docs/proposals/settings.md`). */
 export function settingsStore(file: string, options: SettingsStoreOptions): SettingsStore {
   const { changed, ...rest } = options
+  const systemListeners: ((system: SystemSettings) => void)[] = []
 
   const shared = sharedFile(file, settingsFormat, {
     ...rest,
@@ -105,6 +108,12 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
       if (!isDeepStrictEqual(shown, settingsState(before))) {
         changed(shown, changedSettings(before.values.values, state.values.values))
       }
+
+      if (!isDeepStrictEqual(state.values.system, before.values.system)) {
+        for (const listener of systemListeners) {
+          listener(state.values.system)
+        }
+      }
     }
   })
 
@@ -113,6 +122,9 @@ export function settingsStore(file: string, options: SettingsStoreOptions): Sett
     change: (change) => shared.change(change).then(settingsState),
     system: () => shared.state().values.system,
     changeSystem: (system) => shared.change({ system }).then(({ unsaved }) => !unsaved),
+    watchSystem: (listener) => {
+      systemListeners.push(listener)
+    },
     check: () => shared.check(),
     close: () => shared.close()
   }
