@@ -1202,6 +1202,9 @@ changed: the theme in the Tokens tab, frames drawn with the classes Parity write
   the theme is read while the builder starts and is in the project when it opens.
 - **A project no styles provider handles** has plain custom properties, which `writeTokenChanges` writes, as before.
 - **Its version** shows in the project's detection, from its peer dependency and its manifest's `versions`.
+- **Every extension's status item names its tool's version** in its tooltip's title, as `Tailwind CSS 4.3.3`, and notes
+  a version Parity doesn't test, as adapters' items did (`statusTooltip` in `renderer/extensions.ts`, tested in
+  `extensions.test.ts`).
 
 Code: `packages/extension-tailwind` (its manifest, `extension.ts`, `printer.ts`, `design-system.ts` and `tokens.ts`);
 `StylesProvider` in `packages/extension-api/src/api.ts`; `callProvider` in `packages/extensions/src/host.ts`;

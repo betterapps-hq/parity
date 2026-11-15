@@ -6,7 +6,7 @@ import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { tally, useConsole } from "../console-store.ts"
 import { type DesignStore, useSaveState } from "../design-store.ts"
-import { runCommand, statusItems, useExtensions } from "../extensions.ts"
+import { runCommand, statusItems, statusTooltip, useExtensions } from "../extensions.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { actions } from "./actions.ts"
 import { projectAction, runAction } from "./adapter-actions.ts"
@@ -62,13 +62,15 @@ export function StatusBar() {
       {/* Extensions' items, from their manifests, with the value each last set (PAR-1089). */}
       {statusItems(extensions).map(({ extension, item, value, tooltip }) => {
         const command = extension.contributes.commands?.find((declared) => declared.id === item.command)
+        const tool = info.detection.tools.find((detected) => detected.id === extension.id)
+        const { hint, detail } = statusTooltip(item.title, tooltip, tool)
 
         return (
           <Item
             key={`${extension.id}:${item.id}`}
             icon={<ContributionIcon name={item.icon} logo={extension.icon} className="size-3.5" />}
-            hint={item.title}
-            detail={tooltip}
+            hint={hint}
+            detail={detail}
             onClick={command ? () => void runCommand(session, { extension, command }) : undefined}
           >
             {value !== undefined && <strong className="font-medium text-foreground">{value}</strong>}
