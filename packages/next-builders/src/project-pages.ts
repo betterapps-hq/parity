@@ -143,8 +143,10 @@ function reexport(path: string, file: ProjectRouteFile, router: "app" | "pages")
 
   const copied = router === "app" ? segmentLiterals(file.text) : []
   const reexported = names.filter((name) => name !== "default" && !copied.some(([copy]) => copy === name))
-  // The Pages Router reads a page's `config` from its own file alone, and an API route's isn't a page's concern.
-  const kept = router === "pages" ? reexported.filter((name) => name !== "config") : reexported
+  // The Pages Router reads a page's `config` from its own file alone, but an API route's when it answers, as its body
+  // parser's settings, so an API route's is passed on.
+  const api = router === "pages" && path.startsWith("pages/api/")
+  const kept = router === "pages" && !api ? reexported.filter((name) => name !== "config") : reexported
 
   if (names.includes("default")) {
     lines.push(`export { default } from ${from}`)
@@ -179,9 +181,15 @@ export function exportNames(text: string): string[] {
   }
 
   for (const match of code.matchAll(
-    /\bexport\s+(?:declare\s+)?(?:async\s+)?(?:function\*?|const|let|var|class)\s+([A-Za-z_$][\w$]*)/g
+    /\bexport\s+(?:declare\s+)?(?:async\s+)?(?:function\*?|class)\s+([A-Za-z_$][\w$]*)/g
   )) {
     names.add(match[1]!)
+  }
+
+  for (const match of code.matchAll(/\bexport\s+(?:declare\s+)?(?:const|let|var)\s+/g)) {
+    for (const name of declaredNames(code, match.index + match[0].length)) {
+      names.add(name)
+    }
   }
 
   for (const match of code.matchAll(/\bexport\s*\*\s*as\s+([A-Za-z_$][\w$]*)/g)) {
@@ -212,6 +220,109 @@ export function exportNames(text: string): string[] {
   }
 
   return [...names]
+}
+
+/**
+ * The names a variable statement declares, from just after its `const`, `let` or `var`: each declarator's, as in
+ * `GET = handler, POST = handler`, and each a destructuring pattern binds, as in `{ GET, POST: post } = handlers`.
+ */
+function declaredNames(code: string, start: number): string[] {
+  const declarators: string[] = []
+  let depth = 0
+  let quote = ""
+  let current = ""
+
+  for (let index = start; index < code.length; index++) {
+    const char = code[index]!
+
+    if (quote) {
+      quote = char === quote && code[index - 1] !== "\\" ? "" : quote
+    } else if (char === '"' || char === "'" || char === "`") {
+      quote = char
+    } else if ("([{".includes(char)) {
+      depth++
+    } else if (")]}".includes(char)) {
+      depth--
+    } else if (depth === 0 && (char === ";" || (char === "\n" && !/^\s*,/.test(code.slice(index + 1))))) {
+      // A declaration ends at a semicolon, or a line break that no comma follows and none of its brackets spans.
+      if (char === ";" || (current.trim() !== "" && !/=\s*$/.test(current))) {
+        break
+      }
+    } else if (depth === 0 && char === ",") {
+      declarators.push(current)
+      current = ""
+      continue
+    }
+
+    current += char
+  }
+
+  declarators.push(current)
+
+  return declarators
+    .flatMap((raw) => {
+      const declarator = raw.trim()
+
+      return /^[{[]/.test(declarator)
+        ? patternNames(declarator.slice(0, matchingBracket(declarator) + 1))
+        : [/^[A-Za-z_$][\w$]*/.exec(declarator)?.[0] ?? ""]
+    })
+    .filter((name) => /^[A-Za-z_$][\w$]*$/.test(name))
+}
+
+/** How a character changes the depth of brackets: an opening one goes in, a closing one comes out. */
+function bracketStep(char: string): number {
+  if ("([{".includes(char)) {
+    return 1
+  }
+
+  return ")]}".includes(char) ? -1 : 0
+}
+
+/** Where the bracket a declarator starts with closes. */
+function matchingBracket(text: string): number {
+  let depth = 0
+
+  for (let index = 0; index < text.length; index++) {
+    depth += bracketStep(text[index]!)
+
+    if (depth === 0) {
+      return index
+    }
+  }
+
+  return text.length - 1
+}
+
+/** The names a destructuring pattern binds: `{ a, b: c, ...d }` binds `a`, `c` and `d`; `[a, , b]` binds `a` and `b`. */
+function patternNames(pattern: string): string[] {
+  const inner = pattern.trim().slice(1, -1)
+  const parts: string[] = []
+  let depth = 0
+  let part = ""
+
+  for (const char of inner) {
+    depth += bracketStep(char)
+
+    if (depth === 0 && char === ",") {
+      parts.push(part)
+      part = ""
+    } else {
+      part += char
+    }
+  }
+
+  parts.push(part)
+
+  return parts.flatMap((raw) => {
+    const spec = raw.trim().replace(/^\.\.\./, "")
+
+    const bound = (pattern.trim().startsWith("{") && spec.includes(":") ? spec.slice(spec.indexOf(":") + 1) : spec)
+      .split("=")[0]!
+      .trim()
+
+    return /^[{[]/.test(bound) ? patternNames(bound) : [bound]
+  })
 }
 
 /** A module's text without its comments, which may mention exports it doesn't make. */

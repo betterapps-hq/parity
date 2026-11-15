@@ -71,24 +71,26 @@ describe("the project's pages in the guest app", () => {
 
     expect(page!.text.split("\n").slice(1)).toEqual([
       'export { default } from "../../../../../app/blog/page"',
-      'export { revalidate, generateMetadata } from "../../../../../app/blog/page"',
+      'export { generateMetadata, revalidate } from "../../../../../app/blog/page"',
       'export const dynamic = "force-dynamic"',
       ""
     ])
   })
 
   it("leaves a page's config out of the Pages Router's re-exports, as Next reads it from the page itself", () => {
-    const [page] = projectPageFiles({ pages: "pages" }, [
+    const [api, page] = projectPageFiles({ pages: "pages" }, [
       {
         path: "pages/api/upload.ts",
         text: "export const config = { api: { bodyParser: false } }\nexport default function handler() {}"
       },
       {
         path: "pages/about.tsx",
-        text: "export default function About() {}\nexport async function getServerSideProps() {}"
+        text: "export const config = { amp: true }\nexport default function About() {}"
       }
     ])
 
+    // An API route's config is read as it answers, for its body parser.
+    expect(api!.text).toContain('export { config } from "../../../../pages/api/upload"')
     expect(page!.text).not.toContain("config")
     expect(
       projectPageFiles({ pages: "pages" }, [
@@ -120,6 +122,32 @@ describe("the project's pages in the guest app", () => {
     ].join("\n")
 
     expect(exportNames(source)).toEqual(["gen", "Shape", "a", "c", "default"])
+  })
+
+  it("reads every binding a variable statement exports: each declarator, and what a pattern destructures", () => {
+    const source = [
+      "export const { GET, POST: post, ...rest } = handlers",
+      "export const [first, , second = 2] = pair",
+      'export const PUT = handler, DELETE = make({ a: 1, b: "x, y" });',
+      "export let one = 1,",
+      "  two = 2",
+      "export const three = {",
+      "  four: 4",
+      "}"
+    ].join("\n")
+
+    expect(exportNames(source)).toEqual([
+      "GET",
+      "post",
+      "rest",
+      "first",
+      "second",
+      "PUT",
+      "DELETE",
+      "one",
+      "two",
+      "three"
+    ])
   })
 
   it("copies segment config whose value is a literal", () => {
