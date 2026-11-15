@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Add the local project-document provider and fix the bench's open and memory scenarios",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
