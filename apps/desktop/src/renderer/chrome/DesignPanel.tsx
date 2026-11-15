@@ -13,7 +13,7 @@ import { useExtensions } from "../extensions.ts"
 import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
-import { componentOffers, pageOffers, runAction } from "./adapter-actions.ts"
+import { componentOffers, pageOffers } from "./command-offers.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
@@ -262,17 +262,16 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
           kind={kind}
           detail={detail}
           action={
-            // What the project's adapters offer for a board's component, as Open in Storybook, or for a page, as Open
+            // What the project's extensions offer for a board's component, as Open in Storybook, or for a page, as Open
             // in browser.
             (board || target) && (
               <HeaderActions
-                adapterOffers={
+                offers={
                   target
-                    ? pageOffers(session.info, target.route, { session, extensions, placement: "selectionHeading" })
-                    : componentOffers(session.info, component, { session, extensions, placement: "selectionHeading" })
+                    ? pageOffers(target.route, { session, extensions, placement: "selectionHeading" })
+                    : componentOffers(component, { session, extensions, placement: "selectionHeading" })
                 }
                 page={target !== undefined}
-                onAdapterAction={({ action }) => void runAction(session.id, action, component, target)}
               />
             )
           }

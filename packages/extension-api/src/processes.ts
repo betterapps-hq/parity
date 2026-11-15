@@ -212,7 +212,6 @@ export type ParityRole =
   | "install"
   | "typecheck"
   | "test"
-  | "e2e"
   | "format"
   | "lint"
   | "verify"

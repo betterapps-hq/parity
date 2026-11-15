@@ -40,9 +40,9 @@ import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { useSelection } from "../selection.ts"
 import { actions } from "./actions.ts"
-import { componentOffers, runAction } from "./adapter-actions.ts"
 import { AppSelect } from "./AppSelect.tsx"
 import { BaseDesignNote } from "./BaseDesignNote.tsx"
+import { componentOffers } from "./command-offers.ts"
 import { pushAndRecord } from "./component-events.ts"
 import { extractIntoComponent } from "./components.ts"
 import { ExportSection } from "./ExportSection.tsx"
@@ -192,7 +192,7 @@ const layerSections: Partial<Record<InspectorSection, ComponentType>> = {
 
 /**
  * What a layer's header does before its eye: goes to the component an instance is of (`layerActions`), then what the
- * project's adapters offer for a code component, as Open in Storybook.
+ * project's extensions offer for a code component, as Open in Storybook.
  */
 function LayerActions({ node }: { node: DesignNode }) {
   const session = useProject()
@@ -212,8 +212,7 @@ function LayerActions({ node }: { node: DesignNode }) {
     <HeaderActions
       actions={layerActions(node, { design: design !== undefined })}
       onAction={act}
-      adapterOffers={componentOffers(session.info, component, { session, extensions, placement: "selectionHeading" })}
-      onAdapterAction={({ action }) => void runAction(session.id, action, component)}
+      offers={componentOffers(component, { session, extensions, placement: "selectionHeading" })}
     />
   )
 }

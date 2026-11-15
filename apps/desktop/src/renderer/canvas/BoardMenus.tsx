@@ -2,7 +2,7 @@ import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/sha
 import { designStates, shownStates } from "@parity-app/core"
 import { ChevronDown, MonitorSmartphone, Settings2, SquareStack } from "lucide-react"
 import { createContext, type ReactNode, useContext, useState } from "react"
-import { pageOffers, runAction } from "../chrome/adapter-actions.ts"
+import { pageOffers } from "../chrome/command-offers.ts"
 import { Hint } from "../chrome/Hint.tsx"
 import { setLayout } from "../chrome/layout.ts"
 import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
@@ -21,7 +21,7 @@ export const boardMenuTrigger =
 /**
  * A board's stories or states menu and its modes menu, in its title (PAR-1071): each an icon with how many show, which
  * opens the design's list to show, hide and put them in order. A design with one state has
- * no states menu. A page's title then has what the project's adapters offer for it, as the Design tab's heading does:
+ * no states menu. A page's title then has what the project's extensions offer for it, as the Design tab's heading does:
  * Open in browser.
  */
 export function BoardMenus({ entry }: { entry: ContainerEntry }) {
@@ -58,7 +58,7 @@ export function BoardMenus({ entry }: { entry: ContainerEntry }) {
   )
 }
 
-/** What the project's adapters and extensions offer for a page of the app, as Open in browser, as icon buttons. */
+/** What the project's extensions offer for a page of the app, as Open in browser, as icon buttons. */
 function BoardActions({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
   const { extensions } = useExtensions(session)
@@ -69,11 +69,7 @@ function BoardActions({ entry }: { entry: ContainerEntry }) {
   }
 
   return (
-    <HeaderActions
-      adapterOffers={pageOffers(session.info, target.route, { session, extensions, placement: "selectionHeading" })}
-      page
-      onAdapterAction={({ action }) => void runAction(session.id, action, undefined, target)}
-    />
+    <HeaderActions offers={pageOffers(target.route, { session, extensions, placement: "selectionHeading" })} page />
   )
 }
 
