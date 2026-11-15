@@ -106,7 +106,10 @@ export function projectPageFiles(folders: RouteFolders, files: readonly ProjectR
     const inPages = folders.pages !== undefined && file.path.startsWith(`${folders.pages}/`)
 
     if (inApp && isAppRouteFile(file.path)) {
-      const path = posix.join("app", projectRouteGroup, file.path.slice(folders.app!.length + 1))
+      const from = file.path.slice(folders.app!.length + 1)
+      // Next finds the global error and not-found boundaries at the app folder's root alone, not a route group's.
+      const global = /^global-(?:error|not-found)\.[^/]+$/.test(from)
+      const path = global ? posix.join("app", from) : posix.join("app", projectRouteGroup, from)
 
       return [{ path, text: reexport(path, file, "app") }]
     }
