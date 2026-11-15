@@ -251,6 +251,23 @@ export const ResetPutsAwayAClash: Story = {
   }
 }
 
+/** A clash still asking goes once another command takes the keys it named (PAR-1042). */
+export const ANewHolderPutsAwayAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await expect(view.getByRole("button", { name: "Swap with Move and select" })).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: /^Change Move and select/ }))
+    await userEvent.keyboard("t")
+    await userEvent.click(view.getByRole("button", { name: "Swap with Text" }))
+    await expect(view.getByRole("button", { name: /^Change Text, now V/ })).toBeInTheDocument()
+    await expect(view.queryByRole("button", { name: "Swap with Move and select" })).not.toBeInTheDocument()
+  }
+}
+
 /** Entries keybindings.json has that Parity skipped, listed first, with the file to fix them in. */
 export const SkippedShortcuts: Story = {
   render: () => (

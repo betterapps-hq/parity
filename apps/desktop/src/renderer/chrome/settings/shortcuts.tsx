@@ -124,8 +124,8 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
   const binding = keymap[command]
   const keys = store.keysOf(command)
   const lostTo = store.lost[command]
-  // A clash asks about the keys the row had then, so a reset or another change since puts it away.
-  const clash = asked?.over === keys ? asked : undefined
+  // A clash asks about the keys the row and the holder had then, so a reset or another change since puts it away.
+  const clash = asked?.over === keys && store.holderOf(command, asked.keys) === asked.holder ? asked : undefined
 
   const record = (event: KeyboardEvent) => {
     event.preventDefault()
