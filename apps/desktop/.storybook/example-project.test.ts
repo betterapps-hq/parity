@@ -96,7 +96,9 @@ describe("the example project in a Storybook build", () => {
     expect(guestUrl).toBe(new URL(guest!.fileName, site).href)
   })
 
-  it("loads the guest from there and draws the example's components", async () => {
+  // Chrome compiles the whole guest chunk, every Nova component with it, which took past CI's 20 seconds on a busy
+  // Windows runner (PAR-1121).
+  it("loads the guest from there and draws the example's components", { timeout: 60_000 }, async () => {
     const drawn = await page.evaluate(async () => {
       // SAFETY: the page set both before `beforeAll` stopped waiting for them.
       const { example, importGuest } = window as typeof window & StoryWindow
