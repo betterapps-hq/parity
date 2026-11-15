@@ -235,16 +235,16 @@ go.
 
 **Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
 tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. Each tool is
-an extension: Vite, React, Tailwind CSS, TanStack Router and Storybook, whose entities provider reads CSF with the
-TypeScript compiler: each story file is a design of the story kind, its stories its states, a row each on its board. A
-story whose meta names a component and has no `render` of its own draws that component with the story's args as its
-props. A story that renders itself draws its `render` function, loaded from its file, with its args as props. Decorators
-and the `render` function's `context` aren't applied yet. Edits to a story's args are written back to its file, as the
-args that differ from its meta's; nothing else of a story file's design is. Layers lists the files in folders for each
-part of their titles, with Storybook's kinds of icon for a group, a file and a story. Each story draws a preview for
-each mode it shows, as wide as the story, in the mode's whole window, and the picked story's args show as Props in the
-Design panel. Sizes dragged on a story to test it, its modes and their scales are kept in the project's file, never in
-the story's.
+an extension: Vite, React, Tailwind CSS, TanStack Router, React Router and Storybook, whose entities provider reads CSF
+with the TypeScript compiler: each story file is a design of the story kind, its stories its states, a row each on its
+board. A story whose meta names a component and has no `render` of its own draws that component with the story's args as
+its props. A story that renders itself draws its `render` function, loaded from its file, with its args as props.
+Decorators and the `render` function's `context` aren't applied yet. Edits to a story's args are written back to its
+file, as the args that differ from its meta's; nothing else of a story file's design is. Layers lists the files in
+folders for each part of their titles, with Storybook's kinds of icon for a group, a file and a story. Each story draws
+a preview for each mode it shows, as wide as the story, in the mode's whole window, and the picked story's args show as
+Props in the Design panel. Sizes dragged on a story to test it, its modes and their scales are kept in the project's
+file, never in the story's.
 
 ### Language
 
@@ -288,8 +288,12 @@ catch-all), parent, file, whether it's an index, the component it draws, and whe
 Parallel routes' slots and intercepting routes have room in the shape but aren't drawn yet. The TanStack Router
 extension (`packages/extension-tanstack-router`) reads TanStack Router's file-based routes from the route tree its
 tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` puts it) and each route's file. Routes written in
-code without the generated tree aren't read. Each page is a screen, laid out in the router's tree, whose frames load the
-app itself at the page's URL (see editor.md), with each path param's value set in Props.
+code without the generated tree aren't read. The React Router extension (`packages/extension-react-router`, PAR-1145)
+reads framework mode's `app/routes.ts` (`route`, `index`, `layout` and `prefix`), the file-based routes `flatRoutes()`
+makes, and library mode's route objects or `<Route>` elements, without running the app; routes it can only know by
+running the app are named as not supported yet in its status item's tooltip. See
+[editor.md](editor.md#react-router-as-an-extension-par-1145). Each page is a screen, laid out in the router's tree,
+whose frames load the app itself at the page's URL (see editor.md), with each path param's value set in Props.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
@@ -374,12 +378,12 @@ The `fluent` validation project below checks all of it.
 (x.0). Dropped means not tested: no fixes and no validation project. It doesn't mean blocked. In your words: "By drop
 support, I didn't mean prevent others from using those versions, just that we don't actively test and support them." A
 project on a dropped version opens and works as far as it can. Parity reads the installed version of each tool an
-adapter finds (React, Vite, Tailwind CSS, TanStack Router and Storybook) and notes an untested one quietly, in the
-status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each major
-(`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
-extension exists, React, Storybook and TanStack Router so far, takes its versions from the extension's peer dependencies
-instead: inside the range is supported, above it newer and below it dropped, and the range is widened or narrowed in the
-extension's `package.json` as this policy says.
+adapter finds (React, Vite, Tailwind CSS, TanStack Router, React Router and Storybook) and notes an untested one
+quietly, in the status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each
+major (`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
+extension exists, Storybook, TanStack Router and React Router so far, takes its versions from the extension's peer
+dependencies instead: inside the range is supported, above it newer and below it dropped, and the range is widened or
+narrowed in the extension's `package.json` as this policy says.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.
@@ -466,7 +470,7 @@ versions. Dates are each major's first stable release on npm. The Parity column 
 | --------------- | ------ | --------- | -------------------------- | ----------------------------- |
 | TanStack Router | 🔜     | 1         | Nothing; 1 is the newest   | Nothing                       |
 | TanStack Start  | 🔜     | 1         | Nothing; 1 is the newest   | Nothing                       |
-| React Router    | 🔜     | 8, 7      | 7, in November 2026        | 6 (November 2021) and earlier |
+| React Router    | ◐      | 8, 7      | 7, in November 2026        | 6 (November 2021) and earlier |
 | Drizzle         | 🔜     | 0.x       | Nothing; 0.x is the newest | Nothing                       |
 | Prisma          | 🔜     | 7, 6      | 6, in November 2026        | 5 (July 2023) and earlier     |
 | Hono            | 🔜     | 4         | Nothing; 4 is the newest   | 3 (February 2023) and earlier |
@@ -522,10 +526,11 @@ of every axis at least once. The more of each project that's tested end to end, 
 | `react18-mui-js` (exists) | React 18, Vite 6, React Router 7 in library mode, MUI 9 on Emotion, MUI's icons, JavaScript, Yarn Berry                     | Components drawn on React 18, MUI in plain JavaScript, routes as route objects  | ✅    |
 | `rspack` (exists)         | React 19, Rspack 2 with `builtin:swc-loader` and `rspack.config.mjs`, plain CSS with custom properties, TypeScript, npm     | The Rspack builder                                                              | ✅    |
 
-`react-aria` runs on Vite 7, not 8 as first planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on
-Vite 8 can't be installed cleanly. Its Yarn Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no
-project yet. By the version cutoff, Mantine 8 should be tested too, since it drops in May 2027; no project covers it
-yet.
+`react-router-vite` is in `examples/`, not `fixtures/`: it's installed with the workspace, and its detection snapshot
+runs with the others (PAR-1145). It has no shadcn on Radix yet, which no project covers now. `react-aria` runs on Vite
+7, not 8 as first planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on Vite 8 can't be installed
+cleanly. Its Yarn Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no project yet. By the version
+cutoff, Mantine 8 should be tested too, since it drops in May 2027; no project covers it yet.
 
 What the detection snapshots record on 2026-10-29, gaps included:
 

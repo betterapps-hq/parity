@@ -45,8 +45,9 @@ overlay, keep state, or fail without taking the project service down with it.
 
 ## Principles
 
-- **Parity's own features are extensions.** Storybook, TanStack Router, Tailwind, React and Vite use only the public
-  API. When Storybook needs something the API lacks, the API is missing it, so every gap shows up in real use first.
+- **Parity's own features are extensions.** Storybook, TanStack Router, React Router, Tailwind, React and Vite use only
+  the public API. When Storybook needs something the API lacks, the API is missing it, so every gap shows up in real use
+  first.
 - **One typed, versioned API.** Extensions depend on `@parity-app/extension-api`, which holds types and nothing else,
   and name the version they need in `engines.parity`. Nothing from `@parity-app/core` leaks, so Parity can change inside
   without breaking anyone.
@@ -305,9 +306,9 @@ each major for two years from its release. An extension package can say all of t
 - **What peer dependencies can't say** stays in the manifest's `versions`: `scope` for tools whose packages share a
   scope (`@storybook/`), `distributions` for packages that ship the tool under another name, and `prefix` for how its
   majors are written (`v4`). `ToolVersions` shrinks to those three fields.
-- **Parity's own mark every peer optional,** since they come with the app rather than beside their tool. Storybook and
-  TanStack Router read theirs this way (PAR-1091); React, Vite and Tailwind keep their release dates until their
-  extensions come.
+- **Parity's own mark every peer optional,** since they come with the app rather than beside their tool. Storybook,
+  TanStack Router (PAR-1091) and React Router (PAR-1145) read theirs this way; React, Vite and Tailwind keep their
+  release dates until their extensions come.
 
 ## The API
 
@@ -317,7 +318,8 @@ they're synchronous; anything that changes something is asynchronous (Speed and 
 ### The project and its files
 
 - `parity.project`: its root, name, package manifest, package manager, and what the extension's `detect` found.
-- `parity.files.read(path)`, `find(glob)` and `watch(glob, listener)`, limited to the paths its permissions name.
+- `parity.files.read(path)`, `list(path)` (a folder's names, PAR-1145), `find(glob)` and `watch(glob, listener)`,
+  limited to the paths its permissions name.
 - `parity.files.edit(label, changes)`: writes project files through the project service's one queued write, which checks
   nothing changed underneath, can be undone under the extension's name, and isn't read back as an outside edit. Limited
   to the write paths its permissions name. Parity refuses writes to `.par` files whatever they name.
@@ -573,9 +575,9 @@ Storybook goes first, because it already uses most of what's here:
 3. An entities provider whose import gives the stories canvas file and story nodes, and whose export writes edited
    stories back on Save. Then `findStorybook` and `info.storybook` go.
 
-TanStack Router follows, with its router provider, the route node type and its Routes group in Layers. Then Tailwind,
-with the styles provider and the tokens it reads; then React and Vite, with the renderer and builder providers and their
-entry modules; then the connectors. Then `packages/adapters` goes.
+TanStack Router follows, with its router provider, the route node type and its Routes group in Layers, and React Router
+uses the same provider (PAR-1145). Then Tailwind, with the styles provider and the tokens it reads; then React and Vite,
+with the renderer and builder providers and their entry modules; then the connectors. Then `packages/adapters` goes.
 
 ## Order of work
 
