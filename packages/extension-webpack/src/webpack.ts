@@ -139,7 +139,18 @@ interface CssModules {
   namedExport?: boolean
   /** How it named a class's export, in webpack's spelling (`camel-case-only`), when its options said. */
   exportsConvention?: ExportsConvention
+  /** The files it made CSS modules by its own test (`auto`), when that's a pattern or function; others stay global. */
+  scoped?: ScopedTest
 }
+
+/** A test for the files `css-loader` made CSS modules: a pattern on their paths, or a function of the path. */
+type ScopedTest = RegExp | ((path: string) => boolean)
+
+/** `css-loader`'s `auto`: on, off, or a test of its own. */
+const modulesAuto = z
+  .union([z.boolean(), z.instanceof(RegExp), z.custom<(path: string) => boolean>((value) => value instanceof Function)])
+  .optional()
+  .catch(undefined)
 
 /** The export-name conventions webpack's CSS generator takes, by name or as a function. */
 type ExportsConvention = string | ((name: string) => string | string[])
@@ -164,7 +175,7 @@ const cssModulesOption = z
     z.string().transform((): CssModules => ({ type: "css/module" })),
     z
       .looseObject({
-        auto: z.unknown().optional(),
+        auto: modulesAuto,
         mode: z.unknown().optional(),
         namedExport: z.boolean().optional(),
         exportLocalsConvention: exportLocalsConvention.optional().catch(undefined)
@@ -175,11 +186,15 @@ const cssModulesOption = z
 
         if (auto === undefined) {
           type = globalMode.safeParse(mode).success ? "css/global" : "css/module"
-        } else if (auto === false) {
+        } else if (auto !== true) {
           type = "css/global"
         }
 
         const modules: CssModules = { type }
+
+        if (auto instanceof RegExp || auto instanceof Function) {
+          modules.scoped = auto
+        }
 
         if (namedExport !== undefined) {
           modules.namedExport = namedExport
@@ -328,7 +343,14 @@ export function webpackCssRule(entry: unknown, css: WebpackCss): unknown {
   if (styles) {
     // Its CSS modules are the files `css-loader` treated as ones, and their classes come as it gave them.
     const modules = cssLoaderModules([parsed.data, ...uses])
-    changed.type = modules.type
+
+    if (modules.scoped && !rest.oneOf) {
+      // The files its own test picks are CSS modules, as `css-loader` asked of each, and the rest global.
+      changed.oneOf = [{ resource: modules.scoped, type: "css/module" }, { type: "css/global" }]
+    } else {
+      changed.type = modules.type
+    }
+
     changed.parser = parserOptions(modules.namedExport ?? css.cssLoaderNamedExports, css)
 
     if (modules.exportsConvention !== undefined && css.exportsConvention) {

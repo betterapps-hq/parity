@@ -214,4 +214,13 @@ describe("webpackCssRule", () => {
     expect(webpackCssRule(rule, newer)).toMatchObject({ generator: { exportsConvention: "camel-case-only" } })
     expect(webpackCssRule(rule, older)).not.toHaveProperty("generator")
   })
+
+  it("makes CSS modules of the files css-loader's own auto test picks, and the rest global", () => {
+    const scoped = /\.scoped\.css$/
+    const options = { modules: { auto: scoped } }
+
+    expect(
+      webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }, older)
+    ).toMatchObject({ oneOf: [{ resource: scoped, type: "css/module" }, { type: "css/global" }] })
+  })
 })
