@@ -1,8 +1,21 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 06:12:33 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 08:24:15 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.92.0
+
+Sun, 15 Nov 2026 08:24:15 GMT
+
+### Minor changes
+
+- Storybook's stories are read and written through its extension's entities provider (ajcraswell@gmail.com)
+
+### Patches
+
+- Compare a design's layers in time that grows with the design, not its square, so edits and pastes on large designs
+  cost about a tenth of what they did (ajcraswell@gmail.com)
 
 ## 0.91.0
 

@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Storybook's stories are read and written through its extension's entities provider",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

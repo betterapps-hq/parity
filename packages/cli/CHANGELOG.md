@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 06:12:59 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 08:25:04 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.70.0
+
+Sun, 15 Nov 2026 08:25:04 GMT
+
+### Minor changes
+
+- Storybook's stories are read and written through its extension's entities provider (ajcraswell@gmail.com)
 
 ## 0.69.0
 
