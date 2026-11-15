@@ -1,8 +1,48 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 08:25:04 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 14:18:00 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.71.0
+
+Sun, 15 Nov 2026 14:18:00 GMT
+
+### Minor changes
+
+- Build and draw components for Rspack projects, through a builder shared with other webpack-compatible tools
+  (ajcraswell@gmail.com)
+- Support React 18: components draw on it, component layers forward refs, and frames report errors without React 19's
+  root callbacks. (ajcraswell@gmail.com)
+- Routes are router-neutral: a router's extension gives each route's kind and its URL as segments, rather than its own
+  path syntax (ajcraswell@gmail.com)
+- Open Next.js apps that run Turbopack: their components and pages draw with the project's own Next and config.
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Story files are named, grouped and coloured as their extension's manifest says, rather than by Storybook's name in
+  Parity (ajcraswell@gmail.com)
+- Detection finds a tool listed only in optionalDependencies. (ajcraswell@gmail.com)
+- Storybook is found and read by its extension alone; Parity's core no longer reads the project's Storybook
+  (ajcraswell@gmail.com)
+- Stop reading shadcn's components.json and the UI kit folder: stylesheets come from the app's entry or the usual
+  places, every detected component loads as it's drawn, and components sharing a name all gain their folders.
+  (ajcraswell@gmail.com)
+- Remove adapter actions, which no adapter declares any more; extensions' commands are what components and pages offer
+  (ajcraswell@gmail.com)
+- Draw a component loaded on demand once its module loads, even when the load finished before the frame's effect ran
+  (ajcraswell@gmail.com)
+- Skip any tool's *-static build folder when reading the app's code, rather than Storybook's by name
+  (ajcraswell@gmail.com)
+- Notice a stylesheet or module the app imports once it's created, and ignore commented-out and dynamic imports in an
+  inline module script (ajcraswell@gmail.com)
+- project.opened records each detected tool's version in one tools field, instead of a field per tool
+  (ajcraswell@gmail.com)
+- Choosing an organization at sign-in finishes through Parity's service, without signing in to Google again
+  (ajcraswell@gmail.com)
+- Check only the layers a change made, so undo and edits on large designs cost a fraction of what they did
+  (ajcraswell@gmail.com)
 
 ## 0.70.0
 
