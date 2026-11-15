@@ -50,6 +50,10 @@ export function hostProcesses(): HostProcesses {
   const infoListeners = new Map<string, Set<(info: ProcessInfo) => void>>()
   const changeListeners = new Set<(changed: ProcessInfo[]) => void>()
   const handles = new Map<string, ProcessHandle>()
+  /** Each of its processes as last heard of, by id, kept after the list lets a stopped one go. */
+  const latest = new Map<string, ProcessInfo>()
+  /** The processes whose output checks came back as the host started again, matched once it can say so. */
+  const restored = new Set<string>()
   let markReady: (id: string, match: string) => void = () => undefined
 
   const projectId = (id: string) => `${extension}:${id}`
@@ -61,10 +65,20 @@ export function hostProcesses(): HostProcesses {
   const own = (id: string) => list.find((info) => info.id === projectId(id) && mine(info))
   const live = (info: ProcessInfo | undefined) => !!info && ["starting", "running", "stopping"].includes(info.state)
 
+  /** Keeps each of its processes in `list` as it's heard of now. */
+  const remember = () => {
+    for (const info of list) {
+      if (mine(info)) {
+        latest.set(info.id.slice(extension.length + 1), info)
+      }
+    }
+  }
+
   /** Takes `info` into the copy, and tells whoever listens of what changed. */
   const take = (next: ProcessInfo[]) => {
     const before = new Map(list.map((info) => [info.id, JSON.stringify(info)]))
     list = next
+    remember()
     const changed = next.filter((info) => before.get(info.id) !== JSON.stringify(info))
 
     if (changed.length === 0) {
@@ -123,6 +137,7 @@ export function hostProcesses(): HostProcesses {
     begin(id, snapshot) {
       extension = id
       list = snapshot.list
+      remember()
 
       for (const [process, lines] of Object.entries(snapshot.output)) {
         output.set(process, lines.slice(-keptLines))
@@ -138,6 +153,7 @@ export function hostProcesses(): HostProcesses {
               throw new Error(message)
             })
           )
+          restored.add(process)
         } catch {
           // The service checked it as the spec started; a pattern this host can't build isn't matched.
         }
@@ -168,6 +184,17 @@ export function hostProcesses(): HostProcesses {
     api(send, log) {
       markReady = (id, found) => void send("processes.markReady", { id, match: found }).catch(() => undefined)
 
+      // A run still starting may have printed its ready line while no host was there to hear it.
+      for (const id of restored) {
+        const info = own(id)
+
+        if (info?.state === "starting" && outputRuns.get(id) === info.run) {
+          match(id, output.get(id) ?? [])
+        }
+      }
+
+      restored.clear()
+
       const handleFor = (id: string): ProcessHandle => {
         const known = handles.get(id)
 
@@ -175,15 +202,11 @@ export function hostProcesses(): HostProcesses {
           return known
         }
 
-        let last: ProcessInfo | undefined = own(id)
-
         const handle: ProcessHandle = {
           id,
           get info() {
-            last = own(id) ?? last
-
-            // SAFETY: a handle is only made for a process in the copy, so `last` was set when it was made.
-            return last as ProcessInfo
+            // SAFETY: a handle is only made for a process in the copy, which `latest` keeps after the list lets it go.
+            return (own(id) ?? latest.get(id)) as ProcessInfo
           },
           ready: async () => {
             const info = await coded(send("processes.ready", { id }))

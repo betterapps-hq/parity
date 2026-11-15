@@ -1,5 +1,5 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
-import type { ExtensionModule, JsonValue, Parity, ProcessInfo } from "@parity-app/extension-api"
+import type { ExtensionModule, JsonValue, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
@@ -568,6 +568,71 @@ describe("extension hosts", () => {
       "Local: http://localhost:6006/",
       "Local: http://localhost:6007/"
     ])
+  })
+
+  it("matches the line a starting run printed while its host was down, once the host starts again", async () => {
+    const markReady = vi.fn<ExtensionProcesses["markReady"]>()
+
+    setUp(
+      { "@parity-app/extension-storybook": { activate: () => undefined } },
+      {
+        processes: processesMock({
+          markReady,
+          snapshot: () => ({
+            list: [{ ...storybookServer, state: "starting", run: 2 }],
+            output: { storybook: ["Starting…", "Local: http://localhost:6006/"] },
+            ready: { storybook: "Local: (http://\\S+)" }
+          })
+        })
+      }
+    ).hosts.open(project)
+    await settle()
+
+    expect(markReady).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ extension: "@parity-app/extension-storybook" }),
+      "storybook",
+      "Local: http://localhost:6006/"
+    )
+  })
+
+  it("keeps a handle's latest word on its process after the list lets the process go", async () => {
+    let listener: ProcessListener | undefined
+    let server: ProcessHandle | undefined
+
+    const { hosts } = setUp(
+      {
+        "@parity-app/extension-storybook": {
+          activate(parity) {
+            parity.commands.register("storybook.open", async () => {
+              server = await parity.processes.start({
+                id: "storybook",
+                name: "Storybook",
+                lifetime: "server",
+                run: { bin: "storybook" }
+              })
+            })
+          }
+        }
+      },
+      {
+        processes: processesMock({
+          start: () => Promise.resolve({ ...storybookServer, state: "starting" }),
+          watch(_caller, given) {
+            listener = given
+
+            return () => undefined
+          }
+        })
+      }
+    )
+
+    hosts.open(project)
+    await hosts.run("shop", "storybook.open")
+    listener?.changed([{ ...storybookServer, state: "stopped" }])
+    listener?.changed([])
+    await settle()
+
+    expect(server?.info.state).toBe("stopped")
   })
 
   it("matches only the current run's output as it starts, and its check again after the host starts again", async () => {
