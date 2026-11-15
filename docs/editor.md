@@ -2406,7 +2406,7 @@ keys passed in, and allows explorations and stories. End to end (PAR-202), `apps
 the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard shortcuts
 dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
 
-### Shortcuts the person changes (PAR-1085)
+### Shortcuts the person changes (PAR-1085, PAR-1122)
 
 The keymap is the defaults. The person's changes are in `keybindings.json` in the app's data folder, a list of
 `{ "command": "save", "keys": ["Ctrl Alt S"] }`, written as the keymap writes keys, where Ctrl is Cmd on a Mac.
@@ -2422,25 +2422,30 @@ The keymap is the defaults. The person's changes are in `keybindings.json` in th
   Keyboard shortcuts dialog read `keysOf` as they draw or as a key is pressed. A command with no keys shows none.
 - **The application menu doesn't change.** macOS's Edit menu keeps Cmd X, C, V and A whatever the file says, since
   they're its roles' own keys, and the app's own menus are drawn by the window.
-- **A file that isn't a JSON list** leaves the keymap's keys in place, is logged, and is never written over: a change
-  fails until it's fixed by hand.
-- **Main reads the file when it starts,** before the window opens, writes each change whole one at a time, and sends
-  what the file holds to every window. Other running copies don't see a change until they start again.
+- **A file that isn't a JSON list** keeps the keys it last had, the keymap's at start, is logged, and is never written
+  over: a change fails until it's fixed by hand.
+- **Every running copy follows the file.** Main reads it before the window opens and watches its folder, so a key
+  changed by hand or in another copy applies at once, in every window and menu. It reads it again when a window gains
+  focus, in case a change was missed. Each change is made under the file's lock on the file as it is then, so two copies
+  changing keys at once both keep theirs. A change that can't be written yet applies for this run and is tried again,
+  and Settings shows that your settings couldn't be saved until it is.
 
 Code: `readKeys`, `readKeybindings`, `resolveBindings`, `changeKeys` and `applyReplacements` in
 `apps/desktop/src/shared/keybindings.ts`, which take and return data; `keybindingsFile` in `main/keybindings.ts`, which
-reads and writes the file; the `keybindingsState`, `keybindingsReplace` and `keybindingsOpen` methods in
-`shared/host-methods.ts`, and `ipc.keybindingsChanged`; and `chrome/keybindings.ts` in the window, which applies the
-file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`, `resetKeys` and
-`openKeybindings`.
+keeps the file on `sharedFile` in `main/shared-file.ts`; the `keybindingsState`, `keybindingsReplace` and
+`keybindingsOpen` methods in `shared/host-methods.ts`, and `ipc.keybindingsChanged`; and `chrome/keybindings.ts` in the
+window, which applies the file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`,
+`resetKeys` and `openKeybindings`.
 
 Tests: `shared/keybindings.test.ts` (20): keys read in the keymap's order and refused when they don't read; no file, a
 malformed entry and text that isn't a list; replaced, removed, skipped and clashing keys, and which command lost them;
 the replacements a change writes, taking keys and giving the keymap's back; and entries kept as written, in place.
-`main/keybindings.test.ts` (5), on a temp folder: nothing written until a change, the file read at start, changes made
-one at a time keeping skipped entries, a file that can't be read never written over, and the file made to be opened.
-`chrome/keybindings.test.ts` (6): every key in the keymap reads as itself, and the window's keys, `shortcutOf` and
-`shortcutFor` following the file, a change, a removal, a reset and keys that don't read.
+`main/keybindings.test.ts` (8), on a temp folder: nothing written until a change, the file read at start, changes made
+one at a time keeping skipped entries, two copies' changes at the same moment both kept, a change by another copy or by
+hand sent to the windows, a file that can't be read never written over and its keys kept, a change that can't be written
+applied and written once it can, and the file made to be opened. `chrome/keybindings.test.ts` (6): every key in the
+keymap reads as itself, and the window's keys, `shortcutOf` and `shortcutFor` following the file, a change, a removal, a
+reset and keys that don't read.
 
 ### Whether a command applies, and what it's called (PAR-971)
 
