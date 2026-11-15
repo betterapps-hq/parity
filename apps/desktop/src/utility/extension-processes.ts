@@ -2,7 +2,7 @@ import { constants } from "node:fs"
 import { access, readFile, stat } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import type { Candidate, ProcessInfo, ProcessSpec, Run } from "@parity-app/extension-api"
+import type { Candidate, ProcessSpec, Run } from "@parity-app/extension-api"
 import type { ExtensionProcesses, ProcessCaller, ProcessListener } from "@parity-app/extensions"
 import {
   batchCommandLine,
@@ -16,17 +16,16 @@ import {
   runEnvironment,
   runKind,
   specFingerprint,
+  opensAt,
   startsAs,
-  visibleTo,
   withUsualFolders,
   withUsualPath
 } from "@parity-app/processes"
 import { detectPackageManager } from "@parity-app/project"
 import { z } from "zod"
 import { logNote } from "../shared/log.ts"
-import type { ProjectProcess } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
-import { local, readPortless } from "./portless.ts"
+import { managedId, seenBy } from "./process-ids.ts"
 import {
   accepts,
   adoptProcess,
@@ -39,7 +38,8 @@ import {
   stopManaged,
   stopManagedPrefixed
 } from "./process-manager.ts"
-import { onProcessesChanged, trackedProcesses } from "./processes.ts"
+import type { FoundServer, ProcessProviders } from "./process-providers.ts"
+import { onProcessesChanged, setAddresses, trackedProcesses } from "./processes.ts"
 
 /*
  * `parity.processes` in the project service (docs/proposals/processes.md): what an extension's host asks of the process
@@ -61,7 +61,10 @@ const binManifest = z.looseObject({
 })
 
 /** `parity.processes` for every extension, for the open projects `projectOf` knows. */
-export function extensionProcesses(projectOf: (projectId: string) => ProcessProject | undefined): ExtensionProcesses {
+export function extensionProcesses(
+  projectOf: (projectId: string) => ProcessProject | undefined,
+  providers: Pick<ProcessProviders, "discover" | "found">
+): ExtensionProcesses {
   /** Each running host's listener, by project and extension. */
   const listeners = new Map<string, ProcessListener>()
   /** The handles whose lines and ends are forwarded to their extension's current host. */
@@ -167,33 +170,58 @@ export function extensionProcesses(projectOf: (projectId: string) => ProcessProj
         adopted.pid = server.pid
       }
 
+      if (server.provider !== undefined) {
+        adopted.provider = server.provider
+      }
+
       const handle = adoptProcess(adopted)
       forward(caller, server.id, handle)
+      // A server a provider found is reached at the addresses it gave, until address providers say more.
+      const found = server.key === undefined ? undefined : providers.found(caller.projectId, server.key)
+      const given = (found?.addresses ?? []).map((address) => ({ ...address, provider: found?.provider ?? "" }))
+
+      if (given.length > 0) {
+        setAddresses(adopted.id, given, opensAt(given, server.endpoint.url))
+      }
 
       return seenBy(caller, handle.info())
     },
     async find(caller, query) {
       const began = performance.now()
       const ports = [...new Set(query.ports ?? [])]
+      const project = projectOf(caller.projectId)
       // A server already listed, started or adopted by anyone, isn't a candidate.
       const listed = new Set(trackedProcesses(caller.projectId).flatMap((process) => process.endpoint?.port ?? []))
-      const unlisted = ports.filter((port) => !listed.has(port))
+
+      const discovery =
+        query.discovered === false || !project
+          ? { servers: [], providers: 0, cached: 0 }
+          : await providers.discover(caller.projectId, project.root)
+
+      const found = discovery.servers.flatMap((server) =>
+        listed.has(server.endpoint.port) ? [] : [candidateOf(server)]
+      )
+
+      const covered = new Set(found.map((candidate) => candidate.endpoint.port))
+      const unlisted = ports.filter((port) => !listed.has(port) && !covered.has(port))
       const answering = await Promise.all(unlisted.map(async (port) => ((await accepts(port)) ? [port] : [])))
 
-      // Discovery providers come with step 3 of docs/proposals/processes.md; until then only ports are checked.
-      const candidates: Candidate[] = answering.flat().map((port) => ({
-        key: `port:${port}`,
-        endpoint: { url: local(port), port, protocol: "http" },
-        addresses: [],
-        foundBy: { kind: "port" }
-      }))
+      const candidates: Candidate[] = [
+        ...found,
+        ...answering.flat().map((port): Candidate => ({
+          key: `port:${port}`,
+          endpoint: { url: localUrl(port), port, protocol: "http" },
+          addresses: [],
+          foundBy: { kind: "port" }
+        }))
+      ]
 
       track("processes.found", {
         owner: caller.extension,
         ports: ports.length,
         candidates: candidates.length,
-        providers: 0,
-        cached: 0,
+        providers: discovery.providers,
+        cached: discovery.cached,
         durationMs: Math.round(performance.now() - began)
       })
 
@@ -265,23 +293,42 @@ export function extensionProcesses(projectOf: (projectId: string) => ProcessProj
     },
     stopAll(projectId, extension) {
       void stopManagedPrefixed(`extension:${extension}:${projectId}:`, "project")
-    },
-    async routed() {
-      const portless = await readPortless()
-
-      return portless.routes.map((route) => ({ url: local(route.port), address: portless.address(route.hostname) }))
     }
   }
+}
+
+/** Where Parity reaches a server on this machine. */
+function localUrl(port: number): string {
+  return `http://localhost:${port}`
+}
+
+/** A discovered server as `find` gives it, its key unique among the providers'. */
+function candidateOf(server: FoundServer): Candidate {
+  const candidate: Candidate = {
+    key: `${server.provider}:${server.key}`,
+    endpoint: server.endpoint,
+    addresses: (server.addresses ?? []).map((address) => ({ ...address, provider: server.provider })),
+    foundBy: { kind: "provider", extension: server.provider }
+  }
+
+  if (server.name !== undefined) {
+    candidate.name = server.name
+  }
+
+  if (server.pid !== undefined) {
+    candidate.pid = server.pid
+  }
+
+  if (server.cwd !== undefined) {
+    candidate.cwd = server.cwd
+  }
+
+  return candidate
 }
 
 /** Which host listens for an extension's processes in a project. */
 function keyOf(caller: ProcessCaller): string {
   return `${caller.projectId}\n${caller.extension}`
-}
-
-/** A process's id in the manager: one per extension, process and project. */
-function managedId(caller: Pick<ProcessCaller, "extension" | "projectId">, id: string): string {
-  return `extension:${caller.extension}:${caller.projectId}:${id}`
 }
 
 /** What the process manager starts for a spec: its run found as each run's kind is, each time it starts. */
@@ -313,7 +360,7 @@ function managedSpec(caller: ProcessCaller, project: ProcessProject, spec: Proce
         launch.portMoved = port !== spec.port?.prefer
       }
 
-      logNote(`[service] starting ${spec.name} for ${project.name}${port === undefined ? "" : ` at ${local(port)}`}`)
+      logNote(`[service] starting ${spec.name} for ${project.name}${port === undefined ? "" : ` at ${localUrl(port)}`}`)
 
       return launch
     }
@@ -483,50 +530,4 @@ async function runnable(path: string, platform: string): Promise<boolean> {
     () => true,
     () => false
   )
-}
-
-/**
- * What an extension sees of a process: its id among the project's processes, without what only the window needs, and
- * only what `visibleTo` lets it see of one it doesn't own.
- */
-function seenBy(caller: ProcessCaller, process: ProjectProcess, all: ProjectProcess[] = [process]): ProcessInfo {
-  const { projectId: _project, project: _name, canStop: _stop, canRestart: _restart, ...info } = process
-
-  return visibleTo(
-    { ...info, id: listedId(process, all) },
-    { owns: ownerOf(process) === caller.extension, observe: caller.permissions.observe }
-  )
-}
-
-/** The extension that started or adopted a process, or none for Parity's own. */
-function ownerOf({ owner }: ProjectProcess): string | undefined {
-  if (owner.kind === "parity") {
-    return undefined
-  }
-
-  return owner.kind === "extension" ? owner.extension : owner.by
-}
-
-/**
- * A process's id in the list extensions see: `<extension>:<id>` for an extension's, `parity:<role>` for Parity's own,
- * with a number after the role when the project has more than one with it.
- */
-function listedId(process: ProjectProcess, all: ProjectProcess[]): string {
-  const { owner } = process
-
-  if (owner.kind === "parity") {
-    const same = all.filter((each) => each.owner.kind === "parity" && each.owner.role === owner.role)
-
-    const index = same
-      .map((each) => each.id)
-      .sort()
-      .indexOf(process.id)
-
-    return index > 0 ? `parity:${owner.role}-${index + 1}` : `parity:${owner.role}`
-  }
-
-  const extension = ownerOf(process) ?? ""
-  const prefix = managedId({ extension, projectId: process.projectId }, "")
-
-  return `${extension}:${process.id.startsWith(prefix) ? process.id.slice(prefix.length) : process.id}`
 }

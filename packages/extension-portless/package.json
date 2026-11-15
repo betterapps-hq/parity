@@ -1,0 +1,42 @@
+{
+  "name": "@parity-app/extension-portless",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Portless in Parity: the names Portless gives local servers, and the servers it routes to.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parity-app/extension-api": "workspace:*"
+  },
+  "parity": {
+    "displayName": "Portless",
+    "prefix": "portless",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M11 2h2v4h6l3 3-3 3h-6v10h-2V12H5L2 9l3-3h6z"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "permissions": {
+      "read": [
+        "~/.portless/**",
+        "$PORTLESS_STATE_DIR/**"
+      ]
+    },
+    "contributes": {
+      "providers": {
+        "addresses": {},
+        "discovery": {}
+      }
+    }
+  }
+}

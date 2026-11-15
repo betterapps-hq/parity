@@ -7,7 +7,7 @@ import type {
   Processes,
   ProcessErrorCode
 } from "@parity-app/extension-api"
-import { isLocalHost, matchedLineLength, readyPattern } from "@parity-app/processes"
+import { isLocalHost, matchedLineLength, opensAt, readyPattern } from "@parity-app/processes"
 import { z } from "zod"
 import type { HostServiceMethods, ProcessSnapshot } from "./protocol.ts"
 
@@ -277,7 +277,7 @@ export function hostProcesses(): HostProcesses {
 
           const candidate = "key" in server ? (server satisfies Candidate) : undefined
 
-          merge({
+          const adopted: ProcessInfo = {
             id: projectId(as.id),
             name: as.name,
             lifetime: "server",
@@ -287,7 +287,15 @@ export function hostProcesses(): HostProcesses {
             endpoint: server.endpoint,
             addresses: candidate?.addresses ?? [],
             startedAt: Date.now()
-          })
+          }
+
+          const opens = opensAt(adopted.addresses, server.endpoint.url)
+
+          if (opens !== undefined) {
+            adopted.opens = opens
+          }
+
+          merge(adopted)
 
           const params: HostServiceMethods["processes.adopt"]["params"] = {
             id: as.id,
@@ -298,6 +306,11 @@ export function hostProcesses(): HostProcesses {
 
           if (candidate?.pid !== undefined) {
             params.pid = candidate.pid
+          }
+
+          if (candidate?.foundBy.kind === "provider") {
+            params.provider = candidate.foundBy.extension
+            params.key = candidate.key
           }
 
           send("processes.adopt", params).then(merge, (cause: unknown) => {

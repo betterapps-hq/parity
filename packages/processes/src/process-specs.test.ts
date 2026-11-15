@@ -1,10 +1,13 @@
 import type { ProcessInfo, ProcessSpec } from "@parity-app/extension-api"
 import { describe, expect, it } from "vite-plus/test"
 import {
+  addressRefusal,
   checkSpec,
   fillPort,
   isLocalHost,
+  isPrivateHost,
   isProcessPermission,
+  opensAt,
   permissionFor,
   permits,
   ProcessError,
@@ -185,5 +188,47 @@ describe("finding programs", () => {
   it("tells this machine's hosts from others", () => {
     expect(["localhost", "127.0.0.1", "[::1]", "shop.localhost"].map(isLocalHost)).toEqual([true, true, true, true])
     expect(["example.com", "192.168.1.4", "localhost.example.com"].map(isLocalHost)).toEqual([false, false, false])
+  })
+})
+
+describe("addresses", () => {
+  const address = (url: string, kind: "name" | "proxy" | "tunnel" | "container" | "network", isPublic = false) => ({
+    url,
+    label: url,
+    kind,
+    public: isPublic
+  })
+
+  it("takes a local address of any kind but network or tunnel", () => {
+    expect(addressRefusal(address("https://shop.localhost", "name"), false)).toBeUndefined()
+    expect(addressRefusal(address("http://127.0.0.1:1355", "proxy"), false)).toBeUndefined()
+    expect(addressRefusal(address("https://shop.localhost", "tunnel"), false)).toContain("on this machine")
+  })
+
+  it("takes a local network address only as network, and a public one only from an extension that may publish", () => {
+    expect(addressRefusal(address("http://192.168.1.4:6006", "network"), false)).toBeUndefined()
+    expect(addressRefusal(address("http://192.168.1.4:6006", "name"), false)).toContain("local network")
+    expect(addressRefusal(address("https://shop.example.dev", "tunnel", true), false)).toContain("public")
+    expect(addressRefusal(address("https://shop.example.dev", "tunnel", true), true)).toBeUndefined()
+    expect(addressRefusal(address("https://shop.example.dev", "name"), true)).toContain("public")
+    expect(addressRefusal(address("ftp://shop.localhost", "name"), true)).toContain("http")
+  })
+
+  it("tells private hosts from public ones", () => {
+    expect(
+      ["10.1.2.3", "172.16.0.1", "172.31.9.9", "192.168.0.10", "fd00::1", "printer.local"].map(isPrivateHost)
+    ).toEqual([true, true, true, true, true, true])
+    expect(["172.32.0.1", "8.8.8.8", "example.com"].map(isPrivateHost)).toEqual([false, false, false])
+  })
+
+  it("opens a name first, then a proxy, then a container's, never a public or network address, else the endpoint", () => {
+    const named = { ...address("https://shop.localhost", "name"), provider: "portless" }
+    const proxy = { ...address("http://localhost:1355", "proxy"), provider: "caddy" }
+    const tunnel = { ...address("https://shop.example.dev", "tunnel", true), provider: "tunnels" }
+    const network = { ...address("http://192.168.1.4:6006", "network"), provider: "parity" }
+
+    expect(opensAt([proxy, named], "http://localhost:6006")).toBe("https://shop.localhost")
+    expect(opensAt([tunnel, network, proxy], "http://localhost:6006")).toBe("http://localhost:1355")
+    expect(opensAt([tunnel, network], "http://localhost:6006")).toBe("http://localhost:6006")
   })
 })

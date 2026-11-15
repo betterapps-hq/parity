@@ -126,7 +126,9 @@ const providers = z.strictObject({
   router: empty.optional(),
   entities: empty.optional(),
   connector: empty.optional(),
-  search: empty.optional()
+  search: empty.optional(),
+  addresses: empty.optional(),
+  discovery: empty.optional()
 }) satisfies z.ZodType<Providers>
 
 const agentTool = z.strictObject({

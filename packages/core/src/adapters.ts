@@ -220,43 +220,12 @@ export interface ActionContext {
   component?: string
   /** The page it's run for, when it's run for one: its route's id, and the URL the canvas draws it at. */
   page?: ActionPage
-  servers: ToolServers
 }
 
 /** A page of the app an action is run for: its route's id, and the URL the canvas draws it at, its params filled. */
 export interface ActionPage {
   route: string
   url: string
-}
-
-/** Servers a tool runs for the project, which the app starts, lists with its processes and stops with the project. */
-export interface ToolServers {
-  /**
-   * A server for the project: one already serving it, at an address Portless routes to or on its port, else one
-   * started with the tool's command line from the project's own install. `fresh` stops the one there is first, as
-   * when it stopped answering.
-   */
-  serve(server: ToolServer, options?: { fresh?: boolean }): Promise<ServedTool>
-}
-
-/** A tool's server, as an adapter describes it. */
-export interface ToolServer {
-  /** Its name in the app's processes, as `Storybook`. */
-  name: string
-  /** The installed package whose command line starts it, as `storybook`. */
-  package: string
-  /** The command line's arguments, to serve on `port`. */
-  args(port: number): string[]
-  /** The port it asks for, which it's served on when free. */
-  port: number
-  /** Whether a server at `base` is this project's, and ready. */
-  serves(base: string): Promise<boolean>
-}
-
-/** Where a tool's server is: where Parity reaches it, and where a browser opens it, by its Portless name when it has one. */
-export interface ServedTool {
-  url: string
-  address: string
 }
 
 /** What an action did: an address the app opens in the browser. */
