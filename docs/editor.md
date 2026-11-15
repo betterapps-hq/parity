@@ -164,6 +164,8 @@ Tests:
   component that draws only text has its text's box, no elements, and is under a point over its text (PAR-201). A field
   given a width is drawn in a div of that width which the whole field fills, its input left as the field lays it out,
   while a field with no style and a link that puts its style on its root are drawn as they are (PAR-201).
+- `packages/extension-react/src/guest.react-18.test.ts`: on React 18 (PAR-1157), a ref from a parent cloning a layer, as
+  Radix's `Slot` does for `asChild`, reaching a component given eagerly and one loaded on demand.
 - `packages/code/src/props.test.ts`: whether a component's props take a `style`.
 - `chrome/LayerInstances.stories.tsx`, ComponentWithoutStyle: the note, and wrapping the component from it.
 - `apps/desktop/e2e/selecting.e2e.ts` (6), end to end (PAR-202), on the Members screen the run adds: hovering a
@@ -6437,9 +6439,14 @@ files among them given, nothing for a file never imported, a burst gathered into
 `packages/processes/src/builder-process.test.ts` (1: changes passed on while the builder runs, not once it closes).
 `packages/core/src/guest-changes.test.ts` (3: a new version given again and the same one not, every component in the
 changed files stamped, none without a change). `packages/extension-react/src/guest.test.ts` (the revision moving once
-per new version). `apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key
-new with the components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the
-console's row are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
+per new version). `packages/extension-react/src/guest.react-18.test.ts` (on React 18, PAR-1157: a component's error
+reaching the frame with its name, and an error outside every component's boundary blanking the frame until the next
+update draws it). Those run in a project of their own, `packages/extension-react/vite.react-18.config.ts`, in happy-dom,
+with `react` and `react-dom` aliased to the package's `react-18` and `react-dom-18`. pnpm links React 18's react-dom to
+the package's React 19, its peer, so the project's setup file also sends Node's `react` to React 18.
+`apps/desktop/src/shared/render-job.test.ts` (2: a version in a kept bitmap's name, and a frame's key new with the
+components it draws and not with others). `pnpm verify` covers the rest. The box, the Layers mark and the console's row
+are in `canvas/ContainerView.stories.tsx` FailingLayer, a real Radix `TabsList` outside its `Tabs`;
 `chrome/ConsolePanel.stories.tsx` OneDesign and WarningsOnly have the console's design focus and levels menu. Checked in
 the app on 2026-11-06 with `scripts/drive.ts`: breaking `button.tsx` drew error boxes in 48 frames, counted on 20 boards
 with no sheet over any frame, and kept every board's picture; fixing it cleared them, with every bitmap back 2.4 s

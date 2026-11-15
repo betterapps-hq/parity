@@ -21,8 +21,11 @@
     "@parity-app/extensions": "workspace:*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "happy-dom": "catalog:",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-18": "catalog:",
+    "react-dom": "^19.3.1",
+    "react-dom-18": "catalog:"
   },
   "peerDependencies": {
     "react": "^18.0.0 || ^19.0.0",
