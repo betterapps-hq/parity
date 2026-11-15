@@ -128,6 +128,80 @@ guest module by id.
 The guest module's writer, now in the Vite extension's `builder.ts`, moves to a shared module, with how a stylesheet is
 imported as its one difference: `?inline` for Vite, a plain import for Next, whose CSS the page collects.
 
+## The webpack builder (PAR-1150)
+
+One extension, `extension-webpack`, opens two kinds of project: Next.js apps whose dev script runs webpack, and plain
+webpack 5 apps. The two share no build code: Next.js on webpack runs Next's own server, as Turbopack's builder does,
+and a plain webpack app runs the webpack-compatible core from the [Rspack proposal](rspack-builders.md).
+
+### Detection
+
+`detect()` checks for Next.js first:
+
+- **Next.js on webpack** when `next` is installed and the dev script runs webpack, by the same rule and helper the
+  Turbopack builder uses: Next.js 16 with `--webpack`, and 15 or older unless it passes `--turbopack` or `--turbo`. The
+  version and config are Next's, and the builder's name reads "Next.js on webpack".
+- **Plain webpack** when `next` isn't installed, `webpack` resolves from the project's folder (or one above it), and a
+  `webpack.config.{js,cjs,mjs,ts,mts,cts}` is there or the dev script names one with `--config` or `-c`. A project with
+  an `rspack.config.*` or `rsbuild.config.*` is left to those builders, even with webpack installed. The version is
+  webpack's own `version` export.
+- **Not found** says why: no webpack installed, no webpack config, or a Next.js dev script that runs Turbopack.
+
+The manifest watches the webpack config names, Next's, and `package.json`. Peer dependencies give the versions:
+`webpack` `^5.90.0` and `next` `>=15`.
+
+### Next.js on webpack
+
+Everything up to the guest module is `packages/next-builders`: the guest app in `.next/parity/`, Next's server started
+with webpack rather than Turbopack, and `styles()` from the root layout or `pages/_app`. Only the guest module loader is
+new. It reads the same page, then loads Next's webpack runtime chunk (`webpack.js`) and the page's chunks, which push
+onto `self.webpackChunk_N_E`, leaving out the entries that start Next's router (`main-app` for the App Router, `main`
+and `pages/_app` for the Pages Router). Then it requires the guest module by the id in the page's client reference, and
+fetches the page's CSS as the Turbopack loader does. The spike tried this only on Turbopack, so the first step is the
+same check on `nextjs-webpack`.
+
+Next's config isn't handed to the webpack-compatible core: Next makes several webpack configs (client, server, edge),
+runs its SWC transforms and `next/font` through them, and decides client boundaries itself, so only Next can build
+them.
+
+### Plain webpack
+
+The core does the work, given a `Bundler` for webpack:
+
+- **The compiler and config** come from the project's own `webpack` and its config file, loaded the way `webpack-cli`
+  loads it: a function is called with `(env, argv)` for `serve` in development, an array gives its first `web` target,
+  and a `.ts` config goes through Node's type stripping.
+- **CSS extraction** uses the project's `mini-css-extract-plugin` where it's installed. Where it isn't, the stylesheet
+  rules' `style-loader` and `css-loader` become webpack's own CSS (`experiments.css`, with `type: "css/auto"`), which
+  writes CSS files with no plugin. Loaders before them, such as `sass-loader` and `postcss-loader`, stay.
+- **The guest module, `restyledGuestUrl`, the `?t=` shims, `styles()`, `codeChanges` and `loadedFiles`** are the core's,
+  as the Rspack proposal describes. `styles()` walks from the config's own entries.
+
+### Out of scope at first
+
+- **Redrawing Next.js on webpack after a code change.** It waits for the same follow-up as Turbopack's: until then,
+  reopening the project redraws. A plain webpack app redraws through the core.
+- **Projects whose webpack config is hidden in a tool**, such as Create React App's `react-scripts`, CRACO, or a
+  framework other than Next.js. An ejected app opens as plain webpack.
+- **webpack 4 and older, Next.js 14 and older,** Module Federation remotes, and configs whose web target isn't the first.
+
+### Example apps
+
+Both are in `fixtures/` (PR #677) and go through the validation snapshots:
+
+- **`nextjs-webpack`:** Next.js 15 on webpack, React 18, both `app/` and `pages/` routers, Sass CSS modules, Mantine 8
+  and Tabler icons, TypeScript and npm.
+- **`webpack-react-router`:** webpack 5, React 19, React Router's `<Routes>` in JSX, styled-components, React Aria
+  Components and Lucide, JavaScript and pnpm. It has no stylesheets: styled-components makes its styles at run time,
+  inside the bundle, so `styles()` answers with none, as the Rspack proposal describes for Emotion. Unit tests cover the
+  rewrite to webpack's own CSS.
+
+### Question
+
+**webpack's own CSS where the project has no extract plugin, or a bundled `mini-css-extract-plugin`?** webpack's own
+CSS needs no dependency, but it's still marked experimental and treats a few `css-loader` options differently. Bundling
+the plugin would be the extension's first runtime dependency on a build tool. Recommended: webpack's own CSS.
+
 ## Testing
 
 - Unit tests for each part of `packages/next-builders` on files in a temporary folder: the dev script's bundler, the
