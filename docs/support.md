@@ -68,6 +68,7 @@ snapshot only.
 | React, Vite, Tailwind v3 and earlier                                    | ❌     | Dropped: v3 came out in December 2021. Untested; the theme reader uses a v4 API, so the theme doesn't load.          |
 | React, Vite, CSS modules or CSS-in-JS (MUI, Emotion, styled-components) | ❔     | Components render, but their styles most likely don't reach the frames.                                              |
 | React, Vite, Fluent UI v9                                               | 🔜     | Planned; see Fluent UI and Fluent icons. Today its styles most likely don't reach the frames.                        |
+| React, Rspack, plain CSS with custom properties                         | ✅     | Its components drawn and styled, with tokens from the CSS, as with Vite.                                             |
 | Next.js, Remix, Astro, or webpack                                       | ❌     | No builder adapter yet. Next.js is the likely second builder.                                                        |
 | Vue, Svelte or Solid                                                    | ❌     | No renderer adapter yet. The interface exists; nothing is planned until there's demand.                              |
 | Angular, React Native, Flutter                                          | ❌     | Not planned.                                                                                                         |
@@ -99,18 +100,20 @@ go.
 
 ### Build tool (builder adapter)
 
-| Tool                     | Status | Notes                                                                                                                                                                                                                |
-| ------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Vite 8                   | ✅     | Its extension (`packages/extension-vite`), with the project's own Vite and config.                                                                                                                                   |
-| Vite 7                   | ❔     | Same extension; untested. Drops in June 2027.                                                                                                                                                                        |
-| Vite 6                   | ❔     | Same extension; untested. Drops in November 2026.                                                                                                                                                                    |
-| Vite 5 and earlier       | ❌     | Dropped: Vite 5 came out in November 2023. Untested, but not blocked.                                                                                                                                                |
-| Vite+                    | ✅     | `vite` aliased to `@voidzero-dev/vite-plus-core`, by npm, pnpm or yarn or through a pnpm catalog, counts as the Vite it ships, from `bundledVersions` in its installed package.json, not as the alias's own version. |
-| `vite.config.cjs`/`.cts` | ✅     | Found by the project's own Vite (`loadConfigFromFile`), like `.js`, `.mjs`, `.ts` and `.mts`.                                                                                                                        |
-| Config added or removed  | ✅     | Each adapter names the config files it looks for (`configFiles`), and adding or removing one in an open project detects it again. Vite restarts on an edit.                                                          |
-| Next.js                  | ⏳     | Likely the second builder; server components need thought.                                                                                                                                                           |
-| webpack, Rspack          | ⏳     |                                                                                                                                                                                                                      |
-| Rsbuild                  | ⏳     | Would share an Rspack-based adapter with Rspack, which it builds on.                                                                                                                                                 |
+| Tool                     | Status | Notes                                                                                                                                                                                                                               |
+| ------------------------ | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vite 8                   | ✅     | Its extension (`packages/extension-vite`), with the project's own Vite and config.                                                                                                                                                  |
+| Vite 7                   | ❔     | Same extension; untested. Drops in June 2027.                                                                                                                                                                                       |
+| Vite 6                   | ❔     | Same extension; untested. Drops in November 2026.                                                                                                                                                                                   |
+| Vite 5 and earlier       | ❌     | Dropped: Vite 5 came out in November 2023. Untested, but not blocked.                                                                                                                                                               |
+| Vite+                    | ✅     | `vite` aliased to `@voidzero-dev/vite-plus-core`, by npm, pnpm or yarn or through a pnpm catalog, counts as the Vite it ships, from `bundledVersions` in its installed package.json, not as the alias's own version.                |
+| `vite.config.cjs`/`.cts` | ✅     | Found by the project's own Vite (`loadConfigFromFile`), like `.js`, `.mjs`, `.ts` and `.mts`.                                                                                                                                       |
+| Config added or removed  | ✅     | Each adapter names the config files it looks for (`configFiles`), and adding or removing one in an open project detects it again. Vite restarts on an edit.                                                                         |
+| Next.js                  | ⏳     | Likely the second builder; server components need thought.                                                                                                                                                                          |
+| Rspack 2                 | ✅     | Its extension (`packages/extension-rspack`), with the project's own Rspack and `rspack.config.*`, on the code webpack-shaped builders share (`packages/builder-webpack-compatible`). A project with an Rsbuild config is Rsbuild's. |
+| Rspack 1.4 and later     | ❔     | Same extension; untested.                                                                                                                                                                                                           |
+| webpack                  | ⏳     | Will build on the same shared code as Rspack.                                                                                                                                                                                       |
+| Rsbuild                  | ⏳     | Will build on the Rspack builder's code, through Rsbuild's own config.                                                                                                                                                              |
 
 ### Styling (styles provider)
 
@@ -512,6 +515,7 @@ of every axis at least once. The more of each project that's tested end to end, 
 | `next`                    | Next.js 16, App Router, shadcn, Tailwind v4, npm                                                                            | Clear "not supported yet"; later the Next.js builder                            | ❌    |
 | `too-old` (exists)        | React 18, Vite 5, Tailwind v3, Storybook 8, npm                                                                             | Untested versions open as far as they can, with a quiet note; nothing written   | ❌    |
 | `react18-mui-js` (exists) | React 18, Vite 6, React Router 7 in library mode, MUI 9 on Emotion, MUI's icons, JavaScript, Yarn Berry                     | Components drawn on React 18, MUI in plain JavaScript, routes as route objects  | ✅    |
+| `rspack` (exists)         | React 19, Rspack 2 with `builtin:swc-loader` and `rspack.config.mjs`, plain CSS with custom properties, TypeScript, npm     | The Rspack builder                                                              | ✅    |
 
 `react-aria` runs on Vite 7, not 8 as first planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on
 Vite 8 can't be installed cleanly. Its Yarn Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no
@@ -551,21 +555,21 @@ What the detection snapshots record on 2026-10-29, gaps included:
 
 Every axis, and where it's covered:
 
-| Axis            | Values                                                                                         | Covered by                                                                                                    |
-| --------------- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| React           | 19, 18                                                                                         | Most; `too-old`, `react18-mui-js`, `nextjs-webpack`                                                           |
-| Build tool      | Vite 8, 7, 6, 5 (dropped); Next.js 16; Next.js 15 on webpack; webpack 5                        | Most; `vite7-js`, `react-aria`; `react18-mui-js`; `too-old`; `next`; `nextjs-webpack`; `webpack-react-router` |
-| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`, `.js`                                                           | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`; `react18-mui-js`                                          |
-| Router          | None, TanStack Router, React Router 8, React Router 7 in library mode, TanStack Start, Next.js | `shadcn-vite`; `scaffolder`; `react-router`; `react18-mui-js`; `tanstack-start`; `next`                       |
-| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                            | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`, `react18-mui-js`; `fluent`                     |
-| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped)       | Most; `vite7-js`; `mantine`; `mui`, `fluent`, `react18-mui-js`; `too-old`                                     |
-| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider        | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                                                |
-| Icons           | Lucide, Hugeicons, Fluent icons, none                                                          | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                                             |
-| Language        | TypeScript, JavaScript                                                                         | Most; `vite7-js`, `react18-mui-js`                                                                            |
-| Package manager | pnpm, npm, Yarn Berry, bun                                                                     | `shadcn-vite`; `vite7-js`; `react-aria`, `react18-mui-js`; `mantine`                                          |
-| Repo            | One package, a workspace monorepo                                                              | Most; `scaffolder`                                                                                            |
-| Storybook       | 10, 9, 8 (dropped), none                                                                       | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                                     |
-| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only              | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                                              |
+| Axis            | Values                                                                                         | Covered by                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| React           | 19, 18                                                                                         | Most; `too-old`, `react18-mui-js`, `nextjs-webpack`                                                                     |
+| Build tool      | Vite 8, 7, 6, 5 (dropped); Rspack 2; Next.js 16; Next.js 15 on webpack; webpack 5              | Most; `vite7-js`, `react-aria`; `react18-mui-js`; `too-old`; `rspack`; `next`; `nextjs-webpack`; `webpack-react-router` |
+| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`, `.js`                                                           | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`; `react18-mui-js`                                                    |
+| Router          | None, TanStack Router, React Router 8, React Router 7 in library mode, TanStack Start, Next.js | `shadcn-vite`; `scaffolder`; `react-router`; `react18-mui-js`; `tanstack-start`; `next`                                 |
+| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                            | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`, `react18-mui-js`; `fluent`                               |
+| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped)       | Most; `vite7-js`; `mantine`; `mui`, `fluent`, `react18-mui-js`; `too-old`                                               |
+| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider        | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                                                          |
+| Icons           | Lucide, Hugeicons, Fluent icons, none                                                          | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                                                       |
+| Language        | TypeScript, JavaScript                                                                         | Most; `vite7-js`, `react18-mui-js`                                                                                      |
+| Package manager | pnpm, npm, Yarn Berry, bun                                                                     | `shadcn-vite`; `vite7-js`; `react-aria`, `react18-mui-js`; `mantine`                                                    |
+| Repo            | One package, a workspace monorepo                                                              | Most; `scaffolder`                                                                                                      |
+| Storybook       | 10, 9, 8 (dropped), none                                                                       | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                                               |
+| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only              | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                                                        |
 
 ### What runs against each project
 
