@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "File > Settings and Ctrl+, open Settings again",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

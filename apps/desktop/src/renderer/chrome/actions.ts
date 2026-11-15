@@ -47,6 +47,7 @@ import { createDesign } from "./create.ts"
 import { duplicateDesign, setDesignKind } from "./designs.ts"
 import { type Command, keymap } from "./keymap.ts"
 import { setLayout, toggleConsole, togglePanels } from "./layout.ts"
+import { openSettings } from "./open-settings.ts"
 import { openQuickInsert } from "./QuickInsert.tsx"
 import { type RecordedAction, recordActions } from "./record-actions.ts"
 import { lastAction, rememberAction, repeatLastAction } from "./repeat.ts"
@@ -885,7 +886,8 @@ const definitions: Record<Command, Action> = {
   saveCopy: { run: saveCopy, scope: "app" },
   exportSelection: { run: exportSelected, scope: "app" },
   closeTab: { run: () => closeTab(), scope: "app" },
-  settings: { run: () => openDialog("settings"), scope: "app" },
+  // Main's own Settings view in the app (PAR-1090), or the page's in Storybook.
+  settings: { run: () => openSettings(), scope: "app" },
 
   actions: { run: () => openDialog("actions"), scope: "app" },
   shortcuts: { run: () => openDialog("shortcuts"), scope: "app" },

@@ -7803,10 +7803,11 @@ view in `chrome/settings/SettingsView.tsx`, `pages.tsx`, `rows.tsx`, `shortcuts.
 settings, the keybindings, telemetry and updates, and what the window sent of its project; `extension-settings.ts`,
 `extension-details.ts` and `values.ts` beside it; `renderer/settings.tsx` and `settings.html`, Settings' own page;
 `main/settings-view.ts`, which lays it over the window; `renderer/settings-project.ts`, the window's side, which sends
-the project's page and applies Settings' changes; and `chrome/SettingsDialog.tsx`, which opens Settings and draws it in
-the page for Storybook. `keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them.
-`extensionAdds` in `packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and
-returns what an extension adds.
+the project's page and applies Settings' changes; `chrome/open-settings.ts`, which File > Settings, Ctrl+, and links to
+a setting open it through (PAR-1138); and `chrome/SettingsDialog.tsx`, which draws it in the page for Storybook.
+`keysFromEvent` in `chrome/keys.ts` writes the keys pressed as the keymap writes them. `extensionAdds` in
+`packages/core/src/extension-adds.ts` takes the project's adapters and the running extensions and returns what an
+extension adds.
 
 Tests: `packages/core/src/extension-adds.test.ts` (4): an adapter's role and its status bar item; a router's pages
 without the root, and its actions; an adapter's screens with its extension's commands and status item; and nothing for a
@@ -7831,9 +7832,10 @@ values listed as a sentence. `chrome/keys.test.ts` (6): letters and modifiers, a
 Shift left off plus and minus, nothing for a modifier alone, and keys the event matches.
 `chrome/settings/Settings.stories.tsx` draws every page and state with its data in the story, and checks the project's
 value beside the person's, saving the project, changing a setting for it, a save that fails, moving a shortcut's keys,
-an extension's project setting, search results and opening on a setting. `chrome/SettingsDialog.stories.tsx` opens it
-over the example project, on General and on the project's page; `chrome/TelemetrySetting.stories.tsx` and
-`chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
+an extension's project setting, search results and opening on a setting. `chrome/open-settings.test.ts` (2): opening
+asks main for its Settings view in the app, and opens the page's own where Storybook draws it.
+`chrome/SettingsDialog.stories.tsx` opens it over the example project, on General and on the project's page;
+`chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and Updates.
 
 ### Installed app updates (PAR-160)
 
