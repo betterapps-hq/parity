@@ -272,7 +272,9 @@ describe("opening a project", () => {
     const confirmed = Promise.withResolvers<void>()
     builder.hooks.detecting = confirmed.promise
     const opening = projects.open(root)
-    await vi.waitFor(() => expect(builder.started).toEqual([5100]))
+    // Reading the project before the builder starts goes through its renderer's provider, which CI's Windows runners can
+    // take more than the default second over.
+    await vi.waitFor(() => expect(builder.started).toEqual([5100]), { timeout: 5_000 })
 
     confirmed.resolve()
     expect((await opening).guestUrl).toBe("http://localhost:5100/@parity/guest.js")
