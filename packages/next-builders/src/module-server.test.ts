@@ -27,9 +27,15 @@ describe("the project's code changes", () => {
       send: (change) => changes.push(change)
     })
 
+    const settle = () => new Promise((done) => setTimeout(done, 600))
+
     try {
+      // macOS's file events can bring the writes made just before the watch began, which aren't this test's concern.
+      await settle()
+      changes.length = 0
+
       await writeFile(join(root, "README.md"), "# Shop, again\n")
-      await new Promise((done) => setTimeout(done, 400))
+      await settle()
 
       expect(changes).toEqual([])
 
