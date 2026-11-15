@@ -14,6 +14,7 @@
   "dependencies": {
     "@parity-app/builder-webpack-compatible": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/next-builders": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -21,10 +22,14 @@
     "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
-    "webpack": "^5.90.0"
+    "webpack": "^5.90.0",
+    "next": "^15.0.0 || ^16.0.0"
   },
   "peerDependenciesMeta": {
     "webpack": {
+      "optional": true
+    },
+    "next": {
       "optional": true
     }
   },

@@ -37,7 +37,7 @@ describe("the webpack extension", () => {
     expect(found.manifest.activates).toEqual(["onDetect"])
     expect(found.manifest.contributes.providers?.builder?.entry).toBe("./builder")
     expect(found.manifest.contributes.providers?.builder?.watches).toEqual(webpackBuilder.watches)
-    expect(found.versions).toEqual({ packages: ["webpack"], range: "^5.90.0" })
+    expect(found.versions).toEqual({ packages: ["webpack", "next"], range: "^5.90.0" })
   })
 
   it("names an entry module its package exports, and watches webpack's config files", () => {
@@ -69,14 +69,27 @@ describe("detectWebpack", () => {
     expect((await detectWebpack(root)).config).toBe("config/app.cjs")
   })
 
-  it("leaves a Next.js project to Next.js, and an Rspack or Rsbuild one to them", async () => {
-    await fixture({ ...installed("webpack", "5.112.2"), ...installed("next", "15.5.29") })
+  it("builds a Next.js app whose dev server runs webpack, and leaves one on Turbopack to its builder", async () => {
+    await fixture(
+      { ...installed("webpack", "5.112.2"), ...installed("next", "15.5.29"), "next.config.ts": "export default {}" },
+      { dev: "next dev" }
+    )
     expect(await detectWebpack(root)).toEqual({
-      found: false,
-      summary: "Next.js 15.5.29 is installed, so Next.js builds the project"
+      found: true,
+      version: "15.5.29",
+      config: "next.config.ts",
+      summary: "Next.js 15.5.29 on webpack, config next.config.ts"
     })
 
-    await rm(join(root, "node_modules/next"), { recursive: true })
+    await fixture({}, { dev: "next dev --turbopack" })
+    expect(await detectWebpack(root)).toEqual({
+      found: false,
+      version: "15.5.29",
+      summary: "Next.js 15.5.29 runs Turbopack in the dev script"
+    })
+  })
+
+  it("leaves a project with an Rspack or Rsbuild config to them", async () => {
     await fixture({ "rspack.config.mjs": "export default {}", "webpack.config.js": "module.exports = {}" })
     expect((await detectWebpack(root)).summary).toBe("rspack.config.mjs is here, so Rspack builds the project")
   })

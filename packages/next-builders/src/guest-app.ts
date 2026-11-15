@@ -44,6 +44,8 @@ export interface GuestAppOptions {
   postcss?: string
   /** The project's `tsconfig.json` or `jsconfig.json`, when it has one. */
   tsconfig?: string
+  /** Whether the project's tsconfig sets its own `baseUrl`. */
+  tsconfigBaseUrl?: boolean
 }
 
 /** How a module in the guest app's `app/` folder imports a project file, from the file's path from the root. */
@@ -71,11 +73,14 @@ export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
   ]
 
   if (options.tsconfig) {
-    // Extending the project's, so its path aliases resolve as the project's own modules expect.
-    files.push({
-      path: options.tsconfig,
-      text: `${JSON.stringify({ extends: `../../${options.tsconfig}` }, null, 2)}\n`
-    })
+    // Extending the project's, so its path aliases resolve as the project's own modules expect. Without a `baseUrl` of
+    // its own, TypeScript and Turbopack resolve the project's `paths` from its tsconfig's folder, but Next.js 15's
+    // webpack resolves them from the guest app's, so the guest's says where the project's folder is.
+    const tsconfig = options.tsconfigBaseUrl
+      ? { extends: `../../${options.tsconfig}` }
+      : { extends: `../../${options.tsconfig}`, compilerOptions: { baseUrl: "../.." } }
+
+    files.push({ path: options.tsconfig, text: `${JSON.stringify(tsconfig, null, 2)}\n` })
   }
 
   if (options.postcss) {
@@ -214,7 +219,8 @@ function configLoader(configFile: string | undefined, root: string): string {
   if (/\.m?ts$/.test(configFile)) {
     return [
       'const { transpileConfig } = require("./dist/build/next-config-ts/transpile-config.js")',
-      `  return transpileConfig({ nextConfigPath: ${JSON.stringify(configFile)}, dir: ${JSON.stringify(root)} })`
+      // Next.js 16 takes the project's folder as `dir`; 15 as `cwd`, with the config's file name.
+      `  return transpileConfig(${JSON.stringify({ nextConfigPath: configFile, configFileName: posix.basename(configFile), cwd: root, dir: root })})`
     ].join("\n")
   }
 

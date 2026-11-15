@@ -18,6 +18,8 @@ import {
   parseManifest,
   scriptConfigExtensions
 } from "@parity-app/core"
+import { detectNext, nextAppStyles, startNextGuest } from "@parity-app/next-builders"
+import { nextWebpackLoader } from "./next-loader.ts"
 import { cssExtractPlugin, type WebpackCss, webpackApi, webpackBundler, withWebpackCss } from "./webpack.ts"
 
 /** The config files webpack's CLI looks for. */
@@ -37,17 +39,24 @@ const webpackServe = /(?:^|[\s;&|(])(?:webpack(?:-cli)?\s+(?:serve|server|s)(?![
 const webpackCli: CliConfigSource = { file: "webpack.config", serve: webpackServe, env: { WEBPACK_SERVE: true } }
 
 /**
- * Builds a plain webpack project's components with the project's own webpack install and config: the entry module the
- * webpack extension's manifest names, which the builder process loads (PAR-1150).
+ * Builds a webpack project's components: a Next.js app whose dev server runs webpack with the project's own Next, on a
+ * guest app of Parity's own in its `.next/parity/`, as the Turbopack builder does; a plain webpack project with its own
+ * webpack install and config. It's the entry module the webpack extension's manifest names, which the builder process
+ * loads (PAR-1150).
  */
 export const webpackBuilder: BuilderAdapter = {
   id: "webpack",
   name: "webpack",
   watches: [...webpackConfigFiles, ...otherConfigFiles],
   detect: ({ root }) => detectWebpack(root),
-  styles: ({ root }) => webpackAppStyles(root),
+  styles: async ({ root }) => ((await isNextProject(root)) ? nextAppStyles(root) : webpackAppStyles(root)),
   async start(options) {
     const root = await realpath(options.root)
+
+    if (await isNextProject(root)) {
+      return startNextGuest({ ...options, root }, nextWebpackLoader)
+    }
+
     const { bundler, config } = await projectWebpack(root)
 
     return startBundledGuest({ bundler, config, start: { ...options, root } })
@@ -97,16 +106,19 @@ async function projectCssExtractPlugin(root: string) {
   return cssExtractPlugin((await importProjectPackage(root, "mini-css-extract-plugin")).module as { default?: unknown })
 }
 
+/** Whether the project has Next.js installed, which builds it whatever else it has. */
+async function isNextProject(root: string): Promise<boolean> {
+  return (await installedVersion(root, "next")) !== undefined
+}
+
 /**
- * Asks the project whether plain webpack builds it, with webpack's version and the config file, as `webpack serve`
- * finds it. A Next.js project is Next's, and one with an Rspack or Rsbuild config is theirs, though either may have
- * webpack installed.
+ * Asks the project whether webpack builds it. A Next.js app is this builder's when its dev server runs webpack, and
+ * Turbopack's otherwise. Any other project is when it has webpack and a config, as `webpack serve` finds it, unless it
+ * has an Rspack or Rsbuild config, whose builders take it though it may have webpack installed.
  */
 export async function detectWebpack(root: string): Promise<BuilderDetection> {
-  const next = await installedVersion(root, "next")
-
-  if (next !== undefined) {
-    return { found: false, summary: `Next.js ${next} is installed, so Next.js builds the project` }
+  if (await isNextProject(root)) {
+    return detectNextOnWebpack(root)
   }
 
   const names = await readdir(root).catch(() => [])
@@ -152,6 +164,37 @@ export async function detectWebpack(root: string): Promise<BuilderDetection> {
   }
 
   return { found: true, version, config: found.file, summary: `webpack ${version}, config ${found.file}` }
+}
+
+/** Asks the project's own Next whether its dev server runs webpack: Next.js 15 does unless its dev script passes `--turbopack`, and 16 only with `--webpack`. */
+async function detectNextOnWebpack(root: string): Promise<BuilderDetection> {
+  const found = await detectNext(root)
+
+  if ("missing" in found) {
+    return { found: false, summary: found.missing }
+  }
+
+  const { version } = found.next
+
+  if (found.bundler !== "webpack") {
+    return {
+      found: false,
+      version,
+      summary: `Next.js ${version} runs Turbopack${found.script ? ` in the ${found.script} script` : ""}`
+    }
+  }
+
+  const detection: BuilderDetection = {
+    found: true,
+    version,
+    summary: `Next.js ${version} on webpack${found.config ? `, config ${found.config}` : ""}`
+  }
+
+  if (found.config) {
+    detection.config = found.config
+  }
+
+  return detection
 }
 
 /** The global stylesheets the app loads, as the project's own webpack builds it. */

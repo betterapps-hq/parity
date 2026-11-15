@@ -106,6 +106,13 @@ export async function projectTsconfigFile(root: string): Promise<string | undefi
   return ["tsconfig.json", "jsconfig.json"].find((name) => present.has(name))
 }
 
+/** Whether the project's tsconfig sets its own `baseUrl`, which the guest app's then leaves alone. */
+export async function tsconfigSetsBaseUrl(root: string, tsconfig: string): Promise<boolean> {
+  const text = await readFile(join(root, tsconfig), "utf8").catch(() => "")
+
+  return /"baseUrl"\s*:/.test(text)
+}
+
 async function isFile(path: string): Promise<boolean> {
   return stat(path).then(
     (stats) => stats.isFile(),

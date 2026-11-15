@@ -1,7 +1,13 @@
 {
-  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file\nRspack: No Rspack installed and no rspack.config file\nRsbuild: No rsbuild.config file and no script that runs Rsbuild\nTurbopack: Next.js 15.5.29 runs webpack in the dev script",
+  "opens": true,
   "renderer": "react",
-  "builder": null,
+  "builder": {
+    "id": "webpack",
+    "found": true,
+    "version": "15.5.29",
+    "summary": "Next.js 15.5.29 on webpack, config next.config.ts",
+    "config": "next.config.ts"
+  },
   "packageManager": {
     "id": "npm",
     "name": "npm",
@@ -18,6 +24,15 @@
       "from": "node_modules/react",
       "status": "supported",
       "summary": "React 18.3.1 from node_modules/react"
+    },
+    {
+      "id": "webpack",
+      "name": "webpack",
+      "version": "15.5.29",
+      "from": "node_modules/next",
+      "config": "next.config.ts",
+      "status": "newer",
+      "summary": "webpack 15.5.29 from node_modules/next, config next.config.ts, newer than the versions Parity is tested with"
     }
   ],
   "styles": {
@@ -90,7 +105,7 @@
     }
   ],
   "notes": [
-    "the builder didn't say which stylesheets the app loads",
+    "styles the builder found: @mantine/core/styles.css",
     "8 components in 9 files from tsconfig.json",
     "0 components from Tabler Icons (@tabler/icons-react)",
     "no .par project file yet"

@@ -4,29 +4,43 @@ import { join, posix } from "node:path"
 import type { BuilderSession, BuilderStartOptions } from "@parity-app/core"
 import { guestModule } from "@parity-app/project"
 import type { NextBundler } from "./bundler.ts"
-import { guestAppFiles, guestAppFolder, type GuestAppOptions, guestModuleFile, projectImport } from "./guest-app.ts"
+import {
+  guestAppFiles,
+  guestAppFolder,
+  type GuestAppOptions,
+  guestModuleFile,
+  guestRoutes,
+  projectImport
+} from "./guest-app.ts"
 import { copyGuestRuntime } from "./guest-runtime.ts"
-import { detectNext, postcssConfigFile, projectTsconfigFile } from "./next.ts"
+import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigSetsBaseUrl } from "./next.ts"
 import { type GuestPage, readGuestPage } from "./page.ts"
 import { serverOnlyStandIns } from "./server-modules.ts"
 import { freePort, type NextServer, type OwnRoute, portFree, startNextServer, writeGuestApp } from "./server.ts"
 
 /*
- * Starting a Next.js builder: everything but how the canvas gets the guest module from the bundler's output, which each
- * bundler's extension gives as its loader. The guest app is written, the project's Next started on it, and the guest's
- * pages compiled before the canvas asks.
+ * Starting a Next.js builder, whichever bundler Next runs: the guest app written into the project, the project's own
+ * Next started on it, and the guest module served from what Next built. Only that last part is the bundler's own: how
+ * the canvas loads its chunks without starting Next's router (docs/proposals/nextjs-builders.md).
  */
 
-/** Where the builder serves the guest module. */
-export const guestModuleRoute = "/__parity/guest.mjs"
+/** Where the builder serves the guest module, and the chunks it serves changed. */
+export const nextGuestRoutes = { guest: "/__parity/guest.mjs", script: "/__parity/script.js" } as const
 
-/** What a Next.js builder's extension gives: its bundler, and how the canvas gets the guest from its output. */
+/** The guest app's pages, as Next renders them. */
+export interface GuestPages {
+  guest: GuestPage
+  styles: GuestPage
+  packageStyles: GuestPage
+}
+
+/** What a bundler's builder adds to the shared start: the bundler, and how the canvas loads what it built. */
 export interface NextGuestLoader {
   bundler: NextBundler
-  /** The guest module's source, from the guest app's pages as Next renders them now, for the builder's `session`. */
-  guestModule(server: NextServer, session: string): Promise<string>
-  /** Other scripts the builder serves under `/__parity/`, by path, as Turbopack's runtime is. */
-  scripts?: Record<string, (server: NextServer, url: URL) => Promise<string>>
+  /** The guest module's source, from the guest app's pages. `session` names this start, unique to it. */
+  guestModule: (pages: GuestPages, server: NextServer, session: string) => Promise<string>
+  /** A chunk of the guest app's, changed as the canvas needs it, served at `nextGuestRoutes.script?src=`. */
+  script?: (server: NextServer, src: string) => Promise<string>
 }
 
 /** Next's server once it's started: the builder's own routes answer nothing before. */
@@ -34,11 +48,7 @@ interface StartedServer {
   server?: NextServer
 }
 
-/**
- * Starts a Next.js builder on the project: writes the guest app, starts the project's own Next on it with the loader's
- * bundler, and serves the loader's guest module, which it asks for once first, so a guest that doesn't build fails the
- * start with Next's reason.
- */
+/** Starts the project's own Next on the guest app, with `loader` making the guest module from what Next builds. */
 export async function startNextGuest(options: BuilderStartOptions, loader: NextGuestLoader): Promise<BuilderSession> {
   const root = await realpath(options.root)
   const found = await detectNext(root)
@@ -63,7 +73,7 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
   const standIns = await serverOnlyStandIns(root, [...new Set(projectModules)])
   const standInOf = new Map(standIns.map((standIn) => [standIn.module, standIn.path]))
-  const guestFolder = posix.dirname(guestModuleFile)
+  const guestFolder = guestModuleFile.slice(0, guestModuleFile.lastIndexOf("/"))
 
   const { source } = guestModule(options.config, {
     renderer: `../${runtime}`,
@@ -96,21 +106,24 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
   if (tsconfig) {
     app.tsconfig = tsconfig
+    app.tsconfigBaseUrl = await tsconfigSetsBaseUrl(root, tsconfig)
   }
 
   await writeGuestApp(root, [...guestAppFiles(app), ...standIns.map(({ path, text }) => ({ path, text }))])
   const session = randomUUID()
   const started: StartedServer = {}
+  const guestModuleText = async (server: NextServer) => loader.guestModule(await guestPages(server), server, session)
 
   const own: OwnRoute = async (_request, response, url) => {
     const { server } = started
-    const script = url.pathname === guestModuleRoute ? undefined : loader.scripts?.[url.pathname]
+    const script = url.pathname === nextGuestRoutes.script ? loader.script : undefined
 
-    if (!server || (url.pathname !== guestModuleRoute && !script)) {
+    if (!server || (url.pathname !== nextGuestRoutes.guest && !script)) {
       return false
     }
 
-    const answer = script ? await script(server, url) : await loader.guestModule(server, session)
+    const answer = script ? await script(server, url.searchParams.get("src") ?? "") : await guestModuleText(server)
+
     response.writeHead(200, { "content-type": "text/javascript; charset=utf-8", "cache-control": "no-store" })
     response.end(answer)
 
@@ -122,17 +135,32 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
   try {
     // Compiles the guest's pages before the canvas asks, and fails the start with Next's reason if they don't build.
-    await loader.guestModule(server, session)
+    await guestModuleText(server)
   } catch (error) {
     await server.close()
     throw error
   }
 
-  return { guestUrl: `${origin}${guestModuleRoute}`, toolVersion: found.next.version, close: () => server.close() }
+  return {
+    guestUrl: `${origin}${nextGuestRoutes.guest}`,
+    toolVersion: found.next.version,
+    close: () => server.close()
+  }
 }
 
-/** A page of the guest app as Next renders it, or why it didn't, from Next's error page. */
-export async function guestPage(server: NextServer, route: string): Promise<GuestPage> {
+/** The guest app's pages as Next renders them now. */
+async function guestPages(server: NextServer): Promise<GuestPages> {
+  const [guest, styles, packageStyles] = await Promise.all([
+    page(server, guestRoutes.guest),
+    page(server, guestRoutes.styles),
+    page(server, guestRoutes.packageStyles)
+  ])
+
+  return { guest, styles, packageStyles }
+}
+
+/** A page of the guest app as Next renders it, or why it didn't. */
+async function page(server: NextServer, route: string): Promise<GuestPage> {
   const { ok, status, text } = await server.fetchText(route)
 
   if (!ok) {
