@@ -115,7 +115,7 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
       report: () => undefined,
       summarize: () => undefined,
       markReady: () => undefined,
-      snapshot: () => ({ list: [], output: {} }),
+      snapshot: () => ({ list: [], output: {}, ready: {} }),
       watch: () => () => undefined,
       reattached: () => undefined,
       stopAll: () => undefined,

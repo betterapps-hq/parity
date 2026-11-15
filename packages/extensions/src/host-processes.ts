@@ -9,7 +9,7 @@ import type {
 } from "@parity-app/extension-api"
 import { isLocalHost, matchedLineLength, readyPattern } from "@parity-app/processes"
 import { z } from "zod"
-import type { HostServiceMethods } from "./protocol.ts"
+import type { HostServiceMethods, ProcessSnapshot } from "./protocol.ts"
 
 /*
  * `parity.processes` in an extension's host. The host keeps a copy of the project's processes, as the extension may
@@ -22,10 +22,11 @@ const keptLines = 200
 
 /** What the host does with what the service tells it of the project's processes. */
 export interface HostProcesses {
-  /** What `activate` gets: the extension's id, the project's processes and its own processes' output. */
-  begin(extension: string, list: ProcessInfo[], output: Record<string, string[]>): void
+  /** What `activate` gets: the extension's id, the project's processes, and its own processes' output and checks. */
+  begin(extension: string, snapshot: ProcessSnapshot): void
   changed(processes: ProcessInfo[]): void
-  lines(id: string, lines: string[]): void
+  /** Lines one of its processes printed in a run. A new run's first lines replace the last run's. */
+  lines(id: string, lines: string[], run: number): void
   ended(id: string, end: ProcessEnd): void
   /** `parity.processes`, asking the service through `send`. */
   api(send: Send, log: (text: string) => void): Processes
@@ -41,6 +42,8 @@ export function hostProcesses(): HostProcesses {
   let extension = ""
   let list: ProcessInfo[] = []
   const output = new Map<string, string[]>()
+  /** Which run each process's kept output is from. */
+  const outputRuns = new Map<string, number>()
   const patterns = new Map<string, RegExp>()
   const lineListeners = new Map<string, Set<(lines: string[]) => void>>()
   const endListeners = new Map<string, Set<(end: ProcessEnd) => void>>()
@@ -117,16 +120,36 @@ export function hostProcesses(): HostProcesses {
   }
 
   return {
-    begin(id, processes, recent) {
+    begin(id, snapshot) {
       extension = id
-      list = processes
+      list = snapshot.list
 
-      for (const [process, lines] of Object.entries(recent)) {
+      for (const [process, lines] of Object.entries(snapshot.output)) {
         output.set(process, lines.slice(-keptLines))
+        outputRuns.set(process, own(process)?.run ?? 0)
+      }
+
+      // A host that started again matches its servers' next runs as the one before did.
+      for (const [process, source] of Object.entries(snapshot.ready)) {
+        try {
+          patterns.set(
+            process,
+            readyPattern(source, (message) => {
+              throw new Error(message)
+            })
+          )
+        } catch {
+          // The service checked it as the spec started; a pattern this host can't build isn't matched.
+        }
       }
     },
     changed: (processes) => take(processes),
-    lines(id, lines) {
+    lines(id, lines, run) {
+      if (outputRuns.get(id) !== run) {
+        outputRuns.set(id, run)
+        output.set(id, [])
+      }
+
       const kept = output.get(id) ?? []
       kept.push(...lines)
       kept.splice(0, Math.max(0, kept.length - keptLines))
@@ -211,7 +234,11 @@ export function hostProcesses(): HostProcesses {
                 throw new Error(message)
               })
             )
-            match(spec.id, output.get(spec.id) ?? [])
+
+            // Lines its run printed before `start` answered; a run before it says nothing of this one.
+            if (outputRuns.get(spec.id) === info.run) {
+              match(spec.id, output.get(spec.id) ?? [])
+            }
           }
 
           return handleFor(spec.id)

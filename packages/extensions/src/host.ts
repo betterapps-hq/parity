@@ -123,7 +123,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
 
       selected.refs = params.selection
       settings.values = new Map(Object.entries(params.settings.values))
-      processes.begin(params.extension.id, params.processes.list, params.processes.output)
+      processes.begin(params.extension.id, params.processes)
       activated = calls.run(params.call, () =>
         activate(params, channel, progress, selected, settings, side, calls, processes)
       )
@@ -220,7 +220,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       }
     },
     "processes.changed": ({ processes: changed }) => processes.changed(changed),
-    "processes.lines": ({ id, lines }) => processes.lines(id, lines),
+    "processes.lines": ({ id, run, lines }) => processes.lines(id, lines, run),
     "processes.ended": ({ id, end }) => processes.ended(id, end),
     async stop() {
       if (stopping) {

@@ -73,7 +73,7 @@ function setUp(module: ExtensionModule) {
       report: vi.fn<ExtensionProcesses["report"]>(),
       summarize: vi.fn<ExtensionProcesses["summarize"]>(),
       markReady: vi.fn<ExtensionProcesses["markReady"]>(),
-      snapshot: () => ({ list: [], output: {} }),
+      snapshot: () => ({ list: [], output: {}, ready: {} }),
       watch: () => () => undefined,
       reattached: vi.fn<ExtensionProcesses["reattached"]>(),
       stopAll: vi.fn<ExtensionProcesses["stopAll"]>(),

@@ -55,7 +55,7 @@ export interface ActivateParams {
    * The project's processes as it may see them, and what its own printed lately, by their ids among its processes, so
    * a host that starts again gets its processes back with their output.
    */
-  processes: { list: ProcessInfo[]; output: Record<string, string[]> }
+  processes: ProcessSnapshot
   /** The agent tools the manifest declares, which registrations are checked against. */
   agentTools?: string[]
   /** The extensions its manifest names in `extensionDependencies`, activated already, each with its API's methods. */
@@ -85,6 +85,16 @@ export interface Dependency {
 /** What an extension's code gave back to whoever ran it: JSON, or nothing. */
 export interface Returned {
   result?: JsonValue
+}
+
+/**
+ * The project's processes as an extension may see them, and of its own: what each printed in its current run, and the
+ * pattern of each one whose ready check is `output`, by their ids among its processes.
+ */
+export interface ProcessSnapshot {
+  list: ProcessInfo[]
+  output: Record<string, string[]>
+  ready: Record<string, string>
 }
 
 /** Where `parity.navigate` goes, by method. */
@@ -119,7 +129,7 @@ export interface HostMethods {
   /** The project's processes changed: all of them, as it may see them. */
   "processes.changed": { params: { processes: ProcessInfo[] }; result: undefined }
   /** One of its own processes printed these lines. */
-  "processes.lines": { params: { id: string; lines: string[] }; result: undefined }
+  "processes.lines": { params: { id: string; run: number; lines: string[] }; result: undefined }
   /** One of its own processes' runs ended. */
   "processes.ended": { params: { id: string; end: ProcessEnd }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */

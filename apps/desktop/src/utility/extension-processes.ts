@@ -65,6 +65,10 @@ export function extensionProcesses(projectOf: (projectId: string) => ProcessProj
   const listeners = new Map<string, ProcessListener>()
   /** The handles whose lines and ends are forwarded to their extension's current host. */
   const forwarded = new WeakSet<ManagedProcess>()
+  /** Each process an extension started or adopted, by its id in the manager, kept once it's let go for its end. */
+  const handles = new Map<string, ManagedProcess>()
+  /** The pattern of each one whose ready check is `output`, so a host that starts again matches it too. */
+  const readyPatterns = new Map<string, string>()
 
   /** Sends what a process prints, and how its runs end, to whichever host its extension runs in now. */
   const forward = (caller: ProcessCaller, id: string, handle: ManagedProcess) => {
@@ -73,12 +77,13 @@ export function extensionProcesses(projectOf: (projectId: string) => ProcessProj
     }
 
     forwarded.add(handle)
-    handle.onLines((lines) => listeners.get(keyOf(caller))?.lines(id, lines))
+    handles.set(managedId(caller, id), handle)
+    handle.onLines((lines) => listeners.get(keyOf(caller))?.lines(id, lines, handle.info().run))
     handle.onEnd((end) => listeners.get(keyOf(caller))?.ended(id, end))
   }
 
   const own = (caller: ProcessCaller, id: string) => {
-    const handle = knownProcess(managedId(caller, id))
+    const handle = knownProcess(managedId(caller, id)) ?? handles.get(managedId(caller, id))
 
     if (!handle) {
       throw new Error(`No process ${id}`)
@@ -133,6 +138,10 @@ export function extensionProcesses(projectOf: (projectId: string) => ProcessProj
       const managed = managedSpec(caller, project, spec, resolve(project.root, spec.cwd ?? "."))
       const handle = await startProcess(managed)
       forward(caller, spec.id, handle)
+
+      if (spec.ready && "output" in spec.ready) {
+        readyPatterns.set(managed.id, spec.ready.output)
+      }
 
       return seenBy(caller, handle.info())
     },
@@ -209,16 +218,22 @@ export function extensionProcesses(projectOf: (projectId: string) => ProcessProj
     snapshot(caller) {
       const prefix = managedId(caller, "")
       const output: Record<string, string[]> = {}
+      const ready: Record<string, string> = {}
 
       for (const process of trackedProcesses(caller.projectId)) {
         const handle = process.id.startsWith(prefix) ? knownProcess(process.id) : undefined
+        const pattern = readyPatterns.get(process.id)
 
         if (handle) {
           output[process.id.slice(prefix.length)] = handle.tail()
         }
+
+        if (handle && pattern !== undefined) {
+          ready[process.id.slice(prefix.length)] = pattern
+        }
       }
 
-      return { list: list(caller), output }
+      return { list: list(caller), output, ready }
     },
     watch(caller, listener) {
       const key = keyOf(caller)

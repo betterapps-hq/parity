@@ -15,7 +15,7 @@ import {
   type ProcessListener
 } from "./hosts.ts"
 import { readExtension } from "./manifest.ts"
-import type { HostMethods, HostServiceMethods, LogLine } from "./protocol.ts"
+import type { HostMethods, HostServiceMethods, LogLine, ProcessSnapshot } from "./protocol.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
 
@@ -206,7 +206,7 @@ const storybookServer: ProcessInfo = {
 
 /** The process manager, doing nothing unless a test says what a method does. */
 function processesMock(methods: Partial<ExtensionProcesses> = {}): ExtensionProcesses {
-  const nothing = { list: [], output: {} }
+  const nothing = { list: [], output: {}, ready: {} }
 
   return {
     start: vi.fn<ExtensionProcesses["start"]>(() => Promise.reject(new Error("Not in this test"))),
@@ -491,7 +491,7 @@ describe("extension hosts", () => {
         processes: processesMock({
           stopAll,
           reattached,
-          snapshot: () => ({ list: [storybookServer], output: { storybook: ["Storybook ready"] } })
+          snapshot: () => ({ list: [storybookServer], output: { storybook: ["Storybook ready"] }, ready: {} })
         })
       }
     )
@@ -547,7 +547,7 @@ describe("extension hosts", () => {
 
     hosts.open(project)
     await hosts.run("shop", "storybook.open")
-    listener?.lines("storybook", ["Starting…", "Local: http://localhost:6006/"])
+    listener?.lines("storybook", ["Starting…", "Local: http://localhost:6006/"], 1)
     await settle()
 
     expect(heard).toEqual([["Starting…", "Local: http://localhost:6006/"]])
@@ -559,15 +559,74 @@ describe("extension hosts", () => {
 
     // Once its run is ready, the line again says nothing; its next run is said ready again.
     listener?.changed([{ ...storybookServer, state: "running" }])
-    listener?.lines("storybook", ["Local: http://localhost:6006/"])
+    listener?.lines("storybook", ["Local: http://localhost:6006/"], 1)
     listener?.changed([{ ...storybookServer, state: "starting", run: 2 }])
-    listener?.lines("storybook", ["Local: http://localhost:6007/"])
+    listener?.lines("storybook", ["Local: http://localhost:6007/"], 2)
     await settle()
 
     expect(markReady.mock.calls.map(([, , match]) => match)).toEqual([
       "Local: http://localhost:6006/",
       "Local: http://localhost:6007/"
     ])
+  })
+
+  it("matches only the current run's output as it starts, and its check again after the host starts again", async () => {
+    const markReady = vi.fn<ExtensionProcesses["markReady"]>()
+    let listener: ProcessListener | undefined
+    let second: ProcessInfo | undefined
+
+    const { hosts, started } = setUp(
+      {
+        "@parity-app/extension-storybook": {
+          activate(parity) {
+            parity.commands.register("storybook.open", async () => {
+              await parity.processes.start({
+                id: "storybook",
+                name: "Storybook",
+                lifetime: "server",
+                run: { bin: "storybook" },
+                ready: { output: "Local: (http://\\S+)" }
+              })
+            })
+          }
+        }
+      },
+      {
+        processes: processesMock({
+          // A second run, while the host still holds the first run's lines.
+          start() {
+            second = { ...storybookServer, state: "starting", run: 2 }
+
+            return Promise.resolve(second)
+          },
+          markReady,
+          snapshot: (): ProcessSnapshot =>
+            second
+              ? { list: [second], output: {}, ready: { storybook: "Local: (http://\\S+)" } }
+              : { list: [], output: { storybook: ["Local: http://localhost:6006/"] }, ready: {} },
+          watch(_caller, given) {
+            listener = given
+
+            return () => undefined
+          }
+        })
+      }
+    )
+
+    hosts.open(project)
+    await settle()
+    await hosts.run("shop", "storybook.open")
+    await settle()
+
+    expect(markReady).not.toHaveBeenCalled()
+
+    // Started again after a crash, it matches the run's line with the check it got back.
+    started.at(-1)?.crash()
+    await settle()
+    listener?.lines("storybook", ["Local: http://localhost:6008/"], 2)
+    await settle()
+
+    expect(markReady.mock.calls.map(([, , match]) => match)).toEqual(["Local: http://localhost:6008/"])
   })
 
   it("names an extension that fails to activate, with the reason", async () => {

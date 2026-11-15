@@ -24,6 +24,7 @@ import type { ExtensionPackage } from "./manifest.ts"
 import { editsRefusal, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
+  type ProcessSnapshot,
   type Dependency,
   hostChecks,
   type HostMethods,
@@ -151,7 +152,7 @@ export interface ProcessListener {
   /** The project's processes changed: all of them, as the extension may see them. */
   changed(processes: ProcessInfo[]): void
   /** One of its own processes printed lines. */
-  lines(id: string, lines: string[]): void
+  lines(id: string, lines: string[], run: number): void
   /** One of its own processes' runs ended. */
   ended(id: string, end: ProcessEnd): void
 }
@@ -172,7 +173,7 @@ export interface ExtensionProcesses {
   summarize(caller: ProcessCaller, id: string, summary: string): void
   markReady(caller: ProcessCaller, id: string, match: string): void
   /** The project's processes as the caller may see them, and what its own printed lately, by id. */
-  snapshot(caller: ProcessCaller): { list: ProcessInfo[]; output: Record<string, string[]> }
+  snapshot(caller: ProcessCaller): ProcessSnapshot
   /** Tells `listener` of the project's processes until the function it returns is called. */
   watch(caller: ProcessCaller, listener: ProcessListener): () => void
   /** A host started again after it stopped, and gets back the processes it owns. */
@@ -683,7 +684,8 @@ export function extensionHosts<Project extends OpenedProject>(
     // What it hears of the project's processes, from now until it stops.
     const unwatch = options.processes.watch(caller, {
       changed: (processes) => void channel.request("processes.changed", { processes }).catch(() => undefined),
-      lines: (process, lines) => void channel.request("processes.lines", { id: process, lines }).catch(() => undefined),
+      lines: (process, lines, run) =>
+        void channel.request("processes.lines", { id: process, run, lines }).catch(() => undefined),
       ended: (process, end) => void channel.request("processes.ended", { id: process, end }).catch(() => undefined)
     })
 

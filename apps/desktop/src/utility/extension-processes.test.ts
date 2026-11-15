@@ -109,6 +109,22 @@ describe("parity.processes in the service", () => {
     ])
   })
 
+  it("gives an adopted server's end once it's let go", async () => {
+    const processes = extensionProcesses(() => ({ root, name: "shop" }))
+    const tools = caller("tools")
+    const port = await freePort()
+
+    processes.adopt(tools, {
+      id: "server",
+      name: "Server",
+      endpoint: { url: `http://localhost:${port}`, port, protocol: "http" },
+      foundBy: "endpoint"
+    })
+    await processes.stop(tools, "server")
+
+    await expect(processes.ended(tools, "server")).resolves.toMatchObject({ how: "stopped", run: 1 })
+  })
+
   it("finds a server answering on a port nothing lists", async () => {
     const processes = extensionProcesses(() => ({ root, name: "shop" }))
     const port = await freePort()
