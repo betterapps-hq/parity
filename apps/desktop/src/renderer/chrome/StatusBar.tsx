@@ -62,7 +62,7 @@ export function StatusBar() {
       {/* Extensions' items, from their manifests, with the value each last set (PAR-1089). */}
       {statusItems(extensions).map(({ extension, item, value, tooltip }) => {
         const command = extension.contributes.commands?.find((declared) => declared.id === item.command)
-        const tool = info.detection.tools.find((detected) => detected.id === extension.id)
+        const tool = info.detection.tools.find((detected) => detected.id === extension.prefix)
         const { hint, detail } = statusTooltip(item.title, tooltip, tool)
 
         return (
