@@ -26,11 +26,11 @@ describe("guestModuleSource", () => {
       libraries: []
     })
 
-    const preamble = source.indexOf("window.__vite_plugin_react_preamble_installed__ ??= true")
+    const preamble = source.indexOf("globalThis.__vite_plugin_react_preamble_installed__ ??= true")
 
     expect(preamble).toBeGreaterThanOrEqual(0)
-    expect(source).toContain("window.$RefreshReg$ ??= () => {}")
-    expect(source).toContain("window.$RefreshSig$ ??= () => (type) => type")
+    expect(source).toContain("globalThis.$RefreshReg$ ??= () => {}")
+    expect(source).toContain("globalThis.$RefreshSig$ ??= () => (type) => type")
     expect(preamble).toBeLessThan(source.indexOf("import("))
   })
 
