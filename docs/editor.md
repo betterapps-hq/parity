@@ -23,9 +23,9 @@ in Linear.
 `pnpm test:app` drives a copy of Parity as a person does, with the system's own pointer and keyboard, and checks what
 the canvas, the panels and the project show: 101 tests, which take five to eight minutes. It isn't part of `vp run test`
 or `pnpm verify`. End-to-end tests run only in CI, never in local checks or Git hooks, including focused files. The
-`App tests` workflow (`.github/workflows/app.yml`) runs them on Windows for every pull request and every push to main,
-without blocking the merge until they run reliably there (PAR-438). Each feature's tests below name the end-to-end ones
-that cover it.
+`App tests` workflow (`.github/workflows/app.yml`), which CI calls, runs them on Windows for every pull request and
+every push to main, split across 3 runners with `--shard`, each starting its own copy. `CI passes` waits for them, so a
+pull request that breaks them can't merge (PAR-1121). Each feature's tests below name the end-to-end ones that cover it.
 
 - **What it starts.** `apps/desktop/e2e/global-setup.ts` copies `examples/shadcn-vite` to a temporary folder, linking
   its `node_modules` rather than copying them, and adds a Members screen: three `MemberRow({ member })` rows, a fragment

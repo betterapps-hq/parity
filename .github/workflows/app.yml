@@ -1,29 +1,32 @@
 name: App tests
 
 # The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
-# runners have a desktop to open its window on; Linux would need a virtual display. A workflow of its own until they
-# run reliably on the runner (PAR-438): a failing job in CI would fail CI's run, which cd-npm.yml and cd-desktop.yml
-# wait on, though `CI passes` leaves it out. Then it moves back into CI, and `CI passes` waits for it.
+# runners have a desktop to open its window on; Linux would need a virtual display. CI calls it, and `CI passes` waits
+# for it, so a pull request that breaks them can't merge (PAR-1121). The files are split across 3 runners, each with
+# its own copy of the app, since one runner takes about 11 minutes to go through them all.
 #
 # The job's steps are written here rather than through the pipelines' ci-verify.yml, which uploads an artifact only when
 # the command passes: this one keeps the run's local copy of its telemetry after a failure too (PAR-785).
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   app:
-    name: End-to-end tests
+    name: End-to-end tests (${{ matrix.shard }}/3)
     runs-on: windows-latest
     timeout-minutes: 30
     # A newer push to the same branch or pull request cancels the run still going, as ci-verify.yml's runs do.
     concurrency:
-      group: app-tests-${{ github.ref }}
+      group: app-tests-${{ github.ref }}-${{ matrix.shard }}
       cancel-in-progress: true
+    strategy:
+      # Every shard finishes, so one run names every failing file.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     defaults:
       run:
         shell: bash
@@ -45,13 +48,13 @@ jobs:
       - name: Run the tests
         env:
           PARITY_E2E_TELEMETRY: ${{ runner.temp }}/parity-e2e-telemetry
-        run: pnpm test:app
+        run: pnpm test:app --shard=${{ matrix.shard }}/3
       # Named by the run's test_run, which every line in it carries, and kept a week, for reading a failure soon after.
       - name: Upload the run's telemetry
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: telemetry-github-${{ github.run_id }}-${{ github.run_attempt }}
+          name: telemetry-github-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
           path: ${{ runner.temp }}/parity-e2e-telemetry
           retention-days: 7
           if-no-files-found: warn

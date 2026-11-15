@@ -228,11 +228,15 @@ jobs:
           LINK_COMMITS: ${{ github.event_name == 'push' && '--link-commits' || '' }}
         run: node scripts/upload-sourcemaps.ts apps/desktop --project parity-desktop $LINK_COMMITS
 
+  # The editor's end-to-end tests, on Windows (app.yml).
+  e2e:
+    uses: ./.github/workflows/app.yml
+
   # The one check the main branch's ruleset requires, so it needn't change when jobs or systems do.
   ci-passes:
     name: CI passes
     if: always()
-    needs: [verify, app-windows, app-linux, app-macos, checks]
+    needs: [verify, app-windows, app-linux, app-macos, checks, e2e]
     runs-on: ubuntu-latest
     steps:
       - if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
