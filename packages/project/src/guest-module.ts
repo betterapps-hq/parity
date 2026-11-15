@@ -39,7 +39,7 @@ export interface GuestModule {
 
 /**
  * The module the canvas's guest comes from: the renderer's guest runtime, the project's styles and components, its icon
- * packages, and what its libraries' decorators import. A decorator's module that fails to load is passed on as its
+ * packages, and what its extensions' and libraries' decorators import. A decorator's module that fails to load is passed on as its
  * error, so one missing provider doesn't stop the project from rendering. The source and its eager imports share one
  * declaration, so a builder can warm the same graph the browser will load.
  */
@@ -127,8 +127,12 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
       return `    ${JSON.stringify(library.id)}: { ${set.join(", ")} }`
     })
 
+  // The extensions' come first, so they wrap the libraries': a router goes around a theme's provider, as in an app.
+  const extensionDecorators = config.frameDecorators ?? []
+
   const decorated = [
     ...(options.decorators ?? []),
+    ...extensionDecorators.map(({ extension, decorator }) => ({ library: extension, decorator })),
     ...config.libraries.flatMap((library) =>
       (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
     )
@@ -139,6 +143,7 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
   const decoratorModules = [
     ...new Set([
       ...libraryImports({ decorators: (options.decorators ?? []).map(({ decorator }) => decorator) }),
+      ...libraryImports({ decorators: extensionDecorators.map(({ decorator }) => decorator) }),
       ...config.libraries.flatMap((library) => libraryImports(library)),
       ...Object.values(config.components).flatMap((source) => valueImports(source.sample, "sample")),
       ...config.libraries.flatMap((library) => valueImports(library.designs, "sample"))

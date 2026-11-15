@@ -223,7 +223,8 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const providers: ProjectProviders = {
     // SAFETY: each call is answered as its kind's provider answers it; the rest have no provider here.
     call: (project, call) => answer(project, call) as never,
-    owner: (_project, kind) => owners[kind]
+    owner: (_project, kind) => owners[kind],
+    decorators: () => []
   }
 
   const projects = openProjects({

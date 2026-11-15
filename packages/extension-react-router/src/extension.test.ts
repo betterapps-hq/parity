@@ -9,7 +9,10 @@ describe("the React Router extension", () => {
     const found = readExtension(packageJson)
 
     expect(found.manifest.activates).toEqual(["onDetect"])
-    expect(found.manifest.contributes.providers).toEqual({ router: {} })
+    // A router around every frame, so components with a link draw on their own (PAR-1152).
+    expect(found.manifest.contributes.providers?.router?.decorators?.map(({ wrap }) => wrap.component)).toEqual([
+      "MemoryRouter"
+    ])
     expect(found.manifest.contributes.nodeTypes?.map((type) => type.id)).toEqual(["route"])
     expect(found.manifest.permissions?.read).toEqual(["**"])
     expect(found.versions).toEqual({ packages: ["react-router"], range: "^7.0.0 || ^8.0.0" })

@@ -16,8 +16,8 @@ const primitives = [z.string(), finiteNumber, z.boolean(), z.null()] as const
  * - `{ "$global": "theme", "values": { "dark": ... }, "default": ... }`: picked by the frame's global, which is the
  *   mode's option for that variable.
  * - `{ "$frame": "root" | "host" | "body" }`: the frame's shadow root, the element it hangs from (which `:root[...]`
- *   rules match, as `:host(...)`), or the element standing in for its `<body>`. Also `document`, `dir`, `lang`, and
- *   `selector`, a CSS selector for the body alone.
+ *   rules match, as `:host(...)`), or the element standing in for its `<body>`. Also `document`, `dir`, `lang`,
+ *   `selector`, a CSS selector for the body alone, and `url`, the URL the frame stands for (`/` unless it's a page's).
  * - `{ "$function": ... }`: a function returning the value it holds.
  * - `{ "$date": "2026-11-19T00:00:00" }`: the `Date` that `new Date("2026-11-19T00:00:00")` makes, from a string or a
  *   number of milliseconds since 1970.
