@@ -2344,7 +2344,8 @@ describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
   })
 
   // A clock that moves on with each reading spends the run's time before its first call, which refuses. A job queued
-  // ahead of that then makes the evaluation time out, discarding the snippet's promise with it (PAR-1139).
+  // ahead of that then makes the evaluation time out, discarding the snippet's promise with it (PAR-1139). The job
+  // stops after 50 ms, far past the evaluation's limit, so the test can't hang whatever that limit does.
   it("stops a snippet failing in an evaluation that times out without leaving a rejection unhandled", async () => {
     let now = 0
     vi.spyOn(performance, "now").mockImplementation(() => ++now)
@@ -2354,7 +2355,10 @@ describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
 
     try {
       const stopped = await execute(
-        { label: "Late", code: `Promise.resolve().then(() => { while (true) {} })\nawait Screenshot("signup")` },
+        {
+          label: "Late",
+          code: `Promise.resolve().then(() => { const end = Date.now() + 50; while (Date.now() < end) {} })\nawait Screenshot("signup")`
+        },
         snapshot(),
         hooks(),
         { total: 1, stretch: 1000 }

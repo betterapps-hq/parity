@@ -9,7 +9,9 @@ import { z } from "zod"
 /** The service's routes for searching, under its address. `v1` is in the path so an old installed copy keeps working. */
 export const routes = {
   connectors: "/v1/connectors",
-  search: (connector: string) => `/v1/connectors/${encodeURIComponent(connector)}/search`
+  search: (connector: string) => `/v1/connectors/${encodeURIComponent(connector)}/search`,
+  /** Finishes a sign-in once the person chose an organization (PAR-1143). */
+  organizationChoice: "/v1/sign-in/organization"
 }
 
 /** The connectors the service searches, by id: the ones it has a key for. */

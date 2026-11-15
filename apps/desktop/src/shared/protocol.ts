@@ -81,7 +81,7 @@ export interface ServiceMethods {
   "project.open": { params: ServiceParams["project.open"]; result: ProjectInfo }
   "project.close": { params: ServiceParams["project.close"]; result: undefined }
   /**
-   * Whether what detection reads of an open project (its stylesheets, `components.json`, dependencies, Vite config)
+   * Whether what detection reads of an open project (its stylesheets, dependencies, Vite config)
    * changed since it opened, so only opening it again takes that in (PAR-820).
    */
   "project.detectAgain": { params: ServiceParams["project.detectAgain"]; result: boolean }

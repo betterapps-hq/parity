@@ -1,6 +1,7 @@
 import {
   type AuthenticateResult,
   authenticate,
+  chooseOrganization,
   codeRequest,
   type Fetch,
   type PendingSignIn,
@@ -51,6 +52,11 @@ export interface Redirect {
 export interface AccountOptions {
   clientId: string
   fetch: Fetch
+  /**
+   * Parity's service, without a path, which finishes a sign-in once the person chose an organization (PAR-1143). None,
+   * or a service that can't, and Parity signs in again with that organization named.
+   */
+  service?: string
   /** A place for the browser to hand back to: the scheme, or a fresh loopback listener in a `pnpm dev` copy. */
   redirect(): Promise<Redirect>
   openBrowser(url: string): Promise<void>
@@ -154,6 +160,8 @@ export function createAccount(options: AccountOptions): Account {
    * between them. WorkOS names them only then, until Parity's service can list them (PAR-616).
    */
   let named: Organization[] | undefined
+  /** WorkOS's token for the sign-in that asked which organization, which Parity's service finishes once one's chosen. */
+  let choosing: { pendingToken: string; provider: SignInProvider; finishing?: true } | undefined
 
   /** Who a session signs in, with the organizations Parity knows they're in. */
   const personWith = (session: Session, organizations: Organization[] | undefined): AccountPerson => ({
@@ -184,6 +192,49 @@ export function createAccount(options: AccountOptions): Account {
   const stopWaiting = () => {
     waiting?.redirect.close()
     waiting = undefined
+    choosing = undefined
+  }
+
+  /**
+   * Finishes the sign-in that asked which organization, through Parity's service, so the browser needn't open again.
+   * False when it can't, because there's no service, it has no key yet, or WorkOS's token ran out: then Parity signs in
+   * again with the organization named, as it did before the service could.
+   */
+  const finishChoosing = async (organizationId: string): Promise<boolean> => {
+    const pending = choosing
+
+    if (options.service === undefined || pending === undefined || !named?.some(({ id }) => id === organizationId)) {
+      return false
+    }
+
+    // One choice at a time: another while the service answers the first is let go, so the two can't race to sign in.
+    if (pending.finishing) {
+      return true
+    }
+
+    pending.finishing = true
+
+    const result = await chooseOrganization(options.fetch, options.service, {
+      pendingToken: pending.pendingToken,
+      organizationId
+    })
+
+    // Canceled, or started over, while the service answered: this one doesn't sign anyone in.
+    if (choosing !== pending) {
+      return true
+    }
+
+    choosing = undefined
+
+    if (result.kind !== "session") {
+      options.telemetry.track("account.organizationChoiceFailed", { reason: result.kind, ...workosAnswer(result) })
+
+      return false
+    }
+
+    await signedIn(result.session, pending.provider)
+
+    return true
   }
 
   const schedule = (live: Live, ms: number) => {
@@ -497,6 +548,10 @@ export function createAccount(options: AccountOptions): Account {
     },
 
     async signIn({ provider, email, organizationId }) {
+      if (organizationId !== undefined && (await finishChoosing(organizationId))) {
+        return
+      }
+
       stopWaiting()
 
       // The organizations WorkOS named are for signing in to one of them, not to another sign-in.
@@ -681,6 +736,10 @@ export function createAccount(options: AccountOptions): Account {
         named = said.organizations
       }
 
+      if (said.problem === "choose-organization" && result.kind === "refused" && result.pendingToken !== undefined) {
+        choosing = { pendingToken: result.pendingToken, provider }
+      }
+
       problem(provider, said, workosAnswer(result))
 
       // Choosing an organization or using single sign-on isn't a failure, only one more step in Parity.
@@ -756,8 +815,8 @@ export function problemOf(result: Exclude<AuthenticateResult, { kind: "session" 
 
   const email = result.email === undefined ? {} : { email: result.email }
 
-  // Finishing it with WorkOS's pending token needs the client secret, so the person chooses in Parity and signs in
-  // again with that organization named.
+  // The person chooses in Parity. Finishing it with WorkOS's pending token needs the client secret, which Parity's
+  // service holds; without it, Parity signs in again with that organization named.
   if (result.code === "organization_selection_required" && result.organizations?.length) {
     return { problem: "choose-organization", ...email, details, organizations: result.organizations }
   }

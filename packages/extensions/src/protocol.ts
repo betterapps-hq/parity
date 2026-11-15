@@ -14,6 +14,7 @@ import type {
   NodeRef,
   OpenWhere,
   PickItem,
+  AppStyles,
   BuilderDetection,
   ComponentExport,
   Design,
@@ -112,7 +113,10 @@ export type ProviderKind = keyof ProviderKinds
 export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
   renderer: { components: { params: { files: SourceFile[] }; result: ComponentExport[][] } }
-  builder: { detect: { params: undefined; result: BuilderDetection } }
+  builder: {
+    detect: { params: undefined; result: BuilderDetection }
+    styles: { params: undefined; result: AppStyles }
+  }
   entities: {
     /** What it imported, its designs read as containers. */
     import: { params: { components: ProjectComponents }; result: z.output<typeof importedEntities> }
@@ -563,6 +567,13 @@ const providerResults = {
         version: z.string().max(200).optional(),
         config: filePath.optional(),
         summary: text
+      })
+    ),
+    styles: checkOf(
+      z.strictObject({
+        styles: z.array(filePath).max(1000),
+        packageStyles: z.array(z.string().max(500)).max(1000),
+        from: z.array(filePath).max(1000)
       })
     )
   },

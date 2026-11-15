@@ -691,6 +691,9 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
+      '@parity-app/adapters':
+        specifier: workspace:*
+        version: link:../adapters
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../agent
@@ -700,6 +703,9 @@ importers:
       '@parity-app/libgen':
         specifier: workspace:*
         version: link:../libgen
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
       '@parity-app/registry':
         specifier: workspace:*
         version: link:../registry

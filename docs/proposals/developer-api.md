@@ -338,6 +338,12 @@ Providers are declared in the manifest's `providers` and given behaviour in `act
   modules in the manifest (`providers.builder`, `providers.guest`), which Parity loads there. A guest module runs with
   the project's trust, not in the extension host. Parity passes the renderer's runtime packages, imports and guest path,
   which are data, to whichever builder is active, so the two can come from different extensions.
+- **A builder says which global stylesheets the app loads.** Its provider's `detect()` says whether it serves the
+  project, and `styles()` names the stylesheets the app's root loads, as `AppStyles`: the project's own by path,
+  packages' by specifier, and the files the answer came from, which Parity watches to ask again. It's the only source
+  Parity has, since the builder resolves the app's imports with the project's own config and plugins; an empty answer
+  means the app loads none, as with CSS-in-JS. `styles` is optional, and a builder without it gives the canvas no global
+  styles. Vite's compiles the app's entries in a client environment of its own to answer (PAR-1133).
 - **Entities providers keep the round trip.** Import gives screens and their code; export writes an edited screen back
   to its file on Save, as stories work today. Parity makes the canvas file and its nodes from what import returns, so no
   call adds a canvas file directly.
