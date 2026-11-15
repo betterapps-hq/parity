@@ -1,8 +1,14 @@
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
+import type { Route } from "@parity-app/extension-api"
 import { describe, expect, it } from "vite-plus/test"
 import type { ProjectFiles } from "./config.ts"
-import { appDirectoryOf, fullPath, moduleFacts, paramsOf, readRoutes } from "./routes.ts"
+import { appDirectoryOf, fullPath, moduleFacts, readRoutes, segmentsOf } from "./routes.ts"
+
+/** The names of the params a route's URL takes, in order. */
+function params(route: Pick<Route, "segments">): string[] {
+  return route.segments.flatMap((segment) => (segment.type === "static" ? [] : [segment.name]))
+}
 
 /** Reads files from a folder by their path from it, as the extension reads a project's through Parity. */
 function folderFiles(root: string): ProjectFiles {
@@ -33,17 +39,18 @@ function recordFiles(files: Record<string, string>): ProjectFiles {
   }
 }
 
+/** The fields of a route the first test compares. */
+function pick({ id, path, parent, file, index }: Route) {
+  return { id, path, parent, file, index }
+}
+
 describe("readRoutes", () => {
-  it("reads the React Router example's routes, each parent before its children", async () => {
+  it("reads the validation project's routes, each parent before its children", async () => {
     const found = await readRoutes(folderFiles(join(import.meta.dirname, "../../../fixtures/react-router-framework")))
 
     expect(found.mode).toBe("framework")
     expect(found.unread).toEqual([])
-    expect(
-      found.routes
-        .slice(0, 9)
-        .map(({ id, path, parent, file, params, index }) => ({ id, path, parent, file, params, index }))
-    ).toEqual([
+    expect(found.routes.slice(0, 9).map((route) => ({ ...pick(route), params: params(route) }))).toEqual([
       { id: "root", path: "/", parent: undefined, file: "app/root.tsx", params: [], index: false },
       {
         id: "layouts/marketing",
@@ -114,7 +121,10 @@ describe("readRoutes", () => {
     expect(
       found.routes
         .slice(9)
-        .map((route) => `${route.id} ${route.path}${route.index ? " (index)" : ""} < ${route.parent} [${route.params}]`)
+        .map(
+          (route) =>
+            `${route.id} ${route.path}${route.index ? " (index)" : ""} < ${route.parent} [${params(route).join(",")}]`
+        )
     ).toEqual([
       "settings/($team).billing /settings/:team?/billing < layouts/settings [team]",
       "settings/members_.invite /settings/members/invite < layouts/settings []",
@@ -128,6 +138,15 @@ describe("readRoutes", () => {
       "settings/_index /settings (index) < layouts/settings []",
       "routes/docs /docs/* < root [*]",
       "routes/not-found /* < root [*]"
+    ])
+    // A route with routes inside is a layout, or a group when it adds nothing to the URL.
+    expect(found.routes.filter((route) => route.kind !== "page").map((route) => `${route.id} ${route.kind}`)).toEqual([
+      "root root",
+      "layouts/marketing group",
+      "layouts/projects layout",
+      "layouts/settings layout",
+      "settings/members layout",
+      "settings/_secure group"
     ])
   })
 
@@ -176,10 +195,22 @@ describe("readRoutes", () => {
     expect(found.mode).toBe("library")
     expect(found.routes).toEqual([
       {
-        id: "0",
+        id: "root",
+        kind: "root",
+        segments: [],
         path: "/",
+        file: "src/App.tsx",
+        index: false,
+        loads: false,
+        guards: false
+      },
+      {
+        id: "0",
+        kind: "layout",
+        segments: [],
+        path: "/",
+        parent: "root",
         file: "src/pages/Projects.tsx",
-        params: [],
         index: false,
         component: "Projects",
         loads: false,
@@ -187,10 +218,11 @@ describe("readRoutes", () => {
       },
       {
         id: "0-0",
+        kind: "page",
+        segments: [{ type: "param", name: "id" }],
         path: "/:id",
         parent: "0",
         file: "src/App.tsx",
-        params: ["id"],
         index: false,
         component: "Project",
         loads: false,
@@ -215,9 +247,16 @@ describe("fullPath", () => {
   })
 })
 
-describe("paramsOf", () => {
-  it("names params, optional ones without their mark, and a splat as *", () => {
-    expect(paramsOf("/:lang?/projects/:projectId/files/*")).toEqual(["lang", "projectId", "*"])
+describe("segmentsOf", () => {
+  it("reads params, optional ones without their mark, and a splat as a catch-all named *", () => {
+    expect(segmentsOf("/:lang?/projects/:projectId/files/*")).toEqual([
+      { type: "param", name: "lang" },
+      { type: "static", value: "projects" },
+      { type: "param", name: "projectId" },
+      { type: "static", value: "files" },
+      { type: "catchAll", name: "*" }
+    ])
+    expect(segmentsOf("/")).toEqual([])
   })
 })
 

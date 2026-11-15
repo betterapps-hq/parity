@@ -1,3 +1,4 @@
+import type { Route } from "@parity-app/extension-api"
 import { readExtension } from "@parity-app/extensions"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
@@ -23,22 +24,26 @@ describe("the React Router extension", () => {
   })
 })
 
-const route = { file: "app/routes/x.tsx", params: [], index: false, loads: false, guards: false }
+const route: Omit<Route, "id" | "path"> = {
+  kind: "page",
+  segments: [],
+  file: "app/routes/x.tsx",
+  index: false,
+  loads: false,
+  guards: false
+}
 
 describe("isPage", () => {
-  it("counts every route but framework mode's root, which only holds the others", () => {
-    expect(isPage({ ...route, id: "root", path: "/" })).toBe(false)
+  it("counts every route but the root, which only holds the others", () => {
+    expect(isPage({ ...route, kind: "root", id: "root", path: "/" })).toBe(false)
+    expect(isPage({ ...route, kind: "group", id: "settings/_secure", path: "/settings", parent: "root" })).toBe(true)
     expect(isPage({ ...route, id: "routes/project", path: "/projects/:projectId", parent: "root" })).toBe(true)
-  })
-
-  it("counts library mode's routes at the top, which have no parent", () => {
-    expect(isPage({ ...route, id: "0", path: "/" })).toBe(true)
   })
 })
 
 describe("statusOf", () => {
-  const routes = [
-    { ...route, id: "root", path: "/" },
+  const routes: Route[] = [
+    { ...route, kind: "root", id: "root", path: "/" },
     { ...route, id: "routes/home", path: "/", parent: "root", index: true }
   ]
 

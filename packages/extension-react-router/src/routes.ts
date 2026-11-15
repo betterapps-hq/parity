@@ -1,4 +1,4 @@
-import type { Route } from "@parity-app/extension-api"
+import type { Route, RouteSegment } from "@parity-app/extension-api"
 import ts from "typescript"
 import { type ConfigRoute, joinFolder, type ProjectFiles } from "./config.ts"
 import { flatRoutes } from "./flat-routes.ts"
@@ -16,7 +16,7 @@ export interface ReadRoutes {
   unread: string[]
 }
 
-/** The root route's id, as React Router names it in framework mode. */
+/** The root route's id, as React Router names it in framework mode, and the id of the root library mode's routes get. */
 const rootId = "root"
 
 /** Where framework mode's files are when `react-router.config` doesn't say. */
@@ -87,7 +87,7 @@ async function frameworkRoutes(
   const rootFile = root?.path ?? `${appDirectory}/root.tsx`
 
   const routes: Route[] = [
-    { id: rootId, path: "/", file: rootFile, params: [], index: false, ...moduleFacts(root?.text) }
+    { id: rootId, kind: "root", segments: [], path: "/", file: rootFile, index: false, ...moduleFacts(root?.text) }
   ]
 
   const visit = async (route: ConfigRoute, parent: { id: string; path: string }) => {
@@ -96,10 +96,11 @@ async function frameworkRoutes(
 
     routes.push({
       id: route.id,
+      kind: kindOf(route),
+      segments: segmentsOf(path),
       path,
       parent: parent.id,
       file,
-      params: paramsOf(path),
       index: route.index,
       ...moduleFacts(await files.read(file))
     })
@@ -156,12 +157,17 @@ async function libraryRoutes(files: ProjectFiles): Promise<ReadRoutes> {
   return { routes: [], mode: "none", unread: [] }
 }
 
-/** Library mode's routes as Parity's: each at its full path, in the file its component comes from. */
+/**
+ * Library mode's routes as Parity's: each at its full path, in the file its component comes from, inside a root in the
+ * file that declares them, which stands for the router there.
+ */
 async function libraryTree(files: ProjectFiles, declaredIn: string, declared: LibraryRoute[]): Promise<Route[]> {
-  const routes: Route[] = []
+  const routes: Route[] = [
+    { id: rootId, kind: "root", segments: [], path: "/", file: declaredIn, index: false, loads: false, guards: false }
+  ]
 
-  const visit = async (route: LibraryRoute, parent?: { id: string; path: string }) => {
-    const path = fullPath(parent?.path ?? "/", route.path)
+  const visit = async (route: LibraryRoute, parent: { id: string; path: string }) => {
+    const path = fullPath(parent.path, route.path)
 
     const file =
       route.module === undefined
@@ -170,16 +176,14 @@ async function libraryTree(files: ProjectFiles, declaredIn: string, declared: Li
 
     const found: Route = {
       id: route.id,
+      kind: kindOf(route),
+      segments: segmentsOf(path),
       path,
+      parent: parent.id,
       file,
-      params: paramsOf(path),
       index: route.index,
       loads: route.loads,
       guards: route.guards
-    }
-
-    if (parent) {
-      found.parent = parent.id
     }
 
     if (route.component !== undefined) {
@@ -198,7 +202,7 @@ async function libraryTree(files: ProjectFiles, declaredIn: string, declared: Li
   }
 
   for (const route of declared) {
-    await visit(route)
+    await visit(route, { id: rootId, path: "/" })
   }
 
   return routes
@@ -215,15 +219,36 @@ export function fullPath(parent: string, own: string | undefined): string {
   return joined.length > 1 ? joined.replace(/\/$/, "") : joined
 }
 
-/** The params a path takes: `:projectId` and `:lang?` by their names, and a splat as `*`, as React Router names it. */
-export function paramsOf(path: string): string[] {
-  return path.split("/").flatMap((segment) => {
-    if (segment === "*") {
-      return ["*"]
-    }
+/**
+ * A route's kind in Parity's terms: a route with routes inside it is a layout, or a group when it adds nothing to the
+ * URL, as a pathless `layout()` or a flat route's `_secure`; one without is a page.
+ */
+function kindOf(route: { path?: string | undefined; children: readonly unknown[] }): Route["kind"] {
+  if (route.children.length === 0) {
+    return "page"
+  }
 
-    return segment.startsWith(":") ? [segment.slice(1).replace(/\?$/, "")] : []
-  })
+  return route.path === undefined || route.path === "" ? "group" : "layout"
+}
+
+/**
+ * A full path's parts in Parity's terms: `:projectId` is a param named `projectId`, and `*`, the rest of the URL, is a
+ * catch-all named `*`, as React Router names it among a route's params. An optional `:lang?` is a param too, and an
+ * optional `about?` matches itself, since Parity has no optional segment yet. Anything else matches itself.
+ */
+export function segmentsOf(path: string): RouteSegment[] {
+  return path
+    .split("/")
+    .filter((part) => part !== "")
+    .map((part): RouteSegment => {
+      if (part === "*") {
+        return { type: "catchAll", name: "*" }
+      }
+
+      const name = part.replace(/\?$/, "")
+
+      return name.startsWith(":") ? { type: "param", name: name.slice(1) } : { type: "static", value: name }
+    })
 }
 
 /**

@@ -80,12 +80,9 @@ export function statusOf(found: ReadRoutes): RoutesStatus {
   return { value, tooltip: "Click to show them" }
 }
 
-/**
- * Whether a route draws a page: every route but framework mode's root, which only holds the others. Library mode's
- * routes at the top have no parent and draw pages of their own.
- */
+/** Whether a route draws a page: every route but the root, which only holds the others. */
 export function isPage(route: Route): boolean {
-  return route.parent !== undefined || route.id !== "root"
+  return route.kind !== "root"
 }
 
 /** The route a command was run for: its page, or from Search actions, the page selected. */
