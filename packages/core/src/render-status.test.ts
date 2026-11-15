@@ -6,6 +6,9 @@ describe("renderProblem", () => {
     expect(renderProblem("useNavigate() may be used only in the context of a <Router> component.")).toBe("provider")
     expect(renderProblem("No QueryClient set, use QueryClientProvider to set one")).toBe("provider")
     expect(renderProblem("useSidebar must be used within a SidebarProvider.")).toBe("provider")
+    expect(renderProblem("Cannot destructure property 'basename' of '(0 , r.useContext)(...)' as it is null.")).toBe(
+      "provider"
+    )
     expect(renderProblem("process is not defined")).toBe("server")
     expect(renderProblem('Module "fs" has been externalized for browser compatibility.')).toBe("server")
     expect(renderProblem("Failed to fetch dynamically imported module: http://localhost/src/db.ts")).toBe("error")
