@@ -1,4 +1,5 @@
 import { nodePort } from "@parity-app/channel"
+import { rsbuildBuilder } from "@parity-app/extension-rsbuild/builder"
 import { rspackBuilder } from "@parity-app/extension-rspack/builder"
 import { viteBuilder } from "@parity-app/extension-vite/builder"
 import { serveBuilderProcess } from "@parity-app/processes"
@@ -21,7 +22,7 @@ serveBuilderProcess(
     exit: () => process.exit(0)
   },
   // The entry modules of the built-in builders' extensions, as their manifests name them.
-  [viteBuilder, rspackBuilder]
+  [viteBuilder, rspackBuilder, rsbuildBuilder]
 )
 
 keepCompiledCode()

@@ -20,6 +20,7 @@ const edge = [
   "builder-webpack-compatible",
   "cli",
   "extension-react",
+  "extension-rsbuild",
   "extension-rspack",
   "extension-storybook",
   "extension-storybook-a11y",

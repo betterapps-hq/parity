@@ -50,6 +50,7 @@
     "@parity-app/extension-api": "workspace:*",
     "@parity-app/extension-portless": "workspace:*",
     "@parity-app/extension-react": "workspace:*",
+    "@parity-app/extension-rsbuild": "workspace:*",
     "@parity-app/extension-rspack": "workspace:*",
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-storybook-a11y": "workspace:*",

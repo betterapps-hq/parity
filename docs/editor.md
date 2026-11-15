@@ -1299,6 +1299,28 @@ graph walks and the server's paths); the `rspack` validation project. Tried in t
 of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
 properties, and a component's code and a token edited together, both drawn afresh.
 
+### Rsbuild as an extension, through its builder provider (PAR-1148)
+
+A project built with Rsbuild draws its components with the project's own `@rsbuild/core` and config, and "Rsbuild" leads
+the status bar. Everything after the config is the Rspack builder's (above), with the Rspack that Rsbuild ships.
+
+- **Its builder provider says whether Rsbuild builds the project,** asked of the project's own Rsbuild, with its version
+  and config file: the one the dev script names with `-c`, else `rsbuild.config.*`. Rsbuild needs no config file, so a
+  dev script that runs `rsbuild` is enough.
+- **Rsbuild gives the config.** Its own `loadConfig` and `createRsbuild`, in development with its hot updates off, then
+  `initConfigs()`: the Rspack config of its `web` environment, with the project's Rsbuild plugins applied. Rsbuild's CSS
+  extractor and HTML plugin give way to the builder's own, and `NODE_ENV` is left as it was.
+- **An app styled at run time,** as with Chakra UI on Emotion, has no global stylesheets. Its styles reach the frames
+  through its library's decorator, which imports `@emotion/cache` from the project.
+
+Code: `packages/extension-rsbuild` (its manifest, `extension.ts` and `builder.ts`); the Rspack builder's shared code.
+
+Tests: `packages/extension-rsbuild/src/builder.test.ts` (detection, and the config Rsbuild gives) and
+`extension.test.ts`; `packages/builder-webpack-compatible/src/guest-config.test.ts` (the extractor and HTML plugin).
+Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3.2 and its config found, Chakra UI's
+components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its root route's component
+needs a router, which waits on reading code-based routes (PAR-1156).
+
 ### Storybook's stories through its entities provider (PAR-1095)
 
 Storybook's stories are read and written back by its extension, through Parity's public API alone, rather than by an
