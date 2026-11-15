@@ -72,6 +72,43 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     })
   })
 
+  it("follows a page's links as the browser does: relative to the page, from public, and not commented out or remote", async () => {
+    await write({
+      "app/index.html": [
+        '<link rel="stylesheet" href="https://fonts.example.com/inter.css">',
+        '<!-- <link rel="stylesheet" href="./old.css"> -->',
+        '<link rel="stylesheet" href="./page.css">',
+        '<link rel="stylesheet" href="/reset.css">',
+        '<script type="module" src="main.ts"></script>'
+      ].join("\n"),
+      "vite.config.mjs": 'export default { build: { rollupOptions: { input: "app/index.html" } } }',
+      "app/page.css": ".page {}",
+      "app/old.css": ".old {}",
+      "public/reset.css": "* { margin: 0; }",
+      "app/main.ts": "export {}"
+    })
+
+    expect(await viteAppStyles(root)).toEqual({
+      styles: ["app/page.css", "public/reset.css"],
+      packageStyles: [],
+      from: ["app/index.html", "app/main.ts"]
+    })
+  })
+
+  it("keeps the order the app imports them in when several modules at one depth import some", async () => {
+    await write({
+      "index.html": '<script type="module" src="/src/main.ts"></script>',
+      // Imported base first, then the overrides that win over it: the reverse of their names' order.
+      "src/main.ts": 'import "./z-base"\nimport "./a-overrides"',
+      "src/z-base.ts": 'import "./base.css"',
+      "src/a-overrides.ts": 'import "./overrides.css"',
+      "src/base.css": ":root { --primary: red; }",
+      "src/overrides.css": ":root { --primary: blue; }"
+    })
+
+    expect((await viteAppStyles(root)).styles).toEqual(["src/base.css", "src/overrides.css"])
+  })
+
   it("names a package's stylesheet by the export the app imports, not the file it maps to", async () => {
     await write({
       "index.html": '<script type="module" src="/src/main.ts"></script>',

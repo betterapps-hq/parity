@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, realpath, rm } from "node:fs/promises"
+import { mkdtemp, readFile, realpath, rm, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join, posix } from "node:path"
 import { importSpecifiers } from "@parity-app/code"
@@ -197,7 +197,6 @@ function inputList(input: InputOption | undefined): string[] {
  */
 async function importedStyles(client: ClientGraph, root: string): Promise<Walked> {
   const { modules, links, pages } = await entries(client, root)
-  const linked: Imported[] = links.map((file) => ({ file, importer: `${root}/index.html`, depth: 0 }))
   const found: Imported[] = []
 
   const own = (file: string | null | undefined): file is string =>
@@ -247,7 +246,7 @@ async function importedStyles(client: ClientGraph, root: string): Promise<Walked
     level = deeper
   }
 
-  return { found: [...linked, ...found], read: [...read] }
+  return { found: [...links, ...found], read: [...read] }
 }
 
 /** A module's static imports, once Vite has compiled it; none when it can't, as for a file a plugin rejects. */
@@ -289,11 +288,12 @@ function isGlobalStylesheet(url: string): boolean {
 async function entries(
   client: ClientGraph,
   root: string
-): Promise<{ modules: string[]; links: string[]; pages: string[] }> {
-  const named = client.input
+): Promise<{ modules: string[]; links: Imported[]; pages: string[] }> {
   const modules: string[] = []
-  const links: string[] = []
+  const links: Imported[] = []
   const pages: string[] = []
+  // A config may name them with Windows separators, as `path.resolve(__dirname, "index.html")` gives.
+  const named = client.input.map((entry) => entry.replaceAll("\\", "/"))
 
   for (const entry of named.length > 0 ? named : ["index.html"]) {
     if (!entry.endsWith(".html")) {
@@ -310,21 +310,66 @@ async function entries(
 
     pages.push(file)
 
-    for (const tag of html.matchAll(/<(script|link)\b([^>]*)>/gi)) {
+    // A tag in a comment isn't loaded.
+    for (const tag of html.replaceAll(/<!--[\s\S]*?-->/g, "").matchAll(/<(script|link)\b([^>]*)>/gi)) {
       const attributes = tag[2]!
 
       const value = (name: string) =>
         new RegExp(String.raw`\b${name}\s*=\s*["']([^"']+)["']`, "i").exec(attributes)?.[1]
 
-      if (tag[1]!.toLowerCase() === "script" && value("type") === "module" && value("src")) {
-        modules.push(await moduleUrl(client, root, value("src")!, file))
-      } else if (value("rel")?.toLowerCase() === "stylesheet" && value("href")?.startsWith("/")) {
-        links.push(posix.join(root, value("href")!.split("?")[0]!))
+      const src = value("src")
+      const href = value("href")
+
+      if (tag[1]!.toLowerCase() === "script" && value("type") === "module" && src && isPageLocal(src)) {
+        modules.push(await moduleUrl(client, root, pageRelative(src), file))
+      } else if (value("rel")?.toLowerCase() === "stylesheet" && href && isPageLocal(href)) {
+        const linked = await linkedFile(root, file, href)
+
+        if (linked) {
+          links.push({ file: linked, importer: file, depth: 0 })
+        }
       }
     }
   }
 
   return { modules, links, pages }
+}
+
+/** Whether a page's URL is the project's own file: not another origin (`https:`, `//cdn…`) or inline (`data:`). */
+function isPageLocal(url: string): boolean {
+  return !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(url)
+}
+
+/** A page's relative URL as a module specifier: `src/main.ts` in HTML is relative, where it would name a package. */
+function pageRelative(url: string): string {
+  return url.startsWith("/") || url.startsWith(".") ? url : `./${url}`
+}
+
+/**
+ * The file a page's stylesheet `<link>` loads: a root-relative `href` from the project's root, or from its `public`
+ * folder, where Vite serves it from; any other from the page's own folder. Nothing when there's no such file.
+ */
+async function linkedFile(root: string, page: string, href: string): Promise<string | undefined> {
+  const path = decodeURI(href.split(/[?#]/)[0]!)
+
+  const candidates = path.startsWith("/")
+    ? [posix.join(root, path), posix.join(root, "public", path)]
+    : [posix.join(posix.dirname(page), path)]
+
+  for (const candidate of candidates) {
+    if (await isFile(candidate)) {
+      return candidate
+    }
+  }
+
+  return undefined
+}
+
+async function isFile(path: string): Promise<boolean> {
+  return stat(path).then(
+    (stats) => stats.isFile(),
+    () => false
+  )
 }
 
 /** The URL Vite compiles an entry by: a project file's path from the root, else its resolved id. */
@@ -357,8 +402,9 @@ async function appStyles({ found, read }: Walked, root: string, client: ClientGr
     byImporter.set(importer, [...new Set([...(byImporter.get(importer) ?? []), file])])
   }
 
-  // A page's `<link>`s are global whatever they hold.
-  const all = [...byImporter.keys()].sort()
+  // In the order the walk met them, the order the app loads them in, so the cascade stays as it is. A page's `<link>`s
+  // are global whatever they hold.
+  const all = [...byImporter.keys()]
   const pages = all.filter((importer) => importer.endsWith(".html"))
   let importers = all.filter((importer) => !importer.endsWith(".html"))
 
