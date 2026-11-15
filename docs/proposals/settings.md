@@ -185,14 +185,15 @@ minute, as it does now.
 
 ## The freeze, once settings have moved
 
-Once nothing Parity needs is in Chromium's storage, the editor window can use an in-memory session (a partition without
-`persist:`), so no copy waits for another's storage. The account isn't affected: safeStorage's key is in the data
-folder's `Local State`, which a partition doesn't move. An earlier try moved the whole session folder instead, which did
-break decryption.
+Once nothing Parity needs is in Chromium's storage, no copy needs to share it. Each copy running at once takes a session
+folder of its own (`persist:copy-1`, `copy-2` and so on, up to 8), under a lock file of ours, and every window it opens
+uses it, so no copy waits for another's storage. An in-memory session would do that too, but it would also lose the code
+Chromium compiles for the window, which PAR-1082 keeps between launches, so every launch would compile it again (your
+call, 2026-11-14). The account isn't affected: safeStorage's key is in the data folder's `Local State`, which a
+partition doesn't move. An earlier try moved the whole session folder instead, which did break decryption.
 
-Before turning it on, check that nothing still loads in the default session (Sentry's replay, sign-in pages, tldraw if
-it ever gets a `persistenceKey`), and that the account still decrypts with two copies running on Windows, and on Linux
-with each keyring.
+Sentry's own scheme, `sentry-ipc`, is registered on each copy's session as well as the default one, or the windows'
+errors and replays wouldn't reach it.
 
 ## Key bindings
 
@@ -246,8 +247,8 @@ Each step ships alone.
    pass with two stores on one folder, and in CI a theme set in one copy reaches a second and both reopen in it.
 3. **`projects.json` and `state.json`**, replacing the rest of `localStorage`. _Done when_ a project starred in a second
    copy is still starred after both close, and a crashed copy's tabs reopen.
-4. **The in-memory session**, after the checks above. _Done when_ a second copy's startup trace has no wait on
-   `sessionStorage` (about 3 s now), and the account still decrypts with two copies running.
+4. **A session folder for each copy**, after the checks above. _Done when_ a second copy's startup has no wait on
+   `sessionStorage` (about 3 s before), and the account still decrypts with two copies running.
 5. **`keybindings.json`**, read by the keymap. _Done when_ a key changed in the file works in every copy and the menus
    show it.
 6. **Telemetry and updates folded in** (PAR-1117), with the CLI reading the new files. _Done when_ Settings' diagnostics

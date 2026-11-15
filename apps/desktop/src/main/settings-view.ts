@@ -1,4 +1,4 @@
-import { type BrowserWindow, shell, type WebContents, WebContentsView } from "electron"
+import { type BrowserWindow, type Session, shell, type WebContents, WebContentsView } from "electron"
 import { ipc } from "../shared/channels.ts"
 import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "../shared/settings-view.ts"
 import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
@@ -13,6 +13,8 @@ import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
  */
 
 export interface SettingsViewsOptions {
+  /** The session the editor windows use, which Settings shares. */
+  session: () => Session
   /** Settings' page: `settings.html` beside the editor's. */
   page: string
   preload: string
@@ -76,6 +78,7 @@ export function settingsViews(options: SettingsViewsOptions): SettingsViews {
 
       const view = new WebContentsView({
         webPreferences: {
+          session: options.session(),
           preload: options.preload,
           contextIsolation: true,
           sandbox: true,

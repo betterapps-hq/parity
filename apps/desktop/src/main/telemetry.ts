@@ -43,7 +43,7 @@ import {
 } from "@parity-app/telemetry"
 import { createSentrySink, type SentryTarget, sentryScrubbing } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/main"
-import { app, type BrowserWindow, powerMonitor, type WebContents } from "electron"
+import { app, type BrowserWindow, powerMonitor, type Session, type WebContents } from "electron"
 import { z } from "zod"
 import { recordInvalidData } from "../shared/invalid-data.ts"
 import { secretScrubbing } from "../shared/secret-scrubbing.ts"
@@ -190,6 +190,7 @@ export function startTelemetry(
     promoted,
     commit,
     rendererName,
+    sessions,
     sending
   }: {
     installed: boolean
@@ -200,6 +201,8 @@ export function startTelemetry(
     /** The commit the build was made from, which names any other build's release. */
     commit: string | undefined
     rendererName: (contents: WebContents) => string | undefined
+    /** The sessions windows load in, which Sentry's own scheme is registered on once the app is ready. */
+    sessions: () => Session[]
     /** The level, install ID and whether only errors go, from the setting and the variables (PAR-626, PAR-777). */
     sending: Pick<ResolvedTelemetry, "level" | "errorsOnly"> & { installId: string }
   }
@@ -217,6 +220,7 @@ export function startTelemetry(
     // Each platform's installer is its own build of the release.
     dist: `${process.platform}-${process.arch}`,
     getRendererName: rendererName,
+    getSessions: sessions,
     ...scrubbing,
     // The process an event came from, by the telemetry envelope's names. Windows and the service name theirs on each
     // event; a scope tag wouldn't do, since a window's scope is copied into main's.
