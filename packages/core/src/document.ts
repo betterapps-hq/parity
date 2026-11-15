@@ -433,11 +433,15 @@ const anyLayers = z.array(z.unknown())
  * layers without the rest.
  */
 const layerFields = z.discriminatedUnion("type", [
-  layoutNode.safeExtend({ children: anyLayers }),
-  routeNode.safeExtend({ children: anyLayers }),
-  componentNode.safeExtend({ slots: z.record(z.string(), anyLayers).optional(), internals: anyLayers.optional() }),
+  fileObject({ ...layoutNode.shape, children: anyLayers }),
+  fileObject({ ...routeNode.shape, children: anyLayers }),
+  fileObject({
+    ...componentNode.shape,
+    slots: z.record(z.string(), anyLayers).optional(),
+    internals: anyLayers.optional()
+  }),
   textNode,
-  instanceNode.safeExtend({ slots: z.record(z.string(), anyLayers).optional() }),
+  fileObject({ ...instanceNode.shape, slots: z.record(z.string(), anyLayers).optional() }),
   imageNode,
   videoNode
 ])
