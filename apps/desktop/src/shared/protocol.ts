@@ -31,14 +31,16 @@ import type {
   ReferenceAdded
 } from "@parity-app/editor"
 import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension-api"
-import type { ExtensionStatus, HostServiceMethods, LogLine, WindowAsk } from "@parity-app/extensions"
+import type { ExtensionStatus, HostServiceMethods, InstalledStatus, LogLine, WindowAsk } from "@parity-app/extensions"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
 import type {
   AppState,
   JsonValue,
+  KeybindingsState,
   Projects,
   ProjectsChange,
+  Replacement,
   SavedTabs,
   ExtensionSettingsChange,
   SettingsChange,
@@ -50,7 +52,6 @@ import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
 import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
 import type { openInEditorRequest, saveDialogOptions } from "./ipc-checks.ts"
-import type { KeybindingsState, Replacement } from "./keybindings.ts"
 import type { ProjectPicture, ServiceParams } from "./service-params.ts"
 import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "./settings-view.ts"
 import type { SettingsState } from "./settings.ts"
@@ -153,6 +154,8 @@ export interface ServiceMethods {
     params: ServiceParams["extensions.list"]
     result: { extensions: ExtensionStatus[]; logs: Record<string, LogLine[]> }
   }
+  /** Every installed extension, from its manifest, whether or not it runs in a project, which Settings lists. */
+  "extensions.installed": { params: ServiceParams["extensions.installed"]; result: InstalledStatus[] }
   /** Runs an extension's command, starting its host first when it isn't running. */
   "extensions.run": { params: ServiceParams["extensions.run"]; result: undefined }
   /** Ends an extension's host and starts it again, as after it crashed or got stuck. */

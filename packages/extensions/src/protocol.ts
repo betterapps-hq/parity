@@ -14,6 +14,7 @@ import type {
   NodeRef,
   OpenWhere,
   PickItem,
+  BuilderDetection,
   ComponentExport,
   CssDeclaration,
   ProcessEnd,
@@ -107,6 +108,7 @@ export type ProviderKind = keyof ProviderKinds
 export interface ProviderCalls {
   router: { routes: { params: undefined; result: Route[] } }
   renderer: { components: { params: { files: SourceFile[] }; result: ComponentExport[][] } }
+  builder: { detect: { params: undefined; result: BuilderDetection } }
   styles: {
     handles: { params: { source: string }; result: boolean }
     theme: { params: { stylesheet: string }; result: ThemeVariable[] }
@@ -522,6 +524,16 @@ const providerResults = {
     ),
     writeTokens: checkOf(fileText)
   },
+  builder: {
+    detect: checkOf(
+      z.strictObject({
+        found: z.boolean(),
+        version: z.string().max(200).optional(),
+        config: filePath.optional(),
+        summary: text
+      })
+    )
+  },
   renderer: {
     components: checkOf(
       z
@@ -561,6 +573,8 @@ export function readAnswer(call: ProviderCall, answer: ProviderAnswer): Provider
       return providerResults.styles[call.method](answer)
     case "renderer":
       return providerResults.renderer[call.method](answer)
+    case "builder":
+      return providerResults.builder[call.method](answer)
   }
 }
 

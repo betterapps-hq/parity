@@ -151,8 +151,8 @@ export const KeyboardShortcuts: Story = {
 }
 
 /**
- * Giving Hand the V that Move and select had: V moves to Hand, and Move and select is left with none and says where its
- * keys went. The change saves as it's made. Escape stops without changing; Backspace removes.
+ * Giving Hand Shift H, which no command has: it saves as it's made, and Hand's row offers its default back. Escape stops
+ * without changing; Backspace removes.
  */
 export const RebindAShortcut: Story = {
   render: () => <Demo initialPage="shortcuts" />,
@@ -160,8 +160,111 @@ export const RebindAShortcut: Story = {
     const view = await dialog()
 
     await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("{Shift>}h{/Shift}")
+    await expect(view.getByRole("button", { name: /^Change Hand, now Shift\+H/ })).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: "Reset Hand to H" }))
+    await expect(view.getByRole("button", { name: /^Change Hand, now H/ })).toBeInTheDocument()
+  }
+}
+
+/**
+ * Giving Hand the V that Move and select has asks first (PAR-1042). Swap gives Move and select Hand's H; Cancel leaves
+ * both as they were.
+ */
+export const SwapShortcuts: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
     await userEvent.keyboard("v")
-    await expect(view.getByText("Its keys went to Hand.")).toBeInTheDocument()
+    await expect(view.getByText("Move and select uses V.")).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: "Swap with Move and select" }))
+    await expect(view.getByRole("button", { name: /^Change Hand, now V/ })).toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Change Move and select, now H/ })).toBeInTheDocument()
+  }
+}
+
+/** Pressing keys another command has, then Cancel: nothing changes. */
+export const CancelAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Text/ }))
+    await userEvent.keyboard("c")
+    await userEvent.click(view.getByRole("button", { name: "Cancel" }))
+    await expect(view.getByRole("button", { name: /^Change Text, now T/ })).toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Change Comment, now C/ })).toBeInTheDocument()
+  }
+}
+
+/** New keys pressed while a clash asks take its place, so its Swap can't apply the keys pressed before. */
+export const NewKeysReplaceAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("{Shift>}h{/Shift}")
+    await expect(view.queryByRole("button", { name: "Swap with Move and select" })).not.toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Change Hand, now Shift\+H/ })).toBeInTheDocument()
+  }
+}
+
+/** Once a shortcut has changed, Reset all shortcuts puts every one back, after asking (PAR-1042). */
+export const ResetAllShortcuts: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await expect(view.queryByRole("button", { name: "Reset all shortcuts" })).not.toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("{Shift>}h{/Shift}")
+    await userEvent.click(view.getByRole("button", { name: /^Change Frame/ }))
+    await userEvent.keyboard("{Shift>}f{/Shift}")
+    await userEvent.click(view.getByRole("button", { name: "Reset all shortcuts" }))
+    await expect(view.getByText("Reset 2 shortcuts?")).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: "Reset" }))
+    await expect(view.getByRole("button", { name: /^Change Hand, now H/ })).toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Change Frame, now F/ })).toBeInTheDocument()
+  }
+}
+
+/** Resetting puts away a clash still asking, so its Swap can't undo the reset (PAR-1042). */
+export const ResetPutsAwayAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("{Shift>}h{/Shift}")
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await expect(view.getByRole("button", { name: "Swap with Move and select" })).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: "Reset all shortcuts" }))
+    await userEvent.click(view.getByRole("button", { name: "Reset" }))
+    await expect(view.getByRole("button", { name: /^Change Hand, now H/ })).toBeInTheDocument()
+    await expect(view.queryByRole("button", { name: "Swap with Move and select" })).not.toBeInTheDocument()
+  }
+}
+
+/** A clash still asking goes once another command takes the keys it named (PAR-1042). */
+export const ANewHolderPutsAwayAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await expect(view.getByRole("button", { name: "Swap with Move and select" })).toBeInTheDocument()
+    await userEvent.click(view.getByRole("button", { name: /^Change Move and select/ }))
+    await userEvent.keyboard("t")
+    await userEvent.click(view.getByRole("button", { name: "Swap with Text" }))
+    await expect(view.getByRole("button", { name: /^Change Text, now V/ })).toBeInTheDocument()
+    await expect(view.queryByRole("button", { name: "Swap with Move and select" })).not.toBeInTheDocument()
   }
 }
 
@@ -188,9 +291,15 @@ export const ExtensionPage: Story = {
   }
 }
 
-/** The built-in extensions, those running in Kestrel first. */
+/** Every installed extension, from its manifest, those running in Kestrel first. */
 export const Extensions: Story = {
-  render: () => <Demo initialPage="extensions" />
+  render: () => <Demo initialPage="extensions" />,
+  play: async () => {
+    const view = await dialog()
+
+    await expect(view.getByRole("button", { name: /^Portless/ })).toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Storybook accessibility/ })).toBeInTheDocument()
+  }
 }
 
 /**

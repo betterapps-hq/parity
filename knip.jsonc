@@ -78,6 +78,10 @@
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
+    "packages/extension-vite": {
+      "entry": ["src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/extension-tanstack-router": {
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]

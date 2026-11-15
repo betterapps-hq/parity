@@ -158,6 +158,7 @@ export const serviceParams = {
   "images.remove": project.extend({ path: z.string() }),
   "project.undoEdit": project.extend({ id: z.string() }),
   "extensions.list": project,
+  "extensions.installed": z.object({}),
   "extensions.run": project.extend({
     command: z.string(),
     target: z

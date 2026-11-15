@@ -11,7 +11,9 @@ import {
 } from "@parity-app/core"
 import { readComponents } from "@parity-app/extension-react"
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import type { ProviderCall, ProviderKind } from "@parity-app/extensions"
 import type { BuilderProcessSession } from "@parity-app/processes"
+import { detectContext } from "@parity-app/project"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
@@ -23,6 +25,7 @@ import {
   openProjects,
   type ProjectAdapters,
   type ProjectProviders,
+  type ProviderProject,
   type WatchFolder
 } from "./projects.ts"
 import type { TypeChecker } from "./props.ts"
@@ -184,11 +187,28 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
-  // React's renderer reads components here, as its extension's host does in the app.
+  // React's renderer reads components here, and the fake builder says it serves the project, as their extensions'
+  // hosts do in the app.
+  const answer = async (project: ProviderProject, call: ProviderCall) => {
+    switch (call.kind) {
+      case "renderer":
+        return readComponents(call.params.files)
+      case "builder":
+        return builder.builder.detect(detectContext(project.root, project.pkg))
+      default:
+        return undefined
+    }
+  }
+
+  const owners: Partial<Record<ProviderKind, { id: string; name: string }>> = {
+    renderer: { id: "react", name: "React" },
+    builder: { id: builder.builder.id, name: builder.builder.name }
+  }
+
   const providers: ProjectProviders = {
-    // SAFETY: a renderer call answers the components of each file, as readComponents gives them; nothing else answers.
-    call: async (_project, call) => (call.kind === "renderer" ? readComponents(call.params.files) : undefined) as never,
-    owner: (_project, kind) => (kind === "renderer" ? { id: "react", name: "React" } : undefined)
+    // SAFETY: each call is answered as its kind's provider answers it; the rest have no provider here.
+    call: (project, call) => answer(project, call) as never,
+    owner: (_project, kind) => owners[kind]
   }
 
   const projects = openProjects({

@@ -93,6 +93,30 @@ export interface ExtensionStatus {
   memory?: number
 }
 
+/**
+ * An extension Parity has installed, as its manifest describes it, whether or not it runs in any open project: what
+ * Settings lists, with no project open as with one.
+ */
+export type InstalledStatus = Pick<
+  ExtensionStatus,
+  "id" | "displayName" | "prefix" | "icon" | "contributes" | "permissions" | "activates"
+>
+
+/** An installed extension's package as Settings lists it, from its manifest. */
+export function installedStatus(found: ExtensionPackage): InstalledStatus {
+  const { manifest } = found
+
+  return {
+    id: found.id,
+    displayName: manifest.displayName,
+    prefix: manifest.prefix,
+    icon: manifest.icon,
+    contributes: manifest.contributes,
+    permissions: manifest.permissions ?? {},
+    activates: manifest.activates
+  }
+}
+
 /** An extension Parity can run: its package, its code's entry module, and how it detects its tool. */
 export interface InstalledExtension<Project> {
   package: ExtensionPackage
@@ -318,6 +342,8 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   cancel(projectId: string, extension: string, progress: number): void
   /** A project's extensions and their logs. */
   list(projectId: string): { extensions: ExtensionStatus[]; logs: Record<string, LogLine[]> }
+  /** Every installed extension, from its manifest, in the order they were given. */
+  installed(): InstalledStatus[]
   /** What's selected in the window with the project open changed, which every running host is told. */
   selectionChanged(projectId: string, refs: NodeRef[]): void
   /** The person's `app` settings for every extension, from settings.json, as they are now. */
@@ -696,9 +722,9 @@ export function extensionHosts<Project extends OpenedProject>(
           throw new Error(`${kind} isn't a provider ${displayName}'s manifest declares`)
         }
 
-        // A router, a styling framework and a renderer are asked by the project service, through the extension that
-        // declares them; the processes list asks the rest.
-        if (kind === "router" || kind === "styles" || kind === "renderer") {
+        // A router, a styling framework, a renderer and a builder are asked by the project service, through the extension
+        // that declares them; the processes list asks the rest.
+        if (kind === "router" || kind === "styles" || kind === "renderer" || kind === "builder") {
           return
         }
 
@@ -722,12 +748,12 @@ export function extensionHosts<Project extends OpenedProject>(
         })
       },
       "providers.changed"({ kind }: HostServiceMethods["providers.changed"]["params"]) {
-        if (kind !== "router" && kind !== "styles" && kind !== "renderer") {
+        if (kind !== "router" && kind !== "styles" && kind !== "renderer" && kind !== "builder") {
           options.providers.changed(caller, kind)
         }
       },
       "providers.dispose"({ kind }: HostServiceMethods["providers.dispose"]["params"]) {
-        if (kind !== "router" && kind !== "styles" && kind !== "renderer") {
+        if (kind !== "router" && kind !== "styles" && kind !== "renderer" && kind !== "builder") {
           options.providers.dispose(caller, kind)
         }
       },
@@ -1378,6 +1404,9 @@ export function extensionHosts<Project extends OpenedProject>(
         settingsChanged(open)
       }
     },
+    installed() {
+      return options.extensions.map((extension) => installedStatus(extension.package))
+    },
     list(projectId) {
       const open = projects.get(projectId)
 
@@ -1394,7 +1423,7 @@ export function extensionHosts<Project extends OpenedProject>(
 }
 
 /** Every kind of provider an extension can register. */
-const providerKinds: readonly ProviderKind[] = ["router", "styles", "renderer", "addresses", "discovery"]
+const providerKinds: readonly ProviderKind[] = ["router", "styles", "renderer", "builder", "addresses", "discovery"]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
 function declaredViews(contributes: Contributions): Record<string, ViewKind> {

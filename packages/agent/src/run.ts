@@ -43,6 +43,9 @@ const contexts = new Map<string, TabContext>()
 /** Evaluated in a snippet's context to run the promise jobs waiting there. */
 const nothing = new Script("undefined")
 
+/** The name a snippet's wrapper reads, as its run starts, the function it hands what the snippet throws to. */
+const failedName = "__parityFailed"
+
 /** Snippets that failed, kept so a retry can patch them instead of resending. */
 const failed = new Map<string, string>()
 
@@ -207,8 +210,16 @@ async function run(tab: string, code: string, api: AgentApi, limits: SnippetLimi
 
   const guarded = guard(api, live, promise, limits)
   Object.assign(context, guarded, { console: { log: guarded.Print, warn: guarded.Print, error: guarded.Print } })
-  // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote.
-  const script = new Script(`(async () => {\n${code}\n})()`, { filename: "snippet.js", lineOffset: -1 })
+
+  // The wrapper adds one line before the snippet, so line numbers in errors match what the agent wrote. It hands what the
+  // snippet throws to a function instead of rejecting the snippet's promise: an evaluation that times out discards the
+  // promise it gave, so a snippet failing in one, as on an API call refused once the run's time is spent, would leave a
+  // rejection nothing handles.
+  const script = new Script(
+    `(async (${failedName}) => { try {\n${code}\n} catch (cause) { ${failedName}(cause) } })(${failedName})`,
+    { filename: "snippet.js", lineOffset: -1 }
+  )
+
   let timer: ReturnType<typeof setTimeout> | undefined
 
   try {
@@ -222,9 +233,17 @@ async function run(tab: string, code: string, api: AgentApi, limits: SnippetLimi
         timer = setTimeout(() => stop(outOfTime(limits)), limits.total)
       }
 
-      // Its own `then`, not `await` or `Promise.race`, which would queue the call to it among the context's jobs.
-      // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
-      void evaluate<Promise<void>>(script).then(resolve, reject)
+      Object.assign(context, { [failedName]: reject })
+
+      try {
+        // Its own `then`, not `await` or `Promise.race`, which would queue the call to it among the context's jobs. It
+        // still rejects for a snippet returning a rejected promise it doesn't await, which its `try` doesn't catch.
+        // SAFETY: the script is an async arrow called at once, so what it evaluates to is the promise of its run.
+        void evaluate<Promise<void>>(script).then(resolve, reject)
+      } finally {
+        // The snippet holds it from its start, so it leaves the context, where the tab's later calls would see it.
+        Reflect.deleteProperty(context, failedName)
+      }
     })
   } catch (cause) {
     if (!isTimeout(cause)) {

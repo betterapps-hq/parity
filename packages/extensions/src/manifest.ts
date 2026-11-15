@@ -138,7 +138,7 @@ const providers = z.strictObject({
       componentExtensions: z.array(z.string())
     })
     .optional(),
-  builder: z.strictObject({ entry: z.string() }).optional(),
+  builder: z.strictObject({ entry: z.string(), watches: z.array(z.string()) }).optional(),
   styles: empty.optional(),
   router: empty.optional(),
   entities: empty.optional(),

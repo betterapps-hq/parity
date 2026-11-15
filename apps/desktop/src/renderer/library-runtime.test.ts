@@ -1,6 +1,6 @@
 import { createRequire } from "node:module"
 import { componentLibrary, type ContainerSpec, type ProjectConfig, resolveDesign } from "@parity-app/core"
-import { guestModuleSource } from "@parity-app/vite-adapter"
+import { guestModuleSource } from "@parity-app/extension-vite/builder"
 import { build } from "esbuild"
 import { chromium } from "playwright-core"
 import { expect, it } from "vite-plus/test"

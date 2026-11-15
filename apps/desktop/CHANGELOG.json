@@ -2,6 +2,61 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 06:12:33 GMT",
+      "version": "0.91.0",
+      "tag": "@parity-app/desktop_v0.91.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "47f21cc6e0cbe81d804b1ec2d54567442a3dd52f",
+            "comment": "Settings lists every installed extension from its manifest: name, logo and settings, Portless and Storybook accessibility among them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "10003e0c0b54234d3881310a6e39803a1263ed2d",
+            "comment": "File > Settings and Ctrl+, open Settings again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4fc92c6211b2fa8faad0eeddd6c235e305f096f2",
+            "comment": "Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f4081c1d16202ea7bfc60cf8e318bb7ccdc27f18",
+            "comment": "Vite runs as an extension through a builder provider"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "571b5f5cb164a6c718497bc06ca6375eda3092b7",
+            "comment": "Settings' Keyboard shortcuts asks before taking another command's keys, offering a swap, and can reset one shortcut or all of them"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "673e8c77933c408b5fb1dba998a9bb0b8acf949f",
+            "comment": "Add the local project-document provider and fix the bench's open and memory scenarios"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "be0f7ffe61a5dc77f75e929f0ab8c5b4cba87485",
+            "comment": "The editor exports a few comparison helpers for the project document; nothing the app does changes."
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 03:16:47 GMT",
       "version": "0.90.0",
       "tag": "@parity-app/desktop_v0.90.0",

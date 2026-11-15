@@ -99,6 +99,27 @@ export interface ComponentExport {
   as?: "function" | "forwardRef" | "memo" | "lazy" | "class" | "exotic"
 }
 
+/**
+ * Says whether a build tool serves the project. What starts its dev server is its entry module, which the manifest's
+ * `providers.builder` names, run in a builder process of its own.
+ */
+export interface BuilderProvider {
+  /**
+   * Whether the project's own copy of the tool serves it, with the tool's version and its config file, asked of the
+   * tool itself. Fails when the tool can't load the project's config, with why.
+   */
+  detect(): Promise<BuilderDetection>
+}
+
+/** What a builder found: its tool's version and config file, and what it looked for, in a line. */
+export interface BuilderDetection {
+  found: boolean
+  version?: string
+  /** Its config file, from the project root, with forward slashes. */
+  config?: string
+  summary: string
+}
+
 /** What an address provider is told about a server. Nothing of its output or environment. */
 export interface ServerFacts {
   /** Its id among the project's processes. */
@@ -145,6 +166,7 @@ export interface ProviderKinds {
   router: RouterProvider
   styles: StylesProvider
   renderer: RendererProvider
+  builder: BuilderProvider
   addresses: AddressProvider
   discovery: DiscoveryProvider
 }

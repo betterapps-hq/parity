@@ -100,11 +100,13 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   framework's theme, write a frame's declarations as classes and write token values into a stylesheet. A `renderer`'s
   `components({ files })` reads which components each file exports, a batch of files at a time, while the manifest's
   `providers.renderer` names its guest module, runtime packages and imports, development stand-ins and component file
-  extensions. An `addresses` provider says where else each server is reached, as a name Portless routes to it; a
-  `discovery` provider offers servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask
-  those two again. Each of their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or
-  doesn't fit is left out, as is an address that isn't on this machine, with `processes.providerFailed`. The processes
-  list opens a server at a name, then a proxy, then a container's address, else its endpoint.
+  extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's
+  `providers.builder` names its entry module, which the builder process runs, and the config files it watches. An
+  `addresses` provider says where else each server is reached, as a name Portless routes to it; a `discovery` provider
+  offers servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask those two again.
+  Each of their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is left
+  out, as is an address that isn't on this machine, with `processes.providerFailed`. The processes list opens a server
+  at a name, then a proxy, then a container's address, else its endpoint.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.
@@ -311,6 +313,8 @@ Storybook adopts one running behind a Portless name. Routes whose process has en
 - [extension.test.ts](../packages/extension-react/src/extension.test.ts): React's manifest, with its renderer's guest
   and runtime, and a batch of files read in order; [batch.test.ts](../packages/extensions/src/batch.test.ts): requests
   gathered into batches.
+- [extension.test.ts](../packages/extension-vite/src/extension.test.ts): Vite's manifest, with its builder's entry and
+  config files, and its versions.
 - [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
   files and paths outside the project.
 - [views.test.ts](../packages/extensions/src/views.test.ts): a view drawing nothing until the code fills it, a run of

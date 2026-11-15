@@ -221,12 +221,20 @@ export interface RendererContribution {
   componentExtensions: string[]
 }
 
+/** What Parity needs of a builder before its code runs: its entry module, and the files that say it serves a project. */
+export interface BuilderContribution {
+  /** The package export, as `./builder`, whose module exports `builder`. It runs in the builder process. */
+  entry: string
+  /** Its config files, from the project root, whose coming or going means the project is detected again. */
+  watches: string[]
+}
+
 /** The jobs an extension does for a tool, each given behaviour with `parity.providers.register`. */
 export interface Providers {
   /** Draws components. Its guest module runs in the canvas frames, compiled into the project's own build. */
   renderer?: RendererContribution
   /** Starts the dev server. Its entry module runs in the builder process. */
-  builder?: { entry: string }
+  builder?: BuilderContribution
   /** Reads and writes the theme. */
   styles?: Record<string, never>
   /** Reads routes. */

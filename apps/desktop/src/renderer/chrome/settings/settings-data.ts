@@ -1,16 +1,13 @@
 import type { ExtensionSettingsChange } from "@parity-app/settings"
-import { Puzzle } from "lucide-react"
 import { useMemo } from "react"
-import type { SettingsExtension, SettingsProject, SettingsProjectChange } from "../../../shared/settings-view.ts"
-import { openKeybindings, setKeys, useKeybindings } from "../keybindings.ts"
+import type { SettingsProject, SettingsProjectChange } from "../../../shared/settings-view.ts"
+import { openKeybindings, resetAllKeys, resetKeys, setKeys, swapKeys, useKeybindings } from "../keybindings.ts"
 import { keymap, keysOf } from "../keymap.ts"
 import { setPreferences, useExtensionAppSettings, usePreferences } from "../preferences.ts"
 import { setTelemetryLevel, useTelemetry } from "../telemetry-setting.ts"
 import { checkForUpdates, setBetaUpdates, useUpdates } from "../updates.tsx"
-import { builtInExtensions, type Extension, extensionsFrom } from "./definitions.ts"
-import { extensionPlace, extensionSettings } from "./extension-settings.ts"
-import type { Logo } from "./logos.ts"
-import { markOf } from "./marks.tsx"
+import { extensionsOfProject } from "./extension-list.ts"
+import { extensionPlace } from "./extension-settings.ts"
 import { isCommand } from "./shortcuts.tsx"
 import type { SettingsData } from "./store.ts"
 import { extensionValue, isPreference, preferenceChange, shownValue } from "./values.ts"
@@ -25,52 +22,13 @@ import { extensionValue, isPreference, preferenceChange, shownValue } from "./va
 /** Updates can't change the beta setting while it checks, downloads or installs. */
 const updatesBusy = new Set(["disabled", "checking", "downloading", "installing"])
 
-/** The extensions as Settings lists them, from what the window sent: each with its logo and its manifest's settings. */
-export function extensionsOfProject(list: readonly SettingsExtension[]): Extension[] {
-  return list.map((entry) => {
-    const builtIn = builtInExtensions.find((candidate) => candidate.id === entry.id)
-    const icon = builtIn?.icon ?? (entry.icon ? markOf(logoOf(entry.icon), entry.name) : Puzzle)
-
-    const extension: Extension = {
-      id: entry.id,
-      name: entry.name,
-      icon,
-      running: entry.running,
-      found: entry.found,
-      adds: entry.adds,
-      settings: entry.settings ? extensionSettings(entry.id, entry.settings) : (builtIn?.settings ?? [])
-    }
-
-    const prefix = entry.prefix ?? builtIn?.prefix
-
-    if (prefix !== undefined) {
-      extension.prefix = prefix
-    }
-
-    for (const key of ["permissions", "state", "reason", "activatedIn", "memory", "onStartup", "problems"] as const) {
-      if (entry[key] !== undefined) {
-        Object.assign(extension, { [key]: entry[key] })
-      }
-    }
-
-    return extension
-  })
-}
-
-/** An extension's logo as its manifest gives it, as Settings draws logos. */
-function logoOf(icon: NonNullable<SettingsExtension["icon"]>): Logo {
-  return icon.fillRule === "evenodd"
-    ? { viewBox: icon.viewBox, path: icon.path, fillRule: "evenodd" }
-    : { viewBox: icon.viewBox, path: icon.path }
-}
-
 /** What Settings changes outside itself: the open project, in its window, and extensions' settings in settings.json. */
 export interface SettingsChanges {
   project: (change: SettingsProjectChange) => void
   extensions: (change: ExtensionSettingsChange) => Promise<void>
 }
 
-/** Before the window has sent anything: no project open, and each built-in extension as it runs anywhere. */
+/** Before the window has sent anything: no project open, and no extensions yet. */
 const nothingOpen: SettingsProject = { overrides: [], extensions: {}, unsaved: false, savesItself: false, list: [] }
 
 /** Settings' data, from the person's settings and what the window sent of its project. */
@@ -86,10 +44,7 @@ export function useSettingsData(
   const updates = useUpdates()
   const keybindings = useKeybindings()
 
-  const extensions = useMemo(
-    () => extensionsOfProject(shown.list.length > 0 ? shown.list : listOf(extensionsFrom(undefined))),
-    [shown.list]
-  )
+  const extensions = useMemo(() => extensionsOfProject(shown.list), [shown.list])
 
   const locked: Record<string, string> = {}
 
@@ -187,6 +142,18 @@ export function useSettingsData(
       isCommand(command)
         ? setKeys(command, keys).then(() => undefined)
         : Promise.reject(new TypeError(`No command ${command}`)),
+    holderOf: (command, keys) =>
+      Object.keys(keymap).find((other) => isCommand(other) && other !== command && keysOf(other).includes(keys)),
+    swap: (command, keys) =>
+      isCommand(command)
+        ? swapKeys(command, keys).then(() => undefined)
+        : Promise.reject(new TypeError(`No command ${command}`)),
+    reset: (command) =>
+      isCommand(command)
+        ? resetKeys(command).then(() => undefined)
+        : Promise.reject(new TypeError(`No command ${command}`)),
+    resetAll: resetAllKeys,
+    changedKeys: Object.keys(keybindings.changed),
     lost,
     skipped: keybindings.skipped,
     extensionShortcuts: shown.shortcuts ?? [],
@@ -201,23 +168,4 @@ export function useSettingsData(
   }
 
   return data
-}
-
-/** Built-in extensions as the window would list them with no project open. */
-function listOf(extensions: readonly Extension[]): SettingsExtension[] {
-  return extensions.map((extension) => {
-    const entry: SettingsExtension = {
-      id: extension.id,
-      name: extension.name,
-      running: extension.running,
-      found: extension.found,
-      adds: extension.adds
-    }
-
-    if (extension.prefix !== undefined) {
-      entry.prefix = extension.prefix
-    }
-
-    return entry
-  })
 }

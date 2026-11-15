@@ -24,18 +24,21 @@ import {
   mediumOfType,
   videosFolder
 } from "@parity-app/editor"
+import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { componentStories, setupGuide, storiesTree } from "@parity-app/extension-storybook/views"
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
-import { type ExtensionPackage, readExtension } from "@parity-app/extensions"
-import { defaultSettings } from "@parity-app/settings"
+import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
+import { type ExtensionPackage, installedStatus, readExtension } from "@parity-app/extensions"
+import { applyReplacements, defaultSettings, readKeybindings } from "@parity-app/settings"
 import discovered from "virtual:parity/example-project"
 import { z } from "zod"
 import desktop from "../../../package.json"
 import { type AccountState, type SignedInAccount, type SignInAttempt, signedOut } from "../../shared/account.ts"
 import type { ConnectorSearch } from "../../shared/connectors.ts"
-import { applyReplacements, readKeybindings } from "../../shared/keybindings.ts"
 import type {
   CanvasHost,
   ExtensionStatus,
@@ -503,8 +506,15 @@ let windowHandler: ((method: WindowMethod, params: WindowParams) => Promise<Serv
 
 const storybookExtension = readExtension(storybookPackage)
 
-/** Parity's own extensions that run for a project detection finds their tool in, with the status their code sets. */
+/**
+ * Parity's own extensions that run for a project detection finds their tool in, with the status their code sets, in
+ * the order the service lists them: the builder, then the renderer, then the rest.
+ */
 const toolExtensions: { extension: ExtensionPackage; status: ExtensionStatus["status"] }[] = [
+  {
+    extension: readExtension(vitePackage),
+    status: { "vite.status": { value: "Vite", tooltip: "Builds the project" } }
+  },
   {
     extension: readExtension(reactPackage),
     status: { "react.status": { value: "React", tooltip: "Renders the project's components" } }
@@ -923,6 +933,17 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       return { path, edit }
     }
 
+    case "extensions.installed":
+      // Parity's own extensions, in the order the service lists them.
+      return [
+        vitePackage,
+        reactPackage,
+        tailwindPackage,
+        routerPackage,
+        storybookPackage,
+        accessibilityPackage,
+        portlessPackage
+      ].map((packageJson) => installedStatus(readExtension(packageJson)))
     case "extensions.list":
       return { extensions: standInExtensions(projectInfo(request.params.projectId)), logs: {} }
     case "extensions.run": {

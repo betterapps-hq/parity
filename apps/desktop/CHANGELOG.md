@@ -1,8 +1,26 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 03:16:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 06:12:33 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.91.0
+
+Sun, 15 Nov 2026 06:12:33 GMT
+
+### Minor changes
+
+- Vite runs as an extension through a builder provider (ajcraswell@gmail.com)
+- Settings' Keyboard shortcuts asks before taking another command's keys, offering a swap, and can reset one shortcut or
+  all of them (ajcraswell@gmail.com)
+
+### Patches
+
+- Settings lists every installed extension from its manifest: name, logo and settings, Portless and Storybook
+  accessibility among them (ajcraswell@gmail.com)
+- File > Settings and Ctrl+, open Settings again (ajcraswell@gmail.com)
+- Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled
+  (ajcraswell@gmail.com)
 
 ## 0.90.0
 

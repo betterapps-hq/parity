@@ -27,11 +27,10 @@ import { appPageModes } from "./app-page.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
-import { viteLogo } from "./logo.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
 /** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */
-const viteConfigFiles = scriptConfigExtensions.map((extension) => `vite.config.${extension}`)
+export const viteConfigFiles = scriptConfigExtensions.map((extension) => `vite.config.${extension}`)
 const guestId = "virtual:canvas/guest"
 const rendererId = "virtual:canvas/renderer"
 
@@ -39,33 +38,15 @@ const rendererId = "virtual:canvas/renderer"
 const standInId = "virtual:canvas/stand-in/"
 const loopback = "127.0.0.1"
 
-/** Serves a project's components with the project's own Vite install and config. */
+/**
+ * Serves a project's components with the project's own Vite install and config: the entry module the Vite extension's
+ * manifest names, which the builder process loads (PAR-1095).
+ */
 export const viteBuilder: BuilderAdapter = {
   id: "vite",
   name: "Vite",
-  icon: viteLogo,
   watches: viteConfigFiles,
   detect: ({ root }) => detectVite(root),
-  versions: {
-    packages: ["vite"],
-    distributions: { "@voidzero-dev/vite-plus-core": "Vite+" },
-    majors: [
-      [2, "2021-02-16"],
-      [3, "2022-07-13"],
-      [4, "2022-12-09"],
-      [5, "2023-11-16"],
-      [6, "2024-11-26"],
-      [7, "2025-06-24"],
-      [8, "2026-03-12"]
-    ]
-  },
-  status: ({ version, packageManager }) => [
-    {
-      value: "Vite",
-      hint: version ? `Vite ${version}` : "Vite",
-      detail: `Builds the project, with ${packageManager}`
-    }
-  ],
   async start(options) {
     // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
     // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.
@@ -615,7 +596,7 @@ function rootPath(path: string): string {
  * Asks the project's own Vite for its config, the way `vite` finds it, so every name Vite accepts counts
  * (`vite.config.cjs`, `.cts` and `.mts` too). Loading it runs it, as `vite` does.
  */
-async function detectVite(root: string): Promise<BuilderDetection> {
+export async function detectVite(root: string): Promise<BuilderDetection> {
   let vite: typeof Vite
 
   try {

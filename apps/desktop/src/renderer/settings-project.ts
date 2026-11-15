@@ -1,11 +1,11 @@
 import { extensionAdds, type ProjectPreferenceKey } from "@parity-app/core"
-import type { ExtensionStatus } from "@parity-app/extensions"
+import type { ExtensionStatus, InstalledStatus } from "@parity-app/extensions"
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { z } from "zod"
-import type { SettingsExtension, SettingsProject, SettingsProjectChange } from "../shared/settings-view.ts"
+import type { SettingsProject, SettingsProjectChange } from "../shared/settings-view.ts"
 import { actions } from "./chrome/actions.ts"
 import { keymap, keysOf } from "./chrome/keymap.ts"
-import { extensionsFrom } from "./chrome/settings/definitions.ts"
+import { extensionList } from "./chrome/settings/extension-list.ts"
 import { isCommand } from "./chrome/settings/shortcuts.tsx"
 import type { ExtensionShortcut } from "./chrome/settings/store.ts"
 import { overrideOf, sizeText } from "./chrome/settings/values.ts"
@@ -19,6 +19,7 @@ import {
   useProjectSettings
 } from "./project-settings.ts"
 import { request } from "./service.ts"
+import { resetWithWindow, windowStore } from "./store.ts"
 import { type ProjectSession, workspace } from "./workspace.ts"
 
 /*
@@ -43,48 +44,67 @@ function useActiveExtensions(session: ProjectSession | undefined): ProjectExtens
   return useSyncExternalStore(store?.subscribe ?? unsubscribed, store?.get ?? (() => noExtensions))
 }
 
-/** A built-in extension as Settings lists it, with what its host says of it when it runs in a host of its own. */
-function listed(
-  extension: ReturnType<typeof extensionsFrom>[number],
-  status: ExtensionStatus | undefined
-): SettingsExtension {
-  const entry: SettingsExtension = {
-    id: extension.id,
-    name: extension.name,
-    running: extension.running,
-    found: extension.found,
-    adds: extension.adds
+/** Every installed extension, from the service, which reads their manifests as it starts; nothing until it answers. */
+const installedExtensions = windowStore<InstalledStatus[] | undefined>(() => undefined)
+const noneInstalled: InstalledStatus[] = []
+
+/** Which ask for them is current: a reset or a restarted service makes an earlier answer stale. */
+let installedAsk = 0
+let askingInstalled = false
+let hearsReconnect = false
+
+resetWithWindow(() => {
+  installedAsk += 1
+  askingInstalled = false
+})
+
+/** Asks the service for its installed extensions, unless it's asked already. */
+function askInstalled(): void {
+  if (askingInstalled) {
+    return
   }
 
-  if (extension.prefix !== undefined) {
-    entry.prefix = extension.prefix
+  askingInstalled = true
+  const ask = installedAsk
+
+  void request("extensions.installed", {}).then(
+    (list) => {
+      if (ask === installedAsk) {
+        askingInstalled = false
+        installedExtensions.set(list)
+      }
+    },
+    () => {
+      if (ask === installedAsk) {
+        askingInstalled = false
+      }
+    }
+  )
+}
+
+/** Asks again once a restarted service is back, since an answer the old one owed never comes. */
+function askAgain(): void {
+  installedAsk += 1
+  askingInstalled = false
+  askInstalled()
+}
+
+function subscribeInstalled(listener: () => void): () => void {
+  if (!hearsReconnect) {
+    hearsReconnect = true
+    window.canvasHost.onReconnect(askAgain)
   }
 
-  if (!status) {
-    return entry
+  if (installedExtensions.get() === undefined) {
+    askInstalled()
   }
 
-  entry.icon = status.icon
-  entry.prefix = status.prefix
-  entry.settings = status.contributes.settings ?? {}
-  entry.permissions = status.permissions
-  entry.state = status.state
-  entry.onStartup = status.activates.includes("onStartup")
-  entry.problems = status.settingProblems
+  return installedExtensions.subscribe(listener)
+}
 
-  if (status.reason !== undefined) {
-    entry.reason = status.reason
-  }
-
-  if (status.activatedIn !== undefined) {
-    entry.activatedIn = status.activatedIn
-  }
-
-  if (status.memory !== undefined) {
-    entry.memory = status.memory
-  }
-
-  return entry
+/** The extensions Parity has installed, as their manifests describe them. */
+function useInstalledExtensions(): InstalledStatus[] {
+  return useSyncExternalStore(subscribeInstalled, () => installedExtensions.get() ?? noneInstalled)
 }
 
 /**
@@ -136,11 +156,17 @@ export function useSettingsProject(): SettingsProject {
   const effective = useEffectivePreferences()
   const session = useActiveSession()
   const running = useActiveExtensions(session)
+  const installed = useInstalledExtensions()
 
   return useMemo(() => {
-    const builtIn = session
-      ? extensionsFrom(session.info.detection.tools, (id) => extensionAdds(id, session.info, running.extensions))
-      : extensionsFrom(undefined)
+    const list = extensionList(
+      installed,
+      session && {
+        tools: session.info.detection.tools,
+        running: running.extensions,
+        addsOf: (prefix) => extensionAdds(prefix, session.info, running.extensions)
+      }
+    )
 
     const shown: SettingsProject = {
       overrides: (project?.overrides ?? []).map((override) => ({
@@ -150,12 +176,7 @@ export function useSettingsProject(): SettingsProject {
       extensions: project?.extensions ?? {},
       unsaved: project?.unsaved ?? false,
       savesItself: effective.autosave,
-      list: builtIn.map((extension) =>
-        listed(
-          extension,
-          running.extensions.find((status) => status.prefix === extension.id)
-        )
-      )
+      list
     }
 
     if (session && project) {
@@ -169,7 +190,7 @@ export function useSettingsProject(): SettingsProject {
     }
 
     return shown
-  }, [project, effective.autosave, session, running.extensions])
+  }, [project, effective.autosave, session, running.extensions, installed])
 }
 
 /** What the window last sent Settings, which a change Settings sends back is checked against. */

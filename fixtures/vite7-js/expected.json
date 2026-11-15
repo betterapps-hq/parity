@@ -32,8 +32,7 @@
       "from": "node_modules/vite",
       "config": "vite.config.cjs",
       "status": "supported",
-      "drops": "2027-06-24",
-      "summary": "Vite 7.3.7 from node_modules/vite, config vite.config.cjs; tested until June 2027"
+      "summary": "Vite 7.3.7 from node_modules/vite, config vite.config.cjs"
     }
   ],
   "styles": {
