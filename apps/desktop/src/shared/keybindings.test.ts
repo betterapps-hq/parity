@@ -264,6 +264,14 @@ describe("resetAllKeys (PAR-1042)", () => {
     expect(JSON.parse(applyReplacements(JSON.stringify(entries), replacements))).toEqual([])
   })
 
+  it("removes an entry Parity applies though it's written loosely, so its keys go too", () => {
+    const text = JSON.stringify([{ command: "undo", keys: "Ctrl U" }])
+    const entries = readKeybindings(text).entries
+
+    expect(resolveBindings(defaults, entries).keys.undo).toEqual(["Ctrl U"])
+    expect(JSON.parse(applyReplacements(text, resetAllKeys(defaults, entries)))).toEqual([])
+  })
+
   it("keeps a skipped entry for a command it resets, as the person wrote it", () => {
     const entries: KeyEntry[] = [
       { command: "undo", keys: ["Hyper Z"] },

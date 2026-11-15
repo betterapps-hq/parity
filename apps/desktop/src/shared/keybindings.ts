@@ -300,12 +300,13 @@ export function changeKeys<C extends string>(
 
 /**
  * Whether a value in the file is an entry for `command` that Parity applies. One it skips, for keys that don't read or
- * not being `{ command, keys }`, is the person's to fix by hand, so a change never removes it (PAR-1042).
+ * having no command, is the person's to fix by hand, so a change never removes it (PAR-1042).
  */
 function isEntryFor(value: JsonValue, command: string): boolean {
-  const entry = wellFormed.safeParse(value).data
+  // Read as the keymap reads it, so an entry it applies, however it's written, is one a change replaces.
+  const entry = entryOf(value)
 
-  return entry?.command === command && entry.keys.every((keys) => readKeys(keys) !== undefined)
+  return entry.command === command && entry.keys.every((keys) => readKeys(keys) !== undefined)
 }
 
 /** The entries after these replacements, as the file would hold them. */
