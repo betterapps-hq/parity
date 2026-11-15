@@ -2,6 +2,37 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 08:24:15 GMT",
+      "version": "0.92.0",
+      "tag": "@parity-app/desktop_v0.92.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "402b947f5e37f91c0c4fa2e8b3a90ece8d10595e",
+            "comment": "Storybook's stories are read and written through its extension's entities provider"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e4528de747cbdd933d674eb1a60ba61321990422",
+            "comment": "Compare a design's layers in time that grows with the design, not its square, so edits and pastes on large designs cost about a tenth of what they did"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a879cf604c6290221b2d5f275c3ad72737a1b323",
+            "comment": "Extensions can place commands in a process's menu in the processes list; no built-in extension does yet."
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 06:12:33 GMT",
       "version": "0.91.0",
       "tag": "@parity-app/desktop_v0.91.0",
