@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Benchmark today's design store before the project document replaces it (PAR-1109)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

@@ -2,6 +2,37 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 03:16:47 GMT",
+      "version": "0.90.0",
+      "tag": "@parity-app/desktop_v0.90.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "33dde64e3cf170083c2d6bd406a3556c8219a7d0",
+            "comment": "React runs as an extension through a renderer provider"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "52d4ff0a1c7667dad7e508fcec707a9ca3557fb2",
+            "comment": "Tab from a design's title no longer goes on to another design's console badge"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "cc7fcd54d8a66cf4351ab31c7602c1aeb2c5401d",
+            "comment": "Benchmark today's design store before the project document replaces it (PAR-1109)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 02:47:01 GMT",
       "version": "0.89.1",
       "tag": "@parity-app/desktop_v0.89.1",

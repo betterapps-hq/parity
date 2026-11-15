@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 02:47:01 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 03:16:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.90.0
+
+Sun, 15 Nov 2026 03:16:47 GMT
+
+### Minor changes
+
+- React runs as an extension through a renderer provider (ajcraswell@gmail.com)
+
+### Patches
+
+- Tab from a design's title no longer goes on to another design's console badge (ajcraswell@gmail.com)
 
 ## 0.89.1
 
