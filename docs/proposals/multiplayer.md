@@ -807,8 +807,8 @@ one. `receive` keeps what it last repaired for `projectDoc.repaired`, which is r
 ## When Loro loads
 
 Loro's costs are worth paying only where several people edit one design at once. Its numbers below show why: edits cost
-two to three times the local provider's, opening the very large project takes 3.4 s, and its WebAssembly holds 461 MB
-that never shrinks. So:
+up to 60% more than on the local provider and a paste ten times as much, opening the very large project takes 2.6 s, and
+its WebAssembly holds 461 MB that never shrinks. So:
 
 - **The window opens projects on the local provider:** one person's editing, viewing a branch, and comparing two
   commits. Comparing is `diffFiles` on two `.par` files, by id. Loro can't do it, as each commit would load as a
@@ -1104,24 +1104,27 @@ The heap is as before: 21.8 MB of values on the very large project, nothing more
 
 ### The layer's numbers, on `loroProvider`
 
-`ProjectDoc` on `loroProvider` through the functions for callers, run on `5df8164b4` with PAR-1113 on top, on the same
-machine, next to the local provider's from the table above. The command is in `loro-provider.bench.ts`.
+`ProjectDoc` on `loroProvider` through the functions for callers, run on `bfdf70d23` back to back with the local
+provider's bench, on the same machine (PAR-1167). The command is in `loro-provider.bench.ts`. A first run, on
+`5df8164b4`, put every Loro row at about twice these, and the plain JavaScript in it too; run again, on that code or
+this, neither the Loro rows nor the local provider beside a Loro document came out slower than here, so that run was the
+machine, not Loro. The snapshot rows below are still that run's.
 
 | Scenario                                  | Small, local | Small, Loro | Large, local | Large, Loro | Very large, local | Very large, Loro |
 | ----------------------------------------- | -----------: | ----------: | -----------: | ----------: | ----------------: | ---------------: |
-| Open the project                          |     0.025 ms |    26.27 ms |     0.043 ms |   613.35 ms |          0.056 ms |       3,420.3 ms |
-| Set one field on one layer                |     0.073 ms |    0.079 ms |     0.127 ms |    0.307 ms |          0.247 ms |         0.624 ms |
-| A 300-frame drag of one design, per frame |     0.021 ms |    0.068 ms |     0.035 ms |    0.105 ms |          0.061 ms |         0.159 ms |
-| Type into a text layer, per character     |     0.086 ms |    0.231 ms |     0.152 ms |    0.360 ms |          0.289 ms |         0.690 ms |
-| Paste 500 layers, or take them out        |     0.582 ms |    10.43 ms |     0.678 ms |    10.84 ms |          0.843 ms |         9.184 ms |
-| Undo or redo, per step                    |     0.031 ms |    0.096 ms |     0.047 ms |    0.119 ms |          0.083 ms |         0.208 ms |
-| Save one file                             |     0.320 ms |    0.626 ms |     0.721 ms |    1.573 ms |          0.855 ms |         1.851 ms |
+| Open the project                          |     0.030 ms |    36.61 ms |     0.046 ms |   393.58 ms |          0.061 ms |       2,596.7 ms |
+| Set one field on one layer                |     0.079 ms |    0.093 ms |     0.139 ms |    0.168 ms |          0.267 ms |         0.295 ms |
+| A 300-frame drag of one design, per frame |     0.024 ms |    0.034 ms |     0.037 ms |    0.059 ms |          0.064 ms |         0.079 ms |
+| Type into a text layer, per character     |     0.095 ms |    0.117 ms |     0.170 ms |    0.320 ms |          0.308 ms |         0.339 ms |
+| Paste 500 layers, or take them out        |     0.648 ms |    6.929 ms |     0.713 ms |    8.701 ms |          0.882 ms |         7.892 ms |
+| Undo or redo, per step                    |     0.034 ms |    0.045 ms |     0.051 ms |    0.067 ms |          0.087 ms |         0.103 ms |
+| Save one file                             |     0.357 ms |    0.344 ms |     0.790 ms |    0.802 ms |          0.970 ms |         0.978 ms |
 
 | Only Loro has                                  |    Small |    Large | Very large |
 | ---------------------------------------------- | -------: | -------: | ---------: |
-| Exchange 1,000 transactions with a replica     | 31.83 ms | 38.78 ms |   55.06 ms |
-| One field change, compared with `containerOps` | 0.064 ms | 0.087 ms |   0.140 ms |
-| The same change, sent as the operation         | 0.057 ms | 0.082 ms |   0.135 ms |
+| Exchange 1,000 transactions with a replica     | 16.31 ms | 20.94 ms |   31.08 ms |
+| One field change, compared with `containerOps` | 0.027 ms | 0.033 ms |   0.051 ms |
+| The same change, sent as the operation         | 0.025 ms | 0.032 ms |   0.050 ms |
 | Loro's WebAssembly memory after opening        |    10 MB |    89 MB |     461 MB |
 | A snapshot of the document                     |   0.2 MB |   2.4 MB |    12.2 MB |
 | Opening from that snapshot, in plain Node      |    27 ms |    84 ms |     708 ms |
@@ -1134,22 +1137,20 @@ machine, next to the local provider's from the table above. The command is in `l
 
 What they say about Loro:
 
-- **Editing costs two to three times what it does on the local provider,** and still a quarter of today's: a field takes
-  0.6 ms at 100,000 layers, against 0.25 ms local and 2.1 ms today. Loro's own calls are about 0.03 ms of that. The rest
-  is `ProjectDoc`'s comparing and checking, the same code as on the local provider, which runs about twice as slowly
-  once Loro has opened a project. The local provider slows the same way with a Loro document opened beside it, even one
-  opened on a copy of the files and disposed before the edits, so it's V8 after Loro has run, not the provider's work.
-  Where that comes from is open.
-- **Opening costs what building every node costs:** 0.6 s for the large project and 3.4 s for the very large one, in
+- **Editing costs up to 60% more than on the local provider,** and an eighth of today's: a field takes 0.3 ms at 100,000
+  layers, against 0.27 ms local and 2.1 ms today. Loro's own calls are about 0.03 ms of that; the rest is `ProjectDoc`'s
+  comparing and checking, the same code, taking the same time, on both providers. Typing on the large project costs
+  twice the local provider's, for the `LoroText` each character goes into.
+- **Opening costs what building every node costs:** 0.4 s for the large project and 2.6 s for the very large one, in
   Loro's own calls, which grow faster than the nodes do. Opening from a snapshot takes a fifth of that, since importing
   one takes 29 ms on the very large project and only the designs' roots are read until an operation needs a design's
   layers. A live room opens from the snapshot the cloud keeps, so it pays the snapshot's cost, not the build's.
-- **Pasting is the slowest edit.** The table's 9 to 11 ms averages pasting 500 layers and taking them out again;
-  measured apart, on the small project, pasting takes 13.6 ms and taking them out 1 ms. Of the paste, 12.7 ms is the
-  backend: 5.5 ms making and filling each text layer's mergeable text, 2.2 ms making the nodes, 1.1 ms setting their ids
-  and types, and 1 ms committing. Setting the text as a plain value brings the paste to 7 ms, but then two people typing
-  in one text layer wouldn't merge, so text stays a `LoroText`.
-- **Exchanging is cheap:** 1,000 transactions reach a replica and come back in 32 to 55 ms, repairs included.
+- **Pasting is the slowest edit.** The table's 7 to 9 ms averages pasting 500 layers and taking them out again; measured
+  apart, on the small project, pasting takes 13.6 ms and taking them out 1 ms. Of the paste, 12.7 ms is the backend: 5.5
+  ms making and filling each text layer's mergeable text, 2.2 ms making the nodes, 1.1 ms setting their ids and types,
+  and 1 ms committing. Setting the text as a plain value brings the paste to 7 ms, but then two people typing in one
+  text layer wouldn't merge, so text stays a `LoroText`.
+- **Exchanging is cheap:** 1,000 transactions reach a replica and come back in 16 to 31 ms, repairs included.
 - **Memory is mostly Loro's WebAssembly,** which the heap figures leave out: 461 MB for the very large project, against
   22 MB of plain values. The heap holds the plain values, as on the local provider, and the index of each design's
   layers. Disposing frees all of it at once, since the backend frees every Loro object it holds.
@@ -1395,9 +1396,6 @@ dependency. The window stays on it; Loro comes in with the live room.
   shared session starts from one snapshot of the provider's state, held in the cloud, that everyone loads. `.par` stays
   what's in git. A room opened on a pushed commit starts with no one's unsaved edits; joining a room with edits of your
   own would need them sent as operations, from `diffFiles`.
-- **Why Loro slows the shared code.** Once Loro has opened a project, `ProjectDoc`'s comparing and checking run about
-  twice as slowly, even on the local provider and after the Loro document is disposed. It matters only in a live room
-  now, and is for the live room to look into.
 - **Outside changes in a shared session.** If everyone's file watcher saw the same commit and called `replaceFile`, its
   inserts would arrive several times. In a shared session, only the cloud applies commits, and the window's watcher
   leaves designs alone.
