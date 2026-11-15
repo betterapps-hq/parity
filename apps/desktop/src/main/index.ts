@@ -725,6 +725,12 @@ function appWindows(): BrowserWindow[] {
  */
 const packaged = isPackaged(app.isPackaged, environment.PARITY_DEV_RUNNER)
 
+/**
+ * Parity's own service: an installed copy uses production's, and a development copy staging's, which takes the same
+ * sign-in. It searches with the sources' keys (PAR-131) and finishes a sign-in after choosing an organization (PAR-1143).
+ */
+const serviceAddress = packaged ? "https://api.tryparity.dev" : "https://parity-portal-staging.hoa-preview.workers.dev"
+
 const accountChanged = (state: AccountState) => {
   for (const window of appWindows()) {
     window.webContents.send(ipc.accountChanged, state)
@@ -742,6 +748,7 @@ const account: Account = standIn
   : createAccount({
       clientId: workosClientId,
       fetch: (url, init) => net.fetch(url, init),
+      service: serviceAddress,
       redirect: () =>
         packaged
           ? Promise.resolve({ uri: schemeRedirect, close: () => undefined })
@@ -827,7 +834,7 @@ for (const name of Object.keys(process.env)) {
  * copy staging's, which takes the same sign-in.
  */
 const remoteSearch = createRemoteSearch({
-  address: packaged ? "https://api.tryparity.dev" : "https://parity-portal-staging.hoa-preview.workers.dev",
+  address: serviceAddress,
   fetch: (url, init) => net.fetch(url, init),
   token: (renew) => account.accessToken(renew)
 })

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Choosing an organization at sign-in finishes through Parity's service, without signing in to Google again",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

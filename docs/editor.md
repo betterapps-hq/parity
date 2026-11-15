@@ -8472,9 +8472,12 @@ client ID and never its API key, and the window never sees a token.
   organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
   opens AuthKit with the account's email. Details hold what WorkOS said, to copy.
 - **Someone in more than one organization chooses one** when WorkOS answers `organization_selection_required`: Choose an
-  organization lists the organizations it names, and choosing one opens AuthKit in the browser with that
-  `organization_id` and the account's email, which signs in to it. Invitations and creating an organization wait for
-  Parity's service (PAR-616).
+  organization lists the organizations it names, and choosing one finishes the sign-in through Parity's service, which
+  holds the client secret WorkOS's organization-selection grant needs, without opening the browser again (PAR-1143).
+  When the service can't finish it, because it has no key yet or WorkOS's pending token ran out, choosing opens AuthKit
+  in the browser with that `organization_id` and the account's email, which signs in to it, and
+  `account.organizationChoiceFailed` says why. Invitations and creating an organization wait for Parity's service
+  (PAR-616).
 - **The browser hands back to the copy that asked.** An installed app uses `parity://auth/callback`: the installer
   registers it on macOS (`protocols` in `electron-builder.yml`) and the app registers itself on Windows and Linux as it
   starts. macOS gives the running app the link as `open-url`; Windows and Linux start a second Parity process with it,
@@ -8526,26 +8529,31 @@ side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx
 `accountSwitch` channel, and switching accounts is `use`, over `accountUse`; `session-store.ts`'s `withAccount` and
 `withoutAccount` change what's kept.
 
-Tests: `main/account.test.ts` (28: the provider and the work email in the URL, the code traded with the client ID and no
+Tests: `main/account.test.ts` (44: the provider and the work email in the URL, the code traded with the client ID and no
 secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
-their email, the organizations to choose from and AuthKit opened with the one chosen, canceled while trading, kept until
-quit, the organizations WorkOS named kept through refreshes and in the kept session, switching with a refresh naming the
-organization, staying put when WorkOS won't switch, forgetting them on signing out, refreshing a minute early with the
-new token kept, trying again when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in
-another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
-asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
-moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
-account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
-service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
-shared between askers, and none once the session ends), `main/session-store.test.ts` (10: kept encrypted and forgotten,
-a write cut short leaving the last accounts readable, the file readable only by you, the file removed with the last
-account, nothing kept without a keyring or encryption, an unreadable or one-account file forgotten, a missing file quiet
-and one that can't be opened kept, an account replaced in place or added, which account you're in forgotten only with
-it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes
-it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
-sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
-and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
-and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
+their email, the organizations to choose from and AuthKit opened with the one chosen, the one chosen finished through
+Parity's service without the browser, a second choice let go while the first is answered, and AuthKit opened when the
+service can't finish it, canceled while trading, kept until quit, the organizations WorkOS named kept through refreshes
+and in the kept session, switching with a refresh naming the organization, staying put when WorkOS won't switch,
+forgetting them on signing out, refreshing a minute early with the new token kept, trying again when WorkOS doesn't
+answer, Session ended, another copy's newer token, signed out in another copy, signing back in as Parity starts, signing
+out; and with several accounts: adding one with the provider asked which, the same account again in its place, switching
+without asking WorkOS, signing out of another and staying, moving to the account used last, an ended account kept and
+signed in to again by name, removing it, moving on when the account you're in ends, restoring every account in the one
+Parity was last in; and the access token main gives Parity's service (PAR-948): the one kept, none when signed out, a
+fresh one when the service turned the last down, one refresh shared between askers, and none once the session ends),
+`main/session-store.test.ts` (10: kept encrypted and forgotten, a write cut short leaving the last accounts readable,
+the file readable only by you, the file removed with the last account, nothing kept without a keyring or encryption, an
+unreadable or one-account file forgotten, a missing file quiet and one that can't be opened kept, an account replaced in
+place or added, which account you're in forgotten only with it), `main/pass-link.test.ts` (3: the link in a launch's
+arguments, each other copy asked with its token until one takes it, none taking it) and `main/loopback.test.ts` (1: the
+link with its port, the page once traded, 404 for another sign-in's). `packages/account` covers the URL with an
+organization and with parameters for the provider, PKCE, the link and WorkOS's answers, including the organizations and
+the pending token a refusal names, and finishing the choice through Parity's service.
+`packages/service/src/sign-in.test.ts` (6) covers the service's side: the organization-selection grant sent with the
+client secret and WorkOS's answer passed on, a refusal passed on, nothing asked of WorkOS without a key or for a
+malformed request, each address limited, and WorkOS out of reach. Stories: Parity/Sign in (the first launch, waiting and
+still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
 another account, the accounts panel with one account, two, one whose session ended, in no organization, until quit and
 signed out, and the workspace menu in two organizations, with two accounts, in one, Personal and signed out). Gaps: no
 end-to-end test signs in, since that needs a real account in a browser; switching between two organizations, and adding

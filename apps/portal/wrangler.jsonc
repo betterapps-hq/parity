@@ -3,7 +3,8 @@
 // Bindings and vars aren't inherited, so staging and its previews repeat them.
 //
 // The sources' keys are Worker secrets, set by the app's owner with `wrangler secret put` and kept across deploys:
-// PARITY_MOBBIN_API_KEY and PARITY_PIXABAY_API_KEY. A source without one isn't searched.
+// PARITY_MOBBIN_API_KEY and PARITY_PIXABAY_API_KEY. A source without one isn't searched. WORKOS_API_KEY, WorkOS's
+// API key, finishes a sign-in after the person chose an organization (PAR-1143); without it, the app signs in again.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "parity-portal",
