@@ -16,12 +16,10 @@ import {
   libraryImports,
   parseManifest,
   type ProjectConfig,
-  scriptConfigExtensions,
-  valueImports
+  scriptConfigExtensions
 } from "@parity-app/core"
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
-import { commandOption, gatherChanges, scriptRunning } from "@parity-app/project"
-import { describedCategories, describedTokenCss } from "@parity-app/tokens"
+import { commandOption, gatherChanges, type GuestModule, guestModule, scriptRunning } from "@parity-app/project"
 import type * as Vite from "vite"
 import { appPageModes } from "./app-page.ts"
 import { viteAppStyles } from "./app-styles.ts"
@@ -127,7 +125,7 @@ export const viteBuilder: BuilderAdapter = {
       await client.depsOptimizer?.scanProcessing
       // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
       // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
-      const guest = guestModule(options.config)
+      const guest = viteGuestModule(options.config)
 
       const urls = await Promise.all(
         guest.imports.map(async (id) => {
@@ -416,166 +414,14 @@ export function taggedModule(root: string, code: string, id: string): ReturnType
 
 /**
  * The module the canvas imports: the renderer's guest runtime, the project's styles and components, its icon packages,
- * and what its libraries' decorators import. A decorator's module that fails to load is passed on as its error, so one
- * missing provider doesn't stop the project from rendering.
+ * and what its libraries' decorators import, with each stylesheet imported as text.
  */
 export function guestModuleSource(config: ProjectConfig): string {
-  return guestModule(config).source
+  return viteGuestModule(config).source
 }
 
-/** The guest module's source, the modules it imports eagerly, and those of them it can do without. */
-interface GuestModule {
-  source: string
-  imports: string[]
-  optional: ReadonlySet<string>
-}
-
-/** The source and its eager imports share one declaration so startup warms the same graph the browser will load. */
-function guestModule(config: ProjectConfig): GuestModule {
-  const imports: string[] = []
-  const optional = new Set<string>()
-
-  const ref = (id: string) => {
-    if (!imports.includes(id)) {
-      imports.push(id)
-    }
-
-    return `modules[${imports.indexOf(id)}]`
-  }
-
-  const renderer = ref(rendererId)
-  const packageStyleRefs = (config.packageStyles ?? []).map((specifier) => `${ref(`${specifier}?inline`)}.default`)
-  const styleRefs = config.styles.map((path) => `${ref(`${rootPath(path)}?inline`)}.default`)
-  // A library's components are imported by package name, which the project's own resolution finds. A project module
-  // that fails to load (a server import, a syntax error) only costs its own components, which then show why. The rest
-  // of the app, pages included, loads a module the first time one of its components is drawn: importing it all at once
-  // took copacker 14 seconds.
-  // A workspace package is the app's own code too, and may not build.
-  const workspaceLibraries = new Set(config.libraries.filter((library) => library.workspace).map(({ id }) => id))
-  const entries = Object.entries(config.components)
-
-  const componentRefs = entries
-    .filter(([, source]) => !source.lazy)
-    .map(([id, source]) => {
-      if (source.library && !workspaceLibraries.has(source.library)) {
-        return `    ${JSON.stringify(id)}: ${ref(source.path)}${member(source.export)}`
-      }
-
-      const path = source.library ? source.path : rootPath(source.path)
-      optional.add(path)
-      const module = ref(path)
-
-      return `    ${JSON.stringify(id)}: ${module}.loadError ? failed(${module}.loadError) : ${module}${member(source.export)}`
-    })
-
-  const lazyRefs = entries
-    .filter(([, source]) => source.lazy)
-    .map(([id, source]) => {
-      const load = `import(${JSON.stringify(rootPath(source.path))})`
-
-      return `    ${JSON.stringify(id)}: () => ${load}.then((module) => module${member(source.export)}, (error) => failed(String(error?.message ?? error)))`
-    })
-
-  // Icon packages come in whole, since any of their icons can be used; the dev server pre-bundles each one.
-  const iconRefs = config.libraries
-    .filter((library) => library.kind === "icons")
-    .map((library) => {
-      const icons = library.icons
-      const set = [`module: ${ref(icons?.import ?? library.importName)}`]
-
-      // Its other styles' modules, by the key their icons' ids name them with (`heroicons/16/solid/CogIcon`).
-      const styles = iconStyleModules(icons, library.importName).map(
-        (style) => `${JSON.stringify(style.key)}: ${ref(style.import)}`
-      )
-
-      if (styles.length > 0) {
-        set.push(`styles: { ${styles.join(", ")} }`)
-      }
-
-      if (icons?.match) {
-        set.push(`match: ${JSON.stringify(icons.match)}`)
-      }
-
-      if (icons?.exclude) {
-        set.push(`exclude: ${JSON.stringify(icons.exclude)}`)
-      }
-
-      if (icons && icons.render !== "export") {
-        const module = ref(icons.render.import)
-        set.push(
-          `renderer: { component: ${module}${member(icons.render.component)}, prop: ${JSON.stringify(icons.render.prop)} }`
-        )
-      }
-
-      return `    ${JSON.stringify(library.id)}: { ${set.join(", ")} }`
-    })
-
-  const decorated = config.libraries.flatMap((library) =>
-    (library.decorators ?? []).map((decorator) => ({ library: library.id, decorator }))
-  )
-
-  // Factories used by samples and library designs share one module registry. A design can call a module that no
-  // component sample, decorator or icon needs; it must be loaded before that design is drawn too.
-  const decoratorModules = [
-    ...new Set([
-      ...config.libraries.flatMap((library) => libraryImports(library)),
-      ...Object.values(config.components).flatMap((source) => valueImports(source.sample, "sample")),
-      ...config.libraries.flatMap((library) => valueImports(library.designs, "sample"))
-    ])
-  ]
-
-  for (const id of decoratorModules) {
-    if (!imports.includes(id)) {
-      optional.add(id)
-    }
-
-    ref(id)
-  }
-
-  const described = (config.describedTokens ?? []).flatMap((source) => source.tokens)
-  const libraryCss = describedTokenCss(described)
-
-  const loads = imports.map((id) =>
-    optional.has(id)
-      ? `import(${JSON.stringify(id)}).catch((error) => ({ loadError: String(error?.message ?? error) }))`
-      : `import(${JSON.stringify(id)})`
-  )
-
-  const source = [
-    `const modules = await Promise.all([${loads.join(", ")}])`,
-    "// A component whose module didn't load throws why when it's drawn, and its frame shows the error in its place.",
-    "const failed = (error) => () => { throw new Error(`its module didn't load: ${error}`) }",
-    `export default ${renderer}.createGuest({`,
-    // Tokens libraries only create at run time come first, so the project's own declarations still win.
-    `  css: [${[...(libraryCss ? [JSON.stringify(libraryCss)] : []), ...styleRefs].join(", ")}].join("\\n"),`,
-    ...(packageStyleRefs.length > 0 ? [`  packageCss: [${packageStyleRefs.join(", ")}].join("\\n"),`] : []),
-    "  components: {",
-    componentRefs.join(",\n"),
-    "  },",
-    "  lazyComponents: {",
-    lazyRefs.join(",\n"),
-    "  },",
-    "  iconSets: {",
-    iconRefs.join(",\n"),
-    "  },",
-    "  decorators: {",
-    `    list: ${JSON.stringify(decorated)},`,
-    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }`,
-    "  },",
-    `  tokenCategories: ${JSON.stringify(describedCategories(described))}`,
-    "})",
-    ""
-  ].join("\n")
-
-  return { source, imports, optional }
-}
-
-/** An export path as property access: `Button` is `["Button"]`, and `Dialog.Root` reads into the namespace. */
-function member(path: string): string {
-  return path
-    .split(".")
-    .map((part, index) => `${index === 0 ? "" : "?."}[${JSON.stringify(part)}]`)
-    .join("")
+function viteGuestModule(config: ProjectConfig): GuestModule {
+  return guestModule(config, { renderer: rendererId, projectPath: rootPath, styles: "inline" })
 }
 
 /** The modules an icon set's icons are imported from: its own, and those of styles kept in modules of their own. */

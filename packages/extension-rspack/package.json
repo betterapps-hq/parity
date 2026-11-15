@@ -1,0 +1,70 @@
+{
+  "name": "@parity-app/extension-rspack",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Rspack in Parity: the project’s own Rspack and config build its components for the canvas.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./builder": "./src/builder.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@parity-app/builder-webpack-compatible": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extensions": "workspace:*"
+  },
+  "peerDependencies": {
+    "@rspack/core": "^1.4.0 || ^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@rspack/core": {
+      "optional": true
+    }
+  },
+  "parity": {
+    "displayName": "Rspack",
+    "prefix": "rspack",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M12 1l9.5 5.5v11L12 23l-9.5-5.5v-11zm0 3.3L4.9 8.4v7.2l7.1 4.1 7.1-4.1V8.4z"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "contributes": {
+      "statusItems": [
+        {
+          "id": "rspack.status",
+          "title": "Rspack"
+        }
+      ],
+      "providers": {
+        "builder": {
+          "entry": "./builder",
+          "watches": [
+            "rspack.config.ts",
+            "rspack.config.mts",
+            "rspack.config.cts",
+            "rspack.config.js",
+            "rspack.config.mjs",
+            "rspack.config.cjs",
+            "rsbuild.config.ts",
+            "rsbuild.config.mts",
+            "rsbuild.config.cts",
+            "rsbuild.config.js",
+            "rsbuild.config.mjs",
+            "rsbuild.config.cjs"
+          ]
+        }
+      }
+    }
+  }
+}
