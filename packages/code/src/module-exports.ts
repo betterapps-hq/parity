@@ -14,10 +14,11 @@ export interface ModuleExports {
 
 /**
  * What a module exports, from its source: declarations (each binding a destructuring pattern makes too), export lists,
- * `export *`, and `export default`. Comments, types and `declare`d names don't count.
+ * `export *`, and `export default`. Comments, types and `declare`d names don't count. The file's name says its
+ * language, since `<T>` is a type in a `.ts` file and JSX in a `.tsx` one; without one it's read as TSX.
  */
-export function readModuleExports(text: string): ModuleExports {
-  const source = ts.createSourceFile("module.tsx", text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX)
+export function readModuleExports(text: string, file = "module.tsx"): ModuleExports {
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, scriptKind(file))
   const names = new Set<string>()
   const literals: [string, string][] = []
   let reexportsAll = false
@@ -84,6 +85,19 @@ export function readModuleExports(text: string): ModuleExports {
   }
 
   return { names: [...names], reexportsAll, usesClient: usesClient(source), literals }
+}
+
+/** The language a file's extension says: TypeScript, JavaScript, or either with JSX; TSX for anything else, as MDX. */
+function scriptKind(file: string): ts.ScriptKind {
+  if (/\.[cm]?ts$/.test(file)) {
+    return ts.ScriptKind.TS
+  }
+
+  if (/\.[cm]?js$/.test(file)) {
+    return ts.ScriptKind.JS
+  }
+
+  return file.endsWith(".jsx") ? ts.ScriptKind.JSX : ts.ScriptKind.TSX
 }
 
 /** The names a declaration binds: its own, or each a destructuring pattern makes, however nested. */
