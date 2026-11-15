@@ -1,8 +1,10 @@
 import { findNode } from "@parity-app/core"
 import { type ExportSize, exportFiles, selectedDesigns, selectedNodes } from "@parity-app/editor"
+import { containerEntries, containerEntry, designsLabel } from "@parity-app/multiplayer"
 import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import { toast } from "sonner"
 import { layerLabel } from "../canvas/kinds.tsx"
+import { projectLibrary } from "../project-doc.ts"
 import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
@@ -44,12 +46,12 @@ export interface ExportTarget {
 
 /** What exporting or copying as a PNG acts on: the selected layers, or else the selected designs, named as Layers names them. */
 export function selectedTargets(session: ProjectDesigns & Pick<ProjectSession, "info">): ExportTarget[] {
-  const { store } = session
+  const { doc } = session
   const selection = session.selection.get()
-  const entry = selection.design ? store.getEntry(selection.design) : undefined
+  const entry = selection.design ? containerEntry(doc, selection.design) : undefined
   const nodes = selectedNodes(selection)
-  const entries = store.getEntries()
-  const library = store.getComponentLibrary()
+  const entries = containerEntries(doc)
+  const library = projectLibrary(session)
 
   return entry && nodes.length > 0
     ? nodes.flatMap((node) => {
@@ -60,7 +62,7 @@ export function selectedTargets(session: ProjectDesigns & Pick<ProjectSession, "
           : []
       })
     : selectedDesigns(selection).flatMap((key) => {
-        const design = store.getEntry(key)
+        const design = containerEntry(doc, key)
 
         return design ? [{ design: key, name: design.container.name }] : []
       })
@@ -153,14 +155,14 @@ function trackExportFailed(exported: Exported & { durationMs: number }, cause: u
  * sizes the Export section writes layers at, in a folder the person picks.
  */
 export async function exportAllImages(
-  session: Pick<ProjectSession, "id" | "store"> | undefined = activeSession()
+  session: Pick<ProjectSession, "id" | "doc"> | undefined = activeSession()
 ): Promise<void> {
   if (!session) {
     return
   }
 
-  const { store } = session
-  const designs = store.getEntries().map((entry) => entry.key)
+  const { doc } = session
+  const designs = containerEntries(doc).map((entry) => entry.key)
 
   if (designs.length === 0) {
     toast.info("There are no screens or components to export")
@@ -175,11 +177,11 @@ export async function exportAllImages(
   }
 
   const sizes = getPreferences().exportSizes
-  const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
+  const named = designs.length === 1 ? doc.design(designs[0]!)?.name : undefined
   const exported: Exported = { kind: "designs", ...writtenAt(sizes), designs: designs.length }
 
   const answer = await serviceCall({
-    progress: `Exporting ${named ?? store.designsLabel(designs)}…`,
+    progress: `Exporting ${named ?? designsLabel(doc, designs)}…`,
     // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
     run: () => request("designs.export", { projectId: session.id, folder, designs, sizes }),
     done({ files, warnings }, took) {
@@ -215,7 +217,7 @@ export function exit(): void {
 export function selectedDesign(session: ProjectDesigns | undefined = activeSession()) {
   const current = session?.selection.get()
 
-  return current?.design && !current.node && !current.designs?.length
-    ? session?.store.getEntry(current.design)
+  return session && current?.design && !current.node && !current.designs?.length
+    ? containerEntry(session.doc, current.design)
     : undefined
 }

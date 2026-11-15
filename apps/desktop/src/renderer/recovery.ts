@@ -1,5 +1,5 @@
 import type { RecoveryCopy } from "@parity-app/editor"
-import type { DesignStore } from "./design-store.ts"
+import { type DocSession, revisionOf } from "./project-doc.ts"
 
 /** How long after a change its recovery copy is written, so a drag or a run of edits writes once. */
 const keepDelayMs = 1000
@@ -22,7 +22,7 @@ export interface RecoveryKeeper {
 }
 
 export function keepRecovery(
-  store: DesignStore,
+  designs: DocSession,
   keep: (copy: RecoveryCopy | undefined) => Promise<void>,
   delayMs = keepDelayMs
 ): RecoveryKeeper {
@@ -33,7 +33,7 @@ export function keepRecovery(
   let timer: ReturnType<typeof setTimeout> | undefined
 
   // Saving leaves the revision as it is, so whether anything is unsaved is part of what's written.
-  const state = () => `${store.getRevision()} ${store.hasUnsaved()}`
+  const state = () => `${revisionOf(designs)} ${designs.saver.hasUnsaved()}`
 
   const write = async (): Promise<void> => {
     clearTimeout(timer)
@@ -50,7 +50,7 @@ export function keepRecovery(
     }
 
     written = now
-    const copy = store.recoveryCopy()
+    const copy = designs.saver.recoveryCopy()
 
     if (!copy && !kept) {
       return
@@ -61,11 +61,14 @@ export function keepRecovery(
     await keep(copy).catch(() => undefined)
   }
 
-  const unsubscribe = store.subscribe(() => {
+  const changed = () => {
     if (started && !stopped && !timer && state() !== written) {
       timer = setTimeout(() => void write(), delayMs)
     }
-  })
+  }
+
+  // Edits change the revision, and saving changes what's unsaved.
+  const stops = [designs.doc.subscribe(changed), designs.saver.subscribe(changed)]
 
   return {
     start() {
@@ -77,7 +80,10 @@ export function keepRecovery(
       const keeping = started && !stopped
       stopped = true
       clearTimeout(timer)
-      unsubscribe()
+
+      for (const stop of stops) {
+        stop()
+      }
 
       // Before it started, the copy from last time is still unanswered, so it stays for the next open.
       if (keeping) {

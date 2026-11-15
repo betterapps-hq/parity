@@ -8,7 +8,7 @@ import {
 } from "@parity-app/connectors"
 import type { ImageDetails } from "@parity-app/core"
 import { keepImageDetails, mediaWords } from "@parity-app/editor"
-import type { DesignStore } from "../design-store.ts"
+import { applyDocuments, type ProjectDoc } from "@parity-app/multiplayer"
 import { openLibraryBrowser } from "../library/library-browser.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
@@ -26,10 +26,7 @@ import { mediaFilesOf } from "./project-media.ts"
 export const stockLibrary: ConnectorInfo | undefined = offered.find(({ info }) => info.finds.includes("photos"))?.info
 
 /** Opens the library browser on the stock library, on a search when one is given, to add what's picked. */
-export function findStock(
-  session: Pick<ProjectSession, "id" | "info" | "store" | "untilClosed">,
-  query?: string
-): void {
+export function findStock(session: Pick<ProjectSession, "doc" | "id" | "info" | "untilClosed">, query?: string): void {
   const library = stockLibrary
 
   if (!library) {
@@ -69,7 +66,7 @@ function pickedWords(picked: readonly Found[]): string {
  * counts as used once, and they arrive on the wall marked. Any that fail to save are named, and the rest are kept.
  */
 export async function addStock(
-  session: Pick<ProjectSession, "id" | "info" | "store" | "untilClosed">,
+  session: Pick<ProjectSession, "doc" | "id" | "info" | "untilClosed">,
   library: ConnectorInfo,
   picked: readonly Found[]
 ): Promise<void> {
@@ -114,7 +111,7 @@ export async function addStock(
     return
   }
 
-  keepDetails(session.store, library, saved)
+  keepDetails(session.doc, library, saved)
 
   for (const { found, path } of saved) {
     void window.canvasHost.connectors.placed({
@@ -132,8 +129,8 @@ export async function addStock(
 }
 
 /** Records what each saved picture or video shows and who made it in the project's main file, as one step. */
-function keepDetails(store: DesignStore, library: ConnectorInfo, saved: readonly Saved[]): void {
-  const main = store.getDocuments().find((entry) => entry.path === store.mainPath)
+function keepDetails(doc: ProjectDoc, library: ConnectorInfo, saved: readonly Saved[]): void {
+  const main = doc.file(doc.main)
 
   if (!main) {
     return
@@ -150,5 +147,5 @@ function keepDetails(store: DesignStore, library: ConnectorInfo, saved: readonly
   const label =
     saved.length === 1 ? `Add ${saved[0]?.found.title}` : `Add ${pickedWords(saved.map(({ found }) => found))}`
 
-  store.applyDocuments(label, [{ path: main.path, document: keepImageDetails(main.document, details) }])
+  applyDocuments(doc, label, [{ path: doc.main, document: keepImageDetails(main, details) }], { origin: "edit" })
 }

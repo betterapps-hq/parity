@@ -1,8 +1,9 @@
 import { orderedStates, shownStates, withShownStates, withStateOrder } from "@parity-app/core"
+import { type ContainerEntry, updateView } from "@parity-app/multiplayer"
 import { ShowList } from "../chrome/ShowList.tsx"
 import { ModeViewportIcon } from "../chrome/viewports.tsx"
-import { type ContainerEntry, useModeSettings } from "../design-store.ts"
 import { moved } from "../inspector/controls/list-parts.tsx"
+import { useModeSettings } from "../project-doc.ts"
 import { useProject } from "./context.ts"
 import { stateNouns } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
@@ -12,8 +13,9 @@ import { containerModes, withModes } from "./view.ts"
  * shows it, and the first shown is drawn at full size, the rest beside it (PAR-1071).
  */
 export function ModesList({ entry, group }: { entry: ContainerEntry; group: string }) {
-  const { store } = useProject()
-  const settings = useModeSettings(store)
+  const session = useProject()
+  const settings = useModeSettings(session)
+  const { doc } = session
   const { container, key } = entry
   const { all, ordered, primary, companions } = containerModes(settings, container)
   const order = ordered.map((mode) => mode.id)
@@ -34,7 +36,7 @@ export function ModesList({ entry, group }: { entry: ContainerEntry; group: stri
       shown={shown}
       only="At least one mode always shows"
       onMove={(from, to) =>
-        store.updateView(key, `Move ${ordered[from]!.name}`, (view) =>
+        updateView(doc, key, `Move ${ordered[from]!.name}`, (view) =>
           withModes(view, moved(order, from, to), [...shown], all)
         )
       }
@@ -42,7 +44,7 @@ export function ModesList({ entry, group }: { entry: ContainerEntry; group: stri
         const name = ordered.find((mode) => mode.id === id)?.name ?? id
         const next = on ? [...shown, id] : [...shown].filter((each) => each !== id)
 
-        store.updateView(key, `${on ? "Show" : "Hide"} ${name}`, (view) => withModes(view, order, next, all))
+        updateView(doc, key, `${on ? "Show" : "Hide"} ${name}`, (view) => withModes(view, order, next, all))
       }}
     />
   )
@@ -53,7 +55,7 @@ export function ModesList({ entry, group }: { entry: ContainerEntry; group: stri
  * each shown as a row or not by its switch and put in order as modes are (PAR-1071).
  */
 export function StatesList({ entry, group }: { entry: ContainerEntry; group: string }) {
-  const { store, info } = useProject()
+  const { doc, info } = useProject()
   const { container, key } = entry
   const ordered = orderedStates(container)
   const shown = new Set(shownStates(container).map((state) => state.id))
@@ -65,7 +67,7 @@ export function StatesList({ entry, group }: { entry: ContainerEntry; group: str
       shown={shown}
       only={`At least one ${stateNouns(entry, info).one} always shows`}
       onMove={(from, to) =>
-        store.updateView(key, `Move ${ordered[from]!.name}`, (view) =>
+        updateView(doc, key, `Move ${ordered[from]!.name}`, (view) =>
           withStateOrder(
             view,
             container,
@@ -81,7 +83,7 @@ export function StatesList({ entry, group }: { entry: ContainerEntry; group: str
         const name = ordered.find((state) => state.id === id)?.name ?? id
         const next = on ? [...shown, id] : [...shown].filter((each) => each !== id)
 
-        store.updateView(key, `${on ? "Show" : "Hide"} ${name}`, (view) => withShownStates(view, container, next))
+        updateView(doc, key, `${on ? "Show" : "Hide"} ${name}`, (view) => withShownStates(view, container, next))
       }}
     />
   )

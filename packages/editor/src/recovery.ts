@@ -1,8 +1,6 @@
 import { type CanvasDocument, canvasDocument, type ModeSettings, modeSettings } from "@parity-app/core"
 import { z } from "zod"
-import { sameValue } from "./document-equality.ts"
-import { type DesignHistory, type DesignSnapshot, type DesignStep, recordChange, unsavedPaths } from "./history.ts"
-import { type TokenEdit, tokenDifferences, tokenKey, withTokenEdits } from "./token-edits.ts"
+import type { TokenEdit } from "./token-edits.ts"
 
 /*
  * A recovery copy of a project's unsaved changes (PAR-905), kept outside the project so a crash or a forced quit
@@ -27,69 +25,8 @@ export interface RecoveryCopy {
   tokens: TokenEdit[]
 }
 
-/** What a project's unsaved changes are now, to keep, or nothing when everything is saved. */
-export function recoveryCopy(history: DesignHistory, keptAt: number): RecoveryCopy | undefined {
-  const { current, saved } = history
-  const paths = unsavedPaths(history).filter((path) => current.documents.has(path) || saved.documents.has(path))
-
-  const documents = paths
-    .filter((path) => current.documents.get(path) !== saved.documents.get(path))
-    .map((path) => ({ path, document: current.documents.get(path) ?? null }))
-
-  const tokens = tokenDifferences(saved.tokens, current.tokens).flatMap((difference): TokenEdit[] => {
-    const key = tokenKey(difference.name, difference.theme)
-    const edit = current.tokens.get(key)
-
-    if (!edit) {
-      return []
-    }
-
-    // What the stylesheet holds: the value last saved, or what it had before any edit.
-    const original = saved.tokens.get(key)?.value ?? edit.original
-    const kept: TokenEdit = { name: edit.name, theme: edit.theme, value: edit.value }
-
-    if (original !== undefined) {
-      kept.original = original
-    }
-
-    return [kept]
-  })
-
-  const copy: RecoveryCopy = { version: 1, keptAt, documents, tokens }
-
-  if (current.modes !== saved.modes && !sameValue(current.modes, saved.modes)) {
-    copy.modes = current.modes
-  }
-
-  return documents.length > 0 || tokens.length > 0 || copy.modes ? copy : undefined
-}
-
 /** The label of the undo step a restore makes. */
 export const restoreLabel = "Restore unsaved changes"
-
-/**
- * Puts a copy's changes back into a project just opened, as one undoable step that leaves them unsaved, so Undo goes
- * back to what the files hold and Save writes them. Nothing when the copy holds nothing the project doesn't.
- */
-export function restoreRecovery(history: DesignHistory, copy: RecoveryCopy): DesignStep | undefined {
-  const documents = new Map(history.current.documents)
-
-  for (const { path, document } of copy.documents) {
-    if (document) {
-      documents.set(path, document)
-    } else {
-      documents.delete(path)
-    }
-  }
-
-  const next: DesignSnapshot = {
-    documents,
-    modes: copy.modes ?? history.current.modes,
-    tokens: withTokenEdits(history.current.tokens, copy.tokens)
-  }
-
-  return recordChange(history, restoreLabel, next)
-}
 
 const recoveredDocument = z.object({
   path: z.string(),

@@ -3,7 +3,6 @@ import {
   type ContainerSpec,
   type DesignNode,
   type LayoutNode,
-  defaultModeSettings,
   editNode,
   findNode,
   nodeOnBoard,
@@ -11,12 +10,13 @@ import {
   setSlot
 } from "@parity-app/core"
 import { styleSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import type { Token } from "@parity-app/tokens"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { ChangePreview } from "../canvas/change-preview.ts"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { setWindowTelemetry } from "../report-error.ts"
 import {
   applyToken,
@@ -171,25 +171,20 @@ describe("a component prop previewed by being made", () => {
       }
     }
 
-    const store = new DesignStore(
-      [{ path: "app.par", document: { version: 4, containers: [home] } }],
-      defaultModeSettings,
-      "app.par",
-      { saveDocument: async () => undefined, autosave: () => false }
-    )
+    const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [home] } }])
 
     // The layer as the panel shows it now: a preview shows by being made, so it shows the previewed size.
-    const node = () => findNode(store.getEntry(key)!.container.root, "icon")!
+    const node = () => findNode(doc.design(key)!.root, "icon")!
 
     const change: LayerChange = (label, value, gesture, shown = node()) => {
-      store.updateContainer(key, label, (current) => editNode(current, "default", "icon", value), { gesture })
+      updateContainer(doc, key, label, (current) => editNode(current, "default", "icon", value), { gesture })
 
       if (shown) {
         recordLayerChange(key, ["icon"], "default", shown, value, gesture)
       }
     }
 
-    const prop = new PreviewedProp(new ChangePreview(store, key))
+    const prop = new PreviewedProp(new ChangePreview(doc, key))
     const size = (to: number) => ({ props: { size: to } })
 
     const recorded = () =>
@@ -221,7 +216,7 @@ describe("a component prop previewed by being made", () => {
   })
 })
 
-describe("a change to a design, recorded as the store makes it (PAR-713)", () => {
+describe("a change to a design, recorded as the document makes it (PAR-713)", () => {
   const key = "app.par#card"
 
   /** A component design, Card, with a title, a layout that can be a slot, and a state that hides the title. */
@@ -254,32 +249,27 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
       ]
     }
 
-    const store = new DesignStore(
-      [{ path: "app.par", document: { version: 4, containers: [card] } }],
-      defaultModeSettings,
-      "app.par",
-      { saveDocument: async () => undefined, autosave: () => false }
-    )
+    const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [card] } }])
 
     const recorded = () => sink.named("inspector.changed").map((event) => event.attributes)
 
-    return { store, recorded }
+    return { doc, recorded }
   }
 
   it("records a rename with the name before and after, and nothing for one that keeps the name", () => {
-    const { store, recorded } = setup()
-    renameAndRecord(store, key, "Profile card")
-    renameAndRecord(store, key, "Profile card")
-    expect(store.getHistory().undoLabel).toBe("Rename component")
+    const { doc, recorded } = setup()
+    renameAndRecord(doc, key, "Profile card")
+    renameAndRecord(doc, key, "Profile card")
+    expect(doc.history().undo[0]).toBe("Rename component")
     expect(recorded()).toEqual([
       { field: "name", design: key, layers: [], from: '"Card"', to: '"Profile card"', gesture: false }
     ])
   })
 
   it("records a layer's new name against the layer, and the name taken back off it", () => {
-    const { store, recorded } = setup()
-    renameAndRecord(store, key, "Heading", "title")
-    renameAndRecord(store, key, undefined, "title")
+    const { doc, recorded } = setup()
+    renameAndRecord(doc, key, "Heading", "title")
+    renameAndRecord(doc, key, undefined, "title")
     expect(recorded()).toEqual([
       { field: "name", design: key, layers: ["title"], from: "null", to: '"Heading"', gesture: false },
       { field: "name", design: key, layers: ["title"], from: '"Heading"', to: "null", gesture: false }
@@ -287,16 +277,16 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
   })
 
   it("leaves a design given no name as it was", () => {
-    const { store, recorded } = setup()
-    renameAndRecord(store, key, undefined)
-    expect(store.getEntry(key)?.container.name).toBe("Card")
+    const { doc, recorded } = setup()
+    renameAndRecord(doc, key, undefined)
+    expect(doc.design(key)?.name).toBe("Card")
     expect(recorded()).toEqual([])
   })
 
   it("records nothing for a change the design refuses", () => {
-    const { store, recorded } = setup()
+    const { doc, recorded } = setup()
     expect(() =>
-      updateAndRecord(store, key, "Add size variant", (current) => addVariant(current, "size", []), {
+      updateAndRecord(doc, key, "Add size variant", (current) => addVariant(current, "size", []), {
         field: "params.size",
         read: (current) => paramValue(current, "size")
       })
@@ -305,8 +295,8 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
   })
 
   it("records a variant's options by id and name, not what each changes", () => {
-    const { store, recorded } = setup()
-    updateAndRecord(store, key, "Add size variant", (current) => addVariant(current, "size", ["Small", "Large"]), {
+    const { doc, recorded } = setup()
+    updateAndRecord(doc, key, "Add size variant", (current) => addVariant(current, "size", ["Small", "Large"]), {
       field: "params.size",
       read: (current) => paramValue(current, "size")
     })
@@ -322,8 +312,8 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
   })
 
   it("records a layout made a slot, with its name", () => {
-    const { store, recorded } = setup()
-    updateAndRecord(store, key, "Make slot", (current) => setSlot(current, "body", "content"), {
+    const { doc, recorded } = setup()
+    updateAndRecord(doc, key, "Make slot", (current) => setSlot(current, "body", "content"), {
       field: "slot",
       layers: ["body"],
       read: (current) => {
@@ -338,7 +328,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
   })
 
   it("records a state's change reset, from what the state showed to what the design does", () => {
-    const { store, recorded } = setup()
+    const { doc, recorded } = setup()
     const field = { kind: "hidden" } as const
 
     const shown = (current: ContainerSpec) =>
@@ -348,7 +338,7 @@ describe("a change to a design, recorded as the store makes it (PAR-713)", () =>
         current.states!.find((state) => state.id === "closed")!
       )
 
-    updateAndRecord(store, key, "Reset change", (current) => resetOverride(current, "closed", "title", field), {
+    updateAndRecord(doc, key, "Reset change", (current) => resetOverride(current, "closed", "title", field), {
       field: "hidden",
       layers: ["title"],
       state: "closed",

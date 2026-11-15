@@ -9,7 +9,15 @@ import {
   selectedNodes,
   selectionKey
 } from "@parity-app/editor"
-import type { DesignStore } from "../design-store.ts"
+import {
+  designsLabel,
+  editFrame,
+  type ProjectDoc,
+  updateContainer,
+  updateContainers,
+  updateNote,
+  updateReference
+} from "@parity-app/multiplayer"
 import { findNodeElement, flowingBoxes } from "../frame.ts"
 import { type SelectionStore } from "../selection.ts"
 import { frameGeometry } from "./frame-geometry.ts"
@@ -25,7 +33,7 @@ import { insetSteps } from "./layer-measure.ts"
 
 /** What the arrows act on, and what they read from the frame the selection was picked in. */
 export interface NudgeSession {
-  store: DesignStore
+  doc: ProjectDoc
   selection: SelectionStore
   /** Pixels in a step of the spacing scale, which insets are kept in. */
   unit: number
@@ -39,15 +47,16 @@ const nothingDrawn: Drawn = { flow: () => undefined, insets: () => undefined }
  * Returns what couldn't move, if anything.
  */
 export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean): LayersNudge["blocked"] {
-  const { store, selection } = session
+  const { doc, selection } = session
   const current = selection.get()
-  const gesture = runGesture(store, selection)
+  const gesture = runGesture(doc, selection)
   const layers = selectedNodes(current)
-  const frame = store.editFrame(current)
+  const frame = editFrame(doc, current)
 
   if (frame && layers.length > 0) {
     let blocked: LayersNudge["blocked"]
-    store.updateContainer(
+    updateContainer(
+      doc,
       frame.design,
       layers.length === 1 ? "Nudge layer" : `Nudge ${layers.length} layers`,
       (container) => {
@@ -67,15 +76,17 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   const designs = current.mode && current.design ? [current.design] : selectedDesigns(current)
 
   if (designs.length > 0) {
-    store.updateContainers(
+    updateContainers(
+      doc,
       designs,
-      `Nudge ${store.designsLabel(designs)}`,
+      `Nudge ${designsLabel(doc, designs)}`,
       (containers) =>
         containers.map((container) => ({ ...container, position: nudgedPosition(container.position, arrow, big) })),
       { gesture }
     )
   } else if (current.note) {
-    store.updateNote(
+    updateNote(
+      doc,
       current.note,
       "Nudge text",
       (note) => ({ ...note, position: nudgedPosition(note.position, arrow, big) }),
@@ -84,7 +95,8 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
       }
     )
   } else if (current.reference) {
-    store.updateReference(
+    updateReference(
+      doc,
       current.reference,
       "Nudge reference",
       (reference) => ({ ...reference, position: nudgedPosition(reference.position, arrow, big) }),
@@ -95,18 +107,18 @@ export function nudgeSelection(session: NudgeSession, arrow: Arrow, big: boolean
   return undefined
 }
 
-/** Each store's run of arrow presses, keyed by what it nudges (see `GestureRun`). */
-const runs = new WeakMap<DesignStore, GestureRun>()
+/** Each document's run of arrow presses, keyed by what it nudges (see `GestureRun`). */
+const runs = new WeakMap<ProjectDoc, GestureRun>()
 
 /**
  * The gesture a press nudging what's selected is in. A run of presses on one selection is one gesture, however long it
  * takes, and however often the same selection is set again meanwhile. Selecting something else ends it as it happens,
- * and so does any other change, an undo or a redo, since the history only adds to the latest step (see `recordChange`
- * in `@parity-app/editor`).
+ * and so does any other change, an undo or a redo, since a gesture only adds to the latest undo step (see
+ * `ProjectDoc`'s gestures in `@parity-app/multiplayer`).
  */
-function runGesture(store: DesignStore, selection: SelectionStore): string {
-  const run = runs.get(store) ?? new GestureRun(store)
-  runs.set(store, run)
+function runGesture(doc: ProjectDoc, selection: SelectionStore): string {
+  const run = runs.get(doc) ?? new GestureRun(doc)
+  runs.set(doc, run)
 
   return run.gesture(selectionKey(selection.get()), () =>
     selection.subscribe(() => run.select(selectionKey(selection.get())))

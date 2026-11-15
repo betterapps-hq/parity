@@ -10,6 +10,7 @@ import {
   referenceSearch,
   referenceSize
 } from "@parity-app/editor"
+import { addReferences, containerEntry, referenceEntries } from "@parity-app/multiplayer"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { containerModes } from "../canvas/view.ts"
 import { openLibraryBrowser } from "../library/library-browser.ts"
@@ -29,7 +30,7 @@ export const referenceLibrary: ConnectorInfo | undefined = offered.find(({ info 
 function selectedDesign(session: ProjectSession) {
   const { design } = session.selection.get()
 
-  return design ? session.store.getEntry(design) : undefined
+  return design ? containerEntry(session.doc, design) : undefined
 }
 
 /**
@@ -49,7 +50,7 @@ export function findReferences(session: ProjectSession, search?: ReferenceSearch
   const opening: ReferenceSearch | undefined =
     search ??
     (target
-      ? referenceSearch(target.container.name, containerModes(session.store.getModes(), target.container).primary.width)
+      ? referenceSearch(target.container.name, containerModes(session.doc.modes(), target.container).primary.width)
       : undefined)
 
   const searched: Searched | undefined = opening && { query: opening.query, filters: { ...opening.filters } }
@@ -83,20 +84,21 @@ export function placeReferences(
   design?: string,
   foundWith: ReadonlyMap<string, string> = new Map()
 ): void {
-  const { store, editor, selection } = session
+  const { doc, editor, selection } = session
 
   if (picked.length === 0) {
     return
   }
 
-  const entry = design ? store.getEntry(design) : undefined
+  const entry = design ? containerEntry(doc, design) : undefined
   const beside = entry && designBounds(session, entry.key)
   const center = editor?.getViewportPageBounds().center ?? { x: 0, y: 0 }
   const anchor: ReferenceAnchor = beside ? { beside } : { around: { x: center.x, y: center.y } }
 
-  const taken = new Set(store.getReferences().map(({ reference }) => reference.id))
+  const references = referenceEntries(doc)
+  const taken = new Set(references.map(({ reference }) => reference.id))
 
-  const placed = store.getReferences().map(({ reference }) => referenceBounds(reference))
+  const placed = references.map(({ reference }) => referenceBounds(reference))
   const sizes = picked.map((found) => referenceSize({ platform: found.platform, image: found.image }))
   const points = referenceRow(anchor, sizes, placed, othersOnCanvas(session))
 
@@ -108,7 +110,7 @@ export function placeReferences(
   })
 
   const label = positioned.length === 1 ? `Place ${positioned[0]!.app}` : `Place ${positioned.length} references`
-  const keys = store.addReferences(entry?.path ?? store.mainPath, positioned, label)
+  const keys = addReferences(doc, entry?.path ?? doc.main, positioned, label)
 
   selection.set({ reference: keys.at(-1) })
   fitIn(session, [...(beside ? [beside] : []), ...positioned.map(referenceBounds)])

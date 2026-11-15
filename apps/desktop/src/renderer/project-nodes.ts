@@ -6,6 +6,7 @@ import {
   type EditSettler,
   type NodeIndex
 } from "@parity-app/editor"
+import { containerEntries } from "@parity-app/multiplayer"
 import type { ProjectSession } from "./workspace.ts"
 
 interface Kept {
@@ -39,12 +40,12 @@ function keep(session: ProjectSession): Kept {
   const settler = createEditSettler(catchUp)
 
   catchUp()
-  settler.gesture(session.store.inGesture())
+  settler.gesture(session.doc.inGesture())
 
   const edited = () => settler.edited()
-  const stopDesigns = session.store.subscribe(edited)
+  const stopDesigns = session.doc.subscribe(edited)
   const stopInfo = session.subscribe(edited)
-  const stopGestures = session.store.subscribeGestures(() => settler.gesture(session.store.inGesture()))
+  const stopGestures = session.doc.subscribeGestures(() => settler.gesture(session.doc.inGesture()))
 
   session.untilClosed(() => {
     settler.stop()
@@ -63,7 +64,7 @@ function sources(session: ProjectSession) {
   const { info } = session
 
   return {
-    designs: session.store.getEntries(),
+    designs: containerEntries(session.doc),
     components: { owner: info.renderer.id, sources: info.sources },
     routes: info.router ? { owner: info.router.id, routes: info.routes } : undefined,
     screens: info.entities.screens

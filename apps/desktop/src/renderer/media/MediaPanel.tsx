@@ -20,6 +20,7 @@ import {
   type ProjectImage,
   removalOf
 } from "@parity-app/editor"
+import { designKey } from "@parity-app/multiplayer"
 import { FolderOpen, ImagePlay, Plus } from "lucide-react"
 import { useRef, useState } from "react"
 import { useProject } from "../canvas/context.ts"
@@ -28,7 +29,6 @@ import { chipColors } from "../canvas/kinds.tsx"
 import { SearchField } from "../chrome/AssetsPanel.tsx"
 import { addAtSelection } from "../chrome/insert-from-panel.ts"
 import { revealSelection } from "../chrome/reveal.ts"
-import { containerKey } from "../design-store.ts"
 import { SourceMark } from "../library/SourceMark.tsx"
 import type { ProjectSession } from "../workspace.ts"
 import { findStock, stockLibrary } from "./add-stock.ts"
@@ -82,7 +82,7 @@ export function MediaPanel() {
 
   /** Selects every layer of a design that shows one, and brings them into view. */
   const show = ({ document, design, nodes }: MediaLayers) => {
-    session.selection.set(layersSelection(containerKey(document, design), nodes))
+    session.selection.set(layersSelection(designKey(document, design), nodes))
     revealSelection(session)
   }
 

@@ -939,16 +939,16 @@ async function timeChanges(page: Page, cdp: CDPSession, change: "select" | "edit
       // SAFETY: connect() defines perfSession on the window before anything here runs in it.
       const session = (window as typeof window & PerfWindow).perfSession
 
-      const keys = session.store
-        .getEntries()
+      const keys = [...session.doc.files()]
+        .flatMap(([path, document]) => document.containers.map((container) => `${path}#${container.id}`))
         .slice(0, 20)
-        .map((entry) => entry.key)
 
       const rename = (key: string, name: (name: string) => string) =>
-        session.store.updateContainer(key, "Rename", (container) => ({ ...container, name: name(container.name) }), {
-          history: false,
-          persist: false
-        })
+        session.doc.transact(
+          "Rename",
+          [{ op: "setDesign", design: key, path: ["name"], value: name(session.doc.design(key)?.name ?? "") }],
+          { origin: "code" }
+        )
 
       // React renders a store change in a microtask; a timeout runs after it and its effects.
       const settled = () => new Promise((resolve) => setTimeout(resolve, 0))

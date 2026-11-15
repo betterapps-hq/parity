@@ -234,8 +234,8 @@ Tests:
   selected layer, keeping it, leaving its group, siblings inside an instance, Ctrl, Shift; double-clicks one level at a
   time, into an instance, at the deepest layer, and the stat card in three or one Ctrl-click; hovering in an unselected
   design, the background, Alt; what a box touches, what it selects, Shift, touching nothing; a click on the background
-  and Shift there; and Enter, with the real store, on a design, a mode column, a layout, an instance and a layout inside
-  one, several layers, text and a component with text, and a layer with nothing inside.
+  and Shift there; and Enter, with a real document, on a design, a mode column, a layout, an instance and a layout
+  inside one, several layers, text and a component with text, and a layer with nothing inside.
 - `canvas/CanvasOverlay.test.ts` (13), in Chrome: the overlay over two frames of a dashboard drawn by `ModeView` and the
   React guest, with the real mouse, and an element standing in for tldraw's canvas. A click selects the top-level layer
   and keeps the press from tldraw, a frame's background selects the board, a checkbox's hidden input doesn't stretch it
@@ -777,8 +777,8 @@ alone (LargeProject), selecting went from 371 to 28 ms, an edit from 524 to 25 a
 Code: which rows show, search, and what opens and closes as the selection moves are pure, in
 `packages/editor/src/layers-tree.ts` (`treeRows`, `searchRows`, `revealIds`, `revealRows`, `toggleRow`, and `branchIds`,
 `siblingIds` and `toggleRows` for Alt+click and `*`). Reordering a design is `reorderDesign` in
-`packages/editor/src/design-changes.ts`, applied by `DesignStore.reorderContainer`. The panel is
-`apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the board's outline for a hovered row is in
+`packages/editor/src/design-changes.ts`, applied by `reorderContainer` in `packages/multiplayer/src/callers.ts`. The
+panel is `apps/desktop/src/renderer/chrome/LayerTree.tsx`, and the board's outline for a hovered row is in
 `canvas/CanvasEditor.tsx`.
 
 Tests:
@@ -1561,15 +1561,16 @@ An extension with the `edits` permission changes designs through `parity.edits.t
   `"when": "layer"`, run for that layer. Commands placed for components, as Open in Storybook, still show only on a
   component's layer.
 
-Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `DesignStore.applyOperations`,
-`extensions.transact` and `extensions.edited` in `renderer/agent/handlers.ts`, `layerOffers` in
-`chrome/command-offers.ts`, and `commandsAt` in `renderer/extensions.ts`.
+Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `applyOperations` in
+`packages/multiplayer/src/callers.ts`, `extensions.transact` and `extensions.edited` in `renderer/agent/handlers.ts`,
+`layerOffers` in `chrome/command-offers.ts`, and `commandsAt` in `renderer/extensions.ts`.
 
 Tests: `packages/editor/src/design-operations.test.ts` (renaming, taking a field away, inserting, moving and removing,
-and what's refused), `renderer/design-store.test.ts` "an extension's operations" (one step under the extension's name
-that Undo takes back, and refusing the whole change), `renderer/extensions.test.ts` "commandsAt for a layer", and
-`packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par` files). Gaps: no extension
-built into Parity changes designs yet, so the layer menu and the undo label weren't tried in the running app.
+and what's refused), `renderer/project-doc.test.ts` "an extension's operations" (one step under the extension's name
+that Undo takes back, and refusing the whole change with the operation's number), `renderer/extensions.test.ts`
+"commandsAt for a layer", and `packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par`
+files). Gaps: no extension built into Parity changes designs yet, so the layer menu and the undo label weren't tried in
+the running app.
 
 ### Extensions' views (PAR-1094)
 
@@ -1688,7 +1689,7 @@ dropping, dragging and nudging share since PAR-205), `drop-target.ts` (`frameLay
 `moveLayersAcross`). The app's `apps/desktop/src/renderer/canvas/drop-target.ts` measures (`DragLayouts` reads a frame's
 layers' boxes through `frame.ts`'s `nodeBox`, and each layout's flow from its computed style, and `dropInFrame` passes
 them in), and `canvas/layer-drag.ts` follows the pointer (`pressLayers` measures when the drag begins; `moveTarget`
-finds the frame under the pointer; `DropPreview` shows the copy; `moveLayers` applies the move to the store and the
+finds the frame under the pointer; `DropPreview` shows the copy; `moveLayers` applies the move to the document and the
 selection).
 
 Tests:
@@ -1838,9 +1839,9 @@ changes. `packages/editor/src/handles.ts` (`handleBoxes`) says where each handle
 `canvas/ResizeHandles.tsx` draws the handles and their hint, which `chrome/Hint.tsx` lets a caller open and close, and
 `canvas/CanvasOverlay.tsx`'s `startResize` measures the layer, its parent's inside and, for an absolutely placed layer,
 its drawn insets and what it snaps to, or the frame's box, and writes what comes back. `canvas/gesture.ts`'s
-`followPress` follows the pointer in one gesture, holds the cursor, and on Escape reverts the store to a checkpoint
-taken when the drag began, with `DesignStore.checkpoint` and `revert` in `design-store.ts` (see "Cursors and Escape
-during a gesture").
+`followPress` follows the pointer in one gesture, holds the cursor, and on Escape reverts the document to a checkpoint
+taken when the drag began, with the `ProjectDoc`'s `checkpoint` and `revert` from
+`packages/multiplayer/src/project-doc.ts` (see "Cursors and Escape during a gesture").
 
 Tests:
 
@@ -1865,11 +1866,12 @@ Tests:
 - `packages/editor/src/handles.test.ts`: handles straddling a large layer's edges with the strips short of the corners;
   a layer under 24px both ways with no handle on it; one small only in height, with only its side strips on it; a layer
   of exactly 24px as before; a layer that draws nothing; and a frame's three handles in order.
-- `apps/desktop/src/renderer/design-store.test.ts`, reverting to a checkpoint: a gesture's writes more than a second
-  apart taken back with nothing left to undo for them; Redo kept; an earlier gesture's step left as it was; another file
-  reloaded mid-gesture kept, with its undo step undoing to the design as it was; another design added to the same file
-  mid-gesture kept, with its undo step; every step before the gesture kept when its first write pushed the oldest out at
-  the undo limit; and nothing changed since.
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "undo and gestures", run on each provider: a step no
+  longer shown once its gesture reverts it to nothing; a gesture's steps dropped when it ends where it began, keeping an
+  agent's step made meanwhile; and a checkpoint's design reverted while an agent's change to another design is kept, in
+  one step. Redo kept through a revert is `canvas/change-preview.test.ts`'s "keeps what could be redone when a preview
+  is taken back". No test now covers an earlier gesture's step left as it was, or the undo limit across a revert; the
+  design store's tests did, and are gone.
 - `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202): New project's right handle, named by its hint when the
   pointer rests on it, dragged 48px right changes the width alone, in steps, with no hint during the drag or after; its
   top handle dragged sideways changes nothing and adds no undo step; the Review slot's top handle dragged up 16px gives
@@ -2095,15 +2097,15 @@ The text tool's rule is in `apps/desktop/src/renderer/styles.css`.
 Tests:
 
 - `canvas/gesture.test.ts`, without Electron, driving `followPress` with a plain `EventTarget` for the window and a
-  `DesignStore`: a press released short of 4 pixels is a click, with no undo step begun and no cursor held; the undo
-  step, checkpoint and cursor begin once, as the press becomes a drag, and at the release the cursor goes, the step ends
-  and nothing is left listening; Escape before the drag only ends it; a drag takes back what it wrote mid-drag and goes
-  on in the same step; and Escape after a drag that wrote nothing leaves the file alone. For each of the five gestures,
-  writing as the app's does (as the pointer moves, or once when kept): Escape leaves nothing to undo and the file clean;
-  the window losing focus ends it as the table says, what it keeps being one undo step; and the release keeps it as one
-  step. Also `onGestureEnd` (4): a gesture ending once, at the release, a cancelled pointer, the window losing focus or
-  Escape, with nothing left listening after; Escape kept from going further, other keys let by; giving up without
-  ending; and one gesture's end left to it when another follows.
+  session from `openTestSession` in `renderer/doc-fixtures.ts`: a press released short of 4 pixels is a click, with no
+  undo step begun and no cursor held; the undo step, checkpoint and cursor begin once, as the press becomes a drag, and
+  at the release the cursor goes, the step ends and nothing is left listening; Escape before the drag only ends it; a
+  drag takes back what it wrote mid-drag and goes on in the same step; and Escape after a drag that wrote nothing leaves
+  the file alone. For each of the five gestures, writing as the app's does (as the pointer moves, or once when kept):
+  Escape leaves nothing to undo and the file clean; the window losing focus ends it as the table says, what it keeps
+  being one undo step; and the release keeps it as one step. Also `onGestureEnd` (4): a gesture ending once, at the
+  release, a cancelled pointer, the window losing focus or Escape, with nothing left listening after; Escape kept from
+  going further, other keys let by; giving up without ending; and one gesture's end left to it when another follows.
 - `canvas/CanvasOverlay.test.ts`, in Chrome, with the real mouse and the box's own code (`pressBackground`): a box from
   a frame's background puts the selection back when the window loses focus mid-box, and the pointer moving on over the
   cards and letting go selects nothing more (PAR-583). Against the box's listeners from before PAR-568 it fails, and the
@@ -2289,7 +2291,7 @@ on the whole selection as one undo step, labelled with how many things they touc
   whole pixels, and a move that changes nothing records nothing.
 
 Code: the rules are in `packages/editor/src/arrange.ts` (`@parity-app/editor`).
-`apps/desktop/src/renderer/chrome/arrange.ts` applies them to the selection and the store, measures designs' boxes on
+`apps/desktop/src/renderer/chrome/arrange.ts` applies them to the selection and the document, measures designs' boxes on
 the canvas and shows the messages. Hide is core's `toggleHidden`.
 
 Tests: `packages/editor/src/arrange.test.ts`: the outermost layers and the root; deleting and what's selected next (in a
@@ -2397,7 +2399,7 @@ Code: the rules are in `packages/editor/src/insert.ts`, `components.ts`, `create
 in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fixedSize` read by `setsOwnSize` in
 `packages/code/src/props.ts`. The app's `canvas/insert.ts` finds where a drop lands through `placeAtPoint` in
 `canvas/paste-here.ts`, the step drops, Paste here and the text tool share, and applies an insert to the selection and
-the store, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts` adds a new
+the document, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts` adds a new
 design and zooms to it. Every design added to or deleted from a file, by the editor or an agent, goes through core's
 `addDesigns` and `removeDesigns` in `packages/core/src/designs.ts`, and a new file starts as its `emptyDocument`, so the
 format's version is written only in `formatVersion` (PAR-1052).
@@ -2983,7 +2985,7 @@ actions, since each needs to know which arrow was pressed.
 Code: the rules are `packages/editor/src/move-resize.ts` (`@parity-app/editor`): `arrowOf`, `reorderStep` and `reorder`,
 `nudgeLayers`, which moves absolutely placed layers by `shiftInsets` as dragging does, by a pixel in steps of the `unit`
 it's given, and `nudgedPosition` for designs and notes. `apps/desktop/src/renderer/canvas/nudge.ts` has
-`nudgeSelection`, which nudges what's selected in the store, and `frameDrawn`, which reads a layout's flow, through
+`nudgeSelection`, which nudges what's selected in the document, and `frameDrawn`, which reads a layout's flow, through
 `@parity-app/editor`'s `flowOf` with its children's boxes from `frame.ts`'s `flowingBoxes`, and a layer's drawn insets
 from its frame (`frameGeometry`'s `insets`, in half steps by `insetSteps`, PAR-967). Then `chrome/actions.ts` (`nudge`,
 whose `byKey` keeps it out of Search actions), `chrome/keymap.ts` and `chrome/keys.ts` (the arrows are written `←`, `→`,
@@ -3127,7 +3129,8 @@ kind of content is `decidePaste` in `packages/editor/src/paste-decision.ts`, wit
 fitting bindings go through every layer with core's `mapNodes` (`packages/core/src/edit.ts`), which knows each place a
 node holds nodes: a layout's children, a code component's slots and an instance's filled slots.
 `apps/desktop/src/renderer/canvas/clipboard.ts` reads and writes the system clipboard, asks `decidePaste`, saves images,
-places designs by their boxes on the canvas, applies the rules to the selection and the store, and shows the messages.
+places designs by their boxes on the canvas, applies the rules to the selection and the document, and shows the
+messages.
 
 Tests: `packages/editor/src/clipboard.test.ts`: writing and reading the envelope, and text, a cut-off envelope, another
 version, a project that isn't text, an unknown kind, a payload without its list or with an empty one, and invalid
@@ -3626,9 +3629,10 @@ or layers, it isn't in Layers, and code and exports leave it out.
 
 Code: `referenceSpec` in `packages/core/src/document.ts`; `packages/editor/src/references.ts` (the changes, size, row
 and searches) and `mergeAgentChanges` in `design-changes.ts`; `apps/desktop/src/renderer/references/find-references.ts`,
-`canvas/ReferenceUtil.tsx`, `chrome/ReferencePanel.tsx`, and the references in `design-store.ts`,
-`canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and `chrome/actions.ts`; `PlaceReference` in
-`packages/agent/src/workspace.ts`, with `foundScreen` in `apps/desktop/src/utility/references.ts`.
+`canvas/ReferenceUtil.tsx`, `chrome/ReferencePanel.tsx`, `addReferences`, `updateReference` and `referenceEntries` in
+`packages/multiplayer/src/callers.ts` and `lookups.ts`, `canvas/CanvasEditor.tsx`, `canvas/nudge.ts` and
+`chrome/actions.ts`; `PlaceReference` in `packages/agent/src/workspace.ts`, with `foundScreen` in
+`apps/desktop/src/utility/references.ts`.
 
 Tests:
 
@@ -3894,7 +3898,7 @@ Code:
   (`fieldEdit` is what `Mixed+8` goes through), and the edits that need more than a value are there too: `sidesField`,
   `sizeField` and `sizeEdit`, `layoutTypeEdit`, `placementEdit` and `textSizingEdit`.
 - `chrome/style-editor.ts`'s `useStyleEditor` is the one way the inspector's rows are wired: it measures layers,
-  previews a row's edit and makes it or its reset through the store, for `chrome/LayerPanel.tsx`,
+  previews a row's edit and makes it or its reset through the document, for `chrome/LayerPanel.tsx`,
   `chrome/MultiPanel.tsx` and the stories. `inspector/sections/PropsSection.tsx` has the number props, which
   `chrome/LayerPanel.tsx` previews through `canvas/change-preview.ts`'s `ChangePreview`: a change made in a gesture and
   taken back to its checkpoint unless it's made. `chrome/MultiPanel.tsx` has the note on what differs.
@@ -3918,7 +3922,7 @@ Tests:
   belonging to the size along the parent's direction; a layer inside an instance edited, marked and reset as that
   copy's; every row's edit writing only the keys its reset takes back; and text sized by each layer's own measure,
   leaving other layers alone.
-- `apps/desktop/src/renderer/canvas/change-preview.test.ts` (4), with the real store: each preview in place of the last
+- `apps/desktop/src/renderer/canvas/change-preview.test.ts` (4), with a real document: each preview in place of the last
   and taken back with nothing to undo, a commit after previews as one undo step, a commit in a run's gesture, and Redo
   kept when a preview is taken back.
 - `packages/editor/src/style-changes.test.ts` (6): only what an edit changes, properties taken off, a component's style,
@@ -3942,7 +3946,7 @@ Tests:
   the value whole. OffScaleSize: a 281px width shown as it is; Fields › Number field's KeepsAnyLength checks 281 typed
   is kept.
 - `apps/desktop/e2e/fields.e2e.ts` (12), end to end on Pricing's Brand mark (PAR-202), the inspector's wiring against
-  the real store and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
+  the real document and frames: 320 typed in Width drawn at each keystroke (3, 32 and 320px) while the design keeps its
   width, and Enter making 80 steps as one undo step and leaving the field; `16px`; 281 kept as 70.25 steps; `abc` kept
   with its reason, Escape putting the value back and a second Escape leaving; a value set underneath leaving `12` in the
   field; Up, Shift+Up and Down, more than a second apart, as one undo step once Tab leaves; two Up presses taken back by
@@ -4103,8 +4107,9 @@ Tests:
   `useEditSession` runs it: a run of presses made in one gesture with each press counted in `gesture.ended`, taken back
   on Escape and recorded as not kept, kept instead once something else changed the design, and ended as another layer is
   selected; and a typed value previewed, then made alone.
-- `apps/desktop/src/renderer/design-store.test.ts`, "reverting to a checkpoint": `changedBesides`, from
-  `packages/editor/src/history.ts`, telling another change to the gesture's design from changes to other designs.
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "undo and gestures": `changedBesides`, from
+  `packages/multiplayer/src/project-doc.ts`, telling an agent's change to the gesture's design from a change that isn't
+  an undo step ("says whether something besides the gesture changed its design, ignoring what isn't a step").
 - `apps/desktop/src/renderer/inspector/controls/preset-data.test.ts` (5): no preset offered to a layer with no type of
   its own or with a preset; the preset matched in every row it sets; the nearest over every row, with the rows that
   differ; and none when every preset is more than three steps away.
@@ -5179,35 +5184,53 @@ Every change people or agents make goes into one history per project, and stays 
   has the mode's class. Tokens are read with the rule as written (`qualifiedRoots: false`), so `:root.dark` is still the
   `dark` theme in the Tokens tab, and now the Dark frame draws those values too.
 
-Code: the history, what's unsaved and the save state are `packages/editor/src/history.ts` in `@parity-app/editor`
-(`recordChange`, `undoChange`, `redoChange`, `reloadFile`, `unsavedPaths`, `fileWrite`, `writeSucceeded` and
-`writeFailed`, and `adoptSaved`, which takes a file changed back to what's saved as saved), and the changes made to
-designs and notes are `design-changes.ts` there. `apps/desktop/src/renderer/design-store.ts` holds the history for the
-canvas and panels: it writes the files and the stylesheet the history says to, with the timers for saving automatically,
-and its `changeTokens`, `writeTokensWith`, `getTokenFailure`, `applyAgentChanges` taking tokens (through
-`mergeAgentChanges` in `design-changes.ts`) and `updateView` tidying the view call the package. Token values as data are
+Code: the project's files, modes and token values, and undo, are a `ProjectDoc`, `createProjectDoc` in
+`packages/multiplayer/src/project-doc.ts`. Undo is made of operations: each transaction's inverse operations, worked out
+before it applies, and Undo reverses only this person's transactions, as
+[the multiplayer proposal](proposals/multiplayer.md) says. `replaceFile` takes a file changed on disk in as one step.
+What's unsaved, the save state, writing the files and the stylesheet with the timers for saving automatically, and the
+recovery copy are `createProjectSaver` in `packages/multiplayer/src/saver.ts`; a file changed back to what's saved is
+saved again (`sameDocument`). The changes callers make are `packages/multiplayer/src/callers.ts` (`changeTokens`,
+`applyAgentChanges` taking tokens through `mergeAgentChanges` in `packages/editor/src/design-changes.ts`, and
+`updateView` tidying the view), and `DesignSnapshot`, `SaveState` and `TokenFailure` are
+`packages/editor/src/snapshot.ts`. In the window, `apps/desktop/src/renderer/project-doc.ts` opens each project's
+document and saver (`openDocSession`, over `localProvider`), with `undo` and `redo`, which record `edit.undone` and
+`edit.redone`, and `reloadFile`, which leaves a file with unsaved changes alone unless forced. Token values as data are
 the package's `token-edits.ts` (`withTokenEdits`, which keeps the value each token had before its first edit,
 `tokenDifferences`, `tokenWrites`, `tokensWithEdits`); comparing files with views tidied is its `document-equality.ts`.
-`tokens-store.ts` previews the history's token values in the shared stylesheet after each edit, undo or redo, and gives
-the design store its writer; `workspace.ts` makes one per guest, so a guest loaded again shows the unsaved values too.
-The agent's call is `agent/handlers.ts` (`apply`), the panel `chrome/TokensPanel.tsx`. Saving writes the values into the
-stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, which `saveTokens` in
+`tokens-store.ts` previews the document's token values in the shared stylesheet after each edit, undo or redo, and gives
+the saver its writer (`writeTokensWith`); `workspace.ts` makes one per guest, so a guest loaded again shows the unsaved
+values too. The agent's call is `agent/handlers.ts` (`apply`), the panel `chrome/TokensPanel.tsx`. Saving writes the
+values into the stylesheet with `writeTokenChanges` in `packages/tokens/src/stylesheet.ts`, which `saveTokens` in
 `apps/desktop/src/utility/projects.ts` applies as a project edit. A `TokenWrite` without a value is a value taken out,
 which `writeTokenChanges` hands to `removeCustomProperty` there.
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (46 with the gestures below): undo and redo with their labels; each change
-  without a gesture a step of its own; the 200-step limit; what a board shows left alone by Undo and not recorded; token
-  edits undone, redone and saved; nothing to write when they're back at the stylesheet's value; the stylesheet's value
-  written back after undoing past a save; a dark `--radius` saved, undone and saved again, through the real writer,
-  leaving the stylesheet as it was and no override for offscreen frames once undone ("take a value a theme didn't have
-  out of the stylesheet", PAR-420); a failed write naming the token and the file and clearing on success; several tokens
-  failing together; Save starting again after a failed write was undone back to the file being saved; an agent's call as
-  one step; undoing a merged call back to just before it, keeping an edit made during it; the modes a call set undone
-  with its designs; Show every state off again leaving the file clean; another state and back from a file with its view
-  written out in full; a file that differs in more than its view staying unsaved until undone; and files changed on disk
-  taken as saved, unless they have unsaved changes; and no token override left once an edit is undone (PAR-465).
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, run on each provider (`localProvider`, `loroProvider` and
+  the plain one): under "undo and gestures", undo and redo with their labels ("goes back and forth through steps, with
+  their labels and meta"), the undo limit ("stops at the undo limit, and gives each step an id that's never used again",
+  with a limit of 3), what a board shows left alone by Undo and never a step, and token edits undone ("leaves what each
+  design shows as it is now", "never makes steps of view changes or loading, and makes them of token edits"); under
+  "reading and writing", an agent's call as one step with its designs, modes, token values and references, all undone
+  together, and a file changed on disk replaced as one step that isn't written ("replaces a file as one step that isn't
+  written, with the main file's modes"); and under "changes", Undo taking back only this person's step ("undoes only
+  this person's step, keeping the other person's later change to the same field").
+- `packages/multiplayer/src/saver.test.ts` "ProjectSaver" (13): a changed file written a moment later and saved again; a
+  file taken out deleted; a path written again after the write in flight; Save waited for with autosave off; a failed
+  write saying why, the file kept unsaved, and recovering on the next; token values written to the stylesheet, named
+  when the write fails and cleared on success; a file reloaded from disk taken as saved, cancelling a save that waited;
+  a change back to what the file holds taken as saved; the modes written into the main file; the recovery copy and
+  restoring it; and listeners told of the save state.
+- `apps/desktop/src/renderer/project-doc.test.ts`: "library designs" (never written to the project's files); "files
+  changed outside the canvas" (taken in, unsaved work left alone unless forced, and a save waiting stopped); "the status
+  agents read" (a main file opened with modes saved without them once they're back to the defaults); and "telemetry"
+  (`edit.undone` and `edit.redone` with each step's label and what it changed).
+- Gaps since `history.test.ts` and `design-store.test.ts` went: no test now covers several tokens failing together; Save
+  starting again after a failed write was undone back to what the file holds; undoing an agent's merged call back to
+  just before it, keeping an edit made during it; a file clean again after Show every state on and off, or another state
+  and back from a file that wrote its view out in full, and one that differs in more than its view staying unsaved; or a
+  dark `--radius` saved, undone and saved again through the saver and the real writer.
 - `apps/desktop/src/renderer/agent/file-changed-events.test.ts` (2): a file changed on disk with unsaved changes here
   records `document.conflicted`, and Load from disk records `document.loadedFromDisk`; one with nothing unsaved records
   neither (PAR-809).
@@ -5222,9 +5245,6 @@ Tests:
 - `packages/agent/src/run.test.ts` (2 of its 29): a call gives each design it changed, created or deleted with the
   design as it read it, and no others; a refused call fails naming the design, keeps its snippet, and runs again by
   `editId`.
-- `apps/desktop/src/renderer/design-store.test.ts` (12 of its 21): Save writing the files and the stylesheet, saving
-  automatically a moment later, a failed save thrown and cleared, a reload cancelling a save waiting to happen, library
-  designs never written, and a dark `--radius` undone after a save written to the stylesheet without a value.
 - `packages/tokens/src/stylesheet.test.ts` (15 of its 18): taking a value out (PAR-420): one added to an existing block
   taken out again, leaving the stylesheet as it was; a block left empty taken out with it, a new `.dark` or `@theme`
   block leaving the file as it was, between other rules and on one line too; every block of the theme losing the
@@ -5301,32 +5321,33 @@ field. Time plays no part, so a slow drag with long pauses is still one step, an
 - **Changes from elsewhere.** An agent's call or a file reloaded during a gesture is a step of its own, so the gesture's
   changes after it make a second step. The agent's work stays out of the gesture's undo.
 
-Code: `packages/editor/src/history.ts` (`recordChange` with the `gesture` option, `endGesture`, and `checkpoint` and
-`revertTo` by gesture) and `apps/desktop/src/renderer/design-store.ts` (`beginGesture`, `endGesture`). The canvas's
-drags and runs begin and end theirs through `canvas/gesture.ts`: `followPress` for resize handles
-(`canvas/CanvasOverlay.tsx`), layer drags (`canvas/layer-drag.ts`) and title drags (`canvas/ContainerUtil.tsx`), and
-`GestureRun` for runs, in `canvas/nudge.ts` (`runGesture`) and `inspector/sections/section-edits.ts` (the style
-sections' runs, as `inspector/controls/edit-session.ts` says). A number prop's runs are gestures of its own
-(`NumberProp` in `inspector/controls/number-field.tsx`). Their gesture reaches the store through `style-editor.ts`,
-`LayerPanel.tsx` and `inspector/sections/PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
+Code: the `ProjectDoc` in `packages/multiplayer/src/project-doc.ts`: `beginGesture`, `transact` with the `gesture`
+option, `endGesture`, `cancelGesture`, and `checkpoint` and `revert` by gesture. A gesture's step holds only its own
+transactions, and undoing it applies their inverse operations in reverse order. The canvas's drags and runs begin and
+end theirs through `canvas/gesture.ts`: `followPress` for resize handles (`canvas/CanvasOverlay.tsx`), layer drags
+(`canvas/layer-drag.ts`) and title drags (`canvas/ContainerUtil.tsx`), and `GestureRun` for runs, in `canvas/nudge.ts`
+(`runGesture`) and `inspector/sections/section-edits.ts` (the style sections' runs, as
+`inspector/controls/edit-session.ts` says). A number prop's runs are gestures of its own (`NumberProp` in
+`inspector/controls/number-field.tsx`). Their gesture reaches the document through `style-editor.ts`, `LayerPanel.tsx`
+and `inspector/sections/PropsSection.tsx`. tldraw's translate is `canvas/CanvasEditor.tsx`'s.
 
 Tests:
 
-- `packages/editor/src/history.test.ts` (10 of its 46), without Electron: a drag, a resize, a scrub and a run of arrow
-  presses, each with five-second pauses between its changes, as one step labelled by its first change, undone to where
-  it began with the file clean, and redone; a gesture that changes nothing adding no step; one that comes back where it
-  began leaving none, and going on from there starting its step again; one that comes back keeping what Redo had, which
-  a gesture ended elsewhere doesn't; another change, an undo or the gesture's end ending its step; two gestures' changes
-  kept apart; and a file reloaded mid-gesture as a step of its own, between the gesture's.
-- `apps/desktop/src/renderer/design-store.test.ts` (2 of its 21): a gesture's changes five seconds apart as one step
-  until it ends, and each gesture its own id; and a live drag written as an absolutely placed layer's is, taking a side
-  back to the checkpoint mid-drag, as one step, and as none once Escape reverts it. Its checkpoint tests are under
-  "Resize handles".
-- `apps/desktop/src/renderer/canvas/gesture.test.ts`, without Electron: for each of the canvas's five drags, Escape
-  leaving nothing to undo, the window losing focus ending it as its policy says, and the release keeping it as one step
-  (under "Cursors and Escape during a gesture"); and a run, one gesture for presses on one selection, another for a
-  press on another, ended as the selection changes and going on while the same one is selected again, following the
-  selection only while it lasts.
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "undo and gestures", run on each provider, without
+  Electron: a gesture's transactions as one step and two gestures side by side a step each ("makes a gesture's
+  transactions one step, and two gestures side by side a step each"); an agent's transaction during a drag a step of its
+  own, and the drag's next one a new step; a gesture that ends where it began leaving no step, Redo as it was, and an
+  agent's step made meanwhile kept; and a cancelled gesture leaving no step. A transaction that changes nothing makes no
+  step ("returns no change and makes no step for a transaction that changes nothing", under "reading and writing").
+  `ProjectDoc` groups by gesture without reading the clock, so these tests have no pauses. No test now covers a file
+  reloaded mid-gesture as a step of its own, an undo ending a gesture's step, or a step labelled by its first change;
+  the history's tests did, and are gone.
+- `apps/desktop/src/renderer/canvas/gesture.test.ts`, without Electron: a drag taking back what it wrote so far and
+  going on in the same undo step ("lets a drag take back what it wrote so far and go on in the same undo step"), as an
+  absolutely placed layer's live drag does; for each of the canvas's five drags, Escape leaving nothing to undo, the
+  window losing focus ending it as its policy says, and the release keeping it as one step (under "Cursors and Escape
+  during a gesture"); and a run, one gesture for presses on one selection, another for a press on another, ended as the
+  selection changes and going on while the same one is selected again, following the selection only while it lasts.
 - `apps/desktop/src/renderer/canvas/nudge.test.ts` and `chrome/fields.test.ts`: the runs and the scrub, under "Nudging"
   and "Typing, stepping and scrubbing".
 - End to end, each pausing longer than the one-second window the history used to group by: `moving.e2e.ts`, New project
@@ -5335,9 +5356,9 @@ Tests:
   `selecting.e2e.ts`, Sign in dragged by its board with a pause, then one undo.
 
 Gaps: a layer drag in a layout and a title drag write once, on release, and have no slow test of their own; the live
-drag of an absolutely placed layer is tested through the store, not end to end with a pause. A frame's own handles and a
-note dragged by tldraw go through the same code as a resize and a board, without tests of their own. Escape during
-tldraw's drag of a board isn't covered.
+drag of an absolutely placed layer is tested in `canvas/gesture.test.ts`, not end to end with a pause. A frame's own
+handles and a note dragged by tldraw go through the same code as a resize and a board, without tests of their own.
+Escape during tldraw's drag of a board isn't covered.
 
 ### Edits in the state and variant shown (PAR-164)
 
@@ -5405,12 +5426,12 @@ with instances); `instances.ts` (`layerOnBoard`, for one of a design's own layer
 `packages/editor/src/shown.ts` (`shownNode`, `boardReader`) builds the context an operation reads with,
 `packages/editor/src/style-editing.ts` (`styleSelection`) the style rows' reads, edits and resets, and
 `packages/editor/src/edit-frame.ts` (`editFrame`, `editingState`, `modeViewport`) the design, state and viewport an edit
-lands on, from the selection model in `packages/editor/src/selection.ts`. The app's `DesignStore.editFrame` looks the
-design up for it. In the app, `canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`),
-`chrome/LayerTree.tsx` (the row's hidden mark), `chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx`
-(the layer as the board shows it), `chrome/BaseDesignNote.tsx` (in the Image and Instance sections),
-`chrome/edit-scope.ts` (`baseDesignNote`, the note's words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and
-`chrome/fields.tsx` (`ValueInput`).
+lands on, from the selection model in `packages/editor/src/selection.ts`. `editFrame` in
+`packages/multiplayer/src/lookups.ts` looks the design up for it in the `ProjectDoc`. In the app,
+`canvas/TextEditor.tsx`, `chrome/arrange.ts` (`toggleHiddenLayers`), `chrome/LayerTree.tsx` (the row's hidden mark),
+`chrome/layers-menu.ts` (its Hide in menu item), `chrome/LayerPanel.tsx` (the layer as the board shows it),
+`chrome/BaseDesignNote.tsx` (in the Image and Instance sections), `chrome/edit-scope.ts` (`baseDesignNote`, the note's
+words), `chrome/prop-values.ts` (`valueKind`, `readValue`) and `chrome/fields.tsx` (`ValueInput`).
 
 Tests:
 
@@ -5593,7 +5614,7 @@ lists them.
 
 Code: the schema and `preferenceOverrides`, `withProjectPreferences`, `setPreferenceOverride`,
 `clearPreferenceOverride`, `setExtensionSetting` and `clearExtensionSetting` in `packages/core/src/project-settings.ts`,
-which take and return data; `mergedDocument` in `packages/editor/src/history.ts`; and in the window,
+which take and return data; `mergedDocument` in `packages/editor/src/snapshot.ts`; and in the window,
 `renderer/project-settings.ts`: `useProjectSettings`, `setProjectPreference`, `clearProjectPreference`,
 `setProjectExtensionSetting`, `clearProjectExtensionSetting`, `useEffectivePreferences`, `getEffectivePreferences` and
 `setEffectivePreference`. An extension reads its own project settings, as Storybook does its config folder.
@@ -5604,10 +5625,10 @@ Tests:
   as it was once the last is cleared, the project's values over the person's, values and preferences refused; extension
   settings read back, cleared down to nothing, and Storybook's folder unset when it isn't one; and a file from before
   project settings reading and saving without them.
-- `packages/editor/src/history.test.ts`: Save a copy keeps the main file's settings.
+- `packages/editor/src/snapshot.test.ts`, "the merged project file": Save a copy keeps the main file's settings.
 - `apps/desktop/src/renderer/project-settings.test.ts` (5): each change an undoable, saved step on the main file, the
-  file made when there's none, clearing what isn't set leaving the history alone, the preferences in effect, and a
-  toggle changing the project's value or the person's.
+  file made when there's none, clearing what isn't set leaving undo alone, the preferences in effect, and a toggle
+  changing the project's value or the person's.
 - `packages/project/src/index.test.ts`: Storybook found in the folder the project sets, and none when it has no config.
 - `apps/desktop/src/utility/projects.test.ts`: the service finds Storybook there, and asks the windows to open the
   project again when the folder changes.
@@ -6031,17 +6052,18 @@ showcase.
 - **Search** finds them by name, as it does components.
 
 Code: `libraryDesigns` in `packages/core/src/library.ts`; `findLibraries` in `packages/project/src/libraries.ts`, which
-puts them on the library (`LibraryInfo.designs`); `DesignStore` in `apps/desktop/src/renderer/design-store.ts`, which
-adds them to the designs instances can place (`getComponentLibrary`); `componentSources` in
+puts them on the library (`LibraryInfo.designs`); the window's session in `apps/desktop/src/renderer/project-doc.ts`,
+which keeps them (`libraryDesigns`) and adds them to the designs instances can place (`projectLibrary` and `libraryOf`,
+over `componentLibrary` and `reachableLibrary` in `packages/multiplayer/src/lookups.ts`); `componentSources` in
 `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`.
 
 Tests: `packages/core/src/library.test.ts` (2: component designs named by the library, their instances following,
 screens left out; and the instances another instance fills its slots with named by the library too, PAR-966).
 `packages/project/src/index.test.ts` (1: a dependency's canvas designs on its library).
-`apps/desktop/src/renderer/design-store.test.ts` (1: a project design reaches a library design it places, which isn't an
-entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an isolated copy of the app
-on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen: the library's section
-listed the design under Ready-made components and left the screen out.
+`apps/desktop/src/renderer/project-doc.test.ts` (1, "library designs": a project design reaches a library design it
+places, which isn't an entry and isn't saved). Gaps: the panel's section has no automated test. It was checked in an
+isolated copy of the app on 2026-10-29, with a dependency whose `.lib.par` canvas held a component design and a screen:
+the library's section listed the design under Ready-made components and left the screen out.
 
 ### Providers a library's parts need (PAR-428, PAR-453)
 
@@ -6199,7 +6221,7 @@ of a pixel.
 
 ### A hidden tab's frames sleep (PAR-153)
 
-A tab that isn't showing keeps its session, its store and its boards, but 3 seconds after it's hidden every frame
+A tab that isn't showing keeps its session, its document and its boards, but 3 seconds after it's hidden every frame
 showing its bitmap sleeps, on every board including the selected one: its design's React root is unmounted and its
 elements removed, as zoomed far out (see above). Shown again, every frame shows at once, the frames near the view
 drawing their design or, until they wake, their bitmap, and frames away from the view keeping their bitmap until they
@@ -6982,9 +7004,9 @@ settings change how the canvas draws it, never the design.
 Code: `packages/core/src/preview.ts` (`previewKey`, `previewSettingsOf`, `previewOptionsMode`, `previewGeometry`,
 `previewScale`, `withPreviewValues`, `withoutPreviewValues`, `unsavedPreviewValues`, `withSavedPreviewValues`,
 `breakpointAt`, `snapToBreakpoint`), the view's `previews` in `document.ts`, and `boardSize` in `board.ts`;
-`pickPreviews` and `selectedPreviews` in `packages/editor/src/selection.ts`, and `savedView` in `history.ts` (in the
-design's file, or the project file's `codeDesigns` for a design drawn from code); in the app, `getSavedView` in
-`design-store.ts`, `useSavedView`, `PreviewHeader`, `ZoomField` and `SettingsMenu` in `canvas/preview-parts.tsx`,
+`pickPreviews` and `selectedPreviews` in `packages/editor/src/selection.ts`, and `savedView` in `snapshot.ts` (in the
+design's file, or the project file's `codeDesigns` for a design drawn from code); in the app, `savedViewOf` in
+`project-doc.ts`, `useSavedView`, `PreviewHeader`, `ZoomField` and `SettingsMenu` in `canvas/preview-parts.tsx`,
 `PreviewResize` and `useBreakpoints` in `canvas/preview-resize.tsx`, and `BoardView`, `FrameTile` and `PreviewRing` in
 `canvas/ContainerView.tsx`; `KindOutlines` in `canvas/CanvasEditor.tsx` leaves out the board's outline. The canvas
 leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
@@ -6992,18 +7014,18 @@ leaves presses on a `data-canvas-control` to the control (`CanvasOverlay`).
 Tests: `packages/core/src/preview.test.ts` (13: a preview's key read back, its options drawn over its mode's viewport,
 its width with the window it stands for, its scale, setting and dropping values, what a design file holds, what changed
 since the last save, values put back as saved, a board sized by each row's previews, the breakpoint a width is at, and
-landing on a breakpoint); `packages/editor/src/history.test.ts`, "a design's view as saved" (2: from its file as saved
-rather than as it is, and from the project file for a design drawn from code); `packages/editor/src/selection.test.ts`,
-"selecting previews" (6: one preview as a mode and state, a click selecting it alone, Shift adding and removing it, a
-row added and removed, the design left once the last is removed, and selections told apart). Gaps: the header's
-stacking, the popover and the handle have no automated test. They were tried in a development build on the example
-project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan card / Default, Preview settings set
-Desktop Dark to 900 wide and its header then showed the change dot and reset, the handle dragged Desktop Light from 181
-to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and Pricing's page reflowed as it was dragged
-from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page taller than the window. In Storybook's
-Parity/Canvas/Boards Every state on 2026-11-14, Button / Default in Desktop Dark set to 900 wide showed the dot and the
-reset, a save took both away and left the settings button, and 950 then reset to 900; pointing at a header outlined its
-preview.
+landing on a breakpoint); `packages/editor/src/snapshot.test.ts`, "a design's view as saved" (2: from the design's file
+as given, which `savedViewOf` takes from the saver's saved files, and from the project file for a design drawn from
+code); `packages/editor/src/selection.test.ts`, "selecting previews" (6: one preview as a mode and state, a click
+selecting it alone, Shift adding and removing it, a row added and removed, the design left once the last is removed, and
+selections told apart). Gaps: the header's stacking, the popover and the handle have no automated test. They were tried
+in a development build on the example project at 94% to 546%: Shift+click selected Desktop Dark and Mobile Light on Plan
+card / Default, Preview settings set Desktop Dark to 900 wide and its header then showed the change dot and reset, the
+handle dragged Desktop Light from 181 to 195 at 332%, Shift+Left took it to 185 and a double-click put it back, and
+Pricing's page reflowed as it was dragged from 962 to 856. The breakpoint ruler wasn't seen, since it sat under a page
+taller than the window. In Storybook's Parity/Canvas/Boards Every state on 2026-11-14, Button / Default in Desktop Dark
+set to 900 wide showed the dot and the reset, a save took both away and left the settings button, and 950 then reset to
+900; pointing at a header outlined its preview.
 
 ### A board's rows and columns, in order (PAR-1071)
 
@@ -7622,7 +7644,8 @@ A design's view names modes, states and route params, and what it names can go: 
 taken out of its file, a route's param renamed. Nothing stale is left to show in a menu or pile up in the file.
 
 - **When a mode is taken away in Parity,** the same step takes it out of every design's view: the modes it shows, its
-  order, its scales and the previews in it (`prunedDocument`, from `DesignStore.setModes`). Undo puts both back.
+  order, its scales and the previews in it (`prunedDocument`, from `setModes` in `packages/multiplayer/src/callers.ts`).
+  Undo puts both back.
 - **When the project opens,** every design's view is pruned against the project's modes, its own states and, for a page
   of the app, its route's params (`withPrunedView`), so what changed outside Parity, in the project file or the app's
   code, goes too. What's kept for designs drawn from code (`codeDesigns`) loses the entry of a design its file no longer
@@ -7631,7 +7654,7 @@ taken out of its file, a route's param renamed. Nothing stale is left to show in
 - **A layer that's gone** loses its tried size the same way, since what's kept is read again from the design as it is.
 
 Code: `prunedView`, `withPrunedView` and `prunedDocument` in `packages/editor/src/prune-view.ts`; `setModes` in
-`apps/desktop/src/renderer/design-store.ts`; `openCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts` and
+`packages/multiplayer/src/callers.ts`; `openCodeDesigns` in `apps/desktop/src/renderer/canvas/code-designs.ts` and
 `routeParams` in `route-pages.ts`, run from `createSession` in `workspace.ts`. Tests:
 `packages/editor/src/prune-view.test.ts` (modes gone wherever named, states gone as a story taken out, a screen's
 previews kept, a page's params gone and a design's kept, and a view naming nothing gone left as it is). Gaps: neither
@@ -8128,7 +8151,7 @@ The editor's labels, menus, hints, toasts and undo labels use one glossary (PAR-
   panel lists the project's own as Local components and a library's ready-made ones as Ready-made components.
 
 Code: `kindName`, `kindTitle` and `kindsName` in `packages/editor/src/kind-names.ts` name screens and components for a
-label; `DesignStore.designsLabel` names selected ones by key, and `modeNames` in
+label; `designsLabel` in `packages/multiplayer/src/callers.ts` names selected ones by key, and `modeNames` in
 `apps/desktop/src/renderer/canvas/view.ts` names modes.
 
 Tests: `packages/editor/src/kind-names.test.ts` (3: one by kind, several of one kind, a mix with screens first),
@@ -8372,9 +8395,9 @@ records the same `name` change as one renamed in the inspector. Detach, Push to 
 [telemetry.md](telemetry.md), "Editing".
 
 `chrome/inspector-events.test.ts` covers, through the test sink: a style row on layers whose values differ; a number
-prop previewed, then made or taken back; and, for changes read back from the design store, a design's and a layer's
-name, a layer's name taken off, a design given no name, a rename to the same name, a variant the design refuses and one
-added, a state added, a layout made a slot, a state's change reset, and a token's values by theme.
+prop previewed, then made or taken back; and, for changes read back from the document, a design's and a layer's name, a
+layer's name taken off, a design given no name, a rename to the same name, a variant the design refuses and one added, a
+state added, a layout made a slot, a state's change reset, and a token's values by theme.
 `chrome/component-events.test.ts` covers an instance detached, a layer that isn't one, a copy's overrides pushed whole
 and from a layer inside it, layers made a component, and a push that throws.
 
@@ -8404,7 +8427,7 @@ library file, and naming a file that isn't JSON).
 ### A part that fails keeps the rest working (PAR-667)
 
 When part of the window throws while it draws, it says so in its own place and the rest of the window carries on. Edits
-live in the project's store, not in what draws them, so nothing is lost. Each place has a design of its own:
+live in the project's document, not in what draws them, so nothing is lost. Each place has a design of its own:
 
 - **A panel's tab, a whole panel or the canvas** shows what stopped and Try again, as the Inspector's empty state is
   laid out, with Report a problem and Copy details under it. The panel's tabs and its edge still work.
@@ -8695,10 +8718,12 @@ adapter the routes (`tanstack-router`, keyed by the route's id) and an entities 
 Code: `NodeRef`, `ProjectNode`, `ProjectNodes`, `NodeEvent` and `NodesChange` in `packages/core/src/nodes.ts`;
 `collectNodes`, `createNodeCollector` and `createNodeIndex` in `packages/editor/src/node-index.ts`, tested in
 `node-index.test.ts`; `createEditSettler` in `packages/editor/src/edit-settler.ts`, tested in `edit-settler.test.ts`;
-the store's `inGesture` and `subscribeGestures`, tested in `design-store.test.ts`; `projectNodes` in
+the `ProjectDoc`'s `inGesture` and `subscribeGestures`, in `packages/multiplayer/src/project-doc.ts`; `projectNodes` in
 `apps/desktop/src/renderer/project-nodes.ts`; and its use in `projectItems` in `ActionsSearch.tsx`. Checked in the
-running app: searching "badge" lists the Badge stories' layers, and choosing one selects it. Gaps: `projectNodes`'s
-wiring of the store to the settler and the Search use have no automated test.
+running app: searching "badge" lists the Badge stories' layers, and choosing one selects it. `inGesture` is tested in
+`packages/multiplayer/src/testing/describe-project-doc.ts`, "makes a gesture's transactions one step, and two gestures
+side by side a step each". Gaps: `subscribeGestures` has no test of its own since the design store's went, and
+`projectNodes`'s wiring of the document to the settler and the Search use have no automated test.
 
 ## Signing in (PAR-612, PAR-669)
 
@@ -9084,8 +9109,8 @@ their frames offscreen, from the tab's snapshot. They now draw with the canvas's
 
 - **Library instances.** An instance of a library's component design (from a `.lib.par` canvas, such as `kit/label`)
   draws that design, where it used to draw the `No component design "kit/label"` placeholder. The snapshot carries the
-  design store's library designs, and agents build the library as the canvas does, the project's own design winning an
-  id they share.
+  session's library designs, and agents build the library as the canvas does, the project's own design winning an id
+  they share.
 - **Token previews.** Unsaved token edits show in agents' frames, exports and the Accessibility panel as on the canvas,
   and a call's own `SetTokens` shows in the frames it draws after it, in the same call. Each job carries the complete
   set of token values that differ from the compiled CSS, not the changes since the last job. It's compared with the CSS
@@ -9097,12 +9122,13 @@ their frames offscreen, from the tab's snapshot. They now draw with the canvas's
   starts over only when the set changed, so a run of jobs with the same set doesn't rebuild it, and a set that fails
   partway is never taken as shown. The canvas's own frames are edited in place, as before.
 
-Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `DesignStore` (`getLibraryDesigns`) and
-`AgentWorkspace.library` in `packages/agent/src/workspace.ts`; `withTokenOverrides` in
-`packages/editor/src/token-edits.ts`, which `TokenStore` follows its edits with and `previews` gives; `tokenValues` in
-`workspace.ts` laying the call's `SetTokens` over them for each `FrameRequest`; the snapshot in
-`apps/desktop/src/renderer/agent/handlers.ts` and `renderFor` in `apps/desktop/src/utility/agent.ts`; `guestSheet` and
-`showTokenOverrides` in `apps/desktop/src/renderer/guest.ts`, called by `render.ts` for each job.
+Code: `projectComponentLibrary` in `packages/core/src/render.ts`, used by `componentLibrary` in
+`packages/multiplayer/src/lookups.ts` (the window session's `libraryDesigns`) and `AgentWorkspace.library` in
+`packages/agent/src/workspace.ts`; `withTokenOverrides` in `packages/editor/src/token-edits.ts`, which `TokenStore`
+follows its edits with and `previews` gives; `tokenValues` in `workspace.ts` laying the call's `SetTokens` over them for
+each `FrameRequest`; the snapshot in `apps/desktop/src/renderer/agent/handlers.ts` and `renderFor` in
+`apps/desktop/src/utility/agent.ts`; `guestSheet` and `showTokenOverrides` in `apps/desktop/src/renderer/guest.ts`,
+called by `render.ts` for each job.
 
 Tests:
 
@@ -9111,16 +9137,17 @@ Tests:
   project design wins over a library design with its id; frames carry the canvas's unsaved values, then those with the
   call's `SetTokens` over them; and nothing when no value differs.
 - `packages/core/src/render.test.ts` (1): the project's library holds the library designs and its own, its own winning.
-- `packages/editor/src/token-edits.test.ts` (2) and `history.test.ts` (1): only values that differ are overrides; an
-  edit undone, also one giving a theme a new value, leaves none; a saved edit still is one; and after a guest loads
-  again with the edits saved, undoing them overrides with the value put back and an empty one for the theme value taken
-  out.
+- `packages/editor/src/token-edits.test.ts` (2, "as overrides for frames drawn elsewhere"): only values that differ are
+  overrides; an edit undone, also one giving a theme a new value, leaves none; a saved edit still is one; and after a
+  guest loads again with the edits saved, undoing them overrides with the value put back and an empty one for the theme
+  value taken out.
 - `apps/desktop/src/renderer/guest.test.ts` (3 of its 6), in Chrome: overrides A, then none, then another set, then A
   again give the same stylesheet as A the first time, and none gives the compiled one; a theme value taken out once the
   set leaves it out; only a guest's stylesheet takes overrides; and a set that threw partway doesn't stop the one before
   it being laid over again.
 - `apps/desktop/src/renderer/tokens-store.test.ts` (1 of its 3): `previews()` empty once an edit is undone.
-- `apps/desktop/src/renderer/design-store.test.ts` (1 of its 21): the library designs the snapshot carries.
+- `apps/desktop/src/renderer/project-doc.test.ts` (1, "library designs"): the session's library designs, which the
+  snapshot carries. That the snapshot takes them from the session is checked by reading.
 
 Gaps: the snapshot and `renderFor` wiring has no test of its own, and checked by reading; the end-to-end tests run in
 CI. The snapshot crosses from the window to the service as the window's other replies do, unchecked; its library designs
@@ -9767,15 +9794,20 @@ changed modes, token values, and the undo and redo labels. `get_app_state` carri
 nothing; the revision changes with every change, undo, redo, revert or reload of designs, modes or token edits, and not
 with saving or the camera.
 
-Implementation: `revision` in `packages/editor/src/history.ts` (`restore`); `editStatus` in
-`packages/editor/src/status.ts`; `DesignStore.status` and `getRevision` in `apps/desktop/src/renderer/design-store.ts`;
+Implementation: `revisionOf` in `apps/desktop/src/renderer/project-doc.ts`, which counts the document's changes, token
+edits included, since those never reach the provider and leave its `version` as it was; `editStatus` in
+`packages/editor/src/status.ts`, which takes plain values; `editStatusOf` there, which reads the document and the saver;
 `agent.status` in `renderer/agent/handlers.ts` and `shared/protocol.ts`; the `status` RPC and state's revision in
 `utility/agent.ts`; the `status` operation in `packages/cli/src/operations.ts`, `describeStatus` in `client.ts`, and the
 adapters in `mcp.ts` and `bin.ts`.
 
-Tests: `packages/editor/src/status.test.ts` (clean at 0; change, undo and redo each counted and told apart from what's
-saved; saving and a failed write leave the revision; a bounded summary of added, changed and removed designs, token
-values and labels newest first; changed modes). `packages/cli/src/operations.test.ts` (CLI and MCP defaults, explicit
+Tests: `packages/editor/src/status.test.ts` "editStatus" (clean, with nothing to undo; applied, undoable changes told
+apart from what's on disk, and failed writes; a bounded summary of added, changed and removed designs, token values and
+labels newest first; changed modes). `apps/desktop/src/renderer/project-doc.test.ts` "the status agents read" (what's
+unsaved and undoable, the revision moving with a change and kept by saving; a new revision for a change to token values
+alone and for its undo; token values waiting for the stylesheet).
+`packages/multiplayer-local/src/local-provider.test.ts` "says what changed, with a new version for each commit". A
+failed write leaving the revision has no test now. `packages/cli/src/operations.test.ts` (CLI and MCP defaults, explicit
 summary and limit, structured output, invalid summary and limit) and `client.test.ts` (the text). Checked in the running
 app on `examples/shadcn-vite`: a clean tab, an agent's rename (dirty, `changed button`, one undo step), a token edit
 (the stylesheet unsaved), and `state`'s revision moving with them. Gap: no end-to-end test drives a person's edit and

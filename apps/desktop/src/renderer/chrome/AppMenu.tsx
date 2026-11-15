@@ -13,6 +13,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
+import { containerEntries } from "@parity-app/multiplayer"
 import {
   Bug,
   Check,
@@ -162,7 +163,7 @@ function Toggle({
 function FileItems() {
   const session = activeSession()
   const recent = useRecentProjects()
-  const designs = session?.store.getEntries().length ?? 0
+  const designs = session ? containerEntries(session.doc).length : 0
 
   return (
     <>

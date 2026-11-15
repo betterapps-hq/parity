@@ -1,12 +1,13 @@
 import { routeParams } from "@parity-app/core"
+import { updateView } from "@parity-app/multiplayer"
 import { LayoutTemplate } from "lucide-react"
 import type { ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { designColor } from "../canvas/kinds.tsx"
 import type { PageGroupPlace } from "../canvas/route-pages.ts"
-import type { ContainerEntry } from "../design-store.ts"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { type PropRow, PropRows } from "../inspector/controls/instance-section.tsx"
+import type { ContainerEntry } from "../project-doc.ts"
 import { LayerHeader } from "./LayerPanel.tsx"
 import { Name } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -140,7 +141,7 @@ export function PageGroupPanel({ group }: { group: PageGroupPlace }) {
  * page, never the app's code. An unset one shows the param's name, which the page is drawn with.
  */
 export function RouteProps({ entry, route: id }: { entry: ContainerEntry; route: string }) {
-  const { info, store } = useProject()
+  const { info, doc } = useProject()
   const found = info.routes.find((each) => each.id === id)
   const params = found ? routeParams(found) : []
   const values = entry.container.view?.params ?? {}
@@ -157,7 +158,7 @@ export function RouteProps({ entry, route: id }: { entry: ContainerEntry; route:
         <PropRows
           rows={rows}
           onChange={(name, value) =>
-            store.updateView(entry.key, `Change ${name}`, (view) => {
+            updateView(doc, entry.key, `Change ${name}`, (view) => {
               const next = { ...view.params }
               // Each row is text, so a value is too.
               const text = textValue.safeParse(value)

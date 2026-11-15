@@ -6,7 +6,7 @@ import { findFrames, nodeBox } from "../frame.ts"
 import type { ProjectSession } from "../workspace.ts"
 
 /** A project's tab, whose id finds its routes' pages; a caller without one can't reveal a route. */
-type Session = Pick<ProjectSession, "editor" | "selection" | "store"> & { id?: string }
+type Session = Pick<ProjectSession, "editor" | "selection" | "doc"> & { id?: string }
 
 /**
  * Brings the selection into view without changing the zoom unless it has to: a design that's off screen is centered,
@@ -84,7 +84,7 @@ function refBounds(session: Session, ref: NodeRef): Box | undefined {
   for (let at = ref.key.indexOf("/"); at !== -1; at = ref.key.indexOf("/", at + 1)) {
     const design = ref.key.slice(0, at)
 
-    if (session.store.getEntry(design)) {
+    if (session.doc.design(design)) {
       return layerBounds(session.editor, design, ref.key.slice(at + 1))
     }
   }

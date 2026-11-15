@@ -82,7 +82,7 @@ export const QuittingWithSeveralUnsaved: Story = {
       await openAlso(...others.slice(0, 2).map(blankProjectAt))
 
       for (const root of others.slice(0, 2)) {
-        addNote(sessionAt(root).store, "Check the spacing on mobile")
+        addNote(sessionAt(root).doc, "Check the spacing on mobile")
       }
     }
   ],
@@ -99,7 +99,7 @@ export const QuittingWithTwoUnsaved: Story = {
     async () => {
       await exampleEdited()
       await openAlso(blankProjectAt(others[3]!))
-      addNote(sessionAt(others[3]!).store, "Check the spacing on mobile")
+      addNote(sessionAt(others[3]!).doc, "Check the spacing on mobile")
     }
   ],
   play: async () => {
@@ -125,6 +125,6 @@ export const SavingFails: Story = {
     await closeExampleTab()
     await userEvent.click(body().getByRole("button", { name: "Save" }))
     await holdToast("Couldn't save shadcn-vite")
-    await expect(workspace.getTab(roots.example)?.session?.store.hasUnsaved()).toBe(true)
+    await expect(workspace.getTab(roots.example)?.session?.saver.hasUnsaved()).toBe(true)
   }
 }

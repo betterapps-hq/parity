@@ -18,6 +18,7 @@ import {
   uniqueId,
   type VariableOption
 } from "@parity-app/core"
+import { setModes } from "@parity-app/multiplayer"
 import {
   Copy,
   Crown,
@@ -33,7 +34,7 @@ import {
 } from "lucide-react"
 import { useMemo } from "react"
 import { useProject } from "../canvas/context.ts"
-import { useModeSettings } from "../design-store.ts"
+import { useModeSettings } from "../project-doc.ts"
 import { useTokenList } from "../tokens-store.ts"
 import { AppSelect } from "./AppSelect.tsx"
 import { Hint } from "./Hint.tsx"
@@ -48,12 +49,13 @@ const kindIcons = { viewport: Monitor, theme: Palette, locale: Languages, custom
  * Chromatic mode in Storybook. The first mode is the primary frame everywhere.
  */
 export function ModesPanel() {
-  const { store, info, tokens: tokenStore } = useProject()
+  const session = useProject()
+  const { doc, info, tokens: tokenStore } = session
   const modesFile = info.modes
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(session)
   const tokens = useTokenList(tokenStore)
   const presets = useMemo(() => viewportPresets(tokens, info.libraries), [tokens, info.libraries])
-  const update = (next: Partial<ModeSettings>) => store.setModes({ ...settings, ...next })
+  const update = (next: Partial<ModeSettings>) => setModes(doc, { ...settings, ...next })
 
   const replaceMode = (id: string, next: ModeSpec) =>
     update({ modes: settings.modes.map((mode) => (mode.id === id ? next : mode)) })
@@ -76,7 +78,7 @@ export function ModesPanel() {
       base.modes.map((mode) => mode.id)
     )
 
-    store.setModes({ ...base, modes: [...base.modes, { id, name, values }] }, "Add mode")
+    setModes(doc, { ...base, modes: [...base.modes, { id, name, values }] }, "Add mode")
   }
 
   return (
@@ -87,7 +89,7 @@ export function ModesPanel() {
           <>
             Shared by every screen and component; each picks which to show.{" "}
             {modesFile.custom ? "Saved in " : "Using the defaults; editing saves them to "}
-            <code>{store.mainPath}</code>.
+            <code>{doc.main}</code>.
           </>
         }
         action={
@@ -164,7 +166,7 @@ export function ModesPanel() {
                 const added = withViewport(settings, preset)
 
                 if (added && added.settings !== settings) {
-                  store.setModes(added.settings, `Add ${preset.name}`)
+                  setModes(doc, added.settings, `Add ${preset.name}`)
                 }
               }}
               onRemove={(optionId) => {
@@ -184,7 +186,7 @@ export function ModesPanel() {
                   v.id === variable.id ? { ...v, options: v.options.filter((option) => option.id !== optionId) } : v
                 )
 
-                store.setModes({ ...settings, variables, modes }, "Remove option")
+                setModes(doc, { ...settings, variables, modes }, "Remove option")
               }}
             />
           ))}

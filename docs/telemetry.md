@@ -539,6 +539,10 @@ Some failures are recorded for you, so code doesn't record them again:
 | `project.opened`                   | info  | all  | service                                 | A project opens, with its builder serving it.                                                                                                                              |
 | `project.opening`                  | info  | all  | renderer                                | A tab asks the service to open a project, until the tab is ready or the open fails.                                                                                        |
 | `project.unsupported`              | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                                                                                           |
+| `projectDoc.closed`                | info  | all  | renderer                                | A project closes, with a summary of its document's session.                                                                                                                |
+| `projectDoc.openFailed`            | error | all  | renderer                                | Loading a project's designs into the document fails.                                                                                                                       |
+| `projectDoc.opened`                | info  | all  | renderer                                | A project's designs are loaded into the document.                                                                                                                          |
+| `projectDoc.refused`               | warn  | all  | renderer                                | A transaction is refused, or a gesture ends that had some refused, so nothing in them was applied.                                                                         |
 | `projectEdit.applied`              | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                                                                                 |
 | `projectEdit.undone`               | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                                                                                        |
 | `renderer.long_task`               | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                                                                          |
@@ -867,11 +871,12 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `document.saved`
 
-| Attribute    | Type      | Meaning                     |
-| ------------ | --------- | --------------------------- |
-| `file`       | `string`  | The file written            |
-| `durationMs` | `number`  | How long it took            |
-| `bytes`      | `integer` | The document's size as JSON |
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `file`       | `string`           | The file written                                                      |
+| `durationMs` | `number`           | How long it took                                                      |
+| `bytes`      | `integer`          | The document's size as JSON                                           |
+| `exportMs`   | `number`, optional | Time to produce the file's content from the document, in milliseconds |
 
 ### `edit.redone`
 
@@ -959,17 +964,19 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `gesture.ended`
 
-| Attribute    | Type                                                                                                                                                             | Meaning                                                                |
-| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| `kind`       | `"move" \| "resize" \| "layerDrag" \| "absoluteDrag" \| "titleDrag" \| "boxSelect" \| "frameDraw" \| "nudge" \| "fieldNudge" \| "insertDrag" \| "pan" \| "zoom"` | The gesture, as `canvas/gesture.ts` names it                           |
-| `how`        | `"release" \| "escape" \| "interrupted" \| "cancelled" \| "settled" \| "selection" \| "ended"`                                                                   | How it ended                                                           |
-| `kept`       | `boolean`                                                                                                                                                        | Whether what it did stands, rather than being taken back or called off |
-| `durationMs` | `number`                                                                                                                                                         | From when it began to when it ended, in milliseconds                   |
-| `designs`    | `string[]`, optional                                                                                                                                             | The designs it moved or changed, by key                                |
-| `layers`     | `string[]`, optional                                                                                                                                             | The layers it moved                                                    |
-| `fps`        | `number`, optional                                                                                                                                               | Frames the window drew per second during it                            |
-| `presses`    | `integer`, optional                                                                                                                                              | How many presses a run took                                            |
-| `undoStep`   | `boolean`                                                                                                                                                        | Whether it became an undo step                                         |
+| Attribute      | Type                                                                                                                                                             | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `kind`         | `"move" \| "resize" \| "layerDrag" \| "absoluteDrag" \| "titleDrag" \| "boxSelect" \| "frameDraw" \| "nudge" \| "fieldNudge" \| "insertDrag" \| "pan" \| "zoom"` | The gesture, as `canvas/gesture.ts` names it                           |
+| `how`          | `"release" \| "escape" \| "interrupted" \| "cancelled" \| "settled" \| "selection" \| "ended"`                                                                   | How it ended                                                           |
+| `kept`         | `boolean`                                                                                                                                                        | Whether what it did stands, rather than being taken back or called off |
+| `durationMs`   | `number`                                                                                                                                                         | From when it began to when it ended, in milliseconds                   |
+| `designs`      | `string[]`, optional                                                                                                                                             | The designs it moved or changed, by key                                |
+| `layers`       | `string[]`, optional                                                                                                                                             | The layers it moved                                                    |
+| `fps`          | `number`, optional                                                                                                                                               | Frames the window drew per second during it                            |
+| `presses`      | `integer`, optional                                                                                                                                              | How many presses a run took                                            |
+| `undoStep`     | `boolean`                                                                                                                                                        | Whether it became an undo step                                         |
+| `transactions` | `integer`, optional                                                                                                                                              | Transactions the gesture applied                                       |
+| `transactMs`   | `number`, optional                                                                                                                                               | Time spent checking and applying them, in milliseconds                 |
 
 ### `gesture.ran`
 
@@ -1331,6 +1338,53 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
 | `reason`  | `"no_package" \| "no_renderer" \| "no_builder"` | Why: no package.json, no renderer for its framework, or no builder for its bundler |
 | `detail`  | `string`                                        | What Parity found, as shown to the person opening it                               |
+
+### `projectDoc.closed`
+
+| Attribute      | Type                | Meaning                                                        |
+| -------------- | ------------------- | -------------------------------------------------------------- |
+| `provider`     | `string`            | The document's provider: `loro` or `local`                     |
+| `durationMs`   | `number`            | How long the document was open, in milliseconds                |
+| `transactions` | `integer`           | Transactions applied                                           |
+| `operations`   | `integer`           | Operations in them                                             |
+| `undos`        | `integer`           | Steps undone                                                   |
+| `redos`        | `integer`           | Steps redone                                                   |
+| `refused`      | `integer`           | Transactions refused                                           |
+| `layers`       | `integer`           | Layers when it closed                                          |
+| `peakBytes`    | `integer`, optional | The provider's largest state, in bytes, when it can say        |
+| `transactMs`   | `number`            | Time spent checking and applying transactions, in milliseconds |
+
+### `projectDoc.openFailed`
+
+| Attribute  | Type               | Meaning                                     |
+| ---------- | ------------------ | ------------------------------------------- |
+| `provider` | `string`           | The document's provider: `loro` or `local`  |
+| `files`    | `string[]`         | The project files in the document, by path  |
+| `file`     | `string`, optional | The file it failed on, when one is to blame |
+| `message`  | `string`           | Why, as the provider said it                |
+
+### `projectDoc.opened`
+
+| Attribute    | Type                | Meaning                                                                                   |
+| ------------ | ------------------- | ----------------------------------------------------------------------------------------- |
+| `provider`   | `string`            | The document's provider: `loro` or `local`                                                |
+| `files`      | `string[]`          | The project files in the document, by path                                                |
+| `designs`    | `integer`           | Designs in the document                                                                   |
+| `layers`     | `integer`           | Layers in the document                                                                    |
+| `durationMs` | `number`            | From reading the files to the document being ready, in milliseconds                       |
+| `wasmMs`     | `number`, optional  | Time to download and compile the provider's WebAssembly, in milliseconds, when it has any |
+| `bytes`      | `integer`, optional | The provider's state, in bytes, when it can say                                           |
+
+### `projectDoc.refused`
+
+| Attribute  | Type                                                                                                         | Meaning                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `provider` | `string`                                                                                                     | The document's provider: `loro` or `local`                  |
+| `label`    | `string`                                                                                                     | The transaction's label: `Move layer`                       |
+| `origin`   | `"edit" \| "agent" \| "extension" \| "file" \| "view" \| "code" \| "remote"`                                 | Who made it                                                 |
+| `problem`  | `"unknownDesign" \| "unknownNode" \| "takenId" \| "intoItself" \| "notSibling" \| "fixedField" \| "invalid"` | Why the first was refused                                   |
+| `op`       | `string`                                                                                                     | The kind of operation refused: `move`                       |
+| `count`    | `integer`                                                                                                    | Transactions refused in the run: one, or all of a gesture's |
 
 ### `projectEdit.applied`
 

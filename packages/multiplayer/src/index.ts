@@ -9,6 +9,7 @@ export {
   applyDocuments,
   applyOperations,
   changeFiles,
+  changeSnapshot,
   changeTokens,
   designsLabel,
   removeContainer,

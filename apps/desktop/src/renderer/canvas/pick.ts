@@ -7,7 +7,8 @@ import {
   selectedNodes,
   type Selection
 } from "@parity-app/editor"
-import type { DesignStore } from "../design-store.ts"
+import { containerEntry } from "@parity-app/multiplayer"
+import type { DocSession } from "../project-doc.ts"
 import { childLayers, findLayer } from "./layers.ts"
 
 /**
@@ -198,8 +199,8 @@ export type Enter = { edit: { design: string; node: string; mode?: string; state
  * inside the selected design (the one picked last, with several), in the frame they were picked in. Undefined when
  * there's nothing inside.
  */
-export function enterTarget(store: DesignStore, current: Selection): Enter | undefined {
-  const entry = current.design ? store.getEntry(current.design) : undefined
+export function enterTarget(designs: DocSession, current: Selection): Enter | undefined {
+  const entry = current.design ? containerEntry(designs.doc, current.design) : undefined
 
   if (!entry) {
     return undefined
@@ -217,14 +218,14 @@ export function enterTarget(store: DesignStore, current: Selection): Enter | und
 
   const nodes = selectedNodes(current)
   const only = nodes.length === 1 ? nodes[0] : undefined
-  const layer = only ? findLayer(store, entry.container, only) : undefined
+  const layer = only ? findLayer(designs, entry.container, only) : undefined
 
   if (only && layer && editableText(layer) !== undefined) {
     return { edit: { design: entry.key, node: only, ...frame } }
   }
 
   const parents = nodes.length > 0 ? nodes : [entry.container.root.id]
-  const children = parents.flatMap((id) => childLayers(store, entry.container, id))
+  const children = parents.flatMap((id) => childLayers(designs, entry.container, id))
 
   return children.length > 0 ? { select: layersSelection(entry.key, children, frame) } : undefined
 }

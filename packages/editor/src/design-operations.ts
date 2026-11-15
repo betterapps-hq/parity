@@ -13,7 +13,7 @@ import {
 } from "@parity-app/core"
 import { z } from "zod"
 import { sameDesign } from "./document-equality.ts"
-import type { DesignSnapshot } from "./history.ts"
+import type { DesignSnapshot } from "./snapshot.ts"
 
 /*
  * Changes to designs as operations on layers and their fields, as an extension sends them (PAR-1093). They're applied

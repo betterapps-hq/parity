@@ -1,5 +1,6 @@
 import { designStates, editNode, type NodeStyle } from "@parity-app/core"
 import { layersSelection, type StyleSection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { z } from "zod"
@@ -35,7 +36,7 @@ export const styled = (designName: string, layerName: string, style?: NodeStyle,
     const id = node(designName, layerName)
 
     if (style) {
-      example().store.updateContainer(key, "Change style", (container) =>
+      updateContainer(example().doc, key, "Change style", (container) =>
         editNode(container, state ?? designStates(container)[0]!.id, id, { style })
       )
     }

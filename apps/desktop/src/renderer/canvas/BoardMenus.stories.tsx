@@ -1,3 +1,4 @@
+import { updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, screen, userEvent, waitFor, within } from "storybook/test"
 import { inspecting } from "../chrome/inspector-stories.tsx"
@@ -43,7 +44,7 @@ export const EveryModeShown: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, "Show Desktop Dark, Tablet Light and Mobile Light", (view) => ({
+      updateView(example().doc, key, "Show Desktop Dark, Tablet Light and Mobile Light", (view) => ({
         ...view,
         modes: ["desktop-dark", "tablet-light", "mobile-light"]
       }))
@@ -68,7 +69,7 @@ export const AnotherModeFirst: Story = {
   loaders: [
     inspecting("design", () => {
       const key = design("Sign in")
-      example().store.updateView(key, "Show Mobile Light first", (view) => ({
+      updateView(example().doc, key, "Show Mobile Light first", (view) => ({
         ...view,
         mode: "mobile-light",
         modes: ["desktop-light"]

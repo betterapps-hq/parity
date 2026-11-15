@@ -10,6 +10,7 @@ import {
   tokenColor
 } from "@parity-app/core"
 import { kindName, type Selection } from "@parity-app/editor"
+import { containerEntry, updateContainer, updateView } from "@parity-app/multiplayer"
 import {
   ArrowUpRight,
   ChevronRight,
@@ -29,7 +30,7 @@ import { useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { setTabOrderShown, useTabOrderShown } from "../canvas/tab-order.ts"
-import { type ContainerEntry, useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
+import { type ContainerEntry, undo, useContainerEntry, useHistory, useModeSettings } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { type Check, checksOf, findingsOf, useCheck } from "./accessibility-checks.ts"
 import { ruleWords } from "./accessibility-rules.ts"
@@ -129,9 +130,9 @@ function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
 
 /** The Accessibility tab: automated checks of the selected design, in every state and the modes it shows. */
 export function AccessibilityPanel() {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
 
   if (!entry) {
     return (
@@ -148,7 +149,7 @@ export function AccessibilityPanel() {
 
 function DesignCheck({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
-  const modes = useModeSettings(session.store)
+  const modes = useModeSettings(session)
   const check = useCheck(session, entry.key)
   const { container } = entry
 
@@ -490,7 +491,7 @@ function LayerRow({
   every: string
   frameName: (frame: Frame) => string
 }) {
-  const { selection, store } = useProject()
+  const { selection, doc } = useProject()
   const node = layer.nodes[0] === undefined ? undefined : findNode(container.root, layer.nodes[0])
   const name = layer.name ?? `The ${kindName(container.kind)}`
   const view = entry.container.view
@@ -499,7 +500,7 @@ function LayerRow({
   const select = (frame: Frame) => {
     if (!view?.allStates && frame.state !== shownState) {
       const state = designStates(container).find((candidate) => candidate.id === frame.state)?.name ?? frame.state
-      store.updateView(entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
+      updateView(doc, entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
     }
 
     if (layer.nodes.length === 0) {
@@ -634,7 +635,7 @@ function ContrastFixRow({
   fix: TokenFix | "none"
 }) {
   const session = useProject()
-  const { undoLabel } = useHistory(session.store)
+  const undoLabel = useHistory(session).undo[0]
   const [appliedHere, setAppliedHere] = useState(false)
 
   if (fix === "none") {
@@ -651,7 +652,7 @@ function ContrastFixRow({
 
   // A fix is only known to work once it's checked, so the design is checked again as soon as it changes.
   const checkChanged = () => {
-    const changed = session.store.getEntry(entry.key)
+    const changed = containerEntry(session.doc, entry.key)
 
     if (changed) {
       void checksOf(session).run(changed)
@@ -660,7 +661,7 @@ function ContrastFixRow({
 
   const apply = () => {
     setAppliedHere(true)
-    session.store.updateContainer(entry.key, step, (container) => ({
+    updateContainer(session.doc, entry.key, step, (container) => ({
       ...container,
       root: nodes.reduce(
         (root, id) =>
@@ -694,7 +695,7 @@ function ContrastFixRow({
           className="pointer-events-auto"
           onClick={() => {
             setAppliedHere(false)
-            session.store.undo()
+            undo(session)
             checkChanged()
           }}
         >

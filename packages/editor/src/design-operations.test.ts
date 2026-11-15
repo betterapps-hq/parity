@@ -1,7 +1,7 @@
 import { type ContainerSpec, defaultModeSettings, formatVersion } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { designOperationChanges } from "./design-operations.ts"
-import type { DesignSnapshot } from "./history.ts"
+import type { DesignSnapshot } from "./snapshot.ts"
 import { noTokenEdits } from "./token-edits.ts"
 
 const home: ContainerSpec = {

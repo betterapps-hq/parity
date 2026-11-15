@@ -5,9 +5,9 @@ import {
   emptyDocument,
   type ModeSettings
 } from "@parity-app/core"
-import type { TokenEdit, TokenWrite } from "@parity-app/editor"
+import { restoreLabel, type TokenEdit, type TokenWrite } from "@parity-app/editor"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import { changeTokens, setModes, updateContainer } from "./callers.ts"
+import { changeTokens, restoreCopy, setModes, updateContainer } from "./callers.ts"
 import { createProjectDoc } from "./project-doc.ts"
 import { createProjectSaver } from "./saver.ts"
 import { plainProvider } from "./testing/plain-provider.ts"
@@ -244,5 +244,34 @@ describe("ProjectSaver", () => {
     expect(states).toContain("unsaved")
     expect(states).toContain("saving")
     expect(states.at(-1)).toBe("saved")
+  })
+
+  it("restores a recovery copy over a file changed since, as one undoable step that leaves it unsaved", () => {
+    const { doc, saver } = setup({ autosave: false })
+    rename(doc, "Home page")
+    const copy = saver.recoveryCopy(1)!
+    const fresh = setup({ autosave: false })
+    rename(fresh.doc, "Changed by an agent")
+    fresh.doc.replaceFile("app.par", fresh.doc.file("app.par")!)
+
+    restoreCopy(fresh.doc, structuredClone(copy))
+
+    expect(fresh.doc.design("app.par#home")?.name).toBe("Home page")
+    expect(fresh.doc.history().undo[0]).toBe(restoreLabel)
+    expect(fresh.saver.unsaved()).toEqual(["app.par"])
+  })
+
+  it("restores token values with what the stylesheet holds, and files the copy made or deleted", () => {
+    const { doc, saver } = setup({ autosave: false })
+    changeTokens(doc, "Change primary", [primary("red")])
+    const copy = { ...saver.recoveryCopy(1)!, documents: [{ path: "more.par", document: null }] }
+    const fresh = setup({ autosave: false })
+
+    restoreCopy(fresh.doc, copy)
+
+    expect(fresh.doc.tokens().get("primary default")).toEqual(primary("red"))
+    expect([...fresh.doc.files().keys()]).toEqual(["app.par"])
+    fresh.doc.undo()
+    expect(fresh.saver.unsaved()).toEqual([])
   })
 })

@@ -118,7 +118,7 @@ export function addContainer(
   container: ContainerSpec,
   label = `Add ${kindName(container.kind)}`
 ): DesignKey {
-  change(doc, label, (snapshot) => addDesign(snapshot, path, container))
+  changeSnapshot(doc, label, (snapshot) => addDesign(snapshot, path, container))
 
   return designKey(path, container.id)
 }
@@ -132,7 +132,7 @@ export function removeContainer(doc: ProjectDoc, key: DesignKey, label?: string)
 
   const named = label ?? `Delete ${kindName(doc.design(key)?.kind)}`
 
-  return change(doc, named, (snapshot) => deleteDesign(snapshot, split))
+  return changeSnapshot(doc, named, (snapshot) => deleteDesign(snapshot, split))
 }
 
 /** Moves a design just before or after another in their file, which is the Layers panel's order. */
@@ -149,7 +149,7 @@ export function reorderContainer(
     return undefined
   }
 
-  return change(doc, `Reorder ${kindsName([doc.design(key)?.kind])}`, (snapshot) =>
+  return changeSnapshot(doc, `Reorder ${kindsName([doc.design(key)?.kind])}`, (snapshot) =>
     reorderDesign(snapshot, design, beside, place)
   )
 }
@@ -175,7 +175,7 @@ export function designsLabel(doc: ProjectDoc, keys: Iterable<DesignKey>): string
 
 /** Adds a note to a file, making the file when it doesn't exist yet. Returns its key. */
 export function addNote(doc: ProjectDoc, path: string, note: NoteSpec): string {
-  change(doc, "Add text", (snapshot) => addNoteTo(snapshot, path, note))
+  changeSnapshot(doc, "Add text", (snapshot) => addNoteTo(snapshot, path, note))
 
   return designKey(path, note.id)
 }
@@ -194,7 +194,7 @@ export function updateNote(
     return undefined
   }
 
-  return change(doc, label, (snapshot) => changeNote(snapshot, split, update), options)
+  return changeSnapshot(doc, label, (snapshot) => changeNote(snapshot, split, update), options)
 }
 
 /** References placed in a file together, as one step. Gives back their keys, in order. */
@@ -247,7 +247,7 @@ export function changeFiles(
 ): TransactResult {
   const next = update({ files: doc.files(), modes: doc.modes() })
 
-  return change(doc, label, (snapshot) => ({ ...snapshot, documents: next.files, modes: next.modes }), options)
+  return changeSnapshot(doc, label, (snapshot) => ({ ...snapshot, documents: next.files, modes: next.modes }), options)
 }
 
 /**
@@ -268,7 +268,7 @@ export function applyAgentChanges(
     return { conflicts: merged.conflicts, result: undefined }
   }
 
-  return { conflicts: [], result: change(doc, label, () => merged.snapshot, { origin: "agent" }) }
+  return { conflicts: [], result: changeSnapshot(doc, label, () => merged.snapshot, { origin: "agent" }) }
 }
 
 /** An extension's operations, which are already the document's, checked and applied as one step. */
@@ -336,7 +336,8 @@ export function snapshotOps(before: DesignSnapshot, after: DesignSnapshot): DocO
   return ops
 }
 
-function change(
+/** For callers that change the files, the modes and the token values together, with a function of a snapshot. */
+export function changeSnapshot(
   doc: ProjectDoc,
   label: string,
   update: (snapshot: DesignSnapshot) => DesignSnapshot,

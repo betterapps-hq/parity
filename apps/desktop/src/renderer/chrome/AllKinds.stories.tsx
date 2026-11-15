@@ -1,9 +1,10 @@
 import { insertNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useMemo } from "react"
 import { ProjectContext, useProject } from "../canvas/context.ts"
-import { useContainerEntry } from "../design-store.ts"
+import { useContainerEntry } from "../project-doc.ts"
 import { SelectionStore } from "../selection.ts"
 import { design, example, node, ProjectStage } from "../stories/fixtures.tsx"
 import { DesignTabFields } from "./DesignPanel.tsx"
@@ -79,9 +80,9 @@ function Selected({ design: key, node: id, children }: { design: string; node: s
 }
 
 function Column() {
-  const { store, selection } = useProject()
-  const selected = selection.get()
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = session.selection.get()
+  const entry = useContainerEntry(session, selected.design)
 
   return entry && selected.node ? <LayerPanel entry={entry} nodeId={selected.node} /> : null
 }
@@ -97,7 +98,7 @@ const withMedia = inspecting("design", () => {
     style: { width: { size: "fill" }, height: { step: 60 } }
   } as const
 
-  example().store.updateContainer(key, "Add media", (container) => ({
+  updateContainer(example().doc, key, "Add media", (container) => ({
     ...container,
     root: insertNode(
       insertNode(

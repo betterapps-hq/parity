@@ -12,8 +12,8 @@ import {
 } from "@parity-app/core"
 import type { DesignRef } from "./arrange.ts"
 import { sameDesign, sameValue } from "./document-equality.ts"
-import { type DesignSnapshot, withoutModes } from "./history.ts"
 import { addReferences } from "./references.ts"
+import { type DesignSnapshot, withoutModes } from "./snapshot.ts"
 import { type TokenEdit, withTokenEdits } from "./token-edits.ts"
 
 // The changes the editor makes to what it holds. Each gives back the snapshot it was given when it changes nothing.

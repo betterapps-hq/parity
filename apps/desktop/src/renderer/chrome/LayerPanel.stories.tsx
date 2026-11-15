@@ -1,5 +1,6 @@
 import { type ImageNode, insertNode, type VideoNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
@@ -35,7 +36,7 @@ export const Icon: Story = { loaders: [pick("Plan card", "lucide/Check")] }
 const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "type" | "src" | "controls">) =>
   inspecting("design", () => {
     const key = design("Pricing")
-    example().store.updateContainer(key, `Add ${layer.type}`, (container) => ({
+    updateContainer(example().doc, key, `Add ${layer.type}`, (container) => ({
       ...container,
       root: insertNode(
         container.root,

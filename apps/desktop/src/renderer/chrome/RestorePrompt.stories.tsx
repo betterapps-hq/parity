@@ -1,7 +1,9 @@
 import type { RecoveryCopy } from "@parity-app/editor"
+import { restoreCopy } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
+import { undo } from "../project-doc.ts"
 import { clearNotifications, example, frameDesigns, openProjects } from "../stories/fixtures.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
 import { askToRestore } from "./restore.ts"
@@ -40,10 +42,10 @@ const keptAt = () => new Date(Date.now() - 12 * 60_000).toISOString()
  */
 async function openWithCopy(): Promise<RecoveryCopy> {
   await openProjects("example")
-  const { store } = example()
+  const session = example()
   renameDesign("Pricing", "Pricing (annual)")
-  const copy = store.recoveryCopy()!
-  store.undo()
+  const copy = session.saver.recoveryCopy()!
+  undo(session)
 
   return copy
 }
@@ -53,7 +55,7 @@ async function offer(copy: RecoveryCopy): Promise<void> {
   const choice = await askToRestore({ keptAt: keptAt() })
 
   if (choice === "restore") {
-    example().store.restoreRecovery(copy)
+    restoreCopy(example().doc, copy)
   }
 }
 
@@ -76,7 +78,7 @@ export const Restored: Story = {
     await userEvent.click(await body().findByRole("button", { name: "Restore" }))
     await answered
     await body().findByRole("button", { name: /which has unsaved changes/ })
-    await expect(example().store.getHistory().undoLabel).toBe("Restore unsaved changes")
+    await expect(example().doc.history().undo[0]).toBe("Restore unsaved changes")
   }
 }
 
@@ -88,6 +90,6 @@ export const Discarded: Story = {
     const answered = offer(copy)
     await userEvent.click(await body().findByRole("button", { name: "Discard" }))
     await answered
-    await expect(example().store.hasUnsaved()).toBe(false)
+    await expect(example().saver.hasUnsaved()).toBe(false)
   }
 }

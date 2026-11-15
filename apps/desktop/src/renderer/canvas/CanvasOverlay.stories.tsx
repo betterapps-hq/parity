@@ -1,5 +1,6 @@
 import { insertNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { AppWindow } from "../App.tsx"
 import { setPreferences } from "../chrome/preferences.ts"
@@ -44,7 +45,7 @@ export const ComponentSelected: Story = onCanvas(["Plan card", "Stat card"], () 
  */
 export const ComponentSlots: Story = onCanvas(["Plan card"], () => {
   const key = design("Plan card")
-  example().store.updateContainer(key, "Make slot", (container) =>
+  updateContainer(example().doc, key, "Make slot", (container) =>
     setSlot(container, node("Plan card", "Features"), "features")
   )
   select({ design: key })()
@@ -56,12 +57,12 @@ export const ComponentSlots: Story = onCanvas(["Plan card"], () => {
  */
 export const FilledSlot: Story = onCanvas(["Pricing"], () => {
   const card = design("Plan card")
-  example().store.updateContainer(card, "Make slot", (container) =>
+  updateContainer(example().doc, card, "Make slot", (container) =>
     setSlot(container, node("Plan card", "Features"), "features")
   )
   const page = design("Pricing")
   const starter = node("Pricing", "Starter plan")
-  example().store.updateContainer(page, "Fill features", (container) => ({
+  updateContainer(example().doc, page, "Fill features", (container) => ({
     ...container,
     root: insertNode(
       container.root,

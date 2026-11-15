@@ -20,9 +20,9 @@ import { onGestureEnd } from "../canvas/gesture.ts"
 import { hitTest, type Point, selectedIn, underPoint } from "../canvas/hit.ts"
 import { DesignIcon, designColor, kindColors, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { pickLayer } from "../canvas/pick.ts"
-import { useContainerEntries, useNotes } from "../design-store.ts"
 import { useExtensions } from "../extensions.ts"
 import { allFrames } from "../frame.ts"
+import { useContainerEntries, useNotes } from "../project-doc.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
@@ -213,9 +213,9 @@ function underBackdrop(event: MouseEvent): Element | undefined {
 export function CanvasMenuItems({ opened }: { opened: Opened }) {
   const session = useProject()
   const selection = useSelection(session.selection)
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   // Select all and Zoom to fit have something to act on once the canvas holds a note.
-  useNotes(session.store)
+  useNotes(session)
   // Over a code component's layer or board, or over a page, what the project's extensions offer for it ends the menu, as
   // in Layers.
   const component = opened.target && selectionComponent(session)
@@ -353,13 +353,13 @@ function onCanvas(target: EventTarget): boolean {
  * pick.ts), or around its frames. A text note on top is the canvas's, not the design's.
  */
 function designUnder(
-  session: Pick<ProjectSession, "editor" | "store">,
+  session: Pick<ProjectSession, "editor" | "doc">,
   area: HTMLElement,
   point: Point,
   before: Selection,
   keys: { deep: boolean }
 ): { target: MenuTarget; clicked?: string; root?: string } | undefined {
-  const { store, editor } = session
+  const { doc, editor } = session
 
   if (!editor) {
     return undefined
@@ -373,7 +373,7 @@ function designUnder(
     return undefined
   }
 
-  const hit = hitTest(area, store, point, editor)
+  const hit = hitTest(area, doc, point, editor)
 
   // A locked design gets the empty canvas's menu, unless it's selected, from Layers (PAR-192).
   if (hit && hit.entry.container.locked && !selected(before, hit.entry.key)) {
