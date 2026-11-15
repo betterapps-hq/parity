@@ -5900,30 +5900,31 @@ in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the 
 again, when Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component
 previews and exports all capture through it.
 
-Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
-by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
-keeps its screen size, PAR-602); back at 100% the design's frames draw again with their layers while boards out of view
-stay asleep, still at the same sizes; and the selected board's frames wake at a far zoom, picked in Layers since its
-title is hidden there, and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a
-frame put to sleep keeps its host and height with nothing inside, and draws its design again when it wakes).
-`apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant frame whose `shows` changes wakes once
-and sleeps once; and 64 frames, each slow to draw, all do so through one change without React's "Maximum update depth
-exceeded", which React reported there before the fix). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a
-failed capture isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not
-drawn again). Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that
-frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. It waits for
-every design's frame to be inside a tile with a bitmap, rather than comparing counts, since a page's tile has a bitmap
-and no design's frame (PAR-1106). The retry delays, and that a frame which leaves the canvas or changes stops retrying,
-have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four times under
-extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design
-into view before finding a layer in it, so the other files' tests work on frames that slept. Coming from another zoom,
-`App.show` places the design again once its board has taken its size at the new one, since the board's gutter keeps its
-screen size (PAR-1106). Gaps: the order frames wake in has no test of its own; it was checked by reading `wakeNext`. The
-memory it gives back and the time waking takes were measured by hand in a debug copy, not by the suite.
-`apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken again after a
-repaint until it works, gives up after three tries, and any other failure is thrown at once). That a repaint is what
-lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI run, and Sentry's
-count from CI after the change is the check.
+Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, every node the frames drew
+is collected once they sleep, held by weak references and waited for rather than read from the window's node count,
+which tied with its limit now and then as the rest of the window changed (PAR-1140), and no frame changes size (its
+board grows on the canvas, as its gutter keeps its screen size, PAR-602); back at 100% the design's frames draw again
+with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
+a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
+`apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
+draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant
+frame whose `shows` changes wakes once and sleeps once; and 64 frames, each slow to draw, all do so through one change
+without React's "Maximum update depth exceeded", which React reported there before the fix).
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
+that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
+(Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
+every frame's bitmap, timed out in the full suite. It waits for every design's frame to be inside a tile with a bitmap,
+rather than comparing counts, since a page's tile has a bitmap and no design's frame (PAR-1106). The retry delays, and
+that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
+`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
+for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
+tests work on frames that slept. Coming from another zoom, `App.show` places the design again once its board has taken
+its size at the new one, since the board's gutter keeps its screen size (PAR-1106). Gaps: the order frames wake in has
+no test of its own; it was checked by reading `wakeNext`. The memory it gives back and the time waking takes were
+measured by hand in a debug copy, not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing
+with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and any other failure
+is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the failure came from
+about one capture in each CI run, and Sentry's count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
@@ -8472,9 +8473,12 @@ client ID and never its API key, and the window never sees a token.
   organization (`sso_required` or `organization_authentication_methods_required`), whose Continue with single sign-on
   opens AuthKit with the account's email. Details hold what WorkOS said, to copy.
 - **Someone in more than one organization chooses one** when WorkOS answers `organization_selection_required`: Choose an
-  organization lists the organizations it names, and choosing one opens AuthKit in the browser with that
-  `organization_id` and the account's email, which signs in to it. Invitations and creating an organization wait for
-  Parity's service (PAR-616).
+  organization lists the organizations it names, and choosing one finishes the sign-in through Parity's service, which
+  holds the client secret WorkOS's organization-selection grant needs, without opening the browser again (PAR-1143).
+  When the service can't finish it, because it has no key yet or WorkOS's pending token ran out, choosing opens AuthKit
+  in the browser with that `organization_id` and the account's email, which signs in to it, and
+  `account.organizationChoiceFailed` says why. Invitations and creating an organization wait for Parity's service
+  (PAR-616).
 - **The browser hands back to the copy that asked.** An installed app uses `parity://auth/callback`: the installer
   registers it on macOS (`protocols` in `electron-builder.yml`) and the app registers itself on Windows and Linux as it
   starts. macOS gives the running app the link as `open-url`; Windows and Linux start a second Parity process with it,
@@ -8526,26 +8530,31 @@ side is `renderer/account/`: `account.ts` (the store, first launch), `SignIn.tsx
 `accountSwitch` channel, and switching accounts is `use`, over `accountUse`; `session-store.ts`'s `withAccount` and
 `withoutAccount` change what's kept.
 
-Tests: `main/account.test.ts` (28: the provider and the work email in the URL, the code traded with the client ID and no
+Tests: `main/account.test.ts` (44: the provider and the work email in the URL, the code traded with the client ID and no
 secret, a link that's another copy's, canceled and failed with WorkOS's words, single sign-on and a refused account with
-their email, the organizations to choose from and AuthKit opened with the one chosen, canceled while trading, kept until
-quit, the organizations WorkOS named kept through refreshes and in the kept session, switching with a refresh naming the
-organization, staying put when WorkOS won't switch, forgetting them on signing out, refreshing a minute early with the
-new token kept, trying again when WorkOS doesn't answer, Session ended, another copy's newer token, signed out in
-another copy, signing back in as Parity starts, signing out; and with several accounts: adding one with the provider
-asked which, the same account again in its place, switching without asking WorkOS, signing out of another and staying,
-moving to the account used last, an ended account kept and signed in to again by name, removing it, moving on when the
-account you're in ends, restoring every account in the one Parity was last in; and the access token main gives Parity's
-service (PAR-948): the one kept, none when signed out, a fresh one when the service turned the last down, one refresh
-shared between askers, and none once the session ends), `main/session-store.test.ts` (10: kept encrypted and forgotten,
-a write cut short leaving the last accounts readable, the file readable only by you, the file removed with the last
-account, nothing kept without a keyring or encryption, an unreadable or one-account file forgotten, a missing file quiet
-and one that can't be opened kept, an account replaced in place or added, which account you're in forgotten only with
-it), `main/pass-link.test.ts` (3: the link in a launch's arguments, each other copy asked with its token until one takes
-it, none taking it) and `main/loopback.test.ts` (1: the link with its port, the page once traded, 404 for another
-sign-in's). `packages/account` covers the URL with an organization and with parameters for the provider, PKCE, the link
-and WorkOS's answers, including the organizations a refusal names. Stories: Parity/Sign in (the first launch, waiting
-and still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
+their email, the organizations to choose from and AuthKit opened with the one chosen, the one chosen finished through
+Parity's service without the browser, a second choice let go while the first is answered, and AuthKit opened when the
+service can't finish it, canceled while trading, kept until quit, the organizations WorkOS named kept through refreshes
+and in the kept session, switching with a refresh naming the organization, staying put when WorkOS won't switch,
+forgetting them on signing out, refreshing a minute early with the new token kept, trying again when WorkOS doesn't
+answer, Session ended, another copy's newer token, signed out in another copy, signing back in as Parity starts, signing
+out; and with several accounts: adding one with the provider asked which, the same account again in its place, switching
+without asking WorkOS, signing out of another and staying, moving to the account used last, an ended account kept and
+signed in to again by name, removing it, moving on when the account you're in ends, restoring every account in the one
+Parity was last in; and the access token main gives Parity's service (PAR-948): the one kept, none when signed out, a
+fresh one when the service turned the last down, one refresh shared between askers, and none once the session ends),
+`main/session-store.test.ts` (10: kept encrypted and forgotten, a write cut short leaving the last accounts readable,
+the file readable only by you, the file removed with the last account, nothing kept without a keyring or encryption, an
+unreadable or one-account file forgotten, a missing file quiet and one that can't be opened kept, an account replaced in
+place or added, which account you're in forgotten only with it), `main/pass-link.test.ts` (3: the link in a launch's
+arguments, each other copy asked with its token until one takes it, none taking it) and `main/loopback.test.ts` (1: the
+link with its port, the page once traded, 404 for another sign-in's). `packages/account` covers the URL with an
+organization and with parameters for the provider, PKCE, the link and WorkOS's answers, including the organizations and
+the pending token a refusal names, and finishing the choice through Parity's service.
+`packages/service/src/sign-in.test.ts` (6) covers the service's side: the organization-selection grant sent with the
+client secret and WorkOS's answer passed on, a refusal passed on, nothing asked of WorkOS without a key or for a
+malformed request, each address limited, and WorkOS out of reach. Stories: Parity/Sign in (the first launch, waiting and
+still waiting, each problem, choosing an organization, the dialog, Session ended alone and with another account, Add
 another account, the accounts panel with one account, two, one whose session ended, in no organization, until quit and
 signed out, and the workspace menu in two organizations, with two accounts, in one, Personal and signed out). Gaps: no
 end-to-end test signs in, since that needs a real account in a browser; switching between two organizations, and adding
