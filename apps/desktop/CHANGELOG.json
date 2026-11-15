@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 02:47:01 GMT",
+      "version": "0.89.1",
+      "tag": "@parity-app/desktop_v0.89.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "428fa035e116eda05f176ee80d1d43b64b862202",
+            "comment": "Only Settings can change your shortcuts; the editor window, where a project's code runs, can't"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 02:05:36 GMT",
       "version": "0.89.0",
       "tag": "@parity-app/desktop_v0.89.0",

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Only Settings can change your shortcuts; the editor window, where a project's code runs, can't",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

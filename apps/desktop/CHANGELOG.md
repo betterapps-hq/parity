@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Sun, 15 Nov 2026 02:05:36 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 02:47:01 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.89.1
+
+Sun, 15 Nov 2026 02:47:01 GMT
+
+### Patches
+
+- Only Settings can change your shortcuts; the editor window, where a project's code runs, can't (ajcraswell@gmail.com)
 
 ## 0.89.0
 
