@@ -715,8 +715,8 @@ LoroDoc (one per open project)
 │   │       └─ a slot node               text: LoroText, style: LoroMap, props: LoroMap, args: LoroMap,
 │   │           └─ its layers …          overrides: LoroMap, responsive: LoroMap }
 │   │                            a slot node's data: { slotOf: name }
-├─ "notes"       LoroMap: `path#id` → { file, note, order }
-├─ "references"  LoroMap: `path#id` → { file, reference, order }
+├─ "notes"       LoroMap: path → LoroMovableList of the file's notes, each whole
+├─ "references"  LoroMap: path → LoroMovableList of the file's references, each whole
 ├─ "files"       LoroMap: path → LoroMap of the file's other fields
 └─ "modes"       LoroMap: field of ModeSettings → value
 ```
@@ -725,25 +725,49 @@ LoroDoc (one per open project)
 - **A slot is a node of its own** under its component or instance, with the slot's layers inside it, so a layer's parent
   and slot change together in one move, a slot filled with nothing is a slot node with no children, and slots keep their
   order. A layout's `slot` field, which says the layout is a slot of its component, is a field like any other.
-- **Record fields are `LoroMap`s** created with the node, so per-key merging needs nothing more. Only the fields a node
-  has are created.
-- **Notes and references keep an order key** made with Loro's fractional index, since a `LoroMap` has no order.
-- **Token edits aren't in it,** so they're never in what's exported or sent.
+- **Record fields are `LoroMap`s and text is a `LoroText`,** made with `ensureMergeableMap` and `ensureMergeableText`,
+  never `getOrCreateContainer`, so two people setting a layer's first `style` key at once get the same map and both keys
+  land. Only the fields a node has are made. A record taken away and set again keeps what Loro held, so setting it
+  clears what isn't in it now.
+- **Notes and references are a `LoroMovableList` per file,** made with `ensureMergeableMovableList`, so an item moves
+  without being copied and is replaced whole. A file's other fields are a mergeable `LoroMap` under its path, and a file
+  is in the project while it has one.
+- **Token edits and drawn files aren't in it,** so they're never in what's exported or sent. A drawn file is in the
+  plain values only.
 
 ### Each method
 
-| Method      | On Loro                                                                                                                                                                                                                                                                                     |
-| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `open`      | `new LoroDoc()`, `getTree("designs").enableFractionalIndex(…)`, builds every node from the files, and `commit({ origin: "load" })`                                                                                                                                                          |
-| `files`     | The plain values the backend keeps (below), never read from Loro                                                                                                                                                                                                                            |
-| `apply`     | For each operation: `tree.createNode(parent)` then `moveBefore(sibling)` for a `before`; `moveBefore` or `move` for a move; `tree.delete`; `node.data.set`; a record's `LoroMap.set` or `delete`; `LoroText.insert`/`delete`, or `update` for a replace. Then `commit({ origin, message })` |
-| `subscribe` | With sync: `doc.subscribe`, turning an event batch with `by: "import"` into a `BackendChange` from its tree, map and text diffs                                                                                                                                                             |
-| `version`   | `doc.frontiers()`, encoded                                                                                                                                                                                                                                                                  |
-| `dispose`   | Drops the `LoroDoc` and the subscription                                                                                                                                                                                                                                                    |
+| Method      | On Loro                                                                                                                                                                                                                                                                                                                 |
+| ----------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open`      | `new LoroDoc()`, `getTree("designs").enableFractionalIndex(…)`, builds every node from the files, and `commit({ origin: "load" })`. From another replica's snapshot it imports that and indexes each design's layers only when an operation first needs them, since reading nodes makes Loro decode them                |
+| `files`     | The plain values the backend keeps (below), never read from Loro                                                                                                                                                                                                                                                        |
+| `apply`     | For each operation: `createNode` at the sibling's index for a `before`; `moveBefore` or `move` for a move; `tree.delete`; `node.data.set`; a record's `LoroMap.set` or `delete`; `LoroText.splice`, or `update` for a replace. Then one `commit({ origin })`, with no message, since Loro keeps messages in its history |
+| `subscribe` | With sync: the backend's `receive` imports others' updates, whose events arrive before `import` returns. It repairs the designs they touched (below), reads those back, and turns them into operations on the plain values with `fileOps`, so a `BackendChange` says what changed as `apply`'s does                     |
+| `version`   | `doc.frontiers()`, encoded, with a count of changes to drawn files, which Loro doesn't see                                                                                                                                                                                                                              |
+| `dispose`   | Drops the listeners and frees the tree, the maps and the `LoroDoc`                                                                                                                                                                                                                                                      |
 
 **Loro's `UndoManager` isn't used.** Its groups take in every local commit made while a group is open, not one
 gesture's, and `revertTo` goes back over the whole document, not one design. Undo kept in `ProjectDoc` avoids both and
 is the same on every provider. Others' changes still merge under it, since an undo is ordinary operations.
+
+### Repairs
+
+Each replica repairs the designs an import touched, commits the repairs with `origin: "repair"`, and sends them on like
+any change. The rules are deterministic, so two replicas repairing the same merge make the same changes, and those merge
+to one result: "the later one" goes by tree id (a later counter, then a larger peer), and a new name is derived from the
+node's tree id.
+
+| What the merge left                                  | The repair                                                            |
+| ---------------------------------------------------- | --------------------------------------------------------------------- |
+| Two root layers, from two `replaceRoot`s at once     | The later one stays                                                   |
+| Two slot nodes for one slot, from filling it at once | The later one's layers join the earlier one, in order, and it goes    |
+| Two layers with one id                               | The later one gets the id with five characters from its tree id added |
+| Two layouts that are one slot of their component     | The later one's slot is renamed the same way                          |
+| States on a design that isn't a component or story   | They go                                                               |
+| A state or variant patch naming a layer that's gone  | The patch is dropped, with `dropPatches`                              |
+
+Concurrent moves that would make a cycle are Loro's tree's to resolve, and the concurrent tests confirm it ends without
+one. `receive` keeps what it last repaired for `projectDoc.repaired`, which is recorded once sync arrives.
 
 ### The plain values
 
@@ -751,7 +775,9 @@ is the same on every provider. Others' changes still merge under it, since an un
 
 - **An `apply` updates them from the operations it applied,** making the touched nodes' new values and copying the
   layers above each up to its design and file. Every other design, layer and file stays the same object.
-- **Changes from others update them from Loro's events,** the same way, once sync arrives.
+- **Changes from others update them from what Loro holds:** the designs and files an import touched are read back,
+  compared with the plain values by `fileOps`, and the operations applied with `applyPlain`, so only what changed is
+  copied.
 - **Fields are built in the order core's schemas list them,** so saved files keep a steady key order and git diffs stay
   small.
 
@@ -759,8 +785,20 @@ is the same on every provider. Others' changes still merge under it, since an un
 
 - `loro-crdt` 1.x (1.17.1 now), MIT. Its WebAssembly is 3,596,988 bytes, about 3.4 MiB.
 - Its `package.json` gives a `bundler` build and a `browser` build, picked by the `browser` and `development`
-  conditions. Which one the window's Vite build takes, and that it copies the `.wasm`, is checked in step 6. Tests in
-  Node load its Node build. A web page, such as a review link, can take `loro-crdt/base64` if it needs Loro at all.
+  conditions. Tests in Node load its Node build. A web page, such as a review link, can take `loro-crdt/base64` if it
+  needs Loro at all.
+- **A production build takes the `browser` build.** It loads the `.wasm` through `new URL(…, import.meta.url)` with a
+  synchronous request, and Vite copies the file into the build's assets (3,596.98 kB, 1,214.42 kB gzipped). Built with
+  Vite+ 1.4 and opened in Chrome, it loads and runs.
+- **The dev server takes the `bundler` build,** under the `development` condition, which imports the `.wasm` as a
+  module. Vite's dependency pre-bundling splits that from its glue code and Loro fails on load
+  (`Cannot read properties of undefined (reading 'memory')`). `optimizeDeps: { exclude: ["loro-crdt"] }` in the window's
+  Vite config fixes it; step 7 adds it with the switch to Loro.
+- **Every Loro object JavaScript holds keeps its whole document alive** until it's freed, and V8 frees one only when it
+  collects it, which the document's WebAssembly memory doesn't prompt. Opening and disposing the large project eight
+  times held 480 MB, and each open was slower than the last, 0.4 s at first and 3.5 s by the eighth. The backend keeps
+  each object it gets from Loro, a node, its data, a text or a map, and frees them all when its call returns, and frees
+  its tree and maps with the document on `dispose`. Memory then stays at what one document takes.
 - Loro handles no networking. Sync later sends the bytes from `doc.subscribeLocalUpdates` and takes others' with
   `doc.import`.
 
@@ -894,7 +932,7 @@ provider offers a `ReplicaPair`. Each case is a test:
 **Concurrent,** with a `ReplicaPair`
 
 - Two people setting different fields of one layer both land; the same field ends the same on both.
-- Two people changing different keys of `style` both land.
+- Two people changing different keys of `style` both land, including the first keys of a layer that had none.
 - Two people typing in one text layer both keep their typing.
 - Two people inserting before the same sibling both land, in the same order on both.
 - Two moves that would make a cycle end with no cycle, the same on both.
@@ -902,6 +940,7 @@ provider offers a `ReplicaPair`. Each case is a test:
 - One person removing a layer while another changes a state's overrides for it: the patch key is dropped by the repair,
   and the file still opens.
 - Two layers given one id, and two layers made the same slot, are repaired the same way on both.
+- Two people filling one empty slot both land in it.
 - Undo takes back only this person's step, and leaves the other person's later change to the same field, counted in
   `kept`.
 
@@ -1034,6 +1073,61 @@ What they say about the layer:
   though nothing it runs had changed.
 - **Opening is almost free,** because `ProjectDoc` indexes nothing up front and its lookups build lazily. The cost of
   the first lookup isn't in this scenario yet. **Memory is as flat as today:** the values are the files' own objects.
+
+### The layer's numbers, on `loroProvider`
+
+`ProjectDoc` on `loroProvider` through the functions for callers, run on `5df8164b4` with PAR-1113 on top, on the same
+machine, next to the local provider's from the table above. The command is in `loro-provider.bench.ts`.
+
+| Scenario                                  | Small, local | Small, Loro | Large, local | Large, Loro | Very large, local | Very large, Loro |
+| ----------------------------------------- | -----------: | ----------: | -----------: | ----------: | ----------------: | ---------------: |
+| Open the project                          |     0.025 ms |    26.27 ms |     0.043 ms |   613.35 ms |          0.056 ms |       3,420.3 ms |
+| Set one field on one layer                |     0.073 ms |    0.079 ms |     0.127 ms |    0.307 ms |          0.247 ms |         0.624 ms |
+| A 300-frame drag of one design, per frame |     0.021 ms |    0.068 ms |     0.035 ms |    0.105 ms |          0.061 ms |         0.159 ms |
+| Type into a text layer, per character     |     0.086 ms |    0.231 ms |     0.152 ms |    0.360 ms |          0.289 ms |         0.690 ms |
+| Paste 500 layers, or take them out        |     0.582 ms |    10.43 ms |     0.678 ms |    10.84 ms |          0.843 ms |         9.184 ms |
+| Undo or redo, per step                    |     0.031 ms |    0.096 ms |     0.047 ms |    0.119 ms |          0.083 ms |         0.208 ms |
+| Save one file                             |     0.320 ms |    0.626 ms |     0.721 ms |    1.573 ms |          0.855 ms |         1.851 ms |
+
+| Only Loro has                                  |    Small |    Large | Very large |
+| ---------------------------------------------- | -------: | -------: | ---------: |
+| Exchange 1,000 transactions with a replica     | 31.83 ms | 38.78 ms |   55.06 ms |
+| One field change, compared with `containerOps` | 0.064 ms | 0.087 ms |   0.140 ms |
+| The same change, sent as the operation         | 0.057 ms | 0.082 ms |   0.135 ms |
+| Loro's WebAssembly memory after opening        |    10 MB |    89 MB |     461 MB |
+| A snapshot of the document                     |   0.2 MB |   2.4 MB |    12.2 MB |
+| Opening from that snapshot, in plain Node      |    27 ms |    84 ms |     708 ms |
+
+| Heap                       | Small, Loro | Large, Loro | Very large, Loro |
+| -------------------------- | ----------: | ----------: | ---------------: |
+| The files' values          |      0.1 MB |      4.1 MB |          21.6 MB |
+| The session opened on them |      0.3 MB |      4.9 MB |          15.8 MB |
+| 10,000 edits               |     -0.0 MB |     -1.3 MB |           0.2 MB |
+
+What they say about Loro:
+
+- **Editing costs two to three times what it does on the local provider,** and still a quarter of today's: a field takes
+  0.6 ms at 100,000 layers, against 0.25 ms local and 2.1 ms today. Loro's own calls are about 0.03 ms of that. The rest
+  is `ProjectDoc`'s comparing and checking, the same code as on the local provider, which runs about twice as slowly
+  once Loro has opened a project. The local provider slows the same way with a Loro document opened beside it, even one
+  opened on a copy of the files and disposed before the edits, so it's V8 after Loro has run, not the provider's work.
+  Where that comes from is open.
+- **Opening costs what building every node costs:** 0.6 s for the large project and 3.4 s for the very large one, in
+  Loro's own calls, which grow faster than the nodes do. Opening from a snapshot takes a fifth of that, since importing
+  one takes 29 ms on the very large project and only the designs' roots are read until an operation needs a design's
+  layers. Keeping a snapshot beside the files, to open from when they haven't changed, is the way to open a large
+  project quickly; step 7 can decide on it.
+- **Pasting is the slowest edit,** 9 to 11 ms for 500 layers against under 1 ms: each new layer is a node, its fields
+  and a mergeable text, about 20 µs in Loro's calls. Loro alone takes 7 to 8 ms for the same layers, and setting the
+  text as a plain value would halve that, but then two people typing in one new layer wouldn't merge.
+- **Exchanging is cheap:** 1,000 transactions reach a replica and come back in 32 to 55 ms, repairs included.
+- **Memory is mostly Loro's WebAssembly,** which the heap figures leave out: 461 MB for the very large project, against
+  22 MB of plain values. The heap holds the plain values, as on the local provider, and the index of each design's
+  layers. Disposing frees all of it at once, since the backend frees every Loro object it holds.
+- **Under Vitest, V8 needs `--external-memory-accounted-in-global-limit`.** Without it each growth of Loro's memory set
+  off a full collection, about 800 of them while opening the very large project, which then took 28 s rather than 4.
+  Plain Node and the same code outside Vitest's workers didn't, so it isn't Loro's cost. Whether the window's Electron
+  does is for step 7 to measure.
 
 ### What Loro costs to load
 
@@ -1224,8 +1318,6 @@ dependency. Loro then comes in where the provider is picked, which is also how i
 
 ## Open questions
 
-- **Loro's events and `commit`.** Whether a commit's events arrive before `commit` returns doesn't matter for local
-  operations, which update the plain values themselves, but decides how others' changes are taken in.
 - **History in long sessions.** Loro keeps every operation. The benchmark's 10,000 edits say whether long sessions need
   a shallow snapshot.
 - **Coarse merge units.** `states`, a patch inside `responsive` or `overrides`, a param's options, the modes and a

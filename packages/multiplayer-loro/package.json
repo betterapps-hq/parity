@@ -1,0 +1,17 @@
+{
+  "name": "@parity-app/multiplayer-loro",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "@parity-app/editor": "workspace:*",
+    "@parity-app/multiplayer": "workspace:*",
+    "loro-crdt": "catalog:",
+    "vite-plus": "catalog:"
+  }
+}
