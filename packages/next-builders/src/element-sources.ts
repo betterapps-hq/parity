@@ -14,21 +14,26 @@ export const elementSourcesRoute = "/__parity/element-sources"
 /** The loader's file in the guest app, from its folder. */
 export const elementSourcesLoaderFile = "element-sources-loader.cjs"
 
-/** The loader the guest app's Next runs on the project's JSX: it asks the builder's server for the module's tagged code. */
+/**
+ * The loader the guest app's Next runs on the project's JSX: it asks the builder's server for the module's tagged code.
+ * A module the server couldn't tag compiles as it is, with a warning, since its elements' sources aren't worth a page
+ * that doesn't build.
+ */
 export const elementSourcesLoaderSource = `// Written by Parity's Next.js builder each time it starts.
 module.exports = function (source, map) {
   const done = this.async()
   const { endpoint } = this.getOptions()
+  const untagged = (reason) => {
+    this.emitWarning?.(new Error("Parity couldn't tag " + this.resourcePath + "'s elements: " + reason))
+    done(null, source, map)
+  }
   fetch(endpoint + "?file=" + encodeURIComponent(this.resourcePath), { method: "POST", body: source })
     .then((response) => {
-      if (response.status === 204) return undefined
-      if (!response.ok) throw new Error("Parity couldn't tag " + this.resourcePath + "'s elements (" + response.status + ")")
-      return response.json()
+      if (response.status === 204) return done(null, source, map)
+      if (!response.ok) return untagged("the builder answered " + response.status)
+      return response.json().then((tagged) => done(null, tagged.code, tagged.map))
     })
-    .then(
-      (tagged) => (tagged ? done(null, tagged.code, tagged.map) : done(null, source, map)),
-      (error) => done(error)
-    )
+    .catch((error) => untagged(error?.message ?? String(error)))
 }
 `
 
