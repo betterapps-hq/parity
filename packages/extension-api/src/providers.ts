@@ -120,6 +120,57 @@ export interface BuilderDetection {
   summary: string
 }
 
+/**
+ * Translates a tool's own files, which Parity doesn't read itself, to Parity's entities, and back: Storybook's stories
+ * to screens, for one. Parity makes the canvas file and its nodes from what `import` gives, and calls `export` on Save.
+ * Designs cross as Parity's `.par` JSON, which Parity checks both ways.
+ */
+export interface EntitiesProvider {
+  /** The screens the tool's files describe, and the code they draw that isn't one of the project's components. */
+  import(request: { components: ProjectComponents }): Promise<ImportedEntities>
+  /**
+   * A screen it imported, as edited in Parity, written back to the tool's files: each file it changes, with its whole
+   * new text. None when the edit is one the tool's files can't hold.
+   */
+  export(request: { screen: ImportedScreen; edited: Design; components: ProjectComponents }): Promise<FileWrite[]>
+}
+
+/** A design, as Parity's `.par` files write it, which Parity checks whenever an extension gives one. */
+export interface Design {
+  id: string
+}
+
+/** The project's components by key: each one's file, or for a library's, the package it's imported from, and export. */
+export type ProjectComponents = Record<string, { path: string; export: string; library?: string }>
+
+/** What a tool's files describe. */
+export interface ImportedEntities {
+  screens?: ImportedScreen[]
+  /** Code the screens draw that isn't a project component, by the id their component layers name: its file and export. */
+  sources?: { [id: string]: { path: string; export: string } }
+}
+
+/** A screen read from a tool's files, with where it came from. */
+export interface ImportedScreen {
+  /** The extension that read it, by its prefix. */
+  adapter: string
+  /** Where it is in the tool's files, unique among the extension's: a story as `src/stories/button.stories.tsx#Outline`. */
+  ref: string
+  /** The group it's listed in, as a story's title: `UI/Button`. */
+  group: string
+  /** The folders Layers lists it in, outermost first. */
+  folders?: string[]
+  /** The project's component it's about, by its key. */
+  component?: string
+  screen: Design
+}
+
+/** A file to write, by its path from the project root, with its whole new text. */
+export interface FileWrite {
+  path: string
+  text: string
+}
+
 /** What an address provider is told about a server. Nothing of its output or environment. */
 export interface ServerFacts {
   /** Its id among the project's processes. */
@@ -167,6 +218,7 @@ export interface ProviderKinds {
   styles: StylesProvider
   renderer: RendererProvider
   builder: BuilderProvider
+  entities: EntitiesProvider
   addresses: AddressProvider
   discovery: DiscoveryProvider
 }

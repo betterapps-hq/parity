@@ -132,7 +132,7 @@ const providers = z.strictObject({
   builder: z.strictObject({ entry: z.string(), watches: z.array(z.string()) }).optional(),
   styles: empty.optional(),
   router: empty.optional(),
-  entities: empty.optional(),
+  entities: z.strictObject({ watches: z.array(z.string()).optional() }).optional(),
   connector: empty.optional(),
   search: empty.optional(),
   addresses: empty.optional(),

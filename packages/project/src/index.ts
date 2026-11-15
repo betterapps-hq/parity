@@ -120,6 +120,8 @@ export {
 
 export { parseStoryFile } from "./storybook.ts"
 
+export { detectStorybook, storybookConfigFiles } from "./storybook-detect.ts"
+
 export { type AppStyles, findStyles, readStylesheet } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
@@ -487,7 +489,10 @@ export async function exportEntities(
  * How an adapter reads the project at `root`, as an entities adapter imports from it or an action runs: its files,
  * leaving out dependencies and builds, and which of its components an import names.
  */
-export function projectSource(root: string, components: Record<string, ComponentSource>): EntitiesSource {
+export function projectSource(
+  root: string,
+  components: Record<string, Pick<ComponentSource, "path" | "export" | "library">>
+): EntitiesSource {
   const tsconfig = readTsconfig(root)
 
   return entitiesSource(root, components, (specifier) => resolveAlias(root, tsconfig, specifier))
@@ -496,7 +501,7 @@ export function projectSource(root: string, components: Record<string, Component
 /** How an entities adapter reads the project at `root`: its files, leaving out dependencies and builds, and its components. */
 function entitiesSource(
   root: string,
-  components: Record<string, ComponentSource>,
+  components: Record<string, Pick<ComponentSource, "path" | "export" | "library">>,
   resolve: (specifier: string) => string | undefined
 ): EntitiesSource {
   return {

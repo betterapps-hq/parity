@@ -238,7 +238,7 @@ export interface Providers {
   /** Reads routes. */
   router?: Record<string, never>
   /** Imports screens such as stories, and writes them back. */
-  entities?: Record<string, never>
+  entities?: { watches?: string[] }
   /** Finds screens, photos or videos in an outside library. */
   connector?: Record<string, never>
   /** Answers Search actions with results of its own. */

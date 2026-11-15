@@ -102,11 +102,13 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `providers.renderer` names its guest module, runtime packages and imports, development stand-ins and component file
   extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's
   `providers.builder` names its entry module, which the builder process runs, and the config files it watches. An
-  `addresses` provider says where else each server is reached, as a name Portless routes to it; a `discovery` provider
-  offers servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask those two again.
-  Each of their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is left
-  out, as is an address that isn't on this machine, with `processes.providerFailed`. The processes list opens a server
-  at a name, then a proxy, then a container's address, else its endpoint.
+  `entities` provider's `import({ components })` reads a tool's files as screens and
+  `export({ screen, edited, components })` writes an edited one back, as Storybook's stories. An `addresses` provider
+  says where else each server is reached, as a name Portless routes to it; a `discovery` provider offers servers Parity
+  didn't start to `processes.find`. The handle's `changed()` makes Parity ask those two again. Each of their calls has 2
+  seconds (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is left out, as is an address that
+  isn't on this machine, with `processes.providerFailed`. The processes list opens a server at a name, then a proxy,
+  then a container's address, else its endpoint.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.

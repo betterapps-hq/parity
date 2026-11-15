@@ -6,10 +6,13 @@ import { fileURLToPath } from "node:url"
 import {
   type BuilderDescription,
   detectPeers,
+  type EntitiesDescription,
   extensionBuilder,
+  extensionEntities,
   extensionRenderer,
   type PackageManifest,
-  type RendererDescription
+  type RendererDescription,
+  type StorybookInfo
 } from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
@@ -28,6 +31,7 @@ import {
   type InstalledExtension,
   readExtension
 } from "@parity-app/extensions"
+import { detectStorybook } from "@parity-app/project"
 import { z } from "zod"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
@@ -35,7 +39,7 @@ import { environment } from "./environment.ts"
 import { extensionProcesses } from "./extension-processes.ts"
 import { extensionStateStore } from "./extension-state.ts"
 import { processProviders } from "./process-providers.ts"
-import type { OpenProject, ProjectProviders } from "./projects.ts"
+import type { OpenProject, ProjectProviders, ProviderProject } from "./projects.ts"
 
 /*
  * The extensions Parity runs, each in a host of its own for each open project (see `@parity-app/extensions`). Each host
@@ -53,6 +57,8 @@ export interface ExtensionProject {
   root: string
   name: string
   pkg: PackageManifest
+  /** Its Storybook, once discovery has found it, before the project has opened. */
+  storybook?: StorybookInfo
   open?: OpenProject
 }
 
@@ -97,6 +103,11 @@ export const builtInBuilders: BuilderDescription[] = [extensionBuilder(vitePacka
   (builder) => builder !== undefined
 )
 
+/** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
+export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybookPackage, detectStorybook)].filter(
+  (entities) => entities !== undefined
+)
+
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   // In the order the status bar shows their items: the builder, then the renderer, then the rest.
@@ -104,8 +115,8 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   byPeers(builtIn(reactPackage, "react", () => undefined)),
   byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
-  builtIn(storybookPackage, "storybook", ({ open }) => {
-    const found = open?.info.storybook
+  builtIn(storybookPackage, "storybook", ({ open, storybook }) => {
+    const found = open?.info.storybook ?? storybook
 
     // What detection found goes to the host as JSON carries it, without the fields it leaves out, which structuredClone
     // would keep.
@@ -184,12 +195,24 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
  * the theme while the builder starts. Nothing when no extension of the project's provides what's asked.
  */
 export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): ProjectProviders {
-  /** Tells the hosts of the project, as early as its package is read; once it has opened, that's known already. */
-  const told = (project: { root: string; name: string; pkg: PackageManifest }) => {
-    const id = project.root
+  /** The projects told of their Storybook before they opened, by id. */
+  const toldStorybook = new Set<string>()
 
-    if (!projects.has(id)) {
+  /**
+   * Tells the hosts of the project, as early as its package is read, and again once discovery has found its Storybook,
+   * which starts Storybook's extension for its entities; once it has opened, that's known already.
+   */
+  const told = (project: ProviderProject) => {
+    const id = project.root
+    const known = projects.has(id)
+
+    if (!known || (project.storybook && !toldStorybook.has(id))) {
       projects.set(id, { root: project.root, name: project.name })
+
+      if (project.storybook) {
+        toldStorybook.add(id)
+      }
+
       hosts.open({ id, ...project })
     }
 
