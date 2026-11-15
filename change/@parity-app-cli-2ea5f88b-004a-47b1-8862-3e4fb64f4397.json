@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "React runs as an extension through a renderer provider",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

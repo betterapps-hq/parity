@@ -1,8 +1,20 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 02:06:02 GMT and should not be manually modified. -->
+<!-- This log was last generated on Sun, 15 Nov 2026 03:17:33 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.68.0
+
+Sun, 15 Nov 2026 03:17:33 GMT
+
+### Minor changes
+
+- React runs as an extension through a renderer provider (ajcraswell@gmail.com)
+
+### Patches
+
+- A stopped agent snippet no longer goes on calling the tab's next call (ajcraswell@gmail.com)
 
 ## 0.67.0
 

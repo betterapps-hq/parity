@@ -2,6 +2,29 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 03:17:33 GMT",
+      "version": "0.68.0",
+      "tag": "@parity-app/cli_v0.68.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "33dde64e3cf170083c2d6bd406a3556c8219a7d0",
+            "comment": "React runs as an extension through a renderer provider"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "52d4ff0a1c7667dad7e508fcec707a9ca3557fb2",
+            "comment": "A stopped agent snippet no longer goes on calling the tab's next call"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 02:06:02 GMT",
       "version": "0.67.0",
       "tag": "@parity-app/cli_v0.67.0",
