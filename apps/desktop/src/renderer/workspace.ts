@@ -5,6 +5,7 @@ import {
   type GuestComponentSource,
   guestChanges,
   type LayerFailure,
+  routeFiles,
   versionedSources,
   withProjectPreferences
 } from "@parity-app/core"
@@ -1281,10 +1282,12 @@ async function createSession(
 
   // What's stale goes as the project opens: views naming modes, states or params that are gone, and what was kept for
   // designs drawn from code that no longer are. The file loses it at its next save.
-  const opening = openingDesigns(info.documents, info.mainDocument, info.sources, modes).map(({ path, document }) => ({
-    path,
-    document: prunedDocument(document, modes)
-  }))
+  const opening = openingDesigns(info.documents, info.mainDocument, info.sources, modes, routeFiles(info.routes)).map(
+    ({ path, document }) => ({
+      path,
+      document: prunedDocument(document, modes)
+    })
+  )
 
   const main = opening.find(({ path }) => path === info.mainDocument)
 
@@ -1483,7 +1486,9 @@ function searchBoardParents(
   parents: Map<string, BoardParents>,
   draw: () => void
 ): void {
-  const groups = new Map(boardGroups(info.sources).flatMap(({ ids }) => ids.map((id) => [id, ids])))
+  const groups = new Map(
+    boardGroups(info.sources, routeFiles(info.routes)).flatMap(({ ids }) => ids.map((id) => [id, ids]))
+  )
   const prefix = `${componentBoardsFile}#`
 
   const step = (design: string, failures: readonly LayerFailure[]) => {

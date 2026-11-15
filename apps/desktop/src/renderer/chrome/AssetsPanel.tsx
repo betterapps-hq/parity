@@ -19,6 +19,8 @@ import {
   describeRenderStatus,
   emptyDocument,
   groupComponents,
+  type RouteFiles,
+  routeFiles,
   includeComponent,
   type LeftOutExport,
   type LibraryInfo
@@ -178,7 +180,11 @@ export interface Source {
  * rest of the app, by folder or page route. What the picker hides comes last, under a heading of its own, as a
  * library's internal parts always have.
  */
-function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
+function families(
+  sources: [string, ComponentSource][],
+  by: "file" | "folder" | "route" = "file",
+  routes?: RouteFiles
+): Family[] {
   const evidence = new Map(
     // Why detection counts it says nothing a person needs, so only one they listed themselves says so.
     sources.map(([key, source]) => [key, source.included ? "listed by hand" : undefined])
@@ -186,7 +192,7 @@ function families(sources: [string, ComponentSource][], by: "file" | "folder" | 
 
   const hidden = new Map(sources.map(([key, source]) => [key, hiddenReason(key, { internal: source.internal })]))
 
-  const grouped = groupComponents(sources, by).map((group) => {
+  const grouped = groupComponents(sources, by, routes).map((group) => {
     const family: Family = {
       name: group.name,
       items: group.ids.map((key) => familyItem(key, evidence.get(key), hidden.get(key)))
@@ -231,7 +237,8 @@ function familyItem(key: string, evidence: string | undefined, hidden: HiddenRea
 /** The project's own components by role: its UI kit, the rest of the app by folder, and its pages. */
 function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source[] {
   const icon = <Component className="size-3.5" style={{ color: kindColors.component }} />
-  const withRole = (role: ComponentRole) => all.filter(([, source]) => componentRole(source) === role)
+  const routes = routeFiles(info.routes)
+  const withRole = (role: ComponentRole) => all.filter(([, source]) => componentRole(source, routes) === role)
   const kit = withRole("kit")
   const pages = withRole("page")
 
@@ -245,7 +252,7 @@ function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source
       title: "Pages",
       icon: <MonitorSmartphone className="size-3.5" style={{ color: kindColors.screen }} />,
       origin: "page",
-      families: families(pages, "route")
+      families: families(pages, "route", routes)
     }
   ]
 }
