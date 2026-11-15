@@ -302,6 +302,35 @@ describe("signing in", () => {
     expect(test.named("account.signedIn")).toEqual([expect.objectContaining({ provider: "GoogleOAuth" })])
   })
 
+  it("lets a second choice go while the service answers the first (PAR-1143)", async () => {
+    const test = setUp({ service: "https://api.tryparity.dev" })
+    await test.account.signIn({ provider: "GoogleOAuth" })
+
+    test.answer(403, {
+      code: "organization_selection_required",
+      message: "Choose.",
+      pending_authentication_token: "pending_01",
+      organizations: [{ id: "org_01KESTREL", name: "Kestrel" }]
+    })
+    await test.account.takeLink(test.callback({ code: "1" }))
+    const opened = test.opened.length
+    const asked = test.requests.length
+
+    test.answer(200, {
+      ...session("refresh_1", test.now(), { org_id: "org_01KESTREL" }),
+      organization_id: "org_01KESTREL"
+    })
+    test.answer(400, { error: "invalid_grant", error_description: "Pending token already used." })
+    await Promise.all([
+      test.account.signIn({ provider: "authkit", organizationId: "org_01KESTREL" }),
+      test.account.signIn({ provider: "authkit", organizationId: "org_01KESTREL" })
+    ])
+
+    expect(test.requests.length - asked).toBe(1)
+    expect(test.opened).toHaveLength(opened)
+    expect(test.account.state().account).toMatchObject({ organizationId: "org_01KESTREL" })
+  })
+
   it("signs in again with the organization named when the service can't finish it (PAR-1143)", async () => {
     const test = setUp({ service: "https://api.tryparity.dev" })
     await test.account.signIn({ provider: "GoogleOAuth" })

@@ -161,7 +161,7 @@ export function createAccount(options: AccountOptions): Account {
    */
   let named: Organization[] | undefined
   /** WorkOS's token for the sign-in that asked which organization, which Parity's service finishes once one's chosen. */
-  let choosing: { pendingToken: string; provider: SignInProvider } | undefined
+  let choosing: { pendingToken: string; provider: SignInProvider; finishing?: true } | undefined
 
   /** Who a session signs in, with the organizations Parity knows they're in. */
   const personWith = (session: Session, organizations: Organization[] | undefined): AccountPerson => ({
@@ -206,6 +206,13 @@ export function createAccount(options: AccountOptions): Account {
     if (options.service === undefined || pending === undefined || !named?.some(({ id }) => id === organizationId)) {
       return false
     }
+
+    // One choice at a time: another while the service answers the first is let go, so the two can't race to sign in.
+    if (pending.finishing) {
+      return true
+    }
+
+    pending.finishing = true
 
     const result = await chooseOrganization(options.fetch, options.service, {
       pendingToken: pending.pendingToken,
