@@ -40,6 +40,8 @@ function setup({ autosave = true } = {}) {
   )
 
   const writes: { path: string; document: CanvasDocument }[] = []
+  const deletes: string[] = []
+  let held: (() => void) | undefined
   const tokenWrites: TokenWrite[][] = []
   let failing: string | undefined
   let stylesheetFailing: string | undefined
@@ -50,7 +52,14 @@ function setup({ autosave = true } = {}) {
         throw new Error(failing)
       }
 
+      if (held) {
+        await new Promise<void>((resolve) => (held = resolve))
+      }
+
       writes.push({ path, document })
+    },
+    deleteDocument: async (path) => {
+      deletes.push(path)
     },
     autosave: () => autosave
   })
@@ -70,7 +79,14 @@ function setup({ autosave = true } = {}) {
     doc,
     saver,
     writes,
+    deletes,
     tokenWrites,
+    hold: () => (held = () => undefined),
+    release: () => {
+      const resolve = held
+      held = undefined
+      resolve?.()
+    },
     fail: (reason: string | undefined) => (failing = reason),
     failStylesheet: (reason: string | undefined) => (stylesheetFailing = reason)
   }
@@ -104,6 +120,32 @@ describe("ProjectSaver", () => {
     expect(writes.map((write) => write.path)).toEqual(["app.par"])
     expect(saver.state()).toEqual({ status: "saved" })
     expect(saver.saved("app.par")).toBe(doc.file("app.par"))
+  })
+
+  it("deletes a file taken out of the project, and is saved only once it's gone", async () => {
+    const { doc, saver, deletes } = setup({ autosave: false })
+    doc.transact("Remove", [{ op: "removeFile", file: "more.par" }], { origin: "edit" })
+
+    expect(saver.unsaved()).toEqual(["more.par"])
+
+    await saver.flush()
+    expect(deletes).toEqual(["more.par"])
+    expect(saver.hasUnsaved()).toBe(false)
+  })
+
+  it("writes a path again after the write in flight, so the newest content lands last", async () => {
+    const { doc, saver, writes, hold, release } = setup({ autosave: false })
+    rename(doc, "First")
+    hold()
+    const first = saver.flush()
+
+    rename(doc, "Second")
+    const second = saver.flush()
+    release()
+    await Promise.all([first, second])
+
+    expect(writes.map((write) => write.document.containers?.[0]?.name)).toEqual(["First", "Second"])
+    expect(saver.hasUnsaved()).toBe(false)
   })
 
   it("waits for Save with autosave off", async () => {

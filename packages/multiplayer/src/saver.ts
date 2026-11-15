@@ -22,6 +22,8 @@ import type { DocChange, ProjectDoc } from "./types.ts"
 
 export interface Persistence {
   saveDocument(path: string, document: CanvasDocument): Promise<void>
+  /** Removes a file the project no longer has. */
+  deleteDocument(path: string): Promise<void>
   /** Whether each change saves itself a moment later, or waits for Save. */
   autosave(): boolean
   /** Keeps a write in the trace of the change that asked for it (PAR-629): runs it, later, inside that trace. */
@@ -69,6 +71,9 @@ export function createProjectSaver(
   const failures = new Map<string, string>()
   const timers = new Map<string, ReturnType<typeof setTimeout>>()
   const writing = new Set<Promise<unknown>>()
+  /** The paths being written now, and those to write again once that's done. */
+  const inFlight = new Set<string>()
+  const again = new Set<string>()
   const listeners = new Set<() => void>()
   let current: SaveState = { status: "saved" }
 
@@ -146,37 +151,52 @@ export function createProjectSaver(
   }
 
   const write = (path: string) => {
+    if (inFlight.has(path)) {
+      // One write to a path at a time, so an older one can't land after a newer one.
+      again.add(path)
+
+      return
+    }
+
     const sending = send(path)
 
     if (!sending) {
       return
     }
 
-    const done = sending.then(
-      (taken) => {
-        failures.delete(path)
-        taken()
-      },
-      (cause: unknown) => {
-        const reason = cause instanceof Error ? cause.message : String(cause)
-        console.error(`Saving ${path} failed`, cause)
+    const done: Promise<void> = sending
+      .then(
+        (taken) => {
+          failures.delete(path)
+          taken()
+        },
+        (cause: unknown) => {
+          const reason = cause instanceof Error ? cause.message : String(cause)
+          console.error(`Saving ${path} failed`, cause)
 
-        if (path === stylesheet()) {
-          const changes = tokenWrites(doc.tokens(), savedTokens)
-          const what = changes.length === 1 ? `--${changes[0]!.name}` : `${changes.length} token values`
-          failures.set(path, `Couldn't write ${what} to ${path}: ${reason}`)
-          tokenFailure = { error: reason, tokens: changes }
-        } else {
-          failures.set(path, reason)
+          if (path === stylesheet()) {
+            const changes = tokenWrites(doc.tokens(), savedTokens)
+            const what = changes.length === 1 ? `--${changes[0]!.name}` : `${changes.length} token values`
+            failures.set(path, `Couldn't write ${what} to ${path}: ${reason}`)
+            tokenFailure = { error: reason, tokens: changes }
+          } else {
+            failures.set(path, reason)
+          }
         }
-      }
-    )
+      )
+      .finally(() => {
+        writing.delete(done)
+        inFlight.delete(path)
+
+        if (again.delete(path) && unsaved().includes(path)) {
+          write(path)
+        }
+
+        notify()
+      })
 
     writing.add(done)
-    void done.finally(() => {
-      writing.delete(done)
-      notify()
-    })
+    inFlight.add(path)
     notify()
   }
 
@@ -216,7 +236,12 @@ export function createProjectSaver(
       }
     }
 
-    return content ? persistence.saveDocument(path, content).then(() => taken) : Promise.resolve(taken)
+    if (content) {
+      return persistence.saveDocument(path, content).then(() => taken)
+    }
+
+    // Taken out of the project: it's saved once the file is gone too.
+    return saved.has(path) ? persistence.deleteDocument(path).then(() => taken) : Promise.resolve(taken)
   }
 
   const take = (change: DocChange) => {
@@ -292,7 +317,11 @@ export function createProjectSaver(
         write(path)
       }
 
-      await Promise.allSettled(writing)
+      // A write can queue another to the same path as it finishes, so wait until none is left.
+      while (writing.size > 0) {
+        await Promise.allSettled(writing)
+      }
+
       const failure = failures.values().next().value
 
       if (failure !== undefined) {

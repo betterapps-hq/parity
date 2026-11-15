@@ -254,6 +254,14 @@ export function describeProjectDoc(provider: DocProvider, _options: { replicas?:
         expect(doc.file("new.par")).toBeUndefined()
       })
 
+      it("moves a note that's otherwise unchanged", () => {
+        const { doc } = open()
+        const before = doc.file("app.par")?.notes?.find((each) => each.id === "n2")
+        apply(doc, [{ op: "setNote", file: "app.par", note: before!, before: "n1" }])
+
+        expect(doc.file("app.par")?.notes?.map((each) => each.id)).toEqual(["n2", "n1"])
+      })
+
       it("keeps a layer's id while its type changes, through a remove and an insert", () => {
         const { doc } = open()
         apply(doc, [

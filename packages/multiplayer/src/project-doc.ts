@@ -715,7 +715,7 @@ type TargetValue =
   | { kind: "file"; value: CanvasDocument | undefined }
   | { kind: "tokens"; value: TokenEdits }
   | { kind: "modes"; value: ModeSettings }
-  | { kind: "item"; value: NoteSpec | ReferenceSpec | undefined }
+  | { kind: "item"; value: { item: NoteSpec | ReferenceSpec; at: number } | undefined }
   | { kind: "field"; value: JsonValue | undefined }
 
 function valueOf(state: DocState, target: string): TargetValue {
@@ -751,7 +751,11 @@ function valueOf(state: DocState, target: string): TargetValue {
   const items: readonly (NoteSpec | ReferenceSpec)[] | undefined =
     split && (kind === "notes" ? state.files.get(split.path)?.notes : state.files.get(split.path)?.references)
 
-  return { kind: "item", value: items?.find((item) => item.id === split?.id) }
+  const at = items?.findIndex((item) => item.id === split?.id) ?? -1
+  const item = items?.[at]
+
+  // Where it sits counts too, so a transaction that only reorders a file's notes or references isn't "unchanged".
+  return { kind: "item", value: item && { item, at } }
 }
 
 function sameTarget(a: TargetValue, b: TargetValue): boolean {
