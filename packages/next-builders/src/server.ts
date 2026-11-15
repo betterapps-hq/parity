@@ -1,12 +1,16 @@
-import { readFile, rm, symlink, writeFile, mkdir, stat } from "node:fs/promises"
+import { mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
 import { dirname, join } from "node:path"
 import type { NextBundler } from "./bundler.ts"
 import { type GuestAppFile, guestAppFolder } from "./guest-app.ts"
 import type { ProjectNext } from "./next.ts"
+import { standInFolder } from "./server-modules.ts"
 
 const loopback = "127.0.0.1"
+
+/** The guest app's files that only some projects have, which a start that doesn't write them removes. */
+const optionalGuestFiles = ["postcss.config.mjs", "tsconfig.json", "jsconfig.json"]
 
 /**
  * Writes the guest app's files into the project's `.next/parity/`, leaving a file alone when it already says the same,
@@ -15,6 +19,16 @@ const loopback = "127.0.0.1"
  */
 export async function writeGuestApp(root: string, files: readonly GuestAppFile[]): Promise<string> {
   const folder = join(root, guestAppFolder)
+  const written = new Set(files.map((file) => file.path))
+
+  // The files the builder writes only for some projects, or some components, go when this start doesn't write them:
+  // a PostCSS config or tsconfig the project no longer has, or a stand-in for a module that's no longer server-only.
+  const standIns = await readdir(join(folder, standInFolder)).catch(() => [])
+  const optional = [...optionalGuestFiles, ...standIns.map((name) => `${standInFolder}/${name}`)]
+
+  for (const path of optional.filter((path) => !written.has(path))) {
+    await rm(join(folder, path), { force: true })
+  }
 
   for (const file of files) {
     const path = join(folder, file.path)
