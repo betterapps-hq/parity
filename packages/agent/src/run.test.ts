@@ -7,7 +7,7 @@ import {
   frameGeometry,
   resolveModes
 } from "@parity-app/core"
-import { describe, expect, it } from "vite-plus/test"
+import { describe, expect, it, vi } from "vite-plus/test"
 import { z } from "zod"
 import { replies } from "./contracts.ts"
 import { execute, type SnippetLimits } from "./run.ts"
@@ -2312,6 +2312,35 @@ describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
     expect(next.error).toBeUndefined()
     expect(next.output).toEqual(["before"])
     expect(next.screenshots).toHaveLength(1)
+  })
+
+  // A clock that moves on with each reading puts the run's deadline between every two of its checks in turn, so one of
+  // these runs stops just as an awaited screenshot settles, which real time hits only now and then (PAR-1124).
+  it("stops a loop of screenshots wherever its deadline falls, leaving nothing for the tab's next call", async () => {
+    let now = 0
+    vi.spyOn(performance, "now").mockImplementation(() => ++now)
+    const leaked: number[] = []
+
+    try {
+      for (let total = 1; total <= 80; total++) {
+        const read = snapshot()
+        const unlimited = { total: Number.POSITIVE_INFINITY, stretch: 1000 }
+        await execute({ label: "Keep", code: `kept = "before"` }, read, hooks(), unlimited)
+        await execute({ label: "Loop", code: `while (true) await Screenshot("signup")` }, read, hooks(), {
+          total,
+          stretch: 1000
+        })
+        const next = await execute({ label: "Read", code: `await Screenshot("signup")` }, read, hooks(), unlimited)
+
+        if (next.screenshots.length !== 1) {
+          leaked.push(total)
+        }
+      }
+    } finally {
+      vi.restoreAllMocks()
+    }
+
+    expect(leaked).toEqual([])
   })
 
   it("leaves a stopped snippet's next step out of the tab's next call", async () => {
