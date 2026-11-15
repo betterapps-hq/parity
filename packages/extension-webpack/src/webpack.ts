@@ -87,7 +87,7 @@ const cssRule = z.looseObject({
 type CssRule = z.output<typeof cssRule>
 
 /** Options webpack's CSS parser takes, for a rule or for every `.css` file. */
-interface CssParserOptions {
+type CssParserOptions = {
   namedExports: boolean
   dashedIdents?: false
 }

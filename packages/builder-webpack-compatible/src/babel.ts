@@ -64,7 +64,7 @@ function babelUse(use: z.output<typeof ruleUse>, root: string): z.output<typeof 
   return babelEntry(use, root)
 }
 
-function babelEntry(use: string | { loader?: string }, root: string): string | { loader?: string } {
+function babelEntry(use: string | { loader?: string }, root: string): string | { loader?: string; options?: unknown } {
   const name = use instanceof Object ? use.loader : use
 
   if (!name || !babelLoader.test(name)) {
