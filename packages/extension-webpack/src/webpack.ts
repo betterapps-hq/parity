@@ -125,6 +125,8 @@ export interface WebpackCss {
    * version 7 does, rather than as the default export, as earlier ones do.
    */
   cssLoaderNamedExports: boolean
+  /** Whether its CSS generator takes `exportsConvention`, for a CSS module's export names as `css-loader` gave them. */
+  exportsConvention: boolean
 }
 
 /** `css-loader` by name or by its files. */
@@ -135,7 +137,21 @@ interface CssModules {
   /** The module type that scopes the same files: by name (`.module.css`), every file, or none. */
   type: "css/auto" | "css/module" | "css/global"
   namedExport?: boolean
+  /** How it named a class's export, in webpack's spelling (`camel-case-only`), when its options said. */
+  exportsConvention?: ExportsConvention
 }
+
+/** The export-name conventions webpack's CSS generator takes, by name or as a function. */
+type ExportsConvention = string | ((name: string) => string | string[])
+
+/** `css-loader`'s `exportLocalsConvention` in webpack's spelling: its camel-cased names become kebab-cased ones. */
+const exportLocalsConvention = z.union([
+  z.enum(["as-is", "camel-case", "camel-case-only", "dashes", "dashes-only"]),
+  z
+    .enum(["asIs", "camelCase", "camelCaseOnly", "dashesOnly"])
+    .transform((name) => name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)),
+  z.custom<(name: string) => string | string[]>((value) => value instanceof Function)
+])
 
 /** A `modules` mode that scopes nothing. */
 const globalMode = z.enum(["global", "icss"])
@@ -147,8 +163,13 @@ const cssModulesOption = z
     globalMode.transform((): CssModules => ({ type: "css/global" })),
     z.string().transform((): CssModules => ({ type: "css/module" })),
     z
-      .looseObject({ auto: z.unknown().optional(), mode: z.unknown().optional(), namedExport: z.boolean().optional() })
-      .transform(({ auto, mode, namedExport }): CssModules => {
+      .looseObject({
+        auto: z.unknown().optional(),
+        mode: z.unknown().optional(),
+        namedExport: z.boolean().optional(),
+        exportLocalsConvention: exportLocalsConvention.optional().catch(undefined)
+      })
+      .transform(({ auto, mode, namedExport, exportLocalsConvention: convention }): CssModules => {
         // Without `auto`, every file is a CSS module unless the mode scopes nothing; `auto: false` makes none one.
         let type: CssModules["type"] = "css/auto"
 
@@ -158,7 +179,17 @@ const cssModulesOption = z
           type = "css/global"
         }
 
-        return namedExport === undefined ? { type } : { type, namedExport }
+        const modules: CssModules = { type }
+
+        if (namedExport !== undefined) {
+          modules.namedExport = namedExport
+        }
+
+        if (convention !== undefined) {
+          modules.exportsConvention = convention
+        }
+
+        return modules
       })
   ])
   .optional()
@@ -299,6 +330,10 @@ export function webpackCssRule(entry: unknown, css: WebpackCss): unknown {
     const modules = cssLoaderModules([parsed.data, ...uses])
     changed.type = modules.type
     changed.parser = parserOptions(modules.namedExport ?? css.cssLoaderNamedExports, css)
+
+    if (modules.exportsConvention !== undefined && css.exportsConvention) {
+      changed.generator = { ...anyObject.parse(rest["generator"]), exportsConvention: modules.exportsConvention }
+    }
   }
 
   if (rest.oneOf) {

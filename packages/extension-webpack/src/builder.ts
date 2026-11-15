@@ -97,7 +97,8 @@ async function webpackCss(root: string): Promise<WebpackCss> {
 
   return {
     globalCustomProperties: schema.includes('"dashedIdents"'),
-    cssLoaderNamedExports: Number.parseInt(cssLoader ?? "0", 10) >= 7
+    cssLoaderNamedExports: Number.parseInt(cssLoader ?? "0", 10) >= 7,
+    exportsConvention: schema.includes('"exportsConvention"')
   }
 }
 

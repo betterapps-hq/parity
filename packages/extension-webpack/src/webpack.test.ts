@@ -100,7 +100,7 @@ describe("withWebpackCss", () => {
     expect(
       withWebpackCss(
         { experiments: { topLevelAwait: true } },
-        { globalCustomProperties: false, cssLoaderNamedExports: false }
+        { globalCustomProperties: false, cssLoaderNamedExports: false, exportsConvention: false }
       )
     ).toEqual({
       experiments: { topLevelAwait: true, css: true },
@@ -109,7 +109,10 @@ describe("withWebpackCss", () => {
   })
 
   it("keeps custom properties global where the project's webpack can", () => {
-    expect(withWebpackCss({}, { globalCustomProperties: true, cssLoaderNamedExports: false }).module?.parser).toEqual({
+    expect(
+      withWebpackCss({}, { globalCustomProperties: true, cssLoaderNamedExports: false, exportsConvention: false })
+        .module?.parser
+    ).toEqual({
       "css/auto": { namedExports: false, dashedIdents: false }
     })
   })
@@ -127,7 +130,7 @@ describe("withWebpackCss", () => {
           ]
         }
       },
-      { globalCustomProperties: true, cssLoaderNamedExports: false }
+      { globalCustomProperties: true, cssLoaderNamedExports: false, exportsConvention: false }
     )
 
     expect(config.module?.rules).toEqual([
@@ -142,7 +145,7 @@ describe("withWebpackCss", () => {
 const functionRule = z.looseObject({ use: z.custom<RuleUse>((value) => value instanceof Function) })
 
 describe("webpackCssRule", () => {
-  const older = { globalCustomProperties: false, cssLoaderNamedExports: false }
+  const older = { globalCustomProperties: false, cssLoaderNamedExports: false, exportsConvention: false }
 
   it("changes nested rules, a lone loader and loaders given by their files", () => {
     expect(
@@ -194,12 +197,21 @@ describe("webpackCssRule", () => {
   })
 
   it("gives classes as named exports when css-loader 7 does by default, unless its options say otherwise", () => {
-    const seven = { globalCustomProperties: false, cssLoaderNamedExports: true }
+    const seven = { globalCustomProperties: false, cssLoaderNamedExports: true, exportsConvention: false }
 
     const rule = (options?: { modules: { namedExport: boolean } }) =>
       webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }, seven)
 
     expect(rule()).toMatchObject({ parser: { namedExports: true } })
     expect(rule({ modules: { namedExport: false } })).toMatchObject({ parser: { namedExports: false } })
+  })
+
+  it("carries css-loader's export-name convention to webpack's generator where it takes one", () => {
+    const options = { modules: { auto: true, exportLocalsConvention: "camelCaseOnly" } }
+    const rule = { test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }
+    const newer = { globalCustomProperties: false, cssLoaderNamedExports: false, exportsConvention: true }
+
+    expect(webpackCssRule(rule, newer)).toMatchObject({ generator: { exportsConvention: "camel-case-only" } })
+    expect(webpackCssRule(rule, older)).not.toHaveProperty("generator")
   })
 })
