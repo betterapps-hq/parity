@@ -146,6 +146,12 @@ with no bundler installed, through a fake compiler shaped like webpack's.
 | `codeChanges`, `loadedFiles` and the walk for `styles()` from a webpack-shaped module graph  | `detect`, the manifest, the status item                                           |
 | Choosing the global stylesheets (moved from `extension-vite`, shared with Vite too)          |                                                                                   |
 
+The core's input is a config object the tool has already resolved, not a config file's path. Next.js on webpack builds
+its config through `next.config`'s `webpack()` hook, so its extension hands the core a config it made. Loading the
+compiler and config, and the CSS-extract plugin, are parts each extension passes in. A plain webpack app may not have
+`mini-css-extract-plugin` installed, and whether Parity bundles one as a fallback is a dependency to ask about when the
+webpack builder gets there.
+
 The webpack builder, under PAR-1087 too, builds on the same package. Next.js on webpack can use it too where Next's own
 config gives a webpack config, but Next's server components and its own dev server are its proposal's to settle.
 
