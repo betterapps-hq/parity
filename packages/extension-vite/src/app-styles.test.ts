@@ -203,6 +203,23 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     )
   })
 
+  it("follows a config entry a plugin provides, by the id the config names it by", async () => {
+    await write({
+      "vite.config.mjs": [
+        "const app = {",
+        '  name: "app-entry",',
+        '  resolveId: (id) => (id === "virtual:app-entry" ? "\\0virtual:app-entry" : undefined),',
+        '  load: (id) => (id === "\\0virtual:app-entry" ? \'import "/src/main.ts"\' : undefined)',
+        "}",
+        'export default { plugins: [app], build: { rollupOptions: { input: "virtual:app-entry" } } }'
+      ].join("\n"),
+      "src/main.ts": 'import "./index.css"',
+      "src/index.css": ":root { --primary: red; }"
+    })
+
+    expect((await viteAppStyles(root)).styles).toEqual(["src/index.css"])
+  })
+
   it("lists an HTML entry that isn't there yet, so creating it is seen", async () => {
     expect(await viteAppStyles(root)).toEqual({ styles: [], packageStyles: [], from: ["index.html"] })
   })

@@ -349,9 +349,17 @@ async function entries(
 
   for (const entry of named.length > 0 ? named : ["index.html"]) {
     if (!entry.endsWith(".html")) {
-      // A config's entry is from the root, as Vite reads it, whether or not it starts with `./`.
-      const local = /^[./]/.test(entry) || /^[A-Za-z]:\//.test(entry) ? entry : `./${entry}`
-      await addModule(client, root, local, `${root}/index.html`, { modules, pages })
+      // As the config names it first, which a plugin's virtual entry (`virtual:app`) needs. Else it's a file from the
+      // root, as Vite reads one, whether or not it starts with `./`, and listed when it isn't there yet.
+      const url = await moduleUrl(client, root, entry)
+
+      if (url) {
+        modules.push(url)
+      } else {
+        const local = /^[./]/.test(entry) || /^[A-Za-z]:\//.test(entry) ? entry : `./${entry}`
+        await addModule(client, root, local, `${root}/index.html`, { modules, pages })
+      }
+
       continue
     }
 
@@ -544,7 +552,12 @@ async function isFile(path: string): Promise<boolean> {
 }
 
 /** The URL Vite compiles an entry by: a project file's path from the root, else its resolved id; none if unresolved. */
-async function moduleUrl(client: ClientGraph, root: string, id: string, importer: string): Promise<string | undefined> {
+async function moduleUrl(
+  client: ClientGraph,
+  root: string,
+  id: string,
+  importer?: string
+): Promise<string | undefined> {
   const resolved = await client.resolve(id, importer).catch(() => undefined)
 
   if (!resolved) {

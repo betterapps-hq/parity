@@ -7689,23 +7689,23 @@ and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/
 `DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
 `appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
 
-Tests: `packages/extension-vite/src/app-styles.test.ts` (14; 12 with a real Vite: what `index.html`'s module imports and
-its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry followed to the root,
-whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; a package's stylesheet named by the
-export the app imports, not the `dist` file it maps to; a page's links relative to it and from `public`, without a
-commented-out or remote one; an inline module script's stylesheets, package's and modules, without one in a comment, a
-string or a dynamic `import()`; two modules' stylesheets in import order, not by name; a missing HTML entry, a module
-that didn't compile, a missing link and the theme's stylesheets with their `@import`s among the files listed; a
-stylesheet, root-relative stylesheet and extensionless module a module imports before they're written listed, and found
-once they are; a missing module script, inline import and config entry listed; none for an app that loads none, with the
-files it read, and its first import found when asked again; and 2 for `configInput`: a Vite 6 or 7 config with only
-`rollupOptions`, and Vite 8's `rolldownOptions` first). `packages/project/src/index.test.ts` (1: discovery takes the
-builder's answer and reads no entry itself). `apps/desktop/src/utility/projects.test.ts` (2 of PAR-820's, with a fake
-builder's answer). `parity lib` on an app asks the registered builders the same way (`appStylesheets` in
-`packages/cli/src/lib.ts`) and reads the app's tokens from what the first that serves it names. Gaps: Vite 6 and 7
-resolve a config with only `rollupOptions`, which `configInput`'s tests cover with that shape rather than a real Vite 7,
-and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects are compiled with a
-middleware-mode dev server, since Vite 5 has no environments.
+Tests: `packages/extension-vite/src/app-styles.test.ts` (15; 13 with a real Vite: what `index.html`'s module imports and
+its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry, a plugin's virtual one
+too, followed to the root, whose `?url` stylesheet holds the theme, over a page's beside it and a `?raw` read; a
+package's stylesheet named by the export the app imports, not the `dist` file it maps to; a page's links relative to it
+and from `public`, without a commented-out or remote one; an inline module script's stylesheets, package's and modules,
+without one in a comment, a string or a dynamic `import()`; two modules' stylesheets in import order, not by name; a
+missing HTML entry, a module that didn't compile, a missing link and the theme's stylesheets with their `@import`s among
+the files listed; a stylesheet, root-relative stylesheet and extensionless module a module imports before they're
+written listed, and found once they are; a missing module script, inline import and config entry listed; none for an app
+that loads none, with the files it read, and its first import found when asked again; and 2 for `configInput`: a Vite 6
+or 7 config with only `rollupOptions`, and Vite 8's `rolldownOptions` first). `packages/project/src/index.test.ts` (1:
+discovery takes the builder's answer and reads no entry itself). `apps/desktop/src/utility/projects.test.ts` (2 of
+PAR-820's, with a fake builder's answer). `parity lib` on an app asks the registered builders the same way
+(`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's tokens from what the first that serves it names.
+Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which `configInput`'s tests cover with that shape rather
+than a real Vite 7, and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects
+are compiled with a middleware-mode dev server, since Vite 5 has no environments.
 
 ### Detected again when what detection reads changes (PAR-820)
 
