@@ -61,7 +61,7 @@ function Broken({ part }: Args) {
  * their own, and what's drawn over the canvas fails without a word. The error is folded away under Details.
  */
 const meta = {
-  title: "Parity/Chrome/Error boundary",
+  title: "Parity/Chrome/Prompts/Error boundary",
   component: Broken,
   parameters: { layout: "fullscreen" },
   args: { part: "inspector.design", failures: 1, reportable: true },

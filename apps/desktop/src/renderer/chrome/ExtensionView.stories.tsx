@@ -14,7 +14,7 @@ import { ExtensionView, type ViewSize } from "./ExtensionView.tsx"
  * themes and accessible names.
  */
 const meta = {
-  title: "Parity/Chrome/Extension views",
+  title: "Parity/Chrome/Panels/Extension views",
   component: ExtensionView
 } satisfies Meta<typeof ExtensionView>
 

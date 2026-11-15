@@ -26,14 +26,17 @@ import {
   type ComponentType,
   createContext,
   createElement,
+  forwardRef,
   Fragment,
   type Key,
   type ReactNode,
+  type Ref,
   useContext,
   useEffect,
   useLayoutEffect,
   useState,
-  useSyncExternalStore
+  useSyncExternalStore,
+  version
 } from "react"
 import { flushSync } from "react-dom"
 import { createRoot, type Root } from "react-dom/client"
@@ -199,7 +202,15 @@ interface BoundaryProps {
 interface FrameFailures {
   failed(boundary: ComponentBoundary, failure: LayerFailure): void
   cleared(boundary: ComponentBoundary): void
+  /** Tells the frame about an error a boundary caught, where React doesn't: React 18 has no `onCaughtError`. */
+  caught?(boundary: ComponentBoundary, error: Error): void
 }
+
+/**
+ * Whether the project's React tells a root about errors itself, through `createRoot`'s `onCaughtError` and
+ * `onUncaughtError`, which came in React 19. On React 18 the guest's boundaries tell the frame instead.
+ */
+const rootReportsErrors = Number.parseInt(version, 10) >= 19
 
 const FrameFailuresContext = createContext<FrameFailures | undefined>(undefined)
 
@@ -285,6 +296,7 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   override componentDidCatch(error: Error) {
     this.props.report.failed(this.props.name, error)
     this.context?.failed(this, { nodeId: this.props.nodeId, component: this.props.name, error: error.message })
+    this.context?.caught?.(this, error)
   }
   override componentDidUpdate(_props: BoundaryProps, previous: BoundaryState) {
     if (previous.error && previous.error !== this.state.error) {
@@ -312,6 +324,34 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
+/** What a frame boundary is given: each render of the frame comes with a new `render`, so it tries again. */
+interface FrameBoundaryProps {
+  report: (cause: unknown) => void
+  render: number
+  children?: ReactNode
+}
+
+/**
+ * Takes the errors no component's boundary caught, a decorator's say, tells the frame and draws nothing until the frame
+ * renders again, as a React 19 root does after `onUncaughtError`. Only on React 18, which has no `onUncaughtError` and
+ * would throw them to the page.
+ */
+class FrameBoundary extends Component<FrameBoundaryProps, { failed: boolean; render: number }> {
+  override state = { failed: false, render: this.props.render }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  static getDerivedStateFromProps(props: FrameBoundaryProps, state: { render: number }) {
+    return props.render === state.render ? null : { failed: false, render: props.render }
+  }
+  override componentDidCatch(error: Error) {
+    this.props.report(error)
+  }
+  override render() {
+    return this.state.failed ? null : this.props.children
+  }
+}
+
 /** A component layer as the guest draws it, before anything its parent does to it. */
 interface LayerDrawing {
   component: ComponentType<Props>
@@ -325,9 +365,11 @@ interface LayerDrawing {
  * Radix's Slot does for `asChild`. Cloning an element layer merges onto the element itself; a component layer's
  * element is this one, so it merges the same way here, with the component's own props over what it's given: class
  * names joined, styles merged and both handlers called, the layer's first, as Radix's `mergeProps` does. A ref it's
- * given goes to the component, since a function component takes `ref` as a prop in React 19.
+ * given goes to the component. It forwards the ref, since React 18 keeps a ref out of a function component's props.
  */
-function ComponentLayer({ layer, ...given }: { layer: LayerDrawing } & Props) {
+const ComponentLayer = forwardRef(function ComponentLayer(drawn: { layer: LayerDrawing }, ref: Ref<unknown>) {
+  // SAFETY: a parent cloning the layer adds whatever props it hands on; forwardRef's types keep only `layer`.
+  const { layer, ...given } = drawn as { layer: LayerDrawing } & Props
   const props = Object.keys(given).length === 0 ? layer.props : mergeGiven(given, layer.props)
   const { name, nodeId } = layer.boundary
   const styles = useContext(LayerStylesContext)
@@ -339,11 +381,12 @@ function ComponentLayer({ layer, ...given }: { layer: LayerDrawing } & Props) {
     }
   })
 
-  const draw = (props: Props) =>
-    layer.children ? createElement(layer.component, props, ...layer.children) : createElement(layer.component, props)
+  const draw = (own: Props) =>
+    layer.children ? createElement(layer.component, own, ...layer.children) : createElement(layer.component, own)
 
   if (!(inner && styled)) {
-    return createElement(ComponentBoundary, layer.boundary, draw(props))
+    // oxlint-disable-next-line react/refs -- the ref is handed on to the component, not read
+    return createElement(ComponentBoundary, layer.boundary, draw(ref === null ? props : { ...props, ref }))
   }
 
   // It puts its style on an element inside it, so the style goes on a div around it instead, which it fills.
@@ -352,11 +395,12 @@ function ComponentLayer({ layer, ...given }: { layer: LayerDrawing } & Props) {
   const wrapper = createElement(
     "div",
     { style: Object.assign({}, wrapperStyle, style), "data-canvas-node": nodeId },
-    draw(rest)
+    // oxlint-disable-next-line react/refs -- the ref is handed on to the component, not read
+    draw(ref === null ? rest : { ...rest, ref })
   )
 
   return createElement(ComponentBoundary, layer.boundary, wrapper)
-}
+})
 
 /** A one-cell grid, so the component in it fills the div however the div is sized, and can shrink with it. */
 const wrapperStyle = { display: "grid", gridTemplate: "minmax(0, 1fr) / minmax(0, 1fr)" }
@@ -479,7 +523,8 @@ export function createGuest(init: GuestInit): Guest {
         return loading
       }
 
-      component = function OnDemand(props: Props) {
+      // It forwards a ref to the component, since React 18 keeps a ref out of a function component's props.
+      component = forwardRef(function OnDemand(props: Props, ref: Ref<unknown>) {
         const [, redraw] = useState(0)
         const own = useContext(FrameWindowContext)
         // Whether this draw had the module. One drawn without it redraws once it loads, even when the load finished before
@@ -521,8 +566,9 @@ export function createGuest(init: GuestInit): Guest {
           throw failure.error
         }
 
-        return ready ? createElement(ready, props) : null
-      }
+        // oxlint-disable-next-line react/refs -- the ref is handed on to the component, not read
+        return ready ? createElement(ready, ref === null ? props : { ...props, ref }) : null
+      })
 
       deferred.set(name, component)
     }
@@ -804,27 +850,29 @@ export function createGuest(init: GuestInit): Guest {
       const decorate = options.bare ? (content: ReactNode) => content : decorators(init.decorators, frame, report)
       const failing = frameFailures(options.onFailures && ((failures) => options.onFailures?.(failures)))
 
+      // An error a component's boundary caught names the component, so a frame says which one failed.
+      const caught = (boundary: ComponentBoundary, error: Error) => {
+        const { name, nodeId } = boundary.props
+        options.onError?.(new Error(`${name}: ${error.message}`), { nodeId, component: name })
+      }
+
       const root = createRoot(target, {
         onUncaughtError: report,
-        // An error a component's boundary caught names the component, so a frame says which one failed.
-        onCaughtError: (error, info) => {
-          const boundary = info.errorBoundary instanceof ComponentBoundary ? info.errorBoundary : undefined
-          const message = error instanceof Error ? error.message : String(error)
-
-          if (!boundary) {
-            return report(error)
-          }
-
-          const { name, nodeId } = boundary.props
-          options.onError?.(new Error(`${name}: ${message}`), { nodeId, component: name })
-        }
+        onCaughtError: (error, info) =>
+          info.errorBoundary instanceof ComponentBoundary
+            ? caught(info.errorBoundary, error instanceof Error ? error : new Error(String(error)))
+            : report(error)
       })
+
+      const frameFailing: FrameFailures = rootReportsErrors ? failing.failures : { ...failing.failures, caught }
 
       const own = options.viewport && frameWindow(target, options.viewport)
       // What the frame's components portal to the page's body is drawn in the frame's own body (PAR-881).
       const stopPortals = shadowOf(target) ? framePortals(target, frame.body) : undefined
       const drawn = watchDrawnNodes(root, target)
       const styles = frameStyles(root, target, placements, (work) => (own ? own.run(() => flushSync(work)) : work()))
+
+      let renders = 0
 
       const draw = (nodes: RenderNode[]) =>
         createElement(
@@ -835,7 +883,7 @@ export function createGuest(init: GuestInit): Guest {
             { value: styles },
             createElement(
               FrameFailuresContext.Provider,
-              { value: failing.failures },
+              { value: frameFailing },
               createElement(
                 Committed,
                 {
@@ -844,7 +892,13 @@ export function createGuest(init: GuestInit): Guest {
                     failing.committed()
                   }
                 },
-                decorate(nodes.map((node, index) => toReact(node, index)))
+                rootReportsErrors
+                  ? decorate(nodes.map((node, index) => toReact(node, index)))
+                  : createElement(
+                      FrameBoundary,
+                      { report, render: ++renders },
+                      decorate(nodes.map((node, index) => toReact(node, index)))
+                    )
               )
             )
           )

@@ -29,7 +29,7 @@ snapshot only.
 | Kind         | What it means                                                                                                 | Today                                                                                                                                          |
 | ------------ | ------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Fixed**    | Parity's design depends on it. No adapter will remove it.                                                     | A Node package, a web UI drawn to the DOM, ES modules from a dev server, styles as stylesheets, tokens as CSS custom properties, `.par` files  |
-| **Expected** | Assumed for speed. Nothing else is built for now. A project without it gets less, and an adapter can lift it. | TypeScript, React 19, Vite 7 or later, Tailwind CSS v4, named exports                                                                          |
+| **Expected** | Assumed for speed. Nothing else is built for now. A project without it gets less, and an adapter can lift it. | TypeScript, React 18 or 19, Vite 7 or later, Tailwind CSS v4, named exports                                                                    |
 | **Standard** | Read from an open format, so any tool that writes it works.                                                   | CSS custom properties, WCAG 2.2 through axe-core; planned: OpenAPI, JSON Schema, SQL, DTCG; later: JUnit XML, LCOV, OpenTelemetry, OpenFeature |
 | **Adapter**  | One piece of code or data per tool. The first ones are built, others follow by demand.                        | React, Vite, Tailwind v4, `.lib.par` libraries, Lucide, Storybook                                                                              |
 
@@ -51,26 +51,27 @@ snapshot only.
 | Expectation         | Why it pays                                                                                               | Without it                                                                                 |
 | ------------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | TypeScript          | One engine, the type checker, gives props today and component discovery, API clients and code links next. | Designs render, but props aren't inferred.                                                 |
-| React 19            | One renderer adapter to build and test. React 18 and earlier are dropped.                                 | It opens as usual, but React 18 and earlier aren't tested and may not render.              |
+| React 18 or 19      | One renderer adapter to build and test. React 17 and earlier are dropped.                                 | It opens as usual, but React 17 and earlier aren't tested and may not render.              |
 | Vite                | One builder adapter; it loads the project's own config.                                                   | The project doesn't open (no builder adapter).                                             |
 | Tailwind CSS v4     | The theme is read and written as `@theme`; spacing and type scales come with it.                          | Plain CSS variables still give tokens; the spacing scale and `@theme` editing are missing. |
 | Exported components | Parity places what code can import. Named and default exports both work.                                  | A component used only inside its own file isn't listed.                                    |
 
 ## Will my project open?
 
-| Project                                                                 | Status | What you get                                                                                                       |
-| ----------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| React 19, Vite, Tailwind v4, shadcn, TypeScript                         | ✅     | Everything. This is the example project and the Buildkit scaffolder's stack.                                       |
-| React 18 and earlier                                                    | ❌     | Dropped: React 18 came out in March 2022. Nothing blocks it and it may still render, but it isn't tested or fixed. |
-| React, Vite, plain CSS with custom properties                           | ❔     | Should render, with tokens from the CSS. Spacing values assume Tailwind's `--spacing` variable.                    |
-| React, Vite, JavaScript                                                 | ◐      | Renders `.jsx` and `.js` components without inferred props.                                                        |
-| React, Vite, Tailwind v3 and earlier                                    | ❌     | Dropped: v3 came out in December 2021. Untested; the theme reader uses a v4 API, so the theme doesn't load.        |
-| React, Vite, CSS modules or CSS-in-JS (MUI, Emotion, styled-components) | ❔     | Components render, but their styles most likely don't reach the frames.                                            |
-| React, Vite, Fluent UI v9                                               | 🔜     | Planned; see Fluent UI and Fluent icons. Today its styles most likely don't reach the frames.                      |
-| React, Rspack, plain CSS with custom properties                         | ✅     | Its components drawn and styled, with tokens from the CSS, as with Vite.                                           |
-| Next.js, Remix, Astro, or webpack                                       | ❌     | No builder adapter yet. Next.js and webpack are in progress.                                                       |
-| Vue, Svelte or Solid                                                    | ❌     | No renderer adapter yet. The interface exists; nothing is planned until there's demand.                            |
-| Angular, React Native, Flutter                                          | ❌     | Not planned.                                                                                                       |
+| Project                                                                 | Status | What you get                                                                                                         |
+| ----------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------------- |
+| React 19, Vite, Tailwind v4, shadcn, TypeScript                         | ✅     | Everything. This is the example project and the Buildkit scaffolder's stack.                                         |
+| React 18, Vite                                                          | ✅     | Components draw as on React 19. `react18-mui-js` tests it, with MUI and JavaScript.                                  |
+| React 17 and earlier                                                    | ❌     | Dropped: React 17 came out in October 2020. Nothing blocks it and it may still render, but it isn't tested or fixed. |
+| React, Vite, plain CSS with custom properties                           | ❔     | Should render, with tokens from the CSS. Spacing values assume Tailwind's `--spacing` variable.                      |
+| React, Vite, JavaScript                                                 | ◐      | Renders `.jsx` and `.js` components without inferred props.                                                          |
+| React, Vite, Tailwind v3 and earlier                                    | ❌     | Dropped: v3 came out in December 2021. Untested; the theme reader uses a v4 API, so the theme doesn't load.          |
+| React, Vite, CSS modules or CSS-in-JS (MUI, Emotion, styled-components) | ❔     | Components render, but their styles most likely don't reach the frames.                                              |
+| React, Vite, Fluent UI v9                                               | 🔜     | Planned; see Fluent UI and Fluent icons. Today its styles most likely don't reach the frames.                        |
+| React, Rspack, plain CSS with custom properties                         | ✅     | Its components drawn and styled, with tokens from the CSS, as with Vite.                                             |
+| Next.js, Remix, Astro, or webpack                                       | ❌     | No builder adapter yet. Next.js is the likely second builder.                                                        |
+| Vue, Svelte or Solid                                                    | ❌     | No renderer adapter yet. The interface exists; nothing is planned until there's demand.                              |
+| Angular, React Native, Flutter                                          | ❌     | Not planned.                                                                                                         |
 
 ## By kind of tool
 
@@ -87,14 +88,15 @@ go.
 
 ### UI framework (renderer adapter)
 
-| Tool                 | Status | Notes                                                                                                                                                                                             |
-| -------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| React 19             | ✅     | Its extension (`packages/extension-react`). Finds layers in React's tree, as React DevTools does, tested on 19.3; a release that changes the tree falls back to the `data-canvas-node` attribute. |
-| React 18 and earlier | ❌     | Dropped: React 18 came out in March 2022. Untested, but not blocked.                                                                                                                              |
-| Vue, Svelte          | ⏳     | A renderer provider is ready for them.                                                                                                                                                            |
-| Solid, Preact        | ⏳     |                                                                                                                                                                                                   |
-| Angular              | ❌     | Not planned.                                                                                                                                                                                      |
-| React Native         | ❌     | Needs native frames, after the web.                                                                                                                                                               |
+| Tool                 | Status | Notes                                                                                                                                                                                                                                               |
+| -------------------- | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| React 19             | ✅     | Its extension (`packages/extension-react`). Finds layers in React's tree, as React DevTools does, tested on 19.3; a release that changes the tree falls back to the `data-canvas-node` attribute.                                                   |
+| React 18             | ✅     | The same extension, whose peer dependencies take `^18.0.0 \|\| ^19.0.0`. Tested on 18.3.1 with `react18-mui-js`: components draw and layers are found as on 19. React 18 has no `onCaughtError`, so the guest's own boundaries report errors there. |
+| React 17 and earlier | ❌     | Dropped: React 17 came out in October 2020. Untested, but not blocked.                                                                                                                                                                              |
+| Vue, Svelte          | ⏳     | A renderer provider is ready for them.                                                                                                                                                                                                              |
+| Solid, Preact        | ⏳     |                                                                                                                                                                                                                                                     |
+| Angular              | ❌     | Not planned.                                                                                                                                                                                                                                        |
+| React Native         | ❌     | Needs native frames, after the web.                                                                                                                                                                                                                 |
 
 ### Build tool (builder adapter)
 
@@ -341,6 +343,8 @@ You agreed to the four tiers as recommended on 2026-10-28. The choices inside th
 - **A two-year version cutoff,** in your words: "Things older than 2 years should just be dropped." You chose to count
   from each version's own release: "drop anything released more than two years ago, even React 18." You kept one
   exception: "a tool's newest major version is never dropped." See Version cutoff.
+- **React 18 is supported after all,** decided on 2026-11-15 on condition that Parity works on it, which
+  `react18-mui-js` showed (PAR-1144). The React extension's peer dependencies take 18 and 19.
 - **Fluent UI v9 and Fluent icons will be supported,** for corporate customers. In your words: "These will be great for
   onboarding some corporate customers." See Fluent UI and Fluent icons.
 
@@ -369,7 +373,7 @@ project on a dropped version opens and works as far as it can. Parity reads the 
 adapter finds (React, Vite, Tailwind CSS, TanStack Router and Storybook) and notes an untested one quietly, in the
 status bar's tooltips and the agent API. Each adapter gives its tool's packages and the date of each major
 (`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
-extension exists, Storybook and TanStack Router so far, takes its versions from the extension's peer dependencies
+extension exists, React, Storybook and TanStack Router so far, takes its versions from the extension's peer dependencies
 instead: inside the range is supported, above it newer and below it dropped, and the range is widened or narrowed in the
 extension's `package.json` as this policy says.
 
@@ -383,20 +387,20 @@ extension's `package.json` as this policy says.
 - **A version with less than six months left gets no new work.** It's kept working as it is, but nothing is built or
   tested only for it. Vite 6, React Router 7, Prisma 6, Astro 5, Vitest 3 and MUI 7 are in that window now.
 - **Each tool is tested at its newest major, and at its oldest major with more than six months left,** in the validation
-  projects below. Today that's React 19, Vite 8 and 7, Tailwind v4, Storybook 10 and 9, and Next.js 16.
+  projects below. Today that's React 19 and 18, Vite 8 and 7, Tailwind v4, Storybook 10 and 9, and Next.js 16.
 
 What it means in October 2026, for every tool on this page, supported or not, so an adapter starts from the right
 versions. Dates are each major's first stable release on npm. The Parity column is today's status.
 
 ### UI frameworks
 
-| Tool   | Parity | Supported | Drops next                | Dropped                        |
-| ------ | ------ | --------- | ------------------------- | ------------------------------ |
-| React  | ✅     | 19        | Nothing; 19 is the newest | 18 (March 2022) and earlier    |
-| Vue    | ⏳     | 3         | Nothing; 3 is the newest  | 2 (September 2016) and earlier |
-| Svelte | ⏳     | 5         | Nothing; 5 is the newest  | 4 (June 2023) and earlier      |
-| Solid  | ⏳     | 1         | Nothing; 1 is the newest  | 0.x (April 2021)               |
-| Preact | ⏳     | 11        | Nothing; 11 is the newest | 10 (October 2019) and earlier  |
+| Tool   | Parity | Supported | Drops next                                | Dropped                        |
+| ------ | ------ | --------- | ----------------------------------------- | ------------------------------ |
+| React  | ✅     | 19, 18    | Nothing; 19 is the newest, and 18 is kept | 17 (October 2020) and earlier  |
+| Vue    | ⏳     | 3         | Nothing; 3 is the newest                  | 2 (September 2016) and earlier |
+| Svelte | ⏳     | 5         | Nothing; 5 is the newest                  | 4 (June 2023) and earlier      |
+| Solid  | ⏳     | 1         | Nothing; 1 is the newest                  | 0.x (April 2021)               |
+| Preact | ⏳     | 11        | Nothing; 11 is the newest                 | 10 (October 2019) and earlier  |
 
 ### Build tools
 
@@ -496,21 +500,22 @@ of every axis at least once. The more of each project that's tested end to end, 
 
 ### The projects
 
-| Project                | Stack                                                                                                                       | Mainly tests                                                                    | Today |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----- |
-| `shadcn-vite` (exists) | React 19, Vite 8, Tailwind v4, Shadcn Nova, TypeScript, pnpm, Storybook 10, Lucide, `vite.config.ts`                        | The main path: everything that works today                                      | ✅    |
-| `scaffolder`           | The Buildkit scaffolder's output: TanStack Router, Hono on Workers, Drizzle on D1, nova, Tailwind v4, pnpm workspace        | Monorepo detection, routes, data and API lenses, mock data                      | 🔜    |
-| `vite7-js` (exists)    | React 19, Vite 7, JavaScript (`.jsx`), npm, plain CSS variables with `[data-theme]` themes, `vite.config.cjs`, no Storybook | The oldest Vite tested, JavaScript, CommonJS config, attribute themes, no icons | ❔    |
-| `react-aria` (exists)  | React 19, Vite 7, React Aria Components with Tailwind v4, Yarn Berry, Storybook 9, Hugeicons, `vite.config.mts`             | Another component library, Yarn Berry, a second icon set                        | ❔    |
-| `mantine` (exists)     | React 19, Vite 8, Mantine 9, CSS modules, bun, `vite.config.cts`, `prefers-color-scheme` themes                             | Per-component CSS, CSS modules, bun                                             | ❔    |
-| `mui`                  | React 19, Vite 8, MUI 9 on Emotion, npm, Storybook 10                                                                       | CSS-in-JS, styled in frames by MUI's decorator                                  | ❔    |
-| `fluent`               | React 19, Vite 8, Fluent UI v9 with Griffel, Fluent icons, TypeScript, npm, Storybook 10                                    | Styles written at run time, themes from a provider as modes, a third icon set   | 🔜    |
-| `react-router`         | React Router 8 in framework mode, loaders and actions, shadcn on Radix, Tailwind v4, pnpm                                   | The routes lens and server functions                                            | 🔜    |
-| `tanstack-start`       | TanStack Start, server functions, oRPC, Drizzle on Postgres, pnpm                                                           | The API lens from oRPC, a server database                                       | 🔜    |
-| `standards-only`       | A React 19 and Vite 8 front end, with `openapi.yaml` and SQL migrations from a backend in another language                  | The standards pass: lenses with no adapter                                      | 🔜    |
-| `next`                 | Next.js 16, App Router, shadcn, Tailwind v4, npm                                                                            | Clear "not supported yet"; later the Next.js builder                            | ❌    |
-| `too-old` (exists)     | React 18, Vite 5, Tailwind v3, Storybook 8, npm                                                                             | Untested versions open as far as they can, with a quiet note; nothing written   | ❌    |
-| `rspack` (exists)      | React 19, Rspack 2 with `builtin:swc-loader` and `rspack.config.mjs`, plain CSS with custom properties, TypeScript, npm     | The Rspack builder                                                              | ✅    |
+| Project                   | Stack                                                                                                                       | Mainly tests                                                                    | Today |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----- |
+| `shadcn-vite` (exists)    | React 19, Vite 8, Tailwind v4, Shadcn Nova, TypeScript, pnpm, Storybook 10, Lucide, `vite.config.ts`                        | The main path: everything that works today                                      | ✅    |
+| `scaffolder`              | The Buildkit scaffolder's output: TanStack Router, Hono on Workers, Drizzle on D1, nova, Tailwind v4, pnpm workspace        | Monorepo detection, routes, data and API lenses, mock data                      | 🔜    |
+| `vite7-js` (exists)       | React 19, Vite 7, JavaScript (`.jsx`), npm, plain CSS variables with `[data-theme]` themes, `vite.config.cjs`, no Storybook | The oldest Vite tested, JavaScript, CommonJS config, attribute themes, no icons | ❔    |
+| `react-aria` (exists)     | React 19, Vite 7, React Aria Components with Tailwind v4, Yarn Berry, Storybook 9, Hugeicons, `vite.config.mts`             | Another component library, Yarn Berry, a second icon set                        | ❔    |
+| `mantine` (exists)        | React 19, Vite 8, Mantine 9, CSS modules, bun, `vite.config.cts`, `prefers-color-scheme` themes                             | Per-component CSS, CSS modules, bun                                             | ❔    |
+| `mui`                     | React 19, Vite 8, MUI 9 on Emotion, npm, Storybook 10                                                                       | CSS-in-JS, styled in frames by MUI's decorator                                  | ❔    |
+| `fluent`                  | React 19, Vite 8, Fluent UI v9 with Griffel, Fluent icons, TypeScript, npm, Storybook 10                                    | Styles written at run time, themes from a provider as modes, a third icon set   | 🔜    |
+| `react-router`            | React Router 8 in framework mode, loaders and actions, shadcn on Radix, Tailwind v4, pnpm                                   | The routes lens and server functions                                            | 🔜    |
+| `tanstack-start`          | TanStack Start, server functions, oRPC, Drizzle on Postgres, pnpm                                                           | The API lens from oRPC, a server database                                       | 🔜    |
+| `standards-only`          | A React 19 and Vite 8 front end, with `openapi.yaml` and SQL migrations from a backend in another language                  | The standards pass: lenses with no adapter                                      | 🔜    |
+| `next`                    | Next.js 16, App Router, shadcn, Tailwind v4, npm                                                                            | Clear "not supported yet"; later the Next.js builder                            | ❌    |
+| `too-old` (exists)        | React 18, Vite 5, Tailwind v3, Storybook 8, npm                                                                             | Untested versions open as far as they can, with a quiet note; nothing written   | ❌    |
+| `react18-mui-js` (exists) | React 18, Vite 6, React Router 7 in library mode, MUI 9 on Emotion, MUI's icons, JavaScript, Yarn Berry                     | Components drawn on React 18, MUI in plain JavaScript, routes as route objects  | ✅    |
+| `rspack` (exists)         | React 19, Rspack 2 with `builtin:swc-loader` and `rspack.config.mjs`, plain CSS with custom properties, TypeScript, npm     | The Rspack builder                                                              | ✅    |
 
 `react-aria` runs on Vite 7, not 8 as first planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on
 Vite 8 can't be installed cleanly. Its Yarn Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no
@@ -527,8 +532,15 @@ What the detection snapshots record on 2026-10-29, gaps included:
 - **`mantine`:** Vite 8.3.5 with `vite.config.cts` and bun. Mantine is listed as a library, and its stylesheet, imported
   from `main.tsx`, is read from the package. Its `prefers-color-scheme` block is the `dark` theme, and the light values
   stay the defaults (PAR-138).
-- **`too-old`:** the project opens, with one quiet notice that React 18, Vite 5, Tailwind 3 and Storybook 8 are
-  untested. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3 `@apply`.
+- **`too-old`:** the project opens, with one quiet notice that Vite 5, Tailwind 3 and Storybook 8 are untested; React 18
+  is supported since PAR-1144. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3
+  `@apply`.
+- **`react18-mui-js`** (2026-11-15, PAR-1144): Vite 6.4.6 with `vite.config.js` and Yarn Berry, 16 components with
+  `EmptyState` as a default export, MUI listed as a library with 147 components and its four breakpoints, and React
+  18.3.1 supported, with no notice. MUI's icons aren't listed as an icon set, since the registry doesn't describe
+  `@mui/icons-material` yet, and the theme made with `createTheme` gives no tokens. In the app its components draw on
+  React 18 with MUI's styles and icons; those that use React Router's `Link` fail without a router around them until
+  React Router's extension gives one.
 - **`chakra`:** Chakra UI is listed as a library with its five breakpoints, and Phosphor and Tabler as icon sets.
 - **`headless`:** Base UI and Radix are listed as libraries, Heroicons and Lucide as icon sets, and the `.dark` theme is
   read.
@@ -543,21 +555,21 @@ What the detection snapshots record on 2026-10-29, gaps included:
 
 Every axis, and where it's covered:
 
-| Axis            | Values                                                                                   | Covered by                                                                                            |
-| --------------- | ---------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| React           | 19, 18 (dropped)                                                                         | Most; `too-old`                                                                                       |
-| Build tool      | Vite 8, 7, 5 (dropped); Rspack 2; Next.js 16; Next.js 15 on webpack; webpack 5           | Most; `vite7-js`, `react-aria`; `too-old`; `rspack`; `next`; `nextjs-webpack`; `webpack-react-router` |
-| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`                                                            | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`                                                    |
-| Router          | None, TanStack Router, React Router 8, TanStack Start, Next.js                           | `shadcn-vite`; `scaffolder`; `react-router`; `tanstack-start`; `next`                                 |
-| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                      | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`; `fluent`                               |
-| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped) | Most; `vite7-js`; `mantine`; `mui`, `fluent`; `too-old`                                               |
-| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider  | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                                        |
-| Icons           | Lucide, Hugeicons, Fluent icons, none                                                    | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                                     |
-| Language        | TypeScript, JavaScript                                                                   | Most; `vite7-js`                                                                                      |
-| Package manager | pnpm, npm, Yarn Berry, bun                                                               | `shadcn-vite`; `vite7-js`; `react-aria`; `mantine`                                                    |
-| Repo            | One package, a workspace monorepo                                                        | Most; `scaffolder`                                                                                    |
-| Storybook       | 10, 9, 8 (dropped), none                                                                 | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                             |
-| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only        | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                                      |
+| Axis            | Values                                                                                         | Covered by                                                                                                              |
+| --------------- | ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| React           | 19, 18                                                                                         | Most; `too-old`, `react18-mui-js`, `nextjs-webpack`                                                                     |
+| Build tool      | Vite 8, 7, 6, 5 (dropped); Rspack 2; Next.js 16; Next.js 15 on webpack; webpack 5              | Most; `vite7-js`, `react-aria`; `react18-mui-js`; `too-old`; `rspack`; `next`; `nextjs-webpack`; `webpack-react-router` |
+| Vite config     | `.ts`, `.mts`, `.cjs`, `.cts`, `.js`                                                           | `shadcn-vite`; `react-aria`; `vite7-js`; `mantine`; `react18-mui-js`                                                    |
+| Router          | None, TanStack Router, React Router 8, React Router 7 in library mode, TanStack Start, Next.js | `shadcn-vite`; `scaffolder`; `react-router`; `react18-mui-js`; `tanstack-start`; `next`                                 |
+| Components      | shadcn on Base UI and Radix, React Aria, Mantine, MUI, Fluent UI v9                            | `shadcn-vite`, `react-router`; `react-aria`; `mantine`; `mui`, `react18-mui-js`; `fluent`                               |
+| Styling         | Tailwind v4, plain CSS, CSS modules, CSS-in-JS (Emotion, Griffel), Tailwind v3 (dropped)       | Most; `vite7-js`; `mantine`; `mui`, `fluent`, `react18-mui-js`; `too-old`                                               |
+| Themes          | `.dark` class, `[data-theme]`, `prefers-color-scheme`, theme objects through a provider        | `shadcn-vite`; `vite7-js`; `mantine`; `fluent`                                                                          |
+| Icons           | Lucide, Hugeicons, Fluent icons, none                                                          | `shadcn-vite`; `react-aria`; `fluent`; `vite7-js`                                                                       |
+| Language        | TypeScript, JavaScript                                                                         | Most; `vite7-js`, `react18-mui-js`                                                                                      |
+| Package manager | pnpm, npm, Yarn Berry, bun                                                                     | `shadcn-vite`; `vite7-js`; `react-aria`, `react18-mui-js`; `mantine`                                                    |
+| Repo            | One package, a workspace monorepo                                                              | Most; `scaffolder`                                                                                                      |
+| Storybook       | 10, 9, 8 (dropped), none                                                                       | `shadcn-vite`, `mui`; `react-aria`; `too-old`; `vite7-js`                                                               |
+| Backend         | Hono with Drizzle on D1, React Router loaders, oRPC with Postgres, standards only              | `scaffolder`; `react-router`; `tanstack-start`; `standards-only`                                                        |
 
 ### What runs against each project
 

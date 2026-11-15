@@ -20,7 +20,7 @@ import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
  * Enter saves; Escape or clicking away cancels.
  */
 const meta = {
-  title: "Parity/Chrome/Unsaved prompt",
+  title: "Parity/Chrome/Prompts/Unsaved changes",
   component: UnsavedPrompt,
   render: () => <AppWindow />,
   decorators: [Window],

@@ -11,7 +11,7 @@ import { SettingsView, type SettingsViewProps } from "./SettingsView.tsx"
  * are undo steps in its window, so a bar offers Save.
  */
 const meta = {
-  title: "Parity/Chrome/Settings view",
+  title: "Parity/Chrome/Settings/View",
   parameters: { layout: "fullscreen" }
 } satisfies Meta
 

@@ -34,7 +34,7 @@ function Preview({ telemetry, dialog }: { telemetry: TelemetryState; dialog: "se
 }
 
 const meta = {
-  title: "Parity/Chrome/Telemetry setting",
+  title: "Parity/Chrome/Settings/Telemetry",
   component: Preview,
   args: { telemetry: defaultTelemetry, dialog: "settings" }
 } satisfies Meta<typeof Preview>
