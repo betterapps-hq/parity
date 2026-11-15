@@ -34,20 +34,24 @@ export interface ParsedComponent {
   as?: ComponentEvidence
 }
 
-/** Installed packages, build output, and folders of tests and scratch files. */
+/** Installed packages, build output, and folders of tests and scratch files. A tool's `*-static` build is skipped too. */
 const skippedFolders = new Set([
   "node_modules",
   "dist",
   "build",
   "out",
   "coverage",
-  "storybook-static",
   "__tests__",
   "__mocks__",
   "e2e",
   "tmp",
   "temp"
 ])
+
+/** Whether a folder holds no code of the app's own: a skipped one, a dot folder, or a tool's static build (`*-static`). */
+function skippedFolder(name: string): boolean {
+  return skippedFolders.has(name) || name.startsWith(".") || name.endsWith("-static")
+}
 
 /** Stories, tests, generated and config files sit beside components and export everything but components. */
 const notComponents = /\.(stories|story|test|spec|gen|generated|config)\.[cm]?[jt]sx?$|\.d\.[cm]?ts$/
@@ -580,7 +584,7 @@ function isCandidate(path: string, extensions: string[]): boolean {
     return false
   }
 
-  return !path.split("/").some((part) => skippedFolders.has(part) || part.startsWith("."))
+  return !path.split("/").some(skippedFolder)
 }
 
 async function walk(folder: string, extensions: string[]): Promise<string[]> {
@@ -591,7 +595,7 @@ async function walk(folder: string, extensions: string[]): Promise<string[]> {
       const path = join(folder, entry.name)
 
       if (entry.isDirectory()) {
-        return skippedFolders.has(entry.name) || entry.name.startsWith(".") ? [] : walk(path, extensions)
+        return skippedFolder(entry.name) ? [] : walk(path, extensions)
       }
 
       return extensions.includes(extname(entry.name)) ? [path] : []

@@ -96,8 +96,8 @@ const codeExtensions = new Set([
   ".mdx"
 ])
 
-/** Folders that hold no code of the project's own, or only what's built from it. */
-const skipped = new Set(["node_modules", ".git", "public", "dist", "build", "out", "coverage", "storybook-static"])
+/** Folders that hold no code of the project's own, or only what's built from it, with any tool's `*-static`. */
+const skipped = new Set(["node_modules", ".git", "public", "dist", "build", "out", "coverage"])
 
 /** A code file larger than this is built or vendored, not written, so it isn't read. */
 const codeLimit = 512 * 1024
@@ -236,7 +236,7 @@ async function codeFiles(root: string): Promise<{ path: string; text: string }[]
       const full = join(folder, entry.name)
 
       if (entry.isDirectory()) {
-        if (!skipped.has(entry.name) && !entry.name.startsWith(".")) {
+        if (!skipped.has(entry.name) && !entry.name.startsWith(".") && !entry.name.endsWith("-static")) {
           await visit(full)
         }
       } else if (entry.isFile() && codeExtensions.has(extname(entry.name).toLowerCase())) {
