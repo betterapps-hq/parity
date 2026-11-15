@@ -3,8 +3,8 @@ import { opendir, stat } from "node:fs/promises"
 import { join, relative, resolve } from "node:path"
 import { findLockfiles } from "./lockfile.ts"
 
-/** Folders a project builds into or tools fill, which the app's code never comes from. */
-const skippedFolders = new Set(["node_modules", "dist", "build", "out", "coverage", "storybook-static"])
+/** Folders a project builds into or tools fill, which the app's code never comes from, with any tool's `*-static`. */
+const skippedFolders = new Set(["node_modules", "dist", "build", "out", "coverage"])
 
 /** Most a project's files are listed, past which the rest go uncounted: a folder that size is no app's source. */
 const mostFiles = 50_000
@@ -70,7 +70,7 @@ async function list(root: string, folder: string, files: [string, string][]): Pr
     const absolute = join(folder, entry.name)
 
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith(".") && !skippedFolders.has(entry.name)) {
+      if (!entry.name.startsWith(".") && !skippedFolders.has(entry.name) && !entry.name.endsWith("-static")) {
         await list(root, absolute, files)
       }
     } else if (entry.isFile() && !entry.name.endsWith(".par")) {

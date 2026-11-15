@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Skip any tool's *-static build folder when reading the app's code, rather than Storybook's by name",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -4,7 +4,7 @@
  * found, what was looked for.
  */
 export interface Detection {
-  /** The tool's id, matching its adapter's where there is one: `vite`, `react`, `tailwind`, `storybook`, `pnpm`. */
+  /** The tool's id, matching its adapter's where there is one: `vite`, `react`, `tailwind`, `pnpm`. */
   id: string
   /** Its name for people, such as `Vite`. */
   name: string
@@ -40,7 +40,7 @@ export interface PackageManagerDetection extends Detection {
 /** Everything detection found in a project. */
 export interface ProjectDetection {
   packageManager: PackageManagerDetection
-  /** The tools Parity runs or renders with: the build tool, the UI framework, styling and Storybook. */
+  /** The tools Parity runs or renders with: the build tool, the UI framework, styling and the tools whose files are entities. */
   tools: Detection[]
   /**
    * A quiet note naming versions the cutoff drops, which Parity doesn't test but doesn't block either. Unset when

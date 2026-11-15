@@ -89,6 +89,8 @@ describe("finding the app's components", () => {
   it("reads every file under the root when there's no tsconfig", async () => {
     await write("src/pages/home.tsx", "export function Home() {}")
     await write("node_modules/pkg/index.tsx", "export function Installed() {}")
+    // A tool's static build holds no code of the app's own.
+    await write("docs-static/assets/chunk.tsx", "export function Built() {}")
     const project = await list()
     expect(Object.keys(project.components)).toEqual(["Home"])
   })
