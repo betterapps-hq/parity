@@ -6061,7 +6061,7 @@ and no text, so it reads as a broken layer at any zoom without crowding the desi
 project's CSS and a dark frame leave it alone. The frame no longer lays a red sheet over everything it drew; only an
 error that stopped the frame drawing, as a decorator's can, shows across its top. React 18 has no `onCaughtError` or
 `onUncaughtError`, so there the guest's boundaries tell the frame instead, and a boundary around the whole frame catches
-what no component's did (PAR-1144). Why it fails is told where you look:
+what no component's did, drawing nothing until the frame draws again (PAR-1144). Why it fails is told where you look:
 
 - **In the console,** each failing layer is an error, with the frames it fails in, for as long as it fails: Clear leaves
   it, and it goes once the component draws again. It says the component fails to draw, why and how to fix it, with the

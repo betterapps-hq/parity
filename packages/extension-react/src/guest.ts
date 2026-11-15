@@ -324,14 +324,25 @@ class ComponentBoundary extends Component<BoundaryProps, BoundaryState> {
   }
 }
 
+/** What a frame boundary is given: each render of the frame comes with a new `render`, so it tries again. */
+interface FrameBoundaryProps {
+  report: (cause: unknown) => void
+  render: number
+  children?: ReactNode
+}
+
 /**
- * Takes the errors no component's boundary caught, a decorator's say, tells the frame and draws nothing. Only on
- * React 18, which has no `onUncaughtError` and would throw them to the page.
+ * Takes the errors no component's boundary caught, a decorator's say, tells the frame and draws nothing until the frame
+ * renders again, as a React 19 root does after `onUncaughtError`. Only on React 18, which has no `onUncaughtError` and
+ * would throw them to the page.
  */
-class FrameBoundary extends Component<{ report: (cause: unknown) => void; children?: ReactNode }, { failed: boolean }> {
-  override state = { failed: false }
+class FrameBoundary extends Component<FrameBoundaryProps, { failed: boolean; render: number }> {
+  override state = { failed: false, render: this.props.render }
   static getDerivedStateFromError() {
     return { failed: true }
+  }
+  static getDerivedStateFromProps(props: FrameBoundaryProps, state: { render: number }) {
+    return props.render === state.render ? null : { failed: false, render: props.render }
   }
   override componentDidCatch(error: Error) {
     this.props.report(error)
@@ -854,6 +865,8 @@ export function createGuest(init: GuestInit): Guest {
       const drawn = watchDrawnNodes(root, target)
       const styles = frameStyles(root, target, placements, (work) => (own ? own.run(() => flushSync(work)) : work()))
 
+      let renders = 0
+
       const draw = (nodes: RenderNode[]) =>
         createElement(
           FrameWindowContext.Provider,
@@ -874,7 +887,11 @@ export function createGuest(init: GuestInit): Guest {
                 },
                 rootReportsErrors
                   ? decorate(nodes.map((node, index) => toReact(node, index)))
-                  : createElement(FrameBoundary, { report }, decorate(nodes.map((node, index) => toReact(node, index))))
+                  : createElement(
+                      FrameBoundary,
+                      { report, render: ++renders },
+                      decorate(nodes.map((node, index) => toReact(node, index)))
+                    )
               )
             )
           )
