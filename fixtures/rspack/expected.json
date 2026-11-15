@@ -91,7 +91,6 @@
   },
   "libraries": [],
   "icons": [],
-  "storybook": null,
   "notes": [
     "styles the builder found: src/index.css",
     "3 components in 4 files from tsconfig.json",
