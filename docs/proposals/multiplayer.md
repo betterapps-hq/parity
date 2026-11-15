@@ -1,9 +1,10 @@
 # Proposal: a project document that several people can edit (PAR-1104)
 
-Status: draft for discussion, 2026-11-14, revised the same day after a review against the code and Loro's declarations.
-Nothing here is built. This page sets out the data structures and patterns that let the designs in `.par` files be
-edited by several people at once later, behind an interface whose library can be swapped. Sync, presence, the cloud and
-review links come later; what's built first works for one person, offline, as the editor does today.
+Status: draft for discussion, 2026-11-14, revised the same day after a review against the code and Loro's declarations,
+and on 2026-11-15 to keep the window on the local provider until a live room needs Loro. Nothing here is built. This
+page sets out the data structures and patterns that let the designs in `.par` files be edited by several people at once
+later, behind an interface whose library can be swapped. Sync, presence, the cloud and review links come later; what's
+built first works for one person, offline, as the editor does today.
 
 ## In one line
 
@@ -60,10 +61,11 @@ and `@parity-app/multiplayer-loro` is the first provider that can merge, on [Lor
   swapping providers loses history, never designs. Git keeps the history between commits.
 - **Undo is per person and made of operations:** it reverses only this person's transactions, and leaves a field someone
   else has changed since.
-- **Loro can be turned off with one line,** and the editor keeps working on the local provider (Turning Loro off).
+- **The window runs on the local provider, and Loro loads only for a live room** (When Loro loads). One person's
+  editing, viewing a branch and comparing commits never pay for merging.
 - **`history.ts`'s snapshot undo goes** once the session sits on the document, as [conventions.md](../conventions.md)
   asks: no second path kept beside it. The two providers aren't two paths: both run behind one interface and pass the
-  same tests, and the local one is what the editor falls back to.
+  same tests, and the local one is what the editor runs on.
 
 ## How the pieces fit
 
@@ -793,7 +795,7 @@ one. `receive` keeps what it last repaired for `projectDoc.repaired`, which is r
 - **The dev server takes the `bundler` build,** under the `development` condition, which imports the `.wasm` as a
   module. Vite's dependency pre-bundling splits that from its glue code and Loro fails on load
   (`Cannot read properties of undefined (reading 'memory')`). `optimizeDeps: { exclude: ["loro-crdt"] }` in the window's
-  Vite config fixes it; step 7 adds it with the switch to Loro.
+  Vite config fixes it; the live room adds it when the window first loads Loro.
 - **Every Loro object JavaScript holds keeps its whole document alive** until it's freed, and V8 frees one only when it
   collects it, which the document's WebAssembly memory doesn't prompt. Opening and disposing the large project eight
   times held 480 MB, and each open was slower than the last, 0.4 s at first and 3.5 s by the eighth. The backend keeps
@@ -802,21 +804,30 @@ one. `receive` keeps what it last repaired for `projectDoc.repaired`, which is r
 - Loro handles no networking. Sync later sends the bytes from `doc.subscribeLocalUpdates` and takes others' with
   `doc.import`.
 
-## Turning Loro off
+## When Loro loads
 
-Loro costs a 3.4 MiB download and its compile time, long before several people edit anything. If it has to go at short
-notice, the editor goes back to the local provider without anything else changing:
+Loro's costs are worth paying only where several people edit one design at once. Its numbers below show why: edits cost
+two to three times the local provider's, opening the very large project takes 3.4 s, and its WebAssembly holds 461 MB
+that never shrinks. So:
 
-- **One place picks the provider.** `renderer/project-doc.ts` exports the provider the window opens projects with.
-  Nothing else in the app imports a provider package, and everything else talks to `ProjectDoc`.
-- **Loro loads in a chunk of its own,** through a dynamic `import()` in that file, while the window starts. With the
-  local provider picked, the window never downloads it; deleting the import takes it out of the build.
+- **The window opens projects on the local provider:** one person's editing, viewing a branch, and comparing two
+  commits. Comparing is `diffFiles` on two `.par` files, by id. Loro can't do it, as each commit would load as a
+  document of its own with its own ids.
+- **Loro loads for a live room,** where more than one person can edit the same commit. The first is likely a pull
+  request review opened from a pushed branch. Everyone starts from that commit: the cloud builds one Loro snapshot from
+  it and everyone loads that, which is how a shared session has to start (Open questions).
+- **Joining switches the backend; leaving switches it back.** Joining loads Loro's chunk, opens the room's snapshot, and
+  gives `ProjectDoc` the new backend. Leaving reopens the project on the local provider. Undo steps are operations on
+  layer ids, not on Loro's ids, so they can carry across if `ProjectDoc` can swap its backend; today, swapping drops the
+  history.
+- **One place picks the provider.** `renderer/project-doc.ts` opens projects on `localProvider` and is the only place
+  that imports a provider package; everything else talks to `ProjectDoc`. Loro comes in through a dynamic `import()`
+  there, in a chunk of its own, so a window that never joins a room never downloads it.
 - **No data moves.** `.par` is the only thing either provider saves, so a project opens the same on both.
-- **The same behaviour, kept by tests.** CI runs `describeProjectDoc` on both providers on every pull request, so the
-  local one can't fall behind while Loro is in use. Undo, gestures and checks are `ProjectDoc`'s, so they're the same
-  code on both.
-- **What's lost is what needs several people:** merging others' changes, and sync once it's built. Those features check
-  `doc.sync` and don't show without it.
+- **The same behaviour, kept by tests.** CI runs `describeProjectDoc` on both providers on every pull request. Undo,
+  gestures and checks are `ProjectDoc`'s, so they're the same code on both.
+- **What needs several people needs a room:** merging others' changes and sync. Those features check `doc.sync` and
+  don't show without it.
 
 ## How the session moves onto it
 
@@ -1115,11 +1126,12 @@ What they say about Loro:
 - **Opening costs what building every node costs:** 0.6 s for the large project and 3.4 s for the very large one, in
   Loro's own calls, which grow faster than the nodes do. Opening from a snapshot takes a fifth of that, since importing
   one takes 29 ms on the very large project and only the designs' roots are read until an operation needs a design's
-  layers. Keeping a snapshot beside the files, to open from when they haven't changed, is the way to open a large
-  project quickly; step 7 can decide on it.
-- **Pasting is the slowest edit,** 9 to 11 ms for 500 layers against under 1 ms: each new layer is a node, its fields
-  and a mergeable text, about 20 µs in Loro's calls. Loro alone takes 7 to 8 ms for the same layers, and setting the
-  text as a plain value would halve that, but then two people typing in one new layer wouldn't merge.
+  layers. A live room opens from the snapshot the cloud keeps, so it pays the snapshot's cost, not the build's.
+- **Pasting is the slowest edit.** The table's 9 to 11 ms averages pasting 500 layers and taking them out again;
+  measured apart, on the small project, pasting takes 13.6 ms and taking them out 1 ms. Of the paste, 12.7 ms is the
+  backend: 5.5 ms making and filling each text layer's mergeable text, 2.2 ms making the nodes, 1.1 ms setting their ids
+  and types, and 1 ms committing. Setting the text as a plain value brings the paste to 7 ms, but then two people typing
+  in one text layer wouldn't merge, so text stays a `LoroText`.
 - **Exchanging is cheap:** 1,000 transactions reach a replica and come back in 32 to 55 ms, repairs included.
 - **Memory is mostly Loro's WebAssembly,** which the heap figures leave out: 461 MB for the very large project, against
   22 MB of plain values. The heap holds the plain values, as on the local provider, and the index of each design's
@@ -1127,7 +1139,7 @@ What they say about Loro:
 - **Under Vitest, V8 needs `--external-memory-accounted-in-global-limit`.** Without it each growth of Loro's memory set
   off a full collection, about 800 of them while opening the very large project, which then took 28 s rather than 4.
   Plain Node and the same code outside Vitest's workers didn't, so it isn't Loro's cost. Whether the window's Electron
-  does is for step 7 to measure.
+  does is for the live room to measure.
 
 ### What Loro costs to load
 
@@ -1138,8 +1150,8 @@ What they say about Loro:
 | Opening a project          | `project.drawn`'s time with each provider, on the example project and the Very large one |
 | Memory                     | The window's memory after opening the Very large project, with each provider             |
 
-The numbers go on this page, to decide whether the window keeps Loro before sync arrives, which paths send operations
-directly, and whether long sessions need Loro's shallow snapshots.
+Step 7 measures the window on the local provider against today's. The live room measures Loro's load when the window
+first loads it, and says whether long sessions need Loro's shallow snapshots.
 
 ## Telemetry
 
@@ -1298,7 +1310,7 @@ defineEvent(
 ## Order of work
 
 The session moves onto the document with the local provider first, so the biggest change lands without the new
-dependency. Loro then comes in where the provider is picked, which is also how it would go back out.
+dependency. The window stays on it; Loro comes in with the live room.
 
 1. **Design ids with a random suffix:** `designId` in `@parity-app/core`, used where a new design is named.
 2. **Today's numbers:** `benchSession` and `generateProject` first, then `design-store.bench.ts` with an adapter over
@@ -1311,10 +1323,14 @@ dependency. Loro then comes in where the provider is picked, which is also how i
    [editor.md](../editor.md) updated.
 6. **`@parity-app/multiplayer-loro`,** passing every shared test, the concurrent ones with a replica pair, and checking
    which Loro build Vite takes.
-7. **The window on Loro:** `renderer/project-doc.ts` picks `loroProvider`, and the bench and load costs run on all
-   three, with the numbers here and a decision on hot paths.
-8. **Later, each its own piece:** sync through a relay in the cloud, presence, review links with `diffFiles`, and
-   comments.
+7. **The window's numbers on the local provider:** its download, `project.drawn` and memory against today's, on the
+   example and Very large projects, with the numbers here and a decision on which hot paths send operations directly.
+8. **Later, each its own piece:**
+   - a live room: a relay in the cloud that builds one Loro snapshot from a pushed commit, and the window switching to
+     Loro to join it and back to the local provider to leave;
+   - presence;
+   - review links with `diffFiles`, which need no Loro;
+   - comments.
 
 ## Open questions
 
@@ -1325,7 +1341,11 @@ dependency. Loro then comes in where the provider is picked, which is also how i
   `states[].overrides` and the patches maps of their own is the first change if that bites.
 - **Starting a shared session.** Two backends built from one `.par` each have their own provider ids and can't merge. A
   shared session starts from one snapshot of the provider's state, held in the cloud, that everyone loads. `.par` stays
-  what's in git.
+  what's in git. A room opened on a pushed commit starts with no one's unsaved edits; joining a room with edits of your
+  own would need them sent as operations, from `diffFiles`.
+- **Why Loro slows the shared code.** Once Loro has opened a project, `ProjectDoc`'s comparing and checking run about
+  twice as slowly, even on the local provider and after the Loro document is disposed. It matters only in a live room
+  now, and is for the live room to look into.
 - **Outside changes in a shared session.** If everyone's file watcher saw the same commit and called `replaceFile`, its
   inserts would arrive several times. In a shared session, only the cloud applies commits, and the window's watcher
   leaves designs alone.
