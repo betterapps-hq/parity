@@ -408,6 +408,8 @@ export {
   toggleLayer
 } from "./selection.ts"
 
+export { canvasOutlines, type Outline, type OutlineTarget, outlineKey, sameTarget } from "./outlines.ts"
+
 export { boardReader } from "./shown.ts"
 
 export { type DrawnBox, frameSkeleton, type FrameSkeleton } from "./skeleton.ts"
