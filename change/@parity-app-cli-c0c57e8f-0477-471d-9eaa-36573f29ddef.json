@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Extensions can offer an API to each other and tools to agents: parity extensions and parity run (get_extensions and run_extension) list a project's extensions and run their commands and tools, with each change named after the agent and the extension",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

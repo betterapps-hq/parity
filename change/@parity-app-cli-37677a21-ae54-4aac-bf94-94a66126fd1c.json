@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "New designs get ids with a readable stem and five random characters, and a pasted design always gets a new id, so designs added by different people don't collide",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
