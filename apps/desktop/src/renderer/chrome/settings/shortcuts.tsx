@@ -128,6 +128,8 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
   const record = (event: KeyboardEvent) => {
     event.preventDefault()
     event.stopPropagation()
+    // New keys stand in for a clash still asking, so its Swap can't apply keys pressed before.
+    setClash(undefined)
 
     if (event.key === "Escape" && !event.ctrlKey && !event.altKey && !event.shiftKey) {
       setListening(false)
@@ -217,7 +219,10 @@ export function ShortcutRow({ command, store, found }: { command: string; store:
         size="sm"
         aria-label={`Change ${binding.label}, now ${keys ? formatKeys(keys, false) : "none"}`}
         aria-pressed={listening}
-        onClick={() => setListening(!listening)}
+        onClick={() => {
+          setClash(undefined)
+          setListening(!listening)
+        }}
         onKeyDown={(event) => {
           if (listening) {
             record(event)

@@ -251,6 +251,17 @@ describe("resetAllKeys (PAR-1042)", () => {
       { command: "launch", keys: ["Ctrl L"] }
     ])
   })
+
+  it("keeps a skipped entry for a command it resets, as the person wrote it", () => {
+    const entries: KeyEntry[] = [
+      { command: "undo", keys: ["Hyper Z"] },
+      { command: "save", keys: ["Ctrl Z"] }
+    ]
+
+    expect(JSON.parse(applyReplacements(JSON.stringify(entries), resetAllKeys(defaults, entries)))).toEqual([
+      { command: "undo", keys: ["Hyper Z"] }
+    ])
+  })
 })
 
 describe("applyReplacements", () => {

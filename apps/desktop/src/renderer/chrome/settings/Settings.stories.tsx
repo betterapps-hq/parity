@@ -199,6 +199,21 @@ export const CancelAClash: Story = {
   }
 }
 
+/** New keys pressed while a clash asks take its place, so its Swap can't apply the keys pressed before. */
+export const NewKeysReplaceAClash: Story = {
+  render: () => <Demo initialPage="shortcuts" />,
+  play: async () => {
+    const view = await dialog()
+
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("v")
+    await userEvent.click(view.getByRole("button", { name: /^Change Hand/ }))
+    await userEvent.keyboard("{Shift>}h{/Shift}")
+    await expect(view.queryByRole("button", { name: "Swap with Move and select" })).not.toBeInTheDocument()
+    await expect(view.getByRole("button", { name: /^Change Hand, now Shift\+H/ })).toBeInTheDocument()
+  }
+}
+
 /** Once a shortcut has changed, Reset all shortcuts puts every one back, after asking (PAR-1042). */
 export const ResetAllShortcuts: Story = {
   render: () => <Demo initialPage="shortcuts" />,

@@ -298,9 +298,14 @@ export function changeKeys<C extends string>(
   return { replacements, lost }
 }
 
-/** Whether a value in the file is an entry for `command`. */
+/**
+ * Whether a value in the file is an entry for `command` that Parity applies. One it skips, for keys that don't read or
+ * not being `{ command, keys }`, is the person's to fix by hand, so a change never removes it (PAR-1042).
+ */
 function isEntryFor(value: JsonValue, command: string): boolean {
-  return someFields.safeParse(value).data?.command === command
+  const entry = wellFormed.safeParse(value).data
+
+  return entry?.command === command && entry.keys.every((keys) => readKeys(keys) !== undefined)
 }
 
 /** The entries after these replacements, as the file would hold them. */
@@ -342,7 +347,7 @@ export function resetAllKeys<C extends string>(defaults: Defaults<C>, entries: r
 
 /**
  * The file's new text with each replacement made: a command's entries give way to one in the first one's place, or at
- * the end, or are removed. Every other entry stays as it's written, skipped ones too. Throws for text that isn't a
+ * the end, or are removed. Every other entry stays as it's written, and so do skipped ones, even the command's own. Throws for text that isn't a
  * list, which is never written over.
  */
 export function applyReplacements(text: string | undefined, replacements: readonly Replacement[]): string {

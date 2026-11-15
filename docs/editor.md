@@ -2519,16 +2519,16 @@ keeps the file on `sharedFile` in `main/shared-file.ts`; the `keybindingsState`,
 window, which applies the file to `commandKeys` in `chrome/keymap.ts` and gives Settings `useKeybindings`, `setKeys`,
 `resetKeys` and `openKeybindings`.
 
-Tests: `shared/keybindings.test.ts` (24): keys read in the keymap's order and refused when they don't read; no file, a
+Tests: `shared/keybindings.test.ts` (25): keys read in the keymap's order and refused when they don't read; no file, a
 malformed entry and text that isn't a list; replaced, removed, skipped and clashing keys, and which command lost them;
 the replacements a change writes, taking keys and giving the keymap's back; a swap, with keys no command has and with
-none to give back; every command reset, keeping skipped entries; and entries kept as written, in place.
-`main/keybindings.test.ts` (8), on a temp folder: nothing written until a change, the file read at start, changes made
-one at a time keeping skipped entries, two copies' changes at the same moment both kept, a change by another copy or by
-hand sent to the windows, a file that can't be read never written over and its keys kept, a change that can't be written
-applied and written once it can, and the file made to be opened. `chrome/keybindings.test.ts` (6): every key in the
-keymap reads as itself, and the window's keys, `shortcutOf` and `shortcutFor` following the file, a change, a removal, a
-reset and keys that don't read.
+none to give back; every command reset, keeping skipped entries, even the reset command's own; and entries kept as
+written, in place. `main/keybindings.test.ts` (8), on a temp folder: nothing written until a change, the file read at
+start, changes made one at a time keeping skipped entries, two copies' changes at the same moment both kept, a change by
+another copy or by hand sent to the windows, a file that can't be read never written over and its keys kept, a change
+that can't be written applied and written once it can, and the file made to be opened. `chrome/keybindings.test.ts` (6):
+every key in the keymap reads as itself, and the window's keys, `shortcutOf` and `shortcutFor` following the file, a
+change, a removal, a reset and keys that don't read.
 
 ### Whether a command applies, and what it's called (PAR-971)
 
