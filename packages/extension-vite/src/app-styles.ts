@@ -321,9 +321,14 @@ async function entries(
       continue
     }
 
-    // A tag in a comment isn't loaded.
-    for (const tag of html.replaceAll(/<!--[\s\S]*?-->/g, "").matchAll(/<(script|link)\b([^>]*)>/gi)) {
-      const attributes = tag[2]!
+    // In the page's order, so the cascade keeps it. A tag in a comment isn't loaded.
+    const tags = html
+      .replaceAll(/<!--[\s\S]*?-->/g, "")
+      .matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>|<link\b([^>]*)>/gi)
+
+    for (const tag of tags) {
+      const isScript = tag[1] !== undefined
+      const attributes = tag[1] ?? tag[3]!
 
       const value = (name: string) =>
         new RegExp(String.raw`\b${name}\s*=\s*["']([^"']+)["']`, "i").exec(attributes)?.[1]
@@ -331,9 +336,14 @@ async function entries(
       const src = value("src")
       const href = value("href")
 
-      if (tag[1]!.toLowerCase() === "script" && value("type") === "module" && src && isPageLocal(src)) {
-        modules.push(await moduleUrl(client, root, pageRelative(src), file))
-      } else if (value("rel")?.toLowerCase() === "stylesheet" && href && isPageLocal(href)) {
+      if (isScript && value("type") === "module" && src) {
+        if (isPageLocal(src)) {
+          modules.push(await moduleUrl(client, root, pageRelative(src), file))
+        }
+      } else if (isScript && value("type") === "module") {
+        // An inline module: what it imports is the app, as a module script's would be.
+        await inlineImports(client, root, file, tag[2]!, { modules, links })
+      } else if (!isScript && value("rel")?.toLowerCase() === "stylesheet" && href && isPageLocal(href)) {
         const linked = await linkedFile(root, file, href)
 
         if (linked) {
@@ -347,6 +357,35 @@ async function entries(
   }
 
   return { modules, links, pages }
+}
+
+/**
+ * What an inline `<script type="module">` imports, resolved by Vite from the page: global stylesheets join the page's
+ * links, and modules join the entries the walk starts from.
+ */
+async function inlineImports(
+  client: ClientGraph,
+  root: string,
+  page: string,
+  code: string,
+  into: { modules: string[]; links: Imported[] }
+): Promise<void> {
+  for (const specifier of importSpecifiers(code)) {
+    if (!isPageLocal(specifier)) {
+      continue
+    }
+
+    if (!isStylesheetFile(specifier)) {
+      into.modules.push(await moduleUrl(client, root, specifier, page))
+      continue
+    }
+
+    const resolved = isGlobalStylesheet(specifier) ? await client.resolve(specifier, page) : undefined
+
+    if (resolved) {
+      into.links.push({ file: resolved.split("?")[0]!, importer: page, depth: 0 })
+    }
+  }
 }
 
 /** Whether a page's URL is the project's own file: not another origin (`https:`, `//cdn…`) or inline (`data:`). */

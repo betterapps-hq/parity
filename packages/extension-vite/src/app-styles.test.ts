@@ -131,6 +131,31 @@ describe("viteAppStyles", { timeout: 30_000 }, () => {
     )
   })
 
+  it("follows what an inline module script imports, stylesheets and modules alike", async () => {
+    await write({
+      "index.html": [
+        "<script>window.analytics = true</script>",
+        '<script type="module">',
+        '  import "fake-ui/styles.css"',
+        '  import "./src/index.css"',
+        '  import { start } from "./src/main"',
+        "  start()",
+        "</script>"
+      ].join("\n"),
+      "src/index.css": ":root { --primary: red; }",
+      "src/main.ts": 'import "./main.css"\nexport const start = () => 1',
+      "src/main.css": ".main {}",
+      "node_modules/fake-ui/package.json": JSON.stringify({ name: "fake-ui" }),
+      "node_modules/fake-ui/styles.css": ":root { --fake: blue; }"
+    })
+
+    expect(await viteAppStyles(root)).toEqual({
+      styles: ["src/index.css", "src/main.css"],
+      packageStyles: ["fake-ui/styles.css"],
+      from: ["index.html", "src/main.ts"]
+    })
+  })
+
   it("lists an HTML entry that isn't there yet, so creating it is seen", async () => {
     expect(await viteAppStyles(root)).toEqual({ styles: [], packageStyles: [], from: ["index.html"] })
   })
