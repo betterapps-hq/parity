@@ -304,7 +304,7 @@ export function changeKeys<C extends string>(
     return {
       replacements: replacements.map((one) => ({
         ...one,
-        keys: one.keys ?? (isCommand(defaults, one.command) ? wanted(one.command) : null)
+        keys: one.keys ?? (isCommand(defaults, one.command) ? [...wanted(one.command)] : null)
       })),
       lost
     }
