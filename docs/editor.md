@@ -5900,30 +5900,31 @@ in `canvas/ContainerUtil.tsx`; `isRestingFar` in `canvas/CanvasEditor.tsx`; the 
 again, when Chromium had no frame to copy (`retryingCapture` in `main/capture-retry.ts`, PAR-880). Bitmaps, component
 previews and exports all capture through it.
 
-Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, the window's DOM nodes fall
-by at least the elements the awake frames held, and no frame changes size (its board grows on the canvas, as its gutter
-keeps its screen size, PAR-602); back at 100% the design's frames draw again with their layers while boards out of view
-stay asleep, still at the same sizes; and the selected board's frames wake at a far zoom, picked in Layers since its
-title is hidden there, and sleep again once nothing is selected). `apps/desktop/src/renderer/ModeView.test.ts` (1: a
-frame put to sleep keeps its host and height with nothing inside, and draws its design again when it wakes).
-`apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant frame whose `shows` changes wakes once
-and sleeps once; and 64 frames, each slow to draw, all do so through one change without React's "Maximum update depth
-exceeded", which React reported there before the fix). `apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a
-failed capture isn't kept, so the next try takes it and that one is kept; a frame that didn't render is kept and not
-drawn again). Before it, a capture that failed under load (Electron's `UnknownVizError`) was kept as no bitmap, so that
-frame never slept and `sleeping.e2e.ts`, which waits for every frame's bitmap, timed out in the full suite. It waits for
-every design's frame to be inside a tile with a bitmap, rather than comparing counts, since a page's tile has a bitmap
-and no design's frame (PAR-1106). The retry delays, and that a frame which leaves the canvas or changes stops retrying,
-have no test of their own; they were checked by reading `useFrameBitmap`, and the full suite passed four times under
-extra load with the fix. `App.settle` in `e2e/app.ts` waits for a design's board to wake, and `App.show` brings a design
-into view before finding a layer in it, so the other files' tests work on frames that slept. Coming from another zoom,
-`App.show` places the design again once its board has taken its size at the new one, since the board's gutter keeps its
-screen size (PAR-1106). Gaps: the order frames wake in has no test of its own; it was checked by reading `wakeNext`. The
-memory it gives back and the time waking takes were measured by hand in a debug copy, not by the suite.
-`apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing with `UnknownVizError` is taken again after a
-repaint until it works, gives up after three tries, and any other failure is thrown at once). That a repaint is what
-lets the next try work wasn't reproduced on demand; the failure came from about one capture in each CI run, and Sentry's
-count from CI after the change is the check.
+Tests: `apps/desktop/e2e/sleeping.e2e.ts` (2: zoomed out, every frame with a bitmap sleeps, every node the frames drew
+is collected once they sleep, held by weak references and waited for rather than read from the window's node count,
+which tied with its limit now and then as the rest of the window changed (PAR-1140), and no frame changes size (its
+board grows on the canvas, as its gutter keeps its screen size, PAR-602); back at 100% the design's frames draw again
+with their layers while boards out of view stay asleep, still at the same sizes; and the selected board's frames wake at
+a far zoom, picked in Layers since its title is hidden there, and sleep again once nothing is selected).
+`apps/desktop/src/renderer/ModeView.test.ts` (1: a frame put to sleep keeps its host and height with nothing inside, and
+draws its design again when it wakes). `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (2, in Chrome: a dormant
+frame whose `shows` changes wakes once and sleeps once; and 64 frames, each slow to draw, all do so through one change
+without React's "Maximum update depth exceeded", which React reported there before the fix).
+`apps/desktop/src/renderer/canvas/frame-bitmaps.test.ts` (2: a failed capture isn't kept, so the next try takes it and
+that one is kept; a frame that didn't render is kept and not drawn again). Before it, a capture that failed under load
+(Electron's `UnknownVizError`) was kept as no bitmap, so that frame never slept and `sleeping.e2e.ts`, which waits for
+every frame's bitmap, timed out in the full suite. It waits for every design's frame to be inside a tile with a bitmap,
+rather than comparing counts, since a page's tile has a bitmap and no design's frame (PAR-1106). The retry delays, and
+that a frame which leaves the canvas or changes stops retrying, have no test of their own; they were checked by reading
+`useFrameBitmap`, and the full suite passed four times under extra load with the fix. `App.settle` in `e2e/app.ts` waits
+for a design's board to wake, and `App.show` brings a design into view before finding a layer in it, so the other files'
+tests work on frames that slept. Coming from another zoom, `App.show` places the design again once its board has taken
+its size at the new one, since the board's gutter keeps its screen size (PAR-1106). Gaps: the order frames wake in has
+no test of its own; it was checked by reading `wakeNext`. The memory it gives back and the time waking takes were
+measured by hand in a debug copy, not by the suite. `apps/desktop/src/main/capture-retry.test.ts` (3: a capture failing
+with `UnknownVizError` is taken again after a repaint until it works, gives up after three tries, and any other failure
+is thrown at once). That a repaint is what lets the next try work wasn't reproduced on demand; the failure came from
+about one capture in each CI run, and Sentry's count from CI after the change is the check.
 
 ### Frame skeletons (PAR-996)
 
