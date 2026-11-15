@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs"
 import { join } from "node:path"
 import { z } from "zod"
 
@@ -51,8 +51,9 @@ function pause(ms: number): void {
 }
 
 /**
- * Runs `work` while this copy alone claims a folder, so two copies starting together never take the same one. The claim
- * is a folder, which only one process can make. Synchronous, since Sentry needs the session before the app is ready.
+ * Runs `work` while this copy alone claims a folder, so copies starting together take their slots in turn. The claim is
+ * a folder, which only one process can make; taking a slot is safe without it, should two copies end up past it at once.
+ * Synchronous, since Sentry needs the session before the app is ready.
  */
 function whileClaiming(locks: string, work: () => SessionSlot, waitMs: number, staleMs: number): SessionSlot {
   const claim = join(locks, "claiming")
@@ -101,14 +102,10 @@ const shared: SessionSlot = { partition: `persist:copy-${slotCount}`, release: (
 function takeSlot(locks: string, pid: number, alive: (pid: number) => boolean): SessionSlot {
   for (let slot = 1; slot <= slotCount; slot++) {
     const file = join(locks, `copy-${slot}.lock`)
-    const held = holder(file)
 
-    // A lock whose copy is gone, or that can't be read, is taken over; one that's held is passed by.
-    if (held !== undefined && held !== pid && alive(held)) {
+    if (!take(file, pid, alive)) {
       continue
     }
-
-    writeFileSync(file, JSON.stringify({ pid }))
 
     return {
       partition: `persist:copy-${slot}`,
@@ -122,6 +119,54 @@ function takeSlot(locks: string, pid: number, alive: (pid: number) => boolean): 
 
   // Every folder is taken: this copy shares the last, and waits for it as copies did before.
   return shared
+}
+
+/**
+ * Takes `file` for `pid` unless a running copy holds it, safely when copies try at once, even both past the claim: a free
+ * lock is made only if it doesn't exist, which one copy alone can do, and a lock a gone copy left is taken over only by
+ * the copy that first makes a marker naming that copy.
+ */
+function take(file: string, pid: number, alive: (pid: number) => boolean): boolean {
+  const held = holder(file)
+
+  if (held === undefined && !existsSync(file)) {
+    return made(file, JSON.stringify({ pid }))
+  }
+
+  // A lock whose copy is gone, or that can't be read, is taken over; one that's held is passed by.
+  if (held !== undefined && held !== pid && alive(held)) {
+    return false
+  }
+
+  const marker = `${file}.from-${held ?? "unreadable"}`
+
+  if (!made(marker, "")) {
+    return false
+  }
+
+  try {
+    // Another copy took it over between the two reads.
+    if (holder(file) !== held) {
+      return false
+    }
+
+    writeFileSync(file, JSON.stringify({ pid }))
+
+    return true
+  } finally {
+    rmSync(marker, { force: true })
+  }
+}
+
+/** Makes `file` holding `text` if it doesn't exist yet, which only one process can do. Whether this one did. */
+function made(file: string, text: string): boolean {
+  try {
+    writeFileSync(file, text, { flag: "wx" })
+
+    return true
+  } catch {
+    return false
+  }
 }
 
 /**

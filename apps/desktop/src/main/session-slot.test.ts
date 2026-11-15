@@ -5,9 +5,10 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { claimSessionSlot, slotCount } from "./session-slot.ts"
 
-/** Runs once before the next look at a folder's age, as another copy would between this copy's two calls. */
+/** Runs once before this copy's next look at a claim's age, or its next write, as another copy starting would. */
 interface Between {
-  run?: () => void
+  stat?: () => void
+  write?: () => void
 }
 
 const between = vi.hoisted((): Between => ({}))
@@ -18,11 +19,18 @@ vi.mock("node:fs", async (importOriginal) => {
   return {
     ...fs,
     statSync: (path: string, options?: Fs.StatSyncOptions) => {
-      const run = between.run
-      between.run = undefined
+      const run = between.stat
+      between.stat = undefined
       run?.()
 
       return fs.statSync(path, options)
+    },
+    writeFileSync: (file: string, data: string, options?: Fs.WriteFileOptions) => {
+      const run = between.write
+      between.write = undefined
+      run?.()
+
+      fs.writeFileSync(file, data, options)
     }
   }
 })
@@ -89,7 +97,7 @@ describe("a copy's session folder", () => {
     const data = dataFolder()
     const claim = join(data, "session-locks", "claiming")
     mkdirSync(claim)
-    between.run = () => rmSync(claim, { recursive: true })
+    between.stat = () => rmSync(claim, { recursive: true })
 
     expect(claimSessionSlot(data, { pid: 10, alive: runningOnly() }).partition).toBe("persist:copy-1")
   })
@@ -99,6 +107,27 @@ describe("a copy's session folder", () => {
     mkdirSync(join(data, "session-locks", "claiming"))
 
     expect(claimSessionSlot(data, { pid: 10, alive: runningOnly(), staleMs: -1 }).partition).toBe("persist:copy-1")
+  })
+
+  it("passes a free folder another copy takes as it does, as two copies past a claim would (PAR-1116)", () => {
+    const data = dataFolder()
+    between.write = () => writeFileSync(join(data, "session-locks", "copy-1.lock"), JSON.stringify({ pid: 20 }))
+
+    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly(20) }).partition).toBe("persist:copy-2")
+  })
+
+  it("passes a crashed copy's folder another copy takes over first (PAR-1116)", () => {
+    const data = dataFolder({ 1: 5 })
+    between.write = () => writeFileSync(join(data, "session-locks", "copy-1.lock"), JSON.stringify({ pid: 20 }))
+
+    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly(20) }).partition).toBe("persist:copy-2")
+  })
+
+  it("passes a crashed copy's folder while another copy is taking it over (PAR-1116)", () => {
+    const data = dataFolder({ 1: 5 })
+    writeFileSync(join(data, "session-locks", "copy-1.lock.from-5"), "")
+
+    expect(claimSessionSlot(data, { pid: 10, alive: runningOnly() }).partition).toBe("persist:copy-2")
   })
 
   it("is the last, shared, once every folder is taken", () => {
