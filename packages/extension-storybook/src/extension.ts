@@ -1,8 +1,4 @@
-import { readFileSync } from "node:fs"
-import { createRequire } from "node:module"
-import { dirname, join } from "node:path"
-import type { Parity } from "@parity-app/extension-api"
-import { z } from "zod"
+import type { AdoptSpec, Candidate, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
 import {
   componentsWithStories,
   type DetectedStorybook,
@@ -23,7 +19,7 @@ import { componentStories, setupGuide, storiesTree } from "./views.ts"
  * Its settings (PAR-1090) are the project's config folder, which detection reads from the main `.par` before this code
  * loads, and where stories open, the person's choice for every project.
  * Its manifest, in package.json, draws all of that before this code loads. Opening finds the project's Storybook where
- * it already runs, by its Portless name or on its usual port, or starts it through Parity's process manager.
+ * it already runs, by its Portless name or on its usual port, and adopts it, or starts it with `parity.processes`.
  * What `activate` returns is its API for other extensions (PAR-1096), as the accessibility extension uses it, and Open
  * in Storybook gives agents the page it opened.
  */
@@ -44,15 +40,6 @@ export type StorybookApi = {
    */
   storyPage(component?: string, kind?: PageKind): Promise<string>
 }
-
-/** A running Storybook: where Parity reaches it, and where the browser opens it, by its Portless name when it has one. */
-interface Running {
-  url: string
-  address: string
-}
-
-/** The fields of Storybook's own package.json that say where its command line is. */
-const storybookManifest = z.looseObject({ bin: z.union([z.string(), z.record(z.string(), z.string())]).optional() })
 
 export function activate(parity: Parity): StorybookApi | undefined {
   const storybook = readDetected(parity.project.detected)
@@ -99,36 +86,33 @@ export function activate(parity: Parity): StorybookApi | undefined {
 
   parity.subscriptions.push(parity.commands.register("storybook.setup", () => setup.reveal()))
 
-  let running: Promise<Running> | undefined
+  const paths = Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
+  let finding: Promise<ProcessHandle> | undefined
 
-  /** The project's Storybook, found or started once and then reused while it answers. */
-  const ensure = async (): Promise<{ running: Running; entries: IndexEntry[] }> => {
-    running ??= find(parity, storybook)
-
-    let found: Running
-
-    try {
-      found = await running
-    } catch (error) {
-      running = undefined
-      throw error
-    }
-
-    setup.set(setupGuide(storybook, found).items)
-
-    const entries = await storyIndex(found.url).catch(() => undefined)
+  /** The project's Storybook, ready, with its stories: found or started once, then reused while it answers. */
+  const ensure = async (): Promise<{ server: ProcessInfo; entries: IndexEntry[] }> => {
+    // Two opens at once share one lookup, so they don't both adopt, or one adopt while the other starts.
+    finding ??= serve(parity, storybook, paths).finally(() => (finding = undefined))
+    const handle = await finding
+    const server = await handle.ready()
+    setup.set(setupGuide(storybook, { address: await addressOf(parity, server) }).items)
+    const entries = server.endpoint && (await storyIndex(server.endpoint.url).catch(() => undefined))
 
     if (entries) {
-      return { running: found, entries }
+      return { server, entries }
     }
 
-    // Stopped since it was last used, closed by hand or crashed: it's found or started again.
-    parity.servers.stop("storybook")
-    running = find(parity, storybook)
-    const again = await running
-    setup.set(setupGuide(storybook, again).items)
+    // Closed by hand, or answering with something else: it's found or started again.
+    await handle.stop()
+    finding ??= serve(parity, storybook, paths).finally(() => (finding = undefined))
+    const again = await (await finding).ready()
+    setup.set(setupGuide(storybook, { address: await addressOf(parity, again) }).items)
 
-    return { running: again, entries: await storyIndex(again.url) }
+    if (!again.endpoint) {
+      throw new Error("Storybook started without a port")
+    }
+
+    return { server: again, entries: await storyIndex(again.endpoint.url) }
   }
 
   const storyFiles = (component: string) => (storybook.stories[component] ?? []).map((file) => file.path)
@@ -141,9 +125,10 @@ export function activate(parity: Parity): StorybookApi | undefined {
       throw new Error(`${component} has no stories`)
     }
 
-    const { running: found, entries } = await ensure()
+    const { server, entries } = await ensure()
+    const address = await addressOf(parity, server)
 
-    return component ? storyPage(found.address, entries, paths, kind) : found.address
+    return component ? storyPage(address, entries, paths, kind) : address
   }
 
   parity.subscriptions.push(
@@ -180,82 +165,87 @@ export function activate(parity: Parity): StorybookApi | undefined {
   }
 }
 
-/** Finds the project's Storybook where it runs already, or starts it. */
-async function find(parity: Parity, storybook: DetectedStorybook): Promise<Running> {
-  const paths = Object.values(storybook.stories).flatMap((files) => files.map((file) => file.path))
+/** The project's Storybook: ours already, one running that serves its stories, adopted, or one started. */
+async function serve(parity: Parity, storybook: DetectedStorybook, paths: string[]): Promise<ProcessHandle> {
+  // Ours already, started or adopted earlier, or before the host started again.
+  const known = parity.processes.get("storybook")
 
-  const serves = (base: string) =>
-    storyIndex(base).then(
-      (entries) => servesStories(entries, paths),
-      () => false
-    )
+  if (known && ["starting", "running"].includes(known.info.state)) {
+    return known
+  }
 
-  // One Portless routes to opens at its name. Without stories to check, a routed Storybook could be any project's.
+  const wanted = storybook.port ?? 6006
+
+  // Without stories to check, a routed Storybook could be any project's, so only the usual port is tried.
+  const found: (Candidate | AdoptSpec)[] = await parity.processes.find({
+    ports: [wanted],
+    discovered: paths.length > 0
+  })
+
   if (paths.length > 0) {
-    const routed = await parity.servers.routed()
-    const serving = (await Promise.all(routed.map(async (route) => ((await serves(route.url)) ? [route] : [])))).flat()
+    const ports = new Set(found.map((candidate) => candidate.endpoint.port))
 
-    const mine =
-      serving.length > 1
-        ? (
-            await Promise.all(
-              serving.map(async (route) => ((await servesFrom(route.url, parity.project.root)) ? [route] : []))
-            )
-          ).flat()
-        : serving
+    for (const route of await parity.servers.routed()) {
+      const port = Number(new URL(route.url).port)
 
-    if (mine.length === 1) {
-      const [route] = mine
-
-      if (route) {
-        parity.servers.adopt({ id: "storybook", name: "Storybook", url: route.url })
-
-        return route
+      if (!ports.has(port)) {
+        found.push({ endpoint: { url: route.url, port, protocol: "http" } })
       }
     }
   }
 
-  const wanted = storybook.port ?? 6006
-  const usual = `http://localhost:${wanted}`
+  const serving: (Candidate | AdoptSpec)[] = []
 
-  if (await serves(usual)) {
-    parity.servers.adopt({ id: "storybook", name: "Storybook", url: usual })
+  for (const candidate of found) {
+    // Another server on the port answers with an error, or not at all.
+    const entries = await storyIndex(candidate.endpoint.url).catch(() => undefined)
 
-    return { url: usual, address: usual }
+    if (entries && servesStories(entries, paths)) {
+      serving.push(candidate)
+    }
   }
 
-  const { url } = await parity.servers.serve({
+  // Two worktrees can serve the same stories: the one serving this checkout's files is ours.
+  const mine: (Candidate | AdoptSpec)[] = []
+
+  for (const candidate of serving) {
+    if (serving.length === 1 || (await servesFrom(candidate.endpoint.url, parity.project.root))) {
+      mine.push(candidate)
+    }
+  }
+
+  const [only] = mine
+
+  if (only && mine.length === 1) {
+    return parity.processes.adopt(only, { id: "storybook", name: "Storybook" })
+  }
+
+  return parity.processes.start({
     id: "storybook",
     name: "Storybook",
-    script: commandLine(parity.project.root),
+    lifetime: "server",
+    run: { bin: "storybook" },
     args: ["dev", "--port", "{port}", "--no-open", "--ci", "--config-dir", storybook.configDir],
-    port: wanted,
-    readyPath: "/index.json",
-    env: { BROWSER: "none" }
+    port: { prefer: wanted },
+    ready: { http: "/index.json" },
+    env: { BROWSER: "none" },
+    icon: "book-open",
+    role: "Serves stories"
   })
-
-  return { url, address: url }
 }
 
-/** Storybook's command line, from the copy installed in the project. */
-function commandLine(root: string): string {
-  const require = createRequire(join(root, "package.json"))
-  let manifestPath: string
+/** Where the browser opens a Storybook: its Portless name when Portless routes to its port, else where it answers. */
+async function addressOf(parity: Parity, server: ProcessInfo): Promise<string> {
+  const endpoint = server.endpoint
 
-  try {
-    manifestPath = require.resolve("storybook/package.json")
-  } catch {
-    throw new Error("Storybook isn't installed in the project. Install its dependencies first.")
+  if (!endpoint) {
+    throw new Error("Storybook isn't listening yet")
   }
 
-  const { bin } = storybookManifest.parse(JSON.parse(readFileSync(manifestPath, "utf8")))
-  const script = bin instanceof Object ? (bin.storybook ?? Object.values(bin)[0]) : bin
+  const routed = await parity.servers.routed().catch(() => [])
+  const route = routed.find((each) => Number(new URL(each.url).port) === endpoint.port)
 
-  if (!script) {
-    throw new Error("Storybook's command line couldn't be found")
-  }
-
-  return join(dirname(manifestPath), script)
+  return route?.address ?? server.opens ?? endpoint.url
 }
 
 /** The stories and docs pages a Storybook at `base` serves. Rejects when nothing answers there. */

@@ -519,7 +519,9 @@ Some failures are recorded for you, so code doesn't record them again:
 | `processes.adopted`       | info  | all  | service                                 | An extension adopts a running server.                                                                                                                                      |
 | `processes.crashed`       | warn  | all  | service                                 | A running server stops by itself.                                                                                                                                          |
 | `processes.failed`        | warn  | all  | service                                 | A run fails before it's ready.                                                                                                                                             |
+| `processes.found`         | info  | 10%  | service                                 | An extension's `find` returns.                                                                                                                                             |
 | `processes.lost`          | warn  | all  | service                                 | An adopted server goes away.                                                                                                                                               |
+| `processes.reattached`    | info  | all  | service                                 | An extension's host that started again gets back the processes it owns.                                                                                                    |
 | `processes.refused`       | warn  | all  | service                                 | `start` or `adopt` is refused, before anything runs.                                                                                                                       |
 | `processes.restarted`     | info  | all  | service                                 | A process starts its next run.                                                                                                                                             |
 | `processes.started`       | info  | all  | service                                 | A process Parity started is ready: a server passes its ready check, a task has spawned.                                                                                    |
@@ -1118,6 +1120,17 @@ Some failures are recorded for you, so code doesn't record them again:
 | `signal`     | `string`, optional                                  | The signal that ended it, when one did                                              |
 | `output`     | `string`                                            | The last of what it printed, up to 50 lines, with secrets replaced                  |
 
+### `processes.found`
+
+| Attribute    | Type      | Meaning                                                         |
+| ------------ | --------- | --------------------------------------------------------------- |
+| `owner`      | `string`  | `parity`, or the id of the extension that started or adopted it |
+| `ports`      | `integer` | How many ports it asked about                                   |
+| `candidates` | `integer` | How many servers it found                                       |
+| `providers`  | `integer` | How many discovery providers were asked                         |
+| `cached`     | `integer` | How many providers answered from their last answer              |
+| `durationMs` | `number`  | How long it took, in milliseconds                               |
+
 ### `processes.lost`
 
 | Attribute      | Type                 | Meaning                                                         |
@@ -1126,6 +1139,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `owner`        | `string`             | `parity`, or the id of the extension that started or adopted it |
 | `adoptedForMs` | `number`             | How long it was adopted, in milliseconds                        |
 | `checkedBy`    | `"pid" \| "connect"` | Whether its process id or a connection said it was gone         |
+
+### `processes.reattached`
+
+| Attribute     | Type                             | Meaning                                                                   |
+| ------------- | -------------------------------- | ------------------------------------------------------------------------- |
+| `owner`       | `string`                         | `parity`, or the id of the extension that started or adopted it           |
+| `processes`   | `integer`                        | How many of its processes it got back                                     |
+| `hostStopped` | `"crash" \| "stuck" \| "reload"` | Why its host stopped: it crashed, it wasn't answering, or it was reloaded |
 
 ### `processes.refused`
 

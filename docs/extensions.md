@@ -82,9 +82,13 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 - **`facts.set(target, facts)`:** what the extension knows about a component, shown on its card.
 - **`status.item(id).set({ value, tooltip })`:** a declared status bar item's value. Parity keeps the last value and
   draws it next time before the code loads.
-- **`servers`:** starts a dev server in the project's folder on a free port and waits until it answers (`serve`), takes
-  over one already running (`adopt`), stops one (`stop`), or lists those Portless routes (`routed`). Each shows in the
-  status bar's process list.
+- **`processes`:** starts a server or a task (`start`) that its manifest's `permissions.processes` allows, adopts a
+  server already running (`adopt`) that `find` turned up on a port, and lists the project's processes (`list`, `get`,
+  `onDidChange`). A handle gives its own process's output, `ready()`, `ended()`, `stop()` and `restart()`, and a task's
+  progress and summary. Its processes outlive its host: when the host starts again, it gets them back with their output.
+  It sees another's processes without their output, error text or public addresses, unless it has `observe`. Each shows
+  in the status bar's process list ([proposals/processes.md](proposals/processes.md)).
+- **`servers.routed`:** the local servers Portless names, until Portless is an extension of its own.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.
@@ -184,8 +188,10 @@ Extensions change designs and files through Parity, never by writing them, so un
   Undo, and the watcher takes it as Parity's own.
 - **Permissions.** The service refuses `edits.transact` unless the manifest's `permissions` has `"edits": true`, and a
   file write unless `permissions.write` has a glob matching its path (`**` for any folders, `*` for any name, `?` for
-  one character). It refuses `.par` files whatever the globs say, and paths outside the project. Permissions keep what
-  an extension does through Parity to what it declared. They aren't a sandbox: its code runs in Node of its own.
+  one character). It refuses `.par` files whatever the globs say, and paths outside the project. It refuses a process's
+  `start` unless `permissions.processes` lists its run: `bin:<package>`, `script:<name>`, `exec:<name>` or
+  `node:<path>`. Permissions keep what an extension does through Parity to what it declared. They aren't a sandbox: its
+  code runs in Node of its own.
 - **Commands for a layer.** A command placed at `layers` with `"when": "layer"` shows in the menu of any layer in
   Layers, and its handler gets `{ type: "layer", design, node }`. So an extension can rename the layer it was run on:
 

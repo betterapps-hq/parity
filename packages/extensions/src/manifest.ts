@@ -14,6 +14,7 @@ import type {
   SettingContribution,
   ToolVersionFacts
 } from "@parity-app/extension-api"
+import { isProcessPermission } from "@parity-app/processes"
 import { z } from "zod"
 import { keymapKeys } from "./keys.ts"
 import { fits } from "./settings.ts"
@@ -213,7 +214,10 @@ const manifest = z
         read: z.array(z.string()).optional(),
         write: z.array(z.string()).optional(),
         network: z.array(z.string()).optional(),
-        processes: z.array(z.string()).optional(),
+        processes: z
+          .array(z.string().refine(isProcessPermission, "expected bin:, script:, exec: or node:, then what it runs"))
+          .optional(),
+        observe: z.boolean().optional(),
         edits: z.boolean().optional()
       })
       .optional(),

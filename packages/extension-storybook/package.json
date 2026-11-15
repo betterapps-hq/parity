@@ -48,6 +48,11 @@
     "activates": [
       "onDetect"
     ],
+    "permissions": {
+      "processes": [
+        "bin:storybook"
+      ]
+    },
     "contributes": {
       "commands": [
         {

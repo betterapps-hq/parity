@@ -1,19 +1,21 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
-import type { ExtensionModule, JsonValue, Parity } from "@parity-app/extension-api"
+import type { ExtensionModule, JsonValue, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
 import {
   type ExtensionEdits,
   type ExtensionHostsOptions,
+  type ExtensionProcesses,
   type ExtensionStateStore,
   type ExtensionStatus,
   extensionHosts,
   type InstalledExtension,
-  type OpenedProject
+  type OpenedProject,
+  type ProcessListener
 } from "./hosts.ts"
 import { readExtension } from "./manifest.ts"
-import type { HostMethods, HostServiceMethods, LogLine } from "./protocol.ts"
+import type { HostMethods, HostServiceMethods, LogLine, ProcessSnapshot } from "./protocol.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
 
@@ -175,13 +177,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
       },
       reveal: () => undefined
     },
-    servers: {
-      serve: () => Promise.resolve({ url: "" }),
-      adopt: vi.fn<() => void>(),
-      stop: vi.fn<() => void>(),
-      stopAll: vi.fn<() => void>(),
-      routed: () => Promise.resolve([])
-    },
+    processes: processesMock(),
     edits: {
       transact: vi.fn<ExtensionEdits["transact"]>(() => Promise.resolve()),
       files: vi.fn<ExtensionEdits["files"]>((_projectId, _extension, _label, files) =>
@@ -194,6 +190,44 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   const latest = (id: string) => changes.at(-1)?.find((extension) => extension.id === id)
 
   return { hosts, changes, lines, notified, updated, started, state, latest }
+}
+
+/** Storybook's server, as the service lists it for the extension that started it. */
+const storybookServer: ProcessInfo = {
+  id: "@parity-app/extension-storybook:storybook",
+  name: "Storybook",
+  lifetime: "server",
+  state: "running",
+  owner: { kind: "extension", extension: "@parity-app/extension-storybook" },
+  run: 1,
+  addresses: [],
+  startedAt: 0
+}
+
+/** The process manager, doing nothing unless a test says what a method does. */
+function processesMock(methods: Partial<ExtensionProcesses> = {}): ExtensionProcesses {
+  const nothing = { list: [], output: {}, ready: {} }
+
+  return {
+    start: vi.fn<ExtensionProcesses["start"]>(() => Promise.reject(new Error("Not in this test"))),
+    adopt: vi.fn<ExtensionProcesses["adopt"]>(() => {
+      throw new Error("Not in this test")
+    }),
+    find: vi.fn<ExtensionProcesses["find"]>(() => Promise.resolve([])),
+    stop: vi.fn<ExtensionProcesses["stop"]>(() => Promise.resolve()),
+    restart: vi.fn<ExtensionProcesses["restart"]>(() => Promise.reject(new Error("Not in this test"))),
+    ready: vi.fn<ExtensionProcesses["ready"]>(() => Promise.reject(new Error("Not in this test"))),
+    ended: vi.fn<ExtensionProcesses["ended"]>(() => Promise.reject(new Error("Not in this test"))),
+    report: vi.fn<ExtensionProcesses["report"]>(),
+    summarize: vi.fn<ExtensionProcesses["summarize"]>(),
+    markReady: vi.fn<ExtensionProcesses["markReady"]>(),
+    snapshot: vi.fn<ExtensionProcesses["snapshot"]>(() => nothing),
+    watch: vi.fn<ExtensionProcesses["watch"]>(() => () => undefined),
+    reattached: vi.fn<ExtensionProcesses["reattached"]>(),
+    stopAll: vi.fn<ExtensionProcesses["stopAll"]>(),
+    routed: vi.fn<ExtensionProcesses["routed"]>(() => Promise.resolve([])),
+    ...methods
+  }
 }
 
 /** Waits for the memory ports to deliver what's in flight, a task at a time. */
@@ -439,6 +473,227 @@ describe("extension hosts", () => {
     expect(measured).toHaveBeenCalledTimes(2)
   })
 
+  it("keeps an extension's processes when its host crashes, and gives them back with their output", async () => {
+    const seen: { state?: string; tail: string[] }[] = []
+    const stopAll = vi.fn<ExtensionProcesses["stopAll"]>()
+    const reattached = vi.fn<ExtensionProcesses["reattached"]>()
+
+    const { hosts, started } = setUp(
+      {
+        "@parity-app/extension-storybook": {
+          activate(parity) {
+            const server = parity.processes.get("storybook")
+            seen.push({ state: server?.info.state, tail: server?.output.tail() ?? [] })
+          }
+        }
+      },
+      {
+        processes: processesMock({
+          stopAll,
+          reattached,
+          snapshot: () => ({ list: [storybookServer], output: { storybook: ["Storybook ready"] }, ready: {} })
+        })
+      }
+    )
+
+    hosts.open(project)
+    await settle()
+    started.at(-1)?.crash()
+    await settle()
+
+    expect(seen).toEqual([
+      { state: "running", tail: ["Storybook ready"] },
+      { state: "running", tail: ["Storybook ready"] }
+    ])
+    expect(stopAll).not.toHaveBeenCalled()
+    expect(reattached).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ projectId: "shop" }), "crash")
+  })
+
+  it("starts a process, hears its lines, and says it's ready once a line matches its output check", async () => {
+    const markReady = vi.fn<ExtensionProcesses["markReady"]>()
+    const heard: string[][] = []
+    let listener: ProcessListener | undefined
+
+    const { hosts } = setUp(
+      {
+        "@parity-app/extension-storybook": {
+          activate(parity) {
+            parity.commands.register("storybook.open", async () => {
+              const server = await parity.processes.start({
+                id: "storybook",
+                name: "Storybook",
+                lifetime: "server",
+                run: { bin: "storybook" },
+                ready: { output: "Local: (http://\\S+)" }
+              })
+
+              server.output.onLines((lines) => void heard.push(lines))
+            })
+          }
+        }
+      },
+      {
+        processes: processesMock({
+          start: () => Promise.resolve({ ...storybookServer, state: "starting" }),
+          markReady,
+          watch(_caller, given) {
+            listener = given
+
+            return () => undefined
+          }
+        })
+      }
+    )
+
+    hosts.open(project)
+    await hosts.run("shop", "storybook.open")
+    listener?.lines("storybook", ["Starting…", "Local: http://localhost:6006/"], 1)
+    await settle()
+
+    expect(heard).toEqual([["Starting…", "Local: http://localhost:6006/"]])
+    expect(markReady).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ extension: "@parity-app/extension-storybook" }),
+      "storybook",
+      "Local: http://localhost:6006/"
+    )
+
+    // Once its run is ready, the line again says nothing; its next run is said ready again.
+    listener?.changed([{ ...storybookServer, state: "running" }])
+    listener?.lines("storybook", ["Local: http://localhost:6006/"], 1)
+    listener?.changed([{ ...storybookServer, state: "starting", run: 2 }])
+    listener?.lines("storybook", ["Local: http://localhost:6007/"], 2)
+    await settle()
+
+    expect(markReady.mock.calls.map(([, , match]) => match)).toEqual([
+      "Local: http://localhost:6006/",
+      "Local: http://localhost:6007/"
+    ])
+  })
+
+  it("matches the line a starting run printed while its host was down, once the host starts again", async () => {
+    const markReady = vi.fn<ExtensionProcesses["markReady"]>()
+
+    setUp(
+      { "@parity-app/extension-storybook": { activate: () => undefined } },
+      {
+        processes: processesMock({
+          markReady,
+          snapshot: () => ({
+            list: [{ ...storybookServer, state: "starting", run: 2 }],
+            output: { storybook: ["Starting…", "Local: http://localhost:6006/"] },
+            ready: { storybook: "Local: (http://\\S+)" }
+          })
+        })
+      }
+    ).hosts.open(project)
+    await settle()
+
+    expect(markReady).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ extension: "@parity-app/extension-storybook" }),
+      "storybook",
+      "Local: http://localhost:6006/"
+    )
+  })
+
+  it("keeps a handle's latest word on its process after the list lets the process go", async () => {
+    let listener: ProcessListener | undefined
+    let server: ProcessHandle | undefined
+
+    const { hosts } = setUp(
+      {
+        "@parity-app/extension-storybook": {
+          activate(parity) {
+            parity.commands.register("storybook.open", async () => {
+              server = await parity.processes.start({
+                id: "storybook",
+                name: "Storybook",
+                lifetime: "server",
+                run: { bin: "storybook" }
+              })
+            })
+          }
+        }
+      },
+      {
+        processes: processesMock({
+          start: () => Promise.resolve({ ...storybookServer, state: "starting" }),
+          watch(_caller, given) {
+            listener = given
+
+            return () => undefined
+          }
+        })
+      }
+    )
+
+    hosts.open(project)
+    await hosts.run("shop", "storybook.open")
+    listener?.changed([{ ...storybookServer, state: "stopped" }])
+    listener?.changed([])
+    await settle()
+
+    expect(server?.info.state).toBe("stopped")
+  })
+
+  it("matches only the current run's output as it starts, and its check again after the host starts again", async () => {
+    const markReady = vi.fn<ExtensionProcesses["markReady"]>()
+    let listener: ProcessListener | undefined
+    let second: ProcessInfo | undefined
+
+    const { hosts, started } = setUp(
+      {
+        "@parity-app/extension-storybook": {
+          activate(parity) {
+            parity.commands.register("storybook.open", async () => {
+              await parity.processes.start({
+                id: "storybook",
+                name: "Storybook",
+                lifetime: "server",
+                run: { bin: "storybook" },
+                ready: { output: "Local: (http://\\S+)" }
+              })
+            })
+          }
+        }
+      },
+      {
+        processes: processesMock({
+          // A second run, while the host still holds the first run's lines.
+          start() {
+            second = { ...storybookServer, state: "starting", run: 2 }
+
+            return Promise.resolve(second)
+          },
+          markReady,
+          snapshot: (): ProcessSnapshot =>
+            second
+              ? { list: [second], output: {}, ready: { storybook: "Local: (http://\\S+)" } }
+              : { list: [], output: { storybook: ["Local: http://localhost:6006/"] }, ready: {} },
+          watch(_caller, given) {
+            listener = given
+
+            return () => undefined
+          }
+        })
+      }
+    )
+
+    hosts.open(project)
+    await settle()
+    await hosts.run("shop", "storybook.open")
+    await settle()
+
+    expect(markReady).not.toHaveBeenCalled()
+
+    // Started again after a crash, it matches the run's line with the check it got back.
+    started.at(-1)?.crash()
+    await settle()
+    listener?.lines("storybook", ["Local: http://localhost:6008/"], 2)
+    await settle()
+
+    expect(markReady.mock.calls.map(([, , match]) => match)).toEqual(["Local: http://localhost:6008/"])
+  })
+
   it("names an extension that fails to activate, with the reason", async () => {
     const { hosts, latest } = setUp({
       "@parity-app/extension-storybook": {
@@ -474,6 +729,9 @@ describe("extension hosts", () => {
         "view.changed": () => undefined,
         ping: () => (busy ? new Promise<undefined>((resolve) => (answer = () => resolve(undefined))) : undefined),
         "settings.changed": () => undefined,
+        "processes.changed": () => undefined,
+        "processes.lines": () => undefined,
+        "processes.ended": () => undefined,
         cancel: () => undefined,
         "selection.changed": () => undefined,
         stop: () => undefined
@@ -520,15 +778,7 @@ describe("extension hosts", () => {
           deactivate
         }
       },
-      {
-        servers: {
-          serve: () => Promise.resolve({ url: "" }),
-          adopt: vi.fn<() => void>(),
-          stop: vi.fn<() => void>(),
-          stopAll,
-          routed: () => Promise.resolve([])
-        }
-      }
+      { processes: processesMock({ stopAll }) }
     )
 
     hosts.open(project)

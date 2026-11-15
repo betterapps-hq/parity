@@ -3,7 +3,7 @@ import type { ExtensionModule, FormView, View, ViewItem } from "@parity-app/exte
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
-import { type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
+import { type ExtensionProcesses, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
 import { readExtension } from "./manifest.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
@@ -60,11 +60,23 @@ function setUp(module: ExtensionModule) {
       updateSetting: () => Promise.resolve()
     },
     edits: { transact: () => Promise.resolve(), files: () => Promise.resolve([]) },
-    servers: {
-      serve: () => Promise.resolve({ url: "" }),
-      adopt: vi.fn<() => void>(),
-      stop: vi.fn<() => void>(),
-      stopAll: vi.fn<() => void>(),
+    processes: {
+      start: () => Promise.reject(new Error("Not in this test")),
+      adopt: () => {
+        throw new Error("Not in this test")
+      },
+      find: () => Promise.resolve([]),
+      stop: () => Promise.resolve(),
+      restart: () => Promise.reject(new Error("Not in this test")),
+      ready: () => Promise.reject(new Error("Not in this test")),
+      ended: () => Promise.reject(new Error("Not in this test")),
+      report: vi.fn<ExtensionProcesses["report"]>(),
+      summarize: vi.fn<ExtensionProcesses["summarize"]>(),
+      markReady: vi.fn<ExtensionProcesses["markReady"]>(),
+      snapshot: () => ({ list: [], output: {}, ready: {} }),
+      watch: () => () => undefined,
+      reattached: vi.fn<ExtensionProcesses["reattached"]>(),
+      stopAll: vi.fn<ExtensionProcesses["stopAll"]>(),
       routed: () => Promise.resolve([])
     }
   })

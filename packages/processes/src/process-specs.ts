@@ -1,10 +1,15 @@
-import type { ProcessErrorCode, ProcessSpec, Run } from "@parity-app/extension-api"
+import type { ProcessErrorCode, ProcessInfo, ProcessSpec, Run } from "@parity-app/extension-api"
 
 /*
  * The rules for what a process may be, kept free of Node so they're tested on their own (docs/proposals/processes.md):
  * checking a spec, matching its run against the manifest's `permissions.processes`, filling in `{port}`, the
  * environment each kind of run gets, and how Windows starts a command it found.
  */
+
+/** What a refusal carries to an extension's host besides its message. */
+export interface ProcessErrorDetails {
+  code: ProcessErrorCode
+}
 
 /** Why `start` or `adopt` refused, with the code an extension gets. */
 export class ProcessError extends Error {
@@ -14,6 +19,11 @@ export class ProcessError extends Error {
     super(message)
     this.name = "ProcessError"
     this.code = code
+  }
+
+  /** What crosses to an extension's host with the message, so its error has the code too. */
+  get details(): ProcessErrorDetails {
+    return { code: this.code }
   }
 }
 
@@ -154,11 +164,11 @@ export function fillPort(args: readonly string[], port: number | undefined): str
 
 /** Two specs are the same when everything that says what runs and how is the same, whatever their keys' order. */
 export function sameSpec(a: ProcessSpec, b: ProcessSpec): boolean {
-  return specKey(a) === specKey(b)
+  return specFingerprint(a) === specFingerprint(b)
 }
 
-/** A spec as text, its fields and its variables in a fixed order. */
-function specKey(spec: ProcessSpec): string {
+/** A spec as text, its fields and its variables in a fixed order, which tells two specs apart. */
+export function specFingerprint(spec: ProcessSpec): string {
   const env = Object.entries(spec.env ?? {}).sort(([one], [other]) => (one < other ? -1 : 1))
   const port = spec.port ? [spec.port.prefer, spec.port.env] : undefined
   const ready = spec.ready ? [readyKey(spec.ready)] : undefined
@@ -167,7 +177,8 @@ function specKey(spec: ProcessSpec): string {
     spec.id,
     spec.name,
     spec.lifetime,
-    permissionFor(spec.run),
+    // The run itself, not its permission: two command lines of one package are allowed alike but aren't the same.
+    Object.entries(spec.run).sort(([one], [other]) => (one < other ? -1 : 1)),
     spec.args ?? [],
     spec.cwd,
     env,
@@ -228,4 +239,69 @@ export function startsAs(path: string, platform: string): "direct" | "batch" | "
   }
 
   return extension === ".cmd" || extension === ".bat" ? "batch" : "unsupported"
+}
+
+/**
+ * What an extension may see of a process. Its owner, and an extension with `observe`, see everything. Others see what's
+ * running and nothing it printed: its error as a fixed phrase, without its ready check's match or its public addresses.
+ */
+export function visibleTo(info: ProcessInfo, viewer: { owns: boolean; observe: boolean }): ProcessInfo {
+  if (viewer.owns || viewer.observe) {
+    return info
+  }
+
+  const { readyMatch: _match, error, ...rest } = info
+  const seen: ProcessInfo = { ...rest, addresses: info.addresses.filter((address) => !address.public) }
+
+  if (error !== undefined) {
+    seen.error = fixedPhrase(info.lifetime, error)
+  }
+
+  return seen
+}
+
+/** Why a process failed, in words that quote nothing it printed. */
+function fixedPhrase(lifetime: ProcessInfo["lifetime"], error: string): string {
+  if (lifetime === "task") {
+    return "Failed"
+  }
+
+  return error.startsWith("Stopped by itself") ? "Stopped by itself" : "Couldn't start"
+}
+
+/**
+ * Where programs are put when PATH doesn't say, as for an app the Dock started on macOS, whose PATH is only the
+ * system's: Homebrew's and the usual local folders.
+ */
+export const usualFolders = new Map([
+  ["darwin", ["/usr/local/bin", "/opt/homebrew/bin"]],
+  ["linux", ["/usr/local/bin", "/usr/bin", "/snap/bin"]]
+])
+
+/** An environment's PATH with the usual folders after it, as `commandPaths` searches it. */
+export function withUsualFolders(
+  env: { PATH?: string; Path?: string; PATHEXT?: string },
+  platform: string
+): { PATH: string; PATHEXT?: string } {
+  const separator = platform === "win32" ? ";" : ":"
+  const path = [env.PATH ?? env.Path ?? "", ...(usualFolders.get(platform) ?? [])].filter(Boolean).join(separator)
+
+  return env.PATHEXT === undefined ? { PATH: path } : { PATH: path, PATHEXT: env.PATHEXT }
+}
+
+/**
+ * An environment whose PATH has the usual folders after its own, kept under the name it already has, so a program
+ * found there, as Homebrew's pnpm, finds the Node its first line asks for too.
+ */
+export function withUsualPath(env: Record<string, string>, platform: string) {
+  const key = Object.keys(env).find((name) => name.toUpperCase() === "PATH") ?? "PATH"
+
+  return { ...env, [key]: withUsualFolders({ PATH: env[key] ?? "" }, platform).PATH }
+}
+
+/** Whether a host is this machine: `localhost`, `127.0.0.1`, `[::1]`, or a name under `.localhost`. */
+export function isLocalHost(host: string): boolean {
+  const bare = host.replace(/^\[|\]$/g, "").toLowerCase()
+
+  return bare === "localhost" || bare === "127.0.0.1" || bare === "::1" || bare.endsWith(".localhost")
 }
