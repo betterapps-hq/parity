@@ -5,6 +5,7 @@ import {
   addVariant,
   changeCount,
   deleteNode,
+  designId,
   duplicateState,
   editNode,
   editResponsive,
@@ -429,5 +430,17 @@ describe("nodeLabel", () => {
     expect(nodeLabel(row, (id) => designs.get(id))).toBe("Member row")
     expect(nodeLabel(row)).toBe("member-row")
     expect(nodeLabel({ ...row, name: "First row" }, (id) => designs.get(id))).toBe("First row")
+  })
+})
+
+describe("designId (PAR-1108)", () => {
+  it("is a stem from the name and five random characters", () => {
+    expect(designId("Pricing page", [])).toMatch(/^pricing-page-[A-Za-z][A-Za-z0-9]{4}$/)
+    expect(designId("!!", [])).toMatch(/^design-[A-Za-z][A-Za-z0-9]{4}$/)
+  })
+
+  it("differs for two designs with the same name", () => {
+    const first = designId("Pricing", [])
+    expect(designId("Pricing", [first])).not.toBe(first)
   })
 })

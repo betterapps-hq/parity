@@ -49,6 +49,35 @@ export interface ActivateParams {
   selection: NodeRef[]
   /** Its settings' values now, by key, and whose each one is: the person's (`app`) or the project's (`project`). */
   settings: { values: Record<string, SettingValue>; scopes: Record<string, "app" | "project"> }
+  /** The agent tools the manifest declares, which registrations are checked against. */
+  agentTools?: string[]
+  /** The extensions its manifest names in `extensionDependencies`, activated already, each with its API's methods. */
+  dependencies?: Dependency[]
+  /** The agent's call that started it, when one did (see `Called`). */
+  call?: number
+}
+
+/**
+ * The id of the agent's call a request is part of. The service gives each agent's call one and sends it with the
+ * request that runs the extension's code; the host carries it through that code and sends it back with what the code
+ * asks, so the service names the change after that agent, or refuses a question nobody can answer.
+ */
+export interface Called {
+  call?: number
+}
+
+/** An extension another builds on, as the host that builds on it sees it. */
+export interface Dependency {
+  id: string
+  version: string
+  displayName: string
+  /** The names of the functions its `activate` returned. */
+  api: string[]
+}
+
+/** What an extension's code gave back to whoever ran it: JSON, or nothing. */
+export interface Returned {
+  result?: JsonValue
 }
 
 /** The kinds of provider an extension's code can register so far. */
@@ -82,10 +111,14 @@ export type NavigateTo =
 
 /** What the project service asks of a host. */
 export interface HostMethods {
-  /** Loads the extension's code and calls its `activate`. Answers once `activate` has. */
-  activate: { params: ActivateParams; result: undefined }
-  /** Runs one of its commands, once it has activated. */
-  run: { params: { command: string; target?: CommandTarget }; result: undefined }
+  /** Loads the extension's code and calls its `activate`. Answers once `activate` has, with its API's methods. */
+  activate: { params: ActivateParams; result: { api: string[] } }
+  /** Runs one of its commands, once it has activated, giving back what its handler returned. */
+  run: { params: { command: string; target?: CommandTarget } & Called; result: Returned }
+  /** Runs one of its agent tools, with input its schema has checked. */
+  tool: { params: { name: string; input: Record<string, JsonValue> } & Called; result: Returned }
+  /** Calls a function of its API, for an extension that builds on it. */
+  "api.call": { params: { method: string; args: JsonValue[] } & Called; result: Returned }
   /**
    * Calls a provider its code registered, once it has activated. The answer comes from the extension's code, so the
    * service reads it through `providerResults` before using it.
@@ -133,9 +166,15 @@ export interface HostServiceMethods {
     params: { message: string; detail?: string; tone?: Tone; actions?: string[] }
     result: { action?: string }
   }
-  "ui.pick": { params: { items: PickItem[]; title?: string; placeholder?: string }; result: { index?: number } }
-  "ui.input": { params: { title: string; value?: string; placeholder?: string }; result: { value?: string } }
-  "ui.confirm": { params: { message: string; detail?: string; confirm?: string }; result: { confirmed: boolean } }
+  "ui.pick": {
+    params: { items: PickItem[]; title?: string; placeholder?: string } & Called
+    result: { index?: number }
+  }
+  "ui.input": { params: { title: string; value?: string; placeholder?: string } & Called; result: { value?: string } }
+  "ui.confirm": {
+    params: { message: string; detail?: string; confirm?: string } & Called
+    result: { confirmed: boolean }
+  }
   "ui.open": { params: { url: string; where?: OpenWhere }; result: undefined }
   /** Sets one of its `project` settings, or puts it back to its default without `value`. */
   "settings.update": { params: { key: string; value?: SettingValue }; result: undefined }
@@ -152,20 +191,24 @@ export interface HostServiceMethods {
   "servers.stop": { params: { id: string }; result: undefined }
   "servers.routed": { params: undefined; result: { url: string; address: string }[] }
   /** Changes designs as one undo step, with the `edits` permission. */
-  "edits.transact": { params: { label: string; operations: DesignOperation[] }; result: undefined }
+  "edits.transact": { params: { label: string; operations: DesignOperation[] } & Called; result: undefined }
   /** Writes project files the `write` permission names, never a `.par`. Answers with the paths it changed. */
-  "files.edit": { params: { label: string; files: FileEdit[] }; result: { paths: string[] } }
+  "files.edit": { params: { label: string; files: FileEdit[] } & Called; result: { paths: string[] } }
   "selection.set": { params: { refs: NodeRef[] }; result: undefined }
   "selection.highlight": { params: { refs: NodeRef[] }; result: undefined }
   /** Moves around the window; `pageUrl` answers with the URL. */
   navigate: { params: NavigateTo; result: { url?: string } }
   /** Runs one of Parity's own commands, or an extension's. */
-  "commands.execute": { params: { command: string; target?: CommandTarget }; result: undefined }
+  "commands.execute": { params: { command: string; target?: CommandTarget } & Called; result: undefined }
+  /** Calls a function of the API of an extension its manifest names in `extensionDependencies`. */
+  "extensions.call": { params: { extension: string; method: string; args: JsonValue[] } & Called; result: Returned }
 }
 
 const text = z.string().max(20_000)
 
 const jsonValue: z.ZodType<JsonValue> = z.json()
+
+const call = z.int().min(1).optional()
 
 const checkOf =
   <T extends z.ZodType>(schema: T) =>
@@ -350,21 +393,24 @@ export const hostChecks: Checks<HostServiceMethods> = {
     z.strictObject({
       items: z.array(z.strictObject({ label: z.string().max(200), detail: z.string().max(500).optional() })).max(5000),
       title: z.string().max(200).optional(),
-      placeholder: z.string().max(200).optional()
+      placeholder: z.string().max(200).optional(),
+      call
     })
   ),
   "ui.input": checkOf(
     z.strictObject({
       title: z.string().max(200),
       value: z.string().max(2000).optional(),
-      placeholder: z.string().max(200).optional()
+      placeholder: z.string().max(200).optional(),
+      call
     })
   ),
   "ui.confirm": checkOf(
     z.strictObject({
       message: z.string().max(500),
       detail: z.string().max(2000).optional(),
-      confirm: z.string().max(40).optional()
+      confirm: z.string().max(40).optional(),
+      call
     })
   ),
   "ui.open": checkOf(z.strictObject({ url, where: z.enum(["browser", "parity"]).optional() })),
@@ -399,8 +445,8 @@ export const hostChecks: Checks<HostServiceMethods> = {
   "servers.adopt": checkOf(z.strictObject({ id: z.string().max(100), name: z.string().max(100), url })),
   "servers.stop": checkOf(z.strictObject({ id: z.string().max(100) })),
   "servers.routed": checkOf(z.undefined()),
-  "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000) })),
-  "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000) })),
+  "edits.transact": checkOf(z.strictObject({ label, operations: z.array(designOperation).min(1).max(10_000), call })),
+  "files.edit": checkOf(z.strictObject({ label, files: z.array(fileEdit).min(1).max(1000), call })),
   "selection.set": checkOf(refs),
   "selection.highlight": checkOf(refs),
   navigate: checkOf(
@@ -413,5 +459,9 @@ export const hostChecks: Checks<HostServiceMethods> = {
       z.strictObject({ kind: z.literal("openSettings"), id: name })
     ])
   ),
-  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional() }))
+  "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional(), call })),
+  "extensions.call": checkOf(z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call }))
 }
+
+/** Reads what an extension's code gave back, which could be anything its process posted. */
+export const readReturned = checkOf(z.strictObject({ result: jsonValue.optional() }))

@@ -178,6 +178,7 @@ export {
   childEntries,
   childNodes,
   deleteNode,
+  designId,
   dropPatches,
   duplicateState,
   editNode,

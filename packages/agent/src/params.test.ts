@@ -96,7 +96,8 @@ const id = CreateDesign({
 Print(id)`)
 
     expect(result.ok).toBe(true)
-    const sidebar = after("app-sidebar")!
+    expect(result.output[0]).toMatch(/^app-sidebar-[A-Za-z][A-Za-z0-9]{4}$/)
+    const sidebar = after(result.output[0]!)!
     const root = sidebar.root.id
 
     expect(sidebar.params).toEqual({

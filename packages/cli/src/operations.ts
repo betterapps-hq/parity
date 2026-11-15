@@ -228,7 +228,10 @@ export const operations = {
   // Placing edits a design, so it goes to the copy with the tab, and a result that wasn't placed exits with 1.
   place: operation("place", { failed: (result) => !result.placed }),
   images: operation("images"),
-  removeImage: operation("removeImage")
+  removeImage: operation("removeImage"),
+  // An extension's commands, agent tools, node types and facts, and running one for the agent (PAR-1096).
+  extensions: operation("extensions"),
+  runExtension: operation("runExtension")
 }
 
 /**

@@ -38,18 +38,18 @@ describe("making a component", () => {
   it("adds the component to the project file and puts an instance in place of each occurrence", () => {
     const before = documents()
     const made = makeComponent(before, { path: "screens/projects.par", id: "projects" }, ["card-a", "card-b"], options)
-    expect(made.id).toBe("project-card")
+    expect(made.id).toMatch(/^project-card-[A-Za-z][A-Za-z0-9]{4}$/)
     const [kept, component] = made.documents.get("canvas.par")!.containers
     expect(kept).toBe(settings)
     expect(component).toMatchObject({
-      id: "project-card",
+      id: made.id,
       name: "Project card",
       kind: "component",
       position: { x: 0, y: -640 }
     })
     const design = made.documents.get("screens/projects.par")!.containers[0]!
-    expect(findNode(design.root, "card-a")).toMatchObject({ type: "instance", design: "project-card" })
-    expect(findNode(design.root, "card-b")).toMatchObject({ type: "instance", design: "project-card" })
+    expect(findNode(design.root, "card-a")).toMatchObject({ type: "instance", design: made.id })
+    expect(findNode(design.root, "card-b")).toMatchObject({ type: "instance", design: made.id })
     expect(before).toEqual(documents())
   })
 
@@ -62,7 +62,7 @@ describe("making a component", () => {
       paramNames: { text: "title" }
     })
 
-    expect(made.id).toBe("project-card-2")
+    expect(made.id).toMatch(/^project-card-[A-Za-z][A-Za-z0-9]{4}$/)
     const component = made.documents.get("canvas.par")!.containers.at(-1)!
     expect(Object.keys(component.params ?? {})).toEqual(["title"])
   })
@@ -75,7 +75,7 @@ describe("making a component", () => {
 
     expect(made.documents.get("new.par")).toEqual({
       version: 4,
-      containers: [expect.objectContaining({ id: "project-card" })]
+      containers: [expect.objectContaining({ id: made.id })]
     })
   })
 

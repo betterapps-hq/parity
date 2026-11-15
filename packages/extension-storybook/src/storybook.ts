@@ -70,13 +70,17 @@ export function servesStories(entries: IndexEntry[], paths: string[]): boolean {
   return paths.length === 0 || entries.some((entry) => paths.some((path) => sameFile(entry.importPath, path)))
 }
 
+/** Which of a component's pages to open: its docs page when it has one, or always its first story. */
+export type PageKind = "docs" | "story"
+
 /**
- * The page that opens a component's stories at `address`: its docs page when it has one, else its first story, else
- * Storybook's home. Without a component, Storybook's home.
+ * The page that opens a component's stories at `address`: its docs page when it has one and `kind` allows, else its
+ * first story, else Storybook's home. Without a component, Storybook's home.
  */
-export function storyPage(address: string, entries: IndexEntry[], paths: string[]): string {
+export function storyPage(address: string, entries: IndexEntry[], paths: string[], kind: PageKind = "docs"): string {
   const mine = entries.filter((entry) => paths.some((path) => sameFile(entry.importPath, path)))
-  const target = mine.find((entry) => entry.type === "docs") ?? mine.find((entry) => entry.type === "story")
+  const docs = kind === "docs" ? mine.find((entry) => entry.type === "docs") : undefined
+  const target = docs ?? mine.find((entry) => entry.type === "story")
 
   return target ? `${address}/?path=/${target.type}/${target.id}` : address
 }

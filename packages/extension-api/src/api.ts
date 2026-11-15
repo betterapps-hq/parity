@@ -13,7 +13,8 @@ export interface Disposable {
 
 /** What an extension's module exports. */
 export interface ExtensionModule {
-  activate(parity: Parity): void | Promise<void>
+  /** What it returns is its API, which extensions that name it in `extensionDependencies` call (`parity.extensions`). */
+  activate(parity: Parity): void | ExtensionApi | Promise<void | ExtensionApi>
   /** Called before its process ends, after everything in `parity.subscriptions` has gone. */
   deactivate?(): void | Promise<void>
 }
@@ -39,6 +40,8 @@ export interface Parity {
   readonly state: { readonly app: State; readonly project: State }
   readonly log: Log
   readonly views: Views
+  readonly extensions: Extensions
+  readonly agentTools: AgentTools
 }
 
 /** The extension itself, as its manifest names it. */
@@ -78,8 +81,14 @@ export type RouteTarget = { type: "route"; key: string }
 export type ItemTarget = { type: "item"; view: string; key: string }
 
 export interface Commands {
-  /** Gives behaviour to a command the manifest declares. A second handler for one command is refused. */
-  register(id: string, handler: (target: CommandTarget | undefined) => void | Promise<void>): Disposable
+  /**
+   * Gives behaviour to a command the manifest declares. A second handler for one command is refused. What the handler
+   * returns goes to an agent that ran the command, so it should be JSON, as `{ url }`.
+   */
+  register(
+    id: string,
+    handler: (target: CommandTarget | undefined) => void | JsonValue | Promise<void | JsonValue>
+  ): Disposable
   /**
    * Runs a command: one of Parity's own, by its id in the keymap and menus (`zoomToSelection`, `duplicate`, `wrap`), on
    * what's selected in the window, or any extension's, which starts its extension first when it isn't running. Waits
@@ -491,4 +500,53 @@ export interface ViewData {
   kind: ViewKind
   options: ViewOptions & { columns?: string[] }
   items: (ViewItem | FormField)[]
+}
+
+/**
+ * What an extension offers others, returned from its `activate`: functions that take and give JSON. Each runs in its
+ * own extension's process, so another extension calls it across processes, and gets a promise of what it gives.
+ */
+export interface ExtensionApi {
+  /** Its arguments are JSON too; `never` lets a function name the types it takes. */
+  [method: string]: (...args: never[]) => void | JsonValue | Promise<void | JsonValue>
+}
+
+/** Another extension's API as a caller sees it: each function gives a promise. */
+export type RemoteApi<Api> = {
+  [Method in keyof Api]: Api[Method] extends (...args: infer Args) => infer Result
+    ? (...args: Args) => Promise<Awaited<Result>>
+    : never
+}
+
+/** Another extension the manifest names in `extensionDependencies`, with its API. */
+export interface OtherExtension<Api> {
+  id: string
+  version: string
+  displayName: string
+  api: RemoteApi<Api>
+}
+
+/** The extensions this one builds on. */
+export interface Extensions {
+  /**
+   * An extension the manifest names in `extensionDependencies`, by its id. Parity activates it before this one, so its
+   * API is ready. Throws for an extension the manifest doesn't name.
+   */
+  get<Api extends object = ExtensionApi>(id: string): OtherExtension<Api>
+}
+
+/** What an agent passes an agent tool, as its schema in the manifest says. */
+export type AgentToolInput = { [field: string]: JsonValue }
+
+/**
+ * Tools agents call through Parity's agent API (`parity run`, or MCP's `run_extension`), as the manifest's
+ * `agentTools` declares them. While an agent's call runs, the extension's changes are one undo step named after the
+ * agent and the extension, and `ui.pick`, `ui.input` and `ui.confirm` fail, since there's nobody to ask.
+ */
+export interface AgentTools {
+  /**
+   * Gives behaviour to a tool the manifest declares. Parity checks the input against its schema first. What the handler
+   * returns goes to the agent, so it should be JSON. A second handler for one tool is refused.
+   */
+  register(name: string, handler: (input: AgentToolInput) => void | JsonValue | Promise<void | JsonValue>): Disposable
 }

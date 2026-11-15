@@ -102,6 +102,8 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 - **`log`:** lines in the extension's log, as `console` writes are too.
 - **`views`:** fills the tabs, sections and pages the manifest declares (below).
 - **`subscriptions`:** disposables Parity disposes as the host stops.
+- **`extensions.get(id)`** (PAR-1096): an extension the manifest names in `extensionDependencies`, with its API (below).
+- **`agentTools.register(name, handler)`** (PAR-1096): handles an agent tool the manifest declares (below).
 
 The host checks each call against the manifest: a command, status item, setting, context key or view the manifest
 doesn't declare is refused. The service checks what the host sends, so a node that isn't one is refused too.
@@ -203,6 +205,39 @@ Extensions change designs and files through Parity, never by writing them, so un
   })
   ```
 
+## Working with other extensions and agents
+
+An extension can offer an API to other extensions, and its commands and tools to agents (PAR-1096).
+
+- **An API for other extensions.** What `activate` returns is its API: an object of functions that take and give JSON.
+  Another extension names it in `extensionDependencies` and calls it through `parity.extensions.get(id).api`, where each
+  function gives a promise, since it runs in the other extension's host. Parity starts the extensions one builds on
+  before it, so their APIs are ready when it activates, and refuses a chain that leads back to itself. An extension
+  whose dependency isn't in the project isn't found there. The Storybook extension's API, `StorybookApi`, gives the
+  components with stories, a component's story files, and the page of its stories, starting Storybook when it isn't
+  running.
+- **The accessibility extension** ([`extension-storybook-a11y`](../packages/extension-storybook-a11y/src/extension.ts))
+  builds on it, in projects with `@storybook/addon-a11y`. Check accessibility in Storybook shows wherever Open in
+  Storybook does, greyed with "No story found" for a component without stories, and opens the component's first story
+  with Storybook's accessibility panel open. Its agent tool, `a11y.page`, gives that page.
+- **Agents** read a project's extensions with `get_extensions` (`parity extensions`): each one's commands, agent tools
+  with their input schemas, node types, and facts about components. `run_extension` (`parity run`) runs a command by id,
+  for a component when it names one, or an agent tool by name with its input, which Parity checks against the tool's
+  schema first. Either starts the extension when it isn't running, and gives back what its handler returned: Open in
+  Storybook gives `{ url }`. The agent API reaches the same hosts the person's clicks do.
+- **One undo step named after both.** While an agent's call runs an extension, its changes are named after the agent and
+  the extension, as "Claude Code via Tidy: Rename layer", and so are changes made through another extension's API during
+  that call. Each agent's call has an id the host carries through the extension's code across its awaits, so two agents'
+  calls that overlap keep their own names. An extension an agent's call starts activates as part of that call.
+- **Nobody to ask.** While an agent's call runs it, an extension's `ui.pick`, `ui.input` and `ui.confirm` fail with an
+  error it can handle. Its toasts, progress and opened pages still show to the person.
+- **Agent tools** are declared in the manifest's `contributes.agentTools`, each named with the prefix, with a
+  description and a JSON Schema for its input, and given behaviour with `parity.agentTools.register`:
+
+  ```ts
+  parity.agentTools.register("a11y.page", async ({ component }) => ({ url: await pageOf(String(component)) }))
+  ```
+
 ## Tests
 
 - [manifest.test.ts](../packages/extensions/src/manifest.test.ts): ids outside the prefix, undeclared commands, tabs and
@@ -241,7 +276,18 @@ Extensions change designs and files through Parity, never by writing them, so un
   [manifest.test.ts](../packages/extensions/src/manifest.test.ts) also refuses choices on a number, titles that don't
   match and a default that doesn't fit.
 - [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts): Storybook's manifest passes the checks,
-  with its project and app settings.
+  with its project and app settings, and a component's page is its docs first, or its first story when asked.
+- [agents.test.ts](../packages/extensions/src/agents.test.ts) (PAR-1096): the extension one builds on activated first
+  and its API called in its own host, one the manifest doesn't name refused, one whose dependency is missing left out, a
+  command run for an agent giving back what it returned with its change named after both, two agents' overlapping calls
+  each named after its own agent, an extension started by an agent's call activating as the agent's, the same through
+  another extension's API, a tool's input checked against its schema, questions failing while an agent runs it, and what
+  agents read of each extension.
+- [extension-storybook-a11y's extension.test.ts](../packages/extension-storybook-a11y/src/extension.test.ts): its
+  manifest, Check accessibility in Storybook opening the panel through the Storybook extension's API, and its agent
+  tool.
+- `packages/agent/src/dispatch.test.ts` "extensions" and `packages/cli/src/operations.test.ts`: `get_extensions` and
+  `run_extension`, as `parity extensions` and `parity run`, with the caller named.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
 own. They were tried in the running app on 2026-11-14, on `examples/shadcn-vite`: the status item, the component card's

@@ -1,5 +1,9 @@
+import { readFileSync } from "node:fs"
+import { join } from "node:path"
 import { fileURLToPath } from "node:url"
 import { detectPeers, type PackageManifest } from "@parity-app/core"
+import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
+import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import {
@@ -72,8 +76,22 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
     // would keep.
     // oxlint-disable-next-line unicorn/prefer-structured-clone
     return found ? { detected: z.json().parse(JSON.parse(JSON.stringify(found))) } : undefined
-  })
+  }),
+  // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
+  builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
+    open?.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
+  )
 ]
+
+/** A project's package.json, as JSON parsed it, or nothing when it can't be read. */
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- a package.json can hold anything; its reader checks it
+function readPackageJson(root: string): unknown {
+  try {
+    return JSON.parse(readFileSync(join(root, "package.json"), "utf8"))
+  } catch {
+    return undefined
+  }
+}
 
 /**
  * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes

@@ -16,6 +16,7 @@ import {
   type Answer,
   answerRequest,
   type Caller,
+  type ExtensionRun,
   dispatch,
   exportPictures,
   framePictures
@@ -110,6 +111,8 @@ interface Asked {
   placed: { connector: string; id: string; design: string }[]
   removed: string[]
   savedImages: { url: string; name: string }[]
+  /** Extensions' commands and tools run, with the agent each ran for. */
+  ran: { projectId: string; request: ExtensionRun; agent: string }[]
 }
 
 /** A photo main found lately, as placing takes it. */
@@ -151,7 +154,8 @@ function fixtureHost() {
     references: [],
     placed: [],
     removed: [],
-    savedImages: []
+    savedImages: [],
+    ran: []
   }
 
   const host: AgentHost = {
@@ -233,6 +237,22 @@ function fixtureHost() {
       asked.removed.push(path)
 
       return { path, label: "Remove image" }
+    },
+    extensions: async () => [
+      {
+        id: "@parity-app/extension-storybook",
+        name: "Storybook",
+        state: "running",
+        commands: [{ id: "storybook.open", title: "Open in Storybook" }],
+        tools: [],
+        nodeTypes: [],
+        facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }]
+      }
+    ],
+    runExtension: async (projectId, request, agent) => {
+      asked.ran.push({ projectId, request, agent })
+
+      return request.name === "storybook.open" ? { url: "http://localhost:6006/?path=/docs/button--docs" } : undefined
     },
     report: async (report) => {
       asked.reports.push(report)
@@ -327,7 +347,9 @@ describe("dispatch", () => {
       ["place", { connector: "unsplash", id: "desk", node: "signup/title" }],
       ["placedReferences", {}],
       ["images", {}],
-      ["removeImage", { image: "unused.webp" }]
+      ["removeImage", { image: "unused.webp" }],
+      ["extensions", {}],
+      ["runExtension", { name: "storybook.open" }]
     ]
 
     const answered: string[] = []
@@ -574,6 +596,33 @@ describe("images", () => {
       details: { code: "unknown_image" }
     })
     expect(asked.removed).toEqual(["public/images/unused.webp"])
+  })
+})
+
+describe("extensions", () => {
+  it("lists the project's extensions with their commands, tools and facts", async () => {
+    const { host } = fixtureHost()
+
+    await expect(dispatch("extensions", {}, host, caller)).resolves.toMatchObject({
+      extensions: [{ name: "Storybook", commands: [{ id: "storybook.open" }], facts: [{ component: "Button" }] }]
+    })
+  })
+
+  it("runs an extension's command for a component as the caller, and gives what it returned", async () => {
+    const { host, asked } = fixtureHost()
+
+    await expect(
+      dispatch("runExtension", { name: "storybook.open", component: "Button" }, host, caller)
+    ).resolves.toMatchObject({
+      name: "storybook.open",
+      result: { url: "http://localhost:6006/?path=/docs/button--docs" }
+    })
+    await dispatch("runExtension", { name: "a11y.page", input: { component: "Button" } }, host)
+
+    expect(asked.ran.map(({ request, agent }) => ({ request, agent }))).toEqual([
+      { request: { name: "storybook.open", target: { type: "component", key: "Button" } }, agent: "Claude Code" },
+      { request: { name: "a11y.page", input: { component: "Button" } }, agent: "An agent" }
+    ])
   })
 })
 

@@ -242,7 +242,9 @@ describe("each operation's routing", () => {
       place: "tab",
       placedReferences: "tab",
       images: "tab",
-      removeImage: "tab"
+      removeImage: "tab",
+      extensions: "tab",
+      runExtension: "tab"
     })
   })
 })
