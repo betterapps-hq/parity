@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Sun, 15 Nov 2026 08:25:04 GMT",
+      "version": "0.70.0",
+      "tag": "@parity-app/cli_v0.70.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "402b947f5e37f91c0c4fa2e8b3a90ece8d10595e",
+            "comment": "Storybook's stories are read and written through its extension's entities provider"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 06:12:59 GMT",
       "version": "0.69.0",
       "tag": "@parity-app/cli_v0.69.0",
