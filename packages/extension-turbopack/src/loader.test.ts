@@ -1,5 +1,17 @@
+import { spawnSync } from "node:child_process"
+import { mkdtemp, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import { guestLoaderSource, moduleLoaderSource, runtimeChunks, withoutStartup } from "./loader.ts"
+
+/** Why Node won't parse a module's source, as its own check says, or nothing when it parses. */
+async function parseError(source: string): Promise<string> {
+  const file = join(await mkdtemp(join(tmpdir(), "parity-turbopack-loader-")), "module.mjs")
+  await writeFile(file, source)
+
+  return spawnSync(process.execPath, ["--check", file], { encoding: "utf8" }).stderr
+}
 
 /** The start of a runtime chunk as Turbopack writes it for a page, then the runtime itself. */
 const runtime = [
@@ -149,6 +161,13 @@ describe("modules loaded again in Turbopack's runtime", () => {
       expect([first.registered.length, second.registered.length]).toEqual([2, 1])
     })
   }
+
+  it("writes a guest module and a module loader that parse whole", async () => {
+    const module = moduleLoaderSource({ session: "s1", id: "x", chunks: [], stylesheets: [], names: ["default", "A"] })
+
+    expect(await parseError(guestLoaderSource(guestLoader))).toBe("")
+    expect(await parseError(module)).toBe("")
+  })
 
   it("keeps the session's runtime context for modules to load into", () => {
     const source = guestLoaderSource(guestLoader)

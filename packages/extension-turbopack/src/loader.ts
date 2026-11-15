@@ -72,12 +72,12 @@ const addressOf = (script) => {
     return undefined
   }
 }
-const ours = (id) => typeof id === "string" && id.startsWith("[project]/") && !id.includes("/node_modules/")
+const projectModuleId = (id) => typeof id === "string" && id.startsWith("[project]/") && !id.includes("/node_modules/")
 const startSession = (session, context) => {
   const registerChunk = globalThis.TURBOPACK.push
   registers[session] = (registration) => {
     if (Array.isArray(registration) && addressOf(registration[0])?.searchParams.has("t")) {
-      for (const id of registration.slice(1).filter(ours)) {
+      for (const id of registration.slice(1).filter(projectModuleId)) {
         forget(context.M, id)
         forget(context.c, id)
       }
