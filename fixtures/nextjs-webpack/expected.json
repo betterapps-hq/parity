@@ -1,5 +1,5 @@
 {
-  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file\nRspack: No Rspack installed and no rspack.config file\nRsbuild: No rsbuild.config file and no script that runs Rsbuild",
+  "opens": "No builder supports <project>.\nVite: No Vite installed and no vite.config file\nRspack: No Rspack installed and no rspack.config file\nRsbuild: No rsbuild.config file and no script that runs Rsbuild\nTurbopack: Next.js 15.5.29 runs webpack in the dev script",
   "renderer": "react",
   "builder": null,
   "packageManager": {

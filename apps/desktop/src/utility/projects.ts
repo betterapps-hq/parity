@@ -158,9 +158,17 @@ export interface ProviderProject {
  * and tokens. Each call starts the extension that provides it, when the project has one, and gives nothing otherwise.
  */
 export interface ProjectProviders {
-  call<C extends ProviderCall>(project: ProviderProject, call: C): Promise<ProviderResult<C> | undefined>
-  /** The extension that provides `kind` for the project: its prefix and name, which own what it gives. */
-  owner(project: ProviderProject, kind: ProviderKind): { id: string; name: string } | undefined
+  /** With `extension`, a prefix, only that extension's provider is asked, as a builder's own is. */
+  call<C extends ProviderCall>(
+    project: ProviderProject,
+    call: C,
+    extension?: string
+  ): Promise<ProviderResult<C> | undefined>
+  /**
+   * The extension that provides `kind` for the project, or with `extension`, that one if it does: its prefix and name,
+   * which own what it gives.
+   */
+  owner(project: ProviderProject, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
@@ -445,9 +453,30 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       throw unsupported("no_package", `There's no package.json in ${root}`)
     }
 
+    // Each builder is asked once whether it serves the project, all at once, for the stylesheets and the builder both.
+    const asked = new Map<string, Promise<BuilderDetection>>()
+    const asking = { root, name: pkg.name ?? basename(root), pkg }
+
+    const detectOnce = (builder: BuilderDescription) => {
+      let detection = asked.get(builder.id)
+
+      if (!detection) {
+        detection = detectBuilder(builder, asking)
+        asked.set(builder.id, detection)
+      }
+
+      return detection
+    }
+
     // Asked first, so the builder reads the app while its files are, and a change made while the project opens is a
-    // change from what it opened with.
-    const styles = appStyles({ root, name: pkg.name ?? basename(root), pkg })
+    // change from what it opened with. The serving builder is asked, as several builders' extensions can be running: the
+    // one whose config file is there, which starts early, else the first that says it serves the project.
+    const likely = likelyBuilder(adapters.builders, root)
+
+    const styles = (likely ? Promise.resolve(likely.id) : servingBuilder(adapters.builders, detectOnce)).then(
+      (builder) => appStyles(asking, builder)
+    )
+
     const readingInputs = styles.then((found) => detectionInputs(root, watched, found)).catch(() => undefined)
 
     // Every adapter is asked whether the project uses its tool, through the same context, and only those that find it
@@ -488,13 +517,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     )
 
     // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
-    const found = await findBuilder(adapters.builders, (builder) => detectBuilder(builder, { root, name, pkg })).catch(
-      async (cause: unknown) => {
-        // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-        opening.tools = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
-        throw cause
-      }
-    )
+    const found = await findBuilder(adapters.builders, detectOnce).catch(async (cause: unknown) => {
+      // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
+      opening.tools = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
+      throw cause
+    })
 
     const builderFound: AdapterFound<UsedAdapter>[] = found.builder
       ? [{ adapter: found.builder, detection: found.detection }]
@@ -617,7 +644,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       allowedOrigins
     }
 
-    const likely = adapters.builders.find((builder) => builder.watches.some((file) => existsSync(join(root, file))))
+    const likely = likelyBuilder(adapters.builders, root)
 
     if (likely) {
       early?.({ builder: likely, name, startOptions })
@@ -1100,21 +1127,22 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /** Whether a builder an extension describes serves the project, as its provider says, or that it's not running. */
   async function detectBuilder(builder: BuilderDescription, project: ProviderProject): Promise<BuilderDetection> {
-    if (adapters.providers?.owner(project, "builder")?.id !== builder.id) {
+    if (adapters.providers?.owner(project, "builder", builder.id)?.id !== builder.id) {
       return { found: false, summary: "Its extension isn't running" }
     }
 
-    const detection = await provide(project, { kind: "builder", method: "detect" })
+    const detection = await provide(project, { kind: "builder", method: "detect" }, builder.id)
 
     return detection ?? { found: false, summary: "Its extension didn't answer" }
   }
 
   /**
    * The global stylesheets the project's builder says the app loads: the only source of them. Nothing when it can't
-   * say, as when its extension isn't running or doesn't answer, which its log records.
+   * say, as when its extension isn't running or doesn't answer, which its log records. `builder` is the one that serves
+   * the project, by its id, when that's known.
    */
-  async function appStyles(project: ProviderProject): Promise<AppStyles | undefined> {
-    return provide(project, { kind: "builder", method: "styles" }).catch((cause: unknown) => {
+  async function appStyles(project: ProviderProject, builder?: string): Promise<AppStyles | undefined> {
+    return provide(project, { kind: "builder", method: "styles" }, builder).catch((cause: unknown) => {
       logNote(`[service] couldn't ask ${project.name}'s builder which stylesheets it loads: ${message(cause)}`)
 
       return undefined
@@ -1166,9 +1194,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   /** What a provider of the project's answers, or nothing when none of its extensions provides one. */
   async function provide<C extends ProviderCall>(
     project: ProviderProject,
-    call: C
+    call: C,
+    extension?: string
   ): Promise<ProviderResult<C> | undefined> {
-    return adapters.providers?.call(project, call)
+    return adapters.providers?.call(project, call, extension)
   }
 
   /**
@@ -1409,7 +1438,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    */
   async function detectionChanged(project: Project): Promise<boolean> {
     const { root } = project.info
-    const styles = await appStyles(providerProject(project))
+    const styles = await appStyles(providerProject(project), project.builder.id)
     const inputs = await detectionInputs(root, watched, styles).catch(() => undefined)
 
     if (!inputs || projects.get(root) !== project) {
@@ -1954,6 +1983,24 @@ export async function saveDocumentCopy({
 }
 
 /** The first builder that recognises the project, with what it found; otherwise what each one looked for. */
+/** The first of the builders, in their order, whose config file is in the project: the one started before detection. */
+function likelyBuilder(builders: BuilderDescription[], root: string): BuilderDescription | undefined {
+  return builders.find((builder) => builder.watches.some((file) => existsSync(join(root, file))))
+}
+
+/**
+ * The first of the builders, in their order, that says it serves the project, asked all at once; nothing when none does
+ * or one can't say.
+ */
+async function servingBuilder(
+  builders: BuilderDescription[],
+  detect: (builder: BuilderDescription) => Promise<BuilderDetection>
+): Promise<string | undefined> {
+  const detections = await Promise.all(builders.map((builder) => detect(builder).catch(() => undefined)))
+
+  return builders[detections.findIndex((detection) => detection?.found)]?.id
+}
+
 async function findBuilder(
   builders: BuilderDescription[],
   detect: (builder: BuilderDescription) => Promise<BuilderDetection>

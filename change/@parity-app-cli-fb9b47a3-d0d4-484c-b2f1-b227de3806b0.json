@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Open Next.js apps that run Turbopack: their components and pages draw with the project's own Next and config.",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

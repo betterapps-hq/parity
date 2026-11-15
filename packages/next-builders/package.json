@@ -1,0 +1,17 @@
+{
+  "name": "@parity-app/next-builders",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "What Next.js's builders share: the project's own Next, the guest app it compiles, and what its pages say.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/code": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "zod": "catalog:"
+  }
+}
