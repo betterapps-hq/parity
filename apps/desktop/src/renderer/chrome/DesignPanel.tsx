@@ -268,7 +268,7 @@ function DesignHeader({ entry }: { entry: ContainerEntry }) {
               <HeaderActions
                 adapterOffers={
                   target
-                    ? pageOffers(session.info, target.route)
+                    ? pageOffers(session.info, target.route, { session, extensions, placement: "selectionHeading" })
                     : componentOffers(session.info, component, { session, extensions, placement: "selectionHeading" })
                 }
                 page={target !== undefined}

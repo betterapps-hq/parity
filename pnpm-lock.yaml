@@ -320,21 +320,6 @@ importers:
         specifier: workspace:*
         version: link:../../packages/tokens
 
-  adapters/tanstack-router-adapter:
-    dependencies:
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@parity-app/extension-tanstack-router':
-        specifier: workspace:*
-        version: link:../../packages/extension-tanstack-router
-      typescript:
-        specifier: 6.0.3
-        version: 6.0.3
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-
   adapters/vite-adapter:
     dependencies:
       '@parity-app/code':
@@ -438,6 +423,9 @@ importers:
       '@parity-app/extension-storybook-a11y':
         specifier: workspace:*
         version: link:../../packages/extension-storybook-a11y
+      '@parity-app/extension-tanstack-router':
+        specifier: workspace:*
+        version: link:../../packages/extension-tanstack-router
       '@parity-app/extensions':
         specifier: workspace:*
         version: link:../../packages/extensions
@@ -689,6 +677,9 @@ importers:
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../extension-storybook
+      '@parity-app/extension-tanstack-router':
+        specifier: workspace:*
+        version: link:../extension-tanstack-router
       '@parity-app/react-adapter':
         specifier: workspace:*
         version: link:../../adapters/react-adapter
@@ -698,9 +689,6 @@ importers:
       '@parity-app/tailwind-adapter':
         specifier: workspace:*
         version: link:../../adapters/tailwind-adapter
-      '@parity-app/tanstack-router-adapter':
-        specifier: workspace:*
-        version: link:../../adapters/tanstack-router-adapter
       '@parity-app/vite-adapter':
         specifier: workspace:*
         version: link:../../adapters/vite-adapter
@@ -868,6 +856,12 @@ importers:
       '@tanstack/react-router':
         specifier: ^1.0.0
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
     devDependencies:
       '@parity-app/extension-api':
         specifier: workspace:*

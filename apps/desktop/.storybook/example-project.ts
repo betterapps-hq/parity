@@ -1,9 +1,15 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { adapters } from "@parity-app/adapters"
+import { adapters, extensionTools } from "@parity-app/adapters"
 import { hasElementSources, inferProps } from "@parity-app/code"
-import { type Adapter, type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
+import {
+  type Adapter,
+  type ComponentInfo,
+  defaultModeSettings,
+  detectPeers,
+  parseCanvasDocument
+} from "@parity-app/core"
 import {
   adapterActions,
   adapterStatus,
@@ -185,11 +191,13 @@ async function discover(): Promise<{
   const builder = adapters.builders[0]!
   const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
 
-  const [styleFound, routers, entitiesFound] = await Promise.all([
-    found(adapters.styles),
-    found(adapters.routers),
-    found(adapters.entities)
-  ])
+  const [styleFound, entitiesFound] = await Promise.all([found(adapters.styles), found(adapters.entities)])
+
+  const routers = extensionTools.flatMap((tool) => {
+    const detection = detectPeers(pkg, tool.versions)
+
+    return detection.found ? [{ adapter: tool, detection }] : []
+  })
 
   const config = await discoverProject(root, renderer, pkg)
   const stylesheet = config.styles[0]

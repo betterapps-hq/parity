@@ -36,6 +36,7 @@ export interface Parity {
   readonly servers: Servers
   readonly edits: Edits
   readonly files: Files
+  readonly providers: ProviderRegistry
   readonly ui: Ui
   readonly settings: Settings
   readonly state: { readonly app: State; readonly project: State }
@@ -64,16 +65,19 @@ export interface Project {
 
 /**
  * What a command was run for: a component's card or one of its layers, a layer in Layers, by its design's key
- * (`app.par#home`) and its id, or an item of a view without a `target` of its own. Nothing when it's run from Search
- * actions or a view's toolbar.
+ * (`app.par#home`) and its id, one of the app's pages, by its route, or an item of a view without a `target` of its
+ * own. Nothing when it's run from Search actions or a view's toolbar.
  */
-export type CommandTarget = ComponentTarget | LayerTarget | ItemTarget
+export type CommandTarget = ComponentTarget | LayerTarget | RouteTarget | ItemTarget
 
 /** A component of the project, by its key. */
 export type ComponentTarget = { type: "component"; key: string }
 
 /** A layer, by its design's key and its id. */
 export type LayerTarget = { type: "layer"; design: string; node: string }
+
+/** One of the app's pages, by its route's id, as `/settings/billing`. */
+export type RouteTarget = { type: "route"; key: string }
 
 /** An item of one of the extension's views, by the view's id and the item's key. */
 export type ItemTarget = { type: "item"; view: string; key: string }
@@ -238,6 +242,48 @@ export interface Files {
    * permission names, and never a `.par` file. Gives the paths it changed.
    */
   edit(label: string, files: FileEdit[]): Promise<string[]>
+}
+
+/**
+ * The jobs the manifest's `providers` names, given behaviour. Parity calls a provider with plain data and waits for its
+ * answer, so each method is asynchronous and takes and returns only what JSON can carry.
+ */
+export interface ProviderRegistry {
+  /** Gives the router the manifest declares its behaviour. A second router is refused. */
+  register(kind: "router", provider: RouterProvider): Disposable
+}
+
+/** Reads an app's routes from its router's own files, so the canvas draws each page. */
+export interface RouterProvider {
+  /**
+   * The project's routes, each parent before its children. Empty when the router's files aren't there, as before its
+   * tooling first writes them. Parity asks while the project opens.
+   */
+  routes(): Promise<Route[]>
+}
+
+/** One route of an app, as its router declares it. */
+export interface Route {
+  /** The router's id for it, unique in the app: `/settings/billing`, or `__root__` for the root. */
+  id: string
+  /** The URL it matches, from the root, its params written as the router writes them: `/projects/$projectId`. */
+  path: string
+  /** The id of the route it draws inside, at that route's outlet. The root has none. */
+  parent?: string
+  /** Its file, from the project root, with forward slashes. */
+  file: string
+  /** The names of the params its path takes, without the router's mark: `["projectId"]`. */
+  params: string[]
+  /** Whether it's its parent's index, drawn at its parent's own URL. */
+  index: boolean
+  /** The component it draws, by its name in its file, when it names one. */
+  component?: string
+  /** Whether it loads data before it draws. */
+  loads: boolean
+  /** Whether it can redirect or refuse before it draws. */
+  guards: boolean
+  /** Where it always sends the browser instead of drawing, from the root. Undefined when it draws. */
+  redirect?: string
 }
 
 /** How a toast looks. */

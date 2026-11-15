@@ -1,8 +1,6 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
-import type { PackageManifest } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { tanstackRouter } from "./index.ts"
 import { readRoutes } from "./routes.ts"
 
 /** Reads files from a folder by their path from it, as the project service reads a project's. */
@@ -226,48 +224,5 @@ describe("readRoutes", () => {
     expect(readRoutes(recordReader({ "src/routes/__root.tsx": "export const Route = createRootRoute({})" }))).toEqual(
       []
     )
-  })
-})
-
-describe("tanstackRouter.detect", () => {
-  const found = async (pkg: PackageManifest) =>
-    (await tanstackRouter.detect({ root: "", pkg, read: () => Promise.resolve(undefined) })).found
-
-  it("finds TanStack Router for React in either kind of dependency, and nothing else", async () => {
-    expect(await found({ dependencies: { "@tanstack/react-router": "^1.170.46" } })).toBe(true)
-    expect(await found({ devDependencies: { "@tanstack/react-router": "^1.170.46" } })).toBe(true)
-    expect(await found({ dependencies: { "react-router": "^7.0.0", "@tanstack/react-query": "^5.0.0" } })).toBe(false)
-  })
-})
-
-describe("tanstackRouter's Open in browser", () => {
-  const [open] = tanstackRouter.actions ?? []
-  const route = { file: "src/routes/x.tsx", params: [], index: false, loads: false, guards: false }
-  const nothing = () => Promise.resolve(undefined)
-
-  it("is offered for each page, not the root", () => {
-    expect(
-      open?.routes?.({
-        packageManager: "pnpm",
-        routes: [
-          { ...route, id: "__root__", path: "/" },
-          { ...route, id: "/projects/$projectId", path: "/projects/$projectId", parent: "__root__" }
-        ]
-      })
-    ).toEqual(["/projects/$projectId"])
-  })
-
-  it("opens the URL the page is drawn at", async () => {
-    const page = { route: "/projects/$projectId", url: "http://127.0.0.1:5173/projects/atlas" }
-
-    const opened = await tanstackRouter.run?.("open", {
-      project: { root: "", pkg: {}, read: nothing },
-      source: { files: () => Promise.resolve([]), read: nothing, componentFor: nothing },
-      detection: { found: true, summary: "" },
-      page,
-      servers: { serve: () => Promise.reject(new Error("Opening a page starts no server")) }
-    })
-
-    expect(opened).toEqual({ open: page.url })
   })
 })

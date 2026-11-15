@@ -128,7 +128,8 @@ const builds: BuildContext[] = [
       "extension-host": join(appDir, "src/utility/extension-host.ts"),
       // Parity's own extensions, which a host loads only when one activates.
       "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts"),
-      "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts")
+      "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts"),
+      "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts")
     },
     format: "esm",
     outExtension: { ".js": ".mjs" },

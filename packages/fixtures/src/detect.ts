@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { adapters } from "@parity-app/adapters"
+import { adapters, extensionTools } from "@parity-app/adapters"
 import {
   type BuilderDetection,
+  detectPeers,
   type ComponentSource,
   type JsonValue,
   type LibraryInfo,
@@ -84,11 +85,7 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
   const renderer = rendererFound?.adapter
 
   const others = (
-    await Promise.all([
-      detectAdapters(project, adapters.styles),
-      detectAdapters(project, adapters.routers),
-      detectAdapters(project, adapters.entities)
-    ])
+    await Promise.all([detectAdapters(project, adapters.styles), detectAdapters(project, adapters.entities)])
   )
     .flat()
     .filter(({ detection }) => detection.found)
@@ -123,7 +120,12 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
     [
       ...(rendererFound ? [rendererFound] : []),
       ...(builder && builderAdapter ? [{ adapter: builderAdapter, detection: builder }] : []),
-      ...others
+      ...others,
+      ...extensionTools.flatMap((tool) => {
+        const found = detectPeers(pkg, tool.versions)
+
+        return found.found ? [{ adapter: tool, detection: found }] : []
+      })
     ],
     checkedOn
   )

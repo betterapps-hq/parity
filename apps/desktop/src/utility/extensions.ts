@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { detectPeers, type PackageManifest } from "@parity-app/core"
 import { hasAddon } from "@parity-app/extension-storybook-a11y/accessibility"
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import {
   type ExtensionEdits,
   type ExtensionHosts,
@@ -18,7 +20,7 @@ import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
 import { extensionProcesses } from "./extension-processes.ts"
 import { extensionStateStore } from "./extension-state.ts"
-import type { OpenProject } from "./projects.ts"
+import type { OpenProject, ProvidedRoutes } from "./projects.ts"
 
 /*
  * The extensions Parity runs, each in a host of its own for each open project (see `@parity-app/extensions`). Each host
@@ -27,12 +29,16 @@ import type { OpenProject } from "./projects.ts"
  * packages as the service starts, and their code is bundled beside the service, loaded only when a host activates.
  */
 
-/** An open project, as hosts see it. */
+/**
+ * A project, as hosts see it: its package as soon as it's read, so its providers can start while it opens, and once it
+ * has opened, the project itself.
+ */
 export interface ExtensionProject {
   id: string
   root: string
   name: string
-  open: OpenProject
+  pkg: PackageManifest
+  open?: OpenProject
 }
 
 const hostScript = fileURLToPath(new URL("./extension-host.mjs", import.meta.url))
@@ -51,10 +57,18 @@ function builtIn(
   }
 }
 
+/** An extension found by its peer dependencies in the project's package.json, which Parity reads as it opens. */
+function byPeers(found: InstalledExtension<ExtensionProject>): InstalledExtension<ExtensionProject> {
+  const { versions } = found.package
+
+  return { ...found, detect: ({ pkg }) => (versions && detectPeers(pkg, versions).found ? {} : undefined) }
+}
+
 /** Parity's own extensions. Until each has a `detect` module, what Parity's detection found stands in. */
 const builtIns = (): InstalledExtension<ExtensionProject>[] => [
+  byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
   builtIn(storybookPackage, "storybook", ({ open }) => {
-    const found = open.info.storybook
+    const found = open?.info.storybook
 
     // What detection found goes to the host as JSON carries it, without the fields it leaves out, which structuredClone
     // would keep.
@@ -63,7 +77,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   }),
   // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
   builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
-    open.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
+    open?.info.storybook && hasAddon(readPackageJson(open.info.root)) ? {} : undefined
   )
 ]
 
@@ -96,6 +110,23 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
   })
 }
 
+/**
+ * The app's routes, from the router an extension of the project's provides: its host starts as soon as the project's
+ * package is read, so it reads them while the builder starts. Nothing when none provides one.
+ */
+export async function providedRoutes(
+  hosts: ExtensionHosts<ExtensionProject>,
+  project: { root: string; name: string; pkg: PackageManifest }
+): Promise<ProvidedRoutes | undefined> {
+  const id = project.root
+  projects.set(id, { root: project.root, name: project.name })
+  hosts.open({ id, ...project })
+  const routes = await hosts.provide(id, "router", "routes")
+  const router = hosts.provider(id, "router")
+
+  return routes && router ? { router, routes } : undefined
+}
+
 /** The open projects hosts were told of, by id, for their servers' folders and names. */
 const projects = new Map<string, { root: string; name: string }>()
 
@@ -107,7 +138,7 @@ export function openExtensions(hosts: ExtensionHosts<ExtensionProject>, open: Op
   const { id, root, name, mainDocument, documents } = open.info
   projects.set(id, { root, name })
   const main = documents.find((entry) => entry.path === mainDocument)?.document
-  hosts.open({ id, root, name, open }, main?.extensions ?? {})
+  hosts.open({ id, root, name, pkg: open.pkg, open }, main?.extensions ?? {})
 }
 
 /** Ends a project's hosts as it closes. */

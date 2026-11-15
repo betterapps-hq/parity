@@ -1,4 +1,4 @@
-import { adapters } from "@parity-app/adapters"
+import { adapters, extensionTools } from "@parity-app/adapters"
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
@@ -30,7 +30,7 @@ import { applyProjectEdit, undoProjectEdit } from "./edits.ts"
 import { projectEnvSecrets } from "./env-secrets.ts"
 import { environment } from "./environment.ts"
 import type { Attributes } from "./event-attributes.ts"
-import { closeExtensions, openExtensions, startExtensions } from "./extensions.ts"
+import { closeExtensions, openExtensions, providedRoutes, startExtensions } from "./extensions.ts"
 import { frameTraces } from "./frame-traces.ts"
 import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
@@ -67,6 +67,9 @@ function whenWindow(): Promise<Channel<ServiceMethods, WindowMethods>> {
 
 const projects = openProjects({
   ...adapters,
+  tools: extensionTools,
+  // The extensions' hosts start below, before any project opens.
+  routes: (project) => providedRoutes(extensions, project),
   startBuilder,
   checker,
   detections: { saved: savedDetection, save: saveDetection },
@@ -142,7 +145,12 @@ const extensions = startExtensions(
 
 /** Opens a project and tells its extensions, which start the ones that activate when detected. */
 async function openProject(root: string, how?: { reopen?: boolean }) {
-  const info = await projects.open(root, how)
+  // A router's host starts while the project opens, so one that can't be opened ends its hosts.
+  const info = await projects.open(root, how).catch(async (cause: unknown) => {
+    await closeExtensions(extensions, projects.rootFor(root)).catch(() => undefined)
+    throw cause
+  })
+
   openExtensions(extensions, projects.get(info.id))
 
   return info

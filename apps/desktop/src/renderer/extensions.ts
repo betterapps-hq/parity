@@ -219,21 +219,23 @@ export function holdsFor(
 }
 
 /**
- * What a context key's list holds for a target: a component's key, a layer's as `app.par#home/title`, or a view's
- * item's key.
+ * What a context key's list holds for a target: a component's key, a layer's as `app.par#home/title`, a page's route
+ * id, or a view's item's key.
  */
 function targetKey(target: CommandTarget): string {
   return target.type === "layer" ? `${target.design}/${target.node}` : target.key
 }
 
 /**
- * A command's target as a node, when the facts name none: a component, or a layer of the designs' own. A view's item
- * isn't a node.
+ * A command's target as a node, when the facts name none: a component, a page's route, or a layer of the designs' own.
+ * A view's item isn't a node.
  */
 function targetNode(target: CommandTarget): NodeRef | undefined {
   switch (target.type) {
     case "component":
       return { owner: "", type: "component", key: target.key }
+    case "route":
+      return { owner: "", type: "route", key: target.key }
     case "layer":
       return { owner: "design", type: "layer", key: targetKey(target) }
     case "item":
@@ -252,9 +254,9 @@ export function commandsAt(
     (extension.contributes.menus?.[placement] ?? []).flatMap((item): PlacedCommand[] => {
       const command = extension.contributes.commands?.find((declared) => declared.id === item.command)
 
-      // A layer that isn't a component's shows only what's placed for it with a `when`, as `layer`, so commands for
-      // components, as Open in Storybook, don't show greyed on every layer.
-      const unplaced = target?.type === "layer" && item.when === undefined
+      // A layer that isn't a component's, or a page, shows only what's placed for it with a `when`, as `layer` or
+      // `node.type == route`, so commands for components, as Open in Storybook, don't show greyed on every one.
+      const unplaced = (target?.type === "layer" || target?.type === "route") && item.when === undefined
 
       if (!command || unplaced || !holdsFor(extensions, extension, item.when, target, facts)) {
         return []

@@ -1,9 +1,16 @@
-import { type ActionPage, isInnerPath, locateInner, locateNode, type ProjectAction } from "@parity-app/core"
+import {
+  type ActionPage,
+  isInnerPath,
+  locateInner,
+  locateNode,
+  type NodeRef,
+  type ProjectAction
+} from "@parity-app/core"
 import type { CommandTarget, LayerTarget, MenuPlacement } from "@parity-app/extension-api"
 import type { ExtensionStatus, ProjectInfo } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { projectLibrary } from "../canvas/layers.ts"
-import { routePageTarget } from "../canvas/route-pages.ts"
+import { routePageTarget, routeRef } from "../canvas/route-pages.ts"
 import { commandsAt, type PlacedCommand, runCommand, whenFactsOf } from "../extensions.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
@@ -79,9 +86,8 @@ function extensionOffers(
   { session, extensions, placement }: PlacedExtensions,
   target: CommandTarget
 ): ComponentOffer[] {
-  // What a `when` reads of a component: its node, owned by the renderer that draws it.
-  const node =
-    target.type === "component" ? { owner: session.info.renderer.id, type: "component", key: target.key } : undefined
+  // What a `when` reads of a component: its node, owned by the renderer that draws it; of a page, its route's.
+  const node = targetNode(session, target)
 
   return commandsAt(extensions, placement, target, whenFactsOf(session, node)).map((placed) => {
     const action: ExtensionAction = {
@@ -98,13 +104,27 @@ function extensionOffers(
   })
 }
 
-/** What the project's adapters offer for one of the app's pages, by its route's id, as Open in browser. */
-export function pageOffers(info: ProjectInfo, route: string | undefined): ComponentOffer[] {
+/** What a `when` reads of a command's target: a component's node, a page's route, or nothing for a layer. */
+function targetNode(session: ProjectSession, target: CommandTarget): NodeRef | undefined {
+  if (target.type === "component") {
+    return { owner: session.info.renderer.id, type: "component", key: target.key }
+  }
+
+  return target.type === "route" ? routeRef(session.info, target.key) : undefined
+}
+
+/**
+ * What the project's adapters and extensions offer for one of the app's pages, by its route's id: the commands placed
+ * for routes, as the router's Open in browser.
+ */
+export function pageOffers(info: ProjectInfo, route: string | undefined, placed?: PlacedExtensions): ComponentOffer[] {
   if (route === undefined) {
     return []
   }
 
-  return info.actions.flatMap((action) => (action.routes?.includes(route) ? [{ action }] : []))
+  const adapters = info.actions.flatMap((action) => (action.routes?.includes(route) ? [{ action }] : []))
+
+  return placed ? [...adapters, ...extensionOffers(placed, { type: "route", key: route })] : adapters
 }
 
 /**

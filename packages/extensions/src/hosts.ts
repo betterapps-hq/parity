@@ -30,6 +30,9 @@ import {
   type HostMethods,
   type HostServiceMethods,
   type LogLine,
+  type ProviderCalls,
+  type ProviderKind,
+  readAnswer,
   readReturned,
   type StateValues,
   type StatusValue
@@ -245,7 +248,8 @@ export interface OpenedProject {
 export interface ExtensionHosts<Project extends OpenedProject> {
   /**
    * Finds the project's extensions, and starts those that activate when they're detected, with the project's settings
-   * for them from its main `.par`.
+   * for them from its main `.par`. Opening it again, once more is known of it, finds those that weren't found before:
+   * a project is opened as soon as its package is read, for its providers, and again once it has opened.
    */
   open(project: Project, settings?: StoredSettings): void
   /** Ends the project's hosts. */
@@ -258,6 +262,17 @@ export interface ExtensionHosts<Project extends OpenedProject> {
    * it runs, the extension's changes are named after `agent` and the extension, and it can't ask the person anything.
    */
   runForAgent(projectId: string, request: AgentRun, agent: string): Promise<JsonValue | undefined>
+  /**
+   * Calls the provider of `kind` an extension of the project's declares, starting its host first when it isn't
+   * running, and reads its answer. Nothing when none of the project's extensions declares one.
+   */
+  provide<K extends ProviderKind, M extends keyof ProviderCalls[K]>(
+    projectId: string,
+    kind: K,
+    method: M
+  ): Promise<ProviderResult<K, M> | undefined>
+  /** The extension of the project's that declares a provider of `kind`: its prefix and name, or nothing. */
+  provider(projectId: string, kind: ProviderKind): { id: string; name: string } | undefined
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -275,6 +290,13 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   /** A project's settings for its extensions, from its main `.par`'s `extensions` field, saved or not. */
   setProjectSettings(projectId: string, settings: StoredSettings): void
 }
+
+/** What a provider's method answers. */
+export type ProviderResult<K extends ProviderKind, M extends keyof ProviderCalls[K]> = ProviderCalls[K][M] extends {
+  result: infer R
+}
+  ? R
+  : never
 
 /** What an agent runs: a command, for a component or layer when it names one, or an agent tool, with its input. */
 export interface AgentRun {
@@ -707,6 +729,7 @@ export function extensionHosts<Project extends OpenedProject>(
       project: { root: open.project.root, name: open.project.name },
       commands: (found.manifest.contributes.commands ?? []).map((command) => command.id),
       statusItems: (found.manifest.contributes.statusItems ?? []).map((item) => item.id),
+      providers: providerKinds.filter((kind) => found.manifest.contributes.providers?.[kind] !== undefined),
       views: declaredViews(found.manifest.contributes),
       state: { app: stored.app, project: stored.project },
       selection: open.selection,
@@ -956,6 +979,12 @@ export function extensionHosts<Project extends OpenedProject>(
     }
   }
 
+  /** The host of the extension that declares a provider of `kind`, if any. */
+  const providerHost = (open: OpenProject<Project>, kind: ProviderKind) =>
+    [...open.hosts.values()].find(
+      (candidate) => candidate.extension.package.manifest.contributes.providers?.[kind] !== undefined
+    )
+
   /** The host of the extension that declares a command, if any. */
   const declarer = (open: OpenProject<Project>, command: string) =>
     [...open.hosts.values()].find((candidate) =>
@@ -1029,14 +1058,22 @@ export function extensionHosts<Project extends OpenedProject>(
 
   return {
     open(project, settings = {}) {
-      if (projects.has(project.id)) {
-        return
+      const known = projects.get(project.id)
+      const open: OpenProject<Project> = known ?? { project, hosts: new Map(), selection: [], settings }
+
+      if (known) {
+        known.project = project
+        known.settings = settings
+        settingsChanged(known)
+      } else {
+        projects.set(project.id, open)
       }
 
-      const open: OpenProject<Project> = { project, hosts: new Map(), selection: [], settings }
-      projects.set(project.id, open)
-
       for (const extension of options.extensions) {
+        if (open.hosts.has(extension.package.id)) {
+          continue
+        }
+
         const found = extension.detect(project)
 
         if (!found) {
@@ -1101,6 +1138,35 @@ export function extensionHosts<Project extends OpenedProject>(
     },
     async run(projectId, command, target) {
       await runCommand(projectOf(projectId), command, target)
+    },
+    provider(projectId, kind) {
+      const open = projects.get(projectId)
+      const manifest = open && providerHost(open, kind)?.extension.package.manifest
+
+      return manifest && { id: manifest.prefix, name: manifest.displayName }
+    },
+    async provide(projectId, kind, method) {
+      const open = projectOf(projectId)
+      const host = providerHost(open, kind)
+
+      if (!host) {
+        return undefined
+      }
+
+      const running = await ensureRunning(open, host)
+
+      try {
+        // SAFETY: a kind and one of that kind's methods, as `ProviderCall` lists them.
+        const call = { kind, method } as HostMethods["provide"]["params"]
+        const answer = readAnswer(call, await running.channel.request("provide", call))
+
+        // SAFETY: `readAnswer` reads what `call`'s method answers, which is what `ProviderResult` names.
+        return answer as ProviderResult<typeof kind, typeof method>
+      } catch (cause) {
+        const text = `Its ${kind} failed to answer ${String(method)}: ${messageOf(cause)}`
+        log(open, host, withStack({ level: "error", text }, cause))
+        throw cause
+      }
     },
     runForAgent(projectId, { name, target, input }, agent) {
       const open = projectOf(projectId)
@@ -1196,6 +1262,9 @@ export function extensionHosts<Project extends OpenedProject>(
     }
   }
 }
+
+/** Every kind of provider an extension can register. */
+const providerKinds: readonly ProviderKind[] = ["router"]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
 function declaredViews(contributes: Contributions): Record<string, ViewKind> {

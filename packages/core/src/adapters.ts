@@ -346,7 +346,6 @@ export interface Adapters {
   renderers: RendererAdapter[]
   builders: BuilderAdapter[]
   styles: StylesAdapter[]
-  routers: RouterAdapter[]
   entities: EntitiesAdapter[]
 }
 
@@ -738,20 +737,7 @@ export interface ImportedScreen {
   screen: ContainerSpec
 }
 
-/**
- * Lists an app's routes from its router's own files (TanStack Router, React Router…), so the canvas can draw each page
- * (PAR-1073). The app's own entry draws a page at its URL; the adapter only says which routes there are.
- */
-export interface RouterAdapter extends Adapter {
-  /**
-   * The project's routes, each parent before its children, read through `read`: a file's text by its path from the
-   * project root, with forward slashes, or undefined when there's no such file. Empty when the router's files aren't
-   * there, as before its tooling first writes them.
-   */
-  readRoutes(read: (path: string) => string | undefined): ProjectRoute[]
-}
-
-/** One route of an app, as its router declares it. */
+/** One route of an app, as its router declares it: what a router extension's provider gives (PAR-1095). */
 export interface ProjectRoute {
   /** The router's id for it, unique in the app: `/settings/billing`, or `__root__` for the root. */
   id: string

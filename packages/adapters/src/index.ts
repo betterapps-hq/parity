@@ -3,8 +3,9 @@ import storybookExtension from "@parity-app/extension-storybook/package.json" wi
 import { reactRenderer } from "@parity-app/react-adapter"
 import { storybookAdapter } from "@parity-app/storybook-adapter"
 import { tailwindStyles } from "@parity-app/tailwind-adapter"
-import { tanstackRouter } from "@parity-app/tanstack-router-adapter"
 import { builders } from "./builders.ts"
+
+export { type ExtensionTool, extensionTools } from "./tools.ts"
 
 /**
  * Every adapter Parity opens projects with, by what it integrates: the one list the project service, Storybook's
@@ -14,7 +15,6 @@ export const adapters: Adapters = {
   renderers: [reactRenderer],
   builders,
   styles: [tailwindStyles],
-  routers: [tanstackRouter],
   // Storybook's supported versions are its extension's peer dependencies.
   entities: [
     {

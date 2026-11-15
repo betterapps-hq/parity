@@ -16,6 +16,7 @@ import type {
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
+  Route,
   SettingValue,
   Tone,
   ViewData,
@@ -44,6 +45,8 @@ export interface ActivateParams {
   /** The ids the manifest declares, which registrations are checked against. */
   commands: string[]
   statusItems: string[]
+  /** The kinds of provider the manifest declares, which `parity.providers.register` is checked against. */
+  providers: ProviderKind[]
   /** The tabs, sections and pages it declares, by id, with the kind of view each holds. */
   views: Record<string, ViewKind>
   state: StateValues
@@ -87,6 +90,26 @@ export interface Returned {
   result?: JsonValue
 }
 
+/** The kinds of provider an extension's code can register so far. */
+export type ProviderKind = "router"
+
+/** What the project service asks a provider, by kind and method, and what it answers. */
+export interface ProviderCalls {
+  router: { routes: { params: undefined; result: Route[] } }
+}
+
+/** One call to a provider. */
+export type ProviderCall = {
+  [K in ProviderKind]: { [M in keyof ProviderCalls[K]]: { kind: K; method: M } }[keyof ProviderCalls[K]]
+}[ProviderKind]
+
+/** What a provider answers, whichever was called. */
+export type ProviderAnswer = {
+  [K in ProviderKind]: {
+    [M in keyof ProviderCalls[K]]: ProviderCalls[K][M] extends { result: infer R } ? R : never
+  }[keyof ProviderCalls[K]]
+}[ProviderKind]
+
 /**
  * The project's processes as an extension may see them, and of its own: what each printed in its current run, and the
  * pattern of each one whose ready check is `output`, by their ids among its processes.
@@ -116,6 +139,11 @@ export interface HostMethods {
   tool: { params: { name: string; input: Record<string, JsonValue> } & Called; result: Returned }
   /** Calls a function of its API, for an extension that builds on it. */
   "api.call": { params: { method: string; args: JsonValue[] } & Called; result: Returned }
+  /**
+   * Calls a provider its code registered, once it has activated. The answer comes from the extension's code, so the
+   * service reads it through `providerResults` before using it.
+   */
+  provide: { params: ProviderCall; result: ProviderAnswer }
   /** Answers at once, unless the extension's code is keeping the host busy, with the memory its process holds. */
   ping: { params: undefined; result: { memory?: number } | undefined }
   /** Some of its settings changed, in Settings or by its own `update`: their values now, by key. */
@@ -378,8 +406,39 @@ const componentTarget = z.strictObject({ type: z.literal("component"), key: z.st
 
 const commandTarget = z.discriminatedUnion("type", [
   componentTarget,
-  z.strictObject({ type: z.literal("layer"), design: z.string().max(2000), node: z.string().max(500) })
+  z.strictObject({ type: z.literal("layer"), design: z.string().max(2000), node: z.string().max(500) }),
+  z.strictObject({ type: z.literal("route"), key: z.string().max(2000) })
 ])
+
+const routePath = z.string().max(2000)
+
+const route: z.ZodType<Route> = z.strictObject({
+  id: routePath,
+  path: routePath,
+  parent: routePath.optional(),
+  file: filePath,
+  params: z.array(z.string().max(200)).max(100),
+  index: z.boolean(),
+  component: z.string().max(500).optional(),
+  loads: z.boolean(),
+  guards: z.boolean(),
+  redirect: routePath.optional()
+})
+
+/** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
+const providerResults = {
+  router: { routes: checkOf(z.array(route).max(10_000)) }
+} satisfies {
+  [K in ProviderKind]: {
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the host answered, read here
+    [M in keyof ProviderCalls[K]]: (result: unknown) => ProviderCalls[K][M] extends { result: infer R } ? R : never
+  }
+}
+
+/** Reads what a provider answered to `call`, which came from the extension's code, before the service uses it. */
+export function readAnswer(call: ProviderCall, answer: ProviderAnswer): ProviderAnswer {
+  return providerResults[call.kind][call.method](answer)
+}
 
 /** Reads each of a host's requests before the service handles it. */
 export const hostChecks: Checks<HostServiceMethods> = {

@@ -1161,6 +1161,33 @@ tests of their own. They were tried in the running app on 2026-11-14 with the mo
 tests of their own, and no extension uses them yet; Open in Storybook greyed with "No story found" by its `enablement`,
 and selecting Settings' layout in Layers bringing its group into view, were tried in the running app on 2026-11-14.
 
+### TanStack Router as an extension, through its router provider (PAR-1095)
+
+TanStack Router runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it shows
+changed: the pages drawn on canvas, Routes in Layers, Open in browser on each page and the route count in the status
+bar.
+
+- **Routes come from its router provider.** Its host starts as soon as the project's package.json is read, since it's
+  found by its peer dependency, and Parity asks it for the routes while the builder starts, so they're in the project
+  when it opens. A router that fails to answer leaves the project without pages, with the reason in the log.
+- **Open in browser** is its command, placed in Layers, the canvas's menu, a page's heading and Search for routes only
+  (`node.type == route`). It's run for the page it's shown on, or from Search, the page selected, and opens the URL the
+  canvas draws the page at, with the values its view gives the route's params (`pageUrl` in
+  `renderer/extension-editor.ts`), with "Opened in your browser".
+- **The route count** is its status bar item, "6 routes" without the root route, which opens Layers when clicked.
+- **Its version** shows in the project's detection, from its peer dependency, as the adapter's did.
+
+Code: `packages/extension-tanstack-router` (its manifest, `extension.ts` and `routes.ts`); `providers` in
+`packages/extension-api/src/api.ts`; `provide` and `provider` in `packages/extensions/src/hosts.ts`, `readAnswer` in
+`protocol.ts` and `providers.register` in `host.ts`; `providedRoutes` and `byPeers` in `utility/extensions.ts`; `routes`
+and `tools` in `utility/projects.ts`; `pageOffers` in `renderer/chrome/adapter-actions.ts` and `pageItems` in
+`ActionsSearch.tsx`.
+
+Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts`, and "providers (PAR-1095)" in
+`packages/extensions/src/hosts.test.ts` ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a
+route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
+router, and Open in browser's placements in the window, have no unit test of their own.
+
 ### Extensions' changes to designs and files (PAR-1093)
 
 An extension with the `edits` permission changes designs through `parity.edits.transact`, and project files through
@@ -6993,8 +7020,8 @@ frame drew the login page, and its row in Layers showed the warning, with "Lands
 
 Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
 `pageLandedMessage` and `landedElsewhere` in `packages/editor/src/route-boards.ts`, with `titleTop` in
-`canvas-labels.ts`; `routeOptions` in `adapters/tanstack-router-adapter/src/routes.ts`; `projectRoutes` in
-`apps/desktop/src/utility/projects.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
+`canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
+`apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
 `PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`; `routeLines` in
 `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `adapters/vite-adapter/src/index.ts`, and
 `appPageModeScript` in `app-page.ts`, whose messages `pageHeightMessage` and `pageLandedMessage` read.
@@ -7014,8 +7041,8 @@ a group's box round its pages' titles; a line curving across above the lower pag
 turning down higher zoomed out, and curving all the way down once the title reaches the page above; the lines a page
 brings forward, up to the top of the tree and down to the pages right under it, for several pages at once, and none for
 no page or a page outside the tree; a line into a group curving straight to its top), `canvas-labels.test.ts`
-(`titleTop`, up close and zoomed out), `adapters/tanstack-router-adapter/src/routes.test.ts` (the example's `/settings`
-index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
+(`titleTop`, up close and zoomed out), `packages/extension-tanstack-router/src/routes.test.ts` (the example's
+`/settings` index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
 `adapters/vite-adapter/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
 told once the frame is taller than its screen, the scrollbar hidden while it is and given back otherwise, the path the
 page opens on and where the router moves it told, nothing told once someone uses the page, and nothing told outside a
@@ -8057,16 +8084,16 @@ Code: `AdapterAction`, `ActionContext`, `ToolServers`, `ToolServer`, `ProjectAct
 `adapter.run` in `shared/protocol.ts`; `adapterActions` in `packages/project/src/index.ts`, tested in
 `adapter-status.test.ts`; `runAction`, `projectAction`, `componentOffers` and `selectionComponent` in
 `renderer/chrome/adapter-actions.ts`, with `pageOffers` and `selectionPage`; `routePageTarget` in
-`renderer/canvas/route-pages.ts`; Open in browser in `adapters/tanstack-router-adapter/src/index.ts`; `layerComponent`
-in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in `SelectionHeading.tsx`,
-`RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in `ActionsSearch.tsx`,
-`AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`, `ComponentMenu.tsx`,
-`ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
+`renderer/canvas/route-pages.ts`; Open in browser in `packages/extension-tanstack-router/src/extension.ts`;
+`layerComponent` in `renderer/chrome/layer-kind.ts`, tested in `layer-kind.test.ts`; and `HeaderActions` in
+`SelectionHeading.tsx`, `RowMenuItems` in `LayerTree.tsx`, `CanvasMenuItems` in `CanvasMenu.tsx`, `adapterItems` in
+`ActionsSearch.tsx`, `AdapterMenuItems.tsx`, `menuOffers` and `useComponentCard` in `AssetsPanel.tsx`,
+`ComponentMenu.tsx`, `ComponentCard.tsx` and `AdapterLogo.tsx`. Stories: Left panel › Component menu and Component card.
 
-Tests: `adapters/tanstack-router-adapter/src/routes.test.ts`, "tanstackRouter's Open in browser" (offered for each page
-but the root; opens the URL the page is drawn at); `packages/project/src/adapter-status.test.ts`, "tells the windows the
-routes an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story,
-else Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
+Tests: `packages/extension-tanstack-router/src/extension.test.ts` (Open in browser placed only for routes, run for the
+page or, from Search, the page selected); `packages/project/src/adapter-status.test.ts`, "tells the windows the routes
+an action is for"; `adapters/storybook-adapter/src/open.test.ts` (a component's docs page, else its first story, else
+Storybook's home; the server it asks for; a component without stories), `utility/window-channel.test.ts` (a failed
 action reaches the window as an Error), and Storybook, `chrome/StatusBar.stories.tsx` (opening, opened and failed).
 Gaps: `tool-servers.ts` has no unit test, and the story play functions weren't run.
 
@@ -8111,8 +8138,8 @@ Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's r
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
 `packages/extensions/src/manifest.test.ts`, each extension's own test of its range,
 `adapters/storybook-adapter/src/detect.test.ts` (its config, by its script's folder; Storybook 6; not found),
-`adapters/tanstack-router-adapter/src/routes.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit test
-runs the service's open path with several adapters of one kind.
+`packages/extension-tanstack-router/src/extension.test.ts` and `adapters/vite-adapter/src/detect.test.ts`. Gaps: no unit
+test runs the service's open path with several adapters of one kind.
 
 ### Each tool's status bar item comes from its adapter
 
@@ -8146,8 +8173,8 @@ Tailwind's tooltip and Enter on it opening the Tokens panel.
 Code: `StatusItem`, `StatusFacts`, `AdapterIcon` and the `Adapter` every adapter interface extends, in
 `packages/core/src/adapters.ts`; `adapterStatus` in `packages/project/src/index.ts`, called when a project opens in
 `apps/desktop/src/utility/projects.ts`; the items and logos (`src/logo.ts`) in `adapters/react-adapter`, `vite-adapter`,
-`tailwind-adapter`, `tanstack-router-adapter` and `storybook-adapter`; the one list of adapters in `packages/adapters`;
-and `chrome/StatusBar.tsx`, which draws `info.status`.
+`tailwind-adapter` and `storybook-adapter`, and TanStack Router's from its extension (below); the one list of adapters
+in `packages/adapters`; and `chrome/StatusBar.tsx`, which draws `info.status`.
 
 Tests: `packages/project/src/adapter-status.test.ts` (each adapter is told its version, its own screens and the routes;
 an item without an icon carries its adapter's logo; an untested version says so), `packages/adapters` (every adapter has
