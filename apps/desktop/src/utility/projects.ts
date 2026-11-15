@@ -161,6 +161,8 @@ export interface ProviderProject {
   pkg: PackageManifest
   /** Its Storybook, once discovery has found it, which Storybook's extension starts with. */
   storybook?: StorybookInfo
+  /** The extensions whose tools' files detection found as entities, by prefix, as Storybook's stories. */
+  entities?: string[]
 }
 
 /**
@@ -612,7 +614,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     // The entities the project's tools describe, as its stories as screens, naming the components as the list does.
     const provided = usedEntities.map((used) =>
-      providedEntities(used, { root, name, pkg, storybook: config.storybook }, () => opened.list.sources)
+      providedEntities(
+        used,
+        { root, name, pkg, storybook: config.storybook, entities: usedEntities.map(({ id }) => id) },
+        () => opened.list.sources
+      )
     )
 
     const entities = await importEntities(root, opened.list.sources, provided, config.notes)

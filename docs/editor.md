@@ -1277,18 +1277,21 @@ args are written back to its file on Save.
   and export, so the extension can name the component a story's meta imports. Parity checks each design it's given as a
   `.par` file's, and makes the canvas file and its nodes from what `import` gives.
 - **Its host starts as soon as discovery has found the project's Storybook,** before the project opens: the hosts are
-  told again then, with what discovery found, so the stories are in the project when it opens.
+  told again then, with what discovery found, so the stories are in the project when it opens. Where detection finds
+  story files but discovery finds no main config, it starts all the same and imports them, as the adapter did. A project
+  closed and opened again tells its new hosts afresh.
 - **Parity's detection still finds Storybook** (`detectStorybook`), until extensions detect their own tools.
 
 Code: `packages/extension-storybook` (`extension.ts`, `screens.ts`, `csf.ts` and `write.ts`); `EntitiesProvider` in
-`packages/extension-api/src/api.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
+`packages/extension-api/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
 `projectProviders` in `utility/extensions.ts`; `providedEntities` in `utility/projects.ts`.
 
 Tests: `packages/extension-storybook/src/stories.test.ts` (reading and writing story files) and
-`apps/desktop/src/utility/projects.test.ts`, whose projects import their stories through an entities provider. Tried in
-the running app on 2026-11-14 on the example: 4 story files imported through the provider, the stories drawn, and a
-variant changed on a story's badge written back to `badge.stories.tsx` on Save. Gaps: the provider's calls over the host
-channel have no unit test of their own.
+`apps/desktop/src/utility/projects.test.ts`, whose projects import their stories through an entities provider, and
+`utility/extensions.test.ts` (when the hosts are told again, and that closing a project forgets it). Tried in the
+running app on 2026-11-14 on the example: 4 story files imported through the provider, the stories drawn, and a variant
+changed on a story's badge written back to `badge.stories.tsx` on Save. Gaps: the provider's calls over the host channel
+have no unit test of their own.
 
 ### Extensions' changes to designs and files (PAR-1093)
 

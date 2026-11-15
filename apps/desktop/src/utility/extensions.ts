@@ -59,6 +59,8 @@ export interface ExtensionProject {
   pkg: PackageManifest
   /** Its Storybook, once discovery has found it, before the project has opened. */
   storybook?: StorybookInfo
+  /** The extensions whose tools' files detection found as entities, by prefix, before the project has opened. */
+  entities?: string[]
   open?: OpenProject
 }
 
@@ -115,13 +117,19 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   byPeers(builtIn(reactPackage, "react", () => undefined)),
   byPeers(builtIn(tailwindPackage, "tailwind", () => undefined)),
   byPeers(builtIn(routerPackage, "tanstack-router", () => undefined)),
-  builtIn(storybookPackage, "storybook", ({ open, storybook }) => {
+  builtIn(storybookPackage, "storybook", ({ open, storybook, entities }) => {
     const found = open?.info.storybook ?? storybook
+
+    // Stories without a config discovery can read are still imported, by the entities provider the extension registers
+    // before it looks at what was found.
+    if (!found) {
+      return entities?.includes(storybookPackage.parity.prefix) ? {} : undefined
+    }
 
     // What detection found goes to the host as JSON carries it, without the fields it leaves out, which structuredClone
     // would keep.
     // oxlint-disable-next-line unicorn/prefer-structured-clone
-    return found ? { detected: z.json().parse(JSON.parse(JSON.stringify(found))) } : undefined
+    return { detected: z.json().parse(JSON.parse(JSON.stringify(found))) }
   }),
   // Storybook's accessibility checks, where the project has Storybook and its accessibility addon (PAR-1096).
   builtIn(accessibilityPackage, "storybook-a11y", ({ open }) =>
@@ -195,24 +203,25 @@ export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits):
  * the theme while the builder starts. Nothing when no extension of the project's provides what's asked.
  */
 export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): ProjectProviders {
-  /** The projects told of their Storybook before they opened, by id. */
-  const toldStorybook = new Set<string>()
-
   /**
-   * Tells the hosts of the project, as early as its package is read, and again once discovery has found its Storybook,
-   * which starts Storybook's extension for its entities; once it has opened, that's known already.
+   * Tells the hosts of the project, as early as its package is read, and again once detection has found files of its
+   * tools that are entities or discovery its Storybook, which starts Storybook's extension for its entities. What they
+   * were told goes with the project, so a project closed and opened again tells them afresh.
    */
   const told = (project: ProviderProject) => {
     const id = project.root
-    const known = projects.has(id)
+    const known = projects.get(id)
 
-    if (!known || (project.storybook && !toldStorybook.has(id))) {
-      projects.set(id, { root: project.root, name: project.name })
+    // Once it has opened, its hosts were told everything with it.
+    if (known?.opened) {
+      return id
+    }
 
-      if (project.storybook) {
-        toldStorybook.add(id)
-      }
+    const storybook = known?.storybook || !!project.storybook
+    const entities = known?.entities || (project.entities?.length ?? 0) > 0
 
+    if (!known || storybook !== known.storybook || entities !== known.entities) {
+      projects.set(id, { root: project.root, name: project.name, storybook, entities })
       hosts.open({ id, ...project })
     }
 
@@ -226,7 +235,10 @@ export function projectProviders(hosts: ExtensionHosts<ExtensionProject>): Proje
 }
 
 /** The open projects hosts were told of, by id, for their servers' folders and names. */
-const projects = new Map<string, { root: string; name: string }>()
+const projects = new Map<
+  string,
+  { root: string; name: string; storybook?: boolean; entities?: boolean; opened?: boolean }
+>()
 
 /**
  * Tells the hosts a project opened, which starts the extensions that activate when detected, with the project's
@@ -234,7 +246,7 @@ const projects = new Map<string, { root: string; name: string }>()
  */
 export function openExtensions(hosts: ExtensionHosts<ExtensionProject>, open: OpenProject): void {
   const { id, root, name, mainDocument, documents } = open.info
-  projects.set(id, { root, name })
+  projects.set(id, { root, name, opened: true })
   const main = documents.find((entry) => entry.path === mainDocument)?.document
   hosts.open({ id, root, name, pkg: open.pkg, open }, main?.extensions ?? {})
 }
