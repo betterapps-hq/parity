@@ -360,10 +360,15 @@ export function webpackCssRule(entry: unknown, css: WebpackCss): unknown {
       changed.type = modules.type
     }
 
-    changed.parser = parserOptions(modules.namedExport ?? css.cssLoaderNamedExports, css)
+    const namedExports = modules.namedExport ?? css.cssLoaderNamedExports
+    changed.parser = parserOptions(namedExports, css)
 
-    if (modules.exportsConvention !== undefined && css.exportsConvention) {
-      changed.generator = { ...anyObject.parse(rest["generator"]), exportsConvention: modules.exportsConvention }
+    // `css-loader` 7 camel-cases the names of classes it gives as the default export when its options don't say.
+    const convention =
+      modules.exportsConvention ?? (css.cssLoaderNamedExports && !namedExports ? "camel-case-only" : undefined)
+
+    if (convention !== undefined && css.exportsConvention) {
+      changed.generator = { ...anyObject.parse(rest["generator"]), exportsConvention: convention }
     }
   }
 

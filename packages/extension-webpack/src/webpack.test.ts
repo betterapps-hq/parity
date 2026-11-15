@@ -233,4 +233,13 @@ describe("webpackCssRule", () => {
     expect(rule({ modules: { auto: true, mode: "global" } })).toMatchObject({ type: "css/global" })
     expect(rule({ esModule: false })).toMatchObject({ parser: { namedExports: false } })
   })
+
+  it("camel-cases default-export class names as css-loader 7 does when its options don't say", () => {
+    const seven = { globalCustomProperties: false, cssLoaderNamedExports: true, exportsConvention: true }
+    const options = { modules: { auto: true, namedExport: false } }
+
+    expect(
+      webpackCssRule({ test: /\.css$/, use: ["style-loader", { loader: "css-loader", options }] }, seven)
+    ).toMatchObject({ generator: { exportsConvention: "camel-case-only" } })
+  })
 })
