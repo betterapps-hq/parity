@@ -124,9 +124,10 @@ instance of everything.
   walks its client graph. The choice of which stylesheets are global moves out of `extension-vite/src/app-styles.ts`
   into a module that takes a list of imports and returns `AppStyles`, so Vite and the webpack family share it: the
   shallowest of the app's own modules that import stylesheets, the ones holding the theme where a page ties with the
-  root, and packages' stylesheets by their specifier. `from` lists the modules read on the way, plus the config file.
-  Tailwind 4 needs nothing more: its `@import "tailwindcss"` stylesheet is one the app imports, compiled by the
-  project's PostCSS rule.
+  root, and packages' stylesheets by their specifier. `from` lists the modules read on the way, plus the config file. An
+  app styled with Emotion, as the Rsbuild example is, imports no global stylesheet, so the list is empty. Its styles are
+  made at run time, inside the bundle, and reach frames the way CSS-in-JS does with Vite: through the decorators that
+  wrap its components, such as Chakra UI's provider.
 - **`codeChanges`** come from each rebuild: the compiler's `modifiedFiles` and `removedFiles`, and the component files
   that import them, however deep, through the module graph's incoming connections. `styles` is set when a stylesheet is
   among them, so the canvas asks for `restyledGuestUrl`.
@@ -167,15 +168,15 @@ There are two extensions, `extension-rspack` and `extension-rsbuild`, each a few
 
 ## Example apps
 
-Andrew pre-approved these, with their dependencies:
+Andrew approved these, with their dependencies, as part of the example-app matrix:
 
-- **`examples/rsbuild-tanstack`:** Rsbuild 2, React 19, TanStack Router with code-based routes (`createRootRoute`,
-  `createRoute`, no generated route tree), Tailwind 4 through `@tailwindcss/postcss`, and a handful of components in
-  `src/components`.
-- **`examples/rspack-react`:** plain Rspack 2 with `builtin:swc-loader`, React 19 and plain CSS with custom properties,
-  plus a few components.
+- **App H, `examples/rsbuild-chakra`:** Rsbuild 2, React 19 and TypeScript, TanStack Router with code-based routes
+  (`createRootRoute`, `createRoute`, no generated route tree), Emotion with Chakra UI as the component library, and
+  Hugeicons. Its own components in `src/components` are built from Chakra's.
+- **`fixtures/rspack`:** a minimal plain Rspack 2 project, not a full app: `builtin:swc-loader`, React 19, one
+  stylesheet with custom properties and a couple of components.
 
-Each goes through the validation snapshots, which check that components are found, drawn and styled, and gets a row in
+Both go through the validation snapshots, which check that components are found, drawn and styled, and get a row in
 `docs/support.md`.
 
 ## Questions
