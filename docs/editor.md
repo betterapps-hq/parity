@@ -1337,7 +1337,8 @@ Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts`
 
 Tests: `packages/extension-turbopack/src/extension.test.ts` (its manifest) and `loader.test.ts` (the runtime chunk and
 the guest module); `packages/next-builders/src/*.test.ts` (detection, the bundler, the guest app, the runtime's copy,
-server-only modules, reading Next's pages and the global stylesheets); the `nextjs-turbopack` validation project. Tried
+server-only modules, reading Next's pages and the global stylesheets); `packages/fixtures/src/turbopack.test.ts`, which
+starts the builder on the `nextjs-turbopack` validation project in CI and loads everything its guest module names. Tried
 in the running app on 2026-11-15 on `fixtures/nextjs-turbopack`: Next.js 16.4.6 on Turbopack found, its components, its
 stories and Home drawn with Tailwind and Recharts. On a Next.js 16.3.1 app with vanilla-extract, Sentry and Radix: it
 opened with 97 components and 441 theme variables, and the components that need no provider drew.
