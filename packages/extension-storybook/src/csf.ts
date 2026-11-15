@@ -14,7 +14,13 @@ export interface StoryFile {
   title?: string
   /** The component the meta names, as the file imports it, when it names one. */
   component?: ImportedName
+  /** The stories Parity can draw. */
   stories: Story[]
+  /**
+   * Every story the file exports, by export name, including those Parity can't draw, as CSF 2's
+   * `Template.bind({})`.
+   */
+  exportNames: string[]
 }
 
 /** A name a file imports: the module it's from, as written, and its name there, `default` for a default export. */
@@ -73,7 +79,7 @@ export function readStoryFile(source: string, path = "story.tsx"): StoryFile {
   const metaObject = objectOf(meta, constants)
 
   if (!metaObject) {
-    return { stories: [] }
+    return { stories: [], exportNames: [] }
   }
 
   const metaArgs = argsOf(property(metaObject, "args", constants), constants)
@@ -82,7 +88,7 @@ export function readStoryFile(source: string, path = "story.tsx"): StoryFile {
   const componentName = identifierOf(property(metaObject, "component", constants))
   const component = componentName ? imports.get(componentName) : undefined
   const stories = exported.flatMap(({ name, value }) => storyOf(name, value, constants, metaArgs, metaRenders))
-  const read: StoryFile = { stories }
+  const read: StoryFile = { stories, exportNames: exported.map(({ name }) => name) }
 
   if (title) {
     read.title = title

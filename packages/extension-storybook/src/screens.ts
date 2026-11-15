@@ -54,7 +54,7 @@ export async function importStories(
     const group = file.title ?? titleFromPath(path, file)
 
     if (component) {
-      const listed: ComponentStoryFile = { path, exports: file.stories.map((story) => story.exportName) }
+      const listed: ComponentStoryFile = { path, exports: file.exportNames }
 
       if (file.title) {
         listed.title = file.title

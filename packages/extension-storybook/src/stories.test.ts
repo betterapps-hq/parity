@@ -39,6 +39,19 @@ export const Plain = () => <Card />
 `
 
 describe("readStoryFile", () => {
+  it("lists every story a file exports, CSF 2's bound templates too, though it draws only those it can read", () => {
+    const bound = `import { Button } from "../button"
+export default { component: Button }
+const Template = (args) => <Button {...args} />
+export const Primary = Template.bind({})
+export const Plain = {}`
+
+    expect(readStoryFile(bound)).toMatchObject({
+      exportNames: ["Primary", "Plain"],
+      stories: [{ exportName: "Plain" }]
+    })
+  })
+
   it("reads a meta and stories that spread a constant object into themselves, a later property winning", () => {
     const composed = `import { Button } from "../button"
 const base = { component: Button, title: "UI/Base", args: { size: "sm" } }
@@ -57,6 +70,7 @@ export const Large = { ...Primary, name: "Large one" }`
     expect(readStoryFile(button)).toEqual({
       title: "UI/Button",
       component: { specifier: "@/components/ui/button", name: "Button" },
+      exportNames: ["Default", "Outline", "BigAndBold"],
       stories: [
         {
           exportName: "Default",
