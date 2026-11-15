@@ -131,6 +131,41 @@ const projects = new Map<string, Project>([
     }
   ],
   [
+    "nextjs-turbopack",
+    {
+      install: "pnpm install --frozen-lockfile",
+      async generate(dir) {
+        // Next.js 16, whose `next dev` runs on Turbopack, with the App Router, Tailwind v4, Headless UI, Heroicons and
+        // a Recharts chart. Its routes have a group, nested layouts, `[id]` and `[...slug]` segments, `loading` and
+        // `not-found` files, for the Next.js routes extension. Its own pnpm-workspace.yaml keeps it out of the repo's.
+        await mkdir(dirname(dir), { recursive: true })
+        await run(
+          dirname(dir),
+          `npx --yes create-next-app@16.4.6 ${basename(dir)} --ts --app --src-dir --empty --tailwind --no-eslint --no-biome --no-react-compiler --no-agents-md --no-agent-feedback --import-alias "@/*" --use-pnpm --skip-install --disable-git --yes`
+        )
+        await remove(dir, "src/app")
+        await overlay(dir, "nextjs-turbopack")
+        await editPackage(dir, (pkg) =>
+          addDependencies(pkg, "dependencies", {
+            "@headlessui/react": "2.2.10",
+            "@heroicons/react": "2.2.0",
+            recharts: "3.10.1"
+          })
+        )
+        await storybook(
+          dir,
+          "npx --yes create-storybook@10.6.7 --yes --no-dev --skip-install --type nextjs --builder vite --package-manager pnpm --features docs"
+        )
+        await remove(dir, "src/stories")
+        // Storybook writes the static folder with the platform's separator; the committed project uses `/`.
+        const main = join(dir, ".storybook/main.ts")
+        await writeFile(main, (await readFile(main, "utf8")).replaceAll(String.raw`"..\\public"`, '"../public"'))
+        await prepend(dir, ".storybook/preview.tsx", 'import "../src/app/globals.css"\n')
+        await run(dir, "pnpm install")
+      }
+    }
+  ],
+  [
     "webpack-react-router",
     {
       install: "pnpm install --frozen-lockfile",
