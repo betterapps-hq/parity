@@ -546,7 +546,9 @@ What the detection snapshots record on 2026-10-29, gaps included:
   is supported since PAR-1144. The Tailwind v3 theme doesn't load: Tailwind v4's reader stops at the project's first v3
   `@apply`.
 - **`react-router-framework`** (2026-11-15, PAR-1145): Vite 8.3.8 with `vite.config.ts`, npm, React Router 8.5.1, and
-  `app/app.css`, the stylesheet its root route imports, with its `:root` tokens and the `.dark` theme.
+  `app/app.css`, the stylesheet its root route imports, with its 18 `:root` tokens and the `.dark` theme, and 31
+  components. Radix Primitives is listed as a library with 178 components, and Phosphor as an icon set. React Router
+  isn't among the tools the snapshot lists, since it comes from the extension.
 - **`react18-mui-js`** (2026-11-15, PAR-1144): Vite 6.4.6 with `vite.config.js` and Yarn Berry, 16 components with
   `EmptyState` as a default export, MUI listed as a library with 147 components and its four breakpoints, and React
   18.3.1 supported, with no notice. MUI's icons aren't listed as an icon set, since the registry doesn't describe

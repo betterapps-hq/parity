@@ -33,14 +33,6 @@
       "config": "vite.config.ts",
       "status": "supported",
       "summary": "Vite 8.3.8 from node_modules/vite, config vite.config.ts"
-    },
-    {
-      "id": "react-router",
-      "name": "React Router",
-      "version": "8.5.1",
-      "from": "node_modules/react-router",
-      "status": "supported",
-      "summary": "React Router 8.5.1 from node_modules/react-router"
     }
   ],
   "styles": {
@@ -51,10 +43,17 @@
   },
   "tokens": {
     "count": 18,
-    "categories": {},
+    "categories": {
+      "color": 9,
+      "font": 1,
+      "radius": 1,
+      "shadow": 1,
+      "spacing": 6
+    },
     "semantic": {
-      "font-sans": {
-        "default": "\"Inter\", ui-sans-serif, system-ui, sans-serif"
+      "color-border": {
+        "default": "oklch(0.91 0.01 264)",
+        "dark": "oklch(0.32 0.02 264)"
       },
       "color-brand": {
         "default": "oklch(0.55 0.2 264)",
@@ -63,9 +62,9 @@
       "color-brand-foreground": {
         "default": "oklch(0.98 0 0)"
       },
-      "color-surface": {
-        "default": "oklch(1 0 0)",
-        "dark": "oklch(0.2 0.02 264)"
+      "color-foreground": {
+        "default": "oklch(0.2 0.02 264)",
+        "dark": "oklch(0.96 0 0)"
       },
       "color-muted": {
         "default": "oklch(0.96 0.005 264)",
@@ -75,22 +74,24 @@
         "default": "oklch(0.5 0.02 264)",
         "dark": "oklch(0.7 0.02 264)"
       },
-      "color-border": {
-        "default": "oklch(0.91 0.01 264)",
-        "dark": "oklch(0.32 0.02 264)"
-      },
-      "color-foreground": {
-        "default": "oklch(0.2 0.02 264)",
-        "dark": "oklch(0.96 0 0)"
-      },
       "color-success": {
         "default": "oklch(0.6 0.15 155)"
+      },
+      "color-surface": {
+        "default": "oklch(1 0 0)",
+        "dark": "oklch(0.2 0.02 264)"
       },
       "color-warning": {
         "default": "oklch(0.75 0.15 75)"
       },
+      "font-sans": {
+        "default": "\"Inter\", ui-sans-serif, system-ui, sans-serif"
+      },
       "radius": {
         "default": "0.5rem"
+      },
+      "shadow-sm": {
+        "default": "0 1px 2px oklch(0 0 0 / 0.06)"
       },
       "space-1": {
         "default": "0.25rem"
@@ -109,9 +110,6 @@
       },
       "space-8": {
         "default": "2rem"
-      },
-      "shadow-sm": {
-        "default": "0 1px 2px oklch(0 0 0 / 0.06)"
       }
     }
   },
@@ -308,12 +306,27 @@
       "lazy": true
     }
   },
-  "libraries": [],
-  "icons": [],
-  "storybook": null,
+  "libraries": [
+    {
+      "id": "radix",
+      "package": "radix-ui",
+      "version": "1.8.1",
+      "stylesImported": true,
+      "components": 178
+    }
+  ],
+  "icons": [
+    {
+      "id": "phosphor",
+      "package": "@phosphor-icons/react",
+      "version": "2.1.10"
+    }
+  ],
   "notes": [
     "styles the builder found: app/app.css",
     "31 components in 31 files from tsconfig.json",
+    "0 components from Phosphor (@phosphor-icons/react)",
+    "178 components from Radix Primitives (radix-ui)",
     "no .par project file yet"
   ]
 }

@@ -65,7 +65,8 @@ async function frameworkRoutes(
   const { routes: config, unread } = await readRoutesFile(routesFile.text, routesFile.path, async (rootDirectory) => {
     const folder = joinFolder(appDirectory, rootDirectory)
     const prefix = joinFolder("", rootDirectory)
-    const entries = await files.list(folder)
+    // By name, so the routes come in the same order whatever order the system lists a folder in.
+    const entries = (await files.list(folder)).toSorted((a, b) => (a.name < b.name ? -1 : Number(a.name > b.name)))
 
     return flatRoutes(
       await Promise.all(

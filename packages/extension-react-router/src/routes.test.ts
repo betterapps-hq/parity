@@ -128,13 +128,13 @@ describe("readRoutes", () => {
     ).toEqual([
       "settings/($team).billing /settings/:team?/billing < layouts/settings [team]",
       "settings/members_.invite /settings/members/invite < layouts/settings []",
+      "settings/_secure /settings < layouts/settings []",
+      "settings/_secure.security /settings/security < settings/_secure []",
       "settings/files.$ /settings/files/* < layouts/settings [*]",
       "settings/members /settings/members < layouts/settings []",
       "settings/members.$memberId /settings/members/:memberId < settings/members [memberId]",
       "settings/members._index /settings/members (index) < settings/members []",
       "settings/profile /settings/profile < layouts/settings []",
-      "settings/_secure /settings < layouts/settings []",
-      "settings/_secure.security /settings/security < settings/_secure []",
       "settings/_index /settings (index) < layouts/settings []",
       "routes/docs /docs/* < root [*]",
       "routes/not-found /* < root [*]"
@@ -145,8 +145,8 @@ describe("readRoutes", () => {
       "layouts/marketing group",
       "layouts/projects layout",
       "layouts/settings layout",
-      "settings/members layout",
-      "settings/_secure group"
+      "settings/_secure group",
+      "settings/members layout"
     ])
   })
 
