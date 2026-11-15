@@ -2,8 +2,21 @@ import { defaultModeSettings, type ProjectRoute } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { routePageDesign, routePages, routePageTarget } from "./route-pages.ts"
 
-function route(id: string, path: string, parent: string | undefined, params: string[] = []): ProjectRoute {
-  return { id, path, parent, file: `src/routes/${id}.tsx`, params, index: false, loads: false, guards: false }
+function route(id: string, path: string, parent: string | undefined): ProjectRoute {
+  return {
+    id,
+    kind: parent === undefined ? "root" : "page",
+    segments: path
+      .split("/")
+      .filter((part) => part !== "")
+      .map((value) => ({ type: "static", value })),
+    path,
+    parent,
+    file: `src/routes/${id}.tsx`,
+    index: false,
+    loads: false,
+    guards: false
+  }
 }
 
 describe("routePageTarget (PAR-1095)", () => {

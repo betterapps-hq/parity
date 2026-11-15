@@ -61,7 +61,7 @@ export function activate(parity: Parity): void {
 
 /** Whether a route draws a page: every route but the root, which only holds the others. */
 export function isPage(route: Route): boolean {
-  return route.parent !== undefined
+  return route.kind !== "root"
 }
 
 /** The route a command was run for: its page, or from Search actions, the page selected. */

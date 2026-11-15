@@ -1,4 +1,11 @@
-import { addDesigns, type CanvasDocument, type ContainerSpec, type NodeRef } from "@parity-app/core"
+import {
+  addDesigns,
+  type CanvasDocument,
+  type ContainerSpec,
+  type NodeRef,
+  type RouteSegment,
+  routeParams as paramsOf
+} from "@parity-app/core"
 import { routeTree, samplePath, type Selection } from "@parity-app/editor"
 import type { ProjectInfo } from "@parity-app/project"
 import { windowStore } from "../store.ts"
@@ -10,10 +17,14 @@ import { componentBoardsTop } from "./component-boards.ts"
  */
 export const routePagesFile = "(pages)"
 
-/** A page screen's URL, which its frames draw, and its route's path, which its title shows under its name. */
+/**
+ * A page screen's URL, which its frames draw, its route's path, which its title shows under its name, and its route's
+ * URL part by part, which a page's params fill in.
+ */
 interface PagePlace {
   url: string
   path: string
+  segments: RouteSegment[]
   route: string
 }
 
@@ -105,7 +116,10 @@ export function routePages(info: Pick<ProjectInfo, "id" | "routes" | "guestUrl" 
     levelGap: 1100
   })
 
-  pagePlaces.set(info.id, new Map(screens.map(({ screen, url, path, route }) => [screen.id, { url, path, route }])))
+  pagePlaces.set(
+    info.id,
+    new Map(screens.map(({ screen, url, path, segments, route }) => [screen.id, { url, path, segments, route }]))
+  )
   const grouped = new Set(groups.map((group) => group.id))
   const hung = [...screens.map(({ screen, parent }) => ({ id: screen.id, parent })), ...groups]
 
@@ -280,5 +294,7 @@ function designKey(id: string): string {
 export function routeParams(info: Pick<ProjectInfo, "id" | "routes">, design: string): string[] | undefined {
   const route = routePageRoute(info.id, design)
 
-  return route === undefined ? undefined : info.routes.find((each) => each.id === route)?.params
+  const found = route === undefined ? undefined : info.routes.find((each) => each.id === route)
+
+  return found && paramsOf(found)
 }

@@ -1,4 +1,4 @@
-import type { DesignNode, LibraryInfo } from "@parity-app/core"
+import type { DesignNode, LibraryInfo, ProjectRoute } from "@parity-app/core"
 
 /** What a selected layer is: its kind in a word or two, and in full, saying which component when it's one. */
 export interface LayerKind {
@@ -17,7 +17,9 @@ export interface LayerKind {
 export function layerKind(
   node: DesignNode,
   designName: (id: string) => string | undefined,
-  libraries: readonly Pick<LibraryInfo, "id" | "name" | "kind">[]
+  libraries: readonly Pick<LibraryInfo, "id" | "name" | "kind">[],
+  /** The app's routes, which say which route is the root. */
+  routes: readonly Pick<ProjectRoute, "id" | "kind">[] = []
 ): LayerKind {
   if (node.type === "text") {
     return plain("Text")
@@ -53,7 +55,8 @@ export function layerKind(
   }
 
   if (node.type === "route") {
-    const route = node.route === "__root__" ? "the app's root route" : `the ${node.route} route`
+    const root = routes.some((each) => each.id === node.route && each.kind === "root")
+    const route = root ? "the app's root route" : `the ${node.route} route`
 
     return node.component
       ? { label: "Component instance", description: `${node.component} component, drawn by ${route}` }

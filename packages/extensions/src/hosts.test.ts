@@ -5,7 +5,8 @@ import type {
   Parity,
   ProcessHandle,
   ProcessInfo,
-  ProviderHandle
+  ProviderHandle,
+  Route
 } from "@parity-app/extension-api"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
@@ -1136,17 +1137,26 @@ describe("selection, navigation and commands (PAR-1092)", () => {
 })
 
 describe("providers (PAR-1095)", () => {
-  const root = {
+  const root: Route = {
     id: "__root__",
+    kind: "root",
+    segments: [],
     path: "/",
     file: "src/routes/__root.tsx",
-    params: [],
     index: false,
     loads: false,
     guards: false
   }
 
-  const settings = { ...root, id: "/settings", path: "/settings", parent: "__root__", file: "src/routes/settings.tsx" }
+  const settings: Route = {
+    ...root,
+    id: "/settings",
+    kind: "page",
+    segments: [{ type: "static", value: "settings" }],
+    path: "/settings",
+    parent: "__root__",
+    file: "src/routes/settings.tsx"
+  }
 
   it("starts the extension that declares a provider when it's first asked, and reads its answer", async () => {
     const { hosts, started } = setUp({

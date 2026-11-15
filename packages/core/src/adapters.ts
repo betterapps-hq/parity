@@ -872,33 +872,6 @@ export interface ImportedScreen {
   screen: ContainerSpec
 }
 
-/** One route of an app, as its router declares it: what a router extension's provider gives (PAR-1095). */
-export interface ProjectRoute {
-  /** The router's id for it, unique in the app: `/settings/billing`, or `__root__` for the root. */
-  id: string
-  /** The URL it matches, from the root, its params written as the router writes them: `/projects/$projectId`. */
-  path: string
-  /** The id of the route it draws inside, at that route's outlet. The root has none. */
-  parent?: string
-  /** Its file, from the project root, with forward slashes. */
-  file: string
-  /** The names of the params its path takes, without the router's mark: `["projectId"]`. */
-  params: string[]
-  /** Whether it's its parent's index, drawn at its parent's own URL. */
-  index: boolean
-  /** The component it draws, by its name in its file, when it names one. */
-  component?: string
-  /** Whether it loads data before it draws. */
-  loads: boolean
-  /** Whether it can redirect or refuse before it draws. */
-  guards: boolean
-  /**
-   * Where it always sends the browser instead of drawing, from the root, as a layout's index that only redirects to one
-   * of the layout's pages: `/settings/profile`. Undefined when it draws, or redirects only sometimes, as a guard does.
-   */
-  redirect?: string
-}
-
 /**
  * A token value Save writes in one theme (`default` for the root, otherwise the theme it names, such as `dark`), or
  * `value` undefined to take the token's declaration out of that theme: a value the theme didn't have, undone after it

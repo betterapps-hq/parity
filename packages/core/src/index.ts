@@ -29,7 +29,6 @@ export {
   packageManifest,
   type PackageManifest,
   parseManifest,
-  type ProjectRoute,
   type RendererAdapter,
   type RendererDescription,
   type RendererPackage,
@@ -57,6 +56,16 @@ export {
   extensionRenderer,
   detectPeers
 } from "./adapters.ts"
+
+export {
+  drawnRoute,
+  lastStaticSegment,
+  type ProjectRoute,
+  type RouteKind,
+  routeParams,
+  type RouteSegment,
+  sameSegments
+} from "./routes.ts"
 
 export { type AdapterFacts, type ContributingExtension, extensionAdds } from "./extension-adds.ts"
 

@@ -1,4 +1,4 @@
-import type { ProjectRoute } from "@parity-app/core"
+import type { ProjectRoute, RouteSegment } from "@parity-app/core"
 import { refsSelection, routeScreenId } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
@@ -34,8 +34,17 @@ type Story = StoryObj<typeof meta>
 
 function route(id: string, path: string, parent: string | undefined, component?: string, index = false): ProjectRoute {
   const file = `src/routes/${id === "__root__" ? "__root" : id.slice(1).replace(/\/$/, "/index").replaceAll("/", ".") || "index"}.tsx`
-  const params = path.match(/\$(\w+)/g)?.map((param) => param.slice(1)) ?? []
-  const named: ProjectRoute = { id, path, parent, file, params, index, loads: false, guards: false }
+
+  // The example's router writes a param as `$name`; Parity reads it as a param segment.
+  const segments = path
+    .split("/")
+    .filter((part) => part !== "")
+    .map((part): RouteSegment =>
+      part.startsWith("$") ? { type: "param", name: part.slice(1) } : { type: "static", value: part }
+    )
+
+  const kind = parent === undefined ? "root" : "page"
+  const named: ProjectRoute = { id, kind, segments, path, parent, file, index, loads: false, guards: false }
 
   return component ? { ...named, component } : named
 }

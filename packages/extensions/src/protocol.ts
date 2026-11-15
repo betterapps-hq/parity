@@ -29,6 +29,7 @@ import type {
   ProviderKinds,
   SourceFile,
   Route,
+  RouteSegment,
   ServerFacts,
   ThemeVariable,
   TokenWrite,
@@ -511,17 +512,32 @@ const commandTarget = z.discriminatedUnion("type", [
 
 const routePath = z.string().max(2000)
 
+const segmentText = z.string().max(500)
+
+const routeSegment: z.ZodType<RouteSegment> = z.discriminatedUnion("type", [
+  z.strictObject({ type: z.literal("static"), value: segmentText }),
+  z.strictObject({ type: z.literal("param"), name: segmentText }),
+  z.strictObject({ type: z.literal("catchAll"), name: segmentText }),
+  z.strictObject({ type: z.literal("optionalCatchAll"), name: segmentText })
+])
+
 const route: z.ZodType<Route> = z.strictObject({
   id: routePath,
+  kind: z.enum(["root", "layout", "group", "page"]),
+  segments: z.array(routeSegment).max(100),
   path: routePath,
   parent: routePath.optional(),
   file: filePath,
-  params: z.array(z.string().max(200)).max(100),
   index: z.boolean(),
   component: z.string().max(500).optional(),
   loads: z.boolean(),
   guards: z.boolean(),
-  redirect: routePath.optional()
+  redirect: routePath.optional(),
+  slot: z.string().max(200).optional(),
+  intercepts: routePath.optional(),
+  stateFiles: z
+    .strictObject({ loading: filePath.optional(), error: filePath.optional(), notFound: filePath.optional() })
+    .optional()
 })
 
 /** A screen an entities provider read, its design checked as a `.par` file's. */

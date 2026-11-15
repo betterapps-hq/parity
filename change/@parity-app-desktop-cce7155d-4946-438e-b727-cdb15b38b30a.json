@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Routes are router-neutral: a router's extension gives each route's kind and its URL as segments, rather than its own path syntax",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

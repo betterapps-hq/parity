@@ -344,6 +344,17 @@ Providers are declared in the manifest's `providers` and given behaviour in `act
   Parity has, since the builder resolves the app's imports with the project's own config and plugins; an empty answer
   means the app loads none, as with CSS-in-JS. `styles` is optional, and a builder without it gives the canvas no global
   styles. Vite's compiles the app's entries in a client environment of its own to answer (PAR-1133).
+- **A router speaks Parity's route shape, not its own syntax** (PAR-1132). Its `routes()` gives each route's URL as
+  segments: fixed (`settings`), a param (`projectId`), a catch-all, or an optional catch-all, each param by the name the
+  route's code reads it under. Each route says what it is: the root, a layout around routes it draws at its outlet, a
+  group that gathers routes without adding to the URL (Next.js's `(marketing)`, TanStack Router's pathless `_auth`), or
+  a page. Its `id` is the router's own and Parity only compares it; its `path` is the URL as the router writes it, which
+  Parity shows and never parses. TanStack Router's extension turns `$projectId` into a param and a lone `$` into a
+  catch-all named `_splat`; a Next.js extension would turn `[id]`, `[...slug]` and `[[...slug]]` into the same. Two
+  Next.js ideas have room but aren't drawn yet: a parallel route names the `slot` it fills (`@modal`), and an
+  intercepting route names the route it `intercepts`; the canvas leaves both out for now. A route can also name the
+  files its router draws while it loads, when it fails and when nothing matches (`stateFiles`), as Next.js's `loading`,
+  `error` and `not-found`, which the canvas doesn't draw yet.
 - **Entities providers keep the round trip.** Import gives screens and their code; export writes an edited screen back
   to its file on Save, as stories work today. Parity makes the canvas file and its nodes from what import returns, so no
   call adds a canvas file directly.
