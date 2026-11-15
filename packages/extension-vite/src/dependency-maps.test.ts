@@ -3,8 +3,8 @@ import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { createServer } from "vite"
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { freePort } from "./builder.ts"
 import { dependencySourceMap, dependencySourceMaps } from "./dependency-maps.ts"
-import { freePort } from "./index.ts"
 
 describe("dependencySourceMap", () => {
   const cacheDir = "D:/app/node_modules/.vite-parity"

@@ -11,6 +11,7 @@ import {
   parseCanvasDocument
 } from "@parity-app/core"
 import { handles, readTheme } from "@parity-app/extension-tailwind"
+import { guestModuleSource, taggedModule } from "@parity-app/extension-vite/builder"
 import {
   adapterActions,
   adapterStatus,
@@ -21,7 +22,6 @@ import {
   importEntities,
   readPackage
 } from "@parity-app/project"
-import { guestModuleSource, taggedModule } from "@parity-app/vite-adapter"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 

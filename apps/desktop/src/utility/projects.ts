@@ -15,13 +15,12 @@ import {
 import {
   type ActionResult,
   type Adapter,
-  type BuilderAdapter,
+  type BuilderDescription,
   type BuilderDetection,
   type BuilderStartOptions,
   type CodeChange,
   type ComponentInfo,
   type ComponentSource,
-  type DetectContext,
   detectPeers,
   type EntitiesAdapter,
   libraryManifestExtension,
@@ -174,7 +173,8 @@ export interface ProjectProviders {
 export interface ProjectAdapters {
   /** The renderers extensions describe, which read components through their providers (PAR-1095). */
   renderers: RendererDescription[]
-  builders: BuilderAdapter[]
+  /** The builders extensions describe, which say whether they serve a project through their providers (PAR-1095). */
+  builders: BuilderDescription[]
   /**
    * The tools extensions give, each found when the project's package.json declares one of its packages, and listed with
    * its version among what the project uses. None unless given.
@@ -226,9 +226,12 @@ export interface OpenProject {
   pkg: PackageManifest
 }
 
+/** An adapter a project uses, or a renderer or builder an extension describes, whose provider did the detecting. */
+type UsedAdapter = Omit<Adapter, "detect">
+
 interface Project extends OpenProject {
   /** The adapters it's opened with, those that found their tool, with what each found. */
-  used: AdapterFound[]
+  used: AdapterFound<UsedAdapter>[]
   /**
    * The component list, the exports the type checker left out and the person's corrections, as `nextComponentList`
    * made them: the one place they're kept. The builder serves the guest from it, and the windows hear when it changes.
@@ -236,7 +239,7 @@ interface Project extends OpenProject {
   list: ComponentList
   /** The builder, which runs in a process of its own, and what it was started with, to start it again. */
   session: BuilderProcessSession
-  builder: BuilderAdapter
+  builder: BuilderDescription
   startOptions: BuilderStartOptions
   watcher?: Watching
   /** The props inferred from each component's source, read again as the list says. */
@@ -298,7 +301,7 @@ interface Opening {
 
 /** What a builder is started with before detection confirms it (PAR-1078): the builder whose config file is there. */
 interface EarlyStart {
-  builder: BuilderAdapter
+  builder: BuilderDescription
   name: string
   startOptions: BuilderStartOptions
 }
@@ -390,7 +393,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   const watch: WatchFolder = adapters.watch ?? watchFolder
 
   // The files whose coming or going means a project is detected again, as each adapter watches them (PAR-826).
-  const everyAdapter: Adapter[] = [...adapters.renderers, ...adapters.builders, ...(adapters.entities ?? [])]
+  const everyAdapter: Pick<Adapter, "watches">[] = [
+    ...adapters.renderers,
+    ...adapters.builders,
+    ...(adapters.entities ?? [])
+  ]
 
   const watched = [...new Set(everyAdapter.flatMap((adapter) => adapter.watches ?? []))]
   const env = adapters.environment ?? environment()
@@ -487,14 +494,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     )
 
     // A builder that isn't there, or can't load the project's config, is said before a file that can't be read.
-    const found = await findBuilder(adapters.builders, project).catch(async (cause: unknown) => {
-      // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
-      opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
-      throw cause
-    })
+    const found = await findBuilder(adapters.builders, (builder) => detectBuilder(builder, { root, name, pkg })).catch(
+      async (cause: unknown) => {
+        // A builder that can't load the project's config, as a broken vite.config, still leaves the versions to record.
+        opening.versions = await toolVersions(root, await detectProject(root, pkg, [rendererFound, ...others]))
+        throw cause
+      }
+    )
 
-    const builderFound: AdapterFound[] = found.builder ? [{ adapter: found.builder, detection: found.detection }] : []
-    const used: AdapterFound[] = [rendererFound, ...builderFound, ...entitiesFound]
+    const builderFound: AdapterFound<UsedAdapter>[] = found.builder
+      ? [{ adapter: found.builder, detection: found.detection }]
+      : []
+
+    const used: AdapterFound<UsedAdapter>[] = [rendererFound, ...builderFound, ...entitiesFound]
 
     const detection = await detectProject(root, pkg, [rendererFound, ...builderFound, ...others])
 
@@ -674,9 +686,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const began = performance.now()
     let builderStarted = began
     /** The builder started before detection confirmed it, and its session. */
-    let early: { builder: BuilderAdapter; serving: Promise<BuilderProcessSession> } | undefined
+    let early: { builder: BuilderDescription; serving: Promise<BuilderProcessSession> } | undefined
 
-    const serve = async (builder: BuilderAdapter, name: string, options: BuilderStartOptions) => {
+    const serve = async (builder: BuilderDescription, name: string, options: BuilderStartOptions) => {
       // The same project's last builder may still be closing.
       await closing.get(root)
       builderStarted = performance.now()
@@ -859,7 +871,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   async function serveBuilder(
     root: string,
     name: string,
-    builder: BuilderAdapter,
+    builder: BuilderDescription,
     options: BuilderStartOptions,
     again = false,
     newPort = !again
@@ -1083,6 +1095,17 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     })
 
     return { ...description, findComponents: (source, file) => read({ file, source }) }
+  }
+
+  /** Whether a builder an extension describes serves the project, as its provider says, or that it's not running. */
+  async function detectBuilder(builder: BuilderDescription, project: ProviderProject): Promise<BuilderDetection> {
+    if (adapters.providers?.owner(project, "builder")?.id !== builder.id) {
+      return { found: false, summary: "Its extension isn't running" }
+    }
+
+    const detection = await provide(project, { kind: "builder", method: "detect" })
+
+    return detection ?? { found: false, summary: "Its extension didn't answer" }
   }
 
   /** What a provider of the project's answers, or nothing when none of its extensions provides one. */
@@ -1909,13 +1932,13 @@ export async function saveDocumentCopy({
 
 /** The first builder that recognises the project, with what it found; otherwise what each one looked for. */
 async function findBuilder(
-  builders: BuilderAdapter[],
-  project: DetectContext
-): Promise<{ builder: BuilderAdapter; detection: BuilderDetection } | { builder?: undefined; misses: string[] }> {
+  builders: BuilderDescription[],
+  detect: (builder: BuilderDescription) => Promise<BuilderDetection>
+): Promise<{ builder: BuilderDescription; detection: BuilderDetection } | { builder?: undefined; misses: string[] }> {
   const misses: string[] = []
 
   for (const builder of builders) {
-    const detection = await builder.detect(project)
+    const detection = await detect(builder)
 
     if (detection.found) {
       return { builder, detection }

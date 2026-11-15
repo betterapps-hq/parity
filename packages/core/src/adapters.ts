@@ -461,6 +461,47 @@ export interface BuilderAdapter extends Adapter {
   start(options: BuilderStartOptions): Promise<BuilderSession>
 }
 
+/**
+ * A builder as its extension's manifest describes it (PAR-1095): its provider says whether it serves a project, and its
+ * entry module starts it, in the builder process.
+ */
+export type BuilderDescription = Omit<BuilderAdapter, "start" | "detect">
+
+/** What of an extension's `package.json` describes the builder it gives. */
+export interface BuilderPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    icon?: AdapterIcon
+    versions?: ToolVersionsExtra
+    contributes: { providers?: { builder?: { entry: string; watches: string[] } } }
+  }
+}
+
+/** The builder an extension's manifest describes (PAR-1095), named by its prefix, or nothing when it gives none. */
+export function extensionBuilder(pkg: BuilderPackage): BuilderDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const builder = contributes.providers?.builder
+
+  if (!builder) {
+    return undefined
+  }
+
+  const description: BuilderDescription = { id: prefix, name: displayName, watches: builder.watches }
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  if (icon) {
+    description.icon = icon
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  return description
+}
+
 /** What a builder found: its build tool's version, asked of the tool itself, and its config file. */
 export type BuilderDetection = AdapterDetection
 

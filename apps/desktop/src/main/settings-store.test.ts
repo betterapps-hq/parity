@@ -133,11 +133,14 @@ describe("settings.json", () => {
   it("tells main when another copy changes main's own keys, so diagnostics turned off there stop here too", async () => {
     const file = setUp()
     const heard = vi.fn<(system: SystemSettings) => void>()
-    open(file).watchSystem(heard)
+    const here = open(file)
+    here.watchSystem(heard)
 
     await open(file).changeSystem({ diagnostics: "off" })
+    // Read again as a window gaining focus does, rather than waiting on the folder's watch, which macOS can be slow to fire.
+    here.check()
 
-    await vi.waitFor(() => expect(heard.mock.lastCall?.[0]).toEqual({ diagnostics: "off", betaUpdates: false }))
+    expect(heard.mock.lastCall?.[0]).toEqual({ diagnostics: "off", betaUpdates: false })
   })
 
   it("never writes over a file it can't read, and keeps the change for this run", async () => {

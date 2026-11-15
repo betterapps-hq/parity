@@ -18,13 +18,13 @@ const readers = ["code", "project", "registry"]
 const edge = [
   "adapters",
   "agent",
-  "vite-adapter",
   "cli",
   "extension-react",
   "extension-storybook",
   "extension-storybook-a11y",
   "extension-tailwind",
   "extension-tanstack-router",
+  "extension-vite",
   "fixtures",
   "libgen",
   "media-player"
@@ -221,15 +221,15 @@ export default defineConfig({
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
       },
       {
-        // vite-adapter drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
+        // Vite's extension drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
         // (pnpm-workspace.yaml), so it keeps stock `vite` and `vitest` imports.
-        files: ["adapters/vite-adapter/**"],
+        files: ["packages/extension-vite/**"],
         rules: { "vite-plus/prefer-vite-plus-imports": "off" }
       },
       {
-        // The test runs the module vite-adapter generates, which it has as a string. A disable comment for a type-aware
+        // The test runs the module Vite's extension generates, which it has as a string. A disable comment for a type-aware
         // rule would fail `vp check`, which lints without types and so reports it unused.
-        files: ["adapters/vite-adapter/src/index.test.ts"],
+        files: ["packages/extension-vite/src/builder.test.ts"],
         rules: { "typescript/no-implied-eval": "off" }
       },
       {
