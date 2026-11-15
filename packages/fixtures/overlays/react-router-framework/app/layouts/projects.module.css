@@ -1,0 +1,98 @@
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  width: 15rem;
+  flex-direction: column;
+  border-right: 1px solid var(--color-border);
+  background: color-mix(in oklch, var(--color-muted) 50%, transparent);
+  padding: var(--space-4);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin-top: var(--space-6);
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: var(--radius);
+  padding: 0.375rem var(--space-2);
+  color: var(--color-muted-foreground);
+  font-size: 0.875rem;
+}
+
+.link:hover {
+  color: var(--color-foreground);
+}
+
+.active {
+  background: var(--color-surface);
+  color: var(--color-foreground);
+  font-weight: 500;
+  box-shadow: var(--shadow-sm);
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: auto;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  padding: var(--space-2);
+  color: inherit;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.account:hover {
+  background: var(--color-muted);
+}
+
+.menu {
+  min-width: 12rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  padding: var(--space-1);
+  box-shadow: 0 8px 24px oklch(0 0 0 / 0.12);
+}
+
+.menuItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border-radius: calc(var(--radius) - 2px);
+  padding: var(--space-2);
+  font-size: 0.875rem;
+  outline: none;
+  cursor: default;
+}
+
+.menuItem[data-highlighted] {
+  background: var(--color-muted);
+}
+
+.main {
+  flex: 1;
+  padding: var(--space-8);
+}

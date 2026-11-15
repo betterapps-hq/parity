@@ -212,6 +212,36 @@ const projects = new Map<string, Project>([
     }
   ],
   [
+    "react-router-framework",
+    {
+      install: "npm ci",
+      async generate(dir) {
+        // React Router's own template: framework mode on its Vite plugin, with Tailwind, which this project swaps for CSS
+        // modules and plain custom properties.
+        await mkdir(dirname(dir), { recursive: true })
+        await run(dirname(dir), `npx --yes create-react-router@8.5.1 ${basename(dir)} --yes --no-git-init --no-install`)
+        await remove(
+          dir,
+          ".agents",
+          ".dockerignore",
+          "Dockerfile",
+          "app/app.css",
+          "app/welcome",
+          "app/routes/home.tsx",
+          "vite.config.ts"
+        )
+        await overlay(dir, "react-router-framework")
+        await editPackage(dir, (pkg) => {
+          const { "@tailwindcss/vite": _vite, tailwindcss: _tailwind, ...devDependencies } = pkg.devDependencies ?? {}
+          pkg.devDependencies = devDependencies
+          addDependencies(pkg, "dependencies", { "@phosphor-icons/react": "2.1.10", "radix-ui": "1.8.1" })
+          addDependencies(pkg, "devDependencies", { "@react-router/fs-routes": "8.5.1" })
+        })
+        await run(dir, "npm install")
+      }
+    }
+  ],
+  [
     "too-old",
     {
       install: "npm ci",

@@ -136,6 +136,7 @@ const builds: BuildContext[] = [
       "extensions/rsbuild": join(appDir, "../../packages/extension-rsbuild/src/extension.ts"),
       "extensions/turbopack": join(appDir, "../../packages/extension-turbopack/src/extension.ts"),
       "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts"),
+      "extensions/react-router": join(appDir, "../../packages/extension-react-router/src/extension.ts"),
       "extensions/portless": join(appDir, "../../packages/extension-portless/src/extension.ts")
     },
     format: "esm",

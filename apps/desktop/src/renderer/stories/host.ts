@@ -25,6 +25,7 @@ import {
   videosFolder
 } from "@parity-app/editor"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
+import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
@@ -949,6 +950,7 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
         reactPackage,
         tailwindPackage,
         routerPackage,
+        reactRouterPackage,
         storybookPackage,
         accessibilityPackage,
         portlessPackage

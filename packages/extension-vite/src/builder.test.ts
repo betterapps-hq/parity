@@ -17,6 +17,23 @@ describe("guestModuleSource", () => {
     expect(source).toContain('"Button": modules[2].loadError ? failed(modules[2].loadError) : modules[2]["Button"]')
   })
 
+  // React Router's Vite plugin wraps the app's modules for Fast Refresh, and they throw without its preamble (PAR-1145).
+  it("says Fast Refresh's preamble is installed before any of the app's modules load", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: { Button: { path: "app/components/Button.tsx", export: "Button" } },
+      documents: [],
+      libraries: []
+    })
+
+    const preamble = source.indexOf("globalThis.__vite_plugin_react_preamble_installed__ ??= true")
+
+    expect(preamble).toBeGreaterThanOrEqual(0)
+    expect(source).toContain("globalThis.$RefreshReg$ ??= () => {}")
+    expect(source).toContain("globalThis.$RefreshSig$ ??= () => (type) => type")
+    expect(preamble).toBeLessThan(source.indexOf("import("))
+  })
+
   it("keeps a project module that fails to load to its own components", async () => {
     const source = guestModuleSource({
       styles: [],

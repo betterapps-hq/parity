@@ -1,5 +1,5 @@
 import { existsSync, type Stats, unwatchFile, watchFile } from "node:fs"
-import { readFile } from "node:fs/promises"
+import { readdir, readFile } from "node:fs/promises"
 import { homedir } from "node:os"
 import { fileURLToPath } from "node:url"
 import {
@@ -14,6 +14,7 @@ import {
   type RendererDescription
 } from "@parity-app/core"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
+import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import rsbuildPackage from "@parity-app/extension-rsbuild/package.json" with { type: "json" }
 import rspackPackage from "@parity-app/extension-rspack/package.json" with { type: "json" }
@@ -107,7 +108,7 @@ export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybo
  * The tools Parity's own extensions give that open projects with nothing else of theirs, found by their peer
  * dependencies and listed with their versions among what a project uses.
  */
-export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage].flatMap(
+export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage, reactRouterPackage].flatMap(
   (found) => extensionTool(found) ?? []
 )
 
@@ -120,18 +121,21 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   builtIn(reactPackage, "react"),
   builtIn(tailwindPackage, "tailwind"),
   builtIn(routerPackage, "tanstack-router"),
+  builtIn(reactRouterPackage, "react-router"),
   builtIn(storybookPackage, "storybook"),
   builtIn(accessibilityPackage, "storybook-a11y"),
   builtIn(portlessPackage, "portless")
 ]
 
 /**
- * Reading and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
+ * Reading, listing and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
  * file's details each second, which works for a file that isn't there yet, as Portless's routes before it runs.
  */
 const extensionFiles: ExtensionFiles = {
   place: { home: homedir(), variables: process.env, platform: process.platform },
   read: (path) => readFile(path, "utf8"),
+  list: async (path) =>
+    (await readdir(path, { withFileTypes: true })).map((entry) => ({ name: entry.name, folder: entry.isDirectory() })),
   watch(path, listener) {
     const changed = (now: Stats, before: Stats) => {
       if (now.mtimeMs !== before.mtimeMs || now.size !== before.size || now.ino !== before.ino) {

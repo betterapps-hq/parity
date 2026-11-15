@@ -1189,6 +1189,61 @@ Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.te
 route's page found by its design key gives the URL Open in browser opens). Gaps: the service's open path asking the
 router, and Open in browser's placements in the window, have no unit test of their own.
 
+### React Router as an extension (PAR-1145)
+
+React Router runs as an extension too, through Parity's public API alone, with the same router provider, Routes in
+Layers, Open in browser on each page and route count in the status bar as TanStack Router. It's found by its peer
+dependency, `react-router`, at 7 or 8. It reads the routes without running the app, in this order:
+
+- **Framework mode's `routes.ts`,** in the folder `appDirectory` in `react-router.config` names (`app` by default):
+  arrays of `route`, `index`, `layout` and `prefix` from `@react-router/dev/routes`, renamed or through a namespace,
+  spread arrays and constants declared in the file. Each route's id is its file without the extension, or the `id` its
+  options give, as React Router names it. The root route is `root.tsx`, which holds the others and isn't counted.
+- **File-based routes,** from `flatRoutes()` in `@react-router/fs-routes`, called in `routes.ts` on its own or under a
+  route or `prefix`, with its `rootDirectory`. It lists that folder with `files.list` and names the routes as React
+  Router does: dots nest, `$param` is a param, `($optional)` an optional segment, `_index` an index, a `_` prefix a
+  layout without a path, a `_` suffix leaves the parent's layout, a lone `$` is a splat, `[...]` escapes, and a folder
+  with a `route` or `index` module is named for the folder.
+- **Library mode,** without `routes.ts`: from the module `index.html` loads, and the files it imports by relative paths,
+  the first that declares routes: route objects given to `createBrowserRouter` (or the hash, memory or static router, or
+  `useRoutes`), or `<Route>` elements in `<Routes>` or `createRoutesFromElements`. Ids are React Router's, from where
+  each route sits (`0-1`), unless it names its own. A route's file is the one its component is imported from.
+
+Each route's path is shown as React Router writes it, `:projectId`, `:lang?` and `*` included, and translated into
+core's router-neutral segments (PAR-1132): `:projectId` is a param, `*` a catch-all named `*` as React Router names it,
+and an optional `:lang?` or `about?` a param or a fixed part, since core has no optional segment yet. A route with
+routes inside is a layout, or a group when it adds nothing to the URL, as a pathless `layout()` or a flat route's
+`_secure`. Library mode's routes sit inside a root in the file that declares them, which stands for the router. A route
+module's default export names its component; a `loader` or `clientLoader` means it loads data, and `middleware` or
+`clientMiddleware` that it guards the page. A loader that always throws or returns `redirect("/x")`, or library mode's
+`<Navigate to>` as the element, is where the route redirects. Whatever can only be known by running the app is left out
+and named in the route count's tooltip: "Some routes aren't supported yet", with what wasn't read, or, when no routes
+are declared anywhere it reads, that routes made while the app runs aren't supported yet.
+
+Components the project's Vite plugin wraps for Fast Refresh, as React Router's does, draw on the canvas: the guest sets
+Fast Refresh's preamble, with hooks that do nothing, before any of the app's modules load (`viteGuestModule` in
+`packages/extension-vite/src/builder.ts`). Components that need the app's router, such as one rendering a `Link`, still
+fail to draw on their own, with "Needs a provider" in the Components panel, until a router extension can wrap each frame
+in a router (PAR-1152).
+
+Tried in the running app on 2026-11-15 on the example that became `fixtures/react-router-framework`: React Router 8.5.1
+found, 20 routes in Layers and the status bar, each page drawn from the app at its URL with its styles, and the route's
+path, params, file, component and whether it loads data in the Design tab.
+
+Code: `packages/extension-react-router` (its manifest, `extension.ts`, `routes.ts`, `routes-file.ts`, `flat-routes.ts`
+and `library.ts`); `files.list` in `packages/extension-api/src/api.ts`, in `host-files.ts`, `hosts.ts` and `protocol.ts`
+in `packages/extensions`, and in `utility/extensions.ts`; `builtIns` and `builtInTools` in `utility/extensions.ts`;
+React Router's missing-router error in `packages/core/src/render-status.ts`.
+
+Tests: `packages/extension-react-router/src/extension.test.ts` (its manifest and range, the pages counted, what the
+status item says, the page a command was run for), `routes.test.ts` (the validation project's routes, each parent before
+its children, with their kinds and their modules' components and loaders; `appDirectory`; library mode found from
+`index.html`; segments), `routes-file.test.ts`, `flat-routes.test.ts` and `library.test.ts`; "lists a folder the read
+permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh preamble in
+`packages/extension-vite/src/builder.test.ts`; the missing router in `packages/core/src/render-status.test.ts`; and the
+example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
+`routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
+
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 
 Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does

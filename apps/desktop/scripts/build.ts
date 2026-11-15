@@ -68,6 +68,7 @@ await build({
     "extensions/rsbuild": require.resolve("@parity-app/extension-rsbuild"),
     "extensions/turbopack": require.resolve("@parity-app/extension-turbopack"),
     "extensions/tanstack-router": require.resolve("@parity-app/extension-tanstack-router"),
+    "extensions/react-router": require.resolve("@parity-app/extension-react-router"),
     "extensions/portless": require.resolve("@parity-app/extension-portless")
   }
 })

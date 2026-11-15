@@ -421,7 +421,18 @@ export function guestModuleSource(config: ProjectConfig): string {
 }
 
 function viteGuestModule(config: ProjectConfig): GuestModule {
-  return guestModule(config, { renderer: rendererId, projectPath: rootPath, styles: "inline" })
+  const module = guestModule(config, { renderer: rendererId, projectPath: rootPath, styles: "inline" })
+
+  // A framework plugin that wraps the app's modules for Fast Refresh, as React Router's does, throws unless the page
+  // installed Fast Refresh's preamble first. The guest has no HMR client and refreshes nothing, so before any of the
+  // app's modules load it says the preamble is there, with hooks that do nothing, as the preamble's own do.
+  const preamble = [
+    "globalThis.__vite_plugin_react_preamble_installed__ ??= true",
+    "globalThis.$RefreshReg$ ??= () => {}",
+    "globalThis.$RefreshSig$ ??= () => (type) => type"
+  ]
+
+  return { ...module, source: [...preamble, module.source].join("\n") }
 }
 
 /** The modules an icon set's icons are imported from: its own, and those of styles kept in modules of their own. */

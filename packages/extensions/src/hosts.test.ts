@@ -1,6 +1,7 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
 import type {
   ExtensionModule,
+  FolderEntry,
   JsonValue,
   Parity,
   ProcessHandle,
@@ -13,6 +14,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
 import {
   type ExtensionEdits,
+  type ExtensionFiles,
   type ExtensionHostsOptions,
   type ExtensionProcesses,
   type ExtensionProviders,
@@ -76,7 +78,7 @@ const tidy = readExtension({
     prefix: "tidy",
     icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
     activates: ["onCommand:tidy.rename"],
-    permissions: { edits: true, write: ["**"] },
+    permissions: { edits: true, write: ["**"], read: ["src/**"] },
     contributes: { commands: [{ id: "tidy.rename", title: "Rename layer" }] }
   }
 })
@@ -222,6 +224,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
     files: {
       place: { home: "/home/ada", variables: {}, platform: "linux" },
       read: () => Promise.reject(new Error("Not in this test")),
+      list: () => Promise.reject(new Error("Not in this test")),
       watch: () => () => undefined
     },
     edits: {
@@ -938,6 +941,49 @@ describe("extension hosts", () => {
     expect(files).toHaveBeenCalledWith("shop", "parity-tidy", "Tidy: Add story", [
       { kind: "create", path: "src/Button.stories.tsx", content: "export default {}" }
     ])
+  })
+
+  it("lists a folder the read permission names through the service, and refuses one it doesn't (PAR-1145)", async () => {
+    const list = vi.fn<ExtensionFiles["list"]>(() =>
+      Promise.resolve([
+        { name: "button.tsx", folder: false },
+        { name: "forms", folder: true }
+      ])
+    )
+
+    let listed: FolderEntry[] = []
+
+    const { hosts } = setUp(
+      {
+        "parity-tidy": {
+          activate(parity) {
+            parity.commands.register("tidy.rename", async () => {
+              listed = await parity.files.list("src/components")
+              await parity.files.list("docs")
+            })
+          }
+        }
+      },
+      {
+        files: {
+          place: { home: "/home/ada", variables: {}, platform: "linux" },
+          read: vi.fn<ExtensionFiles["read"]>(),
+          list,
+          watch: vi.fn<ExtensionFiles["watch"]>()
+        }
+      }
+    )
+
+    hosts.open(project)
+
+    await expect(hosts.run("shop", "tidy.rename")).rejects.toThrow(
+      "Tidy can't read docs. Its manifest's \"read\" permission doesn't name it."
+    )
+    expect(listed).toEqual([
+      { name: "button.tsx", folder: false },
+      { name: "forms", folder: true }
+    ])
+    expect(list).toHaveBeenCalledOnce()
   })
 
   it("gives activate each setting from its own scope, the rest at their defaults, and refuses an undeclared key", async () => {

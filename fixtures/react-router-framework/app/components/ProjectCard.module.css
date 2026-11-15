@@ -1,0 +1,37 @@
+.card {
+  display: block;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: var(--space-4) var(--space-6);
+  transition: border-color 120ms;
+}
+
+.card:hover {
+  border-color: var(--color-brand);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.summary {
+  margin-top: var(--space-2);
+  color: var(--color-muted-foreground);
+  font-size: 0.875rem;
+}
+
+.members {
+  display: flex;
+  margin-top: var(--space-4);
+}
+
+.members > * + * {
+  margin-left: calc(var(--space-2) * -1);
+}
