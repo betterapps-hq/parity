@@ -223,8 +223,10 @@ const manifest = z.object({
   optionalDependencies: z.record(z.string(), z.string()).optional()
 })
 
-/** Catalogs as workspace-tools parses pnpm-workspace.yaml for Beachball. */
+/** One catalog's entries: each dependency's name, with its version. */
 const catalogEntries = z.record(z.string(), z.string())
+
+/** Catalogs as workspace-tools parses pnpm-workspace.yaml for Beachball. */
 const catalogs = z.object({
   default: catalogEntries.optional(),
   named: z.record(z.string(), catalogEntries).optional()
