@@ -24,7 +24,8 @@ import { LandingSpot } from "./LandingSpot.tsx"
  * picked up lifts onto a shadow, follows the pointer, and settles when it's dropped. From a layout, a picture of the
  * layer is carried while a faded copy shows where it would land and the layout makes room; dropped, the picture flies
  * into place; cancelled with Esc, it flies back. Someone else's drag, in Multiplayer's drag previews, moves the same
- * way with their outline and name added. Design only: the canvas's own drags don't do this yet.
+ * way with their outline and name added. The canvas's own drags move this way too, with the same parts and the timings in
+ * `drag-motion.ts` (PAR-1199).
  */
 const meta = {
   title: "Parity/Canvas/Dragging",

@@ -1838,10 +1838,57 @@ showed it large. Component designs show their icon, not their board's picture.
 
 Dragging layers and designs, where they land, resize handles and duplicates.
 
+### How dragged things move (PAR-1199)
+
+Everything dragged on the canvas is picked up, carried and put down the same way, as the `Parity/Canvas/Dragging`
+stories show it (PAR-1188):
+
+- **Picked up,** it grows 3% from where it was grabbed, so that point stays under the pointer, and lifts onto a
+  two-layer shadow that follows its shape, in 120 ms. **Carried,** it follows the pointer exactly. **Dropped,** it
+  settles in 180 ms, quick to start and gentle to land (`cubic-bezier(0.2, 0, 0, 1)`). **Cancelled with Escape,** it
+  flies back to where it was in 260 ms, a little slower, so it reads as going back.
+- **A layer in a layout (flex or grid)** stays where it is, hidden, and a picture of it is carried, lifted. A faded copy
+  with a dashed edge in the layer color shows where it would land, and the layout makes room for it as it moves (see
+  "Where a dragged layer lands", below). Dropped, the picture flies into the copy's place, where the moved layer looks
+  like the copy until the picture gets there and goes. Cancelled, or dropped where nothing takes it, the row closes and
+  the picture flies back to where the layer is, which stays empty until then. The layer's outline is left out until the
+  picture lands.
+- **An absolutely placed layer** lifts itself, follows the pointer and settles where it's dropped; nothing marks where
+  it was. Its outline follows it, a little bigger while it's carried, but its size label says its own size. Cancelled,
+  it flies back from where it was let go.
+- **A board dragged by its name** lifts itself, with every other selected board, follows the pointer and settles; on
+  Escape the boards fly back.
+- **With reduced motion** (the system's setting) nothing grows or flies: what's picked up keeps its shadow, and a drop
+  or Escape puts it where it goes at once.
+- **Edge cases.** The picture copies the layers into a shadow root that adopts the frame's stylesheets, laid out as the
+  frame is, so they look as they're drawn; a canvas element's drawing and scroll positions inside them aren't copied,
+  and neither are rules that ask about the layers' ancestors other than the body. Someone else's drag, in Multiplayer's
+  drag previews, will reuse the same parts with their outline and color (not wired yet).
+
+Code: the timings and looks are in one place, `apps/desktop/src/renderer/canvas/drag-motion.ts` (`liftMs`, `dropMs`,
+`cancelMs`, `settle`, `liftScale`, the shadows, `landingLook` and `lift`). The design's parts draw them: `DragLift`
+lifts what React draws, `DragPicture` carries a picture and flies it, and `LandingSpot` is the faded copy. The canvas's
+own drags use them: `canvas/carried.ts` (`carriedPictures`) keeps the carried picture from pick-up until it lands, which
+the overlay draws as a `DragPicture` (`canvas/CarriedPicture.tsx`); `canvas/layer-picture.ts` (`layerPicture`) takes the
+picture; `canvas/element-lift.ts` (`liftElements`) lifts the canvas's own elements, an absolutely placed layer or a
+board, settles them and flies them back, and `liftOf` tells the overlay how much bigger one is drawn;
+`canvas/layer-drag.ts` (`pressLayers`) and `canvas/ContainerUtil.tsx` (`dragByTitle`) drive them.
+
+Tests: `canvas/drag-motion.test.ts`: lifting and settling, with reduced motion, from a scale and filter of the element's
+own, growing and moving computed `scale` and `translate` values, the flights' times and the landing look.
+`canvas/carried.test.ts`: a picture carried with the pointer, flying in for 180 ms and back for 260 ms, landing at once
+with reduced motion or with nothing carried, a flight ended by the next pick-up, and `finish`. End to end,
+`apps/desktop/e2e/moving.e2e.ts` reads the Review slot's middle while it's carried, since it's drawn bigger around it,
+and waits for it to fly back after Escape.
+
+Gaps: the motion itself was checked by hand in the running app on 2026-11-16 (the stat cards, the Review slot and
+Pricing's board, dropped and cancelled), sampling each frame; it isn't tested end to end, since the suite reads where
+things end up.
+
 ### Where a dragged layer lands (CAN-47)
 
-Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy.
-Where it lands follows the pointer:
+Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy,
+while a picture of it is carried (see "How dragged things move", above). Where it lands follows the pointer:
 
 - **The slot under the pointer.** In a grid or a wrapping row, the line of children the pointer is on comes first (the
   row it's over, or the nearer one in the gap between rows), then, along that line, the layer goes before the first
@@ -2272,7 +2319,7 @@ the text cursor. Escape cancels each of these drags.
 - **The text tool** gives tldraw's canvas the browser's text cursor, by a rule more specific than tldraw's own, which
   takes the cursor of tldraw's tool, always Select or Hand here.
 - **Escape on a design dragged by its title** puts every dragged design back where it was, saves nothing and adds no
-  undo step, and leaves the design selected.
+  undo step, and leaves the design selected. The boards fly back there (see "How dragged things move").
 
 Code: `apps/desktop/src/renderer/canvas/gesture.ts`: `followPress` follows a press, `gestures` holds each gesture's
 policy, `dragThreshold` (from `@parity-app/editor`'s `move-resize.ts`) is the 4 pixels, `holdCursor` the layer, and
