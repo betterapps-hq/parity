@@ -18,6 +18,7 @@ import {
   type PackageManifest,
   type PreviewDescription,
   parseLibraryManifest,
+  type PreviewGlobal,
   type ProjectConfig,
   type ProjectEntities,
   type RendererAdapter,
@@ -28,6 +29,7 @@ import { componentFor } from "./component-for.ts"
 import type { ProjectDetection } from "./detection.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
 import { findProjectPreview } from "./preview-file.ts"
+import { readPreviewGlobals } from "./preview-globals.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -67,6 +69,8 @@ export {
 } from "./app-providers.ts"
 
 export { findPreviewFile, findProjectPreview } from "./preview-file.ts"
+
+export { readPreviewGlobals } from "./preview-globals.ts"
 
 export { type GuestModule, guestModule, type GuestModuleOptions } from "./guest-module.ts"
 
@@ -223,8 +227,17 @@ export async function discoverProject(
 
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
 
+  let previewGlobals: PreviewGlobal[] = []
+
   if (preview.preview) {
     notes.push(`frames drawn inside ${preview.preview}'s decorators`)
+    const text = await readFile(join(root, preview.preview), "utf8").catch(() => "")
+    previewGlobals = readPreviewGlobals(preview.preview, text)
+
+    if (previewGlobals.length > 0) {
+      const ids = previewGlobals.map(({ id }) => id).join(", ")
+      notes.push(`mode variables from ${preview.preview}'s global types: ${ids}`)
+    }
   }
 
   const all = { ...components, ...libraries.components }
@@ -238,6 +251,7 @@ export async function discoverProject(
     describedTokens: tokens.length > 0 ? tokens : undefined,
     namespace: namespace || undefined,
     ...preview,
+    previewGlobals: previewGlobals.length > 0 ? previewGlobals : undefined,
     notes,
     componentFiles: app.files
   }

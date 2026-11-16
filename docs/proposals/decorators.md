@@ -1,9 +1,10 @@
 # Proposal: decorators and modes
 
-Status: you decided the contract, Storybook's, and on 2026-10-28 the questions below. Built: `.lib.par` decorators, and
-`.parity/preview.tsx` with its decorators, loaders, parameters and global types' defaults (PAR-100), the offer to write
-that file from the app's providers (PAR-104), and `.storybook/preview.*` composed with the project's portable stories
-API when there's no Parity file (PAR-98), all in [editor.md](../editor.md). The rest isn't built yet.
+Status: you decided the contract, Storybook's, and on 2026-10-28 the questions below. Built: `.lib.par` decorators;
+`.parity/preview.tsx` with its decorators, loaders, parameters and global types' defaults (PAR-100); the offer to write
+that file from the app's providers (PAR-104); `.storybook/preview.*` composed with the project's portable stories API
+when there's no Parity file (PAR-98); and the preview's global types as mode variables (PAR-105), all in
+[editor.md](../editor.md). The rest isn't built yet.
 
 ## In one line
 

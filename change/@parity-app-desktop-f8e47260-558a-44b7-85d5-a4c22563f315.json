@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "The project's preview file's global types become mode variables with their toolbar options (PAR-105)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

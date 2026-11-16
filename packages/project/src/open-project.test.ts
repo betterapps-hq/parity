@@ -1,6 +1,7 @@
 import { join, resolve } from "node:path"
+import { defaultModeSettings, type ModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { documentTarget, pickMainDocument, projectFileChange, readDesigns } from "./open-project.ts"
+import { documentTarget, pickMainDocument, projectFileChange, projectModes, readDesigns } from "./open-project.ts"
 
 describe("pickMainDocument", () => {
   it.each([
@@ -80,5 +81,28 @@ describe("projectFileChange", () => {
     { path: "README.md", expected: undefined }
   ])("takes $path for $expected", ({ path, configInput, expected }) => {
     expect(change(path, configInput)).toBe(expected)
+  })
+})
+
+describe("projectModes (PAR-105)", () => {
+  const density = { id: "density", options: [{ id: "comfortable" }, { id: "compact" }] }
+
+  it("are Parity's defaults, unsaved, for a project with no saved modes and no preview globals", () => {
+    expect(projectModes(undefined, [])).toEqual({ settings: defaultModeSettings, custom: false })
+  })
+
+  it("take the preview's globals as variables, which become the project's defaults until its modes are saved", () => {
+    const modes = projectModes(undefined, [density])
+    expect(modes.custom).toBe(false)
+    expect(modes.settings.variables.map(({ id }) => id)).toEqual(["viewport", "theme", "locale", "density"])
+    expect(modes.defaults).toBe(modes.settings)
+  })
+
+  it("add the preview's globals to the modes a project saves", () => {
+    const saved: ModeSettings = { ...defaultModeSettings, variables: defaultModeSettings.variables.slice(0, 1) }
+    const modes = projectModes(saved, [density])
+    expect(modes.custom).toBe(true)
+    expect(modes.settings.variables.map(({ id }) => id)).toEqual(["viewport", "density"])
+    expect(modes.settings.modes).toEqual(saved.modes)
   })
 })

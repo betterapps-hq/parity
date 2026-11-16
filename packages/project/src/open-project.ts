@@ -13,9 +13,11 @@ import {
   type ModeSettings,
   parseCanvasDocument,
   parseLibraryManifest,
+  type PreviewGlobal,
   type ProjectEntities,
   type ProjectRoute,
-  type ThemeVariable
+  type ThemeVariable,
+  withPreviewGlobals
 } from "@parity-app/core"
 import type { ProjectDetection } from "./detection.ts"
 import type { DiscoveredProject } from "./index.ts"
@@ -62,7 +64,15 @@ export interface ProjectInfo {
   /** The `.par` file new designs, components and modes are saved in, relative to the root. */
   mainDocument: string
   /** Project-wide modes: the defaults until someone edits them, then saved in the main project file. */
-  modes: { settings: ModeSettings; custom: boolean }
+  modes: {
+    settings: ModeSettings
+    custom: boolean
+    /**
+     * What the project's modes are until they're saved: Parity's defaults with the preview file's globals as variables
+     * (PAR-105). Unset means Parity's defaults.
+     */
+    defaults?: ModeSettings
+  }
 }
 
 /** A design file and its designs. */
@@ -115,7 +125,7 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
     detection: opened.detection,
     documents: opened.documents,
     mainDocument: opened.mainDocument,
-    modes: { settings: modes ?? defaultModeSettings, custom: !!modes }
+    modes: projectModes(modes, config.previewGlobals ?? [])
   }
 
   if (opened.router) {
@@ -123,6 +133,17 @@ export function openedProjectInfo(opened: OpenedProject): OpenedProjectInfo {
   }
 
   return info
+}
+
+/**
+ * The project's modes as it opens: the ones its main file saves, else Parity's defaults, with its preview's globals as
+ * variables either way (PAR-105).
+ */
+export function projectModes(saved: ModeSettings | undefined, globals: readonly PreviewGlobal[]): ProjectInfo["modes"] {
+  const defaults = withPreviewGlobals(defaultModeSettings, globals)
+  const settings = saved ? withPreviewGlobals(saved, globals) : defaults
+
+  return defaults === defaultModeSettings ? { settings, custom: !!saved } : { settings, custom: !!saved, defaults }
 }
 
 /** An open project's info with its component list as it is now. */

@@ -26,7 +26,7 @@ const smallModes: ModeSettings = {
   modes: [...defaultModeSettings.modes, { id: "small", name: "Small", values: { viewport: "mobile" } }]
 }
 
-function setup({ autosave = true } = {}) {
+function setup({ autosave = true, defaultModes }: { autosave?: boolean; defaultModes?: ModeSettings } = {}) {
   const doc = createProjectDoc(
     plainProvider.open({
       files: [
@@ -34,9 +34,9 @@ function setup({ autosave = true } = {}) {
         { path: "more.par", document: emptyDocument() }
       ],
       main: "app.par",
-      modes: defaultModeSettings
+      modes: defaultModes ?? defaultModeSettings
     }),
-    { undoLimit: 200, main: "app.par" }
+    { undoLimit: 200, main: "app.par", defaultModes }
   )
 
   const writes: { path: string; document: CanvasDocument }[] = []
@@ -46,23 +46,27 @@ function setup({ autosave = true } = {}) {
   let failing: string | undefined
   let stylesheetFailing: string | undefined
 
-  const saver = createProjectSaver(doc, {
-    saveDocument: async (path, document) => {
-      if (failing) {
-        throw new Error(failing)
-      }
+  const saver = createProjectSaver(
+    doc,
+    {
+      saveDocument: async (path, document) => {
+        if (failing) {
+          throw new Error(failing)
+        }
 
-      if (held) {
-        await new Promise<void>((resolve) => (held = resolve))
-      }
+        if (held) {
+          await new Promise<void>((resolve) => (held = resolve))
+        }
 
-      writes.push({ path, document })
+        writes.push({ path, document })
+      },
+      deleteDocument: async (path) => {
+        deletes.push(path)
+      },
+      autosave: () => autosave
     },
-    deleteDocument: async (path) => {
-      deletes.push(path)
-    },
-    autosave: () => autosave
-  })
+    { defaultModes }
+  )
 
   saver.writeTokensWith({
     path: "src/index.css",
@@ -214,6 +218,17 @@ describe("ProjectSaver", () => {
     await saver.flush()
     expect(writes[0]?.document.modes).toEqual(smallModes)
     expect(saver.savedModes()).toEqual(smallModes)
+  })
+
+  it("leaves out modes that are the project's own defaults, as its preview's globals make them (PAR-105)", async () => {
+    const { doc, saver, writes } = setup({ autosave: false, defaultModes: smallModes })
+    rename(doc, "Start")
+    await saver.flush()
+    expect(writes[0]?.document.modes).toBeUndefined()
+
+    setModes(doc, defaultModeSettings)
+    await saver.flush()
+    expect(writes[1]?.document.modes).toEqual(defaultModeSettings)
   })
 
   it("keeps a recovery copy of what's unsaved, and nothing once it's saved", async () => {

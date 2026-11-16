@@ -7,6 +7,7 @@ import type {
   LibraryIcons,
   ParentSignal
 } from "./library.ts"
+import type { PreviewGlobal } from "./modes.ts"
 import type { DescribedToken } from "./token-types.ts"
 
 /**
@@ -49,6 +50,11 @@ export interface ProjectConfig {
    * looks through for the packages pages import before any page loads (PAR-1203). Unset for an app without a router.
    */
   routeFiles?: string[]
+  /**
+   * The globals the preview file declares in `globalTypes`, with their toolbar options, read from its source, which the
+   * project's modes take as variables (PAR-105).
+   */
+  previewGlobals?: PreviewGlobal[]
   /**
    * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
    * by (`nova/Button`), as the apps that install it name them.

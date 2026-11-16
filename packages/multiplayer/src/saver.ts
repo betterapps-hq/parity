@@ -65,9 +65,14 @@ export const saveDelay = 300
 export function createProjectSaver(
   doc: ProjectDoc,
   persistence: Persistence,
-  options: { delay?: number } = {}
+  options: {
+    delay?: number
+    /** What the modes are when the main file doesn't save them, so it saves them only once they differ: Parity's defaults when unset. */
+    defaultModes?: ModeSettings | undefined
+  } = {}
 ): ProjectSaver {
   const delay = options.delay ?? saveDelay
+  const defaultModes = options.defaultModes ?? defaultModeSettings
   const saved = new Map<string, CanvasDocument>(doc.files())
   let savedModes = doc.modes()
   let savedTokens = doc.tokens()
@@ -228,7 +233,7 @@ export function createProjectSaver(
     const exporting = performance.now()
     const document = doc.file(path)
     const modes = doc.modes()
-    const content = fileContent(doc.main, path, document, modes)
+    const content = fileContent(doc.main, path, document, modes, defaultModes)
     const exportMs = performance.now() - exporting
 
     const taken = () => {
@@ -383,13 +388,14 @@ function fileContent(
   main: string,
   path: string,
   document: CanvasDocument | undefined,
-  modes: ModeSettings
+  modes: ModeSettings,
+  defaultModes: ModeSettings
 ): CanvasDocument | undefined {
   if (path !== main) {
     return document
   }
 
-  const custom = !sameValue(modes, defaultModeSettings)
+  const custom = !sameValue(modes, defaultModes)
 
   if (!document && !custom) {
     return undefined

@@ -1360,6 +1360,7 @@ async function createSession(
     files: opening,
     drawn: code.designs,
     modes,
+    defaultModes: info.modes.defaults,
     main: info.mainDocument,
     persistence: {
       // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its

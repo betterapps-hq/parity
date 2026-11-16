@@ -78,6 +78,8 @@ export interface OpenOptions {
   /** Files drawn from the project's code each time it opens: its pages, component boards and stories. */
   drawn: readonly { path: string; document: CanvasDocument }[]
   modes: ModeSettings
+  /** What the modes are until they're saved, which the main file leaves out: Parity's defaults when unset. */
+  defaultModes?: ModeSettings | undefined
   /** The project file new designs and the modes go into. */
   main: string
   persistence: Persistence
@@ -123,13 +125,18 @@ export function openDocSession(options: OpenOptions): DocSession {
       modes: options.modes
     })
 
-    const doc = tallied(createProjectDoc(backend, { undoLimit, main: options.main }))
+    const { defaultModes } = options
+    const doc = tallied(createProjectDoc(backend, { undoLimit, main: options.main, defaultModes }))
     const revision = { count: 0 }
     revisions.set(doc, revision)
     doc.subscribe(() => {
       revision.count += 1
     })
-    const saver = createProjectSaver(doc, room ? roomPersistence(room, options.persistence) : options.persistence)
+
+    const saver = createProjectSaver(doc, room ? roomPersistence(room, options.persistence) : options.persistence, {
+      defaultModes
+    })
+
     const entries = containerEntries(doc)
 
     track("projectDoc.opened", {

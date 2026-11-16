@@ -153,6 +153,104 @@ export function modeGlobals(mode: Pick<ResolvedMode, "options">): Record<string,
   return Object.fromEntries(mode.options.map(({ variable, option }) => [variable.id, option.id]))
 }
 
+/**
+ * A global a project's preview declares in `globalTypes`, as Storybook's toolbar lists it: its options, and the one it
+ * starts at.
+ */
+export interface PreviewGlobal {
+  id: string
+  /** Its toolbar's title, else its description. */
+  name?: string | undefined
+  options: { id: string; name?: string | undefined }[]
+  /** The option it starts at: its `initialGlobals` value, else its `defaultValue`. */
+  initial?: string | undefined
+}
+
+/**
+ * The project's modes with its preview's globals as variables (PAR-105). A global the project has a variable for adds
+ * the options that variable lacks, after its own, which keep what they do. Any other global becomes a variable of its
+ * own, its starting option first, so modes that don't name it use that option. A theme or locale global, by its id,
+ * takes that kind, and a new locale option sets `lang` and its direction. Viewports are Parity's own, so a global named
+ * for a viewport variable is passed over.
+ */
+export function withPreviewGlobals(settings: ModeSettings, globals: readonly PreviewGlobal[]): ModeSettings {
+  if (globals.length === 0) {
+    return settings
+  }
+
+  const variables = [...settings.variables]
+
+  for (const global of globals) {
+    const index = variables.findIndex((variable) => variable.id === global.id)
+    const existing = variables[index]
+
+    if (existing?.kind === "viewport") {
+      continue
+    }
+
+    const kind = existing?.kind ?? globalKind(global)
+    const known = new Set(existing?.options.map((option) => option.id))
+
+    const added = global.options
+      .filter((option) => !known.has(option.id))
+      .map((option): VariableOption => {
+        const made: VariableOption = { id: option.id, name: option.name ?? option.id }
+
+        return kind === "locale" ? { ...made, attributes: { lang: option.id, dir: textDirection(option.id) } } : made
+      })
+
+    if (existing) {
+      if (added.length > 0) {
+        variables[index] = { ...existing, options: [...existing.options, ...added] }
+      }
+
+      continue
+    }
+
+    const first = added.findIndex((option) => option.id === global.initial)
+    const options = first > 0 ? [added[first]!, ...added.filter((_, at) => at !== first)] : added
+    const [head, ...rest] = options
+
+    if (head) {
+      variables.push({ id: global.id, name: global.name ?? capitalized(global.id), kind, options: [head, ...rest] })
+    }
+  }
+
+  return { ...settings, variables }
+}
+
+/** A global's kind of variable, by its id: a theme, a locale, or one of the project's own. */
+function globalKind(global: PreviewGlobal): ModeVariable["kind"] {
+  if (/theme|appearance|scheme/i.test(global.id)) {
+    return "theme"
+  }
+
+  return /locale|lang/i.test(global.id) ? "locale" : "custom"
+}
+
+function capitalized(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
+/**
+ * Which way a language tag's script runs, from the browser's `Intl.Locale`: `rtl` for Arabic or Hebrew, else `ltr`,
+ * which a tag `Intl` can't read gets too.
+ */
+export function textDirection(tag: string): "ltr" | "rtl" {
+  try {
+    const locale: Intl.Locale & { getTextInfo?: () => TextInfo; textInfo?: TextInfo } = new Intl.Locale(tag)
+    const info = locale.getTextInfo?.() ?? locale.textInfo
+
+    return info?.direction === "rtl" ? "rtl" : "ltr"
+  } catch {
+    return "ltr"
+  }
+}
+
+interface TextInfo {
+  direction?: string
+}
+
 /** The kind of device a mode's window stands for: its viewport's, or else the one its width suggests. */
 export function modeDevice(mode: Pick<ResolvedMode, "options" | "width">): DeviceKind {
   const viewport = mode.options.find(({ variable }) => variable.kind === "viewport")?.option

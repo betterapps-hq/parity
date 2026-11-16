@@ -92,9 +92,16 @@ const notWritten = new Set<ChangeOrigin>(["code", "file", "remote"])
 
 export function createProjectDoc(
   backend: DocBackend,
-  options: { undoLimit: number; main: string; tokens?: TokenEdits }
+  options: {
+    undoLimit: number
+    main: string
+    tokens?: TokenEdits
+    /** What the modes are when the main file doesn't save them: Parity's defaults when unset. */
+    defaultModes?: ModeSettings | undefined
+  }
 ): ProjectDoc {
   const { main, undoLimit } = options
+  const defaultModes = options.defaultModes ?? defaultModeSettings
   let tokens = options.tokens ?? noTokenEdits
   let undoStack: Step[] = []
   let redoStack: Step[] = []
@@ -492,7 +499,7 @@ export function createProjectDoc(
       const ops = fileOps(path, current, withoutModes(document))
 
       if (path === main) {
-        const modes = document.modes ?? defaultModeSettings
+        const modes = document.modes ?? defaultModes
 
         if (!sameValue(modes, backend.modes())) {
           ops.push({ op: "setModes", modes })

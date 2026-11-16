@@ -1357,7 +1357,7 @@ from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity 
   `ThemeProvider` with the app's light or dark theme from `src/theme.js`, picked by the `theme` global. The styles
   styled-components adds to the page reach the frames as any project stylesheet does (PAR-1187).
 
-Not yet: global types as mode variables (PAR-105), a design's or state's parameters (PAR-106), and `context.id`.
+Not yet: a design's or state's parameters (PAR-106), and `context.id`.
 
 Code: `findPreviewFile` in `packages/project/src/preview-file.ts`, called by `discoverProject`; `gatherChanges` in
 `packages/project/src/code-changes.ts`, given the file by the Vite, webpack-compatible and Next builders; `keyFor` in
@@ -1429,6 +1429,41 @@ in `packages/extension-react/src/guest-storybook-preview.test.ts`, against Story
 nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next,
 Storybook's own hooks' effects, each frame composed with its own project's preview, and what didn't load.
 `examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through it.
+
+### Global types as mode variables (PAR-105)
+
+The globals a project's preview declares in `globalTypes` are its mode variables, with the options its toolbar lists,
+without setting anything up. The preview is `.parity/preview.*`, else Storybook's `.storybook/preview.*` (PAR-98), so a
+project's Storybook toolbar becomes its modes.
+
+- **Read from the file's source,** without running it: `globalTypes` and `initialGlobals`, named or as the default
+  export's properties, where the default export is an object, a `const` holding one, or what `definePreview` is given.
+  Values can be named `const`s, spreads and `satisfies` or `as` expressions. A global's options are its toolbar's
+  `items`, as strings or `{ value, title }`, the title naming the option. A global without items, or one whose items the
+  file computes as it runs (`Object.keys(messages)`), is passed over.
+- **Joined to the project's variables by id.** A global the project has a variable for, such as `theme`, adds the
+  options it lacks after the variable's own, which keep their class and attributes. Any other global becomes a variable
+  of its own, named by its toolbar's title or description, with its `initialGlobals` value, else its `defaultValue`,
+  first, so modes that don't name it use that option. A global whose id says theme or locale takes that kind, and a new
+  locale option sets `lang` and its direction from `Intl.Locale`. Viewports are Parity's own, so a `viewport` global is
+  passed over. The option's id is the value decorators get in `context.globals`.
+- **Not saved until the modes are.** A project without saved modes has Parity's defaults with its globals as its
+  defaults, so its file doesn't take them until someone edits the modes. Once the modes are saved, the variables are
+  saved with them, and a global added to the file later joins them as the project opens.
+- **Read as the project opens.** A change to the file's global types reaches the modes when the project opens again.
+
+Code: `readPreviewGlobals` in `packages/project/src/preview-globals.ts`, called by `discoverProject` into
+`ProjectConfig.previewGlobals`; `withPreviewGlobals` and `textDirection` in `packages/core/src/modes.ts`; `projectModes`
+in `packages/project/src/open-project.ts`, which gives `ProjectInfo.modes.defaults`; `defaultModes` in
+`createProjectDoc` (`packages/multiplayer/src/project-doc.ts`), `createProjectSaver` (`saver.ts`) and `openDocSession`
+(`apps/desktop/src/renderer/project-doc.ts`).
+
+Tests: "the preview file's global types" in `packages/project/src/preview-globals.test.ts` (named and default exports,
+`definePreview`, string and `{ value, title }` items, `initialGlobals`, computed items passed over);
+"withPreviewGlobals" and "textDirection" in `packages/core/src/modes.test.ts` (options added after a variable's own, a
+new variable with its starting option first, locale attributes, custom kind, viewports passed over, a result that
+parses); "projectModes" in `packages/project/src/open-project.test.ts`; "leaves out modes that are the project's own
+defaults" in `packages/multiplayer/src/saver.test.ts`.
 
 ### A preview file offered from the app's providers (PAR-104)
 

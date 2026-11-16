@@ -366,13 +366,16 @@ export {
   type ModeSettings,
   type ModeSpec,
   type ModeVariable,
+  type PreviewGlobal,
   previewMode,
   type ResolvedMode,
   resolveMode,
   resolveModes,
   shownModes,
+  textDirection,
   uniqueId,
-  type VariableOption
+  type VariableOption,
+  withPreviewGlobals
 } from "./modes.ts"
 
 export { type OwnFields, setOwnFields } from "./own-fields.ts"
