@@ -537,6 +537,49 @@ createRoot(document.getElementById("root")).render(
     expect(offer?.text).toContain(`import { user } from "../src/fixtures"`)
   })
 
+  it("leaves out a provider whose file declares a name another provider's file declares, even alike", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { createStore, StoreProvider } from "./store"
+import App from "./App"
+
+const store = createStore()
+
+createRoot(document.getElementById("root")).render(<StoreProvider store={store}><App /></StoreProvider>)
+`,
+        "src/App.jsx": `import { createStore, CartProvider } from "./store"
+
+const store = createStore()
+
+export default function App() {
+  return <CartProvider store={store}><Home /></CartProvider>
+}
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["StoreProvider"])
+    expect(offer?.leftOut).toEqual([{ name: "CartProvider", file: "src/App.jsx", needs: "store" }])
+  })
+
+  it("leaves out a provider carrying a value called as the preview file's own exports", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { SessionProvider } from "./session"
+import App from "./App"
+
+const decorators = { user: "Alice" }
+
+createRoot(document.getElementById("root")).render(<SessionProvider value={decorators}><App /></SessionProvider>)
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

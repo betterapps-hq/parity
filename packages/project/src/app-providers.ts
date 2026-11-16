@@ -69,6 +69,9 @@ const pageGlobals = new Set([
   "process"
 ])
 
+/** What the preview file exports, which nothing it carries from the app may be called. */
+const reservedNames = new Set(["decorators", "globalTypes"])
+
 /** Names Node has but a page doesn't, which a preview file running in a frame can't use. */
 const nodeOnly = new Set(["Buffer", "global", "setImmediate", "clearImmediate"])
 
@@ -476,19 +479,24 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
     const tag = carryName(firstPart(name), scope, carried)
     const props = carryProps(element.openingElement.attributes, scope, carried, quote)
 
-    // Two providers' files can give one name different values; the second is left out rather than clash.
+    // Two providers' files can give one name different values, even written alike, and the preview file exports
+    // names of its own; a provider that would clash with either is left out.
     const clash =
       carried.imports.find(({ local, from }) => {
         const known = imports.get(local)
 
         return (
-          declarations.has(local) || (known && (known.specifier !== from.specifier || known.imported !== from.imported))
+          reservedNames.has(local) ||
+          declarations.has(local) ||
+          (known && (known.specifier !== from.specifier || known.imported !== from.imported))
         )
       })?.local ??
-      carried.declarations.find(({ name: declared, text: copied }) => {
-        const known = declarations.get(declared)
+      carried.declarations.find(({ name: declared }) => {
+        const place = places.get(declared)
 
-        return imports.has(declared) || (known !== undefined && known !== copied)
+        return (
+          reservedNames.has(declared) || imports.has(declared) || (place !== undefined && place.file !== scope.path)
+        )
       })?.name
 
     if ("needs" in props || tag) {
