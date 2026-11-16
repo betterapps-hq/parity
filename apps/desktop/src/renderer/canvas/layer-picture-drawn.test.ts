@@ -44,14 +44,22 @@ beforeAll(async () => {
       [data-canvas-node="chip"] { position: relative; width: 140px; height: 50px; margin: 20px 0 0 30px;
         border: 2px solid rgb(0, 0, 0); background: rgb(200, 220, 255); font: 14px/20px sans-serif }
       [data-canvas-node="padded"] { padding: 10% 5%; background: rgb(240, 240, 200) }
-      [data-canvas-node="padded"] > .inner { display: block; height: 10px }`)
+      [data-canvas-node="padded"] > .inner { display: block; height: 10px }
+      .panel { container-type: inline-size; width: 240px }
+      .panel .label { background: rgb(10, 20, 30); border-left: 4px solid rgb(40, 50, 60) }
+      .lead + .label { padding-left: 12px }
+      .panel .label::before { content: "#"; color: rgb(70, 80, 90) }
+      @container (min-width: 200px) { .label > .note { color: rgb(100, 110, 120) } }`)
     frame.adoptedStyleSheets = [rules]
     frame.innerHTML = `<div data-canvas-body><div data-canvas-node="card"><p data-canvas-node="title">Plans</p></div>
       <div data-canvas-node="badge"></div>
       <div data-canvas-node="tilted"><div data-canvas-node="chip"><span class="mark" style="position: absolute;
         left: 100px; top: 30px; width: 4px; height: 4px"></span>Chip</div></div>
       <div style="position: absolute; left: 380px; top: 20px; width: 200px">
-        <div data-canvas-node="padded"><span class="inner"></span></div></div></div>`
+        <div data-canvas-node="padded"><span class="inner"></span></div></div>
+      <div class="panel" style="position: absolute; left: 380px; top: 200px">
+        <span class="lead">Lead</span><div class="label" data-canvas-node="label"><span class="note">Note</span></div>
+      </div></div>`
   })
 })
 
@@ -100,7 +108,7 @@ describe("a picture of a layer the frame's rules draw", () => {
   })
 
   it("adds no layers where the canvas looks for them", () => {
-    expect(drawn.layers).toBe(6)
+    expect(drawn.layers).toBe(7)
     expect(drawn.found).toBe(0)
   })
 })
@@ -219,6 +227,71 @@ describe("a picture of a layer padded by a share of what it's laid out in", () =
     expect(drawn.copyInner.width).toBeCloseTo(drawn.inner.width, 1)
   })
 })
+
+describe("a picture of a layer drawn by rules about what it's in", () => {
+  let drawn: {
+    layer: Look
+    copy: Look
+    hit: boolean
+  }
+
+  beforeAll(async () => {
+    drawn = await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const label = host.shadowRoot!.querySelector<HTMLElement>('[data-canvas-node="label"]')!
+
+      const look = (element: Element) => {
+        const style = getComputedStyle(element)
+        const before = getComputedStyle(element, "::before")
+
+        return {
+          background: style.backgroundColor,
+          border: style.borderLeftColor,
+          padding: style.paddingLeft,
+          before: `${before.content} ${before.color}`,
+          note: getComputedStyle(element.querySelector(".note")!).color
+        }
+      }
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const picture = pictures.layerPicture(host, [label], 1) as HTMLElement
+      document.body.append(picture)
+      const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
+      const box = copied.getBoundingClientRect()
+      const under = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+
+      // A copy that's hit is found as the stage its shadow root is in.
+      const stage = picture.querySelector("div")!
+
+      return { layer: look(label), copy: look(copied), hit: Boolean(under && stage.contains(under)) }
+    })
+  })
+
+  it("keeps how what it's in, what's beside it and its container draw it", () => {
+    expect(drawn.layer.background).toBe("rgb(10, 20, 30)")
+    expect(drawn.layer.padding).toBe("12px")
+    expect(drawn.layer.note).toBe("rgb(100, 110, 120)")
+    expect(drawn.copy).toEqual(drawn.layer)
+  })
+
+  it("keeps its ::before", () => {
+    expect(drawn.copy.before).toBe('"#" rgb(70, 80, 90)')
+  })
+
+  it("is never hit", () => {
+    expect(drawn.hit).toBe(false)
+  })
+})
+
+/** How a part of a layer is drawn, for comparing a copy with it. */
+interface Look {
+  background: string
+  border: string
+  padding: string
+  before: string
+  note: string
+}
 
 interface Box {
   left: number
