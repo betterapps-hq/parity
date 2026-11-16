@@ -1,0 +1,1213 @@
+import ts from "typescript"
+import { previewFolder } from "./preview-file.ts"
+
+/** Reads a project's file by its path from the root, or gives `undefined` when it isn't there. */
+export type ReadProjectFile = (path: string) => Promise<string | undefined>
+
+/** A provider the app's entry renders around the app, as the preview file would put it around every frame. */
+export interface OfferedProvider {
+  /** Its name as the app writes it, such as `ThemeProvider`. */
+  name: string
+  /** The file that renders it, from the project's root. */
+  file: string
+  /** Whether it picks the light or dark value by the frame's theme, as the app picks it by its own state. */
+  themed: boolean
+}
+
+/** A provider the preview file can't carry, since one of its props comes from something the app makes as it runs. */
+export interface LeftOutProvider {
+  name: string
+  file: string
+  /** What the provider needs that only the running app has: a name, such as `queryClient`, or `"spread props"`. */
+  needs: string
+}
+
+/** A preview file built from the providers the app's entry renders around the app, for Parity to offer to write. */
+export interface PreviewOffer {
+  /** Where it goes, from the project's root: `.parity/preview.tsx`, or `preview.jsx` for a JavaScript app. */
+  file: string
+  /** The file's text. */
+  text: string
+  /** Outermost first. */
+  providers: OfferedProvider[]
+  leftOut: LeftOutProvider[]
+}
+
+const scriptExtensions = [".tsx", ".ts", ".jsx", ".js", ".mjs"]
+
+/** How many files deep the app's components are followed from its entry. */
+const fileLimit = 6
+
+/** What wraps an app without being one of its providers, so the reader looks inside it. */
+const passedThrough = new Set(["Fragment", "StrictMode", "Suspense", "Profiler"])
+
+/** Routers, which a router's extension already draws frames inside, so the preview file doesn't add another. */
+const routers = new Set(["BrowserRouter", "HashRouter", "MemoryRouter", "Router", "RouterProvider", "StaticRouter"])
+
+/** A provider, by the name React's libraries and apps give one: `ThemeProvider`, `Providers`, `IntlProvider`. */
+const providerName = /Providers?$/
+
+/** A theme's dark value, and its light one, by their names. */
+const darkName = /dark/i
+const lightName = /light/i
+
+/** The names a module uses without declaring or importing them, which are the page's own. */
+const pageGlobals = new Set([
+  "window",
+  "document",
+  "globalThis",
+  "navigator",
+  "location",
+  "history",
+  "localStorage",
+  "sessionStorage",
+  "matchMedia",
+  "getComputedStyle",
+  "requestAnimationFrame",
+  "cancelAnimationFrame",
+  "customElements",
+  "process"
+])
+
+/** What the preview file exports, which nothing it carries from the app may be called. */
+const reservedNames = new Set(["decorators", "globalTypes"])
+
+/** Names Node has but a page doesn't, which a preview file running in a frame can't use. */
+const nodeOnly = new Set(["Buffer", "global", "setImmediate", "clearImmediate"])
+
+/** Whether a name is the page's own: one of the language's globals, as `Math` and `JSON` are, or the browser's. */
+function isPageGlobal(name: string): boolean {
+  return pageGlobals.has(name) || (name in globalThis && !nodeOnly.has(name))
+}
+
+interface Imported {
+  /** The module as the importing file names it. */
+  specifier: string
+  /** `default`, `*` for a namespace, or the export's name. */
+  imported: string
+}
+
+/** A file the reader is in, parsed, with what it imports and declares at its top level. */
+interface Scope {
+  path: string
+  source: ts.SourceFile
+  imports: Map<string, Imported>
+  declarations: Map<string, ts.VariableDeclaration | ts.FunctionDeclaration>
+}
+
+interface Found {
+  name: string
+  scope: Scope
+  element: ts.JsxElement
+}
+
+/**
+ * The preview file Parity offers to write from what the app's entry renders around the app (PAR-104), or `undefined`
+ * when it renders no providers the file could carry. It starts at the entry's `render` call and follows the app's own
+ * components through their files, taking each provider on the way: a component whose name ends in `Provider` or
+ * `Providers`, from a package or the app. `StrictMode`, `Suspense` and fragments are looked inside; routers are passed
+ * over, since a router's extension draws frames inside one. It stops at anything else, or where an element has several
+ * children and not exactly one of them is a provider.
+ *
+ * A provider's props are carried as the app writes them, with what they import, imported from the preview file, and
+ * what the file declares at its top level, such as `const queryClient = new QueryClient()`, copied. A prop that picks a
+ * dark or light value, as `isDark ? darkTheme : lightTheme` does, picks it by the frame's `theme` global instead. A
+ * provider whose prop needs anything else the app makes, such as its state, is left out, with what it needs.
+ */
+export async function offerPreviewFile(read: ReadProjectFile): Promise<PreviewOffer | undefined> {
+  const entry = await findEntry(read)
+
+  if (!entry) {
+    return undefined
+  }
+
+  const found: Found[] = []
+  const opened = { files: 1 }
+
+  const walk = async (node: ts.Node, scope: Scope): Promise<void> => {
+    const element = unwrap(node)
+
+    if (!element || ts.isJsxFragment(element)) {
+      return element ? walkChildren(element.children, scope) : undefined
+    }
+
+    const name = tagName(element)
+
+    if (passedThrough.has(lastPart(name)) || routers.has(lastPart(name))) {
+      return ts.isJsxElement(element) ? walkChildren(element.children, scope) : undefined
+    }
+
+    if (providerName.test(lastPart(name)) && ts.isJsxElement(element)) {
+      found.push({ name, scope, element })
+
+      return walkChildren(element.children, scope)
+    }
+
+    const children = ts.isJsxElement(element) ? elementChildren(element.children) : []
+
+    if (children.length === 0 && opened.files < fileLimit) {
+      const inner = await componentScope(read, scope, name)
+
+      if (inner) {
+        opened.files += 1
+
+        return walk(inner.returned, inner.scope)
+      }
+    }
+  }
+
+  const walkChildren = async (children: ts.NodeArray<ts.JsxChild>, scope: Scope): Promise<void> => {
+    const elements = elementChildren(children)
+
+    const providers = elements.filter((child) => providerName.test(lastPart(tagName(child))))
+    // Among several children, only a lone provider leads on: sibling providers wrap different parts of the app, and
+    // nesting them would give every frame the last one's value.
+    const followed = elements.length === 1 ? elements : providers
+
+    if (followed.length !== 1) {
+      return
+    }
+
+    for (const child of followed) {
+      await walk(child, scope)
+    }
+  }
+
+  await walk(entry.rendered, entry.scope)
+
+  return found.length === 0 ? undefined : writeOffer(found, entry.scope)
+}
+
+/** The app's entry and the element its `render` call draws. */
+async function findEntry(read: ReadProjectFile): Promise<{ scope: Scope; rendered: ts.Node } | undefined> {
+  for (const path of await entryCandidates(read)) {
+    const text = await read(path)
+
+    if (text === undefined) {
+      continue
+    }
+
+    const scope = parse(path, text)
+    const rendered = renderedElement(scope.source)
+
+    if (rendered) {
+      return { scope, rendered }
+    }
+  }
+
+  return undefined
+}
+
+/** The module script `index.html` loads, then `src/main` and `src/index` with each script extension. */
+async function entryCandidates(read: ReadProjectFile): Promise<string[]> {
+  const html = await read("index.html")
+  const named = html && /<script[^>]*type=["']module["'][^>]*src=["']([^"']+)["']/i.exec(html)?.[1]
+  const bases = ["src/main", "src/index", "index"]
+
+  return [
+    ...(named ? [named.replace(/^\.?\//, "")] : []),
+    ...bases.flatMap((base) => scriptExtensions.map((extension) => `${base}${extension}`))
+  ]
+}
+
+/** The element given to `root.render(…)`, `ReactDOM.render(…, el)` or `hydrateRoot(el, …)`. */
+function renderedElement(source: ts.SourceFile): ts.Node | undefined {
+  let rendered: ts.Node | undefined
+
+  const visit = (node: ts.Node) => {
+    if (rendered) {
+      return
+    }
+
+    if (ts.isCallExpression(node)) {
+      const callee = node.expression
+      const called = ts.isPropertyAccessExpression(callee) ? callee.name.text : callee.getText(source)
+      const argument = called === "hydrateRoot" ? node.arguments[1] : node.arguments[0]
+
+      if ((called === "render" || called === "hydrateRoot") && argument && unwrap(argument)) {
+        rendered = argument
+
+        return
+      }
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(source)
+
+  return rendered
+}
+
+/** The file a component the scope imports from the app comes from, and the element it returns. */
+async function componentScope(
+  read: ReadProjectFile,
+  scope: Scope,
+  name: string
+): Promise<{ scope: Scope; returned: ts.Node } | undefined> {
+  const imported = scope.imports.get(name)
+
+  if (!imported?.specifier.startsWith(".")) {
+    return undefined
+  }
+
+  for (const path of moduleCandidates(joinPath(folderOf(scope.path), imported.specifier))) {
+    const text = await read(path)
+
+    if (text === undefined) {
+      continue
+    }
+
+    const inner = parse(path, text)
+    const component = exportedFunction(inner, imported.imported)
+    const returned = component && returnedElement(component)
+
+    return returned ? { scope: inner, returned } : undefined
+  }
+
+  return undefined
+}
+
+/** A relative import's file: as written, with a script extension, or its folder's `index`. */
+function moduleCandidates(base: string): string[] {
+  return [
+    base,
+    ...scriptExtensions.map((extension) => `${base}${extension}`),
+    ...scriptExtensions.map((extension) => `${base}/index${extension}`)
+  ]
+}
+
+/** The function a module exports by a name, or as its default export. */
+function exportedFunction(scope: Scope, exported: string): ts.FunctionLikeDeclaration | undefined {
+  let local = exported
+
+  for (const statement of scope.source.statements) {
+    if (ts.isFunctionDeclaration(statement) && isExported(statement)) {
+      const isDefault = statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+
+      if ((exported === "default" && isDefault) || statement.name?.text === exported) {
+        return statement
+      }
+    }
+
+    if (exported === "default" && ts.isExportAssignment(statement)) {
+      const value = statement.expression
+
+      if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) {
+        return value
+      }
+
+      if (ts.isIdentifier(value)) {
+        local = value.text
+      }
+    }
+  }
+
+  const declared = scope.declarations.get(local)
+
+  if (!declared) {
+    return undefined
+  }
+
+  if (ts.isFunctionDeclaration(declared)) {
+    return declared
+  }
+
+  const value = declared.initializer && unwrapParentheses(declared.initializer)
+
+  return value && (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) ? value : undefined
+}
+
+/** The element a component returns: its arrow's body, or its last top-level `return`. */
+function returnedElement(component: ts.FunctionLikeDeclaration): ts.Node | undefined {
+  const body = component.body
+
+  if (!body) {
+    return undefined
+  }
+
+  if (!ts.isBlock(body)) {
+    return unwrap(body)
+  }
+
+  const returns = body.statements.filter(ts.isReturnStatement)
+  const last = returns.at(-1)?.expression
+
+  return last && unwrap(last)
+}
+
+function isExported(statement: ts.FunctionDeclaration): boolean {
+  return statement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false
+}
+
+function parse(path: string, text: string): Scope {
+  const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path))
+  const imports = new Map<string, Imported>()
+  const declarations = new Map<string, ts.VariableDeclaration | ts.FunctionDeclaration>()
+
+  for (const statement of source.statements) {
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
+      const specifier = statement.moduleSpecifier.text
+      const clause = statement.importClause
+
+      if (!clause || clause.isTypeOnly) {
+        continue
+      }
+
+      if (clause.name) {
+        imports.set(clause.name.text, { specifier, imported: "default" })
+      }
+
+      const bindings = clause.namedBindings
+
+      if (bindings && ts.isNamespaceImport(bindings)) {
+        imports.set(bindings.name.text, { specifier, imported: "*" })
+      } else if (bindings) {
+        for (const each of bindings.elements) {
+          if (!each.isTypeOnly) {
+            imports.set(each.name.text, { specifier, imported: (each.propertyName ?? each.name).text })
+          }
+        }
+      }
+    } else if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name)) {
+          declarations.set(declaration.name.text, declaration)
+        }
+      }
+    } else if (ts.isFunctionDeclaration(statement) && statement.name) {
+      declarations.set(statement.name.text, statement)
+    }
+  }
+
+  return { path, source, imports, declarations }
+}
+
+function scriptKind(path: string): ts.ScriptKind {
+  return path.endsWith(".ts") ? ts.ScriptKind.TS : ts.ScriptKind.TSX
+}
+
+/** A JSX element or fragment, with the parentheses around it taken off. */
+function unwrap(node: ts.Node): ts.JsxElement | ts.JsxSelfClosingElement | ts.JsxFragment | undefined {
+  const inner = unwrapParentheses(node)
+
+  return ts.isJsxElement(inner) || ts.isJsxSelfClosingElement(inner) || ts.isJsxFragment(inner) ? inner : undefined
+}
+
+function unwrapParentheses(node: ts.Node): ts.Node {
+  return ts.isParenthesizedExpression(node) ? unwrapParentheses(node.expression) : node
+}
+
+function elementChildren(children: ts.NodeArray<ts.JsxChild>): (ts.JsxElement | ts.JsxSelfClosingElement)[] {
+  return children.filter((child) => ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child))
+}
+
+function tagName(element: ts.JsxElement | ts.JsxSelfClosingElement): string {
+  const tag = ts.isJsxElement(element) ? element.openingElement.tagName : element.tagName
+
+  return tag.getText()
+}
+
+/** `StrictMode` from `React.StrictMode`. */
+function lastPart(name: string): string {
+  return name.slice(name.lastIndexOf(".") + 1)
+}
+
+/** The first part of a tag's name, which the file imports or declares: `React` from `React.StrictMode`. */
+function firstPart(name: string): string {
+  const dot = name.indexOf(".")
+
+  return dot === -1 ? name : name.slice(0, dot)
+}
+
+function folderOf(path: string): string {
+  const slash = path.lastIndexOf("/")
+
+  return slash === -1 ? "" : path.slice(0, slash)
+}
+
+/** A relative path from a folder, both from the project's root, without `.` or `..` parts. */
+function joinPath(folder: string, relative: string): string {
+  const parts = folder === "" ? [] : folder.split("/")
+
+  for (const part of relative.split("/")) {
+    if (part === "..") {
+      parts.pop()
+    } else if (part !== "." && part !== "") {
+      parts.push(part)
+    }
+  }
+
+  return parts.join("/")
+}
+
+/** A path from the root as the preview file imports it: `src/theme` as `../src/theme`. */
+function fromPreviewFolder(path: string): string {
+  return `${previewFolder
+    .split("/")
+    .map(() => "..")
+    .join("/")}/${path}`
+}
+
+/** What the preview file needs from a file to carry a provider's props. */
+interface Carried {
+  imports: { local: string; from: Imported }[]
+  /** Top-level declarations copied from the provider's file, by the name each declares. */
+  declarations: { name: string; text: string; node: ts.Node }[]
+  /** The app's entry, which is never imported, since importing it would mount the app. */
+  entry: string
+  /** The names the provider's own component declares, which shadow the file's and only the running app has. */
+  locals: ReadonlySet<string>
+}
+
+/** The text of the preview file, with the providers it can carry and the ones it leaves out. */
+function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
+  const providers: OfferedProvider[] = []
+  const leftOut: LeftOutProvider[] = []
+  const openings: string[] = []
+  const imports = new Map<string, Imported>()
+  const declarations = new Map<string, string>()
+  // Where each copied declaration stands in its file, so they're written in the app's order, which a lazy reference
+  // from one to a later one relies on.
+  const places = new Map<string, { file: string; position: number }>()
+  let themed = false
+  const text = entry.source.text
+  const quote = (text.match(/'/g)?.length ?? 0) > (text.match(/"/g)?.length ?? 0) ? "'" : '"'
+
+  for (const { name, scope, element } of found) {
+    const carried: Carried = { imports: [], declarations: [], locals: localNames(element), entry: entry.path }
+    const tag = carryName(firstPart(name), scope, carried)
+    const props = carryProps(element.openingElement.attributes, scope, carried, quote)
+
+    // Two providers' files can give one name different values, even written alike, and the preview file exports
+    // names of its own; a provider that would clash with either is left out.
+    const clash =
+      carried.imports.find(({ local, from }) => {
+        const known = imports.get(local)
+
+        return (
+          reservedNames.has(local) ||
+          declarations.has(local) ||
+          (known && (known.specifier !== from.specifier || known.imported !== from.imported))
+        )
+      })?.local ??
+      carried.declarations.find(({ name: declared }) => {
+        const place = places.get(declared)
+
+        return (
+          reservedNames.has(declared) || imports.has(declared) || (place !== undefined && place.file !== scope.path)
+        )
+      })?.name
+
+    if ("needs" in props || tag) {
+      leftOut.push({ name, file: scope.path, needs: "needs" in props ? props.needs : (tag ?? "") })
+      continue
+    }
+
+    if (clash) {
+      leftOut.push({ name, file: scope.path, needs: clash })
+      continue
+    }
+
+    // A copy is a new value: one the file also uses elsewhere, as a context its components read or an instance it sets
+    // up in later statements, would differ from the app's, so the provider is left out instead.
+    const copies = carried.declarations.map((declaration) => declaration.node)
+    const allowed = [element.openingElement, element.closingElement, ...copies]
+
+    const entangled = carried.declarations.find((declaration) => usedElsewhere(declaration.name, scope.source, allowed))
+
+    // The same holds for what a prop imports: the file may set it up as it runs, as `client.configure(options)` does,
+    // which the preview file wouldn't. The provider's own component is only drawn, so it's fine wherever it's used.
+    const tagName = firstPart(name)
+
+    const setUp = carried.imports.find(
+      ({ local }) => local !== tagName && local !== "React" && usedElsewhere(local, scope.source, allowed)
+    )
+
+    if (entangled ?? setUp) {
+      leftOut.push({ name, file: scope.path, needs: entangled?.name ?? setUp?.local ?? "" })
+      continue
+    }
+
+    for (const { local, from } of carried.imports) {
+      imports.set(local, from)
+    }
+
+    for (const { name: declared, text: copied, node } of carried.declarations) {
+      declarations.set(declared, copied)
+      places.set(declared, { file: scope.path, position: node.pos })
+    }
+
+    themed ||= props.themed
+    providers.push({ name, file: scope.path, themed: props.themed })
+    openings.push(`<${name}${props.text}>`)
+  }
+
+  if (providers.length === 0) {
+    return undefined
+  }
+
+  const typescript = /\.tsx?$/.test(entry.path)
+  const file = `${previewFolder}/preview.${typescript ? "tsx" : "jsx"}`
+
+  return {
+    file,
+    text: previewText({
+      providers,
+      openings,
+      imports: withJsxRuntime(imports, entry),
+      declarations: inSourceOrder(declarations, places),
+      themed,
+      typescript,
+      quote
+    }),
+    providers,
+    leftOut
+  }
+}
+
+/** A provider's props as the preview file writes them, or the name of what one needs that the file can't have. */
+function carryProps(
+  attributes: ts.JsxAttributes,
+  scope: Scope,
+  carried: Carried,
+  quote: string
+): { text: string; themed: boolean } | { needs: string } {
+  let text = ""
+  let themed = false
+
+  for (const attribute of attributes.properties) {
+    if (ts.isJsxSpreadAttribute(attribute)) {
+      return { needs: "spread props" }
+    }
+
+    const name = attribute.name.getText()
+    const value = attribute.initializer
+
+    if (!value) {
+      text += ` ${name}`
+      continue
+    }
+
+    if (ts.isStringLiteral(value)) {
+      text += ` ${name}=${value.getText()}`
+      continue
+    }
+
+    // An element given as a prop, as `icon=<Logo />` gives one, is carried as an expression is.
+    const expression = ts.isJsxExpression(value) ? value.expression : value
+
+    if (!expression) {
+      continue
+    }
+
+    // A path relative to the app's file would point elsewhere from `.parity/`, as in copied declarations.
+    if (refersRelatively(expression)) {
+      return { needs: name }
+    }
+
+    const theme = themeChoice(expression)
+    const parts = theme ? [theme.dark, theme.light] : [expression]
+
+    for (const part of parts) {
+      for (const free of freeNames(part)) {
+        const needs = carryName(free, scope, carried)
+
+        if (needs) {
+          return { needs }
+        }
+      }
+    }
+
+    if (theme) {
+      themed = true
+      text += ` ${name}={${contextMark}.globals.theme === ${quote}dark${quote} ? ${theme.dark.getText()} : ${theme.light.getText()}}`
+    } else {
+      text += ` ${name}={${expression.getText()}}`
+    }
+  }
+
+  return { text, themed }
+}
+
+/** `isDark ? darkTheme : lightTheme`, either way round, as its dark and light values. */
+function themeChoice(expression: ts.Expression): { dark: ts.Expression; light: ts.Expression } | undefined {
+  const inner = unwrapParentheses(expression)
+
+  if (!ts.isConditionalExpression(inner)) {
+    return undefined
+  }
+
+  const yes = inner.whenTrue.getText()
+  const no = inner.whenFalse.getText()
+
+  if (darkName.test(yes) && lightName.test(no)) {
+    return { dark: inner.whenTrue, light: inner.whenFalse }
+  }
+
+  if (lightName.test(yes) && darkName.test(no)) {
+    return { dark: inner.whenFalse, light: inner.whenTrue }
+  }
+
+  return undefined
+}
+
+/**
+ * Brings a name a provider uses into the preview file: an import, or a top-level declaration with what it uses in turn.
+ * Gives the name back when it's something only the running app has, such as the component's state.
+ */
+function carryName(
+  name: string,
+  scope: Scope,
+  carried: Carried,
+  seen = new Set<string>(),
+  inDeclaration = false
+): string | undefined {
+  // The component's own names come first, as the provider's element sees them.
+  if (!inDeclaration && carried.locals.has(name)) {
+    return name
+  }
+
+  if (seen.has(name)) {
+    return undefined
+  }
+
+  seen.add(name)
+  const imported = scope.imports.get(name)
+
+  if (imported) {
+    const specifier = imported.specifier.startsWith(".")
+      ? fromPreviewFolder(joinPath(folderOf(scope.path), imported.specifier))
+      : imported.specifier
+
+    carried.imports.push({ local: name, from: { specifier, imported: imported.imported } })
+
+    return undefined
+  }
+
+  const declared = scope.declarations.get(name)
+  const exported = declared && scope.path !== carried.entry ? exportedAs(name, scope.source) : undefined
+
+  // What the file exports is imported, so the preview file has the app's own value, set up as the app sets it up.
+  if (exported) {
+    const specifier = fromPreviewFolder(scope.path.replace(/\.[cm]?[jt]sx?$/, ""))
+
+    carried.imports.push({ local: name, from: { specifier, imported: exported } })
+
+    return undefined
+  }
+
+  // A path relative to the file, as a dynamic `import("./locale")` or `import.meta.url` takes one, would point
+  // elsewhere from `.parity/`, so a declaration with one isn't copied.
+  if (declared && refersRelatively(declared)) {
+    return name
+  }
+
+  if (declared) {
+    for (const used of freeNames(declared)) {
+      const needs = carryName(used, scope, carried, seen, true)
+
+      if (needs) {
+        return name
+      }
+    }
+
+    const text = ts.isFunctionDeclaration(declared)
+      ? declared.getText().replace(/^export\s+(default\s+)?/, "")
+      : `${declarationKind(declared)} ${declared.getText()}`
+
+    carried.declarations.push({ name, text, node: declared })
+
+    return undefined
+  }
+
+  // Anything else is something the preview file can't have, such as an enum or a name only the running app makes.
+  return isPageGlobal(name) ? undefined : name
+}
+
+/**
+ * The names declared inside the functions around an element, as a component's state, its parameters and the functions
+ * it defines are, which shadow the file's own and which the preview file can't have.
+ */
+function localNames(element: ts.Node): Set<string> {
+  const names = new Set<string>()
+
+  const collect = (node: ts.Node) => {
+    if (
+      (ts.isVariableDeclaration(node) ||
+        ts.isParameter(node) ||
+        ts.isBindingElement(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isClassDeclaration(node)) &&
+      node.name &&
+      ts.isIdentifier(node.name)
+    ) {
+      names.add(node.name.text)
+    }
+
+    ts.forEachChild(node, collect)
+  }
+
+  for (let around = element.parent; !ts.isSourceFile(around); around = around.parent) {
+    if (ts.isFunctionLike(around)) {
+      ts.forEachChild(around, collect)
+    }
+  }
+
+  return names
+}
+
+/** The name a file exports one of its top-level names by, `default` for its default export, if it exports it. */
+function exportedAs(name: string, source: ts.SourceFile): string | undefined {
+  for (const statement of source.statements) {
+    const exportKeyword = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      : false
+
+    const isDefault = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+      : false
+
+    if (exportKeyword && ts.isFunctionDeclaration(statement) && statement.name?.text === name) {
+      return isDefault ? "default" : name
+    }
+
+    if (
+      exportKeyword &&
+      ts.isVariableStatement(statement) &&
+      statement.declarationList.declarations.some((each) => ts.isIdentifier(each.name) && each.name.text === name)
+    ) {
+      return name
+    }
+
+    if (
+      ts.isExportAssignment(statement) &&
+      ts.isIdentifier(statement.expression) &&
+      statement.expression.text === name
+    ) {
+      return "default"
+    }
+
+    if (
+      ts.isExportDeclaration(statement) &&
+      !statement.moduleSpecifier &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause)
+    ) {
+      const named = statement.exportClause.elements.find((each) => (each.propertyName ?? each.name).text === name)
+
+      if (named) {
+        return named.name.text
+      }
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Whether a file uses a top-level name anywhere but the nodes given: the provider's tag and props, and the declarations
+ * copied with it.
+ */
+function usedElsewhere(name: string, source: ts.SourceFile, allowed: readonly ts.Node[]): boolean {
+  let used = false
+
+  const visit = (node: ts.Node) => {
+    if (used || allowed.some((each) => node.pos >= each.pos && node.end <= each.end)) {
+      return
+    }
+
+    if (ts.isIdentifier(node) && node.text === name && !namesOnly(node)) {
+      used = true
+
+      return
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(source)
+
+  return used
+}
+
+/** Whether an identifier only names something, as a property, a key or what a declaration declares, rather than uses it. */
+function namesOnly(node: ts.Identifier): boolean {
+  const parent = node.parent
+
+  if (ts.isPropertyAccessExpression(parent) || ts.isPropertyAssignment(parent) || ts.isJsxAttribute(parent)) {
+    return parent.name === node
+  }
+
+  // An import only names what it brings in.
+  if (ts.isImportSpecifier(parent) || ts.isNamespaceImport(parent)) {
+    return true
+  }
+
+  return (
+    (ts.isVariableDeclaration(parent) ||
+      ts.isFunctionDeclaration(parent) ||
+      ts.isParameter(parent) ||
+      ts.isBindingElement(parent) ||
+      ts.isImportSpecifier(parent) ||
+      ts.isImportClause(parent)) &&
+    parent.name === node
+  )
+}
+
+/** Whether a declaration or prop uses `import.meta` or imports a module by a relative path as it runs. */
+function refersRelatively(declaration: ts.Node): boolean {
+  let found = false
+
+  const visit = (node: ts.Node) => {
+    if (found) {
+      return
+    }
+
+    const dynamicImport =
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      !(node.arguments[0] && ts.isStringLiteralLike(node.arguments[0]) && !node.arguments[0].text.startsWith("."))
+
+    if (dynamicImport || (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword)) {
+      found = true
+
+      return
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(declaration)
+
+  return found
+}
+
+/** `const`, `let` or `var`, as the file declares it, so a binding the app reassigns can still be reassigned. */
+function declarationKind(declaration: ts.VariableDeclaration): string {
+  const keyword = declaration.parent.getFirstToken()?.getText()
+
+  return keyword === "let" || keyword === "var" ? keyword : "const"
+}
+
+/**
+ * The names an expression or declaration uses from around it: not property names or keys, and not what a function in
+ * it declares, which counts only inside that function, as `user => user.name` binds `user` only for its own body.
+ */
+function freeNames(node: ts.Node): string[] {
+  const names = new Set<string>()
+
+  const mention = (name: string, bound: ReadonlySet<string>) => {
+    if (!bound.has(name)) {
+      names.add(name)
+    }
+  }
+
+  const visit = (each: ts.Node, bound: ReadonlySet<string>): void => {
+    if (ts.isFunctionLike(each)) {
+      const declared = declaredIn(each)
+      // A parameter's default sees the parameters but not what the body declares, as JavaScript reads it.
+      const forParameters = new Set([...bound, ...declared.parameters])
+      const inner = new Set([...forParameters, ...declared.body])
+
+      ts.forEachChild(each, (child) => {
+        // A function's or method's own name isn't something it uses, but a computed one's key is, from around it.
+        if (child === each.name) {
+          if (ts.isComputedPropertyName(child)) {
+            visit(child.expression, bound)
+          }
+        } else {
+          visit(child, ts.isParameter(child) ? forParameters : inner)
+        }
+      })
+
+      return
+    }
+
+    if (ts.isParameter(each) || ts.isBindingElement(each) || ts.isVariableDeclaration(each)) {
+      // What it declares is counted by the function around it; its default or value is what it uses.
+      if (each.initializer) {
+        visit(each.initializer, bound)
+      }
+
+      if (!ts.isIdentifier(each.name)) {
+        visit(each.name, bound)
+      }
+
+      // A computed key, as in `({ [locale]: greeting })`, is something it uses.
+      if (ts.isBindingElement(each) && each.propertyName && ts.isComputedPropertyName(each.propertyName)) {
+        visit(each.propertyName.expression, bound)
+      }
+
+      return
+    }
+
+    if (ts.isPropertyAccessExpression(each)) {
+      visit(each.expression, bound)
+
+      return
+    }
+
+    if (ts.isPropertyAssignment(each)) {
+      if (ts.isComputedPropertyName(each.name)) {
+        visit(each.name.expression, bound)
+      }
+
+      visit(each.initializer, bound)
+
+      return
+    }
+
+    if (ts.isJsxAttribute(each)) {
+      if (each.initializer) {
+        visit(each.initializer, bound)
+      }
+
+      return
+    }
+
+    if (ts.isIdentifier(each)) {
+      mention(each.text, bound)
+
+      return
+    }
+
+    if (ts.isJsxOpeningElement(each) || ts.isJsxSelfClosingElement(each)) {
+      const tag = each.tagName.getText()
+
+      if (/^[A-Z]/.test(tag) || tag.includes(".")) {
+        mention(firstPart(tag), bound)
+      }
+
+      visit(each.attributes, bound)
+
+      return
+    }
+
+    if (ts.isJsxClosingElement(each) || ts.isTypeNode(each)) {
+      return
+    }
+
+    ts.forEachChild(each, (child) => visit(child, bound))
+  }
+
+  // A declaration being copied declares its own name, which it may use, as a recursive function does.
+  const own =
+    (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) && node.name && ts.isIdentifier(node.name)
+
+  visit(node, new Set(own ? [node.name.text] : []))
+
+  return [...names]
+}
+
+/** What a function declares: by its parameters, and in its body. */
+interface Declared {
+  parameters: string[]
+  body: string[]
+}
+
+/**
+ * The names a function declares: its parameters, and the variables, functions and classes its body declares at its top.
+ * What a block inside declares counts only there, so it isn't taken here; a name it hides is then read as used, which
+ * at worst leaves a provider out.
+ */
+function declaredIn(fn: ts.SignatureDeclaration): Declared {
+  const parameters: string[] = []
+  const names: string[] = []
+
+  const bind = (name: ts.BindingName, into: string[]) => {
+    if (ts.isIdentifier(name)) {
+      into.push(name.text)
+    } else {
+      for (const element of name.elements) {
+        if (ts.isBindingElement(element)) {
+          bind(element.name, into)
+        }
+      }
+    }
+  }
+
+  for (const parameter of fn.parameters) {
+    bind(parameter.name, parameters)
+  }
+
+  const body = ts.isFunctionLike(fn) && "body" in fn ? fn.body : undefined
+
+  if (body && ts.isBlock(body)) {
+    for (const statement of body.statements) {
+      if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          bind(declaration.name, names)
+        }
+      } else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name) {
+        names.push(statement.name.text)
+      }
+    }
+  }
+
+  return { parameters, body: names }
+}
+
+/** The preview file: its imports, what it copies from the app, one decorator nesting the providers, and its globals. */
+function previewText({
+  providers,
+  openings,
+  imports,
+  declarations,
+  themed,
+  typescript,
+  quote
+}: {
+  providers: OfferedProvider[]
+  openings: string[]
+  imports: Map<string, Imported>
+  declarations: Map<string, string>
+  themed: boolean
+  typescript: boolean
+  quote: string
+}): string {
+  const lines: string[] = []
+
+  if (typescript) {
+    lines.push(`import type { ComponentType } from ${quote}react${quote}`)
+  }
+
+  lines.push(...importLines(imports, quote))
+  lines.push("")
+
+  for (const declaration of declarations.values()) {
+    lines.push(declaration, "")
+  }
+
+  // The decorator's own names stay clear of what it carries from the app, so neither hides the other.
+  const taken = new Set([
+    ...imports.keys(),
+    ...declarations.keys(),
+    ...openings.flatMap((opening) => opening.match(/[A-Za-z_$][\w$]*/g) ?? [])
+  ])
+
+  const storyName = freeName("Story", taken)
+  const contextName = freeName("context", taken)
+  const decorator = freeName("withProviders", taken)
+  const componentType = typescript ? freeName("ComponentType", taken) : "ComponentType"
+  const story = typescript ? `${storyName}: ${componentType}` : storyName
+  const context = typescript ? `${contextName}: { globals: Record<string, unknown> }` : contextName
+  const parameters = themed ? `${story}, ${context}` : story
+  const names = [...new Set(providers.map((provider) => provider.file))].join(" and ")
+
+  if (typescript) {
+    const typeImport = componentType === "ComponentType" ? "ComponentType" : `ComponentType as ${componentType}`
+    lines[0] = `import type { ${typeImport} } from ${quote}react${quote}`
+  }
+
+  lines.push(`// The providers ${names} renders around the app, around every frame on the canvas.`)
+  lines.push(`const ${decorator} = (${parameters}) => (`)
+
+  openings.forEach((opening, depth) =>
+    lines.push(`${"  ".repeat(depth + 1)}${opening.replaceAll(contextMark, contextName)}`)
+  )
+  lines.push(`${"  ".repeat(openings.length + 1)}<${storyName} />`)
+
+  for (let depth = openings.length - 1; depth >= 0; depth -= 1) {
+    lines.push(`${"  ".repeat(depth + 1)}</${providers[depth]!.name}>`)
+  }
+
+  lines.push(")", "", `export const decorators = [${decorator}]`, "")
+
+  if (themed) {
+    lines.push(
+      "export const globalTypes = {",
+      `  theme: { description: ${quote}Theme${quote}, defaultValue: ${quote}light${quote} },`,
+      "}",
+      ""
+    )
+  }
+
+  return lines.join("\n")
+}
+
+/** Copied declarations in the order their files have them, each file's together. */
+function inSourceOrder(
+  declarations: Map<string, string>,
+  places: Map<string, { file: string; position: number }>
+): Map<string, string> {
+  const placeOf = (name: string) => places.get(name) ?? { file: "", position: 0 }
+
+  return new Map(
+    [...declarations].toSorted(([one], [other]) => {
+      const a = placeOf(one)
+      const b = placeOf(other)
+
+      return a.file === b.file ? a.position - b.position : a.file.localeCompare(b.file)
+    })
+  )
+}
+
+/** Stands for the decorator's context in a prop, until the decorator's parameters are named. */
+const contextMark = "\u0000\u0001\u0000"
+
+/**
+ * The imports with React's own, where the app's entry imports `React` itself, as the classic JSX transform needs: its
+ * JSX compiles to `React.createElement`, so the preview file's needs `React` too.
+ */
+function withJsxRuntime(imports: Map<string, Imported>, entry: Scope): Map<string, Imported> {
+  const react = entry.imports.get("React")
+
+  if (!react || react.specifier !== "react" || imports.has("React")) {
+    return imports
+  }
+
+  return new Map([["React", react], ...imports])
+}
+
+/** A name for something the preview file declares that none of the names it carries from the app already is. */
+function freeName(base: string, taken: ReadonlySet<string>): string {
+  let name = base
+
+  for (let suffix = 2; taken.has(name); suffix += 1) {
+    name = `${base}${suffix}`
+  }
+
+  return name
+}
+
+/** One import line per module, its default first: the packages first, each in the order the providers need it. */
+function importLines(imports: Map<string, Imported>, quote: string): string[] {
+  const modules = new Map<string, { defaults: string[]; namespaces: string[]; named: string[] }>()
+
+  for (const [local, { specifier, imported }] of imports) {
+    const entry = modules.get(specifier) ?? { defaults: [], namespaces: [], named: [] }
+
+    // Each provider's file can call the same export by its own name, so every name is kept.
+    if (imported === "default") {
+      entry.defaults.push(local)
+    } else if (imported === "*") {
+      entry.namespaces.push(local)
+    } else {
+      entry.named.push(imported === local ? local : `${imported} as ${local}`)
+    }
+
+    modules.set(specifier, entry)
+  }
+
+  // The packages', then the app's own, as an app's imports usually go.
+  const ordered = [...modules].toSorted(([one], [other]) => Number(one.startsWith(".")) - Number(other.startsWith(".")))
+
+  return ordered.flatMap(([specifier, entry]) => {
+    const from = `from ${quote}${specifier}${quote}`
+    const lines: string[] = []
+    const [first, ...others] = entry.defaults
+    const named = [...others.map((local) => `default as ${local}`), ...entry.named.toSorted()]
+    const bindings = [first, named.length > 0 ? `{ ${named.join(", ")} }` : undefined].filter(Boolean).join(", ")
+
+    if (bindings) {
+      lines.push(`import ${bindings} ${from}`)
+    }
+
+    for (const namespace of entry.namespaces) {
+      lines.push(`import * as ${namespace} ${from}`)
+    }
+
+    return lines
+  })
+}

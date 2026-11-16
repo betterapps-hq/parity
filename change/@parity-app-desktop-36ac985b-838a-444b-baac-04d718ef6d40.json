@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Import the preview offer's and lens exploration's components from the generated shadcn package",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

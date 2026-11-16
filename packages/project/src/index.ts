@@ -57,6 +57,16 @@ export { chooseAppStyles, type Imported, type Walked } from "./app-styles.ts"
 
 export { appPageModeScript } from "./app-page.ts"
 
+export {
+  type LeftOutProvider,
+  type OfferedProvider,
+  offerPreviewFile,
+  type PreviewOffer,
+  type ReadProjectFile
+} from "./app-providers.ts"
+
+export { findPreviewFile } from "./preview-file.ts"
+
 export { type GuestModule, guestModule, type GuestModuleOptions } from "./guest-module.ts"
 
 export { gatherChanges, isStylesheetFile, type StampedChange, stylesheetExtensions } from "./code-changes.ts"

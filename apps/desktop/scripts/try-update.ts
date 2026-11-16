@@ -1,17 +1,18 @@
 // CI-only: package two real versions, reject a corrupt download, then update and restart the installed app.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
-import { createReadStream } from "node:fs"
 import { chmod, cp, mkdir, mkdtemp, readFile, realpath, rm, stat, symlink, writeFile } from "node:fs/promises"
-import { createServer, type OutgoingHttpHeaders, type Server } from "node:http"
+import { createServer, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import { tmpdir } from "node:os"
 import { basename, join, relative, resolve, sep } from "node:path"
-import { Transform } from "node:stream"
+import { Readable } from "node:stream"
+import { pipeline } from "node:stream/promises"
 import type { UpdateState } from "@parity-app/processes"
 import { type Browser, chromium, type Locator, type Page } from "playwright-core"
 import { z } from "zod"
 import { print } from "../../../scripts/output.ts"
 import { agentAnswer, agentConnection } from "./agent-connection.ts"
+import { feedAnswer, feedBody } from "./update-feed.ts"
 
 if (process.env.CI !== "true") {
   throw new Error("Installed update checks run only in CI.")
@@ -181,69 +182,20 @@ async function serve(): Promise<string> {
 
       const file = join(second, name)
       const size = (await stat(file)).size
-      const range = request.headers.range
-      let start = 0
-      let end = size - 1
-
-      if (range) {
-        const match = /^bytes=(\d+)-(\d*)$/.exec(range)
-
-        if (!match) {
-          response.writeHead(416).end()
-
-          return
-        }
-
-        start = Number(match[1])
-        end = match[2] ? Number(match[2]) : size - 1
-
-        if (start > end || end >= size) {
-          response.writeHead(416).end()
-
-          return
-        }
-      }
-
-      const headers: OutgoingHttpHeaders = {
-        "content-type": name.endsWith(".yml") ? "text/yaml" : "application/octet-stream",
-        "content-length": end - start + 1,
-        "accept-ranges": "bytes"
-      }
-
-      if (range) {
-        headers["content-range"] = `bytes ${start}-${end}/${size}`
-      }
-
-      response.writeHead(range ? 206 : 200, headers)
-      const source = createReadStream(file, { start, end })
-      source.on("error", () => response.destroy())
-
-      if (corrupt && /\.(exe|AppImage)$/.test(name)) {
-        let changed = false
-        source
-          .pipe(
-            new Transform({
-              transform(chunk: Buffer, _encoding, done) {
-                if (!changed && chunk.length) {
-                  // Every bit flipped, as a byte's complement.
-                  chunk[0] = 255 - chunk[0]!
-                  changed = true
-                }
-
-                done(null, chunk)
-              }
-            })
-          )
-          .pipe(response)
-      } else {
-        source.pipe(response)
-      }
+      const type = name.endsWith(".yml") ? "text/yaml" : "application/octet-stream"
+      // The differential download asks for several ranges in one request; refusing them left it untried (PAR-1214).
+      const answer = feedAnswer(request.headers.range, size, type)
+      response.writeHead(answer.status, answer.headers)
+      await pipeline(Readable.from(feedBody(file, answer.parts, corrupt && /\.(exe|AppImage)$/.test(name))), response)
     })().catch(() => {
-      if (!response.headersSent) {
-        response.writeHead(404)
+      // A body cut short must not look whole to the downloader.
+      if (response.headersSent) {
+        response.destroy()
+
+        return
       }
 
-      response.end()
+      response.writeHead(404).end()
     })
   })
   await new Promise<void>((resolveListen) => feed!.listen(0, "127.0.0.1", resolveListen))

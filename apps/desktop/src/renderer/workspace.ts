@@ -42,6 +42,7 @@ import { routePages, routePagesFile, routeParams } from "./canvas/route-pages.ts
 import { storyScreensDocument, storyScreensFile } from "./canvas/story-screens.ts"
 import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
+import { offerPreviewFile } from "./chrome/PreviewOffer.tsx"
 import { askToRestore } from "./chrome/restore.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
@@ -465,6 +466,7 @@ export class Workspace {
       this.settleDetection(info.id)
       this.remember(info.root)
       void this.offerRecovery(session)
+      void this.offerPreviewFile(info)
 
       return this.getTab(info.id)!
     } catch (error) {
@@ -925,6 +927,30 @@ export class Workspace {
     if (failed) {
       throw failed.reason
     }
+  }
+
+  /**
+   * Offers to write the project's preview file from the providers its app's entry renders (PAR-104), unless it has one
+   * or the offer was turned down before. Written, the file is a detection input, so the project opens again with it.
+   */
+  private async offerPreviewFile(info: ProjectInfo): Promise<void> {
+    if (this.notes[info.root]?.previewOfferClosed) {
+      return
+    }
+
+    const offer = await request("preview.offer", { projectId: info.id }).catch(() => undefined)
+
+    if (!offer || !this.getTab(info.id)?.session) {
+      return
+    }
+
+    offerPreviewFile(
+      offer,
+      async () => {
+        await request("preview.write", { projectId: info.id })
+      },
+      () => this.changeProjects({ kind: "closedPreviewOffer", root: info.root })
+    )
   }
 
   /** Takes a project off the recent list, or every project when none is given. Starred ones stay starred. */
