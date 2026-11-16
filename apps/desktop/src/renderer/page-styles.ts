@@ -36,6 +36,8 @@ interface Caught {
   media: string | null
   /** A linked stylesheet's text once read, or `undefined` while it's read or if it can't be. */
   linked?: string
+  /** Where `linked` came from in the end, after any redirect: what its relative `url()`s are relative to. */
+  linkedFrom?: string
   /** The address `linked` was read from. */
   read?: string
   /** Whether its code changed its rules through the CSSOM, so its text no longer says what they are. */
@@ -74,7 +76,9 @@ export function pageStyles(origin: string): PageStyles {
         .flatMap(([element, entry]) => {
           const css = sheetText(element, entry)
 
-          return css === undefined ? [] : [{ css: withMedia(css, entry.media), baseUrl: baseUrl(element, origin) }]
+          return css === undefined
+            ? []
+            : [{ css: withMedia(css, entry.media), baseUrl: baseUrl(element, entry, origin) }]
         }),
     subscribe(listener) {
       const set = listeners.get(origin) ?? new Set()
@@ -131,7 +135,7 @@ export function withMedia(css: string, media: string | null): string {
 function sheetText(element: Element, entry: Caught): string | undefined {
   if (element instanceof HTMLLinkElement) {
     return isStylesheet(element) && entry.read === element.href && entry.linked !== undefined
-      ? relativeUrlsFrom(entry.linked, element.href)
+      ? relativeUrlsFrom(entry.linked, entry.linkedFrom ?? element.href)
       : undefined
   }
 
@@ -144,8 +148,8 @@ function sheetText(element: Element, entry: Caught): string | undefined {
   return element.textContent ?? ""
 }
 
-function baseUrl(element: Element, origin: string): string {
-  return element instanceof HTMLLinkElement ? element.href : `${origin}/`
+function baseUrl(element: Element, entry: Caught, origin: string): string {
+  return element instanceof HTMLLinkElement ? (entry.linkedFrom ?? element.href) : `${origin}/`
 }
 
 function isStylesheet(link: HTMLLinkElement): boolean {
@@ -180,13 +184,17 @@ function readLink(link: HTMLLinkElement, entry: Caught): void {
 
   entry.read = address
   delete entry.linked
+  delete entry.linkedFrom
 
   const reading = fetch(address)
-    .then((response) => (response.ok ? response.text() : undefined))
+    .then(async (response) =>
+      response.ok ? { text: await response.text(), from: response.url || address } : undefined
+    )
     .catch(() => undefined)
-    .then((text) => {
-      if (entry.read === address && text !== undefined) {
-        entry.linked = text
+    .then((answer) => {
+      if (entry.read === address && answer) {
+        entry.linked = answer.text
+        entry.linkedFrom = answer.from
         tell(entry.origin)
       }
     })

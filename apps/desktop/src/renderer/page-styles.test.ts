@@ -1,3 +1,5 @@
+import { createServer, type Server } from "node:http"
+import type { AddressInfo } from "node:net"
 import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
@@ -9,6 +11,10 @@ import { callerOrigin, relativeUrlsFrom, withMedia } from "./page-styles.ts"
 // and tells code apart by where it was served from, so this runs in Chrome, with Parity's page and a project's code
 // served from two origins.
 let browser: Browser
+
+// A stylesheet that moved: a real server, since a page's fetch doesn't follow a redirect Playwright fakes.
+let assets: Server
+let assetsOrigin = ""
 let page: Page
 const errors: string[] = []
 
@@ -70,6 +76,21 @@ window.project = {
 `
 
 beforeAll(async () => {
+  assets = createServer((request, response) => {
+    const cors = { "access-control-allow-origin": "*" }
+
+    if (request.url === "/styles") {
+      response.writeHead(302, { ...cors, location: "/assets/main.css" }).end()
+    } else {
+      response
+        .writeHead(200, { ...cors, "content-type": "text/css" })
+        .end("@font-face { font-family: Body; src: url(font.woff2); }")
+    }
+  })
+  await new Promise<void>((resolve) => assets.listen(0, "127.0.0.1", resolve))
+  // SAFETY: a server listening on a TCP port gives its address as an object.
+  assetsOrigin = `http://127.0.0.1:${(assets.address() as AddressInfo).port}`
+
   const renderer = fileURLToPath(new URL(".", import.meta.url))
 
   const bundle = await build({
@@ -81,7 +102,12 @@ beforeAll(async () => {
     platform: "browser"
   })
 
-  browser = await chromium.launch({ channel: "chrome", headless: true })
+  // The page's made-up origin may read from the loopback server, as Parity's page reads from a project's builder.
+  browser = await chromium.launch({
+    channel: "chrome",
+    headless: true,
+    args: ["--disable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests"]
+  })
   page = await browser.newPage()
   page.on("pageerror", (error) => errors.push(error.message))
   await page.route("http://parity.test/parity.js", (route) =>
@@ -118,6 +144,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await browser?.close()
+  assets?.close()
 })
 
 beforeEach(async () => {
@@ -376,6 +403,23 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
           baseUrl: "http://project.test/card.css"
         }
       ]
+    })
+  })
+
+  it("resolves a redirected stylesheet's url()s against where it came from in the end", async () => {
+    const sheet = await page.evaluate(
+      async ({ origin, assetsOrigin }) => {
+        project.addLink(`${assetsOrigin}/styles`)
+        await parity.pageStyles(origin).settled()
+
+        return parity.pageStyles(origin).sheets()[0]
+      },
+      { origin, assetsOrigin }
+    )
+
+    expect(sheet).toEqual({
+      css: `@font-face { font-family: Body; src: url(${assetsOrigin}/assets/font.woff2); }`,
+      baseUrl: `${assetsOrigin}/assets/main.css`
     })
   })
 
