@@ -56,7 +56,7 @@ interface Actions {
 
 /**
  * The prototype: the project's windows. With one window it fills the story; once a lens has a window of its own, the
- * story shows two screens side by side, the main window on the left and the others on the right.
+ * story shows a screen for each window, side by side, the main window first.
  */
 export function LensesPrototype({ initial }: { initial: Layout }) {
   const [layout, setLayout] = useState(initial)
@@ -127,20 +127,24 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
   }
 
   return (
-    <div className={`grid h-screen grid-cols-2 items-center gap-6 bg-muted p-6 ${grabbing}`}>
+    <div
+      className={`grid h-screen items-center gap-6 bg-muted p-6 ${grabbing}`}
+      style={{ gridTemplateColumns: `repeat(${layout.windows.length}, minmax(0, 1fr))` }}
+    >
       <Screen label="Screen 1">
         <WindowView win={main!} main actions={actions} />
       </Screen>
-      <Screen label="Screen 2" wallpaper>
-        {others.map((each) => (
-          <WindowView key={each.id} win={each} main={false} actions={actions} />
-        ))}
-      </Screen>
+      {/* Each lens window on a screen of its own, so every one stays in view. */}
+      {others.map((each, index) => (
+        <Screen key={each.id} label={`Screen ${index + 2}`} wallpaper>
+          <WindowView win={each} main={false} actions={actions} />
+        </Screen>
+      ))}
     </div>
   )
 }
 
-/** One of two screens on a desk, its window scaled to fit, as a person with two monitors has. */
+/** One screen on a desk, its window scaled to fit, as a person with several monitors has. */
 function Screen({ label, children, wallpaper }: { label: string; children: ReactNode; wallpaper?: boolean }) {
   const box = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(0.5)
@@ -374,6 +378,11 @@ function GroupView({
       aria-label={`${label} lens`}
       className="relative flex min-w-0 flex-1 flex-col"
       onPointerDownCapture={() => actions.set((layout) => focus(layout, group.id))}
+      onFocusCapture={() => {
+        if (!focused) {
+          actions.set((layout) => focus(layout, group.id))
+        }
+      }}
     >
       {win.groups.length > 1 && (
         <div
