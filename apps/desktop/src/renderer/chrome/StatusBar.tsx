@@ -1,56 +1,83 @@
-import { Blocks, BookOpen, Brush, CircleX, Hammer, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
+import type { AdapterStatusItem } from "@parity-app/core"
+import { Blocks, CircleX, Palette, SquareTerminal, TriangleAlert } from "lucide-react"
+import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 import type { ReactNode } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { tally, useConsole } from "../console-store.ts"
-import { type DesignStore, useSaveState } from "../design-store.ts"
+import { runCommand, statusItems, statusTooltip, useExtensions } from "../extensions.ts"
+import { type DocSession, useSaveState } from "../project-doc.ts"
 import { useTokenList } from "../tokens-store.ts"
-import { save } from "./commands.ts"
+import { actions } from "./actions.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
+import { ContributionIcon } from "./ExtensionIcons.tsx"
 import { Hint } from "./Hint.tsx"
-import { setLayout, toggleConsole, useLayout } from "./layout.ts"
+import { setLayout, useLayout } from "./layout.ts"
 import { PerformanceStats } from "./PerformanceStats.tsx"
 import { usePreferences } from "./preferences.ts"
 import { Processes } from "./Processes.tsx"
-import { openInStorybook } from "./storybook.ts"
 
-/** How the project was understood, with nothing configured by hand. Each count opens the panel that lists it. */
+/**
+ * How the project was understood, with nothing configured by hand: an item for each of the project's tools, as its
+ * adapter tells it, then the components and tokens Parity found. Each count opens what lists it.
+ */
 export function StatusBar() {
   const session = useProject()
-  const { info, store, tokens: tokenStore } = session
+  const { info, tokens: tokenStore } = session
   const tokens = useTokenList(tokenStore)
   const semantic = tokens.filter((token) => token.source === "semantic").length
   const { performanceStats } = usePreferences()
   const openTab = (tab: string) => setLayout({ left: true, leftTab: tab })
-  const stories = info.storybook ? Object.keys(info.storybook.stories).length : 0
+  const { extensions } = useExtensions(session)
+
   const themed = tokens.length - semantic
+
   return (
     <footer className="@container/footer flex h-7 shrink-0 items-center gap-1 border-t bg-background px-1.5 text-xs text-muted-foreground">
-      <Item
-        icon={<Brush className="size-3.5" />}
-        hint={titled(info, info.renderer.id, info.renderer.name)}
-        detail={withStatus(info, info.renderer.id, "Renders the project's components")}
-      >
-        <Words>
-          <strong className="font-medium text-foreground">{info.renderer.name}</strong>
-        </Words>
-      </Item>
-      <Item
-        icon={<Hammer className="size-3.5" />}
-        hint={titled(info, info.builder.id, info.builder.name)}
-        detail={withStatus(info, info.builder.id, `Builds the project, with ${info.detection.packageManager.name}`)}
-      >
-        <Words>
-          <strong className="font-medium text-foreground">{info.builder.name}</strong> {info.builder.toolVersion}
-        </Words>
-      </Item>
+      {info.status.map((item) => {
+        // What an adapter's item does: open a left panel tab.
+        const tab = item.opens?.tab
+
+        return (
+          <Item
+            key={`${item.adapter}:${item.icon}:${item.hint}`}
+            icon={<ItemIcon item={item} />}
+            hint={item.hint}
+            detail={item.detail}
+            onClick={tab === undefined ? undefined : () => openTab(tab)}
+          >
+            <strong className="font-medium text-foreground">{item.value}</strong>
+            {item.words && <Words>{item.words}</Words>}
+          </Item>
+        )
+      })}
+      {/* Extensions' items, from their manifests, with the value each last set (PAR-1089). */}
+      {statusItems(extensions).map(({ extension, item, value, tooltip }) => {
+        const command = extension.contributes.commands?.find((declared) => declared.id === item.command)
+        const tool = info.detection.tools.find((detected) => detected.id === extension.prefix)
+        const { hint, detail } = statusTooltip(item.title, tooltip, tool)
+
+        return (
+          <Item
+            key={`${extension.id}:${item.id}`}
+            icon={<ContributionIcon name={item.icon} logo={extension.icon} className="size-3.5" />}
+            hint={hint}
+            detail={detail}
+            onClick={command ? () => void runCommand(session, { extension, command }) : undefined}
+          >
+            {value !== undefined && <strong className="font-medium text-foreground">{value}</strong>}
+            {item.label && <Words> {item.label}</Words>}
+          </Item>
+        )
+      })}
       <Item
         icon={<Blocks className="size-3.5" />}
-        hint={`${plural(info.componentCount, "component")} in code`}
-        detail="Click to show them"
+        hint={plural(info.componentCount, "component")}
+        detail={`${componentOrigins(info)}. Click to show them`}
         onClick={() => openTab("components")}
       >
         <strong className="font-medium text-foreground">{info.componentCount}</strong>
-        <Words> {info.componentCount === 1 ? "component" : "components"} in code</Words>
+        <Words> {noun(info.componentCount, "component")}</Words>
       </Item>
       <Item
         icon={<Palette className="size-3.5" />}
@@ -61,20 +88,9 @@ export function StatusBar() {
         <strong className="font-medium text-foreground">{tokens.length}</strong>
         <Words> tokens</Words>
       </Item>
-      {info.storybook && (
-        <Item
-          icon={<BookOpen className="size-3.5" />}
-          hint={titled(info, "storybook", "Storybook")}
-          detail={`${plural(stories, "component")} with stories. Click to open it`}
-          onClick={() => void openInStorybook(session)}
-        >
-          <strong className="font-medium text-foreground">{stories}</strong>
-          <Words> in Storybook</Words>
-        </Item>
-      )}
       <span className="min-w-0 flex-1" />
       <ConsoleStatus projectId={session.id} />
-      <SaveFailure store={store} />
+      <SaveFailure designs={session} />
       <Processes />
       {performanceStats && <PerformanceStats />}
     </footer>
@@ -83,21 +99,42 @@ export function StatusBar() {
 
 /*
  * Every item's tooltip has the same shape: a short title, the item's name and version or its count, then one short line
- * saying what it does or what clicking it does. Paths, discovery notes and errors stay out, since they can run long; the
+ * saying what it does or what clicking it does. The project's tools each give their own items, through their adapters
+ * (`StatusItem`); the components and tokens are Parity's own. Paths, discovery notes and errors stay out, since they can run long; the
  * Components panel, a notification or an agent's tools give them.
  */
 
-/** A tool's name with its version, when detection found one. */
-function titled(info: ProjectInfo, id: string, name: string): string {
-  const version = info.detection.tools.find((tool) => tool.id === id)?.version
-  return version ? `${name} ${version}` : name
+/**
+ * An adapter's item's icon: the Lucide icon it names, or a plain one for a name Lucide doesn't have, else its adapter's
+ * logo, filled with the text's colour.
+ */
+function ItemIcon({ item }: { item: AdapterStatusItem }) {
+  if (!item.icon && item.logo) {
+    return <AdapterLogo logo={item.logo} className="size-3.5" />
+  }
+
+  return <DynamicIcon name={iconName(item.icon)} className="size-3.5" />
 }
 
-/** A tooltip's line, with a note when the tool's version is one Parity doesn't test. */
-function withStatus(info: ProjectInfo, id: string, line: string): string {
-  const status = info.detection.tools.find((tool) => tool.id === id)?.status
-  if (status === "dropped" || status === "newer") return `${line}. Parity doesn't test this version`
-  return line
+function iconName(name: string | undefined): IconName {
+  return iconNames.find((each) => each === name) ?? "circle"
+}
+
+/** Where the components come from: how many are the app's own, then how many each library gives, as "120 from the app". */
+function componentOrigins(info: ProjectInfo): string {
+  const counts = new Map<string | undefined, number>()
+
+  for (const source of Object.values(info.sources)) {
+    counts.set(source.library, (counts.get(source.library) ?? 0) + 1)
+  }
+
+  const libraries = info.libraries.flatMap((library) => {
+    const count = counts.get(library.id)
+
+    return count ? [`${count.toLocaleString()} from ${library.name}`] : []
+  })
+
+  return [`${(counts.get(undefined) ?? 0).toLocaleString()} from the app`, ...libraries].join(", ")
 }
 
 function plural(count: number, word: string): string {
@@ -134,6 +171,7 @@ function Item({
   children: ReactNode
 }) {
   const className = "flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5"
+
   return (
     <Hint label={hint} detail={detail}>
       {onClick ? (
@@ -164,20 +202,23 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
   const { errors, warnings } = tally(useConsole(projectId))
   const open = !!useLayout().console
   const detail = open ? "Click to close the console" : "Click to show the console"
+
   if (errors === 0 && warnings === 0) {
     return (
       <Item
         icon={<SquareTerminal className="size-3.5" />}
         hint="Console"
         detail={detail}
-        onClick={toggleConsole}
+        onClick={() => void actions.console.run("panel")}
         pressed={open}
       >
         <Words>Console</Words>
       </Item>
     )
   }
+
   const said = [errors > 0 && plural(errors, "error"), warnings > 0 && plural(warnings, "warning")].filter(Boolean)
+
   return (
     <Item
       icon={
@@ -189,7 +230,7 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
       }
       hint={`${said.join(" and ")} from the designs`}
       detail={detail}
-      onClick={toggleConsole}
+      onClick={() => void actions.console.run("panel")}
       pressed={open}
     >
       <strong className="font-medium text-foreground tabular-nums">{errors > 0 ? errors : warnings}</strong>
@@ -210,15 +251,19 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
  * A save that failed, which nothing else would show. Unsaved changes show as a dot on the project's tab, so the status
  * bar doesn't repeat them.
  */
-function SaveFailure({ store }: { store: DesignStore }) {
-  const state = useSaveState(store)
-  if (state.status !== "failed") return null
+function SaveFailure({ designs }: { designs: DocSession }) {
+  const state = useSaveState(designs)
+
+  if (state.status !== "failed") {
+    return null
+  }
+
   return (
     <Item
       icon={<TriangleAlert className="size-3.5 text-destructive" />}
       hint="Couldn't save"
       detail="Click to try again"
-      onClick={() => void save()}
+      onClick={() => void actions.save.run("panel")}
     >
       <Words>
         <span className="text-destructive">Couldn&apos;t save</span>

@@ -1,16 +1,19 @@
 import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
-import { Accessibility, CodeXml, MonitorSmartphone, SlidersHorizontal } from "lucide-react"
+import { Accessibility, MonitorSmartphone, SlidersHorizontal } from "lucide-react"
 import { AccessibilityPanel } from "./AccessibilityPanel.tsx"
-import { CodePanel } from "./CodePanel.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
+import { ErrorBoundary } from "./ErrorBoundary.tsx"
+import { ExtensionTabPanels, extensionPanelTab, useExtensionTabs } from "./ExtensionTabs.tsx"
 import { ModesPanel } from "./ModesPanel.tsx"
 import { SidePanel } from "./SidePanel.tsx"
 
 /**
- * Right panel: what's selected, the project's modes, where the selected component's code is, and accessibility checks
- * of the selected design.
+ * Right panel: what's selected, the project's modes, and accessibility checks of the selected design; then the tabs
+ * extensions add.
  */
 export function Inspector() {
+  const added = useExtensionTabs("right")
+
   return (
     <SidePanel
       side="right"
@@ -19,22 +22,26 @@ export function Inspector() {
       tabs={[
         { value: "design", label: "Design", icon: SlidersHorizontal },
         { value: "modes", label: "Modes", icon: MonitorSmartphone },
-        { value: "code", label: "Code", icon: CodeXml },
-        { value: "accessibility", label: "Accessibility", icon: Accessibility }
+        { value: "accessibility", label: "Accessibility", icon: Accessibility },
+        ...added.map(extensionPanelTab)
       ]}
     >
       <TabsContent value="design" className="min-h-0 overflow-x-hidden overflow-y-auto">
-        <DesignTab />
+        <ErrorBoundary name="inspector.design" label="Design">
+          <DesignTab />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="modes" className="min-h-0 overflow-x-hidden overflow-y-auto">
-        <ModesPanel />
-      </TabsContent>
-      <TabsContent value="code" className="flex min-h-0 flex-col overflow-hidden">
-        <CodePanel />
+        <ErrorBoundary name="inspector.modes" label="Modes">
+          <ModesPanel />
+        </ErrorBoundary>
       </TabsContent>
       <TabsContent value="accessibility" className="flex min-h-0 flex-col overflow-hidden">
-        <AccessibilityPanel />
+        <ErrorBoundary name="inspector.accessibility" label="Accessibility">
+          <AccessibilityPanel />
+        </ErrorBoundary>
       </TabsContent>
+      <ExtensionTabPanels views={added} />
     </SidePanel>
   )
 }

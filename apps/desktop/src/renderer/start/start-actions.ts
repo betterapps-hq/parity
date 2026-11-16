@@ -1,8 +1,8 @@
 import { createContext, useContext } from "react"
 import type { ProjectPicture } from "../../shared/protocol.ts"
-import { openDialog } from "../chrome/app-dialogs.ts"
-import { openProjectFile, openProjectFolder } from "../chrome/commands.ts"
-import { notify } from "../toasts.tsx"
+import { actions } from "../chrome/actions.ts"
+import { recordInterface } from "../interface-events.ts"
+import { notify, type ToastButton, type ToastOptions } from "../toasts.tsx"
 import { workspace } from "../workspace.ts"
 
 /** What the start page's controls do. In the window they act on the workspace; stories give their own. */
@@ -22,13 +22,38 @@ export interface StartActions {
   search: () => void
 }
 
+type StartAction = "new-project" | "open-folder" | "open-file" | "recent-project" | "search" | "star" | "forget"
+
+/** Records a start page control's use, with whether it was on Home or a new tab (PAR-634). */
+function recordStart(action: StartAction): void {
+  recordInterface("start.action", { page: workspace.isHomeActive() ? "home" : "new", action })
+}
+
 export const workspaceActions: StartActions = {
-  open: (root) => void workspace.open(root),
-  star: (root, starred) => workspace.star(root, starred),
-  forget: (root) => workspace.forgetRecent(root),
-  openFolder: () => void openProjectFolder(),
-  openFile: () => void openProjectFile(),
-  search: () => openDialog("actions")
+  open: (root) => {
+    recordStart("recent-project")
+    void workspace.open(root)
+  },
+  star: (root, starred) => {
+    recordStart("star")
+    workspace.star(root, starred)
+  },
+  forget: (root) => {
+    recordStart("forget")
+    workspace.forgetRecent(root)
+  },
+  openFolder: () => {
+    recordStart("open-folder")
+    void actions.openFolder.run("panel")
+  },
+  openFile: () => {
+    recordStart("open-file")
+    void actions.openFile.run("panel")
+  },
+  search: () => {
+    recordStart("search")
+    void actions.actions.run("panel")
+  }
 }
 
 const StartContext = createContext<StartActions>(workspaceActions)
@@ -43,12 +68,22 @@ export function useStartActions(): StartActions {
  * Says that what a control starts isn't built yet, and what to do meanwhile. The start page shows the controls it was
  * designed with, so their places are there before what they do is.
  */
-export function notReady(title: string, description?: string, action?: { label: string; run: () => void }): void {
-  notify.info(title, { description, ...(action ? { action } : {}) })
+export function notReady(title: string, description?: string, action?: ToastButton): void {
+  const shown: ToastOptions = { description }
+
+  if (action) {
+    shown.action = action
+  }
+
+  notify.info(title, shown)
 }
 
 /** New project waits on the Buildkit scaffolder (PAR-284); until then, a project starts from a folder. */
 export function newProjectNotReady(actions: StartActions): void {
+  if (actions === workspaceActions) {
+    recordStart("new-project")
+  }
+
   notReady("New projects aren't available yet", "Open an existing React app's folder instead.", {
     label: "Open folder",
     run: actions.openFolder

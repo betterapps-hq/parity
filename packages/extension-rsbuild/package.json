@@ -1,0 +1,64 @@
+{
+  "name": "@parity-app/extension-rsbuild",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Rsbuild in Parity: the project’s own Rsbuild and config build its components for the canvas.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./builder": "./src/builder.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@parity-app/builder-webpack-compatible": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/project": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extensions": "workspace:*"
+  },
+  "peerDependencies": {
+    "@rsbuild/core": "^1.4.0 || ^2.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@rsbuild/core": {
+      "optional": true
+    }
+  },
+  "parity": {
+    "displayName": "Rsbuild",
+    "prefix": "rsbuild",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M4 3h10a5 5 0 0 1 2.6 9.27L20 21h-3.3l-3-8H7v8H4zm3 3v4h7a2 2 0 1 0 0-4z"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "contributes": {
+      "statusItems": [
+        {
+          "id": "rsbuild.status",
+          "title": "Rsbuild"
+        }
+      ],
+      "providers": {
+        "builder": {
+          "entry": "./builder",
+          "watches": [
+            "rsbuild.config.ts",
+            "rsbuild.config.mts",
+            "rsbuild.config.cts",
+            "rsbuild.config.js",
+            "rsbuild.config.mjs",
+            "rsbuild.config.cjs"
+          ]
+        }
+      }
+    }
+  }
+}

@@ -98,6 +98,7 @@ export function TokenDetail({
   const kind = preview.kind
   const themes = Object.keys(values)
   const editing = drafts !== undefined
+
   const { problems, changes, valid } = checkTokenEdit({
     name: preview.name,
     kind,
@@ -107,7 +108,9 @@ export function TokenDetail({
     references,
     supports: (property, value) => CSS.supports(property, value)
   })
+
   const changed = Object.keys(changes).length > 0
+
   // While editing, the preview follows what's typed, as long as it's a value it can draw.
   const shown: PreviewToken =
     drafts && valid && changed
@@ -123,27 +126,35 @@ export function TokenDetail({
           )
         }
       : preview
+
   // What it comes to, by the name, as its row shows it; left out where the value already says just that.
   const label = valueLabel(shown)
   const comesTo = label === values.default ? undefined : label
   const playing = moving.has(kind) && (play ?? !reduced)
+
   // The tokens any theme's value uses, as a theme can be built on one the root isn't.
   const built = token.derived
     ? [token.derived.from]
     : [...new Set(themes.flatMap((theme) => tokenReferences(values[theme] ?? "")))]
+
   // Cancel, Apply and Undo take away what had the keyboard (a field, or the button pressed), so it goes back to Edit
   // rather than dropping out of the detail.
   const editButton = useRef<HTMLButtonElement>(null)
   const refocus = useRef(false)
   useEffect(() => {
-    if (!refocus.current || drafts !== undefined) return
+    if (!refocus.current || drafts !== undefined) {
+      return
+    }
+
     refocus.current = false
     editButton.current?.focus()
   })
+
   const cancel = () => {
     refocus.current = true
     setDrafts(undefined)
   }
+
   return (
     <div className="flex flex-col">
       <div className="group/preview relative px-3 pt-3">
@@ -166,16 +177,20 @@ export function TokenDetail({
       </div>
       <header className="flex flex-col gap-0.5 p-3">
         <div className="flex items-baseline gap-3">
-          <h3 className="min-w-0 flex-1 truncate font-mono text-sm font-medium">{preview.name}</h3>
+          <h3 className="min-w-0 flex-1 truncate font-mono text-sm">{preview.name}</h3>
           {comesTo && <span className="shrink-0 font-mono text-sm text-muted-foreground tabular-nums">{comesTo}</span>}
         </div>
-        {token.description && <p className="text-xs text-muted-foreground">{token.description}</p>}
+        {token.description && <p className="type-description text-muted-foreground">{token.description}</p>}
       </header>
       <form
         data-token-editing={editing || undefined}
         onSubmit={(event) => {
           event.preventDefault()
-          if (!changed || !valid) return
+
+          if (!changed || !valid) {
+            return
+          }
+
           onApply(changes)
           setDrafts(undefined)
           setApplied(true)
@@ -208,12 +223,14 @@ export function TokenDetail({
                         aria-invalid={problems[theme] ? true : undefined}
                         onChange={(event) => setDrafts({ ...drafts, [theme]: event.currentTarget.value })}
                         onKeyDown={(event) => {
-                          if (event.key === "Escape") cancel()
+                          if (event.key === "Escape") {
+                            cancel()
+                          }
                         }}
                         className="h-7 font-mono text-xs"
                       />
                     </span>
-                    {problems[theme] && <p className="mt-1 text-[11px] text-destructive">{problems[theme]}</p>}
+                    {problems[theme] && <p className="type-message mt-1 text-destructive">{problems[theme]}</p>}
                   </>
                 ) : (
                   <span id={`${id}-${theme}`} className="flex items-baseline gap-2">
@@ -227,10 +244,10 @@ export function TokenDetail({
             </Fragment>
           ))}
           {!editing && token.unwritten && (
-            <dd className="col-start-2 -mt-1 text-[11px] text-destructive">Not written to the stylesheet</dd>
+            <dd className="type-message col-start-2 -mt-1 text-destructive">Not written to the stylesheet</dd>
           )}
           {!editing && applied && !token.unwritten && (
-            <dd className="col-start-2 -mt-1 flex flex-wrap items-center gap-x-1.5 text-[11px] text-muted-foreground">
+            <dd className="type-message col-start-2 -mt-1 flex flex-wrap items-center gap-x-1.5 text-muted-foreground">
               <Check className="size-3 shrink-0 text-(--process-running)" />
               Applied. Saving writes it to {stylesheet}.
               {undo && (
@@ -238,7 +255,7 @@ export function TokenDetail({
                   type="button"
                   variant="link"
                   size="xs"
-                  className="h-auto px-0 text-[11px]"
+                  className="h-auto px-0"
                   onClick={() => {
                     undo()
                     setApplied(false)
@@ -276,7 +293,7 @@ export function TokenDetail({
         <footer className="flex min-h-11 items-center gap-2 border-t px-3 py-2">
           {editing ? (
             <>
-              <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">{applyHint(valid, changed)}</p>
+              <p className="type-message min-w-0 flex-1 text-muted-foreground">{applyHint(valid, changed)}</p>
               <Button type="button" variant="ghost" size="sm" onClick={cancel}>
                 Cancel
               </Button>
@@ -320,6 +337,7 @@ export function TokenDetail({
  */
 export function keepEditing(details: PopoverChange): void {
   const target = details.event.target
+
   if (details.reason === "escape-key" && target instanceof Element && target.matches("[data-token-editing] input")) {
     details.cancel()
   }
@@ -332,17 +350,31 @@ type PopoverChange = Parameters<NonNullable<ComponentProps<typeof Popover>["onOp
  * contrast), never the class that switches it on. A token with one value has no theme to name, so its row is Value.
  */
 export function themeLabel(theme: string, themes: readonly string[], names: ReadonlyMap<string, string>): string {
-  if (themes.length === 1) return "Value"
+  if (themes.length === 1) {
+    return "Value"
+  }
+
   const named = names.get(theme)
-  if (named) return named
-  if (theme === "default") return "Default"
+
+  if (named) {
+    return named
+  }
+
+  if (theme === "default") {
+    return "Default"
+  }
+
   const words = theme.replaceAll(/[-_]+/g, " ")
+
   return words.charAt(0).toUpperCase() + words.slice(1)
 }
 
 /** What the edit bar says beside Apply: why it can't apply yet, or what applying does. */
 function applyHint(valid: boolean, changed: boolean): string {
-  if (!valid) return "Fix the value to apply"
+  if (!valid) {
+    return "Fix the value to apply"
+  }
+
   return changed ? "Every preview shows it at once" : "Nothing to apply yet"
 }
 
@@ -355,6 +387,7 @@ function CopyMenu({ token }: { token: PreviewToken }) {
   const copying = useCopy()
   const forms = codeForms(token.name, token.kind, drawn(token))
   const groups = Map.groupBy(forms, (form) => form.group)
+
   return (
     <div className="flex items-center rounded-lg border bg-background shadow-xs dark:border-input dark:bg-input/30">
       <CopyButton text={token.name} copying={copying} className="rounded-r-none">
@@ -396,6 +429,7 @@ function CopyMenu({ token }: { token: PreviewToken }) {
  */
 function ValueText({ value }: { value: string }) {
   const parts = valueParts(value)
+
   return (
     <code className="flex min-w-0 flex-col font-mono wrap-anywhere">
       {parts.map((part, index) => (
@@ -423,10 +457,12 @@ export function DetailPreview({
 }) {
   const width = 296
   const others = scale.filter((other) => other.name !== token.name)
+
   switch (token.kind) {
     case "color": {
       // Each theme is its own swatch, named, split by a gap, even where two themes share a value.
       const themes = Object.keys(token.values)
+
       return (
         <div className="flex h-24 gap-px">
           {themes.map((theme) => (
@@ -435,7 +471,7 @@ export function DetailPreview({
               {themes.length > 1 && (
                 // A long theme name is cut short within its swatch, and its tooltip has the whole name.
                 <span
-                  className="absolute bottom-1.5 left-2 max-w-[calc(100%-1rem)] truncate rounded px-1 text-[10px]"
+                  className="absolute bottom-1.5 left-2 max-w-[calc(100%-1rem)] truncate rounded px-1 text-2xs"
                   style={{ background: "rgb(0 0 0 / 0.55)", color: "white" }}
                   title={themeLabel(theme, themes, themeNames)}
                 >
@@ -447,6 +483,7 @@ export function DetailPreview({
         </div>
       )
     }
+
     case "spacing":
       return <SpacingScale token={token} scale={scale} width={width} />
     case "duration":
@@ -460,7 +497,6 @@ export function DetailPreview({
             height={110}
             playing={playing}
             duration={700}
-            stroke={2}
             ghosts={others.map((other) => drawn(other))}
           />
         </div>
@@ -486,8 +522,13 @@ export function DetailPreview({
 /** Up to nine of a scale's steps around this one, in order, so a long scale doesn't push the facts off the screen. */
 function around(token: PreviewToken, scale: readonly PreviewToken[]): PreviewToken[] {
   const at = scale.findIndex((step) => step.name === token.name)
-  if (at < 0) return [token]
+
+  if (at < 0) {
+    return [token]
+  }
+
   const start = Math.max(0, Math.min(at - 4, scale.length - 9))
+
   return scale.slice(start, start + 9).map((step) => (step.name === token.name ? token : step))
 }
 
@@ -500,10 +541,11 @@ function SpacingScale({ token, scale, width }: { token: PreviewToken; scale: rea
     <div className="flex flex-col gap-0.5 rounded-md border bg-muted/40 px-3 py-2">
       {around(token, scale).map((step) => {
         const current = step.name === token.name
+
         return (
           <div key={step.name} className="flex h-4 items-center gap-2">
             <span
-              className={`w-24 shrink-0 truncate font-mono text-[10px] ${current ? "font-medium text-foreground" : "text-muted-foreground"}`}
+              className={`w-24 shrink-0 truncate font-mono text-2xs ${current ? "text-foreground" : "text-muted-foreground"}`}
             >
               {step.name}
             </span>
@@ -529,6 +571,7 @@ function DurationRace({
 }) {
   const race = around(token, scale)
   const period = Math.max(...race.map((other) => ms(drawn(other)) || 0)) + rest
+
   return (
     <div className="flex flex-col gap-1 rounded-md border bg-muted/40 px-3 py-2">
       {race.map((other) => (
@@ -536,8 +579,9 @@ function DurationRace({
           key={other.name}
           className={`flex items-center gap-2 ${other.name === token.name ? "text-foreground" : "text-muted-foreground/60"}`}
         >
-          <span className="w-10 shrink-0 text-right text-[10px] tabular-nums">{drawn(other)}</span>
-          <DurationArt value={drawn(other)} width={width - 80} height={12} playing={playing} period={period} />
+          {/* Wide enough for 1000ms at 11px. */}
+          <span className="w-11 shrink-0 text-right text-2xs tabular-nums">{drawn(other)}</span>
+          <DurationArt value={drawn(other)} width={width - 84} height={12} playing={playing} period={period} />
         </div>
       ))}
     </div>
@@ -547,6 +591,7 @@ function DurationRace({
 /** A font or size set in the project's type: a large sample and a line of text. */
 function TypeSpecimen({ token, width }: { token: PreviewToken; width: number }) {
   const size = token.kind === "font-size" ? px(drawn(token)) || 15 : 15
+
   return (
     <div
       className="flex flex-col gap-2 overflow-hidden rounded-md border p-3"
@@ -555,7 +600,10 @@ function TypeSpecimen({ token, width }: { token: PreviewToken; width: number }) 
         background: paper.sheet,
         borderColor: paper.edge,
         color: paper.ink,
-        fontFamily: token.kind === "font" ? drawn(token) : undefined
+        fontFamily: token.kind === "font" ? drawn(token) : undefined,
+        // The font's own regular: at the interface's 450 a variable font would show a weight nobody chose, and a static
+        // face its 500.
+        fontWeight: token.kind === "font" ? 400 : undefined
       }}
     >
       <span className="leading-none" style={{ fontSize: Math.min(size * 2.5, 56) }}>
@@ -565,7 +613,7 @@ function TypeSpecimen({ token, width }: { token: PreviewToken; width: number }) 
         The quick brown fox jumps over the lazy dog.
       </span>
       {token.kind === "font" && (
-        <span className="text-[13px]" style={{ color: paper.muted }}>
+        <span className="text-sm" style={{ color: paper.muted }}>
           0123456789 &amp; ?! @ #
         </span>
       )}
@@ -578,12 +626,13 @@ function LayerStack({ token, scale }: { token: PreviewToken; scale: readonly Pre
   const stack = around(token, scale).toSorted((a, b) => Number(drawn(b)) - Number(drawn(a)))
   // The names' shared start (`chakra-z-index-`) says nothing, so it's left off.
   const shared = commonStart(stack.map((layer) => layer.name))
+
   return (
     <div className="flex flex-col gap-px rounded-md border bg-muted/40 p-2">
       {stack.map((layer, index) => (
         <div
           key={layer.name}
-          className={`flex h-5 items-center gap-2 rounded-[3px] px-2 text-[11px] ${
+          className={`flex h-5 items-center gap-2 rounded-[3px] px-2 text-2xs ${
             layer.name === token.name ? "bg-(--canvas-layer) text-white" : "text-muted-foreground"
           }`}
           style={{ marginLeft: (stack.length - 1 - index) * 4 }}
@@ -609,6 +658,7 @@ function BreakpointRuler({
   const widest = 1536
   const at = (value: number) => (Math.min(value, widest) / widest) * (width - 24)
   const shared = commonStart(scale.map((step) => step.name))
+
   return (
     <div className="relative h-24 rounded-md border bg-muted/40 px-3">
       <div className="absolute inset-x-3 top-12 h-px bg-muted-foreground/40" />
@@ -619,7 +669,7 @@ function BreakpointRuler({
       ].map((device) => (
         <span
           key={device.name}
-          className="absolute top-14 text-[10px] text-muted-foreground/70"
+          className="absolute top-14 text-2xs text-muted-foreground/70"
           style={{ left: 12 + at(device.width) - 14 }}
         >
           {device.name}
@@ -628,13 +678,14 @@ function BreakpointRuler({
       {(scale.some((step) => step.name === token.name) ? scale : [token]).map((step) => {
         const mine = step.name === token.name
         const shown = mine ? token : step
+
         return (
           <span
             key={step.name}
             className="absolute top-4 flex flex-col items-center"
             style={{ left: 12 + at(px(drawn(shown)) || 0) - 12 }}
           >
-            <span className={`text-[10px] ${mine ? "text-foreground" : "text-muted-foreground"}`}>
+            <span className={`text-2xs ${mine ? "text-foreground" : "text-muted-foreground"}`}>
               {step.name.slice(shared.length) || step.name}
             </span>
             <span
@@ -644,7 +695,7 @@ function BreakpointRuler({
           </span>
         )
       })}
-      <span className="absolute right-3 bottom-2 text-[10px] text-muted-foreground tabular-nums">
+      <span className="absolute right-3 bottom-2 text-2xs text-muted-foreground tabular-nums">
         {valueLabel(token)} and wider
       </span>
     </div>
@@ -653,8 +704,17 @@ function BreakpointRuler({
 
 /** What every name starts with, up to its last separator: `breakpoint-` for `breakpoint-sm` and `breakpoint-md`. */
 function commonStart(names: readonly string[]): string {
-  if (names.length < 2) return ""
+  if (names.length < 2) {
+    return ""
+  }
+
   let shared = names[0]!
-  for (const name of names) while (!name.startsWith(shared)) shared = shared.slice(0, -1)
+
+  for (const name of names) {
+    while (!name.startsWith(shared)) {
+      shared = shared.slice(0, -1)
+    }
+  }
+
   return shared.slice(0, Math.max(shared.lastIndexOf("-"), shared.lastIndexOf("_")) + 1)
 }

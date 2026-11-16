@@ -7,15 +7,21 @@ import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { generateLibrary } from "./index.ts"
 
 /** Detection's parse, reduced to what these projects export: function components. */
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => Promise.resolve({ found: true, summary: "" }),
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx"],
-  findComponents: (source: string) =>
+  findComponents: (source) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
       name: match[1]!,
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 
@@ -60,18 +66,22 @@ async function writeSources() {
   await write("ui/Label.test.tsx", "export function LabelTest() { return <div /> }")
 }
 
-/** What detection and app-library generation each found: the component files, the stylesheets and their tokens. */
-async function both() {
-  const project = await discoverProject(root, renderer)
-  const { manifest, report } = await generateLibrary({ root })
-  const list = (manifest.components as { list: Record<string, { declaration: string }> } | undefined)?.list ?? {}
+/**
+ * What detection and app-library generation each found: the component files, the stylesheets and their tokens. Both are
+ * given the stylesheets the app's builder would name.
+ */
+async function both(styles: string[] = []) {
+  const project = await discoverProject(root, renderer, {}, { styles: { styles, packageStyles: [], from: [] } })
+  const { manifest, report } = await generateLibrary({ root, styles })
+  const list = manifest.components?.list ?? {}
+
   return {
     detected: {
       files: [...new Set(Object.values(project.components).map((source) => source.path))].sort(),
       styles: project.styles
     },
     generated: {
-      files: [...new Set(Object.values(list).map((component) => component.declaration))].sort(),
+      files: [...new Set(Object.values(list).map((component) => component.declaration ?? ""))].sort(),
       // Each DTCG token keeps the custom property it came from.
       tokens: [...JSON.stringify(manifest.tokens ?? {}).matchAll(/"var":"([^"]+)"/g)].map((match) => match[1]).sort(),
       notes: report.notes
@@ -80,33 +90,18 @@ async function both() {
 }
 
 describe("an app library and project detection", () => {
-  it("read the same sources and the stylesheet the HTML entry imports from outside src", async () => {
+  it("read the same sources, and the tokens of the stylesheets the builder names, with their relative @imports", async () => {
     await writeSources()
-    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
-    await write(
-      "src/main.tsx",
-      'import styles from "../theme/site.css"\nimport { createRoot } from "react-dom/client"\ncreateRoot(document.body)'
-    )
     await write("theme/site.css", '@import "./colors.css";\n:root { --radius: 6px; }')
     await write("theme/colors.css", ":root { --brand: #3355ff; }")
+    await write("app/globals.css", ":root { --gap: 12px; }")
 
-    const { detected, generated } = await both()
+    const { detected, generated } = await both(["theme/site.css"])
     expect(detected.files).toEqual(["ui/Badge.tsx", "ui/Label.tsx"])
     expect(generated.files).toEqual(detected.files)
     expect(detected.styles).toEqual(["theme/site.css"])
     expect(generated.tokens).toEqual(["brand", "radius"])
     expect(generated.notes.join("\n")).not.toContain("No tsconfig")
-  })
-
-  it("read the same sources and a Next-style app/globals.css, with its relative @import", async () => {
-    await writeSources()
-    await write("app/globals.css", '@import "tailwindcss";\n@import "./theme.css";\n:root { --gap: 12px; }')
-    await write("app/theme.css", ":root { --brand: #ff5533; }")
-
-    const { detected, generated } = await both()
-    expect(generated.files).toEqual(detected.files)
-    expect(detected.styles).toEqual(["app/globals.css"])
-    expect(generated.tokens).toEqual(["brand", "gap"])
   })
 
   it("says when the configs include no files, rather than that there are none", async () => {

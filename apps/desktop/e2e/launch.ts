@@ -1,16 +1,27 @@
 // Starts an isolated copy of Parity for the end-to-end tests, the way scripts/perf.ts starts one: its own UI and
 // DevTools ports, profile, agent file and detection cache, with the code frozen at start, on a copy of the example
-// project made for the run. A copy of Parity a person already has open, and the example itself, are left alone.
+// project made for the run, holding the designs in e2e/fixtures rather than the example's own. A copy of Parity a person
+// already has open, and the example itself, are left alone.
 import { type ChildProcess, spawn, spawnSync } from "node:child_process"
 import { createWriteStream } from "node:fs"
 import { cp, mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, unlink, writeFile } from "node:fs/promises"
-import { createServer } from "node:net"
+import { type AddressInfo, createServer } from "node:net"
 import { tmpdir } from "node:os"
-import { basename, join, resolve } from "node:path"
+import { basename, join, parse, resolve } from "node:path"
+import { parseData, parserFor } from "@parity-app/core/schema"
+import { z } from "zod"
+import { print } from "../../../scripts/output.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
 const example = join(repoDir, "examples/shadcn-vite")
+
+/**
+ * The designs the tests run on, kept apart from the example's own file, so editing the example in Parity doesn't
+ * change what the tests find.
+ */
+const designs = join(appDir, "e2e/fixtures/shadcn-vite.par")
+
 /** The suite's own ports, beside the app's usual 5310 and 9333. */
 const suitePorts = { ui: 5385, debug: 9385 }
 
@@ -19,6 +30,8 @@ export interface Launched {
   uiPort: number
   debugPort: number
   project: string
+  /** The copy's profile, which holds its local copy of the events it records and the file agents find it through. */
+  profile: string
   /** The app's own output, which a test that can't reach the app quotes. */
   log: string
 }
@@ -34,10 +47,16 @@ export interface RunningApp extends Launched {
  * Starts the copy and waits until its window has loaded; `App.connect` waits for the designs to draw. It runs on 5385
  * and 9385, or on ports the system gives out when those are taken, so the suite runs beside a person's own copy, other
  * sessions' and another run.
+ *
+ * Parity asks for sign-in before anything else (PAR-1008), and the copy has its own user data folder, so it starts
+ * signed in as a stand-in, with no tokens and without WorkOS: `signedInAs` names another, and `signedOut` starts it at
+ * the sign-in screen.
  */
-export async function launch(): Promise<RunningApp> {
+export async function launch(
+  account: { signedInAs?: { email: string; name?: string }; signedOut?: boolean } = {}
+): Promise<RunningApp> {
   await enlargeRunnerDisplay()
-  const dir = await mkdtemp(join(tmpdir(), "parity-e2e-"))
+  const dir = await mkdtemp(join(copiesDir(), "parity-e2e-"))
   const project = await copyExample(dir)
   const profile = join(dir, "profile")
   await mkdir(profile)
@@ -45,6 +64,7 @@ export async function launch(): Promise<RunningApp> {
   const debugPort = await freePort(suitePorts.debug)
   const log = join(dir, "app.log")
   const output = createWriteStream(log)
+
   // On React's development build, as `pnpm dev` runs it, so StrictMode's checks and React's warnings run on every test.
   const runner = spawn(process.execPath, [join(appDir, "scripts/dev.ts"), project], {
     cwd: appDir,
@@ -58,16 +78,23 @@ export async function launch(): Promise<RunningApp> {
       PARITY_AGENT_FILE: join(profile, "agent.json"),
       PARITY_CACHE_DIR: join(dir, "cache"),
       // The same size every run, and a window that keeps drawing while other windows cover it.
-      PARITY_WINDOW_SIZE: `${pageSize.width}x${pageSize.height}`
+      PARITY_WINDOW_SIZE: `${pageSize.width}x${pageSize.height}`,
+      ...(!account.signedOut && {
+        PARITY_SIGNED_IN_AS: JSON.stringify(account.signedInAs ?? { email: "test@parity.test", name: "Test" })
+      })
     },
     stdio: ["ignore", "pipe", "pipe"]
   })
+
   runner.stdout?.pipe(output)
   runner.stderr?.pipe(output)
+
   const stop = async () => {
     await stopProcess(runner)
-    output.end()
+    await new Promise<void>((resolve) => output.end(resolve))
+    await keepTelemetry(dir, profile)
     await removeCopy(dir, project)
+
     // A copy on another port bundles into a folder and caches dependencies of its own, kept only for the suite's port.
     if (uiPort !== suitePorts.ui) {
       for (const folder of [join(appDir, "out", String(uiPort)), join(appDir, `node_modules/.vite-${uiPort}`)]) {
@@ -75,6 +102,7 @@ export async function launch(): Promise<RunningApp> {
       }
     }
   }
+
   try {
     await waitForWindow(uiPort, debugPort, runner)
   } catch (error) {
@@ -82,7 +110,8 @@ export async function launch(): Promise<RunningApp> {
     await stop()
     throw new Error(`${error instanceof Error ? error.message : String(error)}\nThe app's last output:\n${tail}`)
   }
-  return { uiPort, debugPort, project, dir, log, stop }
+
+  return { uiPort, debugPort, project, profile, dir, log, stop }
 }
 
 /** The page size every test is written for, which `App.connect` checks the window got. */
@@ -94,13 +123,17 @@ export const pageSize = { width: 1440, height: 900 }
  * Only on CI, so a person's own screen is never changed.
  */
 async function enlargeRunnerDisplay(): Promise<void> {
-  if (process.platform !== "win32" || !process.env.CI) return
+  if (process.platform !== "win32" || !process.env.CI) {
+    return
+  }
+
   const result = spawnSync(
     "powershell.exe",
     ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(setDisplay, "utf16le").toString("base64")],
     { encoding: "utf8", windowsHide: true }
   )
-  console.log(`Runner display: ${(result.stdout || result.stderr).trim()}`)
+
+  print(`Runner display: ${(result.stdout || result.stderr).trim()}`)
 }
 
 /** ChangeDisplaySettings through PowerShell, printing the size before and after and the call's result (0 is success). */
@@ -141,14 +174,26 @@ public static class Display {
 
 /**
  * This process's environment, less what Vitest sets for its own tests (`VITEST`, `TEST`, `NODE_ENV=test`), so the app
- * and its servers run as they do under `pnpm dev`.
+ * and its servers, and the `parity` commands the tests run, run as they do under `pnpm dev` and send telemetry.
  */
-function appEnvironment(): NodeJS.ProcessEnv {
+export function appEnvironment(): NodeJS.ProcessEnv {
   const env = { ...process.env }
+
   for (const name of Object.keys(env)) {
-    if (name.startsWith("VITEST") || name === "TEST") delete env[name]
+    if (name.startsWith("VITEST") || name === "TEST") {
+      delete env[name]
+    }
   }
-  if (env.NODE_ENV === "test") delete env.NODE_ENV
+
+  if (env.NODE_ENV === "test") {
+    delete env.NODE_ENV
+  }
+
+  // Every event from one CI run of the suite groups under its run in Sentry (PAR-630).
+  if (!env.PARITY_TEST_RUN && env.GITHUB_RUN_ID) {
+    env.PARITY_TEST_RUN = `github-${env.GITHUB_RUN_ID}-${env.GITHUB_RUN_ATTEMPT ?? "1"}`
+  }
+
   return env
 }
 
@@ -157,11 +202,18 @@ function appEnvironment(): NodeJS.ProcessEnv {
  * have: other copies of Parity, such as other sessions', are started on ports near the suite's.
  */
 async function freePort(preferred: number): Promise<number> {
-  if (await free(preferred)) return preferred
+  if (await free(preferred)) {
+    return preferred
+  }
+
   for (let tries = 0; tries < 20; tries++) {
     const port = await systemPort()
-    if (await free(port)) return port
+
+    if (await free(port)) {
+      return port
+    }
   }
+
   throw new Error("No free port")
 }
 
@@ -186,19 +238,32 @@ function systemPort(): Promise<number> {
     const server = createServer()
     server.once("error", reject)
     server.listen(0, "127.0.0.1", () => {
-      const address = server.address()
-      server.close(() =>
-        address && typeof address === "object" ? resolve(address.port) : reject(new Error("No port"))
-      )
+      // SAFETY: a server listening on a TCP port, as this one now is, reports an `AddressInfo`; only a pipe's address
+      // is a string, and it's null only before listening.
+      const { port } = server.address() as AddressInfo
+      server.close(() => resolve(port))
     })
   })
 }
 
 /**
- * Copies the example into the run's folder, adding what the tests need: components that ignore their props, and a
- * Members design that draws them. Installed packages are linked one by one rather than copied, so the copy's own
+ * Copies the example's code into the run's folder with the tests' own designs, adding what the tests need: components
+ * that ignore their props, and a Members design that draws them. Installed packages are linked one by one rather than copied, so the copy's own
  * builder caches go in its own folder.
  */
+/**
+ * Where the example's copy goes: the system's temporary folder, or the runner's when only that one is on the
+ * repository's drive, as on GitHub's Windows runners (C: against D:). The copy links the packages where they are, and
+ * Tailwind writes the `url()`s of the stylesheets a project imports from relative POSIX paths, which can't cross from one
+ * drive to another, so a copy on C: asked for its fonts at a path Vite answered with its page (PAR-1154).
+ */
+function copiesDir(): string {
+  const drive = (path: string) => parse(path).root.toLowerCase()
+  const runner = process.env.RUNNER_TEMP
+
+  return drive(tmpdir()) !== drive(repoDir) && runner && drive(runner) === drive(repoDir) ? runner : tmpdir()
+}
+
 async function copyExample(dir: string): Promise<string> {
   const root = join(dir, basename(example))
   const modules = join(example, "node_modules")
@@ -209,40 +274,81 @@ async function copyExample(dir: string): Promise<string> {
   // `@tailwindcss/vite` point into the temporary folder, where nothing is, and the project couldn't load its config.
   // A junction on Windows needs no special rights; elsewhere the type is ignored and it's a plain symlink.
   const link = async (from: string, to: string) => symlink(await realpath(from), to, "junction")
+
   for (const name of await readdir(modules)) {
     // Caches such as .vite-parity belong to whoever runs the example itself.
-    if (name.startsWith(".") && name !== ".bin") continue
+    if (name.startsWith(".") && name !== ".bin") {
+      continue
+    }
+
     if (!name.startsWith("@")) {
       await link(join(modules, name), join(root, "node_modules", name))
       continue
     }
+
     await mkdir(join(root, "node_modules", name))
+
     for (const scoped of await readdir(join(modules, name))) {
       await link(join(modules, name, scoped), join(root, "node_modules", name, scoped))
     }
   }
+
   await writeFile(join(root, "src/components/member-row.tsx"), memberRow)
   const file = join(root, "shadcn-vite.par")
-  const document = JSON.parse(await readFile(file, "utf8")) as { containers: unknown[] }
+  const document = parseData(exampleDocument, JSON.parse(await readFile(designs, "utf8")))
   document.containers.push(membersDesign)
   await writeFile(file, `${JSON.stringify(document, null, 2)}\n`)
+
   return root
+}
+
+/**
+ * Copies the run's local copy of its telemetry out of the folder `stop` removes, to `PARITY_E2E_TELEMETRY` when it's
+ * set, failed run or not: the app's logs, the `parity` commands' logs and the app's output. CI sends only errors to
+ * Sentry, so on CI this is where a run's spans and logs are, and app.yml uploads the folder (PAR-785). It keeps the
+ * profile's layout, so `parity logs` reads it with `PARITY_USER_DATA` set to the folder.
+ */
+async function keepTelemetry(dir: string, profile: string): Promise<void> {
+  const kept = process.env.PARITY_E2E_TELEMETRY?.trim()
+
+  if (!kept) {
+    return
+  }
+
+  const copies = [
+    { from: join(profile, "logs"), to: "logs" },
+    { from: join(profile, "cli-logs"), to: "cli-logs" },
+    { from: join(dir, "app.log"), to: "app.log" }
+  ]
+
+  await mkdir(kept, { recursive: true })
+
+  for (const { from, to } of copies) {
+    // A run that stopped early may not have written one of them.
+    await cp(from, join(kept, to), { recursive: true }).catch(() => undefined)
+  }
 }
 
 /** Takes the links out before the folder, so removing it can't reach the packages they point to. */
 async function removeCopy(dir: string, project: string): Promise<void> {
   const modules = join(project, "node_modules")
+
   for (const name of await readdir(modules).catch(() => [])) {
-    if (name.startsWith(".") && name !== ".bin") continue
+    if (name.startsWith(".") && name !== ".bin") {
+      continue
+    }
+
     if (!name.startsWith("@")) {
       await unlink(join(modules, name)).catch(() => undefined)
       continue
     }
+
     // A scope is a folder of its own, holding a link for each of its packages.
     for (const scoped of await readdir(join(modules, name)).catch(() => [])) {
       await unlink(join(modules, name, scoped)).catch(() => undefined)
     }
   }
+
   await rm(dir, { recursive: true, force: true, maxRetries: 5 })
 }
 
@@ -254,67 +360,95 @@ async function waitForWindow(uiPort: number, debugPort: number, runner: ChildPro
   const deadline = Date.now() + 180_000
   let exited = false
   runner.once("exit", () => (exited = true))
+
   while (Date.now() < deadline) {
-    if (exited) throw new Error("The app stopped while starting")
+    if (exited) {
+      throw new Error("The app stopped while starting")
+    }
+
     const pages = await fetch(`http://127.0.0.1:${debugPort}/json/list`)
       .then((response) => response.json())
+      .then(devtoolsTargets)
       .catch(() => [])
-    if (Array.isArray(pages) && pages.some((page) => isWindow(page, uiPort))) return
+
+    if (pages.some((page) => isWindow(page.url, uiPort))) {
+      return
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 500))
   }
+
   throw new Error("The app's window didn't load within three minutes")
 }
 
 /** The app's own window, as the protocol lists it, rather than the offscreen renderer or a tool. */
-export function isWindow(page: unknown, uiPort: number): boolean {
-  if (typeof page !== "object" || page === null || !("url" in page) || typeof page.url !== "string") return false
-  return page.url.startsWith(`http://localhost:${uiPort}`) && !page.url.includes("render")
+export function isWindow(url: string, uiPort: number): boolean {
+  return url.startsWith(`http://localhost:${uiPort}`) && !url.includes("render")
 }
+
+/** The pages and workers the DevTools protocol lists at `/json/list`, by their URLs. */
+const devtoolsTargets = parserFor(z.array(z.object({ url: z.string() })))
+
+/** The tests' design file, as far as the copy reads it: its designs, kept as they are, and the rest left alone. */
+const exampleDocument = z.looseObject({ containers: z.array(z.json()) })
 
 /** Stops the runner and everything it started: Electron, its service and the servers. */
 async function stopProcess(child: ChildProcess): Promise<void> {
-  if (child.exitCode !== null || !child.pid) return
+  if (child.exitCode !== null || !child.pid) {
+    return
+  }
+
   const exited = new Promise((resolve) => child.once("exit", resolve))
+
   // The runner stops Electron when it ends, but on Windows only a tree kill ends them all at once.
-  if (process.platform === "win32") spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" })
-  else child.kill()
+  if (process.platform === "win32") {
+    spawn("taskkill", ["/pid", String(child.pid), "/T", "/F"], { stdio: "ignore" })
+  } else {
+    child.kill()
+  }
+
   await Promise.race([exited, new Promise((resolve) => setTimeout(resolve, 10_000))])
 }
 
 /**
  * Components the canvas has to find from React's tree: a row that takes a member and renders none of its other props,
  * a pair of elements with nothing around them, and a field that passes its props to the input inside it. A row warns
- * when it's clicked, for the console's tests.
+ * when it's clicked, for the console's tests. Drawn without a member, as on their boards, the row and the pair show a
+ * stand-in rather than failing, so their frames draw and are captured as the others are.
  */
 const memberRow = `import type * as React from "react"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
+import { Avatar, AvatarFallback, Badge, Input } from "@buildkitgg/shadcn-baseui-nova"
 
 export interface Member {
   name: string
   role: string
 }
 
+const standIn: Member = { name: "Member", role: "Role" }
+
 /** One member of a team: it takes the member and nothing else, so it renders none of the props it's given. */
 export function MemberRow({ member }: { member: Member }) {
+  const { name, role } = { ...standIn, ...member }
+
   return (
-    <div className="flex items-center gap-3 rounded-md border p-3" onClick={() => console.warn("Picked", member.name)}>
+    <div className="flex items-center gap-3 rounded-md border p-3" onClick={() => console.warn("Picked", name)}>
       <Avatar>
-        <AvatarFallback>{member.name.slice(0, 2)}</AvatarFallback>
+        <AvatarFallback>{String(name).slice(0, 2)}</AvatarFallback>
       </Avatar>
-      <span className="flex-1 text-sm font-medium">{member.name}</span>
-      <Badge variant="secondary">{member.role}</Badge>
+      <span className="flex-1 text-sm font-medium">{name}</span>
+      <Badge variant="secondary">{role}</Badge>
     </div>
   )
 }
 
 /** A member's name and role, with no element around them. */
 export function MemberNames({ member }: { member: Member }) {
+  const { name, role } = { ...standIn, ...member }
+
   return (
     <>
-      <span className="text-sm font-medium">{member.name}</span>
-      <span className="text-xs text-muted-foreground">{member.role}</span>
+      <span className="text-sm font-medium">{name}</span>
+      <span className="text-xs text-muted-foreground">{role}</span>
     </>
   )
 }
@@ -349,7 +483,12 @@ const membersDesign = {
     id: "page",
     name: "Page",
     type: "layout",
-    style: { gap: 3, padding: [6, 6], background: "background", foreground: "foreground" },
+    style: {
+      gap: { step: 3 },
+      padding: [{ step: 6 }, { step: 6 }],
+      fills: [{ type: "solid", color: { token: "background" } }],
+      color: { token: "foreground" }
+    },
     children: [
       member("ada", "Ada Lovelace", "Admin"),
       member("lin", "Lin Yu", "Editor"),
@@ -370,6 +509,5 @@ const membersDesign = {
       }
     ]
   },
-  states: [{ id: "default", name: "Default" }],
   view: { modes: [] }
 }

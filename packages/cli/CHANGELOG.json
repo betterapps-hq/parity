@@ -2,6 +2,2119 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 07:28:34 GMT",
+      "version": "0.72.3",
+      "tag": "@parity-app/cli_v0.72.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "373fabbad0162d5900865db3b33374bb04b9c9b5",
+            "comment": "Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into the browser"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c88ca6acfa9647db7ce129d1c64b73794367c1e8",
+            "comment": "Keep the stylesheets a project's modules import out of Parity's own window, and draw them in its frames instead (PAR-1181)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 16 Nov 2026 04:20:39 GMT",
+      "version": "0.72.2",
+      "tag": "@parity-app/cli_v0.72.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "597c25259f61e46a7d84a80b188bbc9ac656a6be",
+            "comment": "Open a project with one Vite server: the builder starts as soon as the renderer is known and says which stylesheets the app loads, instead of a second server loading the project's config first"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 16 Nov 2026 03:59:00 GMT",
+      "version": "0.72.1",
+      "tag": "@parity-app/cli_v0.72.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ba5e16713884c50e1f1c45203e60b0d0e089ec7c",
+            "comment": "Leave the builder's own console chatter to its manifest, and drop the inspector's dead Tailwind readouts"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 16 Nov 2026 00:12:13 GMT",
+      "version": "0.72.0",
+      "tag": "@parity-app/cli_v0.72.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "73a42b9006025d9d9ca76489918ef0dd455955cc",
+            "comment": "The Components panel, component boards and the Home screen take pages from the project's routes, whatever its router calls its files"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7b6893a539cc9399a20ee3c330be052a04b1181",
+            "comment": "Next.js projects draw their own App Router and Pages Router pages on canvas, in each frame's mode, on Turbopack and webpack"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "39c65c88897c16c0c9e742b8f4bae1de6ddcea47",
+            "comment": "Next.js components that read the router draw on canvas, inside a still router at the root."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d555e20f1d31e094ccd85cef3c983aee3112e9d2",
+            "comment": "Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the extension API"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e5eca2d977cc206672694f90115087916e72ee93",
+            "comment": "The editor's designs live in a project document on the local provider, with operation-based undo and a saver, in place of the design store."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "236047b66673804c60afab0dccd9bc35d96e4e9c",
+            "comment": "Components that render React Router's or TanStack Router's Link now draw on canvas on their own, inside a router at the frame's URL."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 14:54:39 GMT",
+      "version": "0.71.1",
+      "tag": "@parity-app/cli_v0.71.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1a599a56c97771e3c259901b12aac44ff2e0f39c",
+            "comment": "Draw components of apps whose Vite plugin wraps modules for Fast Refresh, as React Router's does"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 14:18:00 GMT",
+      "version": "0.71.0",
+      "tag": "@parity-app/cli_v0.71.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5df8164b4a120b30c0e2fbd6f03842791963397a",
+            "comment": "Build and draw components for Rspack projects, through a builder shared with other webpack-compatible tools"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5ad7156df5fa786487bfe5b347090bbc921253ee",
+            "comment": "Support React 18: components draw on it, component layers forward refs, and frames report errors without React 19's root callbacks."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "20eaf8ccf872568ba766baf20ff2be222f35a67c",
+            "comment": "Routes are router-neutral: a router's extension gives each route's kind and its URL as segments, rather than its own path syntax"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2d3a45d9c81a6f869161a1db4ff12c96f5354aff",
+            "comment": "Open Next.js apps that run Turbopack: their components and pages draw with the project's own Next and config."
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d90123f8e0d01b0bcb69672c793affd7895c31e2",
+            "comment": "Story files are named, grouped and coloured as their extension's manifest says, rather than by Storybook's name in Parity"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "56be44121659b0655625b02eb3b69f890829b506",
+            "comment": "Detection finds a tool listed only in optionalDependencies."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e6016b8bb8233964639fc4bf614c1c8bd86a8632",
+            "comment": "Storybook is found and read by its extension alone; Parity's core no longer reads the project's Storybook"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "26796204b3f8c7c52c6d78762befac34fade69c4",
+            "comment": "Stop reading shadcn's components.json and the UI kit folder: stylesheets come from the app's entry or the usual places, every detected component loads as it's drawn, and components sharing a name all gain their folders."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "bb257808220a9499904fa2c819a4bfaa2fca6da8",
+            "comment": "Remove adapter actions, which no adapter declares any more; extensions' commands are what components and pages offer"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b1e2f2edadb2fe988d441a9a32bbe70c70038aed",
+            "comment": "Draw a component loaded on demand once its module loads, even when the load finished before the frame's effect ran"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2c29092b062926846204944bc5df9c294de969c0",
+            "comment": "Skip any tool's *-static build folder when reading the app's code, rather than Storybook's by name"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "847be1975d42d6f44e02ebcc2a6a5ea1cd2862d9",
+            "comment": "Notice a stylesheet or module the app imports once it's created, and ignore commented-out and dynamic imports in an inline module script"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d1ab77103b525e8ff02f0b77171cdf0561d2c12c",
+            "comment": "project.opened records each detected tool's version in one tools field, instead of a field per tool"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "49cf7109be5fd3d0c5170ecf2bb1e23690d3ebfc",
+            "comment": "Choosing an organization at sign-in finishes through Parity's service, without signing in to Google again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b820fb8d7cc8bdf6c444993cd92840ca57c4e102",
+            "comment": "Check only the layers a change made, so undo and edits on large designs cost a fraction of what they did"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "08735aa506495b0d24ec015fd67ff11866d6d5aa",
+            "comment": "Remove packages/adapters; every tool runs as an extension (PAR-1095)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 08:25:04 GMT",
+      "version": "0.70.0",
+      "tag": "@parity-app/cli_v0.70.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "402b947f5e37f91c0c4fa2e8b3a90ece8d10595e",
+            "comment": "Storybook's stories are read and written through its extension's entities provider"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 06:12:59 GMT",
+      "version": "0.69.0",
+      "tag": "@parity-app/cli_v0.69.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f4081c1d16202ea7bfc60cf8e318bb7ccdc27f18",
+            "comment": "Vite runs as an extension through a builder provider"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4fc92c6211b2fa8faad0eeddd6c235e305f096f2",
+            "comment": "Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "be0f7ffe61a5dc77f75e929f0ab8c5b4cba87485",
+            "comment": "Adds the project document (ProjectDoc) and its saver in @parity-app/multiplayer; the editor exports a few comparison helpers for it."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 03:17:33 GMT",
+      "version": "0.68.0",
+      "tag": "@parity-app/cli_v0.68.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "33dde64e3cf170083c2d6bd406a3556c8219a7d0",
+            "comment": "React runs as an extension through a renderer provider"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "52d4ff0a1c7667dad7e508fcec707a9ca3557fb2",
+            "comment": "A stopped agent snippet no longer goes on calling the tab's next call"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 02:06:02 GMT",
+      "version": "0.67.0",
+      "tag": "@parity-app/cli_v0.67.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6d9b017605265748be4c83f54c88131aed73e397",
+            "comment": "Settings' diagnostics level, Get beta updates and the install ID are kept in settings.json, which the CLI reads too"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "87d81c7463d413ad1f2e4758c897256df405e1ad",
+            "comment": "Extensions start, adopt and watch a project's processes with parity.processes, which outlive their host; Storybook runs on it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d04b81b3565ba2b510f3dcc7f363ad0279395a9c",
+            "comment": "Tailwind CSS runs as an extension through a styles provider"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1f944c3858a22248c004186c94d16d23ac091e95",
+            "comment": "TanStack Router runs as an extension: its router provider gives the routes, and Open in browser and the route count are its own"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d9682454c053d0f922a6ecbb6c11a6f6084b306f",
+            "comment": "Extensions can register address and discovery providers, and read and watch files the read permission names; Portless is now a built-in extension."
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3a4d9e3959086b62bada26f037a8de556ae59b23",
+            "comment": "Every outline on the canvas takes the color of what it goes round, and selecting a layer or preview no longer outlines its board"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ee2f31cb2fa6e1116f087229052353079cc3b862",
+            "comment": "A board's first state label lines up with its frames, as the later rows' labels do"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5ead6130e8288fa5b900234d113caf9acb4cd4e4",
+            "comment": "Keep the UI kit folder components.json names while it's empty, rather than taking the app's components folder for it"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 15 Nov 2026 00:21:40 GMT",
+      "version": "0.66.0",
+      "tag": "@parity-app/cli_v0.66.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b351790c88443690c8536a7066d92b1f3a188247",
+            "comment": "New designs get ids with a readable stem and five random characters, and a pasted design always gets a new id, so designs added by different people don't collide"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2a4214488cd4442944971880b4b0e6e14da3a682",
+            "comment": "Extensions can offer an API to each other and tools to agents: parity extensions and parity run (get_extensions and run_extension) list a project's extensions and run their commands and tools, with each change named after the agent and the extension"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e6c38f55ff52ea9a2d1f91272784f4baae6aff6e",
+            "comment": "Processes have one start per id, ready checks, tasks, restarts after a crash and checks on adopted servers, and send processes.* events in place of server.*"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 22:45:30 GMT",
+      "version": "0.65.0",
+      "tag": "@parity-app/cli_v0.65.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3ad8f93d66c91031853b294eac6ffcf8f43519c2",
+            "comment": "Extensions with the edits permission change designs as one undo step named after them, and write project files through Parity, never .par files"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f2e2dd2065ac8dd2ff5d08ef16a2efa3834db548",
+            "comment": "Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands only where a when expression holds, and add keys, which Parity's own win (PAR-1092)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "896754c8bb70dab2511030d1c9bd19ea28fa277d",
+            "comment": "Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no longer exist"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dfef12b389613a21a930b8a3e74afa256bbdf698",
+            "comment": "Storybook and TanStack Router take their supported versions from their extensions' peer dependencies"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f16a4b9e4ba0e7a192efeef012ebc068aada1ef7",
+            "comment": "Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying that fades and selects, and a screen-sized preview ring"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 21:19:27 GMT",
+      "version": "0.64.0",
+      "tag": "@parity-app/cli_v0.64.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1d4c2d037c390680e374b08711a42a7782cb28c5",
+            "comment": "Settings builds each extension's Adds from what its adapter and extension tell the window"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 12:19:59 GMT",
+      "version": "0.63.0",
+      "tag": "@parity-app/cli_v0.63.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "955f18ff14584743dbeda47228dadbefe91b3f5d",
+            "comment": "Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from its host"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e5ce28a1746bb34d25a952e3a7fc62f2dc8a401b",
+            "comment": "Update the node index in place from what an edit touched, and tell watchers once per settled edit"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f14fd0904667f1c83c25ca4349e909105816fd87",
+            "comment": "Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 12:01:37 GMT",
+      "version": "0.62.0",
+      "tag": "@parity-app/cli_v0.62.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a9823b4292590c0f78fe7f62daf1c111d7c3e44f",
+            "comment": "A project file can keep its own autosave, snapping, layout grid and export sizes, and Storybook's config folder; exporting every design writes each of the export sizes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "70c03ab95db88024283fb40296d74c18e52169de",
+            "comment": "Previews on a board can be selected, zoomed, set to their own width, theme and language, and resized by a handle that lands on the app's breakpoints"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c6d828b893e53aa5eca809b2c2212d0158e8e67b",
+            "comment": "Pages, component boards and stories keep their modes, scales, route params and tried sizes when the project reopens, and Open in browser shows on the canvas and in Search actions"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "76f262d6323b4952c4d58300f00a4210adcfe5c0",
+            "comment": "Move the tool adapters into adapters/, and read Storybook stories as screens"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "070bcaf20d033c107552dc755d30a387aeb1bbfd",
+            "comment": "Name the registry's library files for their packages, so a project opens without reading the files of packages it doesn't use"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 11:03:54 GMT",
+      "version": "0.61.3",
+      "tag": "@parity-app/cli_v0.61.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0e1ba32fdc0347cf100000b262735967175e1ece",
+            "comment": "Find a project's library files by an index, so a project opens sooner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 14 Nov 2026 06:03:09 GMT",
+      "version": "0.61.2",
+      "tag": "@parity-app/cli_v0.61.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c0a3635a1f676f99504da97761bb5d0e6d3c9c07",
+            "comment": "account.storeFailed's stage now says the file stays when a copy can't read it."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7d5b8d260b01040bb29a1be2d11012e9d082a246",
+            "comment": "Read a project's TanStack Router routes"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 13 Nov 2026 06:22:45 GMT",
+      "version": "0.61.1",
+      "tag": "@parity-app/cli_v0.61.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e3bdf7167ffb98d482accd55c94251f8851401b4",
+            "comment": "Every design added to or deleted from a file, by the editor or an agent, goes through core's addDesigns and removeDesigns, and a new file starts as emptyDocument, so the format's version is written in one place."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "005b0550d525797eb611c597e87e12ea2f5afa1f",
+            "comment": "Set a layer's name, tag, picture and other own fields through one function, so Layers, the Content section and an agent's Update agree: an empty name or alt text takes it away, and a field the layer doesn't have is refused"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 13 Nov 2026 06:02:24 GMT",
+      "version": "0.61.0",
+      "tag": "@parity-app/cli_v0.61.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "88feb44df2d6282185ccaabebb8ab5287fb0ed84",
+            "comment": "Export and Report draw their frames through the agent API as functions, not as snippets in the vm, so no snippet time limit applies to them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "acf1371ffdcac317586ae6cdccd3617107d4b324",
+            "comment": "Agents' viewport patches are written through core's editResponsive, and a state an agent writes keeps an unset key the layer doesn't have"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2b4c37c3781911be4496530e2da57ef59871f9cf",
+            "comment": "Agent snippets are stopped once they run for 2 minutes or compute for 5 seconds between awaits, including after their first await, and fail without changing anything"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4d0b1c9c80cf3c48f9cfb3409cbe1aab4f344642",
+            "comment": "An agent's Copy now copies layers as Ctrl+V pastes them: as the base shows them, keeping only the bindings the destination has params for."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "26eb946de810eb55d6e4cc3b7873b5f1e7a66832",
+            "comment": "Work out what a token comes to in one place, tokenValue, which the editor and the agent's SetTokens checks both read (PAR-1049)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "127868a884ea074771295e658d7a147003935871",
+            "comment": "Pick what fills an instance's slot from the design's layers and the project's components, or drop a layer on it from Layers"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dede72c37ce0dede706fa5c18f9848126248ce3a",
+            "comment": "Move core's last files that aren't the .par model to the packages that use them, and drop core's unused names (PAR-1044)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 13 Nov 2026 02:33:44 GMT",
+      "version": "0.60.5",
+      "tag": "@parity-app/cli_v0.60.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6e6f6695f6567195a8bd8f5da857e653e4abcaa5",
+            "comment": "Core and editor name what other packages may use in src/index.ts"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 13 Nov 2026 02:04:23 GMT",
+      "version": "0.60.4",
+      "tag": "@parity-app/cli_v0.60.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ac4a52a5bc27b83717cd01ad8f75776389e06bec",
+            "comment": "The desktop app's process logic moves out of core into @parity-app/processes"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 13 Nov 2026 01:34:43 GMT",
+      "version": "0.60.3",
+      "tag": "@parity-app/cli_v0.60.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "655d7490c2a527ee6ccde9a28ed12401e0c60952",
+            "comment": "Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers move into the style package"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "33315a25f3e73e69a98d53c06bf89020e7ee8a90",
+            "comment": "Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo step with pasteStepName in place of pasteLabel (PAR-985)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "829e7598ce5a7601ae6a1c66b87003f40770809f",
+            "comment": "The Design tab picks every section a selection shows from one table"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "717720f2086e7fb2725c408ae7b912993dee9411",
+            "comment": "Split libgen's relateParts into passes with a test each; output unchanged."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 13 Nov 2026 00:22:24 GMT",
+      "version": "0.60.2",
+      "tag": "@parity-app/cli_v0.60.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cc4122089c87e30bc7f0189c63c44c82ca0bd897",
+            "comment": "Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a list entry back if it goes while it's dragged (PAR-982)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 23:05:06 GMT",
+      "version": "0.60.1",
+      "tag": "@parity-app/cli_v0.60.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "fc0309ae56ac88dbc41366ba75eeb03a581c6088",
+            "comment": "The Design panel lists only the project's own tokens, converted once, and new shadows name only tokens the project has"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 22:46:32 GMT",
+      "version": "0.60.0",
+      "tag": "@parity-app/cli_v0.60.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "edbb4794472aa92d91106a856b6e275d20d9d37e",
+            "comment": "Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's selected by then, and Paste to replace replaces nothing when the selection changed meanwhile"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "47b9278a2f2722ed307520704327aa3dda6205a7",
+            "comment": "Design tab: regrouped sections, the approved Component instance and props rows, measured sizes, and field errors that stay as typed"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 22:11:04 GMT",
+      "version": "0.59.0",
+      "tag": "@parity-app/cli_v0.59.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2111c5d7e2a0bbc3f7bd18145b22b656e729c5c4",
+            "comment": "Drop references to the deleted decisions record from comments"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "683ec8c151580af88f90748a791c74341c843d9b",
+            "comment": "Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and the inspector. Text and props still bind."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:53:23 GMT",
+      "version": "0.58.0",
+      "tag": "@parity-app/cli_v0.58.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c8b6e459553861709e9d51ed3ece0e9537ed1c75",
+            "comment": "Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project with one check (PAR-973)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "23b45b3b0b49a017b1f053b82e1e9870760115fa",
+            "comment": "A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says which file and why, with one Close button"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:29:28 GMT",
+      "version": "0.57.0",
+      "tag": "@parity-app/cli_v0.57.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b897319e647682322827005a7fe26079e1964ded",
+            "comment": "Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 12:10:47 GMT",
+      "version": "0.56.1",
+      "tag": "@parity-app/cli_v0.56.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0a3e44222eda2d7eb68ba9630462bc63c7d8da22",
+            "comment": "Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 11:51:18 GMT",
+      "version": "0.56.0",
+      "tag": "@parity-app/cli_v0.56.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa05d0d08107779a10f37d601177d1621b3e03bc",
+            "comment": "Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize, fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: \"primary\" }, { size: \"fill\" }). A version 3 file no longer opens"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a5016c0ce76c1a73cbdc3c66de8df44e02ebdb52",
+            "comment": "A search that needs someone signed in to Parity is no longer a failure: agents carry on without the source"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 10:56:22 GMT",
+      "version": "0.55.0",
+      "tag": "@parity-app/cli_v0.55.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5aabfd198fbe462351e38e3079dfb8974df453dc",
+            "comment": "States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs() lists states for components alone"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 09:40:43 GMT",
+      "version": "0.54.0",
+      "tag": "@parity-app/cli_v0.54.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "31327249126dc7b7017b7de98ee3dbb887bed23a",
+            "comment": "Rename @parity-app/style to @parity-app/style-schema"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6bea2c2034f8f56a3bf4f11e12915f27ab2b6f85",
+            "comment": "Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right values and extract cleanly (PAR-998)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "88e402ad8e66c17330c70d31e54b46822e8b3514",
+            "comment": "Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or an edit to one component no longer recaptures every frame"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 08:08:28 GMT",
+      "version": "0.53.2",
+      "tag": "@parity-app/cli_v0.53.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "73084b479a2dfdd45e9eef95b0007beefbf31693",
+            "comment": "An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 07:22:39 GMT",
+      "version": "0.53.1",
+      "tag": "@parity-app/cli_v0.53.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "47c6da3f08643df36e9943595276e3a8e3a51fe2",
+            "comment": "Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:54:47 GMT",
+      "version": "0.53.0",
+      "tag": "@parity-app/cli_v0.53.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "22637499fd40c33f85b748efc0cc11227a34e4af",
+            "comment": "Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 05:19:24 GMT",
+      "version": "0.52.0",
+      "tag": "@parity-app/cli_v0.52.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2f195d6458b86b936a08882caff1a50493e827d3",
+            "comment": "Core's update state and the update.failed event carry the updater's error code; the CLI doesn't change"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b1e205d84bfe03cc38935d761218957e7d943667",
+            "comment": "Report a crashed project service with what it printed, and name the pre-promotion environment beta"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e217bce57fc9396e90021bd766041447e212a78e",
+            "comment": "Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a minimized window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c27fe3a0fb7525786a06b3a2241808a6776d9ab4",
+            "comment": "Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's own blocked reports group as one Sentry issue."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b853ed3bb3fdc8472e0d3de85bb52ec10294792f",
+            "comment": "parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a builder stopped by a signal isn't sent to Sentry as an error"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c4b40904f11b32762815aa681b4e931287250278",
+            "comment": "`open_project` and `parity open` now say that opening an open project detects it again, and ask agents not to kill Parity to pick up changes (PAR-817, PAR-818)."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "49bc4fa69c015b3205a875ce89ee61f546becf21",
+            "comment": "SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 04:25:08 GMT",
+      "version": "0.51.0",
+      "tag": "@parity-app/cli_v0.51.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "09961c3a3ee4663830d34f9c9e80eff5b3559baf",
+            "comment": "Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a layout is relative only when a child is placed in it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c5b1ba4d6d7a74663300c8ef431c4929e30e875",
+            "comment": "Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and result, and every type they name, with their doc comments"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "48e4559704bdaa06c614ff6b471edf140d01cc5b",
+            "comment": "Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 04:02:39 GMT",
+      "version": "0.50.0",
+      "tag": "@parity-app/cli_v0.50.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "227c91f1afead13c9f7000f6b4e5fc56297cd944",
+            "comment": "Print style declarations as plain CSS rules and read them back; nothing in the app calls it yet"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0d3f13e42602272b668ee9f21374db9e1ecb2eeb",
+            "comment": "Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take overrides"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "48261bcd8e27a18d85f5f7e555fa57daef8b0608",
+            "comment": "Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take role, id and aria-* props on their elements."
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "803709527c8f576be6ad842fa32c1aa74e0ad07e",
+            "comment": "Say which package Vite came in when a project installs Vite+ as vite, in the detection summary: Vite 8.3.5, shipped by Vite+ 1.4.0"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 03:17:52 GMT",
+      "version": "0.49.0",
+      "tag": "@parity-app/cli_v0.49.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c0d9c1441c6ec1c4a78aa7dda6592b3687791779",
+            "comment": "Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out (PAR-904)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ed01b5b1f93009f40d21b910e33401159311d3d8",
+            "comment": "A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query wins over app state; its text and props stay under them (PAR-902)."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0e1593849445afcec54342b40cb624e6438f9dd6",
+            "comment": "Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cfac23a00ec6aeedefe4b39484ac4db796fe414a",
+            "comment": "Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas and offscreen"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7a697a050d46dd1d83b357b6b310d3bc151e7fef",
+            "comment": "Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style breaks long words; an absolutely placed component with left and right stretches between them"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1726ec985e2fdd10929b7a220a63a11e7422941c",
+            "comment": "parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it created (PAR-909)"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c14e7816517215f9d1167f69237c28ce1a68c711",
+            "comment": "Print style declarations as Tailwind classes and read classes back; nothing in the app calls it yet"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 02:22:25 GMT",
+      "version": "0.48.0",
+      "tag": "@parity-app/cli_v0.48.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b0802d32f4ca5f8661509720861565edf5dccee9",
+            "comment": "Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b306ad98eff8da09abab1158f18c63bcda706864",
+            "comment": "Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and shows design/node"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7b58c948737dd0bb161db1e0a033c7d14e671dab",
+            "comment": "Each builder adapter names the config files detection follows, so adding or removing one detects an open project again"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "15ec2b4e2891b96c45fbcb013e0b8bd89fcf530b",
+            "comment": "A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that maximum and then sits where it's aligned, instead of hugging its content (PAR-897)."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d9a7970b52fa2825bf0d63cdf8e71b85cc87cae6",
+            "comment": "Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6e1dfa30888c57df4aab64eb92e35b443239593d",
+            "comment": "Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s faster per call than npx"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ec9ac2a5badd5a78421e3563caafdbe20e6e6397",
+            "comment": "Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam change them, and Update binds a node (PAR-901)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c0736d25bfcd4693edb6d2dc487a5b2317f5f8b4",
+            "comment": "Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion and by agents (PAR-934)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 00:46:36 GMT",
+      "version": "0.47.1",
+      "tag": "@parity-app/cli_v0.47.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "47ee852322ebd72fc5e55997fe27e818df0600c2",
+            "comment": "Move the style schema and its CSS into @parity-app/style"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "59bee641a9887ff8ceca7bc6ff88bd6e17b6365c",
+            "comment": "A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 00:27:08 GMT",
+      "version": "0.47.0",
+      "tag": "@parity-app/cli_v0.47.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8392d25aa3ba929e28e9e23b951b538dacfed22e",
+            "comment": "Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color token"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Thu, 12 Nov 2026 00:08:16 GMT",
+      "version": "0.46.0",
+      "tag": "@parity-app/cli_v0.46.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a5743de9214af39184c3ff37e667ac40703865fc",
+            "comment": "Effects: a stack of shadows, layer and background filters, and a transform, edited in the Design tab's Effects section and by the agent. Text case is now textTransform."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cd85387b63981f70006e4547053d54ac2b9e4634",
+            "comment": "Set a layer's order (z-index): a whole number or a z-index token, in the document, the render, the agent's tools and the Design panel's Layer order section"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 11 Nov 2026 11:07:57 GMT",
+      "version": "0.45.0",
+      "tag": "@parity-app/cli_v0.45.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "44a39d93d3c6afc974edf5c70aaf88c61c3f3d80",
+            "comment": "Pick a layer's style sections from what it can do, move the approved styling controls into the inspector, and have each field's label name its control"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 11 Nov 2026 09:32:38 GMT",
+      "version": "0.44.0",
+      "tag": "@parity-app/cli_v0.44.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dddc241bdbf46f86f730488d61e38d7e303a5a88",
+            "comment": "Agents can ask for the tokens nearest a raw color or length: GetTokens({ nearest }), parity tokens --nearest and MCP get_tokens list them nearest first, with how far each is"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dddc241bdbf46f86f730488d61e38d7e303a5a88",
+            "comment": "Read, write and match colors for the color picker, and explore the styling controls (PAR-186)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 11 Nov 2026 09:09:45 GMT",
+      "version": "0.43.0",
+      "tag": "@parity-app/cli_v0.43.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a7789b1d4da518ad0f6020bef9ae7fb18e2466f3",
+            "comment": "Problems reports a node squeezed narrower than its width, and a node in the layout's flow spilling out of a parent that doesn't clip"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 11 Nov 2026 08:42:05 GMT",
+      "version": "0.42.1",
+      "tag": "@parity-app/cli_v0.42.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "627971695dc47f01cce52428c8bef9d59023ed0b",
+            "comment": "Agents' state changes keep values equal to the base, Responsive merges style and props key by key, and instance overrides can name layers"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e90cd349e4b4b6ec7481e70995aaaedff009b3d1",
+            "comment": "Draw popups that components portal to the page's body inside their frame, with the project's styles, and report content left outside the frame in problems (PAR-881)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f8c88cd5441738c37f9c828c3f5edaa422c7824b",
+            "comment": "Draw empty layouts as the code does in screenshots, exports and measurements; only the canvas gives them a size and dashes"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Wed, 11 Nov 2026 08:07:32 GMT",
+      "version": "0.42.0",
+      "tag": "@parity-app/cli_v0.42.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3e86408f3cfde450a00fe72ec05cc5f7f71f9bf9",
+            "comment": "Agents' states and Update can change a layer inside an instance by its instance/inner path, as the editor can"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "eafafc97527e1304170ae7588a0d0017ba3c1e8c",
+            "comment": "screenshot --sheet (MCP sheet: true) returns one labeled contact sheet per design, every state and mode, instead of one image per frame"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 23:55:56 GMT",
+      "version": "0.41.0",
+      "tag": "@parity-app/cli_v0.41.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "66a52db876300cbcec38352d9f1073aa687e52ec",
+            "comment": "Add a video layer: MP4 and WebM files are imported by drop, paste and the Media tab into public/videos, found and played in the Media tab, added from Pixabay, and placed by agents with place_result"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 22:21:48 GMT",
+      "version": "0.40.0",
+      "tag": "@parity-app/cli_v0.40.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "84392b23a079fe27170cf7eefba8c2172d5ac1a2",
+            "comment": "Agents read the references placed beside a design: References() in execute, get_references with the pictures, and a count per design in get_app_state. A reference records the design it was found for."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 21:21:43 GMT",
+      "version": "0.39.1",
+      "tag": "@parity-app/cli_v0.39.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c3687f3c968144b0f91b18d2ee320f14710c5ee3",
+            "comment": "Group every main hang, and every UnknownVizError, as one Sentry issue each, so Sentry's alert files one Linear bug instead of one per stack"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 21:00:09 GMT",
+      "version": "0.39.0",
+      "tag": "@parity-app/cli_v0.39.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5847317abd085156019e4228dc5201dfe9099300",
+            "comment": "Place references from Mobbin on the canvas, from Find references and by agents' PlaceReference, kept in the project's file beside notes"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 14:26:38 GMT",
+      "version": "0.38.1",
+      "tag": "@parity-app/cli_v0.38.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6625f407676a45a9505a9790098d2bcec5d2382f",
+            "comment": "Media card: stays open while you search where a picture is used, Escape steps back, small pictures keep their size, and files of the same name are told apart"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 13:40:55 GMT",
+      "version": "0.38.0",
+      "tag": "@parity-app/cli_v0.38.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f5c7699beb4a9e18ca58094f819961bc5f9dda87",
+            "comment": "Redesign the Media card: facts in labelled rows, where it's used that scales to hundreds of layers, and transparency on a grid"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 13:05:50 GMT",
+      "version": "0.37.0",
+      "tag": "@parity-app/cli_v0.37.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6d29c42c748b98cb612663e1bb21aa965c6484f0",
+            "comment": "Find stock pictures on Pixabay in a library browser and add them to the project from the Media tab, credited"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 12:19:22 GMT",
+      "version": "0.36.0",
+      "tag": "@parity-app/cli_v0.36.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7c0e7914c0e9958cea5e59d54a1f90338ba3db8d",
+            "comment": "The Media tab replaces the Images tab: the project's pictures as a wall, each with a card, to insert, drag onto the canvas, add or remove."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 11:20:50 GMT",
+      "version": "0.35.0",
+      "tag": "@parity-app/cli_v0.35.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9234303b110085281d555b9cf3757a4b25357699",
+            "comment": "Search Mobbin's screens from main with an API key, kept encrypted, through a connector the window and agents share"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 10:26:05 GMT",
+      "version": "0.34.0",
+      "tag": "@parity-app/cli_v0.34.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "99c771ab306e37d407f8ce11d468f6a784909107",
+            "comment": "Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with remove_image and parity images remove"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 05:43:33 GMT",
+      "version": "0.33.1",
+      "tag": "@parity-app/cli_v0.33.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "623d3f296b3110e154bd9c488af3047be1bb79ee",
+            "comment": "Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c3005861eb4e7b743c83bb4d4864c3eb1b2216cf",
+            "comment": "Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 05:22:06 GMT",
+      "version": "0.33.0",
+      "tag": "@parity-app/cli_v0.33.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7fb70764c0197af629af92641ffbc304adad151c",
+            "comment": "Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 05:10:09 GMT",
+      "version": "0.32.0",
+      "tag": "@parity-app/cli_v0.32.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4a0021c0820abe4ce8aa0fd20b868f880679e954",
+            "comment": "The CLI's sender scrubs the .env values of the app's open projects and of the project each command ran in"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "914d27146f45cdbea2fcc8b1f9116731faf029c0",
+            "comment": "Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "70b9cac04db2562a2a4e270a10617b31beb8f5ec",
+            "comment": "Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting Vite+'s own version as an untested Vite"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6eac3cc19b3692a432f73fc5fedc68e894c12aa2",
+            "comment": "Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when parity open names it"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ede1521c739f99f26f9aeafa58b6f09a3a694659",
+            "comment": "Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as service.degraded events"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c7c8bde47c8404c77417872d8fdd8547bbeff351",
+            "comment": "Record signing in, refreshing, signing out and failures of the kept accounts as account.* events"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aab46f08263e8a1b3d1bfb93af3224214111c13e",
+            "comment": "Record window and main hangs as they start, and report a hang the app exited during on the next run"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 10 Nov 2026 03:58:48 GMT",
+      "version": "0.31.1",
+      "tag": "@parity-app/cli_v0.31.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f96199fdd7b2fd57dc1a9dda6d868bad3cf8fc03",
+            "comment": "Record why a new install ID couldn't be saved, as telemetry.saveFailed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4a16fd40771293f4ce2c1d4be7a2f2a4c85302e9",
+            "comment": "parity mcp writes its telemetry when its client stops it or closes stdin, rather than losing the last 10 seconds"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 13:05:07 GMT",
+      "version": "0.31.0",
+      "tag": "@parity-app/cli_v0.31.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c1d629545de2329688db91ac013bedd2655e1ff4",
+            "comment": "Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit helpers, and module exports are checked with instanceof Function"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "cebe1620a315a3eb7f89a30f2a0ae9ed3c981de7",
+            "comment": "The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered, focused or dragged, with value chips in dark text"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0aba5f352906a36662f444280c6459e9273f9ead",
+            "comment": "Publish to npm's next tag first, and report production once a version has been promoted to latest"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 12:29:45 GMT",
+      "version": "0.30.0",
+      "tag": "@parity-app/cli_v0.30.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9f75a30063b702cc9d93219e599be6821f10950a",
+            "comment": "Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into their own bars, and Zoom in its own corner"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 12:11:43 GMT",
+      "version": "0.29.1",
+      "tag": "@parity-app/cli_v0.29.1",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6605317673a5c9a56f127c19b56af04ea5f492da",
+            "comment": "The shared environment decision can name production, which the CLI doesn't report yet (PAR-779)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "145dfbaa2493119d05b9272394d5ced18d06ee59",
+            "comment": "Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows (PAR-788)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 10:50:18 GMT",
+      "version": "0.29.0",
+      "tag": "@parity-app/cli_v0.29.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a8fd2dfe5a0686a4969ffc5a8aaf257bb4dfc6db",
+            "comment": "Bring packages/code up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b54dd5f2ae76cb033c174c8c10f1082fbddb5eb5",
+            "comment": "Bring packages/project up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "985028a41d6f5f6d0d3408a10235ecd3243941be",
+            "comment": "Bring registry, fixtures, models, icons, account and styles-tailwind up to Buildkit's lint rules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "f5bd98d487215c2598a2911e30b85d285ba259af",
+            "comment": "Bring packages/telemetry up to Buildkit's lint rules"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "510b7ea8e2022018ade95992291d19bf8682a2f2",
+            "comment": "Reads its files, the app's answers and MCP arguments through schemas, with no change to what it prints or exits with"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "053d38576acb17c3b27137699db40cbbc1c2620b",
+            "comment": "CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5c6e9e74e9ecaa90acdc0943d8018b7c5f4e7ed4",
+            "comment": "Bring the tokens package up to Buildkit's lint rules, with no change in behavior"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "78c006d65e82d6d408f567c4f955c814675b3784",
+            "comment": "Exports record how long they took, as durationMs on export.done and export.failed (PAR-773)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "328b857240a410aa5c7d2a1d3751ed123f07f0fc",
+            "comment": "Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "55a96f08618692a952c05ffcd8506f3b63342d69",
+            "comment": "Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no longer reads as the published app"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7d02403f2ad569ca438f8641a06a46f2d1e59be",
+            "comment": "process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3d10f01fb4da39cd201513f4393c26698fa6f217",
+            "comment": "Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted (PAR-771)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 06:57:43 GMT",
+      "version": "0.28.3",
+      "tag": "@parity-app/cli_v0.28.3",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "02e8d18242be3dd1b3bb2d1c3350e82b246c8f14",
+            "comment": "Brace every if and space statements apart, as Buildkit's lint rules ask"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5eb588c75bd9b26ae53cbc99759fe1ab3b2894fd",
+            "comment": "Core meets Buildkit's lint rules; nothing users see changes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "41506c104e0d0991aa95f80d430e78ed4257a0bc",
+            "comment": "Bring packages/agent up to Buildkit's lint rules (PAR-735)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7d97abb9cc576114f13739c94f6595cf8d88385",
+            "comment": "Read the file being replaced as libgen's Live type"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "dc00f9766be3aba52362ea8660a2924a392e83b5",
+            "comment": "Read image extensions through the editor's imageExtension (PAR-734)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "41a10c667dde16dceadf60578f2aac46c74dbeb2",
+            "comment": "Stop a call failing because the CLI was too busy to read a copy's answer in time"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 04:18:08 GMT",
+      "version": "0.28.2",
+      "tag": "@parity-app/cli_v0.28.2",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "58a8095f7462152f44b302ebc144d47d192e5198",
+            "comment": "Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the interrupted frame as crashed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "96991922db733841c38f62ede47602b733c5e246",
+            "comment": "Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 03:07:25 GMT",
+      "version": "0.28.1",
+      "tag": "@parity-app/cli_v0.28.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e81a717f95b8ecaa974225cb76e9415211a1e018",
+            "comment": "Upload the published CLI's source maps to Sentry, and name a pkg.pr.new preview's release by its commit (PAR-719)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6d00d3fe8a86ac5d5d7717f0e7367a63896dfeb5",
+            "comment": "A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on Windows."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 02:25:19 GMT",
+      "version": "0.28.0",
+      "tag": "@parity-app/cli_v0.28.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "8560ac2bb40513109a1f397bdd5a86f46c924802",
+            "comment": "Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component as component.changed"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "973519fd631ce53c69e9c5a80940a221c1f2377d",
+            "comment": "project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the builder can't load the project's config"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Mon, 09 Nov 2026 00:29:58 GMT",
+      "version": "0.27.0",
+      "tag": "@parity-app/cli_v0.27.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "56bd9c2ce2b7fb3e082add1adafe35c02111ff80",
+            "comment": "Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's screenshot and replay, the call's trace and the design's frames, returning its link"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 23:45:46 GMT",
+      "version": "0.26.0",
+      "tag": "@parity-app/cli_v0.26.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "9f5303f843c898486ddb88ee7054e5b7b880d114",
+            "comment": "Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "79c1ef4deb630f083a531818dd09127653a04a75",
+            "comment": "Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether the window restored it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "052a16e64db477d0681c52ec460943074f36ab95",
+            "comment": "Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component, prop bindings, slots, states, a component's props and variants, resets, and token edits"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 22:43:39 GMT",
+      "version": "0.25.0",
+      "tag": "@parity-app/cli_v0.25.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "428c71dec222b959873a83c4695dcad819116979",
+            "comment": "Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 21:40:54 GMT",
+      "version": "0.24.0",
+      "tag": "@parity-app/cli_v0.24.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7ebd84f261601b994d281004ca594af9c5c19aa4",
+            "comment": "The CLI sends its errors, traces and events to Sentry's parity-cli project, without slowing a command"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 21:21:05 GMT",
+      "version": "0.23.0",
+      "tag": "@parity-app/cli_v0.23.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b3c94953765bc8f79871077ff396e28595cda9ef",
+            "comment": "Record project opening, detection, builders and servers (PAR-637)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 12:58:30 GMT",
+      "version": "0.22.0",
+      "tag": "@parity-app/cli_v0.22.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "395b70bdf130b0adbc0bd5d06fca78231fb88820",
+            "comment": "Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures, version mismatches and MCP sessions in ~/.parity/logs"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 11:33:58 GMT",
+      "version": "0.21.0",
+      "tag": "@parity-app/cli_v0.21.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "1370341b0ba204ba201eec13a35bad0527117735",
+            "comment": "Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection (PAR-639)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sun, 08 Nov 2026 11:14:21 GMT",
+      "version": "0.20.0",
+      "tag": "@parity-app/cli_v0.20.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3058ce2e9b46f0963a2c9ca09a96d79ae56ff73d",
+            "comment": "Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "651f285d7df29df99be712d6c86325e8d16bb0cf",
+            "comment": "Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and Repeat last action (Ctrl+Alt+P) runs the last change again on the selection"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 09:34:30 GMT",
+      "version": "0.19.0",
+      "tag": "@parity-app/cli_v0.19.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "a8556262108a1d2afdef46540760632b63686f94",
+            "comment": "Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 09:05:12 GMT",
+      "version": "0.18.0",
+      "tag": "@parity-app/cli_v0.18.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "0428ec0e70d925eb69f246f649d9c21c0ee440c0",
+            "comment": "Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels from a menu, and saved component code reaches the canvas live"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 04:58:13 GMT",
+      "version": "0.17.0",
+      "tag": "@parity-app/cli_v0.17.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ac8ae641c27a2750fd3c27d692a75247f6e72433",
+            "comment": "Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 03:48:34 GMT",
+      "version": "0.16.0",
+      "tag": "@parity-app/cli_v0.16.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b2fe13882236d18154cf5c76172556dd2c92b121",
+            "comment": "Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635)"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 03:34:11 GMT",
+      "version": "0.15.0",
+      "tag": "@parity-app/cli_v0.15.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ee3447c7d941c2ca646c7a3cd5a6d219434ddcf0",
+            "comment": "parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time (PAR-636)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d7703064df693435234a09a7daf1ae232fcffd05",
+            "comment": "Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d2ede6f4e8a7c3262f4434aa8cb61a05a8a0c508",
+            "comment": "Telemetry event names may be camelCase, and the app's error, save and export events are registered"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Sat, 07 Nov 2026 02:04:23 GMT",
+      "version": "0.14.0",
+      "tag": "@parity-app/cli_v0.14.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "3c7656995f96cce19abfb78962f72dd0fa04191b",
+            "comment": "Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or agent as Sentry's user"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "aa0a1fea8dc6e76d7f289bcc6a15b80a031e1ac2",
+            "comment": "Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "755f0c4243aabbddb2bb15b213209e7738383b9e",
+            "comment": "Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside Make component and the slots outlined on the canvas"
+          }
+        ]
+      }
+    },
+    {
+      "date": "Fri, 06 Nov 2026 18:38:16 GMT",
+      "version": "0.13.1",
+      "tag": "@parity-app/cli_v0.13.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "6868f1966e1dcb1542ba7ebae86b9f9273d69da8",
+            "comment": "Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token"
+          }
+        ]
+      }
+    },
+    {
       "date": "Fri, 06 Nov 2026 10:43:10 GMT",
       "version": "0.13.0",
       "tag": "@parity-app/cli_v0.13.0",

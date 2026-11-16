@@ -1,7 +1,13 @@
-import { boardRoot, type ContainerSpec, type RenderNode, resolveDesign, styleChanges } from "@parity-app/core"
+import { boardRoot, type ContainerSpec, designStates, type RenderNode, resolveDesign } from "@parity-app/core"
+import { styleChanges } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import { useEffect, useMemo } from "react"
-import { findFrames, findNodeElement } from "../frame.ts"
+import { findFrames, findNodeElement, previewFrameRules } from "../frame.ts"
+import { type DocSession, libraryOf } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
+
+/** A root-relative `url()`. */
+const rootUrl = /url\(\s*(["']?)(\/(?!\/)[^"')]*)\1\s*\)/g
 
 interface Written {
   /** Each property's inline value before the preview wrote it, empty when it had none. */
@@ -10,73 +16,163 @@ interface Written {
 
 /**
  * A style edit shown on a design's frames before it's made, as the inspector's fields preview what's typed or scrubbed.
- * The edit's inline styles are written straight onto the elements already drawn, so it shows in the next frame, without
- * the store, the panels or the frames' own React drawing again; making the change draws them as usual. It writes only
- * what changes between the design as the store holds it and the design with the edit, worked out for each frame's
- * state and viewport as the frame works out its own.
+ * It shows in the next frame, without the document, the panels or the frames' own React drawing again; making the change
+ * draws them as usual. It shows only what changes between the design as the document holds it and the design with the
+ * edit, worked out for each frame's state and viewport as the frame works out its own.
  *
- * A component shows a preview only when it renders the design's props on its root, as it then does the style the edit
- * sets; one that doesn't (CAN-45) shows the change once it's made, as before.
+ * An element is drawn from its frame's rules, so its edit is a rule laid over them (core's `previewRules`), which the
+ * frame takes away when it draws the change. A component takes its design's style as its `style` prop, so its edit is
+ * written straight onto its element, and it shows a preview only when it renders the design's props on its root, as
+ * it then does the style the edit sets; one that doesn't (CAN-45) shows the change once it's made, as before.
  */
 export class StylePreview {
+  /** What's written onto components' elements. */
   private readonly written = new Map<HTMLElement, Written>()
 
+  /** The frames a rule is laid over. */
+  private previewed = new Set<HTMLElement>()
+
   constructor(
-    private readonly session: ProjectSession,
+    private readonly session: DocSession & Pick<ProjectSession, "editor" | "info" | "loaded">,
     private readonly design: string
   ) {}
 
-  /** Shows `update` of the design as the store holds it now, in place of what this preview showed before. */
+  /** Shows `update` of the design as the document holds it now, in place of what this preview showed before. */
   show(update: (container: ContainerSpec) => ContainerSpec): void {
-    const entry = this.session.store.getEntry(this.design)
-    if (!entry) return
+    const entry = containerEntry(this.session.doc, this.design)
+
+    if (!entry) {
+      return
+    }
+
     const next = update(entry.container)
     const now = new Map<HTMLElement, Map<string, string>>()
+    const rules = new Map<HTMLElement, string>()
+
     if (next !== entry.container) {
       for (const host of this.frames()) {
-        for (const change of styleChanges(this.render(entry.container, host), this.render(next, host))) {
+        const drawn = this.render(entry.container, host)
+        const edited = this.render(next, host)
+        const css = this.session.loaded.previewRules(drawn, edited)
+
+        if (css !== "") {
+          rules.set(host, css)
+        }
+
+        for (const change of styleChanges(drawn, edited)) {
           const element = findNodeElement(host, change.nodeId)
+
           // Only an element the node's own props reach takes the style it sets.
-          if (!element || element.dataset.canvasNode !== change.nodeId) continue
+          if (!element || element.dataset.canvasNode !== change.nodeId) {
+            continue
+          }
+
           const values = now.get(element) ?? new Map<string, string>()
-          for (const [name, value] of Object.entries(change.set)) values.set(cssName(name), value)
-          for (const name of change.unset) values.set(cssName(name), "")
+
+          // What's taken away goes first, so taking away a shorthand doesn't clear the longhands set after it.
+          for (const name of change.unset) {
+            values.set(cssName(name), "")
+          }
+
+          for (const [name, value] of Object.entries(change.set)) {
+            values.set(cssName(name), name === "backgroundImage" ? this.projectUrls(value) : value)
+          }
+
           now.set(element, values)
         }
       }
     }
-    // What this preview wrote before and doesn't now goes back first, so a smaller edit doesn't leave a bigger one's.
+
+    // What this preview showed before and doesn't now goes back first, so a smaller edit doesn't leave a bigger one's.
+    for (const host of this.previewed) {
+      if (!rules.has(host)) {
+        previewFrameRules(host, "")
+      }
+    }
+
+    for (const [host, css] of rules) {
+      previewFrameRules(host, css)
+    }
+
+    this.previewed = new Set(rules.keys())
+
     for (const [element, { was }] of this.written) {
       const values = now.get(element)
-      for (const [name, value] of was) if (!values?.has(name)) write(element, name, value)
+
+      for (const [name, value] of was) {
+        if (!values?.has(name)) {
+          write(element, name, value)
+        }
+      }
     }
+
     for (const [element, values] of now) {
       const record = this.written.get(element) ?? { was: new Map<string, string>() }
+
       for (const [name, value] of values) {
-        if (!record.was.has(name)) record.was.set(name, element.style.getPropertyValue(name))
+        if (!record.was.has(name)) {
+          record.was.set(name, element.style.getPropertyValue(name))
+        }
+
         write(element, name, value)
       }
+
       this.written.set(element, record)
     }
+
     for (const [element, record] of this.written) {
       const values = now.get(element)
-      for (const name of record.was.keys()) if (!values?.has(name)) record.was.delete(name)
-      if (record.was.size === 0) this.written.delete(element)
+
+      for (const name of record.was.keys()) {
+        if (!values?.has(name)) {
+          record.was.delete(name)
+        }
+      }
+
+      if (record.was.size === 0) {
+        this.written.delete(element)
+      }
     }
   }
 
-  /** Puts every element back as it was before the preview. */
+  /**
+   * A fill's images against the project's dev server, as a frame draws them: frames are in the canvas's page, where
+   * `url("/images/a.png")` would be the canvas's own (PAR-931).
+   */
+  private projectUrls(value: string): string {
+    const origin = new URL(this.session.info.guestUrl).origin
+
+    return value.replace(
+      rootUrl,
+      (_match, quote: string, path: string) => `url(${quote}${new URL(path, origin).href}${quote})`
+    )
+  }
+
+  /** Puts every frame back as it was before the preview. */
   cancel(): void {
-    for (const [element, { was }] of this.written) for (const [name, value] of was) write(element, name, value)
+    for (const host of this.previewed) {
+      previewFrameRules(host, "")
+    }
+
+    this.previewed.clear()
+
+    for (const [element, { was }] of this.written) {
+      for (const [name, value] of was) {
+        write(element, name, value)
+      }
+    }
+
     this.written.clear()
   }
 
   /**
    * Leaves what's shown for the change that makes it to draw over: the frames then go from the design as it was to
-   * the design as changed, and those differ in exactly what the preview wrote. Show the change itself first.
+   * the design as changed, and those differ in exactly what the preview showed. A frame takes its preview's rules
+   * away as it draws the change. Show the change itself first.
    */
   release(): void {
     this.written.clear()
+    this.previewed.clear()
   }
 
   /**
@@ -84,48 +180,64 @@ export class StylePreview {
    * canvas doesn't go back to the old value while the change draws.
    */
   settle(update: (container: ContainerSpec) => ContainerSpec): void {
-    if (!this.active) return
+    if (!this.active) {
+      return
+    }
+
     this.show(update)
     this.release()
   }
 
   /** Whether anything is previewed. */
   get active(): boolean {
-    return this.written.size > 0
+    return this.written.size > 0 || this.previewed.size > 0
   }
 
   private frames(): HTMLElement[] {
     const area = this.session.editor?.getContainer().closest(".canvas-area") ?? document
+
     return findFrames(area, this.design)
   }
 
   /** A frame's tree for a version of the design, worked out as the frame works out its own. */
   private render(container: ContainerSpec, host: HTMLElement): RenderNode[] {
-    const state = container.states.find((candidate) => candidate.id === host.dataset.state) ?? container.states[0]
+    const states = designStates(container)
+    const state = states.find((candidate) => candidate.id === host.dataset.state) ?? states[0]
+
     return resolveDesign(
       boardRoot(container),
       state,
       host.dataset.viewport ?? "",
-      this.session.store.getLibrary(this.design),
+      libraryOf(this.session, this.design),
       { params: container.params, choices: container.view?.variants }
     )
   }
 }
 
 /** A preview of a design's style edits for a panel, taken back if the panel goes while it shows, as when the selection changes. */
-export function useStylePreview(session: ProjectSession, design: string): StylePreview {
+export function useStylePreview(
+  session: DocSession & Pick<ProjectSession, "editor" | "info" | "loaded">,
+  design: string
+): StylePreview {
   const preview = useMemo(() => new StylePreview(session, design), [session, design])
   useEffect(() => () => preview.cancel(), [preview])
+
   return preview
 }
 
 /** React's style names as CSS's: `minWidth` is `min-width`, `WebkitLineClamp` is `-webkit-line-clamp`. */
 export function cssName(name: string): string {
-  if (name.startsWith("--")) return name
+  if (name.startsWith("--")) {
+    return name
+  }
+
   return name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
 }
 
 function write(element: HTMLElement, name: string, value: string): void {
-  if (value === "") element.style.removeProperty(name)
-  else element.style.setProperty(name, value)
+  if (value === "") {
+    element.style.removeProperty(name)
+  } else {
+    element.style.setProperty(name, value)
+  }
 }

@@ -20,7 +20,7 @@ import {
   reorderDesign,
   replaceDocuments
 } from "./design-changes.ts"
-import type { DesignSnapshot } from "./history.ts"
+import type { DesignSnapshot } from "./snapshot.ts"
 import { noTokenEdits } from "./token-edits.ts"
 
 function design(id: string): ContainerSpec {
@@ -28,8 +28,7 @@ function design(id: string): ContainerSpec {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [] }
   }
 }
 
@@ -42,7 +41,7 @@ const about = { path: "app.par", id: "about" }
 const names = (next: DesignSnapshot) => next.documents.get("app.par")!.containers.map((container) => container.name)
 
 describe("changing designs", () => {
-  const start = snapshot({ version: 3, containers: [design("home"), design("about")] })
+  const start = snapshot({ version: 4, containers: [design("home"), design("about")] })
 
   it("changes one design, and gives back the same snapshot when nothing changed", () => {
     expect(names(changeDesign(start, home, (container) => ({ ...container, name: "Home" })))).toEqual(["Home", "about"])
@@ -55,6 +54,7 @@ describe("changing designs", () => {
       { ...first!, name: "About" },
       { ...second!, name: "Home" }
     ])
+
     expect(names(next)).toEqual(["Home", "About"])
     expect(changeDesigns(start, [home, { path: "other.par", id: "home" }], (containers) => containers)).toBe(start)
   })
@@ -65,15 +65,26 @@ describe("changing designs", () => {
     expect(moveDesign(container, { x: 0.2, y: -0.3 })).toBe(container)
   })
 
-  it("adds a design to a file, creating it, and deletes one", () => {
-    const added = addDesign(start, "new.par", design("pricing"))
-    expect(added.documents.get("new.par")).toEqual({ version: 3, containers: [design("pricing")] })
+  it("adds designs to a file, creating it, and deletes one", () => {
+    const added = addDesign(start, "new.par", design("pricing"), design("faq"))
+    expect(added.documents.get("new.par")).toEqual({ version: 4, containers: [design("pricing"), design("faq")] })
+    expect(names(addDesign(start, "app.par", design("pricing")))).toEqual(["home", "about", "pricing"])
     expect(names(deleteDesign(start, home))).toEqual(["about"])
     expect(deleteDesign(start, { path: "other.par", id: "home" })).toBe(start)
   })
 
+  it("deletes designs from their own files and leaves the rest", () => {
+    const more: CanvasDocument = { version: 4, containers: [design("more")] }
+    const two = { ...start, documents: new Map(start.documents).set("more.par", more) }
+    const next = deleteDesign(two, home, { path: "missing.par", id: "home" })
+
+    expect(names(next)).toEqual(["about"])
+    expect(next.documents.get("more.par")).toBe(more)
+    expect(next.documents.has("missing.par")).toBe(false)
+  })
+
   it("moves a design before or after another in its file, and leaves the order alone when nothing would move", () => {
-    const three = snapshot({ version: 3, containers: [design("home"), design("about"), design("pricing")] })
+    const three = snapshot({ version: 4, containers: [design("home"), design("about"), design("pricing")] })
     const pricing = { path: "app.par", id: "pricing" }
     expect(names(reorderDesign(three, pricing, home, "before"))).toEqual(["pricing", "home", "about"])
     expect(names(reorderDesign(three, home, about, "after"))).toEqual(["about", "home", "pricing"])
@@ -89,23 +100,25 @@ describe("changing notes", () => {
   const note = { id: "hello", text: "Hello", position: { x: 0, y: 0 } }
 
   it("adds a note, changes it, and leaves no notes once the last is removed", () => {
-    const added = addNote(snapshot({ version: 3, containers: [] }), "app.par", note)
+    const added = addNote(snapshot({ version: 4, containers: [] }), "app.par", note)
     const ref = { path: "app.par", id: "hello" }
     const changed = changeNote(added, ref, (current) => ({ ...current, text: "Hi" }))
     expect(changed.documents.get("app.par")!.notes).toEqual([{ ...note, text: "Hi" }])
     expect(changeNote(added, ref, (current) => current)).toBe(added)
-    expect(changeNote(added, ref, () => undefined).documents.get("app.par")).toEqual({ version: 3, containers: [] })
+    expect(changeNote(added, ref, () => undefined).documents.get("app.par")).toEqual({ version: 4, containers: [] })
   })
 })
 
 describe("replacing documents", () => {
   it("takes the modes out of the documents, and keeps what wasn't given", () => {
-    const start = snapshot({ version: 3, containers: [design("home")] })
+    const start = snapshot({ version: 4, containers: [design("home")] })
     const modes = { ...defaultModeSettings, modes: [] }
+
     const next = replaceDocuments(start, [
-      { path: "app.par", document: { version: 3, containers: [design("about")], modes } }
+      { path: "app.par", document: { version: 4, containers: [design("about")], modes } }
     ])
-    expect(next.documents.get("app.par")).toEqual({ version: 3, containers: [design("about")] })
+
+    expect(next.documents.get("app.par")).toEqual({ version: 4, containers: [design("about")] })
     expect(next.modes).toBe(start.modes)
     expect(next.tokens).toBe(start.tokens)
     expect(replaceDocuments(start, [])).toBe(start)
@@ -114,17 +127,20 @@ describe("replacing documents", () => {
 
 describe("merging an agent's call", () => {
   // What the call read: home and about in app.par.
-  const read = snapshot({ version: 3, containers: [design("home"), design("about")] })
+  const read = snapshot({ version: 4, containers: [design("home"), design("about")] })
   const renamed = (id: string, name: string): ContainerSpec => ({ ...design(id), name })
+
   const change = (id: string, after: ContainerSpec | null, base: ContainerSpec | null = design(id)): DesignChange => ({
     path: "app.par",
     id,
     base,
     after
   })
+
   const merge = (current: DesignSnapshot, designs: DesignChange[], modes?: ModesChange) => {
     const merged = mergeAgentChanges(current, designs, modes)
     expect(merged.conflicts).toEqual([])
+
     return merged.snapshot
   }
 
@@ -141,12 +157,14 @@ describe("merging an agent's call", () => {
 
   it("refuses a design changed by both, naming it, and applies none of the call", () => {
     const edited = changeDesign(read, home, (container) => ({ ...container, name: "Start" }))
+
     const merged = mergeAgentChanges(
       edited,
       [change("about", renamed("about", "About")), change("home", renamed("home", "Home"))],
       undefined,
       [{ name: "primary", theme: "default", value: "red" }]
     )
+
     expect(merged.conflicts).toEqual([{ path: "app.par", id: "home", name: "Start", reason: "changed" }])
     expect(merged.snapshot).toBe(edited)
     expect(describeConflicts(merged.conflicts)).toBe(
@@ -176,8 +194,9 @@ describe("merging an agent's call", () => {
       change("home", null),
       { path: "new.par", id: "pricing", base: null, after: design("pricing") }
     ])
+
     expect(names(next)).toEqual(["about"])
-    expect(next.documents.get("new.par")).toEqual({ version: 3, containers: [design("pricing")] })
+    expect(next.documents.get("new.par")).toEqual({ version: 4, containers: [design("pricing")] })
   })
 
   it("takes a change already made the same way in the editor as applied", () => {

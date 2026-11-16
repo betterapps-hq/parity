@@ -8,19 +8,28 @@ import {
   editNode,
   type EditTarget,
   editsDesign,
+  type FieldLength,
+  fieldLength,
+  fieldSize,
   innerChanges,
+  isFill,
+  isHug,
   isInnerPath,
   type Length,
+  lengthField,
   locateInner,
   locateNode,
+  nodeLabel,
   type NodeStyle,
   type Padding,
+  type Paint,
   resetInner,
   resetOverride,
   type Size,
   type StateSpec,
   styleKeys,
-  targetPatches
+  targetPatches,
+  opacityPercent
 } from "@parity-app/core"
 import { editingState } from "./edit-frame.ts"
 import { boardReader } from "./shown.ts"
@@ -60,7 +69,7 @@ export type StyleEdit<K extends keyof NodeStyle = keyof NodeStyle> =
 
 /** An edit's values for one layer, from its style as shown in the state being edited. */
 export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLayer): StyleValues {
-  return typeof edit === "function" ? edit(style, layer) : edit
+  return edit instanceof Function ? edit(style, layer) : edit
 }
 
 /**
@@ -68,9 +77,9 @@ export function styleValues(edit: StyleEdit, style: NodeStyle, layer: EditedLaye
  * can only write the keys listed here, so resetting a row takes back everything its edits wrote.
  */
 export const styleRows = {
-  layoutType: ["display", "direction", "wrap", "columns"],
-  tracks: ["columns", "rows"],
-  alignment: ["align", "justify"],
+  layoutType: ["display", "flexDirection", "flexWrap", "gridTemplateColumns"],
+  tracks: ["gridTemplateColumns", "gridTemplateRows"],
+  alignment: ["alignItems", "justifyContent"],
   gap: ["gap", "rowGap"],
   padding: ["padding"],
   margin: ["margin"],
@@ -79,31 +88,41 @@ export const styleRows = {
   height: ["height", "grow"],
   min: ["minWidth", "minHeight"],
   max: ["maxWidth", "maxHeight"],
-  self: ["self"],
+  self: ["alignSelf"],
   span: ["colSpan", "rowSpan"],
   placement: ["position", "top", "right", "bottom", "left"],
   insets: ["top", "right", "bottom", "left"],
-  fill: ["background"],
-  radius: ["radius"],
-  shadow: ["shadow"],
+  layerOrder: ["zIndex"],
+  fill: ["fills"],
+  radius: ["borderRadius"],
+  // The Shadow list holds the drop shadows that follow the shape too, which are the layer's `filter`.
+  shadow: ["boxShadow", "filter"],
+  filters: ["filter", "backdropFilter"],
+  transform: ["translate", "rotate", "scale", "transform", "transformOrigin"],
   opacity: ["opacity"],
   overflow: ["overflow"],
-  stroke: ["border", "borderWidth", "borderStyle"],
-  strokeColor: ["border"],
+  stroke: ["borderColor", "borderWidth", "borderStyle"],
+  strokeColor: ["borderColor"],
   strokeWidth: ["borderWidth"],
   strokeStyle: ["borderStyle"],
-  textColor: ["foreground"],
-  font: ["font"],
-  textSize: ["size"],
-  weight: ["weight"],
-  lineHeight: ["leading"],
-  letterSpacing: ["tracking"],
+  textColor: ["color"],
+  font: ["fontFamily"],
+  textSize: ["fontSize"],
+  weight: ["fontWeight"],
+  lineHeight: ["lineHeight"],
+  letterSpacing: ["letterSpacing"],
   textAlign: ["textAlign"],
   resizing: textSizingKeys,
-  decoration: ["italic", "decoration"],
-  case: ["transform"],
-  lines: ["lines"]
+  decoration: ["fontStyle", "textDecorationLine"],
+  case: ["textTransform"],
+  lines: ["lineClamp"],
+  transitions: ["transition"]
 } as const satisfies Record<string, readonly (keyof NodeStyle)[]>
+
+/** The Fill row's edit for a stack of paints, top first: nothing when it's empty, so no empty list is left behind. */
+export function fillEdit(paints: readonly Paint[]): Pick<StyleValues, "fills"> {
+  return { fills: paints.length === 0 ? undefined : [...paints] }
+}
 
 export type StyleRow = keyof typeof styleRows
 
@@ -115,7 +134,10 @@ export type RowKey<R extends StyleRow> = (typeof styleRows)[R][number]
  * fills, which is the width when there's no parent.
  */
 export function rowKeys(row: StyleRow, parent: ParentLayout | undefined): readonly (keyof NodeStyle)[] {
-  if (row !== "width" && row !== "height") return styleRows[row]
+  if (row !== "width" && row !== "height") {
+    return styleRows[row]
+  }
+
   return growsAlong(row, parent) ? styleRows[row] : [row]
 }
 
@@ -149,6 +171,8 @@ export interface StyleSelection {
   mixed: (keyof NodeStyle)[]
   /** The layout they all sit in, when they share one. */
   parent: ParentLayout | undefined
+  /** What their layer order orders them within, when they share one: unknown inside an instance. */
+  stacking: StackingContext | undefined
   /** Whether the state or variant being edited changes any of the row's keys on any of the layers. */
   changed: (row: StyleRow) => boolean
   /** Whether any of the row's keys differ across the layers. */
@@ -165,6 +189,43 @@ export interface StyleSelection {
   ) => (container: ContainerSpec) => ContainerSpec
   /** Takes back what the state or variant being edited changes about a row's keys, on every layer. */
   reset: (row: StyleRow) => (container: ContainerSpec) => ContainerSpec
+}
+
+/**
+ * The layer a layer's order (z-index) orders it within: the nearest around it that's a stacking context, because it
+ * has a layer order or is see-through, as the render draws them, or else the design's root.
+ */
+export interface StackingContext {
+  id: string
+  name: string
+  because: "root" | "layerOrder" | "opacity"
+}
+
+/** The stacking context of a layer with these layers around it, outermost first, each read as the board shows it. */
+function stackingContext(
+  ancestors: readonly DesignNode[],
+  shown: (node: DesignNode) => DesignNode
+): StackingContext | undefined {
+  const of = (node: DesignNode, because: StackingContext["because"]) => ({
+    id: node.id,
+    name: nodeLabel(node),
+    because
+  })
+
+  for (const around of [...ancestors].reverse()) {
+    const { zIndex, opacity } = shown(around).style ?? {}
+
+    if (zIndex !== undefined) {
+      return of(around, "layerOrder")
+    }
+
+    // An opacity token may be see-through too, so it counts.
+    if (opacity !== undefined && (opacityPercent(opacity) ?? 0) < 100) {
+      return of(around, "opacity")
+    }
+  }
+
+  return ancestors[0] && of(ancestors[0], "root")
 }
 
 /** A layer's rendered length in spacing steps, by its id, rounded by `round`. */
@@ -193,32 +254,51 @@ export function styleSelection(
 
   const layers: SelectedLayer[] = []
   const parentIds: (string | undefined)[] = []
+  const contexts: (StackingContext | undefined)[] = []
+
   for (const id of ids) {
     if (isInnerPath(id)) {
       const inner = library && locateInner(container, id, library, view)
-      if (!inner) continue
+
+      if (!inner) {
+        continue
+      }
+
       const around = inner.location.ancestors.at(-1)
       const path = around && `${id.slice(0, id.lastIndexOf("/"))}/${around.id}`
       const parent = path ? (locateInner(container, path, library, view)?.shown ?? around) : undefined
       layers.push({ id, node: inner.shown, parent: layoutOf(parent), base: false })
       parentIds.push(path)
+      contexts.push(undefined)
     } else {
       const location = locateNode(container.root, id)
-      if (!location) continue
+
+      if (!location) {
+        continue
+      }
+
       const around = location.ancestors.at(-1)
       layers.push({ id, node: shown(location.node), parent: layoutOf(around && shown(around)), base: designBase })
       parentIds.push(around?.id)
+      contexts.push(stackingContext(location.ancestors, shown))
     }
   }
-  if (layers.length === 0) return undefined
+
+  if (layers.length === 0) {
+    return undefined
+  }
 
   const { common, mixed } = sharedStyle(layers.map((layer) => layer.node))
   const parent = new Set(parentIds).size === 1 ? layers[0]!.parent : undefined
+  const [stacking] = contexts
+  const sameStacking = contexts.every((each) => each?.id === stacking?.id && each?.because === stacking?.because)
+
   const changes = layers.map((layer) =>
     isInnerPath(layer.id)
       ? innerChanges(container, target, layer.id, library!)
       : targetPatches(container, target)?.[layer.id]
   )
+
   const keysOf = (row: StyleRow) => rowKeys(row, parent)
 
   return {
@@ -228,10 +308,12 @@ export function styleSelection(
     style: common,
     mixed,
     parent,
+    stacking: sameStacking ? stacking : undefined,
     changed: (row) => changes.some((patch) => keysOf(row).some((key) => changesField(patch, { kind: "style", key }))),
     differs: (row) => keysOf(row).some((key) => mixed.includes(key)),
     edit: (_row, edit, measure) => {
       const values = layers.map((layer) =>
+        // SAFETY: an edit of a row's keys is an edit of style keys; `StyleEdit` takes the keys only to check callers.
         styleValues(edit as StyleEdit, layer.node.style ?? {}, {
           base: layer.base,
           measure: (axis, round = Math.round) => measure?.(layer.id, axis, round),
@@ -239,10 +321,12 @@ export function styleSelection(
           column: layer.parent?.direction === "column"
         })
       )
+
       return (current) =>
         layers.reduce((next, layer, index) => {
           const at = boardTarget(next, state.id)
           const change = { style: values[index]! }
+
           return isInnerPath(layer.id)
             ? editInner(next, at, layer.id, change, library!)
             : editNode(next, at, layer.id, change)
@@ -251,8 +335,10 @@ export function styleSelection(
     reset: (row) => (current) =>
       layers.reduce((next, layer) => {
         const at = boardTarget(next, state.id)
+
         return keysOf(row).reduce((reset, key) => {
           const field = { kind: "style", key } as const
+
           return isInnerPath(layer.id)
             ? resetInner(reset, at, layer.id, library!, field)
             : resetOverride(reset, at, layer.id, field)
@@ -262,22 +348,45 @@ export function styleSelection(
 }
 
 function layoutOf(node: DesignNode | undefined): ParentLayout | undefined {
-  if (node?.type !== "layout") return undefined
+  if (node?.type !== "layout") {
+    return undefined
+  }
+
   const style = node.style ?? {}
-  return { direction: style.direction ?? "column", grid: style.display === "grid" }
+
+  return { direction: style.flexDirection ?? "column", grid: style.display === "grid" }
+}
+
+/** The style values several nodes share, and the properties set differently on some of them. */
+export interface SharedStyle {
+  common: NodeStyle
+  mixed: (keyof NodeStyle)[]
 }
 
 /** The style values every node shares, and the properties set differently on some of them. */
-export function sharedStyle(nodes: readonly DesignNode[]): { common: NodeStyle; mixed: (keyof NodeStyle)[] } {
-  const common: Record<string, unknown> = {}
+export function sharedStyle(nodes: readonly DesignNode[]): SharedStyle {
+  const common: NodeStyle = {}
   const mixed: (keyof NodeStyle)[] = []
+  const first = nodes[0]?.style ?? {}
+
   for (const name of styleKeys) {
     const values = nodes.map((node) => JSON.stringify(node.style?.[name]))
+
     if (values.every((value) => value === values[0])) {
-      if (nodes[0]?.style?.[name] !== undefined) common[name] = nodes[0].style[name]
-    } else mixed.push(name)
+      copyStyleKey(first, common, name)
+    } else {
+      mixed.push(name)
+    }
   }
-  return { common: common as NodeStyle, mixed }
+
+  return { common, mixed }
+}
+
+/** Copies one style property, when it's set. */
+function copyStyleKey<K extends keyof NodeStyle>(from: NodeStyle, to: NodeStyle, key: K): void {
+  if (from[key] !== undefined) {
+    to[key] = from[key]
+  }
 }
 
 /**
@@ -294,70 +403,118 @@ export function fieldEdit<V, K extends keyof NodeStyle>(
 
 /** Switches the layout to a column, a row or a grid. A new grid keeps the columns it had, or two. */
 export function layoutTypeEdit(mode: "row" | "column" | "grid"): StyleEdit<RowKey<"layoutType">> {
-  if (mode === "grid") return (style) => ({ display: "grid", columns: style.columns ?? 2 })
-  return { display: undefined, direction: mode }
+  if (mode === "grid") {
+    return (style) => ({ display: "grid", gridTemplateColumns: style.gridTemplateColumns ?? [{ fr: 1 }, { fr: 1 }] })
+  }
+
+  return { display: undefined, flexDirection: mode }
 }
 
 type SideValues = [Length, Length, Length, Length]
 
-/** Padding or margin as four sides, whichever form it's written in. */
+const noSides: Readonly<SideValues> = [{ step: 0 }, { step: 0 }, { step: 0 }, { step: 0 }]
+
+/** Padding or margin as four sides, each as it's stored, whichever form it's written in. */
 export function sidesOf(value: Padding | undefined): SideValues | undefined {
-  if (value === undefined) return undefined
-  if (!Array.isArray(value)) return [value, value, value, value]
-  if (value.length === 2) return [value[0], value[1], value[0], value[1]]
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!Array.isArray(value)) {
+    return [value, value, value, value]
+  }
+
+  if (value.length === 2) {
+    return [value[0], value[1], value[0], value[1]]
+  }
+
   return value
+}
+
+/** Whether two stored lengths are the same length: the same form holding the same value. */
+function sameLength(a: Length, b: Length): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 /** The shortest form of four sides. */
 export function tidySides([top, right, bottom, left]: SideValues): Padding {
-  if (top === bottom && right === left) return top === right ? top : [top, right]
+  if (sameLength(top, bottom) && sameLength(right, left)) {
+    return sameLength(top, right) ? top : [top, right]
+  }
+
   return [top, right, bottom, left]
 }
 
+/**
+ * A length field's view of a layer's style: the length it shows, as steps or a name, and the style a typed length
+ * writes, in the stored form.
+ */
+export interface LengthField<K extends keyof NodeStyle> {
+  read: (style: NodeStyle) => FieldLength | undefined
+  write: (value: FieldLength | undefined, style: NodeStyle) => Pick<StyleValues, K>
+}
+
 /** Some sides of padding or margin (0 is top, then clockwise), read from the first of them, in each layer's own. */
-export function sidesField<N extends "padding" | "margin">(
-  name: N,
-  indices: readonly number[]
-): {
-  read: (style: NodeStyle) => Length | undefined
-  write: (value: Length | undefined, style: NodeStyle) => Pick<StyleValues, N>
-} {
+export function sidesField<N extends "padding" | "margin">(name: N, indices: readonly number[]): LengthField<N> {
   return {
-    read: (style) => sidesOf(style[name])?.[indices[0]!],
+    read: (style) => lengthField(sidesOf(style[name])?.[indices[0]!]),
     write: (value, style) => {
-      const next = [...(sidesOf(style[name]) ?? [0, 0, 0, 0])] as SideValues
-      for (const index of indices) next[index] = value ?? 0
+      const [top, right, bottom, left] = sidesOf(style[name]) ?? noSides
+      const next: SideValues = [top, right, bottom, left]
+      const written = fieldLength(value ?? 0)
+
+      for (const index of indices) {
+        next[index] = written
+      }
+
+      // SAFETY: the one key set is `name`, which is N, and padding and margin both take the sides' Padding.
       return { [name]: tidySides(next) } as Pick<StyleValues, N>
     }
   }
 }
 
-/** A layer's size along an axis as it shows: `grow` along the parent's direction shows, and is replaced, as fill. */
+/**
+ * A layer's size along an axis as a size field shows it, in steps or by name: `grow` along the parent's direction
+ * shows, and is replaced, as fill.
+ */
 export function shownSize(
   style: NodeStyle,
   axis: "width" | "height",
   parent: ParentLayout | undefined
-): Size | undefined {
-  return grows(style, axis, parent) ? "fill" : style[axis]
+): FieldLength | undefined {
+  return grows(style, axis, parent) ? "fill" : lengthField(style[axis])
 }
 
 function grows(style: NodeStyle, axis: "width" | "height", parent: ParentLayout | undefined): boolean {
   return style.grow === true && growsAlong(axis, parent)
 }
 
-/** A size's fixed length, or nothing when it's unset, fill or hug. */
-export function fixedSize(size: Size | undefined): Length | undefined {
+/** A size field's fixed length, or nothing when it's unset, fill or hug. */
+export function fixedSize(size: FieldLength | undefined): FieldLength | undefined {
   return size === "fill" || size === "hug" ? undefined : size
 }
 
 /** Sets a size (fixed, fill, hug, or auto when undefined), replacing a `grow` that filled along it. */
 export function sizeEdit<A extends "width" | "height">(
   axis: A,
-  value: Size | undefined,
+  value: FieldLength | undefined,
   parent: ParentLayout | undefined
 ): StyleEdit<RowKey<A>> {
-  return (style) =>
-    ({ [axis]: value, ...(grows(style, axis, parent) ? { grow: undefined } : {}) }) as Pick<StyleValues, RowKey<A>>
+  const size = value === undefined ? undefined : fieldSize(value)
+
+  return (style) => sizeValues(axis, size, grows(style, axis, parent))
+}
+
+/** A size along `axis`, and `grow` taken away when it filled along it: the keys of the axis' row. */
+function sizeValues<A extends "width" | "height">(
+  axis: A,
+  value: Size | undefined,
+  clearsGrow: boolean
+): Pick<StyleValues, RowKey<A>> {
+  const values = clearsGrow ? { [axis]: value, grow: undefined } : { [axis]: value }
+
+  // SAFETY: the keys set are `axis`, which is A, and `grow`, which the width and the height rows both hold.
+  return values as Pick<StyleValues, RowKey<A>>
 }
 
 /**
@@ -367,25 +524,30 @@ export function sizeEdit<A extends "width" | "height">(
 export function sizeField<A extends "width" | "height">(
   axis: A,
   parent: ParentLayout | undefined
-): {
-  read: (style: NodeStyle) => Length | undefined
-  write: (value: Length | undefined, style: NodeStyle) => Pick<StyleValues, RowKey<A>>
-} {
+): LengthField<RowKey<A>> {
   return {
     read: (style) => fixedSize(shownSize(style, axis, parent)),
     write: (value, style) => {
-      const size = shownSize(style, axis, parent)
-      return {
-        [axis]: value ?? (fixedSize(size) === undefined ? size : undefined),
-        ...(grows(style, axis, parent) ? { grow: undefined } : {})
-      } as Pick<StyleValues, RowKey<A>>
+      const growing = grows(style, axis, parent)
+
+      if (value !== undefined) {
+        return sizeValues(axis, fieldSize(value), growing)
+      }
+
+      // A fill or a hug is kept as it's stored, so a fill keeps its share.
+      const kept: Size | undefined = growing ? { size: "fill" } : style[axis]
+
+      return sizeValues(axis, isFill(kept) || isHug(kept) ? kept : undefined, growing)
     }
   }
 }
 
 /** Takes a layer out of the layout at its insets, 0 where unset, or puts it back and drops them. */
 export function placementEdit(absolute: boolean): StyleEdit<RowKey<"placement">> {
-  if (absolute) return (style) => ({ position: "absolute", top: style.top ?? 0, left: style.left ?? 0 })
+  if (absolute) {
+    return (style) => ({ position: "absolute", top: style.top ?? { step: 0 }, left: style.left ?? { step: 0 } })
+  }
+
   return { position: undefined, top: undefined, right: undefined, bottom: undefined, left: undefined }
 }
 

@@ -2,23 +2,34 @@ import { mkdir, mkdtemp, rm, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { type CodeSnapshot, codeSnapshot } from "@parity-app/project"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import sharp from "sharp"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { PreviewJob, RenderJob } from "../shared/protocol.ts"
+import type { PreviewDrawn } from "../shared/service.ts"
 import type { componentPreviews, PreviewProjects } from "./previews.ts"
 
+/** The offscreen window as the tests set it up: what it draws, and the jobs it was asked to draw. */
+interface OpenWindow {
+  root: string
+  snapshots: Map<string, Promise<CodeSnapshot>>
+  draws: string[]
+  draw: (job: RenderJob) => Promise<PreviewDrawn>
+}
+
 // The offscreen window, which needs Electron, stands in; the store and the keys are the real ones.
-const open = vi.hoisted(() => ({
+const open = vi.hoisted((): OpenWindow => ({
   root: "",
-  snapshots: new Map<string, Promise<CodeSnapshot>>(),
-  draws: [] as string[],
-  draw: (_job: RenderJob): Promise<unknown> => Promise.resolve(undefined)
+  snapshots: new Map(),
+  draws: [],
+  draw: () => Promise.resolve({ empty: true })
 }))
 
 /** The open project, served at each address in `open.snapshots`. */
 const project: PreviewProjects = {
   codeServedAt: (_projectId, guestUrl) => {
     const code = open.snapshots.get(guestUrl)
+
     return code && { code, fingerprint: code.then(({ fingerprint }) => fingerprint), sources: {} }
   },
   previewProject: () => ({
@@ -34,6 +45,7 @@ const project: PreviewProjects = {
 vi.mock("./render.ts", () => ({
   renderPreview: (job: RenderJob) => {
     open.draws.push(JSON.stringify(job.tree))
+
     return open.draw(job)
   }
 }))
@@ -44,14 +56,28 @@ let previews: ReturnType<typeof componentPreviews>
 /** The previews as the service makes them when it starts, reading where the store is from the environment. */
 async function startService(): Promise<ReturnType<typeof componentPreviews>> {
   vi.resetModules()
+  // The service's telemetry, recording into `sink`, as `start-telemetry.ts` starts it.
+  sink.clear()
+  ;(await import("../shared/tracing.ts")).traceWith(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "service", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
+
   return (await import("./previews.ts")).componentPreviews(project)
 }
+
+const sink = createTestSink()
 
 /** A PNG the offscreen window gives, of a size, as base64; the store keeps it as a WebP. */
 async function picture(width: number, height: number): Promise<string> {
   const png = await sharp({ create: { width, height, channels: 3, background: "#ffffff" } })
     .png()
     .toBuffer()
+
   return png.toString("base64")
 }
 
@@ -132,6 +158,7 @@ describe("component previews", () => {
       preview("Button", "http://localhost:5002"),
       preview("Badge", "http://localhost:5002")
     ])
+
     expect(badge?.image).toBeDefined()
     // Until it's made again, Button's last picture stands in for it.
     expect(button?.image).toBeUndefined()
@@ -189,5 +216,34 @@ describe("component previews", () => {
 
   it("leave out a preview whose code the project hasn't served", async () => {
     expect(await previews.lookupPreviews([preview("Button", "http://localhost:5999")])).toEqual([])
+  })
+})
+
+describe("component previews' telemetry", () => {
+  it("records each preview made, with its size and how long it took", async () => {
+    await previews.makePreview(preview("Button"), "visible")
+    expect(sink.named("preview.made")[0]?.attributes).toMatchObject({ component: "Button", width: 600, height: 100 })
+    expect(sink.named("preview.made")[0]?.attributes["bytes"]).toBeGreaterThan(0)
+  })
+
+  it("records why one couldn't be made", async () => {
+    open.draw = () => Promise.resolve({ error: "Button needs a ThemeProvider" })
+    await previews.makePreview(preview("Button"), "idle")
+    open.draw = () => Promise.resolve({ empty: true })
+    await previews.makePreview(preview("Badge"), "idle")
+    expect(sink.named("preview.failed").map(({ attributes }) => attributes)).toMatchObject([
+      { component: "Button", reason: "render threw", message: "Button needs a ThemeProvider" },
+      { component: "Badge", reason: "drew nothing" }
+    ])
+  })
+
+  it("counts the previews found kept and not, once for each lookup, a kept failure as found", async () => {
+    const { cacheUse } = await import("./cache-use.ts")
+    await previews.lookupPreviews([preview("Button")])
+    await previews.makePreview(preview("Button"), "idle")
+    open.draw = () => Promise.resolve({ empty: true })
+    await previews.makePreview(preview("Badge"), "idle")
+    await previews.lookupPreviews([preview("Button"), preview("Badge")])
+    expect(cacheUse.report()).toMatchObject({ previewHits: 2, previewMisses: 1, previewHitRate: 0.667 })
   })
 })

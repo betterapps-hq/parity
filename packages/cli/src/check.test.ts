@@ -1,5 +1,18 @@
 import { describe, expect, it } from "vite-plus/test"
-import { describeCheck, failures, score } from "./check.ts"
+import { describeCheck, failures, runCheck, score } from "./check.ts"
+
+describe("runCheck", () => {
+  // A coded error is the command's answer; only uncoded ones reach Sentry as the CLI's bugs (PAR-782).
+  it("answers a missing or unknown library as invalid input", async () => {
+    const invalid = { code: "invalid_input", retryable: false, field: "library" }
+
+    await expect(runCheck(undefined, {})).rejects.toMatchObject({
+      details: invalid,
+      message: expect.stringContaining("parity lib check <library>")
+    })
+    await expect(runCheck("no-such-library", {})).rejects.toMatchObject({ details: invalid })
+  })
+})
 
 describe("failures", () => {
   it("reads the library's components a design's problems name, first reason each", () => {
@@ -12,6 +25,7 @@ describe("failures", () => {
       ],
       "aria"
     )
+
     expect(Object.fromEntries(failed)).toEqual({
       Cell: "Cell count must match column count",
       "DatePicker.Trigger": "reading 'calendar'",
@@ -44,6 +58,7 @@ describe("score", () => {
       new Map([["Row", "still"]]),
       list
     )
+
     expect(report.placed).toEqual(["Row", "Cell", "Toast"])
     expect(report.hits).toEqual(["Toast"])
     expect(report.misses).toEqual({ Row: "still", Cell: "inside Row, which fails" })

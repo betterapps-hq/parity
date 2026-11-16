@@ -19,6 +19,7 @@ const lucide = iconIndex(
   { SquarePen: ["Edit", "PenBox", "LucideEdit", "SquarePenIcon"], Album: ["SquareBookmark", "AlbumIcon"] },
   { X: ["cancel", "close", "delete", "remove"], Settings: ["cog", "edit", "gear", "preferences"] }
 )
+
 const labels = (query: string) => searchIcons(lucide, query).map((entry) => entry.label)
 
 describe("words", () => {
@@ -52,11 +53,13 @@ describe("searchIcons", () => {
   it("finds icons by the tags their set publishes, the first tags counting most", () => {
     expect(labels("close")).toEqual(["X"])
     expect(labels("gear")).toEqual(["Settings"])
+
     const tagged = iconIndex(
       ["Rose", "Calendar"].map((name) => ({ label: name, name })),
       {},
       { Rose: ["flower", "petals", "gift", "date"], Calendar: ["date", "month"] }
     )
+
     expect(searchIcons(tagged, "date").map((entry) => entry.label)).toEqual(["Calendar", "Rose"])
   })
 
@@ -66,6 +69,7 @@ describe("searchIcons", () => {
       {},
       { X: ["cancel", "close"], ShoppingCart: ["trolley", "cart"], Van: ["minivan", "cart"] }
     )
+
     expect(searchIcons(index, "close").map((entry) => entry.label)).toEqual(["X", "PanelLeftClose"])
     expect(searchIcons(index, "cart").map((entry) => entry.label)).toEqual(["ShoppingCart", "Van"])
   })
@@ -76,6 +80,7 @@ describe("searchIcons", () => {
       {},
       { Moon: ["dark", "night"], Eclipse: ["dark mode", "theme"] }
     )
+
     expect(searchIcons(index, "dark mode").map((entry) => entry.label)).toEqual(["Eclipse", "Moon"])
   })
 
@@ -90,6 +95,7 @@ describe("searchIcons", () => {
       {},
       {}
     )
+
     expect(searchIcons(tabler, "icon")).toEqual([])
     expect(searchIcons(tabler, "home").map((entry) => entry.label)).toEqual(["IconHome"])
   })
@@ -117,6 +123,7 @@ describe("iconEntries", () => {
         default: { style: "Regular" }
       }
     }
+
     const names = ["AddRegular", "AddFilled", "Add24Regular", "Bell"]
     expect(iconEntries(names, fluent, "Filled")).toEqual([{ label: "Add", name: "AddFilled" }])
   })
@@ -141,6 +148,7 @@ describe("iconEntries", () => {
         default: { style: "Regular" }
       }
     }
+
     const names = ["Battery10Regular", "Battery1020Regular", "AddRegular", "Add24Regular", "CodeCs16Regular"]
     expect(iconEntries(names, fluent, "Regular").map((entry) => entry.label)).toEqual(["Battery10", "Add", "CodeCs"])
   })
@@ -150,6 +158,7 @@ describe("iconEntries", () => {
       render: "export" as const,
       variants: { prop: "weight", styles: ["regular", "bold"], default: { style: "regular" } }
     }
+
     expect(iconEntries(["Gear"], phosphor, "bold")).toEqual([
       { label: "Gear", name: "Gear", props: { weight: "bold" } }
     ])

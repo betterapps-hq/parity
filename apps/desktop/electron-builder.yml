@@ -9,8 +9,12 @@ asar: true
 asarUnpack:
   - "*.mjs"
   - "*.cjs"
+  # Parity's own extensions, which import TypeScript from beside the service, as React's does to read components.
+  - extensions/*.mjs
   - libraries/**/*
   - in-app.json
+  # The CLI the parity command runs, with Electron as Node (PAR-906).
+  - cli/**/*
 npmRebuild: false
 files:
   - "**/*"

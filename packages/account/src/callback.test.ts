@@ -32,8 +32,9 @@ describe("readCallback", () => {
       "parity://auth/other?code=01CODE&state=state-1",
       "http://127.0.0.1:53682/auth/callback?code=01CODE&state=state-1",
       "not a link"
-    ])
+    ]) {
       expect(readCallback(link, pending)).toEqual({ kind: "refused", reason: "link" })
+    }
   })
 
   it("tells a sign-in turned down from one that failed", () => {

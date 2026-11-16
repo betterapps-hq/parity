@@ -195,10 +195,10 @@ cases that never loaded it don't. A library upgrade works the same way, since th
 
 ### Linked component designs
 
-A linked component design is the source, linked to a file Parity wrote ("Option C" in decisions.md). The canvas draws
-the design from the `.par`. A hand edit to `member-row.tsx` therefore changes the app, but not the canvas, until someone
-opens the design's drift review and approves the edit into the design. In CI nobody does that, so the run does the
-sync's reading itself:
+A linked component design is the source, linked to a file Parity wrote ("Option C"). The canvas draws the design from
+the `.par`. A hand edit to `member-row.tsx` therefore changes the app, but not the canvas, until someone opens the
+design's drift review and approves the edit into the design. In CI nobody does that, so the run does the sync's reading
+itself:
 
 - **Read back what can be read.** For each linked file whose hash differs from the one Parity last wrote, Parity reads
   back what it can: text, token classes, props and known components, through PAR-90's read-back in `@parity-app/code`,
@@ -241,7 +241,7 @@ Chromatic and tools like it start from a Storybook build. Parity has most of the
 | -------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **The test matrix.** Designs, states and modes in the `.par`, each with an id.                                                               | No stories to write and no build to list them. CI can plan from the `.par` before installing anything.                                                                   |
 | **Each case as plain data.** [render.ts](../../packages/core/src/render.ts) resolves a design for a state and mode into a `RenderNode` tree. | A hash of that tree says whether the design itself changed.                                                                                                              |
-| **The project's own dev server.** [builder-vite](../../packages/builder-vite/src/index.ts) runs the project's Vite.                          | No Storybook build and no upload. The server sees every file a case's page loads, which is what makes traces.                                                            |
+| **The project's own dev server.** [vite-adapter](../../adapters/vite-adapter/src/index.ts) runs the project's Vite.                          | No Storybook build and no upload. The server sees every file a case's page loads, which is what makes traces.                                                            |
 | **The project's CSS and tokens.** Core reads both from the stylesheets' sources.                                                             | Traces can name the tokens a case reads, so changing a token re-tests only the cases that use it.                                                                        |
 | **Design and code, linked both ways.** `@parity-app/code` (PAR-90, PAR-93).                                                                  | CI can show what a hand edit will do to the design once synced, which no Storybook tool can know.                                                                        |
 | **A measured box for every node.** `RenderedFrame.nodes` from the offscreen renderer.                                                        | A change reads "`header/avatar` grew from 32 to 40 px and everything below it moved", not "38,000 pixels differ". A shift is reported once, not as every pixel under it. |
@@ -489,7 +489,7 @@ canvas-against-page layout check.
 
 ## Calls made here
 
-These are my calls, open to change. They go into decisions.md once you agree with this proposal.
+These are my calls, open to change. They're settled once you agree with this proposal.
 
 - **Where baselines come from:** CI makes every committed baseline. Developers' machines compare with their own renders
   of HEAD or the merge base, and nobody needs Docker. Eventually, Parity's own runners make them (your direction,

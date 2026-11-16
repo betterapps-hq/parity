@@ -8,9 +8,11 @@ const root = join(import.meta.dirname, "..", "skills")
 /** Reads the Parity design skill: SKILL.md, or a file it references. */
 export async function readSkill(path = "SKILL.md"): Promise<string> {
   const target = normalize(join(root, path))
+
   if (relative(root, target).startsWith("..") || relative(root, target).includes(`..${sep}`)) {
     throw invalidInput("path", `${path} isn't part of the skill`)
   }
+
   try {
     return await readFile(target, "utf8")
   } catch {
@@ -30,6 +32,7 @@ export async function skillFiles(): Promise<string[]> {
 
 async function list(directory = root): Promise<string[]> {
   const entries = await readdir(directory, { withFileTypes: true })
+
   const files = await Promise.all(
     entries.map(async (entry) =>
       entry.isDirectory()
@@ -37,5 +40,6 @@ async function list(directory = root): Promise<string[]> {
         : [relative(root, join(directory, entry.name)).replaceAll("\\", "/")]
     )
   )
+
   return files.flat()
 }

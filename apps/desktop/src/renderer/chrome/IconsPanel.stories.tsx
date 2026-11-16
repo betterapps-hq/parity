@@ -24,6 +24,7 @@ const meta = {
 } satisfies Meta<typeof IconsPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Icons tab. */
@@ -37,7 +38,10 @@ async function openWithoutIcons(): Promise<void> {
   await openIcons()
   const { libraries } = example().info
   const icons = libraries.findIndex((library) => library.kind === "icons")
-  if (icons >= 0) libraries.splice(icons, 1)
+
+  if (icons >= 0) {
+    libraries.splice(icons, 1)
+  }
 }
 
 /**

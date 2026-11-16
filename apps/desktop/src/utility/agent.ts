@@ -16,15 +16,22 @@ import {
 import { agentRegistry, entryPath, writeEntry } from "@parity-app/agent/registry"
 import { registryVersion } from "@parity-app/agent/routing"
 import { errorDetails } from "@parity-app/core"
+import { isText } from "@parity-app/core/values/evaluate"
 import { copyScale, planExport, planPicture } from "@parity-app/editor"
+import { agentCallAnswered, agentCallFailed, agentCallStart, readTraceHeaders } from "@parity-app/telemetry"
 import { passedLink } from "../shared/account.ts"
+import { logNote } from "../shared/log.ts"
 import type { ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { renderJob } from "../shared/render-job.ts"
+import type { MainMethods } from "../shared/service.ts"
+import { currentTrace, inSpan } from "../shared/tracing.ts"
 import { readConsole } from "./console.ts"
 import { environment } from "./environment.ts"
 import { mainProcess } from "./main-process.ts"
+import { type FindOptions, foundScreen, savePictures, searchMedia, searchReferences } from "./references.ts"
 import { renderOffscreen } from "./render.ts"
-import { composePicture, cutPicture } from "./webp.ts"
+import { scrubSecrets } from "./telemetry.ts"
+import { composePicture, composeSheet, cutPicture } from "./webp.ts"
 
 interface WindowChannel {
   request<M extends keyof WindowMethods>(
@@ -35,6 +42,16 @@ interface WindowChannel {
 
 const screenshotDir = join(homedir(), ".parity", "screenshots")
 
+const referencesDir = join(homedir(), ".parity", "references")
+
+/** How agents' searches reach main, which picks the connector and holds its key, and where previews are saved. */
+const finding: FindOptions = {
+  find: (request) => mainProcess.request("connectorFind", request),
+  fetch,
+  folder: referencesDir,
+  timeout: 15_000
+}
+
 /**
  * The local endpoint agents use (through `parity` or its MCP server). It listens on 127.0.0.1 only and requires the
  * token in this copy's agent registry entry, which only the person's own account can read.
@@ -42,14 +59,44 @@ const screenshotDir = join(homedir(), ".parity", "screenshots")
  * Every copy that runs has its own entry, and the CLI sends each call to the copy that has its project open
  * (PAR-514). The main process removes the entry when this copy quits.
  */
-export async function startAgentServer(window: () => WindowChannel): Promise<void> {
+/** What agents' image calls need of the service: reading a project's image files, and removing one (PAR-834). */
+export type AgentImages = Pick<AgentHost, "scanImages" | "removeImage" | "saveImage">
+
+/** For hosts that only draw and export, which never list or remove images. */
+const noImages: AgentImages = {
+  scanImages: () => Promise.reject(new Error("Images can't be read here")),
+  removeImage: () => Promise.reject(new Error("Images can't be removed here")),
+  saveImage: () => Promise.reject(new Error("Images can't be saved here"))
+}
+
+/** What agents' extension calls need of the service: its extensions, and running their commands and tools (PAR-1096). */
+export type AgentExtensions = Pick<AgentHost, "extensions" | "runExtension">
+
+/** For hosts that only draw and export, which run no extensions. */
+const noExtensions: AgentExtensions = {
+  extensions: () => Promise.resolve([]),
+  runExtension: () => Promise.reject(new Error("Extensions can't run here"))
+}
+
+export async function startAgentServer(
+  window: () => WindowChannel,
+  images: AgentImages,
+  extensions: AgentExtensions = noExtensions
+): Promise<void> {
   const token = randomBytes(24).toString("hex")
+
   const server = createServer((request, response) => {
-    void handle(request, response, token, window)
+    void handle(request, response, token, window, images, extensions)
   })
+
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
   const address = server.address()
-  if (!address || typeof address === "string") throw new Error("The agent server has no port")
+
+  // A server listening on a pipe or socket would give its path instead.
+  if (!address || isText(address)) {
+    throw new Error("The agent server has no port")
+  }
+
   // The main process names the copy, so a service it restarts writes the same entry.
   const copy = environment()
   const app = copy.PARITY_APP_PID ?? process.ppid
@@ -61,27 +108,79 @@ export async function startAgentServer(window: () => WindowChannel): Promise<voi
     app,
     startedAt: copy.PARITY_APP_STARTED ?? Date.now()
   })
-  console.log(`[service] agents connect at 127.0.0.1:${address.port} (${entryPath(registry, app)})`)
+  logNote(`[service] agents connect at 127.0.0.1:${address.port} (${entryPath(registry, app)})`)
 }
 
-async function handle(request: IncomingMessage, response: ServerResponse, token: string, window: () => WindowChannel) {
-  const reply = (status: number, body: unknown) => {
+/** Answers an agent with `body` as JSON. */
+type Reply = <Body>(status: number, body: Body) => void
+
+async function handle(
+  request: IncomingMessage,
+  response: ServerResponse,
+  token: string,
+  window: () => WindowChannel,
+  images: AgentImages,
+  extensions: AgentExtensions
+) {
+  const reply: Reply = (status, body) => {
     response.writeHead(status, { "content-type": "application/json" })
     response.end(JSON.stringify(body))
   }
+
   const given = Buffer.from(request.headers.authorization?.replace(/^Bearer /, "") ?? "")
   const expected = Buffer.from(token)
-  if (given.length !== expected.length || !timingSafeEqual(given, expected)) return reply(401, { error: "Wrong token" })
-  if (request.method === "POST" && request.url === "/auth/link") return passLinkToMain(request, reply)
-  if (request.method !== "POST" || request.url !== "/rpc") return reply(404, { error: "POST /rpc" })
+
+  if (given.length !== expected.length || !timingSafeEqual(given, expected)) {
+    return reply(401, { error: "Wrong token" })
+  }
+
+  if (request.method === "POST" && request.url === "/auth/link") {
+    return passLinkToMain(request, reply)
+  }
+
+  if (request.method !== "POST" || request.url !== "/rpc") {
+    return reply(404, { error: "POST /rpc" })
+  }
+
   try {
     const chunks: Buffer[] = []
-    for await (const chunk of request) chunks.push(chunk as Buffer)
-    // Any local process with the token can send anything, so the body and its params are checked first (PAR-598).
-    reply(200, { result: await answerRequest(Buffer.concat(chunks).toString("utf8"), desktopHost(window())) })
+
+    for await (const chunk of request) {
+      // SAFETY: a request with no encoding set streams its body as Buffers.
+      chunks.push(chunk as Buffer)
+    }
+
+    const body = Buffer.concat(chunks).toString("utf8")
+
+    // Any local process with the token can send anything, so the body and its params are checked first (PAR-598). The
+    // call continues the trace the CLI sent in its headers, so it's one trace from the command line on (PAR-629), and
+    // its span says what was asked and how it went (PAR-641).
+    const answer = async () => {
+      const result = await answerRequest(body, desktopHost(window(), images, extensions), (caller) => {
+        // Only tags telemetry, so a main that's gone is no matter.
+        mainProcess.request("agentCalled", caller).catch(() => undefined)
+      })
+
+      return { result, text: JSON.stringify({ result }) }
+    }
+
+    const { text } = await inSpan(
+      "agent.called",
+      agentCallStart(body, { value: scrubSecrets }),
+      answer,
+      readTraceHeaders(request.headers),
+      {
+        result: ({ result, text }) => agentCallAnswered(result, text.length),
+        error: agentCallFailed
+      }
+    )
+
+    response.writeHead(200, { "content-type": "application/json" })
+    response.end(text)
   } catch (error) {
     const details = errorDetails(error)
-    reply(200, { error: error instanceof Error ? error.message : String(error), ...(details ? { details } : {}) })
+    const failure = error instanceof Error ? error.message : String(error)
+    reply(200, details ? { error: failure, details } : { error: failure })
   }
 }
 
@@ -89,12 +188,21 @@ async function handle(request: IncomingMessage, response: ServerResponse, token:
  * A sign-in link another copy of Parity got from the browser (PAR-612). Main says whether it's the sign-in this copy is
  * waiting for, and takes it if so; only it has the PKCE verifier the code needs.
  */
-async function passLinkToMain(request: IncomingMessage, reply: (status: number, body: unknown) => void) {
+async function passLinkToMain(request: IncomingMessage, reply: Reply) {
   try {
     const chunks: Buffer[] = []
-    for await (const chunk of request) chunks.push(chunk as Buffer)
+
+    for await (const chunk of request) {
+      // SAFETY: a request with no encoding set streams its body as Buffers.
+      chunks.push(chunk as Buffer)
+    }
+
     const passed = passedLink.safeParse(JSON.parse(Buffer.concat(chunks).toString("utf8")))
-    if (!passed.success) return reply(400, { error: "Expected { link }" })
+
+    if (!passed.success) {
+      return reply(400, { error: "Expected { link }" })
+    }
+
     reply(200, await mainProcess.request("signInLink", passed.data))
   } catch (error) {
     reply(200, { taken: false, error: error instanceof Error ? error.message : String(error) })
@@ -105,8 +213,14 @@ async function passLinkToMain(request: IncomingMessage, reply: (status: number, 
  * The desktop's side of an agent call: the editor window's live tabs, the offscreen renderer, the console and the
  * screenshots folder. Which method does what is `dispatch` in `@parity-app/agent`.
  */
-export function desktopHost(window: WindowChannel): AgentHost {
+export function desktopHost(
+  window: WindowChannel,
+  images: AgentImages = noImages,
+  extensions: AgentExtensions = noExtensions
+): AgentHost {
   return {
+    ...images,
+    ...extensions,
     tabs: () => window.request("agent.tabs", undefined),
     copy: () => window.request("agent.copy", undefined),
     open: (root) => window.request("agent.open", { root }),
@@ -117,21 +231,49 @@ export function desktopHost(window: WindowChannel): AgentHost {
     },
     render: (snapshot, request) => renderFrame(snapshot, request),
     iconNames: (tab, set, module) =>
-      window.request("agent.iconNames", { tab, set, ...(module === undefined ? {} : { module }) }),
+      window.request("agent.iconNames", module === undefined ? { tab, set } : { tab, set, module }),
     apply: (tab, label, changes) => window.request("agent.apply", { tab, label, ...changes }),
     supports: (queries) => window.request("agent.supports", queries),
     console: (snapshot, clear) => readConsole(snapshot.guestUrl, clear),
-    async saveScreenshots(screenshots) {
+    // The call's own trace, from the command on, else the window's; main takes the window's screenshot and sends it.
+    async report(report) {
+      const { replayId, traceId } = await window.request("agent.reportIds", undefined)
+      const trace = currentTrace()?.traceId ?? traceId
+
+      const filed: MainMethods["report"]["params"] = { ...report }
+
+      if (replayId) {
+        filed.replayId = replayId
+      }
+
+      if (trace) {
+        filed.traceId = trace
+      }
+
+      return mainProcess.request("report", filed)
+    },
+    // Main holds connectors' keys, so it runs the search; the previews are fetched and saved here (PAR-829).
+    references: (request) => searchReferences(finding, request),
+    media: (request) => searchMedia(finding, request),
+    pictures: (pictures) => savePictures(finding, pictures),
+    result: async (connector, id) => (await mainProcess.request("connectorResult", { connector, id })) ?? undefined,
+    screen: (id, connector) =>
+      foundScreen(id, connector, (from, each) => mainProcess.request("connectorResult", { connector: from, id: each })),
+    placed: (placed) => mainProcess.request("connectorPlaced", placed),
+    async saveScreenshots(pictures) {
       await mkdir(screenshotDir, { recursive: true })
       const stamp = new Date().toISOString().replaceAll(/[:.]/g, "-")
+
       return Promise.all(
-        screenshots.map(async (shot, index) => {
-          const path = join(screenshotDir, `${stamp}-${index + 1}-${shot.design}-${shot.state}-${shot.mode}.png`)
-          await writeFile(path, Buffer.from(shot.png, "base64"))
+        pictures.map(async (picture, index) => {
+          const path = join(screenshotDir, `${stamp}-${index + 1}-${picture.name}.png`)
+          await writeFile(path, Buffer.from(picture.png, "base64"))
+
           return path
         })
       )
-    }
+    },
+    composeSheet: async (sheet) => (await composeSheet(sheet)).toString("base64")
   }
 }
 
@@ -145,42 +287,47 @@ async function renderFrame(
       {
         projectId: snapshot.projectId,
         guestUrl: snapshot.guestUrl,
-        ...(snapshot.addedComponents ? { components: snapshot.addedComponents } : {}),
+        components: snapshot.addedComponents,
         theme: snapshot.theme
       },
       {
         tree,
         mode,
-        frame: { width: mode.width, ...(height === undefined ? {} : { height }), viewport },
+        frame: { width: mode.width, height, viewport },
         scale,
-        ...(audit ? { audit } : {}),
-        ...(colorTokens ? { colorTokens } : {}),
+        audit,
+        colorTokens,
         tokens,
-        design: { key: design, ...(state ? { state } : {}), mode: mode.id }
+        design: state ? { key: design, state, mode: mode.id } : { key: design, mode: mode.id }
       }
     ),
     capture
   )
-  return { ...frame, ...(png ? { png } : {}) }
+
+  return png ? { ...frame, png } : frame
 }
 
 /**
- * Renders designs to PNG files in a folder the person picked, through the same offscreen renderer agents use, without
- * showing agent activity on the canvas.
+ * Renders designs to files in a folder the person picked, at each size asked for, through the same offscreen renderer
+ * agents use, without showing agent activity on the canvas. A PNG is written as drawn; a JPG is made from it as the
+ * Export section makes one, its see-through parts white.
  */
 export async function exportDesigns(
   window: WindowChannel,
-  { projectId, folder, designs, scale }: ServiceMethods["designs.export"]["params"]
+  { projectId, folder, designs, sizes }: ServiceMethods["designs.export"]["params"]
 ): Promise<ServiceMethods["designs.export"]["result"]> {
   const host = desktopHost(window)
-  const { files, warnings } = await exportPictures(host, await host.snapshot(projectId), designs, scale)
+  const { files, warnings } = await exportPictures(host, await host.snapshot(projectId), designs, sizes)
   await mkdir(folder, { recursive: true })
   const paths: string[] = []
-  for (const { name, png } of files) {
+
+  for (const { name, size, png, crop } of files) {
     const path = join(folder, name)
-    await writeFile(path, Buffer.from(png, "base64"))
+    const picture = Buffer.from(png, "base64")
+    await writeFile(path, size.format === "jpg" ? await cutPicture(picture, crop, "jpg") : picture)
     paths.push(path)
   }
+
   return { files: paths, warnings }
 }
 
@@ -202,16 +349,20 @@ export async function exportLayers(
   const byId = layers.map((layer) => ({ ...layer, design: layer.design.slice(layer.design.lastIndexOf("#") + 1) }))
   await mkdir(folder, { recursive: true })
   const written: string[] = []
+
   for (const { file, frame, crop, problem } of planExport(byId, files, frames)) {
     const picture = frame === undefined ? undefined : frames[frame]?.png
+
     if (problem || !picture || !crop) {
       warnings.push(problem ?? `${file.name}: its design didn't draw`)
       continue
     }
+
     const path = join(folder, file.name)
     await writeFile(path, await cutPicture(Buffer.from(picture, "base64"), crop, file.size.format))
     written.push(path)
   }
+
   return { files: written, warnings }
 }
 
@@ -232,7 +383,11 @@ export async function layersPicture(
   const byId = layers.map((layer) => ({ ...layer, design: layer.design.slice(layer.design.lastIndexOf("#") + 1) }))
   const { width, height, pieces, problems } = planPicture(byId, frames, copyScale)
   warnings.push(...problems)
-  if (pieces.length === 0) return { warnings }
+
+  if (pieces.length === 0) {
+    return { warnings }
+  }
+
   const png = await composePicture(
     pieces.map(({ frame, crop, left, top }) => ({
       picture: Buffer.from(frames[frame]!.png, "base64"),
@@ -243,6 +398,7 @@ export async function layersPicture(
     width,
     height
   )
+
   return { png: png.toString("base64"), warnings }
 }
 
@@ -255,5 +411,6 @@ export async function checkAccessibility(
   { projectId, design }: ServiceMethods["accessibility.check"]["params"]
 ): Promise<ServiceMethods["accessibility.check"]["result"]> {
   const host = desktopHost(window)
+
   return accessibility(host, await host.snapshot(projectId), design, { state: "all", mode: "shown" })
 }

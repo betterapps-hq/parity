@@ -19,15 +19,27 @@ export interface FoundLockfiles {
 export async function nearestLockfiles(root: string): Promise<FoundLockfiles | undefined> {
   for (let folder = resolve(root); ; folder = dirname(folder)) {
     const names: string[] = []
-    for (const name of Object.keys(LOCKS)) if (await isFile(join(folder, name))) names.push(name)
-    if (names.length > 0) return { folder, names }
-    if (dirname(folder) === folder) return undefined
+
+    for (const name of Object.keys(LOCKS)) {
+      if (await isFile(join(folder, name))) {
+        names.push(name)
+      }
+    }
+
+    if (names.length > 0) {
+      return { folder, names }
+    }
+
+    if (dirname(folder) === folder) {
+      return undefined
+    }
   }
 }
 
 /** {@link nearestLockfiles}, relative to the root with forward slashes, the one detection names first. */
 export async function findLockfiles(root: string): Promise<string[]> {
   const found = await nearestLockfiles(root)
+
   return found ? found.names.map((name) => relative(root, join(found.folder, name)).replaceAll("\\", "/")) : []
 }
 
@@ -39,15 +51,20 @@ export async function findLockfiles(root: string): Promise<string[]> {
 export function lockfileFolders(root: string, lockfiles: readonly string[]): string[] {
   const found = lockfiles[0] === undefined ? undefined : dirname(resolve(root, lockfiles[0]))
   const folders: string[] = []
+
   for (let folder = resolve(root); ; folder = dirname(folder)) {
     folders.push(folder)
-    if (folder === found || dirname(folder) === folder) return folders
+
+    if (folder === found || dirname(folder) === folder) {
+      return folders
+    }
   }
 }
 
 /** Whether a change to `file` (absolute) can change what {@link findLockfiles} finds, given {@link lockfileFolders}. */
 export function changesLockfiles(file: string, folders: readonly string[]): boolean {
   const path = resolve(file)
+
   return basename(path) in LOCKS && folders.includes(dirname(path))
 }
 

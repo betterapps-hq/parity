@@ -1,21 +1,22 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { about, App, type Box, center } from "./app.ts"
 
-// docs/editor.md, Text: editing text in place, and auto width, auto height and fixed text (PAR-175). On Pricing's
-// subtitle, "Start free, then upgrade…", which wraps onto two lines at 560px, centred under the heading, and its FAQ
-// heading, "Questions, answered".
+// docs/editor.md, Text: editing text in place (PAR-175). On Pricing's subtitle, "Start free, then upgrade…", which
+// wraps onto two lines at 560px, centred under the heading.
 
 let app: App
 
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const subtitle = "so61t"
 const title = "crd2J"
-const heading = "Kr88n"
+
 const original =
   "Start free, then upgrade when you need more seats, history and control. Every plan includes unlimited viewers."
 
@@ -47,7 +48,11 @@ function selected(): Promise<string> {
 
 async function editorBox(): Promise<Box> {
   const box = await editor().boundingBox()
-  if (!box) throw new Error("The text editor isn't drawn")
+
+  if (!box) {
+    throw new Error("The text editor isn't drawn")
+  }
+
   return box
 }
 
@@ -57,14 +62,20 @@ function wordBox(design: string, id: string, word: string): Promise<Box> {
     ([design, id, word]) => {
       const e2e = window.e2e!
       const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key(design)), id)
+
       for (const node of element?.childNodes ?? []) {
-        if (!(node instanceof Text) || !node.data.includes(word)) continue
+        if (!(node instanceof Text) || !node.data.includes(word)) {
+          continue
+        }
+
         const range = document.createRange()
         range.setStart(node, node.data.indexOf(word))
         range.setEnd(node, node.data.indexOf(word) + word.length)
         const { x, y, width, height } = range.getBoundingClientRect()
+
         return { x, y, width, height }
       }
+
       throw new Error(`${id} doesn't draw "${word}"`)
     },
     [design, id, word] as const
@@ -77,7 +88,11 @@ function fontSizes(id: string): Promise<{ layer: number; editor: number }> {
     const e2e = window.e2e!
     const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key("Pricing")), id)
     const textarea = document.querySelector("textarea.text-editor")
-    if (!element || !textarea) throw new Error("Nothing to measure")
+
+    if (!element || !textarea) {
+      throw new Error("Nothing to measure")
+    }
+
     return {
       layer: parseFloat(getComputedStyle(element).fontSize),
       editor: parseFloat(getComputedStyle(textarea).fontSize)
@@ -187,56 +202,5 @@ describe("leaving the editor", () => {
     await app.page.keyboard.press("Enter")
     await expect.poll(() => editor().count()).toBe(0)
     await expect.poll(() => app.node("Pricing", subtitle)).toMatchObject({ text: typed })
-  })
-})
-
-describe("auto width, auto height and fixed text", () => {
-  const sizing = (name: string) => app.page.getByRole("button", { name, exact: true })
-  const pressed = async () => {
-    for (const name of ["Auto width", "Auto height", "Fixed size"]) {
-      if ((await sizing(name).getAttribute("aria-pressed")) === "true") return name
-    }
-    return undefined
-  }
-
-  it("switches between them from the inspector, keeping the layer where it's drawn", async () => {
-    await app.show("Pricing", 1, heading)
-    await app.selectLayer("Pricing", heading)
-    // A text layer without a width wraps at the one its layout gives it.
-    await expect.poll(pressed).toBe("Auto height")
-    const width = app.page.locator('input[aria-label="Width"]')
-    await width.click()
-    await width.press("ControlOrMeta+a")
-    await width.pressSequentially("80", { delay: 20 })
-    await width.press("Enter")
-    await expect.poll(async () => (await app.style("Pricing", heading)).width).toBe(20)
-    const wrapped = await app.size("Pricing", heading)
-    expect(await pressed()).toBe("Auto height")
-
-    // Auto width: one line, as wide as the text.
-    await sizing("Auto width").click()
-    await expect.poll(async () => (await app.style("Pricing", heading)).width).toBe("hug")
-    const line = (await app.size("Pricing", heading))!
-    expect(line.width).toBeGreaterThan(160)
-    expect(line.height).toBeLessThan(wrapped!.height * 0.75)
-    expect(await pressed()).toBe("Auto width")
-
-    // Auto height: the width it's drawn at, fixed, in spacing steps; the height still follows the text.
-    await sizing("Auto height").click()
-    await expect.poll(async () => typeof (await app.style("Pricing", heading)).width).toBe("number")
-    const fixedWidth = Number((await app.style("Pricing", heading)).width)
-    // Rounded up to whole steps, so the text doesn't wrap again.
-    expect(fixedWidth * 4).toBeGreaterThanOrEqual(line.width - 0.5)
-    expect(fixedWidth * 4).toBeLessThan(line.width + 4.5)
-    expect((await app.style("Pricing", heading)).height).toBeUndefined()
-    expect((await app.size("Pricing", heading))!.height).toBe(line.height)
-
-    // Fixed: the height it's drawn at too.
-    await sizing("Fixed size").click()
-    await expect.poll(async () => typeof (await app.style("Pricing", heading)).height).toBe("number")
-    const fixedHeight = Number((await app.style("Pricing", heading)).height)
-    expect(fixedHeight * 4).toBeGreaterThanOrEqual(line.height - 0.5)
-    expect(fixedHeight * 4).toBeLessThan(line.height + 4.5)
-    expect(await pressed()).toBe("Fixed size")
   })
 })

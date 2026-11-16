@@ -1,6 +1,5 @@
 import {
   Button,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -8,7 +7,7 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import { type ModeSettings } from "@parity-app/core"
-import { builtOn, defaultValues, type PreviewKind, previewKind, type Token } from "@parity-app/tokens"
+import { builtOn, defaultValues, type PreviewKind, previewKind, type Token, type TokenMap } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Check, LayoutGrid, List, Search, X } from "lucide-react"
@@ -17,21 +16,25 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState
 } from "react"
 import { useProject } from "../canvas/context.ts"
-import { useHistory, useModeSettings } from "../design-store.ts"
-import { comesTo, type TokenMap } from "../token-values.ts"
+import { undo, useHistory, useModeSettings } from "../project-doc.ts"
+import { comesTo } from "../token-values.ts"
 import { useTokenFailure, useTokenList } from "../tokens-store.ts"
-import { save } from "./commands.ts"
+import { actions } from "./actions.ts"
 import { Announce, CopyOnClick, useCopy } from "./Copy.tsx"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
+import { applyToken } from "./inspector-events.ts"
+import { NameInput } from "./Name.tsx"
 import { PanelError } from "./PanelError.tsx"
 import { PanelSectionTitle } from "./PanelSection.tsx"
+import { onShowToken, takeShownToken } from "./shown-token.ts"
 import {
   Keyframes,
   type PreviewToken,
@@ -45,6 +48,7 @@ import {
 import { keepEditing, TokenDetail } from "./TokenDetail.tsx"
 
 type Source = "all" | "semantic" | "theme"
+
 type View = "list" | "tiles"
 
 /** A token with what its preview draws. */
@@ -65,13 +69,21 @@ function themesOf(token: Token, themes: string[]): string[] {
  */
 function themeNamesOf(settings: ModeSettings): Map<string, string> {
   const names = new Map<string, string>()
+
   for (const variable of settings.variables) {
-    if (variable.kind !== "theme") continue
+    if (variable.kind !== "theme") {
+      continue
+    }
+
     for (const option of variable.options) {
       const key = option.className?.trim() || "default"
-      if (!names.has(key)) names.set(key, option.name)
+
+      if (!names.has(key)) {
+        names.set(key, option.name)
+      }
     }
   }
+
   return names
 }
 
@@ -92,6 +104,7 @@ function previewOf({ token, kind }: Kinded, tokens: TokenMap, themes: string[]):
   const values = Object.fromEntries(
     themesOf(token, themes).map((theme) => [theme, comesTo(tokens, token.name, theme) ?? ""])
   )
+
   return { name: token.name, kind, values }
 }
 
@@ -132,34 +145,55 @@ export function TokensPanel() {
   const tokens = useTokenList(store)
   const failure = useTokenFailure(store)
   const unwritten = new Set(failure?.tokens.map((change) => change.name))
-  const [query, setQuery] = useState("")
+  const [query, setQuery] = useState(() => takeShownToken(info.root) ?? "")
   const [source, setSource] = useState<Source>("all")
   const [view, setView] = useState<View>("list")
   // The sections folded closed, by title. Starting or clearing a search unfolds them, so matches always show.
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set())
   const needle = query.trim().toLowerCase()
+  // A token picked in Search actions shows however the panel was filtered: every source, every section open.
+  useEffect(
+    () =>
+      onShowToken(info.root, (name) => {
+        setQuery(name)
+        setSource("all")
+        setCollapsed(new Set())
+      }),
+    [info.root]
+  )
+
   const toggle = (title: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
-      if (!next.delete(title)) next.add(title)
+
+      if (!next.delete(title)) {
+        next.add(title)
+      }
+
       return next
     })
+
   const byName = useMemo(() => new Map(tokens.map((token) => [token.name, token])), [tokens])
   const themes = useMemo(() => [...new Set(tokens.flatMap((token) => Object.keys(token.values)))], [tokens])
   const described = useMemo(() => matchDescribed(info.describedTokens, tokens), [info.describedTokens, tokens])
+
   const kinded = useMemo(() => {
     const lookup = defaultValues(tokens)
+
     return tokens.map((token) => ({ token, kind: previewKind(token, described.byName.get(token.name)?.type, lookup) }))
   }, [tokens, described])
+
   const matches = kinded.filter(
     ({ token }) =>
       (source === "all" || token.source === source) && (!needle || token.name.toLowerCase().includes(needle))
   )
+
   const counts = { semantic: tokens.filter((t) => t.source === "semantic").length, theme: 0 }
   counts.theme = tokens.length - counts.semantic
   const unmatched = described.unmatched.filter((token) => !needle || token.path.toLowerCase().includes(needle))
-  const modes = useModeSettings(session.store)
+  const modes = useModeSettings(session)
   const themeNames = useMemo(() => themeNamesOf(modes), [modes])
+
   const items = panelItems({
     matches,
     view,
@@ -169,6 +203,7 @@ export function TokensPanel() {
   })
 
   const scroller = useRef<HTMLDivElement>(null)
+
   // The app doesn't use the React Compiler, whose memoizing this rule guards against.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -178,17 +213,24 @@ export function TokensPanel() {
     getItemKey: (index) => items[index]!.key,
     overscan: 8
   })
+
   // Tiles are two to a row, each as wide as its column: the list's width less its padding and the gap, halved, less the
   // tile button's own padding. A fixed width ran each tile into the next in a narrow panel.
   const [tileWidth, setTileWidth] = useState(104)
   useLayoutEffect(() => {
     const element = scroller.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(([entry]) => {
       const column = (entry!.contentRect.width - 24 - 4) / 2
       setTileWidth(Math.max(48, Math.floor(column - 8)))
     })
+
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [])
 
@@ -202,14 +244,13 @@ export function TokensPanel() {
               count={item.count}
               open={item.open}
               onToggle={() => toggle(item.title)}
+              tone="quiet"
             />
           </div>
         )
       case "heading":
         return (
-          <div className={`px-4.5 pb-0.5 text-[11px] text-muted-foreground ${item.first ? "" : "pt-2"}`}>
-            {item.text}
-          </div>
+          <div className={`px-4.5 pb-0.5 text-2xs text-muted-foreground ${item.first ? "" : "pt-2"}`}>{item.text}</div>
         )
       case "row":
         return (
@@ -241,7 +282,7 @@ export function TokensPanel() {
       case "hue":
         return (
           <div className="flex items-center gap-1.5 px-3 pb-1">
-            <span className="w-14 shrink-0 truncate px-1 text-[11px] text-muted-foreground">{item.hue}</span>
+            <span className="w-14 shrink-0 truncate px-1 text-2xs text-muted-foreground">{item.hue}</span>
             <div className="flex flex-1 gap-px">
               {item.shades.map((shade) => (
                 <PaletteShade
@@ -255,7 +296,7 @@ export function TokensPanel() {
           </div>
         )
       case "note":
-        return <p className="px-4 pb-2 text-xs text-muted-foreground">{item.text}</p>
+        return <p className="type-description px-4 pb-2 text-muted-foreground">{item.text}</p>
       case "described":
         return (
           <div className="px-3">
@@ -265,7 +306,7 @@ export function TokensPanel() {
       case "end":
         return <div className="h-4" />
       case "empty":
-        return <p className="p-6 text-center text-sm text-muted-foreground">No tokens match.</p>
+        return <p className="type-empty p-6 text-center text-muted-foreground">No tokens match.</p>
     }
   }
 
@@ -275,11 +316,15 @@ export function TokensPanel() {
         <div className="flex items-center gap-1.5">
           <div className="relative min-w-0 flex-1">
             <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <NameInput
               value={query}
               onChange={(event) => {
                 const next = event.currentTarget.value
-                if (Boolean(next.trim()) !== Boolean(needle)) setCollapsed(new Set())
+
+                if (Boolean(next.trim()) !== Boolean(needle)) {
+                  setCollapsed(new Set())
+                }
+
                 setQuery(next)
               }}
               placeholder="Search tokens"
@@ -291,6 +336,7 @@ export function TokensPanel() {
             size="sm"
             spacing={0}
             value={[view]}
+            // SAFETY: the group's items are "list" and "tiles", the two views.
             onValueChange={([value]) => value && setView(value as View)}
             aria-label="Show tokens as"
           >
@@ -311,6 +357,7 @@ export function TokensPanel() {
           size="sm"
           spacing={0}
           value={[source]}
+          // SAFETY: the group's items are "all", "semantic" and "theme", the three sources.
           onValueChange={([value]) => value && setSource(value as Source)}
           className="w-full"
         >
@@ -337,7 +384,7 @@ export function TokensPanel() {
           <PanelError
             title={`Couldn't write ${failedNames(failure.tokens)} to ${store.stylesheet}`}
             action={
-              <Button variant="outline" size="sm" onClick={() => void save(session)}>
+              <Button variant="outline" size="sm" onClick={() => void actions.save.run("panel", { session })}>
                 Try again
               </Button>
             }
@@ -398,20 +445,25 @@ function panelItems({
   collapsed: ReadonlySet<string>
 }): Item[] {
   const items: Item[] = []
+
   /** Adds a section's title, and says whether it's open, so its lines follow. */
   const section = (title: string, count: number) => {
     const open = !collapsed.has(title)
     items.push({ type: "section", key: `section ${title}`, title, count, first: items.length === 0, open })
+
     return open
   }
+
   const list = (entries: Kinded[], gap = false) => {
     if (view === "tiles" && entries.every((entry) => entry.kind !== "number")) {
       for (let index = 0; index < entries.length; index += 2) {
         const pair = entries.slice(index, index + 2)
         items.push({ type: "tiles", key: `tiles ${pair[0]!.token.name}`, entries: pair })
       }
+
       return
     }
+
     for (const [index, entry] of entries.entries()) {
       items.push({
         type: "row",
@@ -421,57 +473,85 @@ function panelItems({
       })
     }
   }
+
   const end = (title: string) => items.push({ type: "end", key: `end ${title}` })
 
   for (const { title, kinds } of tokenSections) {
     const groups = kinds
       .map(({ kind, heading }) => ({ heading, entries: matches.filter((entry) => entry.kind === kind) }))
       .filter((group) => group.entries.length > 0)
+
     const count = groups.reduce((sum, group) => sum + group.entries.length, 0)
-    if (count === 0) continue
+
+    if (count === 0) {
+      continue
+    }
+
     if (title === "Colors") {
       const own = groups[0]!.entries.filter((entry) => entry.token.source === "semantic")
       const scale = groups[0]!.entries.filter((entry) => entry.token.source === "theme")
+
       if (own.length > 0 && section("Semantic colors", own.length)) {
         list(own)
         end("Semantic colors")
       }
+
       if (scale.length > 0 && section("Palette", scale.length)) {
-        if (searching) list(scale)
-        else {
+        if (searching) {
+          list(scale)
+        } else {
           const hues = Map.groupBy(scale, (entry) => /^color-([a-z]+)-\d+$/.exec(entry.token.name)?.[1] ?? "")
           const loose = hues.get("") ?? []
           hues.delete("")
+
           for (const [hue, shades] of hues) {
             items.push({ type: "hue", key: `hue ${hue}`, hue, shades: shades.map((entry) => entry.token) })
           }
-          if (loose.length > 0) list(loose, hues.size > 0)
+
+          if (loose.length > 0) {
+            list(loose, hues.size > 0)
+          }
         }
+
         end("Palette")
       }
+
       continue
     }
-    if (!section(title, count)) continue
+
+    if (!section(title, count)) {
+      continue
+    }
+
     for (const [index, { heading, entries }] of groups.entries()) {
       if (heading && groups.length > 1) {
         items.push({ type: "heading", key: `heading ${title} ${heading}`, text: heading, first: index === 0 })
       }
+
       list(entries)
     }
+
     end(title)
   }
+
   if (unmatched.length > 0 && section("Described only", unmatched.length)) {
     items.push({
       type: "note",
       key: "note described only",
       text: "A .lib.par describes these, but no custom property in the stylesheet matches them, so previews can't use them."
     })
+
     for (const token of unmatched) {
       items.push({ type: "described", key: `described ${token.library}:${token.path}`, token })
     }
+
     end("Described only")
   }
-  if (items.length === 0) items.push({ type: "empty", key: "empty" })
+
+  if (items.length === 0) {
+    items.push({ type: "empty", key: "empty" })
+  }
+
   return items
 }
 
@@ -499,6 +579,7 @@ function tokenKeys(copy: () => void, card: ReturnType<typeof useHoverCard>) {
 /** Where a row or tile shows its value, a click on it says it copied, or couldn't, for a moment. */
 function Copied({ copying }: { copying: ReturnType<typeof useCopy> }) {
   const ok = copying.status?.ok
+
   return (
     <span className={`flex items-center gap-0.5 ${ok ? "text-(--process-running)" : "text-destructive"}`}>
       {ok ? <Check className="size-3" /> : <X className="size-3" />}
@@ -533,6 +614,7 @@ function TokenRow({
   const card = useHoverCard()
   const name = token.name
   const value = valueLabel(preview)
+
   return (
     <div {...handlers} className="group/token relative flex items-center">
       <TokenPopover entry={entry} card={card}>
@@ -555,9 +637,9 @@ function TokenRow({
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-mono">{token.name}</span>
             {described?.description && (
-              <span className="truncate text-[11px] text-muted-foreground">{described.description}</span>
+              <span className="truncate text-2xs text-muted-foreground">{described.description}</span>
             )}
-            {unwritten && <span className="text-[11px] text-destructive">Not written to the stylesheet</span>}
+            {unwritten && <span className="type-message text-destructive">Not written to the stylesheet</span>}
           </span>
           {copying.status ? (
             <span className="shrink-0">
@@ -599,6 +681,7 @@ function TokenTileButton({
   const card = useHoverCard()
   const name = token.name
   const value = unwritten ? "Not written" : valueLabel(preview)
+
   return (
     <div {...handlers} className="group/token relative flex min-w-0">
       <TokenPopover entry={entry} card={card}>
@@ -615,15 +698,15 @@ function TokenTileButton({
         >
           <TokenTile token={preview} width={width} height={58} playing={playing} />
           <span className="flex min-w-0 items-baseline gap-1 px-0.5">
-            <span className="min-w-0 flex-1 truncate font-mono text-[11px]">{token.name}</span>
+            <span className="min-w-0 flex-1 truncate font-mono text-2xs">{token.name}</span>
             {copying.status ? (
-              <span className="shrink-0 text-[10px]">
+              <span className="shrink-0 text-2xs">
                 <Copied copying={copying} />
               </span>
             ) : (
               value && (
                 <span
-                  className={`shrink-0 text-[10px] tabular-nums ${unwritten ? "text-destructive" : "text-muted-foreground"}`}
+                  className={`shrink-0 text-2xs tabular-nums ${unwritten ? "text-destructive" : "text-muted-foreground"}`}
                 >
                   {value}
                 </span>
@@ -644,6 +727,7 @@ function TokenTileButton({
  */
 function PaletteShade({ token, value, unwritten }: { token: Token; value: string; unwritten: boolean }) {
   const name = token.name
+
   return (
     <CopyOnClick text={name} hint={name}>
       <button
@@ -667,6 +751,7 @@ function PaletteShade({ token, value, unwritten }: { token: Token; value: string
 /** A token a `.lib.par` describes but the stylesheet doesn't have, with its value in each context. */
 function DescribedRow({ token }: { token: LibraryToken }) {
   const contexts = Object.entries(token.values)
+
   return (
     <div className="flex min-h-7 min-w-0 items-center gap-2 px-1.5 py-1 text-xs">
       {token.type === "color" ? (
@@ -687,7 +772,7 @@ function DescribedRow({ token }: { token: LibraryToken }) {
       >
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate font-mono">{token.path}</span>
-          {token.description && <span className="truncate text-[11px] text-muted-foreground">{token.description}</span>}
+          {token.description && <span className="truncate text-2xs text-muted-foreground">{token.description}</span>}
         </span>
       </Hint>
       {token.type !== "color" && (
@@ -718,7 +803,10 @@ function TokenPopover({
       open={card.open}
       onOpenChange={(open, details) => {
         keepEditing(details)
-        if (!details.isCanceled) card.setOpen(open)
+
+        if (!details.isCanceled) {
+          card.setOpen(open)
+        }
       }}
     >
       {/* The row opens its detail by resting on it or by a key; a click copies the token instead. */}
@@ -749,13 +837,15 @@ function Detail({ entry }: { entry: Kinded }) {
   const session = useProject()
   const { tokens: store } = session
   const panel = useContext(Panel)!
-  const { undoLabel } = useHistory(session.store)
+  const undoLabel = useHistory(session).undo[0]
   const { token, kind } = entry
   const described = panel.described.get(token.name)
+
   // A theme the token sets no value in has the root's.
   const values = Object.fromEntries(
     themesOf(token, panel.themes).map((theme) => [theme, token.values[theme] ?? token.values.default ?? ""])
   )
+
   return (
     <TokenDetail
       token={{
@@ -773,10 +863,8 @@ function Detail({ entry }: { entry: Kinded }) {
       stylesheet={store.stylesheet}
       lookup={(name, theme) => comesTo(panel.tokens, name, theme)}
       references={(name, theme) => builtOn(panel.tokens.get(name), theme)}
-      onApply={(changes) =>
-        store.set(Object.entries(changes).map(([theme, value]) => ({ name: token.name, theme, value })))
-      }
-      undo={undoLabel === `Edit ${token.name}` ? () => session.store.undo() : undefined}
+      onApply={(changes) => applyToken(store, token.name, changes)}
+      undo={undoLabel === `Edit ${token.name}` ? () => undo(session) : undefined}
     />
   )
 }
@@ -784,5 +872,6 @@ function Detail({ entry }: { entry: Kinded }) {
 /** The tokens a save couldn't write, by name: one, or how many. */
 function failedNames(changes: readonly TokenWrite[]): string {
   const names = [...new Set(changes.map((change) => change.name))]
+
   return names.length === 1 ? names[0]! : `${names.length} tokens`
 }

@@ -2,10 +2,16 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   designsSelection,
   layersSelection,
+  pickPreviews,
+  previewsSelection,
+  refsSelection,
   sameSelection,
   selectedDesigns,
   selectedNodes,
+  selectedPreviews,
+  selectionForRefs,
   selectionKey,
+  selectionRefs,
   toggleLayer
 } from "./selection.ts"
 
@@ -15,6 +21,7 @@ describe("the selection", () => {
       mode: "mobile-light",
       state: "error"
     })
+
     expect(picked).toEqual({
       design: "main/sign-in",
       node: "email",
@@ -58,5 +65,118 @@ describe("the selection", () => {
     expect(selectionKey(layersSelection("main/sign-in", ["title", "email"], { state: "loading" }))).not.toBe(
       selectionKey(one)
     )
+  })
+})
+
+describe("selecting previews", () => {
+  const design = "(stories)#plan-card"
+
+  it("selects one preview as a mode and state of the design", () => {
+    const one = previewsSelection(design, ["default/desktop-light"])
+
+    expect(one).toEqual({ design, mode: "desktop-light", state: "default" })
+    expect(selectedPreviews(one)).toEqual(["default/desktop-light"])
+    expect(selectedDesigns(one)).toEqual([])
+  })
+
+  it("selects a preview alone with a click, never the same mode in other states", () => {
+    const both = previewsSelection(design, ["default/desktop-light", "popular/desktop-light"])
+    const clicked = pickPreviews(both, design, ["popular/desktop-light"], false)
+
+    expect(selectedPreviews(clicked)).toEqual(["popular/desktop-light"])
+  })
+
+  it("adds a preview with Shift, the last picked holding the settings, and takes it away again", () => {
+    const one = previewsSelection(design, ["default/desktop-light"])
+    const two = pickPreviews(one, design, ["popular/desktop-dark"], true)
+
+    expect(selectedPreviews(two)).toEqual(["default/desktop-light", "popular/desktop-dark"])
+    expect(two).toMatchObject({ mode: "desktop-dark", state: "popular" })
+    expect(selectedPreviews(pickPreviews(two, design, ["popular/desktop-dark"], true))).toEqual([
+      "default/desktop-light"
+    ])
+  })
+
+  it("adds a state's row with Shift, or takes it away when it's all selected", () => {
+    const row = ["popular/desktop-light", "popular/desktop-dark"]
+    const one = previewsSelection(design, ["default/desktop-light"])
+    const added = pickPreviews(one, design, row, true)
+
+    expect(selectedPreviews(added)).toEqual(["default/desktop-light", ...row])
+    expect(selectedPreviews(pickPreviews(added, design, row, true))).toEqual(["default/desktop-light"])
+  })
+
+  it("selects the design alone once Shift takes its last preview away", () => {
+    const one = previewsSelection(design, ["default/desktop-light"])
+
+    expect(pickPreviews(one, design, ["default/desktop-light"], true)).toEqual({ design })
+  })
+
+  it("tells selections of different previews apart", () => {
+    const a = previewsSelection(design, ["default/desktop-light", "popular/desktop-light"])
+    const b = previewsSelection(design, ["default/desktop-dark", "popular/desktop-light"])
+
+    expect(sameSelection(a, b)).toBe(false)
+    expect(selectionKey(a)).not.toBe(selectionKey(b))
+  })
+})
+
+describe("the selection by NodeRef (PAR-1092)", () => {
+  const settings = { owner: "tanstack-router", type: "route", key: "/settings" }
+  const pricing = { owner: "tanstack-router", type: "route", key: "/pricing" }
+  const story = { owner: "storybook", type: "story", key: "button--primary" }
+
+  const places = {
+    isDesign: (key: string) => ["main/sign-in", "(pages)/pricing", "a/b"].includes(key),
+    pageOf: (route: { key: string }) => (route.key === "/pricing" ? "(pages)/pricing" : undefined)
+  }
+
+  const layerType = (_design: string, node: string) => (node === "title" ? "text" : "frame")
+
+  it("gives the designs, the layers of one, or the nodes held by ref", () => {
+    expect(selectionRefs(designsSelection(["main/sign-in", "a/b"]), layerType)).toEqual([
+      { owner: "design", type: "design", key: "main/sign-in" },
+      { owner: "design", type: "design", key: "a/b" }
+    ])
+    expect(selectionRefs(layersSelection("main/sign-in", ["box", "title"]), layerType)).toEqual([
+      { owner: "design", type: "frame", key: "main/sign-in/box" },
+      { owner: "design", type: "text", key: "main/sign-in/title" }
+    ])
+    expect(selectionRefs(previewsSelection("a/b", ["/mobile"]), layerType)).toEqual([
+      { owner: "design", type: "design", key: "a/b" }
+    ])
+    expect(selectionRefs(refsSelection([settings, story, settings]), layerType)).toEqual([settings, story])
+    expect(selectionRefs({ note: "n1" }, layerType)).toEqual([])
+  })
+
+  it("selects designs, a route's page among them, as designs, and layers of one design as layers", () => {
+    expect(selectionForRefs([pricing], places)).toEqual({ design: "(pages)/pricing" })
+    expect(selectionForRefs([{ owner: "design", type: "design", key: "a/b" }, pricing], places)).toEqual(
+      designsSelection(["a/b", "(pages)/pricing"])
+    )
+    expect(
+      selectionForRefs(
+        [
+          { owner: "design", type: "text", key: "a/b/title" },
+          { owner: "design", type: "frame", key: "a/b/box" }
+        ],
+        places
+      )
+    ).toEqual(layersSelection("a/b", ["title", "box"]))
+  })
+
+  it("selects a route without a page, a story, or a mix, by ref", () => {
+    expect(selectionForRefs([settings], places)).toEqual({ refs: [settings] })
+    expect(selectionForRefs([story, pricing], places)).toEqual({ refs: [story, pricing] })
+    expect(selectionForRefs([{ owner: "design", type: "design", key: "gone" }], places)).toEqual({
+      refs: [{ owner: "design", type: "design", key: "gone" }]
+    })
+    expect(selectionForRefs([], places)).toEqual({})
+  })
+
+  it("tells selections of different nodes apart, in any order", () => {
+    expect(sameSelection(refsSelection([settings]), refsSelection([settings]))).toBe(true)
+    expect(sameSelection(refsSelection([settings]), refsSelection([pricing]))).toBe(false)
+    expect(selectionKey(refsSelection([settings, story]))).toBe(selectionKey(refsSelection([story, settings])))
   })
 })

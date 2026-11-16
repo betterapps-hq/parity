@@ -1,15 +1,19 @@
-import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
+import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle, type TextNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { textLayer } from "./clipboard.ts"
 import type { Rect } from "./drop-slot.ts"
 import { type HereLayout, pasteHere, slotHere } from "./paste-here.ts"
 
-const text = (id: string, style?: NodeStyle): DesignNode => ({
-  type: "text",
-  id,
-  text: id,
-  ...(style ? { style } : {})
-})
+const text = (id: string, style?: NodeStyle): DesignNode => {
+  const node: TextNode = { type: "text", id, text: id }
+
+  if (style) {
+    node.style = style
+  }
+
+  return node
+}
+
 const box = (left: number, top: number, width: number, height: number): Rect => ({
   left,
   top,
@@ -33,7 +37,7 @@ function dashboard(): ContainerSpec {
         {
           type: "layout",
           id: "stats",
-          style: { direction: "row", gap: 4 },
+          style: { flexDirection: "row", gap: { step: 4 } },
           children: [text("revenue"), text("issues"), text("users"), text("uptime")]
         },
         {
@@ -44,12 +48,18 @@ function dashboard(): ContainerSpec {
             {
               type: "layout",
               id: "events",
-              style: { position: "absolute", top: 0, right: 0, bottom: 0, left: 17 },
+              style: {
+                position: "absolute",
+                top: { step: 0 },
+                right: { step: 0 },
+                bottom: { step: 0 },
+                left: { step: 17 }
+              },
               children: [
                 {
                   type: "layout",
                   id: "review",
-                  style: { position: "absolute", top: 40, left: 0, right: 0 },
+                  style: { position: "absolute", top: { step: 40 }, left: { step: 0 }, right: { step: 0 } },
                   children: []
                 }
               ]
@@ -69,20 +79,26 @@ function dashboard(): ContainerSpec {
     states: [
       { id: "default", name: "Default" },
       // A state that places the stat cards' row absolutely, as a state can.
-      { id: "floating", name: "Floating", overrides: { stats: { style: { position: "absolute", top: 2, left: 2 } } } }
+      {
+        id: "floating",
+        name: "Floating",
+        overrides: { stats: { style: { position: "absolute", top: { step: 2 }, left: { step: 2 } } } }
+      }
     ]
   }
 }
 
-const base = dashboard().states[0]!
-const floating = dashboard().states[1]!
+const base = dashboard().states![0]!
+const floating = dashboard().states![1]!
+
 const card: DesignNode = {
   type: "layout",
   id: "card",
-  style: { padding: 4 },
+  style: { padding: { step: 4 } },
   children: [text("card-title")]
 }
-const badge = text("badge", { position: "absolute", top: 1, right: 2, width: 6 })
+
+const badge = text("badge", { position: "absolute", top: { step: 1 }, right: { step: 2 }, width: { step: 6 } })
 
 /** The stat cards' row as a frame drawn at full size draws it, each card 100px wide with 16px between them. */
 const stats = (point: { x: number; y: number }, extra: Partial<HereLayout> = {}): HereLayout => ({
@@ -124,7 +140,11 @@ const toolbar = (point: { x: number; y: number }, slot = "children"): HereLayout
 
 const children = (container: ContainerSpec, id: string, slot?: string) => {
   const node = findNode(container.root, id)
-  if (node?.type === "component") return (node.slots?.[slot ?? "children"] ?? []).map((child) => child.id)
+
+  if (node?.type === "component") {
+    return (node.slots?.[slot ?? "children"] ?? []).map((child) => child.id)
+  }
+
   return node?.type === "layout" ? node.children.map((child) => child.id) : []
 }
 
@@ -133,7 +153,7 @@ describe("paste here", () => {
     // Just past the middle of Issues: after it, before Users.
     const { container, copies } = pasteHere(dashboard(), [card], stats({ x: 280, y: 230 }), base)
     expect(children(container, "stats")).toEqual(["revenue", "issues", copies[0], "users", "uptime"])
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ padding: 4 })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({ padding: { step: 4 } })
   })
 
   it("puts them first before the first card's middle, and last past the last card", () => {
@@ -168,7 +188,7 @@ describe("paste here", () => {
     const footer = { ...stats({ x: 300, y: 500 }), layout: "footer", children: [], box: box(100, 480, 448, 40) }
     const { container, copies } = pasteHere(dashboard(), [card], footer, base)
     expect(children(container, "footer")).toEqual(copies)
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ padding: 4 })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({ padding: { step: 4 } })
   })
 
   it("puts layers in an absolutely placed layout at the pointer, on top of what's in it", () => {
@@ -176,39 +196,58 @@ describe("paste here", () => {
     const { container, copies } = pasteHere(dashboard(), [card], events({ x: 160, y: 280 }), base)
     expect(children(container, "events")).toEqual(["review", copies[0]])
     expect(findNode(container.root, copies[0]!)?.style).toEqual({
-      padding: 4,
+      padding: { step: 4 },
       position: "absolute",
-      left: 50,
-      top: 100
+      left: { step: 50 },
+      top: { step: 100 }
     })
   })
 
   it("places them in half steps, as dragging does", () => {
     // 7px and 5px on screen at half size are 14 and 10 frame pixels: 3.5 and 2.5 steps.
     const { container, copies } = pasteHere(dashboard(), [text("note")], events({ x: 67, y: 85 }), base)
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", left: 3.5, top: 2.5 })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      left: { step: 3.5 },
+      top: { step: 2.5 }
+    })
   })
 
   it("replaces a copy's own insets with the pointer's", () => {
     const { container, copies } = pasteHere(dashboard(), [badge], events({ x: 160, y: 280 }), base)
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", width: 6, left: 50, top: 100 })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      width: { step: 6 },
+      left: { step: 50 },
+      top: { step: 100 }
+    })
   })
 
   it("puts a copy that's absolutely placed itself in the slot, at the pointer", () => {
     const { container, copies } = pasteHere(dashboard(), [badge], stats({ x: 280, y: 230 }), base)
     expect(children(container, "stats")).toEqual(["revenue", "issues", copies[0], "users", "uptime"])
     // 180px and 30px from the row's inside at full size: 45 and 7.5 steps.
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", width: 6, left: 45, top: 7.5 })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      width: { step: 6 },
+      left: { step: 45 },
+      top: { step: 7.5 }
+    })
   })
 
   it("reads whether the layout is absolutely placed from the state shown", () => {
     const { container, copies } = pasteHere(dashboard(), [card], stats({ x: 280, y: 230 }), floating)
     expect(children(container, "stats")).toEqual(["revenue", "issues", "users", "uptime", copies[0]])
-    expect(findNode(container.root, copies[0]!)?.style).toMatchObject({ position: "absolute", left: 45, top: 7.5 })
+    expect(findNode(container.root, copies[0]!)?.style).toMatchObject({
+      position: "absolute",
+      left: { step: 45 },
+      top: { step: 7.5 }
+    })
   })
 
   it("reads whether the layout is absolutely placed in the frame's viewport", () => {
     const original = dashboard()
+
     const responsive: ContainerSpec = {
       ...original,
       root: {
@@ -218,13 +257,14 @@ describe("paste here", () => {
           {
             type: "layout",
             id: "stats",
-            style: { direction: "row", gap: 4 },
-            responsive: { mobile: { style: { position: "absolute", top: 2, left: 2 } } },
+            style: { flexDirection: "row", gap: { step: 4 } },
+            responsive: { mobile: { style: { position: "absolute", top: { step: 2 }, left: { step: 2 } } } },
             children: [text("revenue"), text("issues"), text("users"), text("uptime")]
           }
         ]
       }
     }
+
     expect(slotHere(responsive, stats({ x: 280, y: 230 }), base, "mobile")).toMatchObject({ free: true, index: 4 })
     expect(slotHere(responsive, stats({ x: 280, y: 230 }), base, "desktop")).toMatchObject({ free: false, index: 2 })
   })
@@ -255,37 +295,54 @@ describe("paste here", () => {
       type: "image",
       id,
       src: `/${id}.png`,
-      style: { width }
+      style: { width: { step: width } }
     })
+
     const { container, copies } = pasteHere(
       dashboard(),
       [image("wide", 80), image("narrow", 40), text("note"), image("last", 10)],
       events({ x: 160, y: 280 }),
       base
     )
+
     const placed = copies.map((id) => findNode(container.root, id)?.style)
-    expect(placed.map((style) => style?.left)).toEqual([50, 134, 178, 178])
-    expect(placed.map((style) => style?.top)).toEqual([100, 100, 100, 100])
+    expect(placed.map((style) => style?.left)).toEqual([50, 134, 178, 178].map((step) => ({ step })))
+    expect(placed.map((style) => style?.top)).toEqual([100, 100, 100, 100].map((step) => ({ step })))
   })
 
   it("keeps the right and bottom of a copy stretched between its insets, at the pointer", () => {
-    const stretched = text("overlay", { position: "absolute", top: 1, right: 2, bottom: 3, left: 4 })
+    const stretched = text("overlay", {
+      position: "absolute",
+      top: { step: 1 },
+      right: { step: 2 },
+      bottom: { step: 3 },
+      left: { step: 4 }
+    })
+
     // Stretched across but given a height: it keeps its right, not its bottom.
-    const bar = text("bar", { position: "absolute", left: 0, right: "gutter", top: 4, bottom: 2, height: 2 })
+    const bar = text("bar", {
+      position: "absolute",
+      left: { step: 0 },
+      right: { token: "gutter" },
+      top: { step: 4 },
+      bottom: { step: 2 },
+      height: { step: 2 }
+    })
+
     const { container, copies } = pasteHere(dashboard(), [stretched, bar], events({ x: 160, y: 280 }), base)
     expect(findNode(container.root, copies[0]!)?.style).toEqual({
       position: "absolute",
-      left: 50,
-      top: 100,
-      right: 2,
-      bottom: 3
+      left: { step: 50 },
+      top: { step: 100 },
+      right: { step: 2 },
+      bottom: { step: 3 }
     })
     expect(findNode(container.root, copies[1]!)?.style).toEqual({
       position: "absolute",
-      height: 2,
-      left: 50,
-      top: 100,
-      right: "gutter"
+      height: { step: 2 },
+      left: { step: 50 },
+      top: { step: 100 },
+      right: { token: "gutter" }
     })
   })
 
@@ -333,6 +390,7 @@ describe("the slot here", () => {
         box: box(100, 200, 216, 136)
       }
     )
+
     expect(slotHere(dashboard(), grid, base)).toMatchObject({ index: 3, line: { x: 214, y: 276, w: 2, h: 60 } })
     // Past the second row's last card, before the end.
     expect(slotHere(dashboard(), { ...grid, point: { x: 330, y: 300 } }, base)?.index).toBe(4)
@@ -379,6 +437,10 @@ describe("placing at a point", () => {
   it("puts a new text layer at the pointer in an absolutely placed layout, as a drop there goes", () => {
     const { container, copies } = pasteHere(dashboard(), [textLayer("Text")], events({ x: 100, y: 120 }), base)
     expect(children(container, "events")).toEqual(["review", copies[0]])
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", left: 20, top: 20 })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      left: { step: 20 },
+      top: { step: 20 }
+    })
   })
 })

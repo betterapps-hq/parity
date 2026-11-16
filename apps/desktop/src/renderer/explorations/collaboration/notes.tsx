@@ -4,7 +4,9 @@ import { Fragment, type ReactNode } from "react"
 import { me, type Person } from "../explore-data.ts"
 import { accent, Avatar } from "../parts.tsx"
 
-export type StickyColor = "yellow" | "orange" | "pink" | "violet" | "blue" | "green" | "gray"
+export const stickyColors = ["yellow", "orange", "pink", "violet", "blue", "green", "gray"] as const
+
+export type StickyColor = (typeof stickyColors)[number]
 
 const stickies: Record<StickyColor, { bg: string; ink: string }> = {
   yellow: { bg: "oklch(0.93 0.12 98)", ink: "oklch(0.3 0.06 90)" },
@@ -15,8 +17,6 @@ const stickies: Record<StickyColor, { bg: string; ink: string }> = {
   green: { bg: "oklch(0.88 0.11 150)", ink: "oklch(0.28 0.07 150)" },
   gray: { bg: "oklch(0.88 0 0)", ink: "oklch(0.27 0 0)" }
 }
-
-export const stickyColors = Object.keys(stickies) as StickyColor[]
 
 /** A sticky note: for discussion, ideas and to-dos beside the designs. It has an author, and never ships. */
 export function StickyNote({
@@ -31,6 +31,7 @@ export function StickyNote({
   children: ReactNode
 }) {
   const { bg, ink } = stickies[color]
+
   return (
     <div
       className="flex flex-col justify-between gap-3 rounded-[3px] p-4 shadow-[0_10px_24px_rgb(0_0_0/0.35)]"
@@ -92,6 +93,7 @@ export function Callout({
   children: ReactNode
 }) {
   const hue = categoryHue[category]
+
   return (
     <div className="flex w-64 flex-col gap-2 rounded-lg border bg-popover p-3 text-popover-foreground shadow-xl">
       <div className="flex items-center gap-2">
@@ -140,7 +142,9 @@ export function Leader({ from, to }: { from: [number, number]; to: [number, numb
   )
 }
 
-export type ReviewStatus = "draft" | "review" | "changes" | "approved"
+export const reviewStatusOrder = ["draft", "review", "changes", "approved"] as const
+
+export type ReviewStatus = (typeof reviewStatusOrder)[number]
 
 const reviewStatuses: Record<ReviewStatus, { label: string; color: string }> = {
   draft: { label: "Draft", color: "oklch(0.7 0 0)" },
@@ -149,11 +153,10 @@ const reviewStatuses: Record<ReviewStatus, { label: string; color: string }> = {
   approved: { label: "Approved", color: "oklch(0.75 0.15 155)" }
 }
 
-export const reviewStatusOrder = Object.keys(reviewStatuses) as ReviewStatus[]
-
 /** Where a section's designs are in review. */
 export function StatusPill({ status }: { status: ReviewStatus }) {
   const { label, color } = reviewStatuses[status]
+
   return (
     <span
       className="flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"

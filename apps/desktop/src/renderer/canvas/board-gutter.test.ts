@@ -27,21 +27,23 @@ describe("boardParts", () => {
     expect(boardParts.board(0.1).padding).toBe("0 30px 30px")
   })
 
-  it("splits the gap before the first companion around a dashed line, and the gap between rows likewise", () => {
+  it("leaves a gap before the first companion, and between rows, whose last part holds the next row's headers", () => {
     const divided = boardParts.dividedFrame(1)
     expect([length(divided.marginLeft), length(divided.paddingLeft)]).toEqual([12, 1 + 12])
     const row = boardParts.nextRow(1)
     expect([length(row.marginTop), length(row.paddingTop)]).toEqual([36, 1 + 36])
-    // A later row's label starts beside its frames, below the line.
+    // Every row's frames are raised into the band above them, where their headers sit.
+    expect(length(boardParts.rowFrames(1).marginTop)).toBe(-36)
+    // Every row's label starts beside its frames, the first row's below its header band as a later row's is.
     expect(boardParts.nextStateLabel(1).top).toBe(row.paddingTop)
+    expect(boardParts.firstStateLabel(1).top).toBe(boardParts.firstRow(1).paddingTop)
   })
 
-  it("draws dashed lines a screen pixel wide up close, laid out longer and scaled down rather than thinned", () => {
-    // At 400% the line is a quarter of a canvas pixel: four times as long, scaled to a quarter.
-    expect(boardParts.frameLine(4)).toEqual({ height: "400%", transform: "scale(0.25)" })
-    expect(boardParts.rowLine(1)).toEqual({ width: "100%", transform: "scale(1)" })
-    // Past 40% it thins with the canvas, as the gutter does.
-    expect(scaleOf(boardParts.frameLine(0.1).transform) * 0.1).toBeCloseTo(0.25)
+  it("makes a row a header line taller where its headers have a line under their names", () => {
+    expect(length(boardParts.firstTallRow(1).paddingTop)).toBe(2 * length(boardParts.firstRow(1).paddingTop))
+    expect(length(boardParts.nextTallRow(1).paddingTop)).toBe(length(boardParts.nextRow(1).paddingTop) + 36)
+    // Past 40% it shrinks with the canvas, as the band does.
+    expect(length(boardParts.firstTallRow(0.1).paddingTop)).toBeCloseTo(2 * length(boardParts.caption(0.1).height))
   })
 
   it("draws the board's edge a screen pixel wide at any zoom, with its corners", () => {
@@ -58,8 +60,11 @@ describe("boardParts", () => {
     for (const part of ["firstFrame", "dividedFrame", "nextFrame"] as const) {
       expect(Object.keys(boardParts[part](1)).toSorted()).toEqual(["marginLeft", "paddingLeft"])
     }
-    expect(Object.keys(boardParts.firstRow(1)).toSorted()).toEqual(Object.keys(boardParts.nextRow(1)).toSorted())
-    expect(Object.keys(boardParts.firstRowFrames(1))).toEqual(Object.keys(boardParts.nextRowFrames()))
+
+    for (const part of ["firstRow", "firstTallRow", "nextRow", "nextTallRow"] as const) {
+      expect(Object.keys(boardParts[part](1)).toSorted()).toEqual(["marginTop", "paddingTop"])
+    }
+
     expect(Object.keys(boardParts.firstStateLabel(1)).toSorted()).toEqual(
       Object.keys(boardParts.nextStateLabel(1)).toSorted()
     )
@@ -67,6 +72,7 @@ describe("boardParts", () => {
 
   it("lays a board out as the agent's estimate of it, at 40% and further out, and smaller closer in", () => {
     const [desktop, , , mobile] = resolveModes(defaultModeSettings)
+
     const design: ContainerSpec = {
       id: "page",
       name: "Page",
@@ -78,31 +84,38 @@ describe("boardParts", () => {
       ],
       view: { allStates: true }
     }
+
     // A laptop's frame 1280 by 800, then a phone's 390 by 844, and a second laptop's shrunk to half.
     const frames = [
       { width: 1280, height: 800 },
       { width: 390, height: 844 },
       { width: 1280 * companionScale(1280), height: 800 * companionScale(1280) }
     ]
+
     const drawn = (zoom: number) => {
       const side = length(boardParts.board(zoom).padding?.split(" ")[1])
       const divided = boardParts.dividedFrame(zoom)
       const row = boardParts.nextRow(zoom)
+
       const width =
         2 * side +
         frames.reduce((total, frame) => total + frame.width, 0) +
         length(divided.marginLeft) +
         length(divided.paddingLeft) +
         length(boardParts.nextFrame(zoom).marginLeft)
+
       const tallest = Math.max(...frames.map((frame) => frame.height))
+
       const height =
         length(boardParts.firstRow(zoom).paddingTop) +
         2 * tallest +
         length(row.marginTop) +
         length(row.paddingTop) +
         side
+
       return { width: Math.ceil(width), height: Math.ceil(height) }
     }
+
     const estimate = boardSize(design, [desktop!, mobile!, desktop!])
     expect(drawn(0.4)).toEqual(estimate)
     expect(drawn(0.05)).toEqual(estimate)

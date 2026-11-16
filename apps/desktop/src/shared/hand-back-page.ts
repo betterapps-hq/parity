@@ -6,8 +6,11 @@
 /** The mark as plain SVG, for a page Parity serves without React: the small drawing, which reads at 48 pixels. */
 const markSvg = `<svg width="48" height="48" viewBox="0 0 1024 1024" fill="none" aria-label="Parity"><defs><linearGradient id="tile" x1="96" y1="48" x2="928" y2="976" gradientUnits="userSpaceOnUse"><stop stop-color="#8A74FF"/><stop offset="0.5" stop-color="#5432E6"/><stop offset="1" stop-color="#2C129E"/></linearGradient></defs><rect width="1024" height="1024" rx="232" fill="url(#tile)"/><path d="M432 306L226 512L432 718M592 306L798 512L592 718" stroke="#fff" stroke-width="112" stroke-linecap="round" stroke-linejoin="round"/><path d="M512 448L576 512L512 576L448 512Z" fill="#fff" stroke="#fff" stroke-width="56" stroke-linejoin="round"/></svg>`
 
-/** Whether trading the code worked, or Parity needs one more step, such as choosing an organization. */
-export type HandBack = "signed-in" | "continue" | "problem"
+/**
+ * Whether trading the code worked, worked with only an organization left to choose in Parity (PAR-1143), or Parity
+ * needs one more step, such as single sign-on.
+ */
+export type HandBack = "signed-in" | "choose-organization" | "continue" | "problem"
 
 /**
  * A badge on the mark's corner that says at a glance how it went (your call): a check on green, an arrow on Parity's
@@ -16,6 +19,7 @@ export type HandBack = "signed-in" | "continue" | "problem"
  */
 const badges: Record<HandBack, { color: string; icon: string }> = {
   "signed-in": { color: "#16a34a", icon: '<path d="M20 6 9 17l-5-5"/>' },
+  "choose-organization": { color: "#16a34a", icon: '<path d="M20 6 9 17l-5-5"/>' },
   continue: { color: "#5432e6", icon: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>' },
   problem: {
     color: "#d97706",
@@ -25,6 +29,7 @@ const badges: Record<HandBack, { color: string; icon: string }> = {
 
 function badge(outcome: HandBack): string {
   const { color, icon } = badges[outcome]
+
   return `<span class="badge" style="background:${color}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${icon}</svg></span>`
 }
 
@@ -33,6 +38,11 @@ export const handBackText: Record<HandBack, { title: string; heading: string; te
     title: "Signed in to Parity",
     heading: "You're signed in to Parity",
     text: "You can close this tab and go back to Parity."
+  },
+  "choose-organization": {
+    title: "Signed in",
+    heading: "You're signed in",
+    text: "Pick your organization in Parity to finish. You can close this tab."
   },
   continue: {
     title: "Continue in Parity",
@@ -54,6 +64,7 @@ export function handBackHtml(outcome: HandBack, theme?: "light" | "dark"): strin
   const said = handBackText[outcome]
   const light = "--bg:#ffffff;--fg:#0a0a0a;--muted:#737373;--glow:rgb(84 50 230 / 0.12)"
   const dark = "--bg:#0a0a0a;--fg:#fafafa;--muted:#a1a1a1;--glow:rgb(138 116 255 / 0.16)"
+
   return `<!doctype html>
 <html lang="en"${theme ? ` data-theme="${theme}"` : ""}>
 <head>

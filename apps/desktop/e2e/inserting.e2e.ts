@@ -1,8 +1,9 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
+import { print } from "../../../scripts/output.ts"
 import { App } from "./app.ts"
 
 // docs/editor.md, Inserting: the `/` picker (PAR-178), how quickly it opens, what it lists first, what it leaves out
-// until it's searched for, and a component found in two places.
+// until it's searched for, and a row's sources.
 
 declare global {
   interface Window {
@@ -16,7 +17,9 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const picker = () => app.page.getByRole("listbox", { name: "Layers, components and icons" })
@@ -32,17 +35,24 @@ async function open(): Promise<number> {
     const opened = new Promise<number>((resolve) => {
       const observer = new MutationObserver(() => {
         const list = document.querySelector("[role=listbox]")
-        if (!list?.querySelector("[role=option]")) return
+
+        if (!list?.querySelector("[role=option]")) {
+          return
+        }
+
         observer.disconnect()
         list.getBoundingClientRect()
         resolve(performance.now() - pressed)
       })
+
       observer.observe(document.body, { childList: true, subtree: true })
     })
+
     const pressed = performance.now()
     window.pickerOpened = opened
   })
   await app.page.keyboard.press("/")
+
   return app.page.evaluate(() => window.pickerOpened!)
 }
 
@@ -57,12 +67,18 @@ function lines(): Promise<string[]> {
   return picker().evaluate((list) =>
     [...list.querySelectorAll(":scope > div > *")].map((line) => {
       const text = (line.textContent ?? "").trim()
-      if (line.getAttribute("role") !== "option") return `# ${text}`
+
+      if (line.getAttribute("role") !== "option") {
+        return `# ${text}`
+      }
+
       // A row's name, then each source or detail beside it as its own part.
       const parts = [...line.querySelectorAll(":scope > span")].map((part) => {
         const chips = [...part.querySelectorAll("button")].map((chip) => chip.textContent)
+
         return chips.length > 0 ? chips.join(" | ") : part.textContent
       })
+
       return parts.join(" / ")
     })
   )
@@ -72,6 +88,7 @@ function lines(): Promise<string[]> {
 async function search(query: string): Promise<string[]> {
   await field().fill(query)
   await expect.poll(async () => (await field().inputValue()) === query && (await lines()).length > 0).toBe(true)
+
   return lines()
 }
 
@@ -80,15 +97,17 @@ describe("the insert picker", () => {
     await app.show("Members", 0.5)
     await app.selectDesign("Members")
     const times: number[] = []
+
     for (let run = 0; run < 7; run++) {
       times.push(await open())
       await close()
     }
+
     // The list is built while the window is idle, so even the first opening only draws it. On a quiet machine every
     // opening takes 25 to 50ms in development; other work on the machine can double one, so the slower half has room.
     // Before PAR-178 each took 400 to 900ms.
     const sorted = [...times].sort((a, b) => a - b)
-    console.log(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
+    print(`Opened the picker in ${times.map((time) => Math.round(time)).join(", ")}ms`)
     expect(sorted[0]).toBeLessThan(100)
     expect(sorted[3]).toBeLessThan(150)
   })
@@ -116,34 +135,43 @@ describe("the insert picker", () => {
       "Horizontal layout",
       "# Local components"
     ])
+
     // Only the lines in view are drawn, so the list is scrolled a screen at a time to read every heading. Each scroll
     // is announced at once, as a wheel's would be a frame later, since frames are slow in a window in the background.
     const headings = await app.page.evaluate(async () => {
       const list = document.querySelector<HTMLElement>("[role=listbox]")!
       const seen: string[] = []
+
       for (let top = 0; top <= list.scrollHeight; top += list.clientHeight) {
         list.scrollTop = top
         list.dispatchEvent(new Event("scroll"))
         await new Promise((resolve) => setTimeout(resolve, 0))
+
         for (const line of list.querySelectorAll(":scope > div > div[role=presentation]")) {
           const text = line.textContent ?? ""
-          if (text && !seen.includes(text)) seen.push(text)
+
+          if (text && !seen.includes(text)) {
+            seen.push(text)
+          }
         }
       }
+
       return seen
     })
-    // The example has no pages, and App and ThemeProvider aren't listed until searched for, so the app's own section
-    // holds the run's MemberRow, MemberNames and EmailField.
-    expect(headings).toEqual(["Basics", "Local components", "UI kit", "shadcn-vite", "Shadcn Nova", "Radix Primitives"])
+
+    // The example takes its UI kit from Shadcn Nova. App and ThemeProvider aren't listed until searched for, so the
+    // app's own section holds StatusBadge, PlanCard and PageHeader, and the run's MemberRow, MemberNames and EmailField.
+    expect(headings).toEqual(["Basics", "Local components", "shadcn-vite", "Shadcn Nova"])
   })
 
-  it("finds Badge for `badge`, once, with both its sources, and nothing that only scatters its letters", async () => {
+  it("finds Badge for `badge` before the names it starts a word of, and nothing that only scatters its letters", async () => {
     await open()
     const found = await search("badge")
     const components = found.slice(0, found.indexOf("# Lucide icons"))
     expect(components).toEqual([
-      "Badge / UI kit | Shadcn Nova",
-      "AvatarBadge / UI kit | Shadcn Nova",
+      "Badge / Shadcn Nova",
+      "StatusBadge / shadcn-vite",
+      "AvatarBadge / Shadcn Nova",
       "SidebarMenuBadge / Shadcn Nova"
     ])
   })
@@ -164,7 +192,7 @@ describe("the insert picker", () => {
     expect((await search("dialog overlay")).at(0)).toBe("DialogOverlay / Shadcn Nova")
   })
 
-  it("inserts the project's own Badge with Enter, and Nova's from its source", async () => {
+  it("inserts the first row with Enter, and another row from its source", async () => {
     await app.show("Members", 0.5)
     await app.selectDesign("Members")
     const before = await app.children("Members", "page")
@@ -174,14 +202,14 @@ describe("the insert picker", () => {
     await expect.poll(() => app.undoLabel()).toBe("Add Badge")
     const added = (await app.children("Members", "page")).filter((id) => !before.includes(id))
     expect(added).toHaveLength(1)
-    expect(await app.node("Members", added[0]!)).toMatchObject({ type: "component", component: "Badge" })
+    expect(await app.node("Members", added[0]!)).toMatchObject({ type: "component", component: "nova/Badge" })
 
     await app.selectDesign("Members")
     await open()
     await search("badge")
-    await picker().getByRole("button", { name: "Insert Badge from Shadcn Nova" }).click()
+    await picker().getByRole("button", { name: "Insert StatusBadge from shadcn-vite" }).click()
     await expect.poll(async () => (await app.children("Members", "page")).length).toBe(before.length + 2)
-    const nova = (await app.children("Members", "page")).find((id) => !before.includes(id) && id !== added[0])
-    expect(await app.node("Members", nova!)).toMatchObject({ type: "component", component: "nova/Badge" })
+    const own = (await app.children("Members", "page")).find((id) => !before.includes(id) && id !== added[0])
+    expect(await app.node("Members", own!)).toMatchObject({ type: "component", component: "StatusBadge" })
   })
 })

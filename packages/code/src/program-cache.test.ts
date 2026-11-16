@@ -6,8 +6,10 @@ import { reactFinder } from "./finder.ts"
 import { type ProgramCache, programCache } from "./program-cache.ts"
 
 let root: string
+
 /** Each test's cache. Memory is reported as plentiful, so the tests don't depend on the machine they run on. */
 let programs: ProgramCache
+
 /** Each write's modification time, a second past the last, so a change shows on a clock coarser than the test. */
 let clock = Date.now() / 1000
 
@@ -35,12 +37,14 @@ const components = { Button: { path: "src/button.tsx", export: "Button", as: "fu
 /** The Button's prop names, as the project's warm program reads them. */
 function props(lockfiles: string[] = []): string[] {
   const found = programs.props({ root, components, lockfiles })
+
   return (found.Button?.props ?? []).map((prop) => prop.name)
 }
 
 /** The same, from a program made afresh, as a reopened project or a worker started again gets. */
 function freshProps(lockfiles: string[] = []): string[] {
   programs.close(root)
+
   return props(lockfiles)
 }
 
@@ -56,9 +60,8 @@ afterEach(async () => {
   await rm(root, { recursive: true, force: true })
 })
 
-const tsconfig = (paths: string, extra: Record<string, unknown> = {}) =>
+const tsconfig = (paths: string) =>
   JSON.stringify({
-    ...extra,
     compilerOptions: { jsx: "react-jsx", strict: true, paths: { "@lib/*": [paths] } },
     include: ["src", "a", "b"]
   })
@@ -125,13 +128,16 @@ describe(
     const others: string[] = []
 
     afterEach(async () => {
-      for (const other of others.splice(0)) await rm(other, { recursive: true, force: true })
+      for (const other of others.splice(0)) {
+        await rm(other, { recursive: true, force: true })
+      }
     })
 
     async function project(): Promise<string> {
       const dir = (await mkdtemp(join(tmpdir(), "parity-program-cache-"))).replaceAll("\\", "/")
       others.push(dir)
       await write("src/button.tsx", "export function Button() { return null }", dir)
+
       return dir
     }
 

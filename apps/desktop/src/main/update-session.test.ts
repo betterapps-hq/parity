@@ -8,7 +8,9 @@ function setup(change: { enabled?: boolean; manual?: boolean; driver?: Partial<U
     install: vi.fn<UpdateDriver["install"]>(),
     ...change.driver
   }
+
   const saveBeta = vi.fn<(beta: boolean) => void>()
+
   const session = new UpdateSession({
     enabled: true,
     manual: false,
@@ -18,15 +20,18 @@ function setup(change: { enabled?: boolean; manual?: boolean; driver?: Partial<U
     ...change,
     driver
   })
+
   return { session, driver, saveBeta }
 }
 
 describe("update session", () => {
   it("coalesces simultaneous checks into one download and keeps readiness on later checks", async () => {
     let finish: (() => void) | undefined
+
     const download = new Promise<void>((resolve) => {
       finish = resolve
     })
+
     const { session, driver } = setup({ driver: { download: () => download } })
     const first = session.check()
     expect(session.check()).toBe(first)
@@ -56,11 +61,30 @@ describe("update session", () => {
     expect(driver.install).not.toHaveBeenCalled()
   })
 
+  it("keeps a failed check's first line and the updater's code, not the headers after them", async () => {
+    const failure = Object.assign(
+      new Error(
+        'Cannot find latest.yml in the latest release artifacts: HttpError: 404\nHeaders: {"set-cookie": "_gh_sess=x"}'
+      ),
+      { code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND" }
+    )
+
+    const { session } = setup({ driver: { check: vi.fn<UpdateDriver["check"]>().mockRejectedValue(failure) } })
+    await session.check()
+    expect(session.get()).toEqual({
+      beta: false,
+      phase: "error",
+      message: "Cannot find latest.yml in the latest release artifacts: HttpError: 404",
+      code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND"
+    })
+  })
+
   it("allows retry after a failed download", async () => {
     const download = vi
       .fn<UpdateDriver["download"]>()
       .mockRejectedValueOnce(new Error("Checksum mismatch"))
       .mockResolvedValueOnce(undefined)
+
     const { session } = setup({ driver: { download } })
     await session.check()
     expect(session.get()).toMatchObject({ phase: "error", message: "Checksum mismatch" })
@@ -113,6 +137,7 @@ describe("update session", () => {
         }
       }
     })
+
     await session.check()
     const resetClose = vi.fn<() => void>()
     expect(session.install(resetClose)).toBe(false)

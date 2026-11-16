@@ -15,9 +15,10 @@ import {
 } from "../stories/fixtures.tsx"
 import { answerNext, answering, pickingWith, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { importStyles } from "./AssetsPanel.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
-import { copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } from "./commands.ts"
+import { exportAllImages } from "./commands.ts"
 
 /**
  * The notifications the window's commands show at its bottom right, each run as its menu item or shortcut would.
@@ -25,7 +26,7 @@ import { copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } fro
  * go after its usual few seconds.
  */
 const meta = {
-  title: "Parity/Chrome/Notifications",
+  title: "Parity/Chrome/Notices/Notifications",
   component: Toaster,
   render: () => <AppWindow />,
   decorators: [Window],
@@ -33,6 +34,7 @@ const meta = {
 } satisfies Meta<typeof Toaster>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The example with Pricing selected, as most commands here need. */
@@ -54,7 +56,7 @@ export const Saved: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    void save()
+    void actions.save.run("menu")
     await holdToast("Saved the project")
   }
 }
@@ -70,7 +72,7 @@ export const SaveFailed: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    void save()
+    void actions.save.run("menu")
     await holdToast("Couldn't save the project")
   }
 }
@@ -85,7 +87,7 @@ export const SavedACopy: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    void saveCopy()
+    void actions.saveCopy.run("menu")
     await holdToast("Saved a copy")
   }
 }
@@ -101,28 +103,28 @@ export const SaveACopyFailed: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    void saveCopy()
+    void actions.saveCopy.run("menu")
     await holdToast("Couldn't save the copy")
   }
 }
 
-/** While the selected design is being exported as PNGs: a spinner until it's done. */
+/** While File > Export all renders every design as PNGs: a spinner until it's done. */
 export const Exporting: Story = {
   loaders: [
     async () => {
-      await pricingSelected()
+      await openProjects("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({ "designs.export": () => never() })
     }
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void exportImages("selection")
-    await holdToast("Exporting a screen…")
+    void exportAllImages()
+    await holdToast(/^Exporting .+…$/)
   }
 }
 
-/** File > Export > All designs as PNG, done: how many images, the folder, and a button that shows them. */
+/** File > Export all, done: how many images, the folder, and a button that shows them. */
 export const Exported: Story = {
   loaders: [
     async () => {
@@ -132,7 +134,7 @@ export const Exported: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    void exportImages("all")
+    void exportAllImages()
     await holdToast(/^Exported \d+ images$/)
   }
 }
@@ -141,7 +143,7 @@ export const Exported: Story = {
 export const ExportedWithWarnings: Story = {
   loaders: [
     async () => {
-      await pricingSelected()
+      await openProjects("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({
         "designs.export": () => ({
@@ -156,7 +158,7 @@ export const ExportedWithWarnings: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void exportImages("selection")
+    void exportAllImages()
     await holdToast("Some images may be incomplete")
   }
 }
@@ -165,7 +167,7 @@ export const ExportedWithWarnings: Story = {
 export const ExportFailed: Story = {
   loaders: [
     async () => {
-      await pricingSelected()
+      await openProjects("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({
         "designs.export": () => {
@@ -176,18 +178,64 @@ export const ExportFailed: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    void exportImages("selection")
+    void exportAllImages()
     await holdToast("Couldn't export")
   }
 }
 
-/** Ctrl+Shift+E with nothing selected: what to select to export. */
-export const NothingSelectedToExport: Story = {
-  loaders: [() => openProjects("example")],
+/** Ctrl+Shift+C while the selection is being drawn: a spinner until it's on the clipboard. */
+export const CopyingAsPng: Story = {
+  name: "Copying as PNG",
+  loaders: [
+    async () => {
+      await pricingSelected()
+      answering({ "layers.picture": () => never() })
+    }
+  ],
   play: async () => {
-    await frameDesigns("Pricing", "Dashboard")
-    void exportImages("selection")
-    await holdToast("Select a screen or component to export.")
+    await frameDesigns("Pricing")
+    void actions.copyAsPng.run("key")
+    await holdToast("Copying as PNG…")
+  }
+}
+
+/** Ctrl+Shift+C, done: the selection is on the clipboard as a PNG. It goes after two seconds. */
+export const CopiedAsPng: Story = {
+  name: "Copied as PNG",
+  loaders: [pricingSelected],
+  beforeEach: () => {
+    // The story's frame isn't focused, so the real clipboard would refuse the picture. Its own `write` hides the
+    // clipboard's until the story ends.
+    Object.defineProperty(navigator.clipboard, "write", { value: () => Promise.resolve(), configurable: true })
+
+    return () => {
+      Reflect.deleteProperty(navigator.clipboard, "write")
+    }
+  },
+  play: async () => {
+    await frameDesigns("Pricing")
+    void actions.copyAsPng.run("key")
+    await holdToast("Copied as PNG")
+  }
+}
+
+/** Ctrl+Shift+C with every design selected, spread too far over the canvas for one picture: nothing is copied. */
+export const TooBigToCopyAsPng: Story = {
+  name: "Too big to copy as PNG",
+  loaders: [
+    async () => {
+      await pricingSelected()
+      answering({
+        "layers.picture": () => ({
+          warnings: ["At 2x it's over 16,384 pixels wide or tall, too big to copy. Select less, or export it."]
+        })
+      })
+    }
+  ],
+  play: async () => {
+    await frameDesigns("Pricing")
+    void actions.copyAsPng.run("key")
+    await holdToast("Couldn't copy as PNG")
   }
 }
 
@@ -201,7 +249,7 @@ export const CopiedStyle: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    copySelectionStyle()
+    void actions.copyStyle.run("menu")
     await holdToast("Copied the style")
   }
 }
@@ -216,7 +264,7 @@ export const NotALayoutToUnwrap: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing")
-    unwrapSelection()
+    void actions.unwrap.run("menu")
     await holdToast("Select a layout to unwrap it")
   }
 }
@@ -244,13 +292,18 @@ export const CouldntReopen: Story = {
 function importNovaStyles(): Promise<void> {
   const session = example()
   const nova = session.info.libraries.find((library) => library.id === "nova") ?? session.info.libraries[0]!
-  return importStyles(session, nova)
+
+  return importStyles(session.id, nova)
 }
 
 /** A button on the notification showing, since the window has an Undo of its own. */
 function notificationButton(name: string): HTMLElement {
   const notification = document.querySelector<HTMLElement>('[data-slot="toast"]')
-  if (!notification) throw new Error("No notification is showing")
+
+  if (!notification) {
+    throw new Error("No notification is showing")
+  }
+
   return within(notification).getByRole("button", { name })
 }
 

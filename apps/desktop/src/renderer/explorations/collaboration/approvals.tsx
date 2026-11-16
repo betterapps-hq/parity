@@ -36,6 +36,7 @@ export function ProposalCard({
 
   if (proposal.status !== "waiting") {
     const approved = proposal.status === "approved"
+
     return (
       <div className="flex flex-col gap-1.5 rounded-lg border bg-background/40 px-2.5 py-2 text-xs motion-safe:animate-in motion-safe:fade-in-0">
         <span className="flex items-center gap-1.5 text-muted-foreground">
@@ -54,12 +55,14 @@ export function ProposalCard({
   }
 
   let actions: ReactNode
-  if (!canApprove) actions = <span className="text-xs text-muted-foreground">Waiting for an editor to approve it.</span>
-  else if (declining)
+
+  if (!canApprove) {
+    actions = <span className="text-xs text-muted-foreground">Waiting for an editor to approve it.</span>
+  } else if (declining) {
     actions = (
       <DeclineBox agent={agent} onCancel={() => setDeclining(false)} onDecline={(reason) => onDecline?.(reason)} />
     )
-  else
+  } else {
     actions = (
       <div className="flex gap-1.5">
         <Button size="xs" className="gap-1" onClick={onApprove}>
@@ -70,6 +73,8 @@ export function ProposalCard({
         </Button>
       </div>
     )
+  }
+
   return (
     <div
       className="flex flex-col gap-2.5 rounded-lg border p-2.5"
@@ -107,6 +112,7 @@ function DeclineBox({
   const [reason, setReason] = useState("")
   const field = useRef<HTMLTextAreaElement>(null)
   useEffect(() => field.current?.focus(), [])
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (event.key === "Escape") {
       event.preventDefault()
@@ -116,6 +122,7 @@ function DeclineBox({
       onDecline(reason.trim())
     }
   }
+
   return (
     <div className="flex flex-col gap-1.5">
       <Textarea

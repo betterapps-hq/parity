@@ -1,6 +1,8 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import type { JsonValue } from "@parity-app/core/schema"
+import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
 import { findConfig, loadConfig } from "./configs.ts"
@@ -8,10 +10,10 @@ import { findConfig, loadConfig } from "./configs.ts"
 let root: string
 
 /** Writes a fixture folder: each key a path under the root, each value its text or JSON. */
-async function fixture(files: Record<string, unknown>) {
+async function fixture(files: Record<string, JsonValue>) {
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true })
-    await writeFile(join(root, path), typeof content === "string" ? content : JSON.stringify(content))
+    await writeFile(join(root, path), isText(content) ? content : JSON.stringify(content))
   }
 }
 
@@ -56,13 +58,13 @@ describe("findConfig", () => {
 })
 
 describe("loadConfig", () => {
-  const components = { files: ["components"], extensions: ["json"], here: true, jsonc: true }
+  const example = { files: ["example"], extensions: ["json"], here: true, jsonc: true }
   const stylesheet = z.looseObject({ tailwind: z.looseObject({ css: z.string() }) })
 
   it("reads JSON with comments", async () => {
-    await fixture({ "components.json": '{\n  // the stylesheet\n  "tailwind": { "css": "src/index.css" }\n}\n' })
-    expect(await loadConfig(root, root, components, stylesheet)).toEqual({
-      path: "components.json",
+    await fixture({ "example.json": '{\n  // the stylesheet\n  "tailwind": { "css": "src/index.css" }\n}\n' })
+    expect(await loadConfig(root, root, example, stylesheet)).toEqual({
+      path: "example.json",
       value: { tailwind: { css: "src/index.css" } }
     })
   })
@@ -76,14 +78,14 @@ describe("loadConfig", () => {
   })
 
   it("says which config it couldn't load", async () => {
-    await fixture({ "components.json": "{ broken" })
-    await expect(loadConfig(root, root, components, stylesheet)).rejects.toThrow(/^Couldn't load components: /)
+    await fixture({ "example.json": "{ broken" })
+    await expect(loadConfig(root, root, example, stylesheet)).rejects.toThrow(/^Couldn't load example: /)
   })
 
   it("names the config and the field its schema refuses", async () => {
-    await fixture({ "components.json": { tailwind: { css: 1 } } })
-    await expect(loadConfig(root, root, components, stylesheet)).rejects.toThrow(
-      "components.json: /tailwind/css: expected a string"
+    await fixture({ "example.json": { tailwind: { css: 1 } } })
+    await expect(loadConfig(root, root, example, stylesheet)).rejects.toThrow(
+      "example.json: /tailwind/css: expected a string"
     )
   })
 

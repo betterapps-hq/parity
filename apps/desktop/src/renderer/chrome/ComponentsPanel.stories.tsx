@@ -1,4 +1,5 @@
 import type { DetectionCorrections } from "@parity-app/core"
+import { applyDocuments } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import {
@@ -14,6 +15,7 @@ import { answerPreviews } from "../stories/previews.ts"
 import { ComponentsPanel } from "./AssetsPanel.tsx"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
+import { getPreferences } from "./preferences.ts"
 
 /**
  * The Components tab: what can be dragged into designs, by source. The project's component designs, then its own
@@ -39,6 +41,7 @@ const meta = {
 } satisfies Meta<typeof ComponentsPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Long enough that a request to the stand-in service never answers while the story is open. */
@@ -114,9 +117,7 @@ export const GridView: Story = {
     await showKit(canvasElement)
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Grid" }))
     await expect(within(canvasElement).getByRole("button", { name: "Grid" })).toHaveAttribute("aria-pressed", "true")
-    await expect(JSON.parse(localStorage.getItem("parity.preferences") ?? "{}")).toMatchObject({
-      componentsView: "grid"
-    })
+    await expect(getPreferences().componentsView).toBe("grid")
   }
 }
 
@@ -141,9 +142,11 @@ export const ComponentCardOpen: Story = {
     await userEvent.hover(kitButton(canvasElement))
     const card = await within(document.body).findByRole("dialog")
     await expect(within(card).getByText("src/components/ui/button.tsx")).toBeInTheDocument()
+
     for (const name of ["Insert", "Open file", "variant outline"]) {
       await expect(within(card).getByRole("button", { name })).toBeInTheDocument()
     }
+
     await userEvent.hover(within(card).getByRole("button", { name: "variant destructive" }))
   }
 }
@@ -256,9 +259,11 @@ async function openWithLeftOut(): Promise<void> {
 
 /** Corrects the component list in the example's main project file, as the panel's menu and buttons do. */
 function correcting(detection: DetectionCorrections): void {
-  const { store } = example()
-  const main = store.getDocuments().find((entry) => entry.path === store.mainPath)!.document
-  store.applyDocuments("Correct the component list", [{ path: store.mainPath, document: { ...main, detection } }])
+  const { doc } = example()
+  const main = doc.file(doc.main)!
+  applyDocuments(doc, "Correct the component list", [{ path: doc.main, document: { ...main, detection } }], {
+    origin: "edit"
+  })
 }
 
 /**
@@ -297,15 +302,20 @@ export const ListedByHand: Story = {
 }
 
 /**
- * Right-clicking a component: View in Storybook and View code, here for Button, which has stories. Its menu on its own,
+ * Right-clicking a component: Open in Storybook and View code, here for Button, which has stories. Its menu on its own,
  * in each state, is in Component menu.
  */
 export const ComponentMenu: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
-    const kit = source(canvasElement, "UI kit").closest("section")!
-    const button = within(kit as HTMLElement).getByRole("button", { name: "Button" })
+    const kit = source(canvasElement, "UI kit").closest("section")
+
+    if (!kit) {
+      throw new Error("The UI kit isn't in a section")
+    }
+
+    const button = within(kit).getByRole("button", { name: "Button" })
     const box = button.getBoundingClientRect()
     // Where a pointer would be, so the menu opens beside the row.
     await fireEvent.contextMenu(button, { clientX: box.left + 48, clientY: box.top + box.height / 2 })
@@ -344,14 +354,17 @@ export const AddingWithNothingSelected: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Stat card" }))
+
     const made = await waitFor(async () => {
-      const found = example().store.getEntry(example().selection.get().design ?? "")?.container
+      const found = example().doc.design(example().selection.get().design ?? "")
       await expect(found).toMatchObject({
         name: "Stat card",
         root: { children: [{ type: "instance", design: "stat-card" }] }
       })
+
       return found
     })
+
     await expect(made?.kind).toBeUndefined()
     setLayout({ leftTab: "layers" })
   }
@@ -366,7 +379,7 @@ export const StorybookLink: Story = {
   decorators: [
     (Story) => (
       <>
-        <style>{'[aria-label="Open Button in Storybook"] { opacity: 1 }'}</style>
+        <style>{'[aria-label="Open in Storybook: Button"] { opacity: 1 }'}</style>
         <Story />
       </>
     )
@@ -383,7 +396,7 @@ export const OpeningStorybook: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
     service.latency = forever
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Open Button in Storybook" }))
+    await userEvent.click(within(canvasElement).getByRole("button", { name: "Open in Storybook: Button" }))
     await within(document.body).findByText("Opening Storybook…")
   }
 }
@@ -432,8 +445,11 @@ export const LibraryStylesMissing: Story = {
   loaders: [
     async () => {
       await openComponents()
+
       for (const library of example().info.libraries) {
-        if (library.kind !== "icons") library.stylesImported = false
+        if (library.kind !== "icons") {
+          library.stylesImported = false
+        }
       }
     }
   ],

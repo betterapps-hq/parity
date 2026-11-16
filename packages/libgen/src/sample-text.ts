@@ -18,8 +18,13 @@ export function sampleText(text: string): string {
  */
 export function shortenedText(head: string): string {
   const end = [...head.matchAll(/[.!?](?=\s|$)/g)].findLast((match) => match.index >= shortestSentence)
-  if (end) return head.slice(0, end.index + 1)
+
+  if (end) {
+    return head.slice(0, end.index + 1)
+  }
+
   const space = head.lastIndexOf(" ")
   const words = space > 0 ? head.slice(0, space) : head.slice(0, -1)
+
   return `${words.replace(/[\s,;:–—-]+$/, "")}…`
 }

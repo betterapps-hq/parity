@@ -22,7 +22,7 @@ function dashboard(): ContainerSpec {
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "loading", name: "Loading", overrides: { users: { text: "…" }, stats: { style: { gap: 1 } } } }
+      { id: "loading", name: "Loading", overrides: { users: { text: "…" }, stats: { style: { gap: { step: 1 } } } } }
     ]
   }
 }
@@ -37,17 +37,23 @@ function settings(): ContainerSpec {
       type: "layout",
       id: "root",
       children: [{ type: "layout", id: "form", children: [text("name"), text("email")] }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 }
 
-const [base, loading] = dashboard().states as [ContainerSpec["states"][0], ContainerSpec["states"][0]]
+const [base, loading] = dashboard().states!
 
 const childIds = (container: ContainerSpec, id: string) => {
   const node = findNode(container.root, id)
-  if (node?.type === "layout") return node.children.map((child) => child.id)
-  if (node?.type === "component") return node.slots?.children?.map((child) => child.id)
+
+  if (node?.type === "layout") {
+    return node.children.map((child) => child.id)
+  }
+
+  if (node?.type === "component") {
+    return node.slots?.children?.map((child) => child.id)
+  }
+
   return undefined
 }
 
@@ -108,6 +114,7 @@ describe("moving layers into another design", () => {
       ...settings(),
       root: { type: "layout", id: "root", children: [text("users"), { type: "layout", id: "form", children: [] }] }
     }
+
     const moved = moveLayersAcross(dashboard(), destination, ["users"], { parent: "form", index: 0 }, base)
     expect(moved.copies).toHaveLength(1)
     expect(nodeIds(destination.root).has(moved.copies[0]!)).toBe(false)
@@ -116,7 +123,7 @@ describe("moving layers into another design", () => {
   it("copies them as the state being edited shows them", () => {
     const moved = moveLayersAcross(dashboard(), settings(), ["stats"], { parent: "root", index: 1 }, loading)
     const copy = findNode(moved.destination.root, moved.copies[0]!)
-    expect(copy).toMatchObject({ type: "layout", style: { gap: 1 } })
+    expect(copy).toMatchObject({ type: "layout", style: { gap: { step: 1 } } })
     expect(copy?.type === "layout" && copy.children[1]).toMatchObject({ text: "…" })
     // Everything inside gets a fresh id too.
     expect(copy?.type === "layout" && copy.children.map((child) => child.id)).not.toContain("users")
@@ -132,6 +139,7 @@ describe("moving layers into another design", () => {
     expect(title).not.toHaveProperty("bind")
     // The meta is hidden on mobile.
     expect(meta).toMatchObject({ text: "Updated today", hidden: true })
+
     const titled = moveLayersAcross(
       inline,
       { ...settings(), params: { title: { type: "text" } } },
@@ -142,6 +150,7 @@ describe("moving layers into another design", () => {
       },
       base
     )
+
     expect(findNode(titled.destination.root, titled.copies[0]!)).toMatchObject({ bind: { text: "title" } })
   })
 
@@ -159,6 +168,7 @@ describe("moving layers into another design", () => {
       { parent: "card", index: 0, slot: "children" },
       base
     )
+
     expect(childIds(moved.destination, "card")).toEqual([...moved.copies, "card-title"])
     expect(childIds(moved.source, "form")).toEqual(["name"])
   })

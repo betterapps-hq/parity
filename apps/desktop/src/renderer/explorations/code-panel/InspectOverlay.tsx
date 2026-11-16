@@ -1,0 +1,224 @@
+import { layersSelection } from "@parity-app/editor"
+import { useEffect, useRef, useState } from "react"
+import { useProject } from "../../canvas/context.ts"
+import { frameAt, type SourcedElement, shortSource, sourcedElementAt } from "../../canvas/element-sources.ts"
+import { type AreaSpace, areaSpace, type Box } from "../../canvas/frame-geometry.ts"
+import { chipColors, kindColors } from "../../canvas/kinds.tsx"
+import { scheduleOverlay } from "../../canvas/overlay-scheduler.ts"
+import { allFrames, findFrames, findNodeElements, nodeOfElement } from "../../frame.ts"
+import { useSelection } from "../../selection.ts"
+import { elementsWrittenAt } from "./element-list.ts"
+import { type Inspecting, pickElement, setPicking, useInspecting } from "./inspect.ts"
+
+/** What the overlay draws: boxes in the canvas area's coordinates, and the label of the one under the pointer. */
+interface Marks {
+  boxes: (Box & { dashed: boolean })[]
+  label?: { box: Box; tag: string; where: string }
+}
+
+const color = kindColors.component
+const none: Marks = { boxes: [] }
+
+/**
+ * The canvas's half of picking an element inside a component (PAR-167), set aside with the Code panel. While picking, the element a project file
+ * wrote under the pointer is outlined with its tag, file and line, and a click picks it, selecting the layer it's in;
+ * Escape stops. Otherwise the element picked in the Code section is outlined, and the one hovered in its list dashed,
+ * in every frame of the selected layer that draws them.
+ */
+export function InspectOverlay() {
+  const session = useProject()
+  const inspecting = useInspecting()
+  const selected = useSelection(session.selection)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [marks, setMarks] = useState<Marks>(none)
+  const [pointed, setPointed] = useState<{ host: HTMLElement; element: SourcedElement }>()
+
+  // While picking, the pointer's moves find the element under it, and a press picks it before the canvas sees it.
+  useEffect(() => {
+    if (!inspecting.picking) {
+      return undefined
+    }
+
+    const area = rootRef.current?.parentElement
+
+    if (!area) {
+      return undefined
+    }
+
+    area.dataset.inspecting = ""
+
+    const under = (event: PointerEvent) => {
+      if (!(event.target instanceof Node && area.contains(event.target))) {
+        return undefined
+      }
+
+      const host = frameAt(allFrames(area), event.clientX, event.clientY)
+      const element = host && sourcedElementAt(host, event.clientX, event.clientY)
+
+      return host && element ? { host, element } : undefined
+    }
+
+    const move = (event: PointerEvent) => setPointed(under(event))
+
+    const press = (event: PointerEvent) => {
+      if (event.button !== 0 || !(event.target instanceof Node && area.contains(event.target))) {
+        return
+      }
+
+      const found = under(event)
+      event.preventDefault()
+      event.stopPropagation()
+
+      if (!found) {
+        return
+      }
+
+      const { host, element } = found
+      const design = host.dataset.design
+      const node = nodeOfElement(host, element.element)
+
+      if (!design || !node) {
+        return
+      }
+
+      session.selection.set(layersSelection(design, [node], { mode: host.dataset.mode, state: host.dataset.state }))
+      pickElement({ node, at: element.at })
+      setPointed(undefined)
+    }
+
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") {
+        return
+      }
+
+      event.stopPropagation()
+      setPicking(false)
+    }
+
+    window.addEventListener("pointermove", move, { capture: true })
+    window.addEventListener("pointerdown", press, { capture: true })
+    window.addEventListener("keydown", key, { capture: true })
+
+    return () => {
+      delete area.dataset.inspecting
+      window.removeEventListener("pointermove", move, { capture: true })
+      window.removeEventListener("pointerdown", press, { capture: true })
+      window.removeEventListener("keydown", key, { capture: true })
+      setPointed(undefined)
+    }
+  }, [inspecting.picking, session])
+
+  // The boxes follow the camera, layout changes and animations, measured with the canvas's other overlays (PAR-986, see
+  // `overlay-scheduler.ts`). With nothing to mark, nothing is read, since reading a box lays the page out (PAR-653).
+  useEffect(() => {
+    const area = rootRef.current?.parentElement
+
+    if (!area) {
+      return undefined
+    }
+
+    return scheduleOverlay(area, session, {
+      showing: () => inspecting.picking || (!!selected.design && !!selected.node),
+      // Picking, the pointer can be over any frame.
+      designs: () => (inspecting.picking ? "every" : new Set(selected.design ? [selected.design] : [])),
+      measure: () => {
+        let space: AreaSpace | undefined
+        const box = (element: Element): Box => (space ??= areaSpace(area)).box(element.getBoundingClientRect())
+
+        return measure(inspecting, selected, pointed, box)
+      },
+      draw: setMarks
+    })
+  }, [inspecting, pointed, selected, session])
+
+  return (
+    <div
+      ref={rootRef}
+      className="pointer-events-none absolute inset-0 z-[306] overflow-hidden"
+      data-inspect-overlay
+      aria-hidden
+    >
+      {/* Picking, the canvas shows a crosshair, as a browser's developer tools do. */}
+      {inspecting.picking && <style>{".canvas-area[data-inspecting] .tl-canvas { cursor: crosshair; }"}</style>}
+      {marks.boxes.map((box, index) => (
+        <div
+          key={index}
+          className="absolute rounded-[1px]"
+          style={{
+            left: box.x,
+            top: box.y,
+            width: box.w,
+            height: box.h,
+            outline: `1px ${box.dashed ? "dashed" : "solid"} ${color}`,
+            background: box.dashed ? undefined : `color-mix(in oklch, ${color} 10%, transparent)`
+          }}
+        />
+      ))}
+      {marks.label && (
+        // A canvas chip in code, so at code's regular rather than the chip's medium, with the tag at code's semibold.
+        <div
+          className="absolute flex -translate-y-full items-center gap-1.5 truncate rounded-t px-1.5 py-px font-mono text-2xs tabular-nums"
+          style={{ left: marks.label.box.x - 1, top: marks.label.box.y - 1, ...chipColors.component }}
+        >
+          <span className="font-semibold">{marks.label.tag}</span>
+          <span>{marks.label.where}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Where the marks go: under the pointer while picking; else the picked element of the selected layer, solid, and the
+ * one hovered in the Code section, dashed, in each of the layer's frames, the first labelled.
+ */
+function measure(
+  inspecting: Inspecting,
+  selected: ReturnType<typeof useSelection>,
+  pointed: { host: HTMLElement; element: SourcedElement } | undefined,
+  box: (element: Element) => Box
+): Marks {
+  if (inspecting.picking) {
+    if (!pointed) {
+      return none
+    }
+
+    const at = box(pointed.element.element)
+
+    return {
+      boxes: [{ ...at, dashed: false }],
+      label: { box: at, tag: pointed.element.tag, where: shortSource(pointed.element.source) }
+    }
+  }
+
+  const node = selected.node
+
+  if (!selected.design || !node) {
+    return none
+  }
+
+  const marks: Marks = { boxes: [] }
+
+  const shown = [
+    { mark: inspecting.picked, dashed: false },
+    { mark: inspecting.hovered, dashed: true }
+  ].filter(({ mark }) => mark?.node === node && !(mark === inspecting.hovered && mark.at === inspecting.picked?.at))
+
+  for (const host of findFrames(document, selected.design)) {
+    const roots = findNodeElements(host, node)
+
+    for (const { mark, dashed } of shown) {
+      for (const element of elementsWrittenAt(roots, mark!.at)) {
+        const at = box(element)
+
+        if (at.w === 0 && at.h === 0) {
+          continue
+        }
+
+        marks.boxes.push({ ...at, dashed })
+      }
+    }
+  }
+
+  return marks
+}

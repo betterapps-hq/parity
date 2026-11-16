@@ -108,7 +108,7 @@ app a person builds. The two share no code paths or settings. Where this page sa
 Every event is tagged so a test pass can be found, filtered and compared:
 
 - `environment`: `development` for `pnpm dev` and agent drives, `ci` for CI's end-to-end tests, `tester` for installed
-  builds.
+  builds, since split into `preview` and `release` (PAR-778).
 - `release`: the app's version and, in development, the commit.
 - `driver`: `person` or `agent`, and for an agent its caller name (PAR-450) and client (`claude-code`, `codex`, …).
 - `test_run`: from `PARITY_TEST_RUN`, which an agent or CI sets for a pass, so every event, error and replay from one
@@ -117,13 +117,11 @@ Every event is tagged so a test pass can be found, filtered and compared:
 
 ### On by default
 
-| Level             | Sent                                                                     |
-| ----------------- | ------------------------------------------------------------------------ |
-| **All** (default) | Errors, crashes, traces, events, replays and failure bitmaps             |
-| **Errors**        | Errors and crashes, with their breadcrumbs, traces and the replay buffer |
-| **Off**           | Nothing; the local copy is still written                                 |
+It's either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does, and the
+local copy is still written. PAR-626 dropped an Errors level between the two.
 
-- Set in Settings > Telemetry, or by `PARITY_TELEMETRY=all|errors|off`. The CLI reads the same setting and variables.
+- Set in Settings > Diagnostics > Share diagnostics, or by `PARITY_TELEMETRY=all|off`. The CLI reads the same setting
+  and variables.
 - On in development and CI too, with their own `environment`. Only unit tests (Vitest) leave it off, through the test
   sink.
 - About shows the level and the install ID, with a button to copy them.
@@ -282,13 +280,14 @@ These change protected files, so each needs your approval as its own table when 
 ## Before the first public release
 
 Revisit what's sent before anyone outside the testers runs Parity: the default level, a first-run notice, whether names
-and values are sent as written, replay masking and the sample rates. This is its own issue, in Backlog.
+and values are sent as written, replay masking and the sample rates. This is PAR-619, and
+[telemetry-coverage.md](../telemetry-coverage.md) sets out what's sent today and proposes an answer for each.
 
 ## The work
 
 In order. Estimates use [work.md](../work.md)'s points: 2 is a short session, 3 a full one, 5 a full one with little
-slack. Each issue's "Update when done" includes `docs/telemetry.md` for the events it adds, and decisions.md for calls
-made. All go under the **Product telemetry** stream.
+slack. Each issue's "Update when done" includes `docs/telemetry.md` for the events it adds. All go under the **Product
+telemetry** stream.
 
 PAR-617, PAR-620 and PAR-624 give crash, error and replay coverage on their own, since Sentry's SDK catches uncaught
 errors, crashes and hangs without any of Parity's events. Everything after adds context.

@@ -1,9 +1,20 @@
 import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { addNote as addNoteTo, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"
+import { fireEvent, within } from "storybook/test"
 import type { ProjectInfo } from "../../shared/protocol.ts"
-import { blankProjectAt, design, example, ProjectStage } from "../stories/fixtures.tsx"
-import type { ProjectSession } from "../workspace.ts"
+import { AppWindow } from "../App.tsx"
+import {
+  blankProjectAt,
+  clearNotifications,
+  design,
+  example,
+  frameDesigns,
+  openProjects,
+  ProjectStage
+} from "../stories/fixtures.tsx"
+import { type AppDialog, openDialog } from "./app-dialogs.ts"
 import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
 
 /** Helpers for the window chrome's stories: older projects, edits that leave a project unsaved, and where it sits. */
@@ -14,17 +25,35 @@ import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
  */
 export function olderProjectAt(folder: string): ProjectInfo {
   const info = blankProjectAt(folder)
-  const dropped: Record<string, { version: string; summary: string }> = {
-    react: { version: "18.3.1", summary: "React 18.3.1 from node_modules/react; untested, Parity tests React 19" },
-    vite: { version: "5.4.11", summary: "Vite 5.4.11 from node_modules/vite; untested, Parity tests Vite 6 or later" }
-  }
+
+  const dropped = new Map([
+    ["react", { version: "18.3.1", summary: "React 18.3.1 from node_modules/react; untested, Parity tests React 19" }],
+    [
+      "vite",
+      { version: "5.4.11", summary: "Vite 5.4.11 from node_modules/vite; untested, Parity tests Vite 6 or later" }
+    ]
+  ])
+
   return {
     ...info,
     builder: { ...info.builder, toolVersion: "5" },
+    // As the service tells each adapter's item: at its old version, and saying Parity doesn't test it.
+    status: info.status.map((item) => {
+      const old = dropped.get(item.adapter)
+
+      return old
+        ? {
+            ...item,
+            hint: `${item.value} ${old.version}`,
+            detail: `${item.detail ?? item.hint}. Parity doesn't test this version`
+          }
+        : item
+    }),
     detection: {
       ...info.detection,
       tools: info.detection.tools.map((tool) => {
-        const old = dropped[tool.id]
+        const old = dropped.get(tool.id)
+
         return old ? { ...tool, ...old, status: "dropped" as const } : tool
       }),
       notice:
@@ -35,12 +64,12 @@ export function olderProjectAt(folder: string): ProjectInfo {
 
 /** Renames one of the example's designs as the Layers panel would: one undoable step that leaves it unsaved. */
 export function renameDesign(name: string, to: string): void {
-  example().store.updateContainer(design(name), "Rename design", (container) => ({ ...container, name: to }))
+  updateContainer(example().doc, design(name), "Rename design", (container) => ({ ...container, name: to }))
 }
 
 /** Adds a text note to a project's canvas, leaving it unsaved. */
-export function addNote(session: ProjectSession, text: string): void {
-  session.store.addNote(session.store.mainPath, { id: "story-note", text, position: { x: 0, y: -240 } })
+export function addNote(doc: ProjectDoc, text: string): void {
+  addNoteTo(doc, doc.main, { id: "story-note", text, position: { x: 0, y: -240 } })
 }
 
 /** The window's chrome without a canvas: tooltips, notifications and the unsaved changes prompt, full height. */
@@ -69,3 +98,29 @@ export const Window: Decorator = (Story) => (
     <Story />
   </div>
 )
+
+/** For a dialog's stories: the whole window, which the dialog opens over. Each story opens the project it needs. */
+export const dialogStories = {
+  render: () => <AppWindow />,
+  decorators: [Window],
+  loaders: [clearNotifications]
+}
+
+/** The example, for a story that needs nothing else set up first. */
+export const exampleOpen = () => openProjects("example")
+
+/**
+ * Opens `dialog` over the example, as its menu item or keys do, once the canvas has framed Pricing and Dashboard, and
+ * finds it by its `name`.
+ */
+export async function openOverExample(dialog: AppDialog, name: string): Promise<HTMLElement> {
+  await frameDesigns("Pricing", "Dashboard")
+  openDialog(dialog)
+
+  return within(document.body).findByRole("dialog", { name })
+}
+
+/** Enters text in a field, as typing it would. `userEvent.type` changes the field without React's change handler. */
+export async function enter(field: HTMLElement, text: string): Promise<void> {
+  await fireEvent.input(field, { target: { value: text } })
+}

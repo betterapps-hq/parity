@@ -1,7 +1,7 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
-import type { Picked, Selection } from "@parity-app/editor"
+import { type Picked, type Selection, unlockedPath } from "@parity-app/editor"
+import { type ContainerEntry, containerEntry, type ProjectDoc } from "@parity-app/multiplayer"
 import type { Editor } from "tldraw"
-import type { ContainerEntry, DesignStore } from "../design-store.ts"
 import { allFrames, findFrames, findNodeElement, nodeBox, nodeParent, nodesAt } from "../frame.ts"
 import type { Selected, Under } from "./pick.ts"
 
@@ -39,8 +39,9 @@ export function inside(rect: DOMRect, point: Point): boolean {
  * pointer events, so this goes by layout boxes rather than the browser's hit testing. With the canvas's editor, only
  * the frames of the board under the point are measured.
  */
-export function hitTest(area: ParentNode, store: DesignStore, point: Point, editor?: Editor): Hit | undefined {
-  const frame = frameAt(area, store, point, editor)
+export function hitTest(area: ParentNode, doc: ProjectDoc, point: Point, editor?: Editor): Hit | undefined {
+  const frame = frameAt(area, doc, point, editor)
+
   return frame && hitInFrame(frame.entry, frame.host, point)
 }
 
@@ -50,22 +51,35 @@ export function hitTest(area: ParentNode, store: DesignStore, point: Point, edit
  */
 export function frameAt(
   area: ParentNode,
-  store: DesignStore,
+  doc: ProjectDoc,
   point: Point,
   editor?: Editor
 ): { entry: ContainerEntry; host: HTMLElement } | undefined {
   const board = editor?.getShapeAtPoint(editor.screenToPage(point), {
     hitInside: true,
-    filter: (shape) => shape.type === "canvas-container"
+    filter: (item) => item.type === "canvas-container"
   })
+
   let hosts: Iterable<HTMLElement> = []
-  if (!editor) hosts = allFrames(area)
-  else if (board?.type === "canvas-container") hosts = findFrames(area, board.props.key)
-  for (const host of hosts) {
-    if (!inside(host.getBoundingClientRect(), point)) continue
-    const entry = store.getEntry(host.dataset.design ?? "")
-    if (entry) return { entry, host }
+
+  if (!editor) {
+    hosts = allFrames(area)
+  } else if (board?.type === "canvas-container") {
+    hosts = findFrames(area, board.props.key)
   }
+
+  for (const host of hosts) {
+    if (!inside(host.getBoundingClientRect(), point)) {
+      continue
+    }
+
+    const entry = containerEntry(doc, host.dataset.design ?? "")
+
+    if (entry) {
+      return { entry, host }
+    }
+  }
+
   return undefined
 }
 
@@ -77,12 +91,24 @@ export function hitInFrame(entry: ContainerEntry, host: HTMLElement, point: Poin
   const deepest = path.at(-1)?.split("/")[0]
   const location = deepest ? locateNode(entry.container.root, deepest) : undefined
   const chain = location ? [...location.ancestors, location.node] : [entry.container.root]
+
   return { entry, host, mode: host.dataset.mode ?? "", state: host.dataset.state ?? "", chain, path }
 }
 
-/** What's under the point, by id, for the rules in pick.ts. */
+/**
+ * What's under the point, by id, for the rules in pick.ts. A locked layer and what's inside it are left out, so a
+ * click there picks the layer around it (PAR-192).
+ */
 export function underPoint(hit: Hit): Under {
-  return { chain: hit.chain.map((node) => node.id), path: hit.path }
+  const { container } = hit.entry
+
+  return {
+    chain: unlockedPath(
+      container,
+      hit.chain.map((node) => node.id)
+    ),
+    path: unlockedPath(container, hit.path)
+  }
 }
 
 /**
@@ -91,10 +117,15 @@ export function underPoint(hit: Hit): Under {
  */
 export function selectedIn(hit: Hit, current: Selection): Selected | undefined {
   const node = current.design === hit.entry.key ? current.node : undefined
-  if (!node) return undefined
+
+  if (!node) {
+    return undefined
+  }
+
   const parent = isInnerPath(node)
     ? nodeParent(hit.host, node)
     : locateNode(hit.entry.container.root, node)?.ancestors.at(-1)?.id
+
   return { node, parent }
 }
 
@@ -105,6 +136,7 @@ export function selectionFrame(
   picked: { mode?: string; state?: string }
 ): HTMLElement | undefined {
   const frames = findFrames(area, design)
+
   return (
     frames.find((host) => host.dataset.mode === picked.mode && host.dataset.state === picked.state) ??
     frames.find((host) => host.dataset.mode === picked.mode) ??
@@ -122,14 +154,10 @@ export function nodeInFrames(area: ParentNode, design: string, node: string, pic
     .flatMap((host) => {
       const rect = nodeBox(host, node)
       const element: HTMLElement | undefined = findNodeElement(host, node)
+
       return rect && (element || rect.width > 0 || rect.height > 0)
         ? [{ host, element, rect, picked: host === picked }]
         : []
     })
     .sort((a, b) => Number(b.picked) - Number(a.picked))
-}
-
-/** The scale a frame is drawn at relative to its own layout (companion modes are shrunk). */
-export function frameScale(host: HTMLElement): number {
-  return Number(host.dataset.scale ?? "1") || 1
 }

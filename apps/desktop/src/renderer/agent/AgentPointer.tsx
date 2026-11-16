@@ -30,6 +30,7 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
   const gradient = `agent-pointer-${useId().replaceAll(/[^\w-]/g, "")}`
   const color = palette?.color ?? fallbackColor
   const [from, through, to] = palette?.stops ?? [color, color, color]
+
   return (
     <>
       <span
@@ -44,7 +45,7 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
         className="relative -mt-0.5 -ml-0.5 origin-top-left transition-transform duration-150 group-data-[idle=true]/cursor:animate-[agent-breathe_2.8s_ease-in-out_infinite]"
         style={{
           filter: `drop-shadow(0 1px 1.5px rgb(0 0 0 / 0.35)) drop-shadow(0 0 5px color-mix(in oklch, ${color} 55%, transparent))`,
-          ...(pressed ? { transform: "scale(0.82)" } : {})
+          transform: pressed ? "scale(0.82)" : undefined
         }}
       >
         <defs>
@@ -69,7 +70,8 @@ export function AgentPointer({ palette, pressed }: { palette?: AgentPalette; pre
 
 /**
  * The badge under an agent's arrow: what kind of thing it's doing, who the agent is and, while a call runs, the call's
- * label. Between calls, and before its first step, the icon is a sparkle.
+ * label. Between calls, and before its first step, the icon is a sparkle. It's a canvas chip, never dimmed: its ink is
+ * at least 4.5:1 on every stop of its palette, so the name stands out by weight alone.
  */
 export function AgentBadge({
   palette,
@@ -84,31 +86,58 @@ export function AgentBadge({
 }) {
   return (
     <div
-      className="mt-0.5 ml-4 flex w-max max-w-72 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] whitespace-nowrap shadow-md"
+      className="mt-0.5 ml-4 flex w-max max-w-72 items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium whitespace-nowrap tabular-nums shadow-md"
       style={{
         background: palette ? `linear-gradient(90deg, ${palette.stops.join(", ")})` : fallbackColor,
-        color: palette?.ink ?? "black"
+        color: palette?.ink ?? "var(--canvas-chip-ink)"
       }}
     >
       <ActionIcon kind={kind} className="size-3 shrink-0" />
       <span className="pointer-events-auto max-w-40 shrink-0 truncate font-semibold" title={agent}>
         {agent}
       </span>
-      {label && <span className="truncate opacity-75">{label}</span>}
+      {label && <span className="truncate">{label}</span>}
     </div>
   )
 }
 
 /** The icon for a kind of action an agent takes. */
 export function ActionIcon({ kind, className }: { kind?: PresenceEvent["kind"]; className?: string }) {
-  if (kind === "read") return <Eye className={className} />
-  if (kind === "write") return <PenLine className={className} />
-  if (kind === "move") return <Move className={className} />
-  if (kind === "screenshot") return <Camera className={className} />
-  if (kind === "measure") return <Ruler className={className} />
-  if (kind === "accessibility") return <Accessibility className={className} />
-  if (kind === "problems") return <TriangleAlert className={className} />
-  if (kind === "console") return <SquareTerminal className={className} />
-  if (kind === "board") return <LayoutGrid className={className} />
+  if (kind === "read") {
+    return <Eye className={className} />
+  }
+
+  if (kind === "write") {
+    return <PenLine className={className} />
+  }
+
+  if (kind === "move") {
+    return <Move className={className} />
+  }
+
+  if (kind === "screenshot") {
+    return <Camera className={className} />
+  }
+
+  if (kind === "measure") {
+    return <Ruler className={className} />
+  }
+
+  if (kind === "accessibility") {
+    return <Accessibility className={className} />
+  }
+
+  if (kind === "problems") {
+    return <TriangleAlert className={className} />
+  }
+
+  if (kind === "console") {
+    return <SquareTerminal className={className} />
+  }
+
+  if (kind === "board") {
+    return <LayoutGrid className={className} />
+  }
+
   return <Sparkles className={className} />
 }

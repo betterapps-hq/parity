@@ -68,11 +68,13 @@ describe("placing pasted designs", () => {
 
   it("puts copies in the view when an original is no longer on the canvas", () => {
     const home = at(0, 0, 1280, 800)
+
     const placed = pastedPlacement(
       [{ position: { x: 0, y: 0 }, bounds: home }, { position: { x: 2000, y: 0 } }],
       center,
       [home]
     )
+
     expect(placed).toEqual({ shift: { x: 5000, y: 3000 } })
   })
 })
@@ -83,6 +85,7 @@ describe("placing a new design", () => {
       { position: { x: 0, y: 200 }, bounds: at(0, 180, 1280, 900) },
       { position: { x: 1500, y: -40 }, bounds: at(1500, -60, 1300, 800) }
     ]
+
     expect(rightOfEverything(designs)).toEqual({ x: 3040, y: -40 })
     expect(rightOfEverything(designs, 100)).toEqual({ x: 2900, y: -40 })
   })
@@ -102,6 +105,7 @@ describe("placing a component made from layers", () => {
       { position: { x: 0, y: 0 }, bounds: at(0, -20.4, 1280, 900) },
       { position: { x: 1500, y: 300 }, bounds: at(1500, 300, 1300, 800) }
     ]
+
     expect(aboveEverything({ x: 1500, y: 300 }, designs)).toEqual({ x: 1500, y: -660 })
   })
 

@@ -1,0 +1,24 @@
+/*
+ * Scrollbars are a 6px rounded thumb on no track, with no arrows, darker under the pointer (PAR-767), in place of
+ * Chromium's 15px Windows scrollbar. Chromium skips these rules on an element that sets `scrollbar-width` or
+ * `scrollbar-color`, so those are only for hiding a scrollbar (`scrollbar-width: none`).
+ *
+ * Parity's page imports this (styles.css), and so do frames that stand for a phone or a tablet (frame.ts), whose
+ * browsers draw thin scrollbars where a desktop browser takes 15px for its own (PAR-900). The thumb takes its element's
+ * text color, which Parity's page sets to its own `--foreground`.
+ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: color-mix(in oklch, currentColor 18%, transparent);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklch, currentColor 35%, transparent);
+}

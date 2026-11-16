@@ -3,16 +3,18 @@ import {
   type ComponentSource,
   defaultModeSettings,
   type ModeSettings,
-  parseCanvasDocument
+  parseCanvasDocument,
+  type ProjectRoute,
+  routeFiles
 } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { homeComponent, homeScreen, openingDesigns } from "./home.ts"
 
-const viteApp: Record<string, ComponentSource> = {
+const viteApp = {
   Button: { path: "src/components/ui/button.tsx", export: "Button" },
   Card: { path: "src/components/Card.tsx", export: "Card", lazy: true, as: "function" },
   App: { path: "src/App.tsx", export: "App", lazy: true, as: "function" }
-}
+} satisfies Record<string, ComponentSource>
 
 describe("the designs a project opens with", () => {
   it("puts a Home screen in the main file when the project has no file yet", () => {
@@ -23,18 +25,10 @@ describe("the designs a project opens with", () => {
     expect(parseCanvasDocument(designs[0]!.document)).toEqual(designs[0]!.document)
   })
 
-  it("opens a project's own files as they are, and none of them broken ones", () => {
-    const document: CanvasDocument = { version: 3, containers: [] }
-    const files = [
-      { path: "shop.par", document },
-      { path: "flows/broken.par", error: "Unexpected token" }
-    ]
-    expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual([{ path: "shop.par", document }])
-  })
-
-  it("adds no Home screen beside a file that couldn't be read, so it's never written over", () => {
-    const files = [{ path: "shop.par", error: "Unexpected token" }]
-    expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual([])
+  it("opens a project's own files as they are", () => {
+    const document: CanvasDocument = { version: 4, containers: [] }
+    const files = [{ path: "shop.par", document }]
+    expect(openingDesigns(files, "shop.par", viteApp, defaultModeSettings)).toEqual(files)
   })
 })
 
@@ -49,10 +43,9 @@ describe("the Home screen", () => {
       root: {
         type: "layout",
         name: "Page",
-        style: { background: "background", foreground: "foreground" },
+        style: { fills: [{ type: "solid", color: { token: "background" } }], color: { token: "foreground" } },
         children: [{ type: "component", component: "App" }]
       },
-      states: [{ id: "default", name: "Default" }],
       view: { modes: ["mobile-light"] }
     })
     const [child] = screen.root.type === "layout" ? screen.root.children : []
@@ -62,8 +55,20 @@ describe("the Home screen", () => {
   it("is a padded page headed Home when nothing renders the app's `/`", () => {
     const screen = homeScreen({ Button: viteApp.Button! }, defaultModeSettings)
     expect(screen.root).toMatchObject({
-      style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
-      children: [{ type: "text", tag: "h1", text: "Home", style: { size: "text-2xl", weight: 600 } }]
+      style: {
+        padding: [{ step: 10 }, { step: 12 }],
+        gap: { step: 6 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
+      children: [
+        {
+          type: "text",
+          tag: "h1",
+          text: "Home",
+          style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+        }
+      ]
     })
   })
 
@@ -77,6 +82,7 @@ describe("the Home screen", () => {
         { id: "mobile-light", name: "Mobile Light", values: { viewport: "mobile", theme: "light" } }
       ]
     }
+
     expect(homeScreen(viteApp, modes).view).toEqual({ modes: ["mobile-light"] })
   })
 
@@ -89,6 +95,7 @@ describe("the Home screen", () => {
         { id: "desktop-light", name: "Desktop Light", values: { viewport: "desktop", theme: "light" } }
       ]
     }
+
     expect(homeScreen(viteApp, modes).view).toEqual({ modes: ["desktop-light"] })
   })
 
@@ -100,42 +107,86 @@ describe("the Home screen", () => {
         { id: "desktop-dark", name: "Desktop Dark", values: { viewport: "desktop", theme: "dark" } }
       ]
     }
+
     expect(homeScreen(viteApp, modes)).not.toHaveProperty("view")
   })
 })
 
+/** Routes as a router extension gives them: each by its kind, file and URL, the rest left plain. */
+function routesOf(...given: [kind: ProjectRoute["kind"], file: string, segments?: ProjectRoute["segments"]][]) {
+  return routeFiles(
+    given.map(([kind, file, segments = []]) => ({
+      id: file,
+      kind,
+      segments,
+      path: "/",
+      file,
+      index: false,
+      loads: false,
+      guards: false
+    }))
+  )
+}
+
 describe("what renders the app's `/`", () => {
-  it("is the page for `/` by its router's file names, over App", () => {
+  it("is the page its routes draw at `/`, over App", () => {
     const next = {
       ...viteApp,
       RootLayout: { path: "src/app/layout.tsx", export: "default" },
-      HomePage: { path: "src/app/page.tsx", export: "default" },
+      HomePage: { path: "src/app/(marketing)/page.tsx", export: "default" },
       OrdersPage: { path: "src/app/orders/page.tsx", export: "default" }
     }
-    expect(homeComponent(next)).toBe("HomePage")
-    expect(homeComponent({ ...viteApp, Index: { path: "src/pages/index.tsx", export: "default" } })).toBe("Index")
-    expect(homeComponent({ ...viteApp, Home: { path: "src/routes/index.tsx", export: "Home" } })).toBe("Home")
+
+    const routes = routesOf(
+      ["root", "src/app/layout.tsx"],
+      ["page", "src/app/(marketing)/page.tsx"],
+      ["page", "src/app/orders/page.tsx", [{ type: "static", value: "orders" }]]
+    )
+
+    expect(homeComponent(next, routes)).toBe("HomePage")
+    expect(homeComponent(next)).toBe("App")
   })
 
-  it("finds Next's page for `/` inside a route group", () => {
-    const grouped = { Landing: { path: "app/(marketing)/page.tsx", export: "default" } }
-    expect(homeComponent(grouped)).toBe("Landing")
+  it("is App in the file that declares the routes, as a library-mode router's root, with no page at `/`", () => {
+    const declared = routesOf(["root", "src/App.tsx"], ["page", "src/About.tsx", [{ type: "static", value: "about" }]])
+
+    expect(homeComponent({ ...viteApp, About: { path: "src/About.tsx", export: "About" } }, declared)).toBe("App")
+    expect(
+      homeComponent({ App: { path: "src/pages/App.tsx", export: "App" } }, routesOf(["page", "src/pages/App.tsx"]))
+    ).toBe("App")
   })
 
   it("takes a route file's default export over its other parts", () => {
     const remix = {
-      ErrorBoundary: { path: "app/routes/index.tsx", export: "ErrorBoundary" },
-      Index: { path: "app/routes/index.tsx", export: "default" }
+      ErrorBoundary: { path: "app/routes/_index.tsx", export: "ErrorBoundary" },
+      Index: { path: "app/routes/_index.tsx", export: "default" }
     }
-    expect(homeComponent(remix)).toBe("Index")
+
+    expect(homeComponent(remix, routesOf(["page", "app/routes/_index.tsx"]))).toBe("Index")
+  })
+
+  it("passes the routes on from the designs a project opens with", () => {
+    const pages = { ...viteApp, Home: { path: "src/routes/index.tsx", export: "Home" } }
+
+    const [opened] = openingDesigns(
+      [],
+      "shop.par",
+      pages,
+      defaultModeSettings,
+      routesOf(["page", "src/routes/index.tsx"])
+    )
+
+    expect(JSON.stringify(opened!.document)).toContain('"component":"Home"')
   })
 
   it("is App, by its export or its file, the one nearest the root", () => {
     expect(homeComponent({ App: { path: "src/App.tsx", export: "default" } })).toBe("App")
+
     const two = {
       "admin/App": { path: "src/admin/App.tsx", export: "App" },
       App: { path: "src/App.tsx", export: "App" }
     }
+
     expect(homeComponent(two)).toBe("App")
   })
 

@@ -1,3 +1,4 @@
+import { signal } from "../store.ts"
 import type { Point } from "./motion.ts"
 
 interface Held {
@@ -16,14 +17,9 @@ const holdLimitMs = 90_000
  */
 class HeldBoards {
   private readonly held = new Map<string, Held>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-    return () => {
-      this.listeners.delete(listener)
-    }
-  }
+  subscribe = this.changes.subscribe
 
   /** Where the canvas should draw a board instead of its stored position, while it's held. */
   at(tab: string, design: string): Point | undefined {
@@ -34,44 +30,58 @@ class HeldBoards {
   hold(tab: string, design: string, from: Point): void {
     const key = id(tab, design)
     const current = this.held.get(key)
-    if (current) clearTimeout(current.timer)
+
+    if (current) {
+      clearTimeout(current.timer)
+    }
+
     this.held.set(key, {
       at: current?.at ?? from,
       moves: (current?.moves ?? 0) + 1,
       timer: setTimeout(() => this.release(key), holdLimitMs)
     })
-    this.notify()
+    this.changes.notify()
   }
 
   /** Draws a held board somewhere along its drag. */
   set(tab: string, design: string, at: Point): void {
     const held = this.held.get(id(tab, design))
-    if (!held) return
+
+    if (!held) {
+      return
+    }
+
     held.at = at
-    this.notify()
+    this.changes.notify()
   }
 
   /** One of a board's moves has played, or been skipped: it lets go after its last. */
   finish(tab: string, design: string, to: Point): void {
     const key = id(tab, design)
     const held = this.held.get(key)
-    if (!held) return
+
+    if (!held) {
+      return
+    }
+
     if (--held.moves > 0) {
       held.at = to
-      this.notify()
-    } else this.release(key)
+      this.changes.notify()
+    } else {
+      this.release(key)
+    }
   }
 
   private release(key: string): void {
     const held = this.held.get(key)
-    if (!held) return
+
+    if (!held) {
+      return
+    }
+
     clearTimeout(held.timer)
     this.held.delete(key)
-    this.notify()
-  }
-
-  private notify(): void {
-    for (const listener of this.listeners) listener()
+    this.changes.notify()
   }
 }
 

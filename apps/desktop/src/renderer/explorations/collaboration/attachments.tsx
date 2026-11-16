@@ -22,8 +22,14 @@ export const largestAttachment = 25_000_000
 
 /** A size as people read it: 86 KB, 2.4 MB. */
 export function formatSize(bytes: number): string {
-  if (bytes < 1000) return `${bytes} bytes`
-  if (bytes < 1_000_000) return `${Math.round(bytes / 1000)} KB`
+  if (bytes < 1000) {
+    return `${bytes} bytes`
+  }
+
+  if (bytes < 1_000_000) {
+    return `${Math.round(bytes / 1000)} KB`
+  }
+
   return `${(bytes / 1_000_000).toFixed(1).replace(/\.0$/, "")} MB`
 }
 
@@ -37,11 +43,23 @@ const kinds: { match: RegExp; label: string; icon: LucideIcon; hue: number }[] =
   { match: /\.(json|ts|tsx|js|jsx|css|html|svg)$/i, label: "Code", icon: FileCode, hue: 200 }
 ]
 
+/** A kind of file, as its chip shows it: a label, an icon and the icon's hue. */
+export interface FileKind {
+  label: string
+  icon: LucideIcon
+  hue?: number
+}
+
 /** What kind of file a name is, for its chip. */
-export function fileKind(name: string): { label: string; icon: LucideIcon; hue?: number } {
+export function fileKind(name: string): FileKind {
   const known = kinds.find((kind) => kind.match.test(name))
-  if (known) return known
+
+  if (known) {
+    return known
+  }
+
   const extension = /\.([a-z0-9]+)$/i.exec(name)?.[1]
+
   return { label: extension ? extension.toUpperCase() : "File", icon: File }
 }
 
@@ -58,9 +76,15 @@ export function AttachmentChip({
   const kind = fileKind(attachment.name)
   const Icon = attachment.error ? TriangleAlert : kind.icon
   let color: string | undefined
-  if (attachment.error) color = "oklch(0.72 0.17 30)"
-  else if (kind.hue) color = accent(kind.hue, 0.75, 0.13)
+
+  if (attachment.error) {
+    color = "oklch(0.72 0.17 30)"
+  } else if (kind.hue) {
+    color = accent(kind.hue, 0.75, 0.13)
+  }
+
   const uploading = attachment.progress !== undefined
+
   return (
     <div
       className={`relative flex h-11 w-60 max-w-full items-center gap-2.5 overflow-hidden rounded-lg border bg-background/60 pr-1 pl-1.5 text-xs ${attachment.error ? "border-[oklch(0.72_0.17_30/0.45)]" : ""} ${className}`}
@@ -115,15 +139,20 @@ function Progress({ value }: { value: number }) {
 /** The picture itself: a file you attached, or a made-up screen for the explorations. */
 function Picture({ attachment, className = "" }: { attachment: Attachment; className?: string }) {
   let picture: ReactNode = null
-  if (attachment.url)
+
+  if (attachment.url) {
     picture = <img src={attachment.url} alt={attachment.name} className="absolute inset-0 size-full object-cover" />
-  else if (attachment.screen) picture = <MiniScreen {...attachment.screen} />
+  } else if (attachment.screen) {
+    picture = <MiniScreen {...attachment.screen} />
+  }
+
   return <span className={`relative block overflow-hidden bg-muted ${className}`}>{picture}</span>
 }
 
 /** A picture waiting to be sent: a small preview, a bar while it uploads, and remove. */
 export function DraftPicture({ attachment, onRemove }: { attachment: Attachment; onRemove?: () => void }) {
   const uploading = attachment.progress !== undefined
+
   return (
     <div className="group/picture relative size-16 shrink-0 overflow-hidden rounded-lg border">
       <Picture attachment={attachment} className={`size-full ${uploading ? "opacity-60" : ""}`} />
@@ -151,6 +180,7 @@ export function Attachments({ items }: { items: Attachment[] }) {
   const pictures = items.filter((item) => item.kind === "image")
   const files = items.filter((item) => item.kind === "file")
   const shown = pictures.slice(0, 4)
+
   return (
     <div className="flex flex-col gap-1.5">
       {pictures.length > 0 && (
@@ -197,14 +227,25 @@ function Lightbox({
   const picture = index === undefined ? undefined : pictures[index]
   const step = (by: number) => index !== undefined && onIndex((index + by + pictures.length) % pictures.length)
   useEffect(() => {
-    if (index === undefined || pictures.length < 2) return undefined
-    const onKey = (event: globalThis.KeyboardEvent) => {
-      if (event.key === "ArrowRight") onIndex((index + 1) % pictures.length)
-      if (event.key === "ArrowLeft") onIndex((index - 1 + pictures.length) % pictures.length)
+    if (index === undefined || pictures.length < 2) {
+      return undefined
     }
+
+    const onKey = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "ArrowRight") {
+        onIndex((index + 1) % pictures.length)
+      }
+
+      if (event.key === "ArrowLeft") {
+        onIndex((index - 1 + pictures.length) % pictures.length)
+      }
+    }
+
     window.addEventListener("keydown", onKey)
+
     return () => window.removeEventListener("keydown", onKey)
   }, [index, pictures.length, onIndex])
+
   return (
     <Dialog open={!!picture} onOpenChange={(next) => !next && onIndex(undefined)}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-3xl">
@@ -259,6 +300,7 @@ export function fromFiles(files: ArrayLike<File>): Attachment[] {
   return Array.from(files, (file) => {
     const image = file.type.startsWith("image/")
     const tooLarge = file.size > largestAttachment
+
     return {
       id: crypto.randomUUID(),
       name: file.name || (image ? "Pasted image.png" : "Untitled"),
@@ -278,17 +320,26 @@ export function useUploads(
 ) {
   const uploading = attachments.some((attachment) => attachment.progress !== undefined)
   useEffect(() => {
-    if (!uploading) return undefined
+    if (!uploading) {
+      return undefined
+    }
+
     const timer = window.setInterval(() => {
       setAttachments((current) =>
         current.map((attachment) => {
-          if (attachment.progress === undefined) return attachment
+          if (attachment.progress === undefined) {
+            return attachment
+          }
+
           const next = attachment.progress + 0.12 + Math.random() * 0.22
+
           return { ...attachment, progress: next >= 1 ? undefined : next }
         })
       )
     }, 220)
+
     return () => window.clearInterval(timer)
   }, [uploading, setAttachments])
+
   return uploading
 }

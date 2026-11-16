@@ -57,13 +57,19 @@ function show(kind: ToastKind, title: string, options: ToastOptions = {}): strin
     actionProps: action
       ? {
           children: action.label,
+          // Closing first lets the button show a toast with the same id, such as Try again's progress. onClose runs
+          // before the button, so a toast that must tell the two apart uses keepOpen and closes itself.
           onClick: () => {
-            if (!action.keepOpen) toast.close(id)
+            if (!action.keepOpen) {
+              toast.close(id)
+            }
+
             action.run()
           }
         }
       : undefined
   })
+
   return id
 }
 
@@ -71,8 +77,15 @@ function failed(title: string, options: FailureOptions = {}): string {
   const { error, retry, details, ...rest } = options
   const id = rest.id ?? crypto.randomUUID()
   const description = rest.description ?? plainReason(error)
-  if (retry) return show("error", title, { ...rest, id, description, action: { label: "Try again", run: retry } })
-  if (!details) return show("error", title, { ...rest, id, description })
+
+  if (retry) {
+    return show("error", title, { ...rest, id, description, action: { label: "Try again", run: retry } })
+  }
+
+  if (!details) {
+    return show("error", title, { ...rest, id, description })
+  }
+
   return show("error", title, {
     ...rest,
     id,

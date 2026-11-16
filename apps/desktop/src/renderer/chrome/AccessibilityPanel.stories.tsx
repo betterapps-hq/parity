@@ -1,5 +1,6 @@
 import type { AccessibilityFinding } from "@parity-app/agent"
 import { mapNode } from "@parity-app/core"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
@@ -15,7 +16,7 @@ import { Inspector } from "./Inspector.tsx"
  * Checks are kept per design while Storybook runs, so each story with a check checks again for itself.
  */
 const meta = {
-  title: "Parity/Inspector/Accessibility",
+  title: "Parity/Inspector/Panel/Accessibility tab",
   component: AccessibilityPanel,
   render: () => <Inspector />,
   decorators: [
@@ -28,6 +29,7 @@ const meta = {
 } satisfies Meta<typeof AccessibilityPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Accessibility tab with a design selected, after `change` edits it when given. */
@@ -35,6 +37,7 @@ const checking = (designName: string, change?: (key: string) => void) =>
   inspecting("accessibility", () => {
     const key = design(designName)
     change?.(key)
+
     return { design: key }
   })
 
@@ -54,7 +57,11 @@ export const Checking: Story = {
     const panel = within(canvasElement)
     // Checked already while Storybook runs: checks again, as slowly.
     const again = panel.queryByRole("button", { name: "Check again" })
-    if (again) await userEvent.click(again)
+
+    if (again) {
+      await userEvent.click(again)
+    }
+
     // The first check, or checking again with the last check's findings faded below.
     await panel.findByText(/^Checking (every state and mode|again)$/, undefined, slowly)
     // Only this check is slow; later requests answer as usual.
@@ -134,7 +141,8 @@ export const ManyFindings: Story = {
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, "Target is too small", () =>
       answerNext("accessibility.check", async (_, real) => {
-        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        const result = await real()
+
         return { ...result, findings: [...result.findings, ...moreFindings()], frames: 9 }
       })
     )
@@ -162,7 +170,7 @@ export const ContrastFix: Story = {
     const [apply] = panel.getAllByRole("button", { name: "Apply" })
     await userEvent.click(apply!)
     await panel.findByText("Checking again", undefined, slowly)
-    const root = example().store.getEntry(design("Pricing"))!.container.root
+    const root = example().doc.design(design("Pricing"))!.root
     await expect(JSON.stringify(root)).toContain('"foreground":"foreground"')
     // Checked after the change, so it's not out of date.
     await waitFor(() => expect(panel.queryByText("Checking again")).toBeNull(), slowly)
@@ -176,7 +184,8 @@ export const NoPassingToken: Story = {
   play: ({ canvasElement }) =>
     checkAgain(canvasElement, /None of the project.s colors pass/, () =>
       answerNext("accessibility.check", async (_, real) => {
-        const result = (await real()) as { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
+        const result = await real()
+
         return {
           ...result,
           findings: result.findings.map((finding) =>
@@ -223,7 +232,7 @@ export const OutOfDate: Story = {
     await checkAgain(canvasElement, "Button has no name")
     const key = design("Sign in")
     const terms = node("Sign in", "Terms")
-    example().store.updateContainer(key, "Edit text", (container) => ({
+    updateContainer(example().doc, key, "Edit text", (container) => ({
       ...container,
       root: mapNode(container.root, terms, (current) =>
         current.type === "text" ? { ...current, text: "By continuing you agree to our terms." } : current
@@ -237,7 +246,7 @@ export const OutOfDate: Story = {
 export const LongDesignName: Story = {
   loaders: [
     checking("Order line", (key) =>
-      example().store.updateContainer(key, "Rename design", (container) => ({
+      updateContainer(example().doc, key, "Rename design", (container) => ({
         ...container,
         name: "Order line with the discount code applied and the tax shown separately"
       }))
@@ -256,19 +265,30 @@ function moreFindings(): AccessibilityFinding[] {
     detail: string,
     frames: [string, string][]
   ): AccessibilityFinding[] =>
-    frames.map(([state, mode]) => ({
-      state,
-      mode,
-      rule,
-      impact,
-      help,
-      helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`,
-      ...(layerName ? { node: node("Dashboard", layerName), name: layerName } : {}),
-      detail
-    }))
-  const everywhere: [string, string][] = ["default", "loading", "empty-workspace"].flatMap((state) =>
-    ["desktop-light", "desktop-dark", "mobile-light"].map((mode): [string, string] => [state, mode])
+    frames.map(([state, mode]) => {
+      const result: AccessibilityFinding = {
+        state,
+        mode,
+        rule,
+        impact,
+        help,
+        helpUrl: `https://dequeuniversity.com/rules/axe/4.10/${rule}`,
+        detail
+      }
+
+      if (layerName) {
+        result.node = node("Dashboard", layerName)
+        result.name = layerName
+      }
+
+      return result
+    })
+
+  // A screen has only its base state, so its findings differ by mode alone.
+  const everywhere: [string, string][] = ["desktop-light", "desktop-dark", "mobile-light"].map(
+    (mode): [string, string] => ["default", mode]
   )
+
   return [
     ...finding(
       "target-size",
@@ -302,7 +322,7 @@ function moreFindings(): AccessibilityFinding[] {
       "The landmark must have a unique `aria-label`, `aria-labelledby`, or `title` to make landmarks distinguishable",
       [
         ["default", "desktop-light"],
-        ["loading", "desktop-light"]
+        ["default", "desktop-dark"]
       ]
     )
   ]

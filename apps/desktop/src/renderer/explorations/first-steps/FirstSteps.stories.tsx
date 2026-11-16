@@ -19,6 +19,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The window on the example, with the card over its canvas once the canvas is there. */
@@ -31,8 +32,10 @@ function FirstRun({ initial = [] }: { initial?: FirstStep[] }) {
     find()
     const observer = new MutationObserver(find)
     observer.observe(document.body, { childList: true, subtree: true })
+
     return () => observer.disconnect()
   }, [])
+
   return (
     <div className="h-screen">
       <AppWindow />

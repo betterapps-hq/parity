@@ -28,12 +28,14 @@ async function bitmap(width: number, height: number): Promise<string> {
   const png = await sharp({ create: { width, height, channels: 3, background: "#3366cc" } })
     .png()
     .toBuffer()
+
   return `data:image/png;base64,${png.toString("base64")}`
 }
 
 async function sizeOf(frame: PictureFrame): Promise<{ format?: string; width?: number; height?: number }> {
   const data = Buffer.from(frame.src.slice(frame.src.indexOf(",") + 1), "base64")
   const { format, width, height } = await sharp(data).metadata()
+
   return { format, width, height }
 }
 
@@ -83,11 +85,13 @@ describe("pictures", () => {
   it("refuses a kept picture whose frames aren't images", async () => {
     await pictures.storePicture("D:/apps/shop", await picture())
     const [file] = await readdir(folder)
+
     const kept = {
       root: "D:/apps/shop",
       taken: 1,
       screens: [{ name: "Home", main: { src: "javascript:alert(1)", mode: "Desktop", width: 1, height: 1 } }]
     }
+
     await writeFile(join(folder, file!), JSON.stringify(kept))
     expect(await pictures.readPictures(["D:/apps/shop"])).toEqual({})
   })

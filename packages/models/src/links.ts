@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { checkModel } from "./check.ts"
+import { modelParser } from "./check.ts"
 
 // Links join the other models, such as screen → route → operation → table. A person draws them first; traces and the
 // code add more later.
@@ -26,10 +26,11 @@ export const Links = z.strictObject({
 })
 
 export type LinkKind = z.infer<typeof LinkKind>
+
 export type LinkEnd = z.infer<typeof LinkEnd>
+
 export type Link = z.infer<typeof Link>
+
 export type Links = z.infer<typeof Links>
 
-export function parseLinks(value: unknown): Links {
-  return checkModel(Links, value)
-}
+export const parseLinks = modelParser(Links)

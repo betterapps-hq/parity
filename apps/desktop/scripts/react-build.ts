@@ -12,17 +12,37 @@ export const reactProductionMode = "react-production"
 
 /** The build a `--react` flag names, where none is the development build. */
 export function reactBuild(value: string | undefined): ReactBuild {
-  if (value === undefined || value === "development") return "development"
-  if (value === "production") return "production"
+  if (value === undefined || value === "development") {
+    return "development"
+  }
+
+  if (value === "production") {
+    return "production"
+  }
+
   throw new Error(`--react is ${JSON.stringify(value)}, but it takes "production" or "development"`)
 }
 
+/** What a script's arguments say about the React build: the build, and the arguments left once `--react` is out. */
+export interface ReactFlag {
+  build: ReactBuild
+  rest: string[]
+}
+
 /** The build `--react` names among a script's arguments, and the arguments left once it's taken out. */
-export function reactFlag(args: readonly string[]): { build: ReactBuild; rest: string[] } {
+export function reactFlag(args: readonly string[]): ReactFlag {
   const index = args.indexOf("--react")
-  if (index === -1) return { build: "development", rest: [...args] }
+
+  if (index === -1) {
+    return { build: "development", rest: [...args] }
+  }
+
   const value = args[index + 1]
-  if (value === undefined || value.startsWith("--")) throw new Error('--react needs "production" or "development"')
+
+  if (value === undefined || value.startsWith("--")) {
+    throw new Error('--react needs "production" or "development"')
+  }
+
   return { build: reactBuild(value), rest: args.filter((_, at) => at !== index && at !== index + 1) }
 }
 
@@ -42,13 +62,16 @@ const noModule = /(?!)/
 /**
  * What the UI's Vite config adds for a build: nothing for the development build. For the production build, the
  * prebundled dependencies, React's among them, are built with `process.env.NODE_ENV` set to `production`, as
- * builder-vite's `productionDependencies` builds a project's for its frames (PAR-198). The app's own modules are still
+ * Vite's extension's `productionDependencies` builds a project's for its frames (PAR-198). The app's own modules are still
  * served as in development and their JSX still calls `jsxDEV`, so `react/jsx-dev-runtime` goes to a stand-in that is
  * React's `jsx`. Fast Refresh is off, since it reaches React through its development build alone: an edited component
  * would be taken in and never drawn again, where without it the page reloads.
  */
 export function reactBuildConfig(build: ReactBuild): ReactBuildConfig {
-  if (build === "development") return { react: {}, alias: {}, dependencies: {} }
+  if (build === "development") {
+    return { react: {}, alias: {}, dependencies: {} }
+  }
+
   return {
     react: { include: noModule },
     alias: { "react/jsx-dev-runtime": jsxDevRuntimeStandIn },

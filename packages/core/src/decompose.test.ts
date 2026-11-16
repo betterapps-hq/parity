@@ -10,7 +10,7 @@ const row = (key: string, name: string, role: string, variant: string, away = fa
   component: "TableRow",
   slots: {
     children: [
-      { type: "text", id: `${key}-name`, text: name, style: { weight: 500 } },
+      { type: "text", id: `${key}-name`, text: name, style: { fontWeight: { value: 500 } } },
       { type: "component", id: `${key}-badge`, name: "Role", component: "Badge", props: { variant, children: role } },
       { type: "text", id: `${key}-away`, text: "Away", hidden: !away, responsive: { mobile: { hidden: true } } }
     ]
@@ -33,7 +33,7 @@ const design: ContainerSpec = {
         slots: {
           children: [
             row("a", "Avery", "Owner", "default"),
-            row("j", "Jordan", "Admin", "secondary", true),
+            row("j", "Jordan", "Admin", "secondary"),
             row("s", "Sam", "Member", "outline")
           ]
         }
@@ -53,10 +53,100 @@ describe("findRepeats", () => {
     expect(candidate).toMatchObject({ nodes: ["row-a", "row-j", "row-s"], size: 4, name: "TableRow item" })
     expect(candidate!.params).toEqual([
       { name: "text", type: "text", values: ["Avery", "Jordan", "Sam"] },
-      { name: "roleVariant", type: "text", values: ["default", "secondary", "outline"] },
       { name: "role", type: "text", values: ["Owner", "Admin", "Member"] },
-      { name: "showText", type: "boolean", values: [false, true, false] }
+      { name: "roleVariant", type: "text", values: ["default", "secondary", "outline"] }
     ])
+  })
+
+  it("keeps apart parts whose layers inside show differently", () => {
+    const away = mapNode(design.root, "row-j", () => row("j", "Jordan", "Admin", "secondary", true))
+    expect(findRepeats(away).map((candidate) => candidate.nodes)).toEqual([["row-a", "row-s"]])
+    expect(() =>
+      extractComponent({ ...design, root: away }, ["row-a", "row-j"], {
+        id: "member-row",
+        name: "Member row",
+        position: { x: 0, y: -400 },
+        viewports: ["desktop"],
+        library: componentLibrary([])
+      })
+    ).toThrow(`"row-j" isn't structured like "row-a"`)
+  })
+})
+
+describe("findRepeats among instances filling a slot (PAR-966)", () => {
+  const filled = (key: string, ...lines: string[]): DesignNode => ({
+    type: "instance",
+    id: `card-${key}`,
+    design: "card",
+    slots: { content: lines.map((line, index) => ({ type: "text", id: `${key}-${index}`, text: line })) }
+  })
+
+  it("counts what fills the slots as structure, and finds what differs between fills alike", () => {
+    const root: DesignNode = {
+      type: "layout",
+      id: "page",
+      children: [filled("a", "Plan", "Free"), filled("b", "Seats", "Three"), filled("c", "Usage", "Low", "This month")]
+    }
+
+    const candidates = findRepeats(root)
+    expect(candidates.map((candidate) => candidate.nodes)).toEqual([["card-a", "card-b"]])
+    expect(candidates[0]?.params.map((param) => param.values)).toEqual([
+      ["Plan", "Seats"],
+      ["Free", "Three"]
+    ])
+  })
+
+  it("doesn't read past the end of a shorter fill", () => {
+    const root: DesignNode = {
+      type: "layout",
+      id: "page",
+      children: [filled("a", "Usage", "Low", "This month"), filled("b", "Plan", "Free")]
+    }
+
+    expect(findRepeats(root)).toEqual([])
+  })
+})
+
+describe("repeated parts whose props are written in another order (PAR-998)", () => {
+  const item = (key: string, props: Record<string, string | number>): DesignNode => ({
+    type: "component",
+    id: `item-${key}`,
+    component: "ItemRow",
+    slots: { children: [{ type: "component", id: `${key}-badge`, name: "Badge", component: "Badge", props }] }
+  })
+
+  const listed: ContainerSpec = {
+    id: "inbox",
+    name: "Inbox",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "page",
+      children: [item("a", { label: "New", count: 1 }), item("b", { count: 2, label: "Old" })]
+    },
+    states: [{ id: "default", name: "Default" }]
+  }
+
+  it("pairs each prop's values by name", () => {
+    expect(findRepeats(listed.root, 2)[0]?.params).toEqual([
+      { name: "badgeCount", type: "number", values: [1, 2] },
+      { name: "badgeLabel", type: "text", values: ["New", "Old"] }
+    ])
+  })
+
+  it("gives each instance its own value for each prop", () => {
+    const { component, design: extracted } = extractComponent(listed, ["item-a", "item-b"], {
+      id: "item",
+      name: "Item",
+      position: { x: 0, y: -400 },
+      viewports: ["desktop"],
+      library: componentLibrary([])
+    })
+
+    expect(findNode(component.root, component.root.id)).toMatchObject({
+      slots: { children: [{ bind: { props: { count: "badgeCount", label: "badgeLabel" } } }] }
+    })
+    expect(findNode(extracted.root, "item-b")).toMatchObject({ args: { badgeCount: 2, badgeLabel: "Old" } })
   })
 })
 
@@ -67,24 +157,24 @@ describe("extractComponent", () => {
     position: { x: 0, y: -400 },
     viewports: ["desktop", "mobile"],
     library: componentLibrary([]),
-    paramNames: { text: "name", showText: "away" }
+    paramNames: { text: "name" }
   }
 
   it("replaces each occurrence with an instance and renders exactly the same", () => {
     const { component, design: extracted } = extractComponent(design, ["row-a", "row-j", "row-s"], options)
     expect(component).toMatchObject({
       kind: "component",
-      params: { name: { type: "text", default: "Avery" }, away: { type: "boolean", default: false } }
+      params: { name: { type: "text", default: "Avery" } }
     })
     expect(findNode(extracted.root, "row-j")).toEqual({
       type: "instance",
       id: "row-j",
       design: "member-row",
-      args: { name: "Jordan", roleVariant: "secondary", role: "Admin", away: true }
+      args: { name: "Jordan", roleVariant: "secondary", role: "Admin" }
     })
     // The Without Sam state still hides Sam's row, now an instance.
     const library = componentLibrary([component])
-    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states[1], "desktop", library))
+    const rendered = JSON.stringify(resolveDesign(extracted.root, extracted.states![1], "desktop", library))
     expect(rendered).not.toContain("Sam")
     expect(rendered).toContain('"nodeId":"row-j/')
   })
@@ -92,8 +182,9 @@ describe("extractComponent", () => {
   it("refuses when a state changes something inside the part", () => {
     const changed: ContainerSpec = {
       ...design,
-      states: [...design.states, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
+      states: [...design.states!, { id: "renamed", name: "Renamed", overrides: { "a-name": { text: "Ava" } } }]
     }
+
     expect(() => extractComponent(changed, ["row-a", "row-j", "row-s"], options)).toThrow("Renamed state changes")
   })
 
@@ -111,6 +202,7 @@ describe("extractComponent", () => {
       },
       view: { variants: { density: "compact" } }
     })
+
     // Compact changes Avery's badge, which the instance wouldn't carry, so the board would change.
     const badge = density({ "a-badge": { props: { variant: "outline" } } })
     expect(() => extractComponent(badge, ["row-a", "row-j", "row-s"], options)).toThrow(
@@ -145,11 +237,12 @@ describe("extractComponent", () => {
           type: "variant",
           options: [
             { id: "plain", name: "Plain" },
-            { id: "bold", name: "Bold", overrides: { "a-name": { style: { weight: 700 } } } }
+            { id: "bold", name: "Bold", overrides: { "a-name": { style: { fontWeight: { value: 700 } } } } }
           ]
         }
       }
     }
+
     expect(() => extractComponent(twoParams, ["row-a", "row-j", "row-s"], options)).toThrow(
       "Extracting would change how Team looks (Default, desktop, Bold)"
     )
@@ -161,6 +254,7 @@ describe("extractComponent", () => {
       params: { lead: { type: "text", default: "Ava" } },
       root: mapNode(design.root, "a-name", (node) => ({ ...node, bind: { text: "lead" } }))
     }
+
     // The board shows Ava from the param's default; the component would show the layer's own Avery.
     expect(() => extractComponent(bound, ["row-a"], { ...options, paramNames: {} })).toThrow(
       "Extracting would change how Team looks"

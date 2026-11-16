@@ -21,11 +21,13 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The calls an agent makes, as the service reports them: the call starts, touches designs, then ends. */
 function call(agent: string, agentId: string, label: string, steps: Omit<PresenceEvent, "tab">[]): PresenceEvent[] {
   const tab = example().id
+
   return [
     { kind: "start" as const, label },
     ...steps.map((step) => ({ label, ...step })),

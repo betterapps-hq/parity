@@ -1,0 +1,39 @@
+import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
+import type { Route } from "./+types/root"
+import "./app.css"
+import styles from "./styles/pages.module.css"
+
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        {children}
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  )
+}
+
+export default function App() {
+  return <Outlet />
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  const notFound = isRouteErrorResponse(error) && error.status === 404
+
+  return (
+    <main className={`${styles.page} ${styles.narrow}`}>
+      <h1 className={styles.heading}>{notFound ? "Page not found" : "Something went wrong"}</h1>
+      <p className={styles.lead}>
+        {notFound ? "Check the address and try again." : error instanceof Error ? error.message : "Try again in a moment."}
+      </p>
+    </main>
+  )
+}

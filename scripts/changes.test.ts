@@ -1,5 +1,17 @@
-import { describe, expect, it } from "vite-plus/test"
-import { bundledBy, onlyVersionChanged, releasesFor, versionedRelease, type WorkspacePackage } from "./changes.ts"
+import { execFileSync } from "node:child_process"
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import {
+  bundledBy,
+  changedCatalogEntries,
+  listChangeFiles,
+  onlyVersionChanged,
+  releasesFor,
+  versionedRelease,
+  type WorkspacePackage
+} from "./changes.ts"
 
 const workspace: WorkspacePackage[] = [
   {
@@ -13,6 +25,7 @@ const workspace: WorkspacePackage[] = [
   { name: "@parity-app/core", dir: "packages/core", private: true, dependencies: [] },
   { name: "@parity-app/fixtures", dir: "packages/fixtures", private: true, dependencies: ["@parity-app/core"] }
 ]
+
 const ignored = ["**/*.test.ts", "**/*.md"]
 
 describe("versionedRelease", () => {
@@ -35,8 +48,9 @@ describe("versionedRelease", () => {
       "{}",
       "null",
       '{"name":"@parity-app/desktop","entries":[]}'
-    ])
+    ]) {
       expect(versionedRelease(manifest("0.3.0"), manifest("0.4.0"), changelog)).toBeUndefined()
+    }
   })
 })
 
@@ -76,6 +90,74 @@ describe("releasesFor", () => {
     const files = ["packages/core-extra/src/index.ts"]
     expect(releasesFor(workspace, files, ignored)).toEqual([])
   })
+
+  describe("with catalog dependencies", () => {
+    const references = new Map([
+      ["@parity-app/desktop", { "@sentry/electron": "catalog:", vitest: "catalog:" }],
+      ["@parity-app/cli", { yaml: "catalog:legacy" }],
+      ["@parity-app/core", { zod: "catalog:default" }]
+    ])
+
+    const catalogued = workspace.map((pkg) => ({ ...pkg, catalogDependencies: references.get(pkg.name) ?? {} }))
+    // PR #716 changed only the catalog, the lockfile and a doc, and Beachball's check still asked for the desktop app.
+    const sentryBump = ["pnpm-workspace.yaml", "pnpm-lock.yaml", "docs/telemetry.md"]
+
+    it("asks for the released package that references a bumped catalog entry", () => {
+      const changed = { default: { "@sentry/electron": "8.4.0" } }
+      expect(releasesFor(catalogued, sentryBump, ignored, changed)).toEqual(["@parity-app/desktop"])
+    })
+
+    it("asks for it whatever the ignore patterns say, as Beachball does", () => {
+      const changed = { default: { vitest: "5.0.6" } }
+      expect(releasesFor(catalogued, ["pnpm-workspace.yaml"], ["**/*.yaml"], changed)).toEqual(["@parity-app/desktop"])
+    })
+
+    it("asks for every released package that bundles a private package referencing it", () => {
+      const changed = { default: { zod: "4.6.8" } }
+      expect(releasesFor(catalogued, ["pnpm-workspace.yaml"], ignored, changed)).toEqual([
+        "@parity-app/cli",
+        "@parity-app/desktop"
+      ])
+    })
+
+    it("resolves a named catalog only from that catalog", () => {
+      expect(releasesFor(catalogued, [], ignored, { named: { legacy: { yaml: "2.0.0" } } })).toEqual([
+        "@parity-app/cli"
+      ])
+      expect(releasesFor(catalogued, [], ignored, { default: { yaml: "2.0.0" } })).toEqual([])
+    })
+
+    it("asks for nothing when no package references the changed entry", () => {
+      expect(releasesFor(catalogued, sentryBump, ignored, { default: { sharp: "0.35.6" } })).toEqual([])
+    })
+  })
+})
+
+describe("changedCatalogEntries", () => {
+  const before = {
+    default: { "@sentry/electron": "8.3.0", zod: "4.6.7", knip: "6.44.1" },
+    named: { legacy: { yaml: "1.0.0" } }
+  }
+
+  it("keeps the entries a bump changed or added, and leaves out removed and unchanged ones", () => {
+    const after = {
+      default: { "@sentry/electron": "8.4.0", zod: "4.6.7", sharp: "0.35.5" },
+      named: { legacy: { yaml: "1.0.0" } }
+    }
+
+    expect(changedCatalogEntries(before, after)).toEqual({ default: { "@sentry/electron": "8.4.0", sharp: "0.35.5" } })
+  })
+
+  it("diffs named catalogs on their own", () => {
+    const after = { ...before, named: { legacy: { yaml: "2.0.0" }, next: { zod: "5.0.0" } } }
+    expect(changedCatalogEntries(before, after)).toEqual({
+      named: { legacy: { yaml: "2.0.0" }, next: { zod: "5.0.0" } }
+    })
+  })
+
+  it("counts every entry when there were no catalogs before", () => {
+    expect(changedCatalogEntries(undefined, { default: { zod: "4.6.7" } })).toEqual({ default: { zod: "4.6.7" } })
+  })
 })
 
 describe("onlyVersionChanged", () => {
@@ -88,5 +170,58 @@ describe("onlyVersionChanged", () => {
 
   it("counts any other change to the manifest", () => {
     expect(onlyVersionChanged(manifest("0.1.0"), manifest("0.2.0", { semver: "^7.8.5" }))).toBe(false)
+  })
+})
+
+describe("listChangeFiles", () => {
+  let repo: string
+
+  const git = (...args: string[]) =>
+    execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...args], {
+      cwd: repo,
+      encoding: "utf8"
+    }).trim()
+
+  // Change files for one package differ only in their comment, so git finds them similar enough to pair as a rename.
+  const changeFile = (name: string, comment: string) => {
+    const body = {
+      type: "patch",
+      comment,
+      packageName: "@parity-app/desktop",
+      email: "test@example.com",
+      dependentChangeType: "patch"
+    }
+
+    mkdirSync(join(repo, "change"), { recursive: true })
+    writeFileSync(
+      join(repo, "change", name),
+      `${JSON.stringify(body, null, 2)}
+`
+    )
+  }
+
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), "changes-"))
+    git("init", "--quiet")
+    changeFile("@parity-app-desktop-old.json", "Copy the selection as a PNG")
+    git("add", "--all")
+    git("commit", "--quiet", "--message", "base")
+  })
+
+  afterEach(() => rmSync(repo, { recursive: true, force: true }))
+
+  it("counts a change file added where a release consumed another for the same package", () => {
+    const base = git("rev-parse", "HEAD")
+    git("rm", "--quiet", "change/@parity-app-desktop-old.json")
+    changeFile("@parity-app-desktop-new.json", "Send errors to Sentry")
+    git("add", "--all")
+    expect(git("diff", "--name-status", "--cached", base, "--", "change/")).toMatch(/^R\d+/)
+    expect(listChangeFiles(["--cached", base], repo)).toEqual(["change/@parity-app-desktop-new.json"])
+  })
+
+  it("doesn't count a change file that was only renamed", () => {
+    const base = git("rev-parse", "HEAD")
+    git("mv", "change/@parity-app-desktop-old.json", "change/@parity-app-desktop-renamed.json")
+    expect(listChangeFiles(["--cached", base], repo)).toEqual([])
   })
 })

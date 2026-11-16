@@ -86,11 +86,15 @@ without a checkout. CI alone installs, opens and uninstalls the Windows build ag
 
 ## The CLI
 
-The `parity` command drives a running Parity from a terminal or an agent. It's on npm as `@parity-app/cli`:
+The `parity` command drives a running Parity from a terminal or an agent. Help > Install the Parity CLI puts the app's
+own copy on PATH. It's also on npm as `@parity-app/cli`:
 
 ```sh
 npx @parity-app/cli state
 ```
+
+`@parity-app/cli` is the release; `@parity-app/cli@next` is the newest build, which every merge publishes before it's
+promoted.
 
 From a checkout, `node packages/cli/src/bin.ts` runs it from source. `parity --help` lists its commands, `parity mcp`
 serves them as MCP tools, and `parity skill` prints the skill that teaches an agent to design with Parity.
@@ -105,9 +109,8 @@ serves them as MCP tools, and `parity skill` prints the skill that teaches an ag
 | `packages/editor`          | Editor behaviour without the views, starting with arranging and the clipboard.                 |
 | `packages/code`            | Reading a project's code with TypeScript: its components and their props.                      |
 | `packages/project`         | Detecting and reading a project: its tools, configs, libraries and Storybook.                  |
-| `packages/renderer-react`  | The React adapter, which draws components in frames.                                           |
-| `packages/builder-vite`    | The Vite adapter, which runs a project's own Vite.                                             |
-| `packages/styles-tailwind` | The Tailwind CSS adapter.                                                                      |
+| `packages/extension-react` | React as an extension, which reads components and draws them in frames.                        |
+| `packages/extension-vite`  | Vite as an extension, which runs a project's own Vite.                                         |
 | `packages/cli`             | The `parity` command and MCP server, and the skill for agents.                                 |
 | `packages/libgen`          | Writes a `.lib.par` by inspecting a component library, an icon set or an app.                  |
 | `packages/registry`        | Parity's own `.lib.par` files, for libraries that don't ship one.                              |

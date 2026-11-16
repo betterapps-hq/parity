@@ -2,12 +2,17 @@ import { describe, expect, it } from "vite-plus/test"
 import { findState } from "./edit.ts"
 import { alternativeLimit, closest, CodedError, errorDetails, readErrorDetails } from "./errors.ts"
 
-function thrown(run: () => unknown): unknown {
+function thrown(run: () => void): Error {
   try {
     run()
   } catch (error) {
-    return error
+    if (error instanceof Error) {
+      return error
+    }
+
+    throw error
   }
+
   throw new Error("Expected it to throw")
 }
 
@@ -54,6 +59,7 @@ describe("coded errors", () => {
     const container = {
       id: "home",
       name: "Home",
+      kind: "component" as const,
       position: { x: 0, y: 0 },
       root: { type: "layout" as const, id: "root", name: "Root", children: [] },
       states: [
@@ -61,6 +67,7 @@ describe("coded errors", () => {
         { id: "empty", name: "Empty" }
       ]
     }
+
     expect(() => findState(container, "loading")).toThrow(
       'No state with id "loading" in Home. Calls take a state\'s id, as Designs() lists it. ' +
         "States: default (Default), empty (Empty)"
@@ -77,6 +84,7 @@ describe("coded errors", () => {
     const container = {
       id: "home",
       name: "Home",
+      kind: "component" as const,
       position: { x: 0, y: 0 },
       root: { type: "layout" as const, id: "root", name: "Root", children: [] },
       states: [

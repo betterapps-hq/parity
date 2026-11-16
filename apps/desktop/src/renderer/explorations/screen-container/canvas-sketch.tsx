@@ -1,15 +1,34 @@
 /* oxlint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-tabindex -- the canvas takes keys and the boxes stand in for the canvas's layers, which take the pointer; the keyboard reaches them through Layers and the canvas's keys, as in the app */
 import { Kbd, KbdGroup } from "@buildkitgg/shadcn-baseui-kit"
-import { childNodes, type DesignNode, type Length, type NodeStyle } from "@parity-app/core"
+import {
+  childNodes,
+  type Color,
+  colorCss,
+  type DesignNode,
+  fillCss,
+  isFill,
+  lengthSteps,
+  lengthToken,
+  type Named,
+  type NodeStyle,
+  type Size,
+  fontWeightNumber
+} from "@parity-app/core"
 import { selectedNodes, type Selection, sidesOf } from "@parity-app/editor"
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, layerLabel, nodeColor, NodeIcon } from "../../canvas/kinds.tsx"
 import { containerModes } from "../../canvas/view.ts"
-import { selectChildren, selectParent, stepBack } from "../../chrome/commands.ts"
+import { actions } from "../../chrome/actions.ts"
 import { formatKeys } from "../../chrome/keys.ts"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
-import { type ContainerEntry, useContainerEntries, useContainerEntry, useModeSettings } from "../../design-store.ts"
+import {
+  type ContainerEntry,
+  projectLibrary,
+  useContainerEntries,
+  useContainerEntry,
+  useModeSettings
+} from "../../project-doc.ts"
 import { useHover, useSelection } from "../../selection.ts"
 import { spacingUnit, useTokenList } from "../../tokens-store.ts"
 
@@ -25,18 +44,28 @@ const sketchWidth = 480
 
 export function CanvasSketch() {
   const session = useProject()
-  const { store, selection } = session
+  const { selection } = session
   const selected = useSelection(selection)
   // Keeps showing the last design selected once nothing is, so the board doesn't vanish on Esc.
   const [shown, setShown] = useState(selected.design)
-  if (selected.design && selected.design !== shown) setShown(selected.design)
-  const entry = useContainerEntry(store, shown)
+
+  if (selected.design && selected.design !== shown) {
+    setShown(selected.design)
+  }
+
+  const entry = useContainerEntry(session, shown)
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Enter" && event.shiftKey) selectParent(session)
-    else if (event.key === "Enter") selectChildren(session)
-    else if (event.key === "Escape") stepBack(session)
-    else return
+    if (event.key === "Enter" && event.shiftKey) {
+      void actions.selectParent.run("key", { session })
+    } else if (event.key === "Enter") {
+      void actions.selectChildren.run("key", { session })
+    } else if (event.key === "Escape") {
+      void actions.back.run("key", { session })
+    } else {
+      return
+    }
+
     event.preventDefault()
   }
 
@@ -58,9 +87,9 @@ export function CanvasSketch() {
 
 function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Selection }) {
   const session = useProject()
-  const { store, selection } = session
+  const { selection } = session
   const hover = useHover(selection)
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(session)
   const tokens = useTokenList(session.tokens)
   const [overPadding, setOverPadding] = useState(false)
   const { container, key } = entry
@@ -68,14 +97,14 @@ function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Sel
   const { primary } = containerModes(settings, container)
   const width = container.frames?.[primary.viewport]?.width ?? primary.width
   const scale = Math.min(1, sketchWidth / width)
-  const px = (length: Length | undefined) => (typeof length === "number" ? length * spacingUnit(tokens) * scale : 0)
+  const px = (length: Size | undefined) => (lengthSteps(length) ?? 0) * spacingUnit(tokens) * scale
   // A component at the root, such as a Card, draws its own padding and gap, which the sketch stands in for with Card's.
-  const drawsOwn: NodeStyle = root.type === "component" ? { padding: [6, 0], gap: 6 } : {}
+  const drawsOwn: NodeStyle = root.type === "component" ? { padding: [{ step: 6 }, { step: 0 }], gap: { step: 6 } } : {}
   const style: NodeStyle = { ...drawsOwn, ...root.style }
   const color = designColor(container.kind)
   const picked = selected.design === key ? selectedNodes(selected).filter((id) => id !== root.id) : []
   const containerSelected = selected.design === key && picked.length === 0
-  const padding = (sidesOf(style.padding) ?? [0, 0, 0, 0]).map(px)
+  const padding = sidesOf(style.padding)?.map(px) ?? [0, 0, 0, 0]
   const outline = outlineFor(color, containerSelected, hover?.design === key && !hover.node)
 
   return (
@@ -103,13 +132,13 @@ function BoardSketch({ entry, selected }: { entry: ContainerEntry; selected: Sel
         style={{
           width: width * scale,
           minHeight: px(style.minHeight) || 120,
-          flexDirection: style.direction === "row" ? "row" : "column",
+          flexDirection: style.flexDirection === "row" ? "row" : "column",
           gap: px(style.gap),
           padding: padding.map((side) => `${side}px`).join(" "),
-          alignItems: flexAlign(style.align),
-          justifyContent: flexJustify(style.justify),
-          background: token(style.background, "var(--background)"),
-          color: token(style.foreground, "var(--foreground)"),
+          alignItems: flexAlign(style.alignItems),
+          justifyContent: flexJustify(style.justifyContent),
+          ...(style.fills ? fillCss(style.fills) : { background: "var(--background)" }),
+          color: sketchColor(style.color, "var(--foreground)"),
           outline: outline || "1px solid var(--border)",
           outlineOffset: 0
         }}
@@ -142,29 +171,36 @@ function LayerSketch({
 }: {
   node: DesignNode
   scale: number
-  px: (length: Length | undefined) => number
+  px: (length: Size | undefined) => number
   selected: boolean
   hovered: boolean
   onSelect: () => void
 }) {
-  const { store } = useProject()
-  const entries = useContainerEntries(store)
+  const session = useProject()
+  const entries = useContainerEntries(session)
   const style: NodeStyle = node.style ?? {}
   const color = nodeColor(node)
   let width: CSSProperties["width"]
-  if (style.width === "fill") width = "100%"
-  else if (typeof style.width === "number") width = px(style.width)
+
+  if (isFill(style.width)) {
+    width = "100%"
+  } else if (lengthSteps(style.width) !== undefined) {
+    width = px(style.width)
+  }
+
   const sized: CSSProperties = {
     width,
-    maxWidth: typeof style.maxWidth === "number" ? px(style.maxWidth) : undefined,
-    flexGrow: style.width === "fill" || style.grow ? 1 : undefined,
+    maxWidth: lengthSteps(style.maxWidth) === undefined ? undefined : px(style.maxWidth),
+    flexGrow: isFill(style.width) || style.grow ? 1 : undefined,
     outline: outlineFor(color, selected, hovered) || undefined,
     outlineOffset: 1
   }
+
   const select = (event: MouseEvent) => {
     event.stopPropagation()
     onSelect()
   }
+
   if (node.type === "text") {
     return (
       <p
@@ -172,16 +208,17 @@ function LayerSketch({
         className="line-clamp-3 cursor-default rounded-[1px]"
         style={{
           ...sized,
-          fontSize: Math.min(22, Math.max(10, textSize(style.size) * scale * 1.6)),
-          fontWeight: typeof style.weight === "number" ? style.weight : undefined,
+          fontSize: Math.min(22, Math.max(10, textSize(style.fontSize) * scale * 1.6)),
+          fontWeight: fontWeightNumber(style.fontWeight),
           textAlign: style.textAlign,
-          color: token(style.foreground, "inherit")
+          color: sketchColor(style.color, "inherit")
         }}
       >
         {node.text}
       </p>
     )
   }
+
   return (
     <div
       onClick={select}
@@ -189,7 +226,7 @@ function LayerSketch({
       style={{ ...sized, minWidth: 72, height: Math.min(170, 22 + descendants(node) * 4) }}
     >
       <NodeIcon node={node} className="mt-px size-3 shrink-0" style={{ color }} />
-      <span className="truncate">{layerLabel(node, entries, store.getComponentLibrary())}</span>
+      <span className="truncate">{layerLabel(node, entries, projectLibrary(session))}</span>
     </div>
   )
 }
@@ -208,6 +245,7 @@ const hatchTile = `url("data:image/svg+xml,${encodeURIComponent(
  */
 function PaddingHatch({ padding, color, name }: { padding: number[]; color: string; name: string }) {
   const [top, right, bottom, left] = padding
+
   const hatch: CSSProperties = {
     padding: `${top}px ${right}px ${bottom}px ${left}px`,
     background: `color-mix(in oklch, ${color} 60%, transparent)`,
@@ -217,6 +255,7 @@ function PaddingHatch({ padding, color, name }: { padding: number[]; color: stri
     maskClip: "border-box, content-box, border-box",
     maskComposite: "intersect, exclude"
   }
+
   return (
     <>
       <span aria-hidden className="pointer-events-none absolute inset-0" style={hatch} />
@@ -235,16 +274,17 @@ function PaddingHatch({ padding, color, name }: { padding: number[]; color: stri
  * not part of the app.
  */
 function SelectingNote({ entry, selected }: { entry: ContainerEntry; selected: Selection }) {
-  const { store } = useProject()
-  const entries = useContainerEntries(store)
+  const session = useProject()
+  const entries = useContainerEntries(session)
   const { container, key } = entry
   const top = childNodes(container.root)
-  const names = top.map((node) => layerLabel(node, entries, store.getComponentLibrary()))
+  const names = top.map((node) => layerLabel(node, entries, projectLibrary(session)))
   const picked = selected.design === key ? selectedNodes(selected).filter((id) => id !== container.root.id) : []
   const onContainer = selected.design === key && picked.length === 0
   const onAllInside = picked.length === top.length && top.every((node) => picked.includes(node.id))
   const onOneInside = picked.length > 0 && !onAllInside && picked.every((id) => top.some((node) => node.id === id))
   const noun = container.kind === "component" ? "component" : "screen"
+
   return (
     <aside
       aria-label="How selecting works here"
@@ -292,13 +332,22 @@ function Step({ at, keys, children }: { at: boolean; keys: ReactNode; children: 
 
 /** A selection's outline: solid when selected, thin while hovered in Layers, none otherwise. */
 function outlineFor(color: string, selected: boolean, hovered: boolean): string {
-  if (selected) return `2px solid ${color}`
-  if (hovered) return `1px solid ${color}`
+  if (selected) {
+    return `2px solid ${color}`
+  }
+
+  if (hovered) {
+    return `1px solid ${color}`
+  }
+
   return ""
 }
 
 function list(names: string[]): string {
-  if (names.length < 2) return names.join("")
+  if (names.length < 2) {
+    return names.join("")
+  }
+
   return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`
 }
 
@@ -307,35 +356,45 @@ function descendants(node: DesignNode): number {
 }
 
 /** A color token as the chrome's own variable of that name, so the sketch follows the app's theme; else as written. */
-function token(value: unknown, fallback: string): string {
-  if (typeof value !== "string") return fallback
-  return /^[a-z][a-z0-9-]*$/.test(value) ? `var(--${value})` : value
+function sketchColor(value: Color | undefined, fallback: string): string {
+  return value === undefined ? fallback : colorCss(value)
 }
 
-const textSizes: Record<string, number> = {
-  "text-xs": 12,
-  "text-sm": 14,
-  "text-base": 16,
-  "text-lg": 18,
-  "text-xl": 20,
-  "text-2xl": 24,
-  "text-3xl": 30,
-  "text-4xl": 36
+const textSizes = new Map([
+  ["text-xs", 12],
+  ["text-sm", 14],
+  ["text-base", 16],
+  ["text-lg", 18],
+  ["text-xl", 20],
+  ["text-2xl", 24],
+  ["text-3xl", 30],
+  ["text-4xl", 36]
+])
+
+function textSize(size: Named | undefined): number {
+  return textSizes.get(lengthToken(size) ?? "") ?? 16
 }
 
-function textSize(size: unknown): number {
-  return (typeof size === "string" && textSizes[size]) || 16
-}
+function flexAlign(align: NodeStyle["alignItems"]): CSSProperties["alignItems"] {
+  if (align === "start") {
+    return "flex-start"
+  }
 
-function flexAlign(align: NodeStyle["align"]): CSSProperties["alignItems"] {
-  if (align === "start") return "flex-start"
-  if (align === "end") return "flex-end"
+  if (align === "end") {
+    return "flex-end"
+  }
+
   return align ?? "stretch"
 }
 
-function flexJustify(justify: NodeStyle["justify"]): CSSProperties["justifyContent"] {
-  if (justify === "start") return "flex-start"
-  if (justify === "end") return "flex-end"
-  if (justify === "between" || justify === "around" || justify === "evenly") return `space-${justify}`
+function flexJustify(justify: NodeStyle["justifyContent"]): CSSProperties["justifyContent"] {
+  if (justify === "start") {
+    return "flex-start"
+  }
+
+  if (justify === "end") {
+    return "flex-end"
+  }
+
   return justify ?? "flex-start"
 }

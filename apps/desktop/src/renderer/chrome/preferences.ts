@@ -1,82 +1,74 @@
-import { type CodeEditorChoice, jsonText } from "@parity-app/core"
-import { defaultExportSizes, type ExportSize } from "@parity-app/editor"
-import { useSyncExternalStore } from "react"
+import { type AppSettings, changedSettings, defaultSettings, type SettingsChange } from "@parity-app/settings"
 import { z } from "zod"
-
-const storageKey = "parity.preferences"
+import type { SettingsState } from "../../shared/settings.ts"
+import { recordInterface } from "../interface-events.ts"
+import { useStore, windowStore } from "../store.ts"
 
 /**
- * How the app looks and behaves, set from the File and View menus. Shared by every tab, and remembered between runs.
- * A saved value that doesn't read, as from an older version, falls back to its default without resetting the rest.
+ * How the app looks and behaves, set from Settings and the menus: `settings.json`, which main keeps and every copy of
+ * Parity shares (`docs/proposals/settings.md`). A change made in another copy arrives here too.
  */
-const savedPreferences = z.object({
-  /** The app's own theme. Designs show whichever theme their mode picks. */
-  theme: z.enum(["light", "dark", "system"]).catch("dark"),
-  /** Designs lock to the edges and centers of the designs around them while dragged. */
-  snapping: z.boolean().catch(true),
-  /** How many pixels each CSS pixel becomes in exported images. */
-  exportScale: z.union([z.literal(1), z.literal(2), z.literal(3)]).catch(2),
-  /** The sizes the Export section writes each layer at: PNGs or JPGs, at 1x to 3x (PAR-185). */
-  exportSizes: z
-    .array(z.object({ format: z.enum(["png", "jpg"]), scale: z.union([z.literal(1), z.literal(2), z.literal(3)]) }))
-    .min(1)
-    .catch([...defaultExportSizes]) satisfies z.ZodType<ExportSize[]>,
-  /** How the Components tab shows components: names only, a list with a picture each, or a grid (PAR-208). */
-  componentsView: z.enum(["names", "list", "grid"]).catch("list"),
-  /** Column grids over every frame, sized for its viewport. */
-  layoutGrid: z.boolean().catch(false),
-  /** Each change saves itself a moment after it's made, instead of waiting for Save. */
-  autosave: z.boolean().catch(false),
-  /** Frame rate, memory and CPU in the status bar, for spotting what slows the app down. */
-  performanceStats: z.boolean().catch(false),
-  /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
-  codeEditor: z
-    .enum(["vscode", "cursor", "windsurf", "zed", "auto", "system"])
-    .catch("auto") satisfies z.ZodType<CodeEditorChoice>
-})
+export type Preferences = AppSettings
 
-export type Preferences = z.infer<typeof savedPreferences>
+/** The settings as main has them; `resetWindowStores` puts back the defaults, as a first run has them. */
+const preferences = windowStore((): Preferences => ({ ...defaultSettings }))
 
-export type ThemePreference = Preferences["theme"]
+/** What main last said, for Settings to show: a file that doesn't read, values that didn't, changes not saved yet. */
+const settingsState = windowStore((): Omit<SettingsState, "values"> => ({ badValues: [], extensions: {} }))
 
-/** The preferences saved as `text`, each one that's missing or doesn't read at its default. */
-export function readPreferences(text: string | null): Preferences {
-  return jsonText(savedPreferences)
-    .catch(() => savedPreferences.parse({}))
-    .parse(text ?? "{}")
+function take(state: SettingsState): void {
+  preferences.set(state.values)
+  const { values: _values, ...rest } = state
+  settingsState.set(rest)
 }
 
-let preferences = load()
-const listeners = new Set<() => void>()
+// Main answers before the page draws, so the first frame has the person's settings. Tests and stories without a host
+// start from the defaults.
+const host = typeof window === "undefined" ? undefined : window.canvasHost?.settings
 
-function load(): Preferences {
-  try {
-    return readPreferences(localStorage.getItem(storageKey))
-  } catch {
-    // Storage can be unavailable; the defaults then apply.
-    return readPreferences(null)
-  }
+if (host) {
+  take(host.now())
+  host.subscribe(take)
 }
 
 export function getPreferences(): Preferences {
-  return preferences
+  return preferences.get()
 }
+
+/** A setting `setting.changed` records as it is; any other, such as the export sizes, goes as JSON. */
+const plainSetting = z.union([z.string(), z.number(), z.boolean()])
 
 export function setPreferences(change: Partial<Preferences>): void {
-  preferences = { ...preferences, ...change }
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(preferences))
-  } catch {
-    // Storage can be unavailable; the preference then just isn't remembered.
+  const before = preferences.get()
+  const after = { ...before, ...change }
+  const changed = changedSettings(before, after)
+
+  if (Object.keys(changed).length === 0) {
+    return
   }
-  for (const listener of listeners) listener()
+
+  for (const [setting, value] of Object.entries(changed)) {
+    const plain = plainSetting.safeParse(value)
+    recordInterface("setting.changed", { setting, value: plain.success ? plain.data : JSON.stringify(value) })
+  }
+
+  // Shown at once; main saves it and sends every window, in every copy, what the file holds after.
+  preferences.set(after)
+  void host?.change(changed satisfies SettingsChange)
 }
 
-export function subscribePreferences(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+export const subscribePreferences = preferences.subscribe
 
 export function usePreferences(): Preferences {
-  return useSyncExternalStore(subscribePreferences, () => preferences)
+  return useStore(preferences)
+}
+
+/** Extensions' app settings from `settings.json`, as main last said, which only Settings changes (PAR-1090). */
+export function useExtensionAppSettings(): SettingsState["extensions"] {
+  return useStore(settingsState).extensions
+}
+
+/** Problems with `settings.json` for Settings to show, as main last said. */
+export function useSettingsProblems(): Omit<SettingsState, "values"> {
+  return useStore(settingsState)
 }

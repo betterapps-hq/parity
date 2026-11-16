@@ -1,9 +1,8 @@
-import type { Checkpoint } from "@parity-app/editor"
+import type { Checkpoint, ProjectDoc } from "@parity-app/multiplayer"
 import { useEffect, useMemo } from "react"
-import type { DesignStore } from "../design-store.ts"
 
-/** What a change preview needs of the store: gestures, and taking one back. */
-type GestureStore = Pick<DesignStore, "beginGesture" | "endGesture" | "checkpoint" | "revert">
+/** What a change preview needs of the document: gestures, and taking one back. */
+type GestureDoc = Pick<ProjectDoc, "beginGesture" | "endGesture" | "checkpoint" | "revert">
 
 /**
  * An edit shown on a design's frames before it's made, for one inline styles can't show (see `StylePreview`): a
@@ -15,25 +14,30 @@ export class ChangePreview {
   private open: { gesture: string; checkpoint: Checkpoint | undefined } | undefined
 
   constructor(
-    private readonly store: GestureStore,
+    private readonly doc: GestureDoc,
     private readonly design: string
   ) {}
 
   /** Shows a change in place of what this preview showed before. `make` makes it, with the gesture it's given. */
   show(make: (gesture: string) => void): void {
-    if (this.open) this.takeBack()
-    else {
-      const gesture = this.store.beginGesture()
-      this.open = { gesture, checkpoint: this.store.checkpoint(this.design, gesture) }
+    if (this.open) {
+      this.takeBack()
+    } else {
+      const gesture = this.doc.beginGesture()
+      this.open = { gesture, checkpoint: this.doc.checkpoint(gesture, this.design) }
     }
+
     make(this.open.gesture)
   }
 
   /** Takes the preview back, as though it never showed. */
   cancel(): void {
-    if (!this.open) return
+    if (!this.open) {
+      return
+    }
+
     this.takeBack()
-    this.store.endGesture(this.open.gesture)
+    this.doc.endGesture(this.open.gesture)
     this.open = undefined
   }
 
@@ -47,13 +51,16 @@ export class ChangePreview {
   }
 
   private takeBack(): void {
-    if (this.open?.checkpoint) this.store.revert(this.open.checkpoint)
+    if (this.open?.checkpoint) {
+      this.doc.revert(this.open.checkpoint)
+    }
   }
 }
 
 /** A change preview for a panel, taken back if the panel goes while it shows, as when the selection changes. */
-export function useChangePreview(store: GestureStore, design: string): ChangePreview {
-  const preview = useMemo(() => new ChangePreview(store, design), [store, design])
+export function useChangePreview(doc: GestureDoc, design: string): ChangePreview {
+  const preview = useMemo(() => new ChangePreview(doc, design), [doc, design])
   useEffect(() => () => preview.cancel(), [preview])
+
   return preview
 }

@@ -9,17 +9,26 @@ import {
 import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
 import { type CSSProperties, useId, useRef, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"
-import { notify } from "../toasts.tsx"
+import { Name } from "../chrome/Name.tsx"
+import { notify, type ToastOptions } from "../toasts.tsx"
 import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
 import { notReady, useStartActions } from "./start-actions.ts"
 
 /** Parity's own accent, from its mark, for the ring round a project or template under the pointer. */
-export const accent = { "--parity": "oklch(0.7 0.16 275)" } as CSSProperties
+export const accent: AccentStyle = { "--parity": "oklch(0.7 0.16 275)" }
+
+/** A style that sets Parity's accent as a custom property, which React's own style type has no key for. */
+interface AccentStyle extends CSSProperties {
+  "--parity": string
+}
 
 /** When it was opened, or where it is when that isn't known. */
 function openedLine(project: KnownProject, now: number): string {
-  if (project.opened === undefined) return project.root.slice(0, -project.name.length - 1) || project.root
+  if (project.opened === undefined) {
+    return project.root.slice(0, -project.name.length - 1) || project.root
+  }
+
   return `Opened ${whenLabel(project.opened, now)}`
 }
 
@@ -28,10 +37,13 @@ function openedLine(project: KnownProject, now: number): string {
  * drive that isn't plugged in comes back.
  */
 export function folderMissing(project: KnownProject, remove?: () => void): void {
-  notify.warning("Can't find the project", {
-    description: `${project.name} is no longer at ${project.root}.`,
-    ...(remove ? { action: { label: "Remove", run: remove } } : {})
-  })
+  const shown: ToastOptions = { description: `${project.name} is no longer at ${project.root}.` }
+
+  if (remove) {
+    shown.action = { label: "Remove", run: remove }
+  }
+
+  notify.warning("Can't find the project", shown)
 }
 
 /** What can be done with a project from the start page. */
@@ -45,6 +57,7 @@ function ProjectMenu({
   className?: string
 }) {
   const actions = useStartActions()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -98,6 +111,7 @@ export function ProjectCard({
   const [hovered, setHovered] = useState(false)
   const name = useScreenName(project, screen)
   const open = () => (project.missing ? folderMissing(project, onRemove) : actions.open(project.root))
+
   return (
     <article
       className="group/card relative flex min-w-0 flex-col gap-2.5"
@@ -117,7 +131,7 @@ export function ProjectCard({
           <ProjectArt project={project} screen={screen} />
         </div>
         {project.missing && (
-          <span className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-0.5 text-[11px] font-medium shadow-sm">
+          <span className="absolute top-2 left-2 flex items-center gap-1 rounded-md bg-background/90 px-1.5 py-0.5 text-2xs font-medium shadow-sm">
             <FolderX className="size-3" /> Folder not found
           </span>
         )}
@@ -126,7 +140,7 @@ export function ProjectCard({
             aria-hidden
             className={`pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-linear-to-t from-black/70 to-transparent px-3 pt-6 pb-2.5 transition-opacity duration-150 ${hovered ? "opacity-100" : "opacity-0"}`}
           >
-            <span className="truncate text-[11px] font-medium text-white">{name}</span>
+            <Name className="text-2xs font-medium text-white">{name}</Name>
             <span className="flex gap-1">
               {Array.from({ length: count }, (_, position) => (
                 <span
@@ -148,7 +162,7 @@ export function ProjectCard({
                 aria-describedby={project.missing ? line : undefined}
                 className="block max-w-full truncate text-left outline-none after:absolute after:inset-0 after:rounded-lg focus-visible:after:ring-2 focus-visible:after:ring-ring"
               >
-                {project.name}
+                <Name>{project.name}</Name>
               </button>
             </Hint>
           </h3>
@@ -172,6 +186,10 @@ export function ProjectCard({
  */
 function screenUnder(art: HTMLElement | null, x: number, y: number, count: number): number {
   const box = art?.getBoundingClientRect()
-  if (!box || count < 2 || y > box.bottom || box.width === 0) return 0
+
+  if (!box || count < 2 || y > box.bottom || box.width === 0) {
+    return 0
+  }
+
   return Math.min(count - 1, Math.max(0, Math.floor(((x - box.left) / box.width) * count)))
 }

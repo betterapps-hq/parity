@@ -25,15 +25,27 @@ export const handleSize = 8
 export function handleBoxes(box: HandleBox, edges: readonly Edge[]): { edge: Edge; box: HandleBox }[] {
   const across = band(box.x, box.w)
   const down = band(box.y, box.h)
+
   const place = (edge: Edge): HandleBox => {
     let x = across.middle
-    if (edge.includes("w")) x = across.start
-    else if (edge.includes("e")) x = across.end
+
+    if (edge.includes("w")) {
+      x = across.start
+    } else if (edge.includes("e")) {
+      x = across.end
+    }
+
     let y = down.middle
-    if (edge.includes("n")) y = down.start
-    else if (edge.includes("s")) y = down.end
+
+    if (edge.includes("n")) {
+      y = down.start
+    } else if (edge.includes("s")) {
+      y = down.end
+    }
+
     return { x: x.from, y: y.from, w: x.to - x.from, h: y.to - y.from }
   }
+
   return edges.map((edge) => ({ edge, box: place(edge) }))
 }
 
@@ -42,14 +54,22 @@ interface Span {
   to: number
 }
 
+/** Where the handles at an axis' start and end go, and the span between them. */
+interface Band {
+  start: Span
+  middle: Span
+  end: Span
+}
+
 /**
  * Along one axis: where the handles at its start and end go, and the span between them that the strips across it
  * take. On a layer large enough they straddle its edges, with the strips stopping short of the corners. On a small one
  * they sit outside its edges, and the strips cover it from edge to edge.
  */
-function band(start: number, size: number): { start: Span; middle: Span; end: Span } {
+function band(start: number, size: number): Band {
   const end = start + size
   const half = handleSize / 2
+
   if (size < smallLayer) {
     return {
       start: { from: start - handleSize, to: start },
@@ -57,6 +77,7 @@ function band(start: number, size: number): { start: Span; middle: Span; end: Sp
       end: { from: end, to: end + handleSize }
     }
   }
+
   return {
     start: { from: start - half, to: start + half },
     middle: { from: start + handleSize, to: end - handleSize },

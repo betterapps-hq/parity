@@ -1,16 +1,31 @@
-import { defaultModeSettings } from "@parity-app/core"
+import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
+import { addContainer } from "@parity-app/multiplayer"
+import { changeProjectsData, type Projects, type ProjectsChange, type SavedTabs } from "@parity-app/settings"
+import {
+  type Attributes,
+  createTelemetry,
+  createTestSink,
+  registeredEvents,
+  type TraceContext
+} from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import type { ProjectInfo } from "../shared/protocol.ts"
+import type { ProjectInfo, ServiceMethods } from "../shared/protocol.ts"
+import type * as ReportError from "./report-error.ts"
 import { preloadAnswers } from "./service.ts"
+import { tracedCommand, traceWith } from "./tracing.ts"
+import type { ProjectSession } from "./workspace.ts"
 
 // docs/editor.md, Opening and closing projects: a tab closed while its project opens, as tabs restored at launch can
 // be, closes the project once the service has it, so its builder doesn't run on with no tab (PAR-427).
 
-const guest = vi.hoisted(() => ({
-  loads: [] as Array<(value: unknown) => void>,
-  failures: [] as Array<(error: Error) => void>,
-  released: [] as string[]
-}))
+const guest = vi.hoisted(() => {
+  const loads: Array<(value: typeof loaded) => void> = []
+  const failures: Array<(error: Error) => void> = []
+  const released: string[] = []
+
+  return { loads, failures, released }
+})
+
 vi.mock("./guest.ts", () => ({
   loadGuest: () =>
     new Promise((resolve, reject) => {
@@ -21,120 +36,249 @@ vi.mock("./guest.ts", () => ({
   previewToken: () => undefined
 }))
 
-const { homeTab, Workspace } = await import("./workspace.ts")
+/** An event the workspace tracked. */
+interface Tracked {
+  name: string
+  attributes: Attributes
+  span?: TraceContext | undefined
+}
 
-const info = {
+const tracked = vi.hoisted(() => {
+  const events: Tracked[] = []
+
+  return events
+})
+
+vi.mock("./report-error.ts", async (original) => ({
+  ...(await original<typeof ReportError>()),
+  track: (name: string, attributes: Attributes, options?: { span?: TraceContext }) =>
+    tracked.push({ name, attributes, span: options?.span })
+}))
+
+/** Each start page picture the workspace kept, by project, and whether it stopped. */
+const pictures = vi.hoisted(() => {
+  const kept: { project: string; stopped: boolean }[] = []
+
+  return kept
+})
+
+vi.mock("./project-picture.ts", () => ({
+  keepProjectPicture: (session: { id: string }) => {
+    const keeping = { project: session.id, stopped: false }
+    pictures.push(keeping)
+
+    return () => {
+      keeping.stopped = true
+    }
+  }
+}))
+
+const { homeTab, Workspace } = await import("./workspace.ts")
+const { mediaFilesOf } = await import("./media/project-media.ts")
+
+const info: ProjectInfo = {
   id: "/projects/app",
   root: "/projects/app",
   name: "app",
+  renderer: { id: "react", name: "React" },
   guestUrl: "http://127.0.0.1:5000/guest",
-  builder: { id: "vite", name: "Vite" },
+  builder: { id: "vite", name: "Vite", toolVersion: "8" },
   theme: [],
+  routes: [],
+  entities: {},
+  componentCount: 0,
+  notes: [],
+  status: [],
+  detection: { packageManager: { id: "pnpm", name: "pnpm", agent: "pnpm", summary: "" }, tools: [] },
   documents: [],
   mainDocument: "app.par",
   modes: { settings: defaultModeSettings, custom: false },
   sources: {},
   libraries: []
-} as unknown as ProjectInfo
+}
+
 const loaded = { guest: {}, sheet: {}, tokens: [] }
 
 let opens: Array<(value: ProjectInfo) => void>
 let closes: string[]
+
 /** The projects whose pictures the service was told to keep, each time it was told. */
 let picturesKept: string[][]
+
 /** The projects whose folders the start page asked about, each time, and what the service answers. */
 let checked: string[][]
-let folders: { missing: string[]; example?: string }
+let folders: ServiceMethods["start.check"]["result"]
+
+/** How the service answers a design file's write. */
+const saving = { answer: (): Promise<undefined> => Promise.resolve(undefined) }
+
+/** Whether the service says what detection reads of a project changed since it opened. */
+const detection = { changed: false }
+
+/** What main keeps for the window: the projects, the tabs it claims, and each list of tabs it was told. */
+interface MainKeeps {
+  projects: Projects
+  tabs: SavedTabs
+  saved: SavedTabs[]
+}
+
+let kept: MainKeeps
 
 beforeEach(() => {
+  tracked.length = 0
+  pictures.length = 0
   opens = []
   closes = []
   picturesKept = []
   checked = []
   folders = { missing: [] }
+  detection.changed = false
   guest.loads.length = 0
   guest.failures.length = 0
   guest.released.length = 0
+  kept = { projects: { recent: [], notes: {} }, tabs: { roots: [] }, saved: [] }
   vi.stubGlobal("window", {
     canvasHost: {
+      // Main, keeping the projects and tabs as `projects.json` and `state.json` would.
+      saved: () => ({ values: {}, projects: kept.projects }),
+      projects: {
+        change: (change: ProjectsChange) => {
+          kept.projects = changeProjectsData(kept.projects, change, Date.now())
+
+          return Promise.resolve(kept.projects)
+        },
+        subscribe: () => () => undefined
+      },
+      state: {
+        set: () => undefined,
+        claimTabs: () => Promise.resolve(kept.tabs),
+        saveTabs: (tabs: SavedTabs) => void kept.saved.push(tabs)
+      },
       ask: preloadAnswers((method, answerParams) => {
+        // SAFETY: each method below reads only what its params have: `projectId` closing a project, `roots` the others.
         const params = answerParams as { projectId?: string; roots?: string[] }
-        if (method === "project.open") return new Promise((resolve) => opens.push(resolve))
+
+        if (method === "project.open") {
+          return new Promise((resolve) => opens.push(resolve))
+        }
+
         if (method === "project.close") {
           closes.push(params.projectId!)
+
           return Promise.resolve(undefined)
         }
+
         if (method === "pictures.keepOnly") {
           picturesKept.push(params.roots!)
+
           return Promise.resolve(undefined)
         }
+
+        if (method === "document.save") {
+          return saving.answer()
+        }
+
+        if (method === "project.detectAgain") {
+          return Promise.resolve(detection.changed)
+        }
+
         if (method === "start.check") {
           checked.push(params.roots!)
+
           return Promise.resolve(folders)
         }
+
         // Nothing else the tab asks for answers, as nothing the test checks waits on it.
         return new Promise(() => undefined)
       })
     }
   })
 })
+
 afterEach(() => vi.unstubAllGlobals())
 
 /** Lets the workspace's awaits run on. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
 describe("starting the workspace", () => {
-  it("leaves a fresh install on Home", () => {
-    vi.stubGlobal("localStorage", { getItem: () => null })
+  it("leaves a fresh install on Home", async () => {
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     expect(opens).toHaveLength(0)
     expect(workspace.getTabs()).toEqual([])
     expect(workspace.isHomeActive()).toBe(true)
   })
 
-  it("stays on Home when that's where the window was, reopening the tabs behind it", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) =>
-        key === "parity.workspace" ? JSON.stringify({ roots: [info.root], active: homeTab }) : null
-    })
+  it("stays on Home when that's where the window was, reopening the tabs behind it", async () => {
+    kept.tabs = { roots: [info.root], active: homeTab }
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     expect(opens).toHaveLength(1)
     expect(workspace.getTabs()[0]?.id).toBe(info.root)
     expect(workspace.isHomeActive()).toBe(true)
   })
 
-  it("opens the project requested by the dev runner", () => {
-    vi.stubGlobal("localStorage", { getItem: () => null })
+  it("opens only the project requested by the dev runner, and keeps no tabs for next time", async () => {
+    kept.tabs = { roots: ["/another/project"] }
     window.canvasHost.initialProject = info.root
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     expect(opens).toHaveLength(1)
-    expect(workspace.getTabs()).toHaveLength(1)
+    expect(workspace.getTabs().map((tab) => tab.id)).toEqual([info.root])
+    workspace.newTab()
+    expect(kept.saved).toEqual([])
   })
 
-  it("restores saved tabs ahead of the dev runner's default", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.workspace" ? JSON.stringify({ roots: [info.root] }) : null)
-    })
-    window.canvasHost.initialProject = "/another/project"
+  it("tells main its tabs once it has claimed some", async () => {
     const workspace = new Workspace()
-    workspace.restore()
-    expect(opens).toHaveLength(1)
-    expect(workspace.getTabs()[0]?.id).toBe(info.root)
+    await workspace.restore()
+    void workspace.open(info.root)
+    expect(kept.saved.at(-1)).toEqual({ roots: [info.root], active: info.root })
+  })
+})
+
+describe("recording a project as loaded (PAR-694)", () => {
+  /** Whether each `project.loaded` was for a project the window opened as it started. */
+  const restored = () =>
+    tracked.filter(({ name }) => name === "project.loaded").map(({ attributes }) => attributes.restored)
+
+  it("marks a tab from last time as restored", async () => {
+    kept.tabs = { roots: [info.root] }
+    await new Workspace().restore()
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await settle()
+    expect(restored()).toEqual([true])
+  })
+
+  it("marks a project the person opens as not restored", async () => {
+    const opening = new Workspace().open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    expect(restored()).toEqual([false])
+  })
+
+  it("doesn't count a project as loaded when its tab closed while the guest loaded", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    await workspace.close(info.id)
+    guest.loads[0]!(loaded)
+    await opening
+    expect(restored()).toEqual([])
   })
 })
 
 describe("checking the start page's folders (PAR-188)", () => {
   it("flags listed projects whose folders are gone, and keeps the example's folder", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.recent" ? JSON.stringify(["/apps/site", "/apps/gone"]) : null),
-      setItem: () => undefined
-    })
+    kept.projects = { recent: ["/apps/site", "/apps/gone"], notes: {} }
     folders = { missing: ["/apps/gone"], example: "/parity/examples/shadcn-vite" }
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     await settle()
     expect(checked).toEqual([["/apps/site", "/apps/gone"]])
     expect(workspace.getProjects().map(({ root, missing }) => ({ root, missing }))).toEqual([
@@ -145,13 +289,10 @@ describe("checking the start page's folders (PAR-188)", () => {
   })
 
   it("checks again when Home shows, as a folder may come back", async () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.recent" ? JSON.stringify(["/apps/drive"]) : null),
-      setItem: () => undefined
-    })
+    kept.projects = { recent: ["/apps/drive"], notes: {} }
     folders = { missing: ["/apps/drive"] }
     const workspace = new Workspace()
-    workspace.restore()
+    await workspace.restore()
     await settle()
     expect(workspace.getProjects()[0]?.missing).toBe(true)
     workspace.activate("somewhere")
@@ -159,6 +300,101 @@ describe("checking the start page's folders (PAR-188)", () => {
     workspace.activate(homeTab)
     await settle()
     expect(workspace.getProjects()[0]?.missing).toBeUndefined()
+  })
+})
+
+describe("a closed tab", () => {
+  it("lets go of its editor, so tabs React still holds keep no canvas", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    // SAFETY: the workspace only holds the editor and lets it go; nothing here calls it.
+    const editor = {} as NonNullable<ProjectSession["editor"]>
+    workspace.setEditor(info.id, editor)
+    const held = workspace.getTabs()
+    expect(held[0]?.session?.editor).toBe(editor)
+    await workspace.close(info.id)
+    expect(held[0]?.session?.editor).toBeUndefined()
+  })
+})
+
+// docs/editor.md, The start page: a project's picture is taken as it opens and after saves, not again when its code
+// changes or the service restarts, since its session stays the same object until its tab closes (PAR-1004).
+describe("an open project's session", () => {
+  const button = { id: "button", name: "Button", path: "src/Button.tsx", export: "Button" }
+
+  async function opened() {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!({ ...info, sources: { button } })
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+
+    return { workspace, session: workspace.getTab(info.id)!.session! }
+  }
+
+  it("stays the same object when the project's code changes, keeping its media and its picture", async () => {
+    const { workspace, session } = await opened()
+    const media = mediaFilesOf(session)
+    workspace.codeChanged(info.id, [button.path], 2)
+    const after = workspace.getTab(info.id)!.session!
+    expect(after.versions).toEqual({ button: 2 })
+    expect(after).toBe(session)
+    expect(mediaFilesOf(after)).toBe(media)
+    expect(pictures).toEqual([{ project: info.id, stopped: false }])
+  })
+
+  it("stays the same object through a reconnect, with the new guest and tokens in it", async () => {
+    const { workspace, session } = await opened()
+    const media = mediaFilesOf(session)
+    const { tokens } = session
+    const reconnecting = workspace.reconnect()
+    opens[1]!({ ...info, guestUrl: "http://127.0.0.1:5008/guest" })
+    await settle()
+    const fresh = { guest: { fresh: true }, sheet: {}, tokens: [] }
+    guest.loads[1]!(fresh)
+    await reconnecting
+    const after = workspace.getTab(info.id)!.session!
+    expect(after).toBe(session)
+    expect(after.loaded).toBe(fresh)
+    expect(after.tokens).not.toBe(tokens)
+    expect(mediaFilesOf(after)).toBe(media)
+    expect(pictures).toEqual([{ project: info.id, stopped: false }])
+  })
+
+  it("tells whoever subscribed when a part changes", async () => {
+    const { workspace, session } = await opened()
+    const told = vi.fn<() => void>()
+    session.subscribe(told)
+    const parts = session.getParts()
+    workspace.codeChanged(info.id, [button.path], 2)
+    expect(told).toHaveBeenCalledOnce()
+    expect(session.getParts()).not.toBe(parts)
+  })
+
+  it("stops keeping the picture when its tab closes", async () => {
+    const { workspace } = await opened()
+    await workspace.close(info.id)
+    expect(pictures).toEqual([{ project: info.id, stopped: true }])
+  })
+
+  it("is a new session when the project reopens, which keeps a picture of its own", async () => {
+    const { workspace, session } = await opened()
+    const reloading = workspace.reload(info.id)
+    await settle()
+    opens[1]!(info)
+    await settle()
+    guest.loads[1]!(loaded)
+    await reloading
+    expect(workspace.getTab(info.id)!.session).not.toBe(session)
+    expect(pictures).toEqual([
+      { project: info.id, stopped: true },
+      { project: info.id, stopped: false }
+    ])
   })
 })
 
@@ -197,7 +433,11 @@ describe("a tab closed while its project opens", () => {
     opens[0]!(info)
     opens[1]!(info)
     await settle()
-    for (const load of guest.loads) load(loaded)
+
+    for (const load of guest.loads) {
+      load(loaded)
+    }
+
     await Promise.all([first, second])
     expect(closes).toEqual([])
     expect(workspace.getTab(info.id)?.status).toBe("ready")
@@ -333,6 +573,126 @@ describe("a tab closed while its project opens", () => {
     expect(workspace.getTabs()).toEqual([])
   })
 
+  const restarted = { ...info, guestUrl: "http://127.0.0.1:5008/guest" }
+
+  it("closes the project a reconnect reopened when its tab closed meanwhile (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    await workspace.close(info.id)
+    expect(closes).toEqual([info.id])
+    opens[1]!(restarted)
+    await reconnecting
+    expect(closes).toEqual([info.id, info.id])
+    expect(guest.loads).toHaveLength(1)
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project and lets go of the guest a reconnect loaded when its tab closed meanwhile (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    opens[1]!(restarted)
+    await settle()
+    await workspace.close(info.id)
+    guest.loads[1]!(loaded)
+    await reconnecting
+    expect(closes).toEqual([info.id, info.id])
+    expect(guest.released).toEqual([info.guestUrl, restarted.guestUrl])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("closes the project when a reconnect's guest fails to load after its tab closed (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    opens[1]!(restarted)
+    await settle()
+    await workspace.close(info.id)
+    guest.failures[1]!(new Error("The guest didn't load"))
+    await reconnecting
+    expect(closes).toEqual([info.id, info.id])
+    expect(workspace.getTabs()).toEqual([])
+  })
+
+  it("leaves one project and one guest for a tab closed and opened again during a reconnect (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const reconnecting = workspace.reconnect()
+    opens[1]!(restarted)
+    await settle()
+    await workspace.close(info.id)
+    const reopening = workspace.open(info.root)
+    opens[2]!(restarted)
+    await settle()
+    const fresh = { guest: { fresh: true }, sheet: {}, tokens: [] }
+    guest.loads[2]!(fresh)
+    await reopening
+    guest.loads[1]!(loaded)
+    await reconnecting
+    expect(closes).toEqual([info.id])
+    expect(guest.released).toEqual([info.guestUrl])
+    const { session } = workspace.getTab(info.id)!
+    expect(session?.info.guestUrl).toBe(restarted.guestUrl)
+    expect(session?.loaded).toBe(fresh)
+  })
+
+  it("draws a tab from the latest reconnect when the service restarts again during one (PAR-978)", async () => {
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const first = workspace.reconnect()
+    const second = workspace.reconnect()
+    const again = { ...info, guestUrl: "http://127.0.0.1:5016/guest" }
+    opens[2]!(again)
+    await settle()
+    const latest = { guest: { latest: true }, sheet: {}, tokens: [] }
+    guest.loads[1]!(latest)
+    await second
+    opens[1]!(restarted)
+    await first
+    expect(guest.loads).toHaveLength(2)
+    const { session } = workspace.getTab(info.id)!
+    expect(session?.info.guestUrl).toBe(again.guestUrl)
+    expect(session?.loaded).toBe(latest)
+    expect(closes).toEqual([])
+  })
+
+  it("opens a project again when asked to detect it again only once what detection reads changed (PAR-820)", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+
+    detection.changed = false
+    await workspace.detectAgain(info.id)
+    expect(closes).toEqual([])
+
+    detection.changed = true
+    const detecting = workspace.detectAgain(info.id)
+    await vi.waitFor(() => expect(opens).toHaveLength(2))
+    opens[1]!(info)
+    await settle()
+    guest.loads[1]!(loaded)
+    await detecting
+    expect(closes).toEqual([info.id])
+    expect(workspace.getTab(info.id)?.status).toBe("ready")
+  })
+
+  it("checks detection again once a tab told it changed while loading is ready (PAR-820)", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    workspace.detectionChanged(info.id)
+    detection.changed = true
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await opening
+    await vi.waitFor(() => expect(closes).toEqual([info.id]))
+    expect(opens).toHaveLength(2)
+  })
+
   it("reopens once when asked again while it reopens, so closing the tab cancels it", async () => {
     const workspace = new Workspace()
     const opening = workspace.open(info.root)
@@ -358,10 +718,10 @@ describe("a tab closed while its project opens", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
-    const { store } = workspace.getTab(info.id)!.session!
+    const { saver } = workspace.getTab(info.id)!.session!
     let saved!: () => void
-    vi.spyOn(store, "hasUnsaved").mockReturnValueOnce(true)
-    vi.spyOn(store, "flush").mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)))
+    vi.spyOn(saver, "hasUnsaved").mockReturnValueOnce(true)
+    vi.spyOn(saver, "flush").mockReturnValueOnce(new Promise<void>((resolve) => (saved = resolve)))
     const reloading = workspace.reload(info.id)
     await workspace.close(info.id)
     const reopening = workspace.open(info.root)
@@ -393,11 +753,6 @@ describe("a tab closed while its project opens", () => {
 // docs/editor.md, The start page: Home and new tabs, and what the window remembers about each project (PAR-605).
 
 /** Storage that keeps what's set, as the window's does. */
-function memoryStorage(): Pick<Storage, "getItem" | "setItem"> {
-  const items = new Map<string, string>()
-  return { getItem: (key) => items.get(key) ?? null, setItem: (key, value) => void items.set(key, value) }
-}
-
 /** Opens the test's project and lets it finish. */
 async function openFully(workspace: InstanceType<typeof Workspace>): Promise<void> {
   const opening = workspace.open(info.root)
@@ -420,7 +775,6 @@ describe("Home and new tabs", () => {
   })
 
   it("switches to a project that's already open, closing the new tab it was picked from", async () => {
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     workspace.newTab()
@@ -453,7 +807,6 @@ describe("Home and new tabs", () => {
   })
 
   it("remembers when a project opened, and keeps a starred one after it leaves the recent list", async () => {
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     expect(workspace.getProjects()).toEqual([
@@ -470,7 +823,6 @@ describe("Home and new tabs", () => {
   })
 
   it("lets go of a project's picture once the start page stops listing it (PAR-607)", async () => {
-    vi.stubGlobal("localStorage", memoryStorage())
     const workspace = new Workspace()
     await openFully(workspace)
     expect(picturesKept.at(-1)).toEqual([info.root])
@@ -479,13 +831,6 @@ describe("Home and new tabs", () => {
     expect(picturesKept.at(-1)).toEqual([info.root])
     workspace.star(info.root, false)
     expect(picturesKept.at(-1)).toEqual([])
-  })
-
-  it("starts with no notes when the saved ones can't be read", () => {
-    vi.stubGlobal("localStorage", {
-      getItem: (key: string) => (key === "parity.projects" ? JSON.stringify({ "/a": { starred: "yes" } }) : null)
-    })
-    expect(new Workspace().getProjects()).toEqual([])
   })
 })
 
@@ -501,6 +846,7 @@ describe("moveGuest", () => {
     await settle()
     guest.loads[0]!(loaded)
     await opening
+
     return workspace
   }
 
@@ -559,9 +905,17 @@ describe("moveGuest", () => {
       const later = workspace.moveGuest(info.id, latest)
       const loadEarlier = () => guest.loads[1]!({ guest: { earlier: true }, sheet: {}, tokens: [] })
       const loadLater = () => guest.loads[2]!({ guest: { later: true }, sheet: {}, tokens: [] })
-      if (order === "first") loadEarlier()
+
+      if (order === "first") {
+        loadEarlier()
+      }
+
       loadLater()
-      if (order === "last") loadEarlier()
+
+      if (order === "last") {
+        loadEarlier()
+      }
+
       expect(await Promise.all([earlier, later])).toEqual([false, true])
       expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(latest)
       expect(workspace.getTab(info.id)!.session!.loaded.guest).toEqual({ later: true })
@@ -583,5 +937,54 @@ describe("moveGuest", () => {
     expect(await moving).toBe(false)
     expect(workspace.getTab(info.id)!.session!.info.guestUrl).toBe(reopened.guestUrl)
     expect(guest.released).toEqual([info.guestUrl, moved])
+  })
+})
+
+// docs/telemetry.md: a write's `document.saved` or `document.saveFailed` is in the trace it was asked in (PAR-752).
+describe("recording a save", () => {
+  const sink = createTestSink()
+  traceWith(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "renderer", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
+
+  const about: ContainerSpec = {
+    id: "about",
+    name: "About",
+    position: { x: 0, y: 0 },
+    root: { type: "layout", id: "root", children: [] }
+  }
+
+  const save = { action: "save", from: "key" as const, enabled: true, layers: 0, designs: 0 }
+
+  /** Saves an added design with Save, giving where `command.ran` sat and what the save recorded. */
+  async function saveWith(answer: () => Promise<undefined>) {
+    sink.clear()
+    saving.answer = answer
+    const workspace = new Workspace()
+    await openFully(workspace)
+    const { doc, saver } = workspace.getTab(info.id)!.session!
+    addContainer(doc, info.mainDocument, about)
+    await tracedCommand(save, () => saver.flush()).catch(() => undefined)
+    const ran = sink.spans.find(({ name }) => name === "command.ran")
+
+    return {
+      command: { traceId: ran!.traceId, spanId: ran!.spanId },
+      recorded: tracked.filter(({ name }) => name.startsWith("document.save"))
+    }
+  }
+
+  it("records a write in the trace Save asked for it in", async () => {
+    const { command, recorded } = await saveWith(() => Promise.resolve(undefined))
+    expect(recorded).toMatchObject([{ name: "document.saved", attributes: { file: "app.par" }, span: command }])
+  })
+
+  it("records a failed write in that trace too", async () => {
+    const { command, recorded } = await saveWith(() => Promise.reject(new Error("Disk full")))
+    expect(recorded).toMatchObject([{ name: "document.saveFailed", attributes: { file: "app.par" }, span: command }])
   })
 })

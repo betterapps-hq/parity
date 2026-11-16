@@ -1,109 +1,25 @@
-import { detachInstance, findNode, plainReason } from "@parity-app/core"
-import {
-  type Alignment,
-  arrowOf,
-  type ExportSize,
-  exportFiles,
-  type Order,
-  selectedDesigns,
-  selectedNodes
-} from "@parity-app/editor"
-import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
-import {
-  copySelection,
-  copyStyle,
-  duplicateDesigns,
-  pasteClipboard,
-  pasteOverSelection,
-  pasteStyle,
-  pasteToReplace
-} from "../canvas/clipboard.ts"
+import { findNode } from "@parity-app/core"
+import { type ExportSize, exportFiles, selectedDesigns, selectedNodes } from "@parity-app/editor"
+import { containerEntries, containerEntry, designsLabel } from "@parity-app/multiplayer"
+import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
 import { layerLabel } from "../canvas/kinds.tsx"
-import { parentLayer, projectLibrary, siblingLayer } from "../canvas/layers.ts"
-import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
-import { enterTarget } from "../canvas/pick.ts"
-import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
+import { projectLibrary } from "../project-doc.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { lines, notify } from "../toasts.tsx"
-import { spacingUnit } from "../tokens-store.ts"
-import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
-import {
-  align,
-  deleteDesigns,
-  deleteLayers,
-  distribute,
-  duplicateLayers,
-  orderLayer,
-  selectAll,
-  toggleHiddenLayers,
-  unwrapLayer,
-  wrapLayers
-} from "./arrange.ts"
-import { extractIntoComponent } from "./components.ts"
-import { duplicateDesign, setDesignKind } from "./designs.ts"
-import { setLayout } from "./layout.ts"
-import { getPreferences, setPreferences } from "./preferences.ts"
-import { revealSelection } from "./reveal.ts"
+import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
+import { getPreferences } from "./preferences.ts"
 
-/** What the menus and their shortcuts do. Each acts on the active tab unless it says otherwise. */
+/**
+ * What the window shares beyond its commands: the active tab's session, what's selected in it, and exporting, which the
+ * Export section runs at its own sizes. The commands themselves run only through `actions.ts`, which records them.
+ */
 
 export function activeSession(): ProjectSession | undefined {
   return workspace.getActive()?.session
 }
 
-export async function openProjectFolder(): Promise<void> {
-  const root = await window.canvasHost.pickFolder()
-  if (root) await workspace.open(root)
-}
-
-/** Opens the project a `.par` file belongs to. */
-export async function openProjectFile(): Promise<void> {
-  const file = await window.canvasHost.pickProjectFile()
-  if (file) await workspace.open(file)
-}
-
-/** Writes every file with unsaved changes and says so. */
-export async function save(session = activeSession()): Promise<void> {
-  if (!session) return
-  try {
-    await session.store.flush()
-    notify.done("Saved the project", { timeout: 2000 })
-  } catch (error) {
-    notify.failed("Couldn't save the project", {
-      id: saveFailureToast(session.id),
-      error,
-      retry: () => void save(session)
-    })
-  }
-}
-
-/**
- * Writes every design, note and the modes into one `.par` file wherever the person picks, as a snapshot to share or
- * keep. The project keeps working from its own files. It suggests a place outside the project, since a `.par` inside
- * it would show up as more designs.
- */
-export async function saveCopy(session = activeSession()): Promise<void> {
-  if (!session) return
-  const { root, name } = session.info
-  const path = await window.canvasHost.saveFile({
-    title: "Save a copy",
-    defaultPath: join(parentOf(root), `${name} copy.par`),
-    filters: [{ name: "Parity project", extensions: ["par"] }]
-  })
-  if (!path) return
-  try {
-    await session.store.flush()
-    await request("document.saveCopy", { path, document: session.store.merged() })
-    notify.done("Saved a copy", {
-      description: path,
-      action: { label: "Show file", run: () => void window.canvasHost.showItem(path) }
-    })
-  } catch (error) {
-    notify.failed("Couldn't save the copy", { description: `${plainReason(error) ?? ""} Try another folder.`.trim() })
-  }
-}
-
-/** Renders the selected design, or every design, to PNGs in a folder the person picks. */
 /**
  * Removes the frame bitmaps kept on disk (PAR-158). The canvas keeps showing the ones it has, and new ones are kept
  * again as frames are captured.
@@ -113,7 +29,7 @@ export async function clearBitmapCache(): Promise<void> {
     await request("frames.clearStored", undefined)
     notify.done("Cleared the bitmap cache", { timeout: 2000 })
   } catch (error) {
-    notify.failed("Couldn't clear the cache", { error })
+    reportError(error, { operation: "frames.clearStored", title: "Couldn't clear the cache" })
   }
 }
 
@@ -125,20 +41,25 @@ export interface ExportTarget {
 }
 
 /** What exporting or copying as a PNG acts on: the selected layers, or else the selected designs, named as Layers names them. */
-function selectedTargets(session: ProjectSession): ExportTarget[] {
-  const { store } = session
+export function selectedTargets(session: ProjectDesigns & Pick<ProjectSession, "info">): ExportTarget[] {
+  const { doc } = session
   const selection = session.selection.get()
-  const entry = selection.design ? store.getEntry(selection.design) : undefined
+  const entry = selection.design ? containerEntry(doc, selection.design) : undefined
   const nodes = selectedNodes(selection)
-  const entries = store.getEntries()
-  const library = store.getComponentLibrary()
+  const entries = containerEntries(doc)
+  const library = projectLibrary(session)
+
   return entry && nodes.length > 0
     ? nodes.flatMap((node) => {
         const layer = findNode(entry.container.root, node)
-        return layer ? [{ design: entry.key, node, name: layerLabel(layer, entries, library) }] : []
+
+        return layer
+          ? [{ design: entry.key, node, name: layerLabel(layer, entries, library, session.info.libraries) }]
+          : []
       })
     : selectedDesigns(selection).flatMap((key) => {
-        const design = store.getEntry(key)
+        const design = containerEntry(doc, key)
+
         return design ? [{ design: key, name: design.container.name }] : []
       })
 }
@@ -149,463 +70,157 @@ function selectedTargets(session: ProjectSession): ExportTarget[] {
  * the first, and warns of any it couldn't draw.
  */
 export async function exportLayers(
-  session: ProjectSession,
+  projectId: string,
   targets: readonly ExportTarget[],
   sizes: readonly ExportSize[]
 ): Promise<void> {
-  if (targets.length === 0) return
+  if (targets.length === 0) {
+    return
+  }
+
   const folder = await window.canvasHost.pickFolder("Export to")
-  if (!folder) return
+
+  if (!folder) {
+    return
+  }
+
   const files = exportFiles(
     targets.map((target) => target.name),
     sizes
   )
+
+  const exported: Exported = { kind: "layers", ...writtenAt(sizes), designs: targets.length }
+
   const run = async (): Promise<void> => {
-    const progress = notify.progress(files.length === 1 ? "Exporting a file…" : `Exporting ${files.length} files…`)
-    try {
-      const { files: written, warnings } = await request("layers.export", {
-        projectId: session.id,
-        folder,
-        layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
-        files
-      })
-      notify.done(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
-        id: progress,
-        description: folder,
-        ...(written[0]
-          ? { action: { label: "Open folder", run: () => void window.canvasHost.showItem(written[0]!) } }
-          : {})
-      })
-      if (warnings.length > 0) notify.warning("Some layers were left out", { description: lines(warnings) })
-    } catch (error) {
-      notify.failed("Couldn't export", { id: progress, error, retry: () => void run() })
-    }
-  }
-  await run()
-}
+    const answer = await serviceCall({
+      // A layer's name could be any length, so the notification counts files.
+      progress: files.length === 1 ? "Exporting a file…" : `Exporting ${files.length} files…`,
+      run: () =>
+        request("layers.export", {
+          projectId,
+          folder,
+          layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
+          files
+        }),
+      done({ files: written, warnings }, took) {
+        track("export.done", { ...exported, durationMs: took, files: written.length, warnings: warnings.length })
 
-/**
- * Exports what's selected at the Export section's sizes (PAR-185): the selected layers, or else the selected designs,
- * each named as the Layers panel names it. With nothing selected, it says to select something.
- */
-export async function exportSelected(session = activeSession()): Promise<void> {
-  if (!session) return
-  const targets = selectedTargets(session)
-  if (targets.length === 0) {
-    notify.info("Nothing selected", { description: "Select what to export." })
-    return
-  }
-  await exportLayers(session, targets, getPreferences().exportSizes)
-}
-
-/**
- * Copies what's selected to the clipboard as one PNG at 2x (PAR-190), drawn as exporting draws it: the selected
- * layers, or else the selected designs, where they sit on the canvas. A toast says it's copied, or warns of any it
- * couldn't draw.
- */
-export async function copySelectedAsPng(session = activeSession()): Promise<void> {
-  if (!session) return
-  const targets = selectedTargets(session)
-  if (targets.length === 0) {
-    notify.info("Nothing selected", { description: "Select what to copy as a PNG." })
-    return
-  }
-  const progress = notify.progress("Copying as PNG…")
-  try {
-    const { png, warnings } = await request("layers.picture", {
-      projectId: session.id,
-      layers: targets.map(({ design, node, name }) => ({
-        design,
-        ...(node ? { node } : {}),
-        name,
-        at: session.store.getEntry(design)?.container.position ?? { x: 0, y: 0 }
-      }))
+        return {
+          success: written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`,
+          description: folder,
+          action: written[0]
+            ? { label: "Open folder", run: () => void window.canvasHost.showItem(written[0]!) }
+            : undefined
+        }
+      },
+      failed: {
+        operation: "layers.export",
+        title: "Couldn't export",
+        retry: () => void run(),
+        track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
+      }
     })
-    if (!png) {
-      notify.failed("Couldn't copy as PNG", {
-        id: progress,
-        description: warnings.length > 0 ? lines(warnings) : undefined
-      })
-      return
-    }
-    const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
-    await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-    notify.done("Copied as PNG", { id: progress, timeout: 2000 })
-    if (warnings.length > 0) notify.warning("Some layers were left out", { description: lines(warnings) })
-  } catch (error) {
-    notify.failed("Couldn't copy as PNG", { id: progress, error })
-  }
-}
 
-export async function exportImages(scope: "selection" | "all", session = activeSession()): Promise<void> {
-  if (!session) return
-  const { store, selection } = session
-  const selected = selection.get().design
-  let designs: string[] = selected ? [selected] : []
-  if (scope === "all") designs = store.getEntries().map((entry) => entry.key)
-  if (designs.length === 0) {
-    if (scope === "all")
-      notify.info("Nothing to export", { description: "This project has no screens or components yet." })
-    else notify.info("Nothing selected", { description: "Select a screen or component to export." })
-    return
-  }
-  const folder = await window.canvasHost.pickFolder("Export images to")
-  if (!folder) return
-  const scale = getPreferences().exportScale
-  const label = store.designsLabel(designs)
-  const run = async (): Promise<void> => {
-    const progress = notify.progress(`Exporting ${designs.length === 1 ? `a ${label}` : label}…`)
-    try {
-      // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
-      const { files, warnings } = await request("designs.export", { projectId: session.id, folder, designs, scale })
-      notify.done(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
-        id: progress,
-        description: folder,
-        ...(files[0] ? { action: { label: "Open folder", run: () => void window.canvasHost.showItem(files[0]!) } } : {})
-      })
-      if (warnings.length > 0) notify.warning("Some images may be incomplete", { description: lines(warnings) })
-    } catch (error) {
-      notify.failed("Couldn't export", { id: progress, error, retry: () => void run() })
+    if (answer && answer.warnings.length > 0) {
+      notify.warning("Some layers were left out", { description: lines(answer.warnings) })
     }
   }
+
   await run()
 }
 
-/** Opens a new tab, which shows the start page until a project opens in it. */
-export function openNewTab(): void {
-  workspace.newTab()
+/** What an export wrote, for `export.done` and `export.failed`, which add how long it took. */
+type Exported = Omit<EventAttributes<typeof registeredEvents, "export.failed">, "code" | "durationMs">
+
+/** The formats and scales an export at `sizes` writes, each once. */
+function writtenAt(sizes: readonly ExportSize[]): Pick<Exported, "formats" | "scales"> {
+  return {
+    formats: [...new Set(sizes.map((size) => size.format))],
+    scales: [...new Set(sizes.map((size) => size.scale))]
+  }
 }
 
-/** Shows Home, the start page pinned first in the tab strip. */
-export function goHome(): void {
-  workspace.activate(homeTab)
+function trackExportFailed(exported: Exported & { durationMs: number }, cause: unknown): void {
+  const failed: EventAttributes<typeof registeredEvents, "export.failed"> = { ...exported }
+  const code = errorCode(cause)
+
+  if (code) {
+    failed.code = code
+  }
+
+  track("export.failed", failed)
 }
 
-/** Closes the active tab once its last edits are saved. */
-export function closeTab(id = workspace.getActiveId()): void {
-  if (id) void workspace.close(id)
+/**
+ * File > Export all: renders every design, in each of its states and the modes shown beside it, at each of the export
+ * sizes the Export section writes layers at, in a folder the person picks.
+ */
+export async function exportAllImages(
+  session: Pick<ProjectSession, "id" | "doc"> | undefined = activeSession()
+): Promise<void> {
+  if (!session) {
+    return
+  }
+
+  const { doc } = session
+  const designs = containerEntries(doc).map((entry) => entry.key)
+
+  if (designs.length === 0) {
+    notify.info("Nothing to export", { description: "This project has no screens or components yet." })
+
+    return
+  }
+
+  const folder = await window.canvasHost.pickFolder("Export images to")
+
+  if (!folder) {
+    return
+  }
+
+  const sizes = getPreferences().exportSizes
+  const label = designsLabel(doc, designs)
+  const exported: Exported = { kind: "designs", ...writtenAt(sizes), designs: designs.length }
+
+  const run = async (): Promise<void> => {
+    const answer = await serviceCall({
+      // A design's name could be any length, so the notification names its kind.
+      progress: `Exporting ${designs.length === 1 ? `a ${label}` : label}…`,
+      // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
+      run: () => request("designs.export", { projectId: session.id, folder, designs, sizes }),
+      done({ files, warnings }, took) {
+        track("export.done", { ...exported, durationMs: took, files: files.length, warnings: warnings.length })
+
+        return {
+          success: files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`,
+          description: folder,
+          action: files[0] ? { label: "Open folder", run: () => void window.canvasHost.showItem(files[0]!) } : undefined
+        }
+      },
+      failed: {
+        operation: "designs.export",
+        title: "Couldn't export",
+        retry: () => void run(),
+        track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
+      }
+    })
+
+    if (answer && answer.warnings.length > 0) {
+      notify.warning("Some images may be incomplete", { description: lines(answer.warnings) })
+    }
+  }
+
+  await run()
 }
 
 export function exit(): void {
   void window.canvasHost.quit()
 }
 
-export function undo(session = activeSession()): void {
-  session?.store.undo()
-}
-
-export function redo(session = activeSession()): void {
-  session?.store.redo()
-}
-
-/** Duplicates the selected layers, or the selected designs. */
-export function duplicateSelection(session = activeSession()): void {
-  if (!session) return
-  if (duplicateLayers(session)) return
-  const designs = selectedDesigns(session.selection.get())
-  const entry = designs.length === 1 ? session.store.getEntry(designs[0]!) : undefined
-  if (entry) duplicateDesign(session, entry)
-  else duplicateDesigns(session)
-}
-
-/** Deletes the selected layers, designs or text note. */
-export function deleteSelection(session = activeSession()): void {
-  if (!session) return
-  const { store, selection } = session
-  const current = selection.get()
-  if (deleteLayers(session) || deleteDesigns(session)) return
-  if (current.note) {
-    store.updateNote(current.note, "Delete text", () => undefined)
-    selection.set({})
-  }
-}
-
-export async function copy(session = activeSession()): Promise<void> {
-  if (session) await copySelection(session)
-}
-
-export async function cut(session = activeSession()): Promise<void> {
-  if (session && (await copySelection(session))) deleteSelection(session)
-}
-
-export async function paste(session = activeSession()): Promise<void> {
-  if (session) await pasteClipboard(session)
-}
-
-export async function pasteOver(session = activeSession()): Promise<void> {
-  if (session) await pasteOverSelection(session)
-}
-
-export async function pasteReplace(session = activeSession()): Promise<void> {
-  if (session) await pasteToReplace(session)
-}
-
-export function copySelectionStyle(session = activeSession()): void {
-  if (session) copyStyle(session)
-}
-
-export function pasteSelectionStyle(session = activeSession()): void {
-  if (session) pasteStyle(session)
-}
-
-export function selectEverything(session = activeSession()): void {
-  if (session) selectAll(session)
-}
-
-/** Ctrl+Shift+A: what Select all would select, less what's selected. */
-export function selectInverse(session = activeSession()): void {
-  if (session) session.selection.set(inverseSelection(session.store, session.selection.get()))
-}
-
-/** Ctrl+Alt+A: every layer in the design like the selected ones, or every design of the same kind. */
-export function selectMatching(session = activeSession()): void {
-  const next = session && matchingSelection(session.store, session.selection.get())
-  if (next) session.selection.set(next)
-}
-
-/**
- * N and Shift+N, as Figma's Zoom to next frame: select the next or previous design, in the Layers panel's order, and
- * zoom to it as Zoom to selection does.
- */
-export function selectAdjacentDesign(step: 1 | -1, session = activeSession()): void {
-  if (!session) return
-  const key = adjacentDesign(session.store.getEntries(), session.selection.get(), step)
-  if (!key) return
-  session.selection.set({ design: key })
-  zoomToSelection(session)
-}
-
-/**
- * The arrows: nudge the selected layers, designs or note, by the arrow pressed, further with Shift. A layer stays in
- * view as it moves.
- */
-export function nudge(event: KeyboardEvent | undefined, session = activeSession()): void {
-  const arrow = event && arrowOf(event.key)
-  if (!session || !arrow) return
-  const area = session.editor?.getContainer()
-  const unit = spacingUnit(session.tokens.get())
-  const blocked = nudgeSelection(
-    {
-      store: session.store,
-      selection: session.selection,
-      unit,
-      drawn: area ? (design) => frameDrawn(area, design, session.selection.get(), unit) : undefined
-    },
-    arrow,
-    event.shiftKey
-  )
-  if (blocked) {
-    notify.info("Can't nudge that way", {
-      id: "nudge-token",
-      description: `Its ${blocked.side} edge is set by the ${String(blocked.token)} token.`
-    })
-  }
-  if (session.selection.get().node) revealSelection(session)
-}
-
-export function wrapSelection(session = activeSession()): void {
-  if (session) wrapLayers(session)
-}
-
-export function unwrapSelection(session = activeSession()): void {
-  if (session) unwrapLayer(session)
-}
-
-export function alignSelection(alignment: Alignment, session = activeSession()): void {
-  if (session) align(session, alignment)
-}
-
-export function distributeSelection(axis: "horizontal" | "vertical", session = activeSession()): void {
-  if (session) distribute(session, axis)
-}
-
-export function renameSelection(session = activeSession()): void {
-  session?.selection.requestRename()
-}
-
-export function zoomToSelection(session = activeSession()): void {
-  const current = session?.selection.get()
-  const key = current?.note ?? current?.design
-  const bounds = key ? session?.editor?.getShapePageBounds(shapeIdFor(key)) : undefined
-  if (bounds) session?.editor?.zoomToBounds(bounds, { inset: 80, animation: { duration: 200 } })
-}
-
-export function zoomIn(session = activeSession()): void {
-  session?.editor?.zoomIn()
-}
-
-export function zoomOut(session = activeSession()): void {
-  session?.editor?.zoomOut()
-}
-
-export function zoomTo100(session = activeSession()): void {
-  session?.editor?.resetZoom()
-}
-
-export function zoomToFit(session = activeSession()): void {
-  session?.editor?.zoomToFit({ animation: { duration: 200 } })
-}
-
-export function toggleLayoutGrid(): void {
-  setPreferences({ layoutGrid: !getPreferences().layoutGrid })
-}
-
-/** Opens a side panel on one of its tabs, as Figma's Alt+1 opens Layers and Alt+2 Assets. */
-export function showPanelTab(tab: "layers" | "components"): void {
-  setLayout({ left: true, leftTab: tab })
-}
-
-/** The tab after the active one, or before it with a step of -1, going round. */
-/** Moves to the next or previous tab, with Home first, going round. */
-export function switchTab(step: 1 | -1): void {
-  const ids = [homeTab, ...workspace.getTabs().map((tab) => tab.id)]
-  const index = workspace.isHomeActive() ? 0 : ids.indexOf(workspace.getActiveId()!)
-  const next = ids[(index + step + ids.length) % ids.length]
-  if (ids.length > 1) workspace.activate(next)
-}
-
-export function toggleDeveloperTools(): void {
-  void window.canvasHost.toggleDevTools()
-}
-
-/**
- * Escape: stops editing text, then goes back to the select tool, then selects the parent, then nothing, one step a
- * press.
- */
-export function stepBack(session = activeSession()): void {
-  if (!session) return
-  const { selection } = session
-  if (selection.getEditing()) selection.setEditing(undefined)
-  else if (selection.getTool() !== "select") selection.setTool("select")
-  else if (selection.get().node) selectParent(session)
-  else selection.set({})
-}
-
-/** The layer the selected one sits in, or the design when it's at the top. */
-export function selectParent(session = activeSession()): void {
-  if (!session) return
-  const { store, selection } = session
-  const current = selection.get()
-  const entry = current.design ? store.getEntry(current.design) : undefined
-  if (!entry || !current.node) return
-  const parent = parentLayer(store, entry.container, current.node)
-  selection.set(
-    !parent || parent === entry.container.root.id
-      ? { design: entry.key }
-      : { design: entry.key, node: parent, mode: current.mode, state: current.state }
-  )
-}
-
-/**
- * Enter, as in Figma: starts editing the selected text layer, or selects every layer inside the selected layers, or
- * inside the selected design (see `enterTarget`).
- */
-export function selectChildren(session = activeSession()): void {
-  if (!session) return
-  const target = enterTarget(session.store, session.selection.get())
-  if (!target) return
-  if ("edit" in target) session.selection.setEditing(target.edit)
-  else session.selection.set(target.select)
-}
-
-/** The next layer beside the selected one, or the one before it with a step of -1. */
-export function selectSibling(step: 1 | -1, session = activeSession()): void {
-  if (!session) return
-  const { store, selection } = session
-  const current = selection.get()
-  const entry = current.design ? store.getEntry(current.design) : undefined
-  if (!entry || !current.node) return
-  const sibling = siblingLayer(store, entry.container, current.node, step)
-  if (sibling) selection.set({ design: entry.key, node: sibling, mode: current.mode, state: current.state })
-}
-
-export function orderSelection(order: Order, session = activeSession()): void {
-  if (session) orderLayer(session, order)
-}
-
-export function hideSelection(session = activeSession()): void {
-  if (session) toggleHiddenLayers(session)
-}
-
 /** The selected design, when it's selected on its own rather than one of its layers. */
-export function selectedDesign(session = activeSession()) {
+export function selectedDesign(session: ProjectDesigns | undefined = activeSession()) {
   const current = session?.selection.get()
-  return current?.design && !current.node && !current.designs?.length
-    ? session?.store.getEntry(current.design)
+
+  return session && current?.design && !current.node && !current.designs?.length
+    ? containerEntry(session.doc, current.design)
     : undefined
-}
-
-/** Turns the selected design into a component, or a component back into a screen. */
-export function toggleComponent(session = activeSession()): void {
-  const entry = selectedDesign(session)
-  if (session && entry) setDesignKind(session, entry, entry.container.kind === "component" ? "screen" : "component")
-}
-
-/** The one layer selected, when it's one of its design's own layers, not the root or a layer inside an instance. */
-export function selectedOwnLayer(session = activeSession()) {
-  const current = session?.selection.get()
-  const entry = current?.design ? session?.store.getEntry(current.design) : undefined
-  const node =
-    entry && current?.node && !current.nodes?.length ? findNode(entry.container.root, current.node) : undefined
-  return entry && node && node.id !== entry.container.root.id ? { entry, node } : undefined
-}
-
-/**
- * Ctrl+Alt+K, as in Figma: a design selected on its own becomes a component, or a screen again; a selected layer is
- * extracted into a new component design named after it, as the inspector's Make component does.
- */
-export function makeComponent(session = activeSession()): void {
-  if (!session) return
-  if (selectedDesign(session)) {
-    toggleComponent(session)
-    return
-  }
-  const layer = selectedOwnLayer(session)
-  if (!layer) return
-  try {
-    const name = layerLabel(layer.node, session.store.getEntries(), session.store.getComponentLibrary())
-    session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
-    revealSelection(session)
-  } catch (error) {
-    notify.failed("Couldn't make a component", { error, retry: () => makeComponent(session) })
-  }
-}
-
-/** The selected layer, when it's one instance of a component. */
-export function selectedInstance(session = activeSession()) {
-  const current = session?.selection.get()
-  const entry = current?.design ? session?.store.getEntry(current.design) : undefined
-  const node =
-    entry && current?.node && !current.nodes?.length ? findNode(entry.container.root, current.node) : undefined
-  return entry && node?.type === "instance" ? { entry, node } : undefined
-}
-
-/** Turns the selected instance into plain layers, unlinked from its component. */
-export function detachSelection(session = activeSession()): void {
-  const instance = selectedInstance(session)
-  if (!session || !instance) return
-  const library = projectLibrary(session.store)
-  session.store.updateContainer(instance.entry.key, "Detach instance", (container) =>
-    detachInstance(container, instance.node.id, library)
-  )
-}
-
-/** Selects the component the selected instance is a copy of, and shows it. */
-export function goToMainComponent(session = activeSession()): void {
-  const instance = selectedInstance(session)
-  if (!session || !instance) return
-  const main = session.store.getEntries().find((entry) => entry.container.id === instance.node.design)
-  if (!main) return
-  session.selection.set({ design: main.key })
-  revealSelection(session)
-}
-
-function parentOf(path: string): string {
-  const trimmed = path.replace(/[\\/]+$/, "")
-  const cut = Math.max(trimmed.lastIndexOf("/"), trimmed.lastIndexOf("\\"))
-  return cut > 0 ? trimmed.slice(0, cut) : trimmed
-}
-
-function join(folder: string, name: string): string {
-  return `${folder}${folder.includes("\\") ? "\\" : "/"}${name}`
 }

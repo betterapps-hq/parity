@@ -5,7 +5,13 @@ import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { discoverProject } from "./index.ts"
 
-const renderer = {
+const renderer: RendererAdapter = {
+  id: "test",
+  name: "Test",
+  detect: () => Promise.resolve({ found: true, summary: "" }),
+  guestModule: "",
+  runtimePackages: [],
+  runtimeImports: [],
   componentExtensions: [".tsx"],
   findComponents: (source: string) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -13,7 +19,7 @@ const renderer = {
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 
@@ -33,7 +39,7 @@ afterEach(async () => {
 })
 
 describe("discoverProject", () => {
-  it("follows components.json and tsconfig paths", async () => {
+  it("reads every component file and .par design, and leaves components.json to shadcn", async () => {
     await write("components.json", JSON.stringify({ tailwind: { css: "app/global.css" }, aliases: { ui: "~/ui" } }))
     await write("tsconfig.json", '{ "compilerOptions": { /* paths */ "paths": { "~/*": ["./lib/*"] } } }')
     await write("lib/ui/card.tsx", "export function Card() {}\nexport function CardTitle() {}")
@@ -41,31 +47,28 @@ describe("discoverProject", () => {
     await write("node_modules/pkg/ignored.par", "{}")
 
     const project = await discoverProject(root, renderer)
-    expect(project.styles).toEqual(["app/global.css"])
+    expect(project.styles).toEqual([])
     expect(project.components).toEqual({
-      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function" },
-      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function" }
+      Card: { path: "lib/ui/card.tsx", export: "Card", as: "function", lazy: true },
+      CardTitle: { path: "lib/ui/card.tsx", export: "CardTitle", as: "function", lazy: true }
     })
     expect(project.documents).toEqual(["designs/team.par"])
   })
 
-  it("falls back to the app entry's CSS imports and conventional folders", async () => {
-    await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
-    await write("src/main.tsx", 'import "./styles/app.css"\nimport App from "./App"')
-    await write("src/components/ui/button.tsx", "export function Button() {}")
-
-    const project = await discoverProject(root, renderer)
-    expect(project.styles).toEqual(["src/styles/app.css"])
-    expect(Object.keys(project.components)).toEqual(["Button"])
-  })
-
-  it("keeps a package's stylesheet the entry imports by its specifier, apart from the project's own", async () => {
+  it("takes the stylesheets the builder says the app loads, and reads no entry itself", async () => {
     await write("index.html", '<script type="module" src="/src/main.tsx"></script>')
     await write("src/main.tsx", "import '@mantine/core/styles.css'\nimport './index.css'")
+    await write("src/index.css", ":root { --a: red; }")
 
-    const project = await discoverProject(root, renderer)
+    const styles = { styles: ["src/index.css"], packageStyles: ["@mantine/core/styles.css"], from: ["src/main.tsx"] }
+    const project = await discoverProject(root, renderer, {}, { styles: Promise.resolve(styles) })
     expect(project.styles).toEqual(["src/index.css"])
     expect(project.packageStyles).toEqual(["@mantine/core/styles.css"])
+    expect(project.notes[0]).toBe("styles the builder found: @mantine/core/styles.css, src/index.css")
+
+    const unasked = await discoverProject(root, renderer)
+    expect(unasked.styles).toEqual([])
+    expect(unasked.notes[0]).toBe("the builder didn't say which stylesheets the app loads")
   })
 })
 
@@ -81,14 +84,14 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/ui/acme.lib.par",
       JSON.stringify({
-        version: 3,
+        version: 4,
         id: "acme",
         name: "Acme UI",
         styles: "styles.css",
         breakpoints: [{ id: "md", name: "Medium", width: 768 }]
       })
     )
-    await write("packages/other/other.lib.par", JSON.stringify({ version: 3, name: "Another package" }))
+    await write("packages/other/other.lib.par", JSON.stringify({ version: 4, name: "Another package" }))
 
     const project = await discoverProject(root, renderer, pkg)
     expect(project.libraries).toEqual([
@@ -116,7 +119,7 @@ describe("libraries", () => {
     await write("node_modules/@acme/ui/index.d.ts", "")
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", tokens: "tokens/acme.tokens.json" })
+      JSON.stringify({ version: 4, id: "acme", name: "Acme UI", tokens: "tokens/acme.tokens.json" })
     )
     await write(
       "node_modules/@acme/ui/tokens/acme.tokens.json",
@@ -124,7 +127,7 @@ describe("libraries", () => {
     )
     await write(
       "kit.lib.par",
-      JSON.stringify({ version: 3, name: "Kit", tokens: { brand: { $type: "color", $value: "#ff0000" } } })
+      JSON.stringify({ version: 4, name: "Kit", tokens: { brand: { $type: "color", $value: "#ff0000" } } })
     )
 
     const project = await discoverProject(root, renderer, pkg)
@@ -151,7 +154,7 @@ describe("libraries", () => {
     await write("node_modules/@acme/ui/index.d.ts", "")
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", tokens })
+      JSON.stringify({ version: 4, id: "acme", name: "Acme UI", tokens })
     )
 
     const project = await discoverProject(root, renderer, pkg)
@@ -163,15 +166,15 @@ describe("libraries", () => {
 
   it("names a library's own components by its id, so its canvas's designs refer to them as apps do", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
-    await write("nova.lib.par", JSON.stringify({ version: 3, id: "nova", name: "Shadcn Nova" }))
+    await write("nova.lib.par", JSON.stringify({ version: 4, id: "nova", name: "Shadcn Nova" }))
     const project = await discoverProject(root, renderer, { name: "@buildkitgg/shadcn-baseui-nova" })
     expect(project.namespace).toBe("nova")
     expect(project.components).toEqual({
-      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function" }
+      "nova/Button": { path: "src/components/ui/button.tsx", export: "Button", as: "function", lazy: true }
     })
 
     // Without an id, the package's name names them, as it does in the apps that install the library.
-    await write("nova.lib.par", JSON.stringify({ version: 3, name: "Shadcn Nova" }))
+    await write("nova.lib.par", JSON.stringify({ version: 4, name: "Shadcn Nova" }))
     const unnamed = await discoverProject(root, renderer, { name: "@acme/charts" })
     expect(Object.keys(unnamed.components)).toEqual(["charts/Button"])
   })
@@ -180,18 +183,19 @@ describe("libraries", () => {
     const pkg = { dependencies: { "@acme/ui": "1.0.0" } }
     await write("node_modules/@acme/ui/package.json", '{ "name": "@acme/ui", "types": "index.d.ts" }')
     await write("node_modules/@acme/ui/index.d.ts", "export function Switch(): unknown")
+
     const row = {
       id: "settings-row",
       name: "Settings row",
       kind: "component",
       position: { x: 0, y: 0 },
-      root: { type: "component", id: "switch", component: "acme/Switch" },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "component", id: "switch", component: "acme/Switch" }
     }
+
     const screen = { ...row, id: "showcase", name: "Showcase", kind: "screen" }
     await write(
       "node_modules/@acme/ui/acme.lib.par",
-      JSON.stringify({ version: 3, id: "acme", name: "Acme UI", canvas: { version: 3, containers: [row, screen] } })
+      JSON.stringify({ version: 4, id: "acme", name: "Acme UI", canvas: { version: 4, containers: [row, screen] } })
     )
     const project = await discoverProject(root, renderer, pkg)
     expect(project.libraries[0]?.designs).toEqual([{ ...row, id: "acme/settings-row" }])
@@ -232,7 +236,7 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/kit/real.lib.par",
       JSON.stringify({
-        version: 3,
+        version: 4,
         id: "real",
         name: "Real",
         components: {
@@ -288,7 +292,7 @@ describe("libraries", () => {
     await write(
       "node_modules/@acme/icons/icons.lib.par",
       JSON.stringify({
-        version: 3,
+        version: 4,
         name: "Icons",
         id: "icons",
         icons: {
@@ -332,40 +336,11 @@ describe("libraries", () => {
   })
 })
 
-describe("storybook", () => {
-  it("maps story files to components through relative and aliased imports", async () => {
-    const pkg = { scripts: { storybook: "storybook dev -p 6107 -c config/sb" } }
-    await write("config/sb/main.ts", "export default {}")
+describe("component files", () => {
+  it("leave out story files beside components, which aren't components themselves", async () => {
     await write("src/components/ui/button.tsx", "export function Button() {}")
-    await write("src/components/ui/badge.tsx", "export function Badge() {}")
     await write("src/components/ui/button.stories.tsx", "export const Stray = {}")
-    await write(
-      "src/stories/button.stories.tsx",
-      'import type { Meta } from "@storybook/react-vite"\nimport { Button } from "@/components/ui/button"\nconst meta = { title: "UI/Button", component: Button } satisfies Meta<typeof Button>\nexport default meta\nexport const Default = {}\nexport const Outline = {}'
-    )
-    await write(
-      "src/stories/badge.stories.tsx",
-      'import { Badge as Pill } from "../components/ui/badge"\nexport default { component: Pill }\nexport const Default = {}'
-    )
-    await write("src/stories/notes.stories.tsx", "export default { title: 'Notes' }")
 
-    const project = await discoverProject(root, renderer, pkg)
-    // Stories beside components aren't components themselves.
-    expect(Object.keys(project.components).sort()).toEqual(["Badge", "Button"])
-    expect(project.storybook).toEqual({
-      configDir: "config/sb",
-      main: "config/sb/main.ts",
-      script: "storybook",
-      port: 6107,
-      stories: {
-        Button: [{ path: "src/stories/button.stories.tsx", title: "UI/Button", exports: ["Default", "Outline"] }],
-        Badge: [{ path: "src/stories/badge.stories.tsx", exports: ["Default"] }]
-      }
-    })
-  })
-
-  it("is missing when there's no Storybook config", async () => {
-    await write("src/components/ui/button.tsx", "export function Button() {}")
-    expect((await discoverProject(root, renderer)).storybook).toBeUndefined()
+    expect(Object.keys((await discoverProject(root, renderer)).components)).toEqual(["Button"])
   })
 })

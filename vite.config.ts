@@ -1,5 +1,7 @@
 import { availableParallelism } from "node:os"
-import { defineConfig } from "vite-plus"
+import { join } from "node:path"
+import base from "@buildkitgg/oxlint-config/base"
+import { configDefaults, defineConfig } from "vite-plus"
 
 /*
  * What each package may import (PKG-1, docs/proposals/packages.md: The rule). A package is pure unless it's named below:
@@ -9,8 +11,29 @@ import { defineConfig } from "vite-plus"
 /** Packages that read a project's files but never write them or start processes; writes go through project edits. */
 const readers = ["code", "project", "registry"]
 
-/** Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, adapters and fixtures. */
-const edge = ["agent", "builder-vite", "cli", "fixtures", "libgen", "renderer-react", "styles-tailwind"]
+/**
+ * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, Parity's own extensions,
+ * which run in Node hosts of their own, the media player and fixtures.
+ */
+const edge = [
+  "agent",
+  "builder-webpack-compatible",
+  "cli",
+  "extension-react",
+  "extension-rsbuild",
+  "extension-rspack",
+  "extension-storybook",
+  "extension-storybook-a11y",
+  "extension-tailwind",
+  "extension-tanstack-router",
+  "extension-turbopack",
+  "extension-vite",
+  "extension-webpack",
+  "fixtures",
+  "libgen",
+  "media-player",
+  "next-builders"
+]
 
 const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)
 const packageImports = (names: string[]) => names.flatMap((name) => [`@parity-app/${name}`, `@parity-app/${name}/**`])
@@ -23,7 +46,7 @@ const appOnly = {
 
 const noUi = {
   group: ["react", "react/**", "react-dom", "react-dom/**"],
-  message: "Only renderer-react and the app use React; logic packages take data and return data."
+  message: "Only edge packages and the app use React; logic packages take data and return data."
 }
 
 /** Writing to the file system, from node:fs and node:fs/promises. */
@@ -45,6 +68,7 @@ const fileWrites = [
   "utimes",
   "writeFile"
 ]
+
 const readOnly =
   "Reader packages read files but never write them: return a project edit and let the project service apply it."
 
@@ -54,6 +78,9 @@ const readOnly =
  * `.vitest-cache`, `.vite/vitest`), so without this every task misses on a fresh checkout and `check` misses after
  * `test`. The files a task reads inside `node_modules` still count, so an install that changes them reruns it.
  */
+/** The React guest's tests on React 18, which run in a project of their own (`vite.react-18.config.ts`). */
+const reactEighteenTests = "packages/extension-react/src/**/*.react-18.test.ts"
+
 const trackedInputs = [{ auto: true }, "!node_modules", "!node_modules/.vite/**"]
 
 /**
@@ -87,20 +114,23 @@ export default defineConfig({
       "pnpm-lock.yaml",
       "examples/**",
       "fixtures/**",
-      "packages/fixtures/overlays/**"
+      "packages/fixtures/overlays/**",
+      // TanStack Router writes each app's route tree, and says to keep it from the formatter and the linter.
+      "**/routeTree.gen.ts"
     ]
   },
   lint: {
-    plugins: ["eslint", "typescript", "react", "vitest", "jsx-a11y", "import", "oxc", "unicorn", "promise"],
-    jsPlugins: [{ name: "vite-plus", specifier: "vite-plus/oxlint-plugin" }],
-    categories: {
-      correctness: "error"
-    },
-    // Types are checked on push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with
-    // `--type-aware --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
-    options: {
-      reportUnusedDisableDirectives: "error"
-    },
+    // Buildkit's base rules, with every anti-slop rule, `curly`, `no-console` and `no-bitwise` (PAR-730). A rule is
+    // turned off on one line, with a comment saying why, only where there's a very good reason. Types are checked on
+    // push and in CI, not on commit or in `pnpm verify`: `pnpm check:types` runs this lint with `--type-aware
+    // --type-check`, which adds the type-aware rules and what `tsc -p tsconfig.json` did, on TypeScript 7.
+    extends: [base],
+    // A list of JS plugins replaces the one base registers, so it's kept. `parity` is the workspace's own rules.
+    jsPlugins: [
+      ...(base.jsPlugins ?? []),
+      { name: "vite-plus", specifier: "vite-plus/oxlint-plugin" },
+      { name: "parity", specifier: join(import.meta.dirname, "scripts/lint-rules.ts") }
+    ],
     ignorePatterns: [
       ".agents/skills/**",
       ".claude/skills/**",
@@ -111,62 +141,23 @@ export default defineConfig({
       "examples/**",
       "fixtures/**",
       "packages/fixtures/overlays/**",
+      "**/routeTree.gen.ts",
       "*.md"
     ],
     rules: {
-      // The agency monorepo's rules beyond the correctness category (PAR-396, docs/proposals/repository.md: From the
-      // agency monorepo), without `curly`, `no-console`, `no-bitwise` and the React Compiler rule.
-      "typescript/no-inferrable-types": "error",
-      "typescript/adjacent-overload-signatures": "error",
-      "typescript/no-empty-interface": "error",
-      "typescript/no-namespace": "error",
-      "typescript/no-unnecessary-type-constraint": "error",
-      "typescript/restrict-plus-operands": "error",
-      "eslint/no-unused-vars": [
-        "error",
-        { argsIgnorePattern: "^_", varsIgnorePattern: "^_", caughtErrorsIgnorePattern: "^_" }
-      ],
-      "eslint/no-new-wrappers": "error",
-      "eslint/no-empty": "error",
-      "eslint/no-new": "error",
-      "eslint/no-var": "error",
-      "eslint/prefer-const": "error",
-      "eslint/radix": "error",
-      "eslint/eqeqeq": "error",
-      "eslint/no-new-func": "error",
-      "eslint/prefer-rest-params": "error",
-      "eslint/prefer-spread": "error",
-      "eslint/no-fallthrough": "error",
-      "eslint/no-inner-declarations": "error",
-      "eslint/no-prototype-builtins": "error",
-      "eslint/no-regex-spaces": "error",
-      "eslint/no-empty-function": "error",
-      "eslint/no-array-constructor": "error",
-      "eslint/no-implied-eval": "error",
-      "eslint/no-nested-ternary": "error",
-      "unicorn/prefer-array-find": "error",
-      "unicorn/prefer-array-flat": "error",
-      "unicorn/prefer-array-flat-map": "error",
-      "unicorn/prefer-array-some": "error",
-      "unicorn/prefer-includes": "error",
-      "unicorn/prefer-logical-operator-over-ternary": "error",
-      "unicorn/prefer-structured-clone": "error",
-      "unicorn/throw-new-error": "error",
-      "unicorn/no-zero-fractions": "error",
-      "react/no-danger": "error",
-      "react/rules-of-hooks": "error",
-      "react/display-name": "error",
-      "react/no-unstable-nested-components": "error",
-      "react/jsx-no-comment-textnodes": "error",
-      "react/jsx-no-target-blank": "error",
-      "react/no-unescaped-entities": "error",
-      "react/no-unknown-property": "error",
-      "react/require-render-return": "error",
-      "typescript/no-explicit-any": "error",
-      "typescript/ban-ts-comment": "error",
+      // Parity's rules beyond base.
       "typescript/consistent-type-imports": "error",
-      "eslint/no-console": "off",
-      "vite-plus/prefer-vite-plus-imports": "error"
+      "vite-plus/prefer-vite-plus-imports": "error",
+      "react/exhaustive-deps": "error",
+      // An error notification goes through `reportError`, which records it as well as showing it (PAR-632, PAR-644).
+      "eslint/no-restricted-properties": [
+        "error",
+        {
+          object: "notify",
+          property: "failed",
+          message: "Use reportError from renderer/report-error.ts, which records the error as well as showing it."
+        }
+      ]
     },
     overrides: [
       {
@@ -238,25 +229,50 @@ export default defineConfig({
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }
       },
       {
-        // builder-vite drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
+        // Vite's extension drives a customer's own Vite, and its tests start a stock Vite server outside the Vite+ override
         // (pnpm-workspace.yaml), so it keeps stock `vite` and `vitest` imports.
-        files: ["packages/builder-vite/**"],
+        files: ["packages/extension-vite/**"],
         rules: { "vite-plus/prefer-vite-plus-imports": "off" }
       },
       {
-        // The test runs the module builder-vite generates, which it has as a string. A disable comment for a type-aware
+        // The test runs the module Vite's extension generates, which it has as a string. A disable comment for a type-aware
         // rule would fail `vp check`, which lints without types and so reports it unused.
-        files: ["packages/builder-vite/src/index.test.ts"],
+        files: ["packages/extension-vite/src/builder.test.ts"],
         rules: { "typescript/no-implied-eval": "off" }
       },
       {
-        // Every toast goes through renderer/toasts.tsx, which keeps their kinds, copy and buttons the same (PAR-1186).
-        files: ["apps/desktop/src/**"],
+        // Every select is AppSelect, which puts the kit's parts together as shadcn does. Selects built by hand kept
+        // missing a part, such as the SelectGroup that insets the items (PAR-1023). Every toast goes through
+        // renderer/toasts.tsx, which keeps their kinds, copy and buttons the same (PAR-1186). No earlier entry sets this
+        // rule for the apps, so it replaces nothing.
+        files: ["apps/**"],
         rules: {
           "eslint/no-restricted-imports": [
             "error",
             {
               paths: [
+                {
+                  name: "@buildkitgg/shadcn-baseui-kit",
+                  importNames: [
+                    "Select",
+                    "SelectContent",
+                    "SelectGroup",
+                    "SelectItem",
+                    "SelectLabel",
+                    "SelectScrollDownButton",
+                    "SelectScrollUpButton",
+                    "SelectSeparator",
+                    "SelectTrigger",
+                    "SelectValue"
+                  ],
+                  message: "Use AppSelect from apps/desktop/src/renderer/chrome/AppSelect.tsx."
+                },
+                {
+                  // Fields of tags kept copying the chips' box and chip, as Selects did their parts (AppChips).
+                  name: "@buildkitgg/shadcn-baseui-kit",
+                  importNames: ["ComboboxChips", "ComboboxChip", "ComboboxChipsInput"],
+                  message: "Use AppChips, AppChip and AppChipsInput from apps/desktop/src/renderer/chrome/AppChips.tsx."
+                },
                 {
                   name: "@buildkitgg/shadcn-baseui-kit",
                   importNames: [
@@ -273,18 +289,40 @@ export default defineConfig({
                     "ToastTitle",
                     "ToastViewport"
                   ],
-                  message: "Show toasts with `notify` from renderer/toasts.tsx."
+                  message: "Show toasts with `notify` from apps/desktop/src/renderer/toasts.tsx."
                 },
-                { name: "sonner", message: "Show toasts with `notify` from renderer/toasts.tsx." }
+                { name: "sonner", message: "Show toasts with `notify` from apps/desktop/src/renderer/toasts.tsx." }
               ]
             }
           ]
         }
       },
       {
-        // The toast module, and the audit story, which draws each toast in place to compare its copy.
-        files: ["apps/desktop/src/renderer/toasts.tsx", "apps/desktop/src/renderer/chrome/ToastAudit.stories.tsx"],
+        // Keys shown in the app come from the keymap through shortcutOf, so a changed binding shows everywhere at once
+        // (PAR-1041). Explorations sketch keys freely, and tests and stories write out the keys they expect to see.
+        files: ["apps/**"],
+        rules: { "parity/shortcut-from-keymap": "error" }
+      },
+      {
+        files: ["apps/desktop/src/renderer/explorations/**", "apps/**/*.stories.tsx", "apps/**/*.test.ts"],
+        rules: { "parity/shortcut-from-keymap": "off" }
+      },
+      {
+        // The toast module and the audit story, which draws each toast in place to compare its copy, use the kit's
+        // toast themselves.
+        files: [
+          "apps/desktop/src/renderer/chrome/AppSelect.tsx",
+          "apps/desktop/src/renderer/chrome/AppChips.tsx",
+          "apps/desktop/src/renderer/toasts.tsx",
+          "apps/desktop/src/renderer/chrome/ToastAudit.stories.tsx"
+        ],
         rules: { "eslint/no-restricted-imports": "off" }
+      },
+      {
+        // reportError is the one place that shows an error notification itself; everything else calls it. The toast
+        // module defines it.
+        files: ["apps/desktop/src/renderer/report-error.ts", "apps/desktop/src/renderer/toasts.tsx"],
+        rules: { "eslint/no-restricted-properties": "off" }
       },
       {
         // Tests may use Node to set up files and folders.
@@ -312,7 +350,12 @@ export default defineConfig({
     // each run, with Chrome and the fixture projects on four cores. Locally a slow test still fails at 5.
     testTimeout: process.env.CI ? 20_000 : 5_000,
     // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533).
-    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } }
+    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } },
+    // The React guest's React 18 tests run as a project of their own, with React 18 for `react` (PAR-1157).
+    projects: [
+      { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, reactEighteenTests] } },
+      "packages/extension-react/vite.react-18.config.ts"
+    ]
   },
   // The checks, as tasks so Vite Task replays one whose inputs haven't changed since it last passed, here and in CI.
   // `pnpm verify` runs `check` and `test`, and `pnpm check:types` runs `types`; a task can't share a script's name.

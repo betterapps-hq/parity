@@ -14,17 +14,25 @@ export const redrawFrames = 2
 export function redrawLayer(layer: Pick<Element, "toggleAttribute">): () => void {
   let frame = 0
   let left = redrawFrames
+
   const done = () => {
     cancelAnimationFrame(frame)
     frame = 0
     layer.toggleAttribute(redrawingAttribute, false)
   }
+
   const step = () => {
     left--
-    if (left > 0) frame = requestAnimationFrame(step)
-    else done()
+
+    if (left > 0) {
+      frame = requestAnimationFrame(step)
+    } else {
+      done()
+    }
   }
+
   layer.toggleAttribute(redrawingAttribute, true)
   frame = requestAnimationFrame(step)
+
   return done
 }

@@ -35,14 +35,19 @@ Make a component design when something repeats with the same structure: rows in 
 feed. Let `FindRepeats` find the candidates and `ExtractComponent` do the work: it makes the component design, works out
 its params from what differs, and replaces each occurrence with an instance carrying its own values.
 
+- A part built once, such as an app's sidebar or header, doesn't need copies to extract. Make it with
+  `CreateDesign({ kind: "component", params })`, bind its nodes to the params, and add, rename or delete params later
+  with `AddParam`, `UpdateParam` and `DeleteParam`.
 - Give params names that say what they are (`name`, `email`, `role`), not where they are.
 - An instance's values are its `args`. Change them with `Update(instance, { args: { role: "Admin" } })`.
-- A component design can have states too, such as a row that's loading. An instance's `state` picks which one it shows.
-- A component design can have variants: choices each instance makes, like a size or a tone. Each option patches the
-  design the way a state does, and an instance picks one in its `args`: `Update(row, { args: { density: "compact" } })`.
+- Only a component design has states, such as a row that's loading. They test the component on its own board; an
+  instance always shows the base state.
+- A component design can have variants: choices each instance makes, like a size, a tone or whether a table has rows.
+  Each option patches the design the way a state does, and an instance picks one in its `args`:
+  `Update(row, { args: { density: "compact" } })`. Use a variant when a screen needs a copy to look another way.
 - An instance can override what's inside it, such as one copy's title or a hidden badge. `Get` shows these as the
-  instance's `overrides`. People make them on the canvas; `execute` can't edit overrides or add variants yet, so to
-  change one copy, give the component design a param for it.
+  instance's `overrides`. `Insert` and `Replace` take an instance with `overrides`; `Update` doesn't change them. When
+  copies differ in the same field, give the component design a param for it instead.
 - A component design that needs a parent to render properly, such as a table row, is drawn inside that parent on its own
   board. Rows extracted from a table get this automatically.
 - Place a new instance with `Insert(parent, { type: "instance", design: "member-row", args: { … } })`.

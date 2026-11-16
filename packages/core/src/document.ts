@@ -1,6 +1,10 @@
+import { nodeStyle, styleKey } from "@parity-app/style-schema"
 import { z } from "zod"
 import { modeSettings } from "./modes.ts"
-import { fileObject, finiteNumber, parseData, plainObject } from "./schema.ts"
+import { projectExtensions, projectPreferences } from "./project-settings.ts"
+import { type DataParser, fileObject, finiteNumber, parserFor, plainObject } from "./schema.ts"
+import { slotNameProblem } from "./slot-names.ts"
+import { sampleProps } from "./values/grammar.ts"
 
 // A project file is checked by the schemas below, leaves first. Rules that span fields are refinements on the object
 // that holds those fields, each reported at the field at fault.
@@ -9,8 +13,11 @@ const position = fileObject({ x: finiteNumber, y: finiteNumber })
 
 export const canvasObjectKinds = ["table", "operation", "route"] as const
 
-export type CanvasObjectKind = (typeof canvasObjectKinds)[number]
-
+/**
+ * Something from a lens's model placed on the canvas. Only where it sits is saved: the table, operation or route itself
+ * is read from the project each time, by `ref`, its own key in that model. One whose model is gone stays, shown as
+ * missing, until the person removes it.
+ */
 const canvasObjectSpec = fileObject({
   kind: z.enum(canvasObjectKinds),
   /** A table as `schema.table`, an operation by its id, a route by its URL pattern. */
@@ -18,19 +25,17 @@ const canvasObjectSpec = fileObject({
   position
 })
 
-/**
- * Something from a lens's model placed on the canvas. Only where it sits is saved: the table, operation or route itself
- * is read from the project each time, by `ref`, its own key in that model. One whose model is gone stays, shown as
- * missing, until the person removes it.
- */
-export type CanvasObjectSpec = z.infer<typeof canvasObjectSpec>
-
 /** The canvas objects, each table, operation and route at most once. */
 const canvasObjects = z.array(canvasObjectSpec).superRefine((objects, context) => {
   const placed = new Set<string>()
+
   for (const [index, { kind, ref }] of objects.entries()) {
     const key = JSON.stringify([kind, ref])
-    if (placed.has(key)) problem(context, [index], `the ${kind} "${ref}" is already on the canvas`)
+
+    if (placed.has(key)) {
+      problem(context, [index], `the ${kind} "${ref}" is already on the canvas`)
+    }
+
     placed.add(key)
   }
 })
@@ -39,10 +44,8 @@ export const linkEndKinds = ["screen", "component", ...canvasObjectKinds] as con
 
 export type LinkEndKind = (typeof linkEndKinds)[number]
 
-const linkEnd = fileObject({ kind: z.enum(linkEndKinds), ref: z.string() })
-
 /** One end of a link: a canvas object by its kind and ref, or a screen or component design by its id. */
-export type LinkEnd = z.infer<typeof linkEnd>
+const linkEnd = fileObject({ kind: z.enum(linkEndKinds), ref: z.string() })
 
 const linkType = z.enum(["shows", "calls", "reads", "writes"])
 
@@ -63,40 +66,42 @@ export const linkTypes = {
 /** Whether a link of this type may join these two kinds. */
 export function linkAllowed(type: LinkType, from: LinkEndKind, to: LinkEndKind): boolean {
   const allowed: { from: readonly LinkEndKind[]; to: readonly LinkEndKind[] } = linkTypes[type]
+
   return allowed.from.includes(from) && allowed.to.includes(to)
 }
 
+/** A typed link between two ends, such as a screen that shows a route or an operation that reads a table. */
 const linkSpec = fileObject({ id: z.string(), type: linkType, from: linkEnd, to: linkEnd }).superRefine(
   (link, context) => {
-    if (linkAllowed(link.type, link.from.kind, link.to.kind)) return
+    if (linkAllowed(link.type, link.from.kind, link.to.kind)) {
+      return
+    }
+
     const { from, to } = linkTypes[link.type]
     const joined = `${from.join(" or ")} to ${to.join(" or ")}, not ${link.from.kind} to ${link.to.kind}`
     problem(context, [], `a ${link.type} link goes from ${joined}`)
   }
 )
 
-/** A typed link between two ends, such as a screen that shows a route or an operation that reads a table. */
-export type LinkSpec = z.infer<typeof linkSpec>
-
 /** The links the person drew, each id once. */
 const linkSpecs = z.array(linkSpec).superRefine((links, context) => {
   const ids = new Set<string>()
+
   for (const [index, { id }] of links.entries()) {
-    if (ids.has(id)) problem(context, [index, "id"], `duplicate link id "${id}"`)
+    if (ids.has(id)) {
+      problem(context, [index, "id"], `duplicate link id "${id}"`)
+    }
+
     ids.add(id)
   }
 })
 
+/** The adapter or standard each lens reads, by its id, where the person chose it. */
 const lensSources = fileObject({
   data: z.string().optional(),
   api: z.string().optional(),
   routes: z.string().optional()
 })
-
-/** The adapter or standard each lens reads, by its id, where the person chose it. */
-export type LensSources = z.infer<typeof lensSources>
-
-export type Lens = keyof LensSources
 
 const componentRef = fileObject({ path: z.string(), export: z.string() })
 
@@ -121,7 +126,11 @@ export function includeComponent(
   ref: ComponentRef
 ): DetectionCorrections {
   const listed = corrections?.include ?? []
-  if (listed.some((other) => other.path === ref.path && other.export === ref.export)) return { include: listed }
+
+  if (listed.some((other) => other.path === ref.path && other.export === ref.export)) {
+    return { include: listed }
+  }
+
   return { include: [...listed, ref] }
 }
 
@@ -136,109 +145,46 @@ export const noteSpec = fileObject({
 
 export type NoteSpec = z.infer<typeof noteSpec>
 
-/** Steps of the spacing scale (`4` is `calc(var(--spacing) * 4)`), or the name of a length token. */
-const length = z.union([finiteNumber, z.string()])
-
-export type Length = z.infer<typeof length>
-
-/** A fixed length, or `"fill"` the parent, or `"hug"` the content: both are among Length's strings. */
-export type Size = Length
-
-// The lists come first, so a list of another length, or something that is neither a list nor a length, says what
-// padding takes.
-const sides = "expected a length, [vertical, horizontal] or [top, right, bottom, left]"
-const padding = z.union([z.tuple([length, length], sides), z.tuple([length, length, length, length], sides), length])
-
-/** All sides, `[vertical, horizontal]`, or `[top, right, bottom, left]`. */
-export type Padding = z.infer<typeof padding>
-
-const alignment = z.enum(["start", "center", "end", "stretch"])
-
-export const nodeStyle = fileObject({
-  // Layout (layouts only).
-  /** Auto layout (flex, the default) or a grid. */
-  display: z.enum(["flex", "grid"]).optional(),
-  direction: z.enum(["row", "column"]).optional(),
-  /** A grid's columns, all the same width; or rows, all the same height. */
-  columns: finiteNumber.optional(),
-  rows: finiteNumber.optional(),
-  gap: length.optional(),
-  /** In a grid or wrapping layout, the gap between rows when it differs from `gap`. */
-  rowGap: length.optional(),
-  /** All sides, `[vertical, horizontal]`, or `[top, right, bottom, left]`. */
-  padding: padding.optional(),
-  /** Space outside the node, in the same forms as padding. */
-  margin: padding.optional(),
-  /** Children on the cross axis. */
-  align: alignment.optional(),
-  /** Children on the main axis. */
-  justify: z.enum(["start", "center", "end", "between", "around", "evenly"]).optional(),
-  wrap: z.boolean().optional(),
-
-  // Size, within the parent's layout.
-  width: length.optional(),
-  height: length.optional(),
-  minWidth: length.optional(),
-  maxWidth: length.optional(),
-  minHeight: length.optional(),
-  maxHeight: length.optional(),
-  /** Grid cells the node spans, in a grid. */
-  colSpan: finiteNumber.optional(),
-  rowSpan: finiteNumber.optional(),
-  /** Fill along the parent's direction. Same as `fill` for the parent's main axis. */
-  grow: z.boolean().optional(),
-  /** Where this node sits on its parent's cross axis, overriding the parent's `align`. */
-  self: alignment.optional(),
-
-  // Position: taken out of the layout and placed against the parent's edges.
-  position: z.enum(["absolute"]).optional(),
-  top: length.optional(),
-  right: length.optional(),
-  bottom: length.optional(),
-  left: length.optional(),
-
-  // Appearance.
-  background: z.string().optional(),
-  foreground: z.string().optional(),
-  /** Border color. */
-  border: z.string().optional(),
-  /** Border width in pixels, as in Tailwind: 0, 1, 2, 4 or 8. */
-  borderWidth: finiteNumber.optional(),
-  borderStyle: z.enum(["solid", "dashed", "dotted"]).optional(),
-  radius: z.string().optional(),
-  shadow: z.string().optional(),
-  /** Percent, 0 to 100. */
-  opacity: finiteNumber.optional(),
-  overflow: z.enum(["visible", "hidden", "scroll"]).optional(),
-
-  // Type. Set on a layout, it applies to the text inside.
-  font: z.string().optional(),
-  size: z.string().optional(),
-  weight: finiteNumber.optional(),
-  leading: z.string().optional(),
-  tracking: z.string().optional(),
-  textAlign: z.enum(["start", "center", "end", "justify"]).optional(),
-  transform: z.enum(["uppercase", "lowercase", "capitalize"]).optional(),
-  decoration: z.enum(["underline", "line-through"]).optional(),
-  italic: z.boolean().optional(),
-  /** Lines of text before it's cut off with an ellipsis. */
-  lines: finiteNumber.optional()
+/** A reference's picture, which loads from its source until `expiresAt`, when the source's links stop working. */
+const referenceImage = fileObject({
+  url: z.string().min(1),
+  width: z.int().positive().optional(),
+  height: z.int().positive().optional(),
+  /** Milliseconds since the epoch. */
+  expiresAt: finiteNumber.optional()
 })
 
 /**
- * Visual properties, locked to the project's tokens: lengths are steps of the spacing scale (multiples of `--spacing`)
- * or name a length token, and colors, radii, shadows and type values name one of the project's CSS custom properties
- * (without `--`). Layout is Figma's auto layout, a flex box, or a grid; children size themselves to fill, hug, or a
- * fixed length.
+ * A screen from a real app on the canvas, placed beside a design to look at (PAR-840). It isn't a design: it has no
+ * layers, and code and exports leave it out. It keeps what the search gave, so it can name and link its source.
  */
-export type NodeStyle = z.infer<typeof nodeStyle>
+export const referenceSpec = fileObject({
+  id: z.string(),
+  /** The connector that found it, as `mobbin`. */
+  connector: z.string().min(1),
+  /** The source's own id for the screen. */
+  sourceId: z.string().min(1),
+  /** The app it's from. */
+  app: z.string(),
+  platform: z.enum(["ios", "web"]).optional(),
+  /** Its page at the source. */
+  link: z.string().min(1),
+  image: referenceImage,
+  position,
+  /** The description that found it. */
+  query: z.string().optional(),
+  /** Why it's here, in a person's or an agent's words. */
+  note: z.string().optional(),
+  /** The agent that placed it. Unset when the person did. */
+  by: z.string().optional(),
+  /**
+   * The design it was found for, by id, in the same file (PAR-889). Unset when nothing was selected, and agents then
+   * read it as for the design it sits nearest.
+   */
+  design: z.string().optional()
+})
 
-const styleKey = nodeStyle.keyof()
-
-export type StyleKey = z.infer<typeof styleKey>
-
-/** Every style key, in the order panels show them. */
-export const styleKeys = styleKey.options
+export type ReferenceSpec = z.infer<typeof referenceSpec>
 
 export const patchUnset = fileObject({ props: z.array(z.string()).optional(), style: z.array(styleKey).optional() })
 
@@ -248,7 +194,7 @@ export type PatchUnset = z.infer<typeof patchUnset>
 const nodePatch = fileObject({
   hidden: z.boolean().optional(),
   text: z.string().optional(),
-  props: plainObject.optional(),
+  props: sampleProps.optional(),
   style: nodeStyle.optional(),
   /** What the patch takes away from what's under it, so a state can turn off a prop or style the design sets. */
   unset: patchUnset.optional()
@@ -261,8 +207,7 @@ const nodePatches = z.record(z.string(), nodePatch)
 
 const nodeBinding = fileObject({
   text: z.string().optional(),
-  props: z.record(z.string(), z.string()).optional(),
-  visible: z.string().optional()
+  props: z.record(z.string(), z.string()).optional()
 })
 
 export type NodeBinding = z.infer<typeof nodeBinding>
@@ -273,6 +218,11 @@ const nodeBase = fileObject({
   id: z.string(),
   name: z.string().optional(),
   hidden: z.boolean().optional(),
+  /**
+   * Kept from being selected or moved on the canvas, with everything inside it, as in Figma; it's still selected from
+   * Layers. It's the same in every state and screen size, so no patch sets it.
+   */
+  locked: z.boolean().optional(),
   style: nodeStyle.optional(),
   /**
    * Patches applied in one viewport, keyed by the viewport option id from the project's modes. Layout changes per
@@ -281,13 +231,46 @@ const nodeBase = fileObject({
   responsive: nodePatches.optional(),
   /**
    * Inside a component design: which of this node's values come from the component's params, so each instance can
-   * show its own. `text` and `props` name a param; `visible` names a boolean param that shows or hides the node.
+   * show its own. `text` and `props` name a param.
    */
-  bind: nodeBinding.optional()
+  bind: nodeBinding.optional(),
+  /**
+   * The element a layer was read from: its tag and the attributes that say what it is, as `role` or `href`. Only on what
+   * a component draws inside (`internals`), which is read from its code and never saved; it gives the layer its type.
+   */
+  element: fileObject({ tag: z.string(), attributes: z.record(z.string(), z.string()).optional() }).optional()
+})
+
+/**
+ * Whether a layout or text layer can take a prop: an accessibility attribute, `role`, `id` or `aria-*`, which lands on
+ * its element as the project's code would write it (PAR-913). `id` is there so `aria-labelledby` and
+ * `aria-describedby` can point at a layer.
+ */
+export function isAccessibilityProp(name: string): boolean {
+  return name === "role" || name === "id" || /^aria-[a-z]+$/.test(name)
+}
+
+/** What a layout or text layer's accessibility attributes say, written on its element as text. */
+const accessibilityValue = z.union([z.string(), finiteNumber, z.boolean()])
+
+/** A layout or text layer's props: accessibility attributes alone, by their HTML names. */
+const accessibilityProps = z.record(z.string(), accessibilityValue).superRefine((props, context) => {
+  for (const name of Object.keys(props)) {
+    if (!isAccessibilityProp(name)) {
+      problem(context, [name], `a layout or text layer takes role, id and aria-* props, not "${name}"`)
+    }
+  }
 })
 
 const layoutNode = nodeBase.extend({
   type: z.literal("layout"),
+  /** Accessibility attributes on its element (`isAccessibilityProp`). */
+  props: accessibilityProps.optional(),
+  /**
+   * In a component design: the slot this layout is, `children` for the default one or a name such as `actions`. Each
+   * instance can fill it with layers of its own; until one does, its children show as placeholder content.
+   */
+  slot: z.string().optional(),
   get children(): z.ZodArray<typeof designNode> {
     return z.array(designNode)
   }
@@ -296,18 +279,49 @@ const layoutNode = nodeBase.extend({
 /** A flex container. Layout is design-native, so every mode resolves it exactly, without media queries. */
 export type LayoutNode = z.infer<typeof layoutNode>
 
+const routeNode = nodeBase.extend({
+  type: z.literal("route"),
+  /** The route's id, as its router has it (`ProjectRoute.id`). */
+  route: z.string(),
+  /** The component the route draws, by its name in the route's file, when it names one. */
+  component: z.string().optional(),
+  get children(): z.ZodArray<typeof designNode> {
+    return z.array(designNode)
+  }
+})
+
+/**
+ * What one of the app's routes draws on a page (PAR-1076): its component, with the next route's inside it at its outlet.
+ * A page's layers are the routes that draw it, the root's outermost, each shown as the component it draws. It's read
+ * from the project's router, so it's never designed: the route's URL, file and component are the project's, by
+ * `route`.
+ */
+export type RouteNode = z.infer<typeof routeNode>
+
 const componentNode = nodeBase.extend({
   type: z.literal("component"),
   component: z.string(),
-  props: plainObject.optional(),
+  /** JSON, values the package makes (`$call`) and dates (`$date`), as a sample's props hold them. */
+  props: sampleProps.optional(),
   /** Child nodes by slot. `children` is the default slot; other names become node-valued props. */
   get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
     return z.record(z.string(), z.array(designNode)).optional()
+  },
+  /**
+   * What the component draws inside, read from its elements as they're drawn, each as the layer its element is: only on
+   * a component's own board, which is drawn from the project's code and never saved. They're shown, not drawn: the
+   * component draws itself.
+   */
+  get internals(): z.ZodOptional<z.ZodArray<typeof designNode>> {
+    return z.array(designNode).optional()
   }
 })
 
 /** An instance of one of the project's own components. */
 export type ComponentNode = z.infer<typeof componentNode>
+
+/** A component's props or an instance's args, by name, as a design file holds them. */
+export type PropValues = NonNullable<ComponentNode["props"]>
 
 /** The elements a text node can be. */
 export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
@@ -315,7 +329,9 @@ export const textTags = ["p", "span", "h1", "h2", "h3", "h4", "strong"] as const
 const textNode = nodeBase.extend({
   type: z.literal("text"),
   text: z.string(),
-  tag: z.enum(textTags).optional()
+  tag: z.enum(textTags).optional(),
+  /** Accessibility attributes on its element (`isAccessibilityProp`). */
+  props: accessibilityProps.optional()
 })
 
 export type TextNode = z.infer<typeof textNode>
@@ -325,13 +341,18 @@ const instanceNode = nodeBase.extend({
   /** The component design's id. */
   design: z.string(),
   args: plainObject.optional(),
-  /** Which of the component's states this copy shows. */
-  state: z.string().optional(),
   /**
    * What this copy changes inside the component, keyed by the inner node's id, or `nested/inner` for a node inside a
    * nested instance. The copy stays linked: everything it doesn't change follows the component.
    */
-  overrides: nodePatches.optional()
+  overrides: nodePatches.optional(),
+  /**
+   * What this copy fills the component's slots with, by slot name: layers of the design it sits in, shown in place of
+   * the slot's placeholder. A slot it doesn't fill, or fills with nothing, shows the placeholder.
+   */
+  get slots(): z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodArray<typeof designNode>>> {
+    return z.record(z.string(), z.array(designNode)).optional()
+  }
 })
 
 /** A placed copy of one of the project's component designs, with values for its params. */
@@ -349,6 +370,14 @@ export const imageCredit = fileObject({
 
 export type ImageCredit = z.infer<typeof imageCredit>
 
+/** What a project keeps about one of its image files: what it shows, and who made it. */
+export const imageDetails = fileObject({
+  alt: z.string().optional(),
+  credit: imageCredit.optional()
+})
+
+export type ImageDetails = z.infer<typeof imageDetails>
+
 const imageNode = nodeBase.extend({
   type: z.literal("image"),
   /** A URL, or a path the project's dev server serves, like `/images/photo.jpg`. */
@@ -363,24 +392,84 @@ const imageNode = nodeBase.extend({
 /** A picture: a file in the project, or a photo from a stock library saved into it. */
 export type ImageNode = z.infer<typeof imageNode>
 
-const designNode = z.discriminatedUnion("type", [layoutNode, componentNode, textNode, instanceNode, imageNode])
+const videoNode = nodeBase.extend({
+  type: z.literal("video"),
+  /** A URL, or a path the project's dev server serves, like `/videos/waves.mp4`. */
+  src: z.string(),
+  /** What it shows, for screen readers, as its `aria-label`. */
+  alt: z.string().optional(),
+  /** How it fills its box: cropped to cover it (the default), shown whole, or stretched. */
+  fit: z.enum(imageFits).optional(),
+  /**
+   * Shows the browser's controls and waits to be played. Without them it plays by itself, without sound, round and
+   * round, as a video behind a page's heading does.
+   */
+  controls: z.boolean().optional(),
+  /** Who made it and where it came from, for stock footage that asks to be credited. */
+  credit: imageCredit.optional()
+})
+
+/** A video: a file in the project, or stock footage saved into it (PAR-841). */
+export type VideoNode = z.infer<typeof videoNode>
+
+const designNode = z.discriminatedUnion("type", [
+  layoutNode,
+  routeNode,
+  componentNode,
+  textNode,
+  instanceNode,
+  imageNode,
+  videoNode
+])
 
 export type DesignNode = z.infer<typeof designNode>
+
+/** A list of layers, each checked apart. */
+const anyLayers = z.array(z.unknown())
+
+/**
+ * One layer's own fields, as `designNode` checks them, with the layers it holds only checked to be lists. A layer is
+ * valid when it passes this and so does each layer it holds, which is how `containerIssue` checks a design's changed
+ * layers without the rest.
+ */
+const layerFields = z.discriminatedUnion("type", [
+  fileObject({ ...layoutNode.shape, children: anyLayers }),
+  fileObject({ ...routeNode.shape, children: anyLayers }),
+  fileObject({
+    ...componentNode.shape,
+    slots: z.record(z.string(), anyLayers).optional(),
+    internals: anyLayers.optional()
+  }),
+  textNode,
+  fileObject({ ...instanceNode.shape, slots: z.record(z.string(), anyLayers).optional() }),
+  imageNode,
+  videoNode
+])
 
 /** A node tree as a design or an insertion holds it, each node with an id of its own. */
 export const nodeTree = designNode.superRefine((root, context) => {
   const ids = new Set<string>()
+
   const visit = (node: DesignNode, path: PropertyKey[]): void => {
-    if (ids.has(node.id)) problem(context, [...path, "id"], `duplicate node id "${node.id}"`)
+    if (ids.has(node.id)) {
+      problem(context, [...path, "id"], `duplicate node id "${node.id}"`)
+    }
+
     ids.add(node.id)
+
     if (node.type === "layout") {
-      for (const [index, child] of node.children.entries()) visit(child, [...path, "children", index])
-    } else if (node.type === "component") {
+      for (const [index, child] of node.children.entries()) {
+        visit(child, [...path, "children", index])
+      }
+    } else if (node.type === "component" || node.type === "instance") {
       for (const [slot, children] of Object.entries(node.slots ?? {})) {
-        for (const [index, child] of children.entries()) visit(child, [...path, "slots", slot, index])
+        for (const [index, child] of children.entries()) {
+          visit(child, [...path, "slots", slot, index])
+        }
       }
     }
   }
+
   visit(root, [])
 })
 
@@ -388,20 +477,32 @@ export const nodeTree = designNode.superRefine((root, context) => {
 export function walkNodes(node: DesignNode, visit: (node: DesignNode, depth: number) => void, depth = 0): void {
   visit(node, depth)
   let children: DesignNode[] = []
-  if (node.type === "layout") children = node.children
-  else if (node.type === "component") children = Object.values(node.slots ?? {}).flat()
-  for (const child of children) walkNodes(child, visit, depth + 1)
+
+  if (node.type === "layout") {
+    children = node.children
+  } else if (node.type === "component" || node.type === "instance") {
+    children = Object.values(node.slots ?? {}).flat()
+  }
+
+  for (const child of children) {
+    walkNodes(child, visit, depth + 1)
+  }
 }
 
-export const containerKinds = ["screen", "component", "frame"] as const
+export const containerKinds = ["screen", "component", "frame", "story"] as const
 
 /**
  * What a design is. A screen is a whole page or view; a component is a reusable piece that screens place as instances.
  * A frame is the light kind, for sketching on the canvas: a layout drawn once, at its own `size`, in the project's
- * primary mode, with one state, no params, no modes beside it, and no code written from it. Only a top-level design is
- * a frame; one placed inside another design becomes a layout there.
+ * primary mode, with no params, no modes beside it, and no code written from it. Only a top-level design is a frame;
+ * one placed inside another design becomes a layout there. A story is a tool's file of stories, as a Storybook CSF file:
+ * its stories are its states, drawn a row each, and nothing places it as an instance. Only a component and a story have
+ * states (see `designStates`).
  */
 export type ContainerKind = (typeof containerKinds)[number]
+
+/** The kinds a person makes and converts between on the canvas: a story is read from a tool's files. */
+export type MadeKind = Exclude<ContainerKind, "story">
 
 const frameSize = fileObject({ width: finiteNumber.optional(), height: finiteNumber.optional() })
 
@@ -431,26 +532,74 @@ const paramSpec = fileObject({
   options: z.array(variantOption).optional()
 }).superRefine((param, context) => {
   const ids = new Set<string>()
+
   for (const [index, { id }] of (param.options ?? []).entries()) {
-    if (ids.has(id)) problem(context, ["options", index, "id"], `duplicate option id "${id}"`)
+    if (ids.has(id)) {
+      problem(context, ["options", index, "id"], `duplicate option id "${id}"`)
+    }
+
     ids.add(id)
   }
-  if (param.type === "variant" && !param.options?.length) problem(context, ["options"], "a variant needs options")
-  if (param.type !== "variant" && param.options) problem(context, ["options"], "only variants have options")
+
+  if (param.type === "variant" && !param.options?.length) {
+    problem(context, ["options"], "a variant needs options")
+  }
+
+  if (param.type !== "variant" && param.options) {
+    problem(context, ["options"], "only variants have options")
+  }
 })
 
 /** One input of a component design. Its default is what the component shows on its own board. */
 export type ParamSpec = z.infer<typeof paramSpec>
+
+/**
+ * What one preview of a design, a state in a mode, sets differently from its mode: a width to try it at, how large it's
+ * drawn on the canvas, and an option of its own for any of the mode's variables other than its viewport, by variable id.
+ * None of it changes the design itself.
+ */
+const previewSettings = fileObject({
+  width: z.number().int().min(1).optional(),
+  scale: z.number().min(0.1).max(4).optional(),
+  options: z.record(z.string(), z.string()).optional()
+})
+
+/** What one preview of a design sets differently from its mode. */
+export type PreviewSettings = z.infer<typeof previewSettings>
 
 const containerViewSettings = fileObject({
   /** The mode of the main frame. Defaults to the project's primary mode. */
   mode: z.string().optional(),
   /** Other modes shown beside the main frame. */
   modes: z.array(z.string()).optional(),
-  /** The state the canvas shows. Defaults to the first. */
+  /**
+   * The design's own order of the project's modes, by id, as its Modes list shows them and its frames are drawn beside
+   * the main one; modes it doesn't name follow in project order. The main frame's mode comes first whatever the order.
+   */
+  order: z.array(z.string()).optional(),
+  /**
+   * How large each mode's frame beside the main one is drawn, by mode id, from a tenth to its full size. One it doesn't
+   * name is shrunk to fit beside the main frame (see `companionScale`).
+   */
+  scales: z.record(z.string(), z.number().min(0.1).max(1)).optional(),
+  /**
+   * What each preview sets differently from its mode, by `state/mode` (see `previewKey`): its width, its scale, which
+   * wins over `scales`, and its own options.
+   */
+  previews: z.record(z.string(), previewSettings).optional(),
+  /**
+   * The value a page of the app is drawn with for each of its route's path params, by name. One it doesn't give is
+   * drawn with the param's name.
+   */
+  params: z.record(z.string(), z.string()).optional(),
+  /** A component's state the canvas shows. Defaults to the first. */
   state: z.string().optional(),
-  /** Show every state, one row each, instead of only the active one. */
+  /** Show every state of a component, one row each, instead of only the active one. */
   allStates: z.boolean().optional(),
+  /** The states shown, a row each, where it's some of them and not one or every one (see `withShownStates`). */
+  states: z.array(z.string()).optional(),
+  /** The design's own order of its states, by id, as its rows are drawn; states it doesn't name follow. */
+  stateOrder: z.array(z.string()).optional(),
   /** The option the board shows for each variant param, by option id. Unset ones show their default. */
   variants: z.record(z.string(), z.string()).optional()
 })
@@ -462,23 +611,40 @@ const stateSpec = fileObject({
   id: z.string(),
   name: z.string(),
   /**
-   * Patches keyed by node id, or by `instance/inner` for a node inside an instance. A state wins over a viewport's
-   * responsive patch and over the design's variants.
+   * Patches keyed by node id, or by `instance/inner` for a node inside an instance. A state wins over the design's
+   * variants, and over a viewport's responsive text and props; a viewport's style and hiding win over the state.
    */
   overrides: nodePatches.optional()
 })
 
 export type StateSpec = z.infer<typeof stateSpec>
 
-/** One design, as a project file or the clipboard holds it (see `ContainerSpec`). */
-export const containerSpec = fileObject({
+/** The one state a screen or frame is drawn in: its layers as they are. */
+export const baseState: StateSpec = { id: "default", name: "Default" }
+
+/**
+ * A design's states, the base first. Only a component has states of its own, to stress-test it in its variations; a
+ * screen or a frame, and a component that lists none, has the base state alone.
+ */
+export function designStates(container: Pick<ContainerSpec, "states">): readonly StateSpec[] {
+  return container.states ?? [baseState]
+}
+
+/** A design's fields, each with its own check. */
+const containerFields = {
   id: z.string(),
   name: z.string(),
   /** Defaults to `screen`. */
   kind: z.enum(containerKinds).optional(),
   position,
+  /** Kept from being selected or moved on the canvas, with every layer in it; it's still selected from Layers. */
+  locked: z.boolean().optional(),
   root: nodeTree,
-  states: z.array(stateSpec).min(1, "expected at least one state"),
+  /**
+   * A component's states, the base first: the design as it is, then each variation it's tested in, such as Hover or
+   * Loading. Only a component has them; without them it has the base state alone.
+   */
+  states: z.array(stateSpec).min(1, "expected at least one state").optional(),
   view: containerViewSettings.optional(),
   /** A component's inputs. Instances pass values for them; nodes inside bind to them. */
   params: z.record(z.string(), paramSpec).optional(),
@@ -497,26 +663,140 @@ export const containerSpec = fileObject({
    * mode's viewport, and without a height as tall as its content. Only a frame has one.
    */
   size: frameSize.optional()
-}).superRefine((container, context) => {
-  const ids = new Set<string>()
-  walkNodes(container.root, (node) => ids.add(node.id))
-  for (const [index, state] of container.states.entries()) {
-    checkPatchKeys(state.overrides, ids, context, ["states", index, "overrides"])
-  }
-  if (container.kind === "frame") checkFrame(container, context)
-  else if (container.size !== undefined) {
-    problem(context, ["size"], `only a frame has a size of its own; size a ${container.kind ?? "screen"} in frames`)
-  }
-  for (const [name, param] of Object.entries(container.params ?? {})) {
-    for (const [index, option] of (param.options ?? []).entries()) {
-      checkPatchKeys(option.overrides, ids, context, ["params", name, "options", index, "overrides"])
-    }
-  }
+}
+
+/** One design, as a project file or the clipboard holds it (see `ContainerSpec`). */
+export const containerSpec = fileObject(containerFields).superRefine((container, context) => {
+  containerRules(container, (path, message) => problem(context, path, message))
 })
 
+/** A design's fields with its root left to be checked a layer at a time. */
+const containerShell = fileObject({ ...containerFields, root: z.unknown() })
+
 /**
- * One design, like a Storybook CSF file. `root` is the design itself. States are authored and patch nodes (content,
- * props, visibility). Modes are project-wide (see `ModeSettings`); every design can be rendered in any of them, and
+ * The first problem with a design, as `containerSpec.safeParse` reports it, or undefined when it's valid. Given
+ * `previous`, a valid design it was made from, a layer that's the same object as one in `previous` isn't checked again,
+ * with the layers inside it, so a change costs the layers it made rather than the whole design. The rules that span
+ * layers, such as unique ids and slots, still look at them all, without zod.
+ */
+export function containerIssue(container: ContainerSpec, previous?: ContainerSpec): z.core.$ZodIssue | undefined {
+  if (previous && validChange(container, previous)) {
+    return undefined
+  }
+
+  // Found by a full check, so each problem reads as it always has.
+  return containerSpec.safeParse(container).error?.issues[0]
+}
+
+/** Whether a design made from a valid `previous` is valid, checking only the layers that aren't `previous`'s. */
+function validChange(container: ContainerSpec, previous: ContainerSpec): boolean {
+  if (!containerShell.safeParse(container).success) {
+    return false
+  }
+
+  if (container.root !== previous.root) {
+    const kept = new Set<DesignNode>()
+    eachLayer(previous.root, (node) => kept.add(node))
+
+    // A layer is typed as one, but what it holds is only trusted once its own fields pass.
+    const valid = (node: DesignNode): boolean =>
+      kept.has(node) || (layerFields.safeParse(node).success && heldLayers(node).every(valid))
+
+    if (!valid(container.root)) {
+      return false
+    }
+  }
+
+  let ok = true
+  const ids = new Set<string>()
+
+  walkNodes(container.root, (node) => {
+    ok &&= !ids.has(node.id)
+    ids.add(node.id)
+  })
+
+  containerRules(container, () => {
+    ok = false
+  })
+
+  return ok
+}
+
+/** Every layer in a tree, the root first, as zod checks them: in slots, a route's children and internals too. */
+function eachLayer(node: DesignNode, visit: (node: DesignNode) => void): void {
+  visit(node)
+
+  for (const child of heldLayers(node)) {
+    eachLayer(child, visit)
+  }
+}
+
+/** The layers a layer holds in any list `designNode` checks. */
+function heldLayers(node: DesignNode): DesignNode[] {
+  if (node.type === "layout" || node.type === "route") {
+    return node.children
+  }
+
+  if (node.type === "component") {
+    return [...Object.values(node.slots ?? {}).flat(), ...(node.internals ?? [])]
+  }
+
+  if (node.type === "instance") {
+    return Object.values(node.slots ?? {}).flat()
+  }
+
+  return []
+}
+
+/** Reports a problem at a path inside the value being checked. */
+type Report = (path: PropertyKey[], message: string) => void
+
+/** The rules that span a design's layers and fields, checked once each field has passed its own. */
+function containerRules(container: ContainerSpec, report: Report): void {
+  const ids = new Set<string>()
+  const slots = new Set<string>()
+  walkNodes(container.root, (node) => {
+    ids.add(node.id)
+
+    if (node.type !== "layout" || node.slot === undefined) {
+      return
+    }
+
+    const unusable = slotNameProblem(node.slot)
+
+    if (unusable) {
+      report(["root"], `layer "${node.id}" is a slot whose name ${unusable}`)
+    } else if (slots.has(node.slot)) {
+      report(["root"], `two layers are the slot "${node.slot}"`)
+    }
+
+    slots.add(node.slot)
+  })
+
+  for (const [index, state] of (container.states ?? []).entries()) {
+    checkPatchKeys(state.overrides, ids, report, ["states", index, "overrides"])
+  }
+
+  if (!hasStates(container.kind)) {
+    checkNoStates(container, report)
+  }
+
+  if (container.kind === "frame") {
+    checkFrame(container, report)
+  } else if (container.size !== undefined) {
+    report(["size"], `only a frame has a size of its own; size a ${container.kind ?? "screen"} in frames`)
+  }
+
+  for (const [name, param] of Object.entries(container.params ?? {})) {
+    for (const [index, option] of (param.options ?? []).entries()) {
+      checkPatchKeys(option.overrides, ids, report, ["params", name, "options", index, "overrides"])
+    }
+  }
+}
+
+/**
+ * One design, like a Storybook CSF file. `root` is the design itself. A component's states are authored and patch
+ * nodes (content, props, visibility). Modes are project-wide (see `ModeSettings`); every design can be rendered in any of them, and
  * `view` records which ones this design shows next to its primary frame.
  */
 export type ContainerSpec = z.infer<typeof containerSpec>
@@ -528,28 +808,61 @@ export type ContainerSpec = z.infer<typeof containerSpec>
 function checkPatchKeys(
   patches: Record<string, NodePatch> | undefined,
   ids: ReadonlySet<string>,
-  context: z.RefinementCtx,
+  report: Report,
   path: PropertyKey[]
 ): void {
   for (const key of Object.keys(patches ?? {})) {
     const [node] = key.split("/")
-    if (!ids.has(node)) problem(context, [...path, key], "no node has this id")
+
+    if (!ids.has(node)) {
+      report([...path, key], "no node has this id")
+    }
+  }
+}
+
+/** Whether a kind of design has states of its own: a component's variations, or a story file's stories. */
+export function hasStates(kind: ContainerKind | undefined): boolean {
+  return kind === "component" || kind === "story"
+}
+
+/**
+ * Only a component and a story have states: a screen or a frame is drawn as its layers are, so it names no state to
+ * show.
+ */
+function checkNoStates(container: ContainerSpec, report: Report): void {
+  const kind = container.kind ?? "screen"
+
+  if (container.states !== undefined) {
+    report(["states"], `only a component or a story has states; a ${kind} is drawn as its layers are`)
+  }
+
+  for (const field of ["state", "allStates", "states", "stateOrder"] as const) {
+    if (container.view?.[field] !== undefined) {
+      report(["view", field], `only a component or a story has states; a ${kind} has none to show`)
+    }
   }
 }
 
 /**
- * What a frame may hold: a layout at its root and one state, drawn as its layers are, with no params, no view (it
- * shows only the primary mode and that state) and no sizes per viewport, since it has one of its own.
+ * What a frame may hold: a layout at its root, drawn as its layers are, with no params, no view (it shows only the
+ * primary mode) and no sizes per viewport, since it has one of its own.
  */
-function checkFrame(frame: ContainerSpec, context: z.RefinementCtx): void {
-  if (frame.root.type !== "layout") problem(context, ["root"], "a frame's root is a layout")
-  if (frame.states.length > 1) problem(context, ["states"], "a frame has one state")
-  if (Object.keys(frame.states[0]?.overrides ?? {}).length > 0) {
-    problem(context, ["states", 0, "overrides"], "a frame is drawn as its layers are")
+function checkFrame(frame: ContainerSpec, report: Report): void {
+  if (frame.root.type !== "layout") {
+    report(["root"], "a frame's root is a layout")
   }
-  if (frame.params !== undefined) problem(context, ["params"], "a frame has no params")
-  if (frame.view !== undefined) problem(context, ["view"], "a frame shows only the primary mode and its one state")
-  if (frame.frames !== undefined) problem(context, ["frames"], "a frame's size is in size, not per viewport")
+
+  if (frame.params !== undefined) {
+    report(["params"], "a frame has no params")
+  }
+
+  if (frame.view !== undefined) {
+    report(["view"], "a frame shows only the primary mode")
+  }
+
+  if (frame.frames !== undefined) {
+    report(["frames"], "a frame's size is in size, not per viewport")
+  }
 }
 
 /** A rule's problem with the value it checks, at `path` inside that value. */
@@ -557,14 +870,34 @@ function problem(context: z.RefinementCtx, path: PropertyKey[], message: string)
   context.addIssue({ code: "custom", message, path })
 }
 
+/**
+ * The current format of `.par` and `.lib.par` files. Obsolete formats are rejected rather than migrated, so a bump
+ * changes only this.
+ */
+export const formatVersion = 4
+
 /** A project file's schema, which the project service also checks a saved document with (PAR-565). */
+/**
+ * What the person set on a design drawn from code: what it shows, and the width and height tried on its layers, by
+ * layer id, which are never written to its code.
+ */
+const codeDesignSettings = fileObject({
+  view: containerViewSettings.optional(),
+  sizes: z.record(z.string(), nodeStyle).optional()
+})
+
+/** What the person set on a design drawn from code. */
+export type CodeDesignSettings = z.infer<typeof codeDesignSettings>
+
 export const canvasDocument = fileObject({
-  version: z.literal(3),
+  version: z.literal(formatVersion),
   containers: z.array(containerSpec),
   /** The project's modes. Unset means the defaults. */
   modes: modeSettings.optional(),
   /** Text placed on the canvas itself, outside any design: annotations, flow labels, explanations. */
   notes: z.array(noteSpec).optional(),
+  /** Screens from real apps placed beside designs to look at, never part of them. */
+  references: z.array(referenceSpec).optional(),
   /** Where the person corrected which exports are components. Unset while detection gets them right. */
   detection: detectionCorrections.optional(),
   /** Where the person put tables, operations and routes on the canvas. The models are read from the project. */
@@ -572,7 +905,31 @@ export const canvasDocument = fileObject({
   /** Links the person drew by hand. Links found in code or traces are read each time and never saved. */
   links: linkSpecs.optional(),
   /** The source each lens reads, where the person switched from the one Parity picked. */
-  sources: lensSources.optional()
+  sources: lensSources.optional(),
+  /**
+   * Routes the person marked as API routes or as pages, by route id, where Parity read them otherwise: a server route it
+   * couldn't be sure of, or one the app gives a page while it runs (PAR-1175, PAR-1176). Unset while there are none.
+   */
+  routeKinds: z.record(z.string().min(1), z.enum(["api", "page"])).optional(),
+  /**
+   * What the project knows about its image files that the files don't say, by each file's path from the root: what a
+   * stock picture shows and who made it, kept as it's added to the project, so the Media tab can credit it before any
+   * layer shows it.
+   */
+  images: z.record(z.string().min(1), imageDetails).optional(),
+  /**
+   * The person's preferences the project sets for itself, which win while it's open: autosave, snapping, the layout
+   * grid and the export sizes, in the order they were set. Unset while it follows the person's own.
+   */
+  preferences: projectPreferences.optional(),
+  /** Extensions' project settings, by extension id and then key. Unset while there are none. */
+  extensions: projectExtensions.optional(),
+  /**
+   * What the person set on the designs drawn from the project's code (its pages, component boards and stories), by
+   * each design's key, as `(stories)#button-outline`: those designs are drawn again each time the project opens, so
+   * what they show and the sizes tried on their layers are kept here.
+   */
+  codeDesigns: z.record(z.string().min(1), codeDesignSettings).optional()
 })
 
 /**
@@ -582,16 +939,7 @@ export const canvasDocument = fileObject({
 export type CanvasDocument = z.infer<typeof canvasDocument>
 
 /** Reads a project file, or throws `TypeError` with the first problem as `/json/pointer: message`. */
-export function parseCanvasDocument(value: unknown): CanvasDocument {
-  return parseData(canvasDocument, value)
-}
+export const parseCanvasDocument: DataParser<CanvasDocument> = parserFor(canvasDocument)
 
 /** Validates one node tree on its own, as agents insert them. `path` is where it sits, for the error's pointer. */
-export function parseDesignNode(value: unknown, path = ""): DesignNode {
-  return parseData(nodeTree, value, path)
-}
-
-/** Validates a state's or viewport's patch on its own. `path` is where it sits, for the error's pointer. */
-export function parseNodePatch(value: unknown, path = ""): NodePatch {
-  return parseData(nodePatch, value, path)
-}
+export const parseDesignNode: DataParser<DesignNode> = parserFor(nodeTree)

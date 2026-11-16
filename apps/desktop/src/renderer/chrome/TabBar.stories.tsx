@@ -20,13 +20,14 @@ import { TabBar } from "./TabBar.tsx"
  * Shown on its own, above an empty window.
  */
 const meta = {
-  title: "Parity/Chrome/Tab bar",
+  title: "Parity/Chrome/Window/Tab bar",
   component: TabBar,
   decorators: [Chrome],
   loaders: [clearNotifications]
 } satisfies Meta<typeof TabBar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Folders of made-up projects, for stories with more tabs than the stand-in service knows. */
@@ -103,7 +104,7 @@ export const UnsavedChanges: Story = {
       await openProjects("example", "empty")
       await openAlso(blankProjectAt(folders[0]!))
       renameDesign("Pricing", "Pricing (annual)")
-      addNote(sessionAt(folders[0]!), "Hero copy needs a final pass")
+      addNote(sessionAt(folders[0]!).doc, "Hero copy needs a final pass")
     }
   ],
   play: async () => {
@@ -111,7 +112,7 @@ export const UnsavedChanges: Story = {
     await expect(
       await tabs.findByRole("button", { name: /^Close shadcn-vite, which has unsaved changes/ })
     ).toBeVisible()
-    await expect(example().store.hasUnsaved()).toBe(true)
+    await expect(example().saver.hasUnsaved()).toBe(true)
   }
 }
 

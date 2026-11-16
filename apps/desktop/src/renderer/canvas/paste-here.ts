@@ -6,10 +6,20 @@ import {
   type LayoutNode,
   locateNode
 } from "@parity-app/core"
-import { type EditFrame, flowOf, type HereLayout, type HereSlot, type Point, slotHere } from "@parity-app/editor"
+import {
+  type EditFrame,
+  flowOf,
+  type HereLayout,
+  type HereSlot,
+  type Point,
+  type Rect,
+  slotHere
+} from "@parity-app/editor"
+import { editFrame } from "@parity-app/multiplayer"
 import { findNodeElement, flowingBoxes, nodeBox } from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
+import { type ElementGeometry, type FrameGeometry, frameGeometry, insideOf } from "./frame-geometry.ts"
 import { type Hit, hitTest, inside, pickedIn } from "./hit.ts"
 
 /**
@@ -32,9 +42,10 @@ export class HereMeasures {
   private kept: { key: string; measured: Measured } | undefined
 
   /** The measurement kept for `key` in this frame, or `measure`'s, which is kept in its place. */
-  get(hit: Hit, at: DOMRect, unit: number, key: string, measure: () => Measured | undefined): Measured | undefined {
-    const where = `${at.left}:${at.top}:${at.width}:${at.height}`
+  get(hit: Hit, at: Rect, unit: number, key: string, measure: () => Measured | undefined): Measured | undefined {
+    const where = `${at.left}:${at.top}:${at.right}:${at.bottom}`
     const frame = this.frame
+
     if (!frame || frame.host !== hit.host || frame.container !== hit.entry.container || frame.unit !== unit) {
       this.frame = { host: hit.host, container: hit.entry.container, unit, at: where }
       this.kept = undefined
@@ -42,9 +53,14 @@ export class HereMeasures {
       frame.at = where
       this.kept = undefined
     }
-    if (this.kept?.key === key) return this.kept.measured
+
+    if (this.kept?.key === key) {
+      return this.kept.measured
+    }
+
     const measured = measure()
     this.kept = measured ? { key, measured } : undefined
+
     return measured
   }
 
@@ -72,17 +88,22 @@ export type PointPlace =
  * layout under the pointer is measured once while it stays over it.
  */
 export function placeAtPoint(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
   area: ParentNode,
   point: Point,
   measures?: HereMeasures
 ): PointPlace {
-  const { store, editor } = session
-  const hit = hitTest(area, store, point, editor)
-  if (!hit) return { kind: "canvas" }
+  const { doc, editor } = session
+  const hit = hitTest(area, doc, point, editor)
+
+  if (!hit) {
+    return { kind: "canvas" }
+  }
+
   const here = measureHere(hit, point, spacingUnit(session.tokens.get()), measures)
-  const frame = store.editFrame(pickedIn(hit))
+  const frame = editFrame(doc, pickedIn(hit))
   const slot = here && frame && slotHere(frame.container, here, frame.state, frame.viewport)
+
   return here && frame && slot ? { kind: "layout", hit, here, frame, slot } : { kind: "none", hit }
 }
 
@@ -93,36 +114,66 @@ export function placeAtPoint(
  * drawn. Given `measures`, what it measured for the same layout before is used again (see `HereMeasures`).
  */
 export function measureHere(hit: Hit, point: Point, unit: number, measures?: HereMeasures): HereLayout | undefined {
-  const width = parseFloat(hit.host.style.width)
-  if (!(width > 0)) return undefined
-  const at = hit.host.getBoundingClientRect()
-  const scale = at.width / width
+  const frame = frameGeometry(hit.host)
+  const at = frame.rect
+
+  if (!(at.right > at.left)) {
+    return undefined
+  }
+
+  const { scale } = frame
+
   const kept = (key: string, measure: () => Measured | undefined) =>
     measures ? measures.get(hit, at, unit, key, measure) : measure()
+
   for (let depth = hit.chain.length - 1; depth >= 0; depth--) {
     const node = hit.chain[depth]!
+
     if (node.type === "layout") {
       const box = nodeBox(hit.host, node.id)
-      const measured = box && kept(node.id, () => measureLayout(hit, node, scale, unit))
+      const measured = box && kept(node.id, () => measureLayout(hit, frame, node, scale, unit))
+
       return measured && { ...measured, box, point }
     }
-    if (node.type !== "component") continue
+
+    if (node.type !== "component") {
+      continue
+    }
+
     const slot = slotUnder(hit, node, hit.chain[depth + 1], point)
-    if (!slot) continue
-    const measured = kept(`${node.id}/${slot.slot}`, () => measureSlot(hit, node, slot, scale, unit))
-    if (measured) return { ...measured, box: slot.box, point }
+
+    if (!slot) {
+      continue
+    }
+
+    const measured = kept(`${node.id}/${slot.slot}`, () => measureSlot(hit, frame, node, slot, scale, unit))
+
+    if (measured) {
+      return { ...measured, box: slot.box, point }
+    }
   }
+
   return undefined
 }
 
-function measureLayout(hit: Hit, layout: LayoutNode, scale: number, unit: number): Measured | undefined {
+function measureLayout(
+  hit: Hit,
+  frame: FrameGeometry,
+  layout: LayoutNode,
+  scale: number,
+  unit: number
+): Measured | undefined {
   const element = findNodeElement(hit.host, layout.id)
-  if (!element) return undefined
+
+  if (!element) {
+    return undefined
+  }
+
   return {
     layout: layout.id,
     children: drawnChildren(hit, layout.children),
     flow: flowOf(getComputedStyle(element)),
-    origin: insideBorder(element, scale),
+    origin: insideBorder(frame.element(element), scale),
     scale,
     unit
   }
@@ -150,25 +201,41 @@ function slotUnder(
 ): SlotUnder | undefined {
   const first = under && locateNode(component, under.id)?.slot
   const slots = childEntries(component).toSorted((a, b) => Number(b.slot === first) - Number(a.slot === first))
+
   for (const { slot, nodes } of slots) {
     const drawn = nodes.map((node) => findNodeElement(hit.host, node.id)).find((element) => element !== undefined)
     const element = drawn && drawnIn(drawn)
     const around = drawn?.offsetParent
-    if (!slot || !element || !(around instanceof HTMLElement)) continue
+
+    if (!slot || !element || !(around instanceof HTMLElement)) {
+      continue
+    }
+
     const box = element.getBoundingClientRect()
-    if (inside(box, point)) return { slot, nodes, element, around, box }
+
+    if (inside(box, point)) {
+      return { slot, nodes, element, around, box }
+    }
   }
+
   return undefined
 }
 
 /** A slot is measured as a layout is: its flow is the element's its layers are drawn in. */
-function measureSlot(hit: Hit, component: ComponentNode, under: SlotUnder, scale: number, unit: number): Measured {
+function measureSlot(
+  hit: Hit,
+  frame: FrameGeometry,
+  component: ComponentNode,
+  under: SlotUnder,
+  scale: number,
+  unit: number
+): Measured {
   return {
     layout: component.id,
     slot: under.slot,
     children: drawnChildren(hit, under.nodes),
     flow: flowOf(getComputedStyle(under.element), flowingBoxes(under.element)),
-    origin: insideBorder(under.around, scale),
+    origin: insideBorder(frame.element(under.around), scale),
     scale,
     unit
   }
@@ -177,7 +244,11 @@ function measureSlot(hit: Hit, component: ComponentNode, under: SlotUnder, scale
 /** The element a layer is drawn in: its parent element, through those that draw no box of their own. */
 function drawnIn(element: HTMLElement): HTMLElement | undefined {
   let parent = element.parentElement
-  while (parent && getComputedStyle(parent).display === "contents") parent = parent.parentElement
+
+  while (parent && getComputedStyle(parent).display === "contents") {
+    parent = parent.parentElement
+  }
+
   return parent ?? undefined
 }
 
@@ -185,17 +256,18 @@ function drawnIn(element: HTMLElement): HTMLElement | undefined {
 function drawnChildren(hit: Hit, nodes: readonly DesignNode[]): HereLayout["children"] {
   return nodes.flatMap((child, index) => {
     const childBox = nodeBox(hit.host, child.id)
+
     // A child that isn't drawn (hidden in this state) has an empty box at the frame's corner: it's no slot.
     return childBox && (childBox.width > 0 || childBox.height > 0) ? [{ index, box: childBox }] : []
   })
 }
 
-/** The inside of an element's border, on screen, where the insets of what it contains count from. */
-function insideBorder(element: HTMLElement, scale: number): Point {
-  const style = getComputedStyle(element)
-  const rect = element.getBoundingClientRect()
-  return {
-    x: rect.left + (parseFloat(style.borderLeftWidth) || 0) * scale,
-    y: rect.top + (parseFloat(style.borderTopWidth) || 0) * scale
-  }
+/**
+ * The corner inside an element's border, on screen, where the insets of what it contains count from, at the scale the
+ * pointer's distance from it is divided by, so the two agree.
+ */
+function insideBorder(element: ElementGeometry, scale: number): Point {
+  const { left, top } = insideOf(element.borderBox, element.border, scale)
+
+  return { x: left, y: top }
 }

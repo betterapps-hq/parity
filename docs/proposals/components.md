@@ -176,8 +176,8 @@ instances or detached copies. That's built (PAR-124 to PAR-126): [editor.md](../
   layers inside it. An edit there changes only that copy, and the inspector says so, with Reset and Push to main. In a
   state other than the base, the edit belongs to that state instead. Layers inside an instance can't be moved, resized
   on the canvas or deleted, the way Figma behaves.
-- **A bound text, prop or visibility** is changed by giving the instance a value for its param, so the copy keeps
-  following the param, rather than by an override that hides it.
+- **A bound text or prop** is changed by giving the instance a value for its param, so the copy keeps following the
+  param, rather than by an override that hides it.
 - **The main component's board shows one combination of variants,** picked in its title bar. With an option other than
   the default showing, edits in the base state go to that option, and the inspector says "changes only the Large
   variant". The variant grid isn't built yet (decision 5).

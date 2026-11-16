@@ -6,10 +6,15 @@ const personalHue = 162
 /** An organization's first letter in a color of its own, from its ID; Personal in green. */
 export function OrganizationBadge({ organization, size = 36 }: { organization?: Organization; size?: number }) {
   let hue = personalHue
+
   if (organization) {
     hue = 0
-    for (const char of organization.id) hue = (hue * 31 + char.charCodeAt(0)) % 360
+
+    for (const char of organization.id) {
+      hue = (hue * 31 + char.charCodeAt(0)) % 360
+    }
   }
+
   return (
     <span
       aria-hidden
@@ -36,7 +41,11 @@ const unnamed = "Your organization"
  */
 export function currentOrganization(account: AccountPerson): Organization | undefined {
   const { organizationId, organizations = [] } = account
-  if (!organizationId) return undefined
+
+  if (!organizationId) {
+    return undefined
+  }
+
   return organizations.find(({ id }) => id === organizationId) ?? { id: organizationId, name: unnamed }
 }
 
@@ -44,5 +53,6 @@ export function currentOrganization(account: AccountPerson): Organization | unde
 export function knownOrganizations(account: AccountPerson): Organization[] {
   const organizations = account.organizations ?? []
   const current = currentOrganization(account)
+
   return current && !organizations.some(({ id }) => id === current.id) ? [current, ...organizations] : organizations
 }

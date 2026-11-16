@@ -2,10 +2,11 @@ import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { describedCategories, describedTokenCss, extractTokens, readDesignTokens } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { within } from "storybook/test"
+import { z } from "zod"
 import { ProjectContext } from "../canvas/context.ts"
 import { example, openProjects } from "../stories/fixtures.tsx"
 import { TokenStore } from "../tokens-store.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { ProjectSession } from "../workspace.ts"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
 import { TokensPanel } from "./TokensPanel.tsx"
@@ -19,18 +20,24 @@ import { TokensPanel } from "./TokensPanel.tsx"
 const meta = {
   title: "Parity/Left panel/Tokens/Libraries",
   component: TokensPanel,
-  render: (_, { loaded }) => (
-    <TooltipProvider>
-      <ProjectContext value={(loaded as Loaded).session}>
-        <div className="flex h-screen bg-background text-foreground">
-          <LeftPanel />
-        </div>
-      </ProjectContext>
-    </TooltipProvider>
-  )
+  render: (_, { loaded }) => {
+    // SAFETY: every story here loads through `openLibrary`, which resolves to a `Loaded`.
+    const { session } = loaded as Loaded
+
+    return (
+      <TooltipProvider>
+        <ProjectContext value={session}>
+          <div className="flex h-screen bg-background text-foreground">
+            <LeftPanel />
+          </div>
+        </ProjectContext>
+      </TooltipProvider>
+    )
+  }
 } satisfies Meta<typeof TokensPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 interface Loaded {
@@ -43,6 +50,9 @@ const libraries = import.meta.glob<string>("../../../../../packages/registry/lib
   import: "default"
 })
 
+/** What these stories read of a `.lib.par`: its name and its tokens, which `readDesignTokens` checks itself. */
+const libraryManifest = z.object({ name: z.string(), tokens: z.unknown() })
+
 /**
  * Opens the example on the Tokens tab with only a library's tokens in place of its own: the tokens, the descriptions
  * and the categories its `.lib.par` gives, read as the app reads a library that creates its variables at run time.
@@ -50,11 +60,17 @@ const libraries = import.meta.glob<string>("../../../../../packages/registry/lib
 function openLibrary(file: string) {
   return async (): Promise<Loaded> => {
     const path = Object.keys(libraries).find((candidate) => candidate.endsWith(`/${file}`))
-    if (!path) throw new Error(`The registry has no ${file}`)
-    const manifest = JSON.parse(await libraries[path]!()) as { name: string; tokens: unknown }
+
+    if (!path) {
+      throw new Error(`The registry has no ${file}`)
+    }
+
+    const manifest = libraryManifest.parse(JSON.parse(await libraries[path]!()))
+
     const described = await readDesignTokens(manifest.tokens, () =>
       Promise.reject(new Error("The registry's tokens are inline"))
     )
+
     const css = describedTokenCss(described)
     const tokens = extractTokens(css, [], describedCategories(described))
     await openProjects("example")
@@ -63,12 +79,19 @@ function openLibrary(file: string) {
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(css)
     const describedTokens = [{ name: manifest.name, manifest: `node_modules/${file}`, tokens: described }]
-    const session: ProjectSession = {
-      ...project,
-      info: { ...project.info, styles: undefined, describedTokens },
-      // Edits go nowhere: the story is for looking.
-      tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project.store, file, describedTokens)
-    }
+    const { id, selection, components, recovery } = project
+
+    // A session of its own over the example's document and stores, so the open tab's stays as it was.
+    const session = new ProjectSession(
+      { id, selection, components, recovery, designs: project },
+      {
+        ...project.getParts(),
+        info: { ...project.info, styles: undefined, describedTokens },
+        // Edits go nowhere: the story is for looking.
+        tokens: new TokenStore(tokens, sheet, () => Promise.resolve(), project, file, describedTokens)
+      }
+    )
+
     return { session }
   }
 }
@@ -90,21 +113,21 @@ function library(file: string): Story {
  * where Parity's own `spacing` steps land among Chakra's, where `blurs-none` sorts, and the half steps (`spacing.0\.5`)
  * that end up described only.
  */
-export const ChakraUI: Story = { ...library("chakra.lib.par"), name: "Chakra UI" }
+export const ChakraUI: Story = { ...library("@chakra-ui+react.lib.par"), name: "Chakra UI" }
 
 /**
  * Fluent UI: Fluent 2's camel-cased tokens (`colorBrandBackground`, `spacingHorizontalM`, `shadow4Brand`,
  * `curveEasyEase`), about 460 of them. Look at its 366 colors in one alphabetical list, horizontal and vertical spacing
  * taken as one scale, and each shadow followed by its brand twin.
  */
-export const FluentUI: Story = { ...library("fluent.lib.par"), name: "Fluent UI" }
+export const FluentUI: Story = { ...library("@fluentui+react-components.lib.par"), name: "Fluent UI" }
 
 /**
  * Mantine: `--mantine-*` tokens, its palettes (`color-blue-0` to `9`) among its semantic colors and its components' own
  * colors (`burger-color`, `switch-bg`), and headings' sizes, weights and line heights (`h1-font-size`) among the type
  * scale. Look at how the component colors mix in, and the font smoothing settings listed as fonts.
  */
-export const Mantine: Story = { ...library("mantine.lib.par"), name: "Mantine" }
+export const Mantine: Story = { ...library("@mantine+core.lib.par"), name: "Mantine" }
 
 /**
  * Material UI: `--mui-*` tokens, its palette roles (`palette-primary-main`) beside components' colors
@@ -112,7 +135,7 @@ export const Mantine: Story = { ...library("mantine.lib.par"), name: "Mantine" }
  * overlays, opacities, z-indexes and breakpoints. Look at where `shadows-0` sorts, the overlays under Other, and
  * Parity's own `spacing` steps beside MUI's one `spacing`.
  */
-export const MaterialUI: Story = { ...library("mui.lib.par"), name: "Material UI" }
+export const MaterialUI: Story = { ...library("@mui+material.lib.par"), name: "Material UI" }
 
 /**
  * The Shadcn styles' tokens: their semantic colors (`primary`), each also as Tailwind's `color-primary`, the radius
@@ -120,25 +143,25 @@ export const MaterialUI: Story = { ...library("mui.lib.par"), name: "Material UI
  * stories match. Look at the doubled colors, the animation settings listed as animations, and the percentages under
  * Other.
  */
-export const ShadcnLuma: Story = { ...library("luma.lib.par"), name: "Shadcn Luma" }
+export const ShadcnLuma: Story = { ...library("@buildkitgg+shadcn-baseui-luma.lib.par"), name: "Shadcn Luma" }
 
 /** Shadcn Lyra, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnLyra: Story = { ...library("lyra.lib.par"), name: "Shadcn Lyra" }
+export const ShadcnLyra: Story = { ...library("@buildkitgg+shadcn-baseui-lyra.lib.par"), name: "Shadcn Lyra" }
 
 /** Shadcn Maia, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnMaia: Story = { ...library("maia.lib.par"), name: "Shadcn Maia" }
+export const ShadcnMaia: Story = { ...library("@buildkitgg+shadcn-baseui-maia.lib.par"), name: "Shadcn Maia" }
 
 /** Shadcn Mira, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnMira: Story = { ...library("mira.lib.par"), name: "Shadcn Mira" }
+export const ShadcnMira: Story = { ...library("@buildkitgg+shadcn-baseui-mira.lib.par"), name: "Shadcn Mira" }
 
 /** Shadcn Nova, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnNova: Story = { ...library("nova.lib.par"), name: "Shadcn Nova" }
+export const ShadcnNova: Story = { ...library("@buildkitgg+shadcn-baseui-nova.lib.par"), name: "Shadcn Nova" }
 
 /** Shadcn Rhea, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnRhea: Story = { ...library("rhea.lib.par"), name: "Shadcn Rhea" }
+export const ShadcnRhea: Story = { ...library("@buildkitgg+shadcn-baseui-rhea.lib.par"), name: "Shadcn Rhea" }
 
 /** Shadcn Sera, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnSera: Story = { ...library("sera.lib.par"), name: "Shadcn Sera" }
+export const ShadcnSera: Story = { ...library("@buildkitgg+shadcn-baseui-sera.lib.par"), name: "Shadcn Sera" }
 
 /** Shadcn Vega, whose tokens are the same as Shadcn Luma's. */
-export const ShadcnVega: Story = { ...library("vega.lib.par"), name: "Shadcn Vega" }
+export const ShadcnVega: Story = { ...library("@buildkitgg+shadcn-baseui-vega.lib.par"), name: "Shadcn Vega" }

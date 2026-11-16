@@ -1,0 +1,333 @@
+import { memoryPorts } from "@parity-app/channel"
+import type {
+  AppStyles,
+  BuilderAdapter,
+  BuilderStartOptions,
+  CodeChange,
+  ProjectConfig,
+  RendererAdapter
+} from "@parity-app/core"
+import { describe, expect, it, vi } from "vite-plus/test"
+import {
+  type BuilderLaunchOptions,
+  type BuilderProcessClientOptions,
+  builderProcessOptions,
+  connectBuilderProcess,
+  type ProcessTimes,
+  serveBuilderProcess
+} from "./builder-process.ts"
+import { type ChildEnd, lifecycle } from "./lifecycle.ts"
+
+const renderer: RendererAdapter = {
+  id: "react",
+  name: "React",
+  detect: () => Promise.resolve({ found: true, summary: "" }),
+  guestModule: "@parity-app/extension-react/guest",
+  runtimePackages: ["react"],
+  runtimeImports: [],
+  componentExtensions: [".tsx"],
+  findComponents: () => []
+}
+
+const startOptions: BuilderStartOptions = {
+  root: "/app",
+  config: {
+    styles: [],
+    components: { Button: { path: "src/button.tsx", export: "Button" } },
+    documents: [],
+    libraries: []
+  },
+  renderer,
+  rendererGuestPath: "/parity/guest.ts",
+  allowedOrigins: ["http://localhost:5310"],
+  port: 5400
+}
+
+/** A builder that records what it was started with, and closes when told. */
+function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
+  const started: BuilderStartOptions[] = []
+  const close = vi.fn<() => Promise<void>>(() => Promise.resolve())
+
+  const builder: BuilderAdapter = {
+    id: "vite",
+    name: "Vite",
+    watches: ["vite.config.ts"],
+    detect: () => Promise.resolve({ found: true, summary: "" }),
+    async start(options) {
+      started.push(options)
+      await start?.(options)
+
+      return {
+        guestUrl: `http://127.0.0.1:${options.port ?? 5173}/guest`,
+        toolVersion: "8.0.0",
+        close
+      }
+    }
+  }
+
+  return { builder, started, close }
+}
+
+/**
+ * A builder's process and the service's side of it, joined by a pair of ports in memory as Node's IPC would join them:
+ * each message is a copy, delivered a moment later. The process ends when it exits, when the service kills it, or when
+ * a test ends it.
+ */
+function connect(
+  builder: BuilderAdapter,
+  settings: BuilderProcessClientOptions = {},
+  times: () => ProcessTimes = () => ({ cpu: 0, uptime: 1, memory: 0 }),
+  launch: BuilderLaunchOptions = builderProcessOptions(builder, startOptions)
+) {
+  const [service, child] = memoryPorts()
+  let finish: (end: ChildEnd) => void = () => undefined
+  const end = (ending: ChildEnd) => setTimeout(() => finish(ending), 0)
+  const exit = vi.fn<() => void>(() => end({ code: 0 }))
+  const kill = vi.fn<() => void>(() => end({ signal: "SIGTERM" }))
+  const life = lifecycle({ pid: 7, onOutput: () => undefined, onEnd: (listener) => (finish = listener), kill })
+
+  serveBuilderProcess({ port: child, usage: times, exit }, [builder])
+
+  const client = connectBuilderProcess({ port: service, life }, launch, {
+    name: "Vite",
+    ...settings
+  })
+
+  return { client, life, exit, kill, end: (ending: ChildEnd) => finish(ending) }
+}
+
+describe("builderProcessOptions", () => {
+  it("names the builder by id and keeps the renderer's data, so the options cross as data", () => {
+    const { builder } = fakeBuilder()
+    const options = builderProcessOptions(builder, startOptions)
+    expect(options.builder).toBe("vite")
+    expect(options.renderer).toEqual({
+      id: "react",
+      name: "React",
+      guestModule: "@parity-app/extension-react/guest",
+      runtimePackages: ["react"],
+      runtimeImports: []
+    })
+    expect(structuredClone(options)).toEqual(options)
+    // oxlint-disable-next-line unicorn/prefer-structured-clone -- the test checks the options survive JSON
+    expect(JSON.parse(JSON.stringify(options))).toEqual(options)
+  })
+})
+
+describe("a builder in its own process", () => {
+  it("starts the builder named, on the port asked for", async () => {
+    const { builder, started } = fakeBuilder()
+    const session = await connect(builder).client.session
+    expect(session.guestUrl).toBe("http://127.0.0.1:5400/guest")
+    expect(session.toolVersion).toBe("8.0.0")
+    expect(started[0]?.renderer.runtimePackages).toEqual(["react"])
+    expect(started[0]?.port).toBe(5400)
+  })
+
+  it("serves the guest from the components it's sent, in place", async () => {
+    const { builder, started } = fakeBuilder()
+    const session = await connect(builder).client.session
+    const served = started[0]!.config.components
+    session.setComponents({ Card: { path: "src/card.tsx", export: "Card" } })
+    await vi.waitFor(() => expect(Object.keys(served)).toEqual(["Card"]))
+    expect(started[0]!.config.components).toBe(served)
+  })
+
+  it("passes on the files whose code changed while the builder runs, and stops once it's closing", async () => {
+    let tell: (change: CodeChange) => void = () => undefined
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => ({
+      ...(await start(options)),
+      codeChanges: (listener) => {
+        tell = listener
+
+        return () => undefined
+      }
+    })
+    const onCodeChange = vi.fn<(change: CodeChange) => void>()
+    const { client } = connect(builder, { onCodeChange })
+    const session = await client.session
+    tell({ paths: ["src/button.tsx"], stamp: 7, styles: true })
+    await vi.waitFor(() =>
+      expect(onCodeChange).toHaveBeenCalledWith({ paths: ["src/button.tsx"], stamp: 7, styles: true })
+    )
+    void session.close()
+    tell({ paths: ["src/button.tsx"], stamp: 8 })
+    await new Promise((resolve) => setTimeout(resolve, 10))
+    expect(onCodeChange).toHaveBeenCalledTimes(1)
+  })
+
+  it("asks the builder's process where it serves the guest restyled, and has no answer from one that can't", async () => {
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => {
+      const session = await start(options)
+
+      return { ...session, restyledGuestUrl: (stamp) => `${session.guestUrl}?styles=${stamp}` }
+    }
+
+    const restyling = await connect(builder).client.session
+    expect(await restyling.restyledGuestUrl?.(9)).toBe("http://127.0.0.1:5400/guest?styles=9")
+    void restyling.close()
+    expect(await restyling.restyledGuestUrl?.(10)).toBeUndefined()
+
+    const plain = await connect(fakeBuilder().builder).client.session
+    expect(await plain.restyledGuestUrl?.(9)).toBeUndefined()
+  })
+
+  it("asks the builder's process what files modules load, and has no answer from one that can't (PAR-994)", async () => {
+    const { builder } = fakeBuilder()
+    const start = builder.start.bind(builder)
+    builder.start = async (options) => ({
+      ...(await start(options)),
+      loadedFiles: (files) => Promise.resolve([...files, "src/lib/utils.ts"])
+    })
+
+    const tracing = await connect(builder).client.session
+    expect(await tracing.loadedFiles(["src/button.tsx"])).toEqual(["src/button.tsx", "src/lib/utils.ts"])
+    void tracing.close()
+    expect(await tracing.loadedFiles(["src/button.tsx"])).toBeUndefined()
+
+    const plain = await connect(fakeBuilder().builder).client.session
+    expect(await plain.loadedFiles(["src/button.tsx"])).toBeUndefined()
+  })
+
+  it("closes the builder, then the process, and resolves once the process has ended", async () => {
+    const { builder, close } = fakeBuilder()
+    const { client, exit } = connect(builder)
+    const session = await client.session
+    await session.close()
+    expect(close).toHaveBeenCalledTimes(1)
+    expect(exit).toHaveBeenCalledTimes(1)
+  })
+
+  it("ends a process whose builder doesn't close in time", async () => {
+    const { builder, close } = fakeBuilder()
+    close.mockImplementation(() => new Promise(() => undefined))
+    const { client, kill } = connect(builder, { closeTimeout: 10 })
+    await (await client.session).close()
+    expect(kill).toHaveBeenCalledTimes(1)
+  })
+
+  it("fails the start with the builder's error, and ends the process", async () => {
+    const { builder } = fakeBuilder(() => Promise.reject(new Error("Vite is not installed in /app")))
+    const { client, exit } = connect(builder)
+    await expect(client.session).rejects.toThrow("Vite is not installed in /app")
+    await vi.waitFor(() => expect(exit).toHaveBeenCalled())
+  })
+
+  it("fails the start with why, when the process ends before the builder starts", async () => {
+    const { builder } = fakeBuilder(() => new Promise(() => undefined))
+    const { client, end } = connect(builder)
+    end({ code: 3 })
+    await expect(client.session).rejects.toThrow("Vite stopped by itself, with exit code 3")
+  })
+
+  it("reports a process that ends by itself once started, but not one it closed", async () => {
+    const onCrash = vi.fn<NonNullable<BuilderProcessClientOptions["onCrash"]>>()
+    const crashing = connect(fakeBuilder().builder, { onCrash })
+    await crashing.client.session
+    crashing.end({ code: 1 })
+    await crashing.life.exited
+    expect(onCrash).toHaveBeenCalledWith(
+      "Vite stopped by itself, with exit code 1",
+      expect.objectContaining({ code: 1, stopped: false })
+    )
+
+    const closing = connect(fakeBuilder().builder, { onCrash })
+    await (await closing.client.session).close()
+    expect(onCrash).toHaveBeenCalledTimes(1)
+  })
+
+  it("reads its CPU as a share of the computer since it was last asked, and since it started at first", async () => {
+    const readings = [
+      { cpu: 2_000_000, uptime: 4000, memory: 300 },
+      { cpu: 3_000_000, uptime: 5000, memory: 310 }
+    ]
+
+    const { client } = connect(fakeBuilder().builder, { cores: 4 }, () => readings.shift()!)
+    const session = await client.session
+    // Two seconds of CPU in four: half a core, an eighth of four.
+    expect(await session.usage()).toEqual({ cpu: 12.5, memory: 300 })
+    // One second in the next one: a whole core.
+    expect(await session.usage()).toEqual({ cpu: 25, memory: 310 })
+  })
+
+  it("answers usage with nothing once the process has ended", async () => {
+    const { client, life, end } = connect(fakeBuilder().builder)
+    const session = await client.session
+    end({ signal: "SIGKILL" })
+    await life.exited
+    expect(await session.usage()).toBeUndefined()
+  })
+
+  it("doesn't count a builder the service stopped as crashed", async () => {
+    const onCrash = vi.fn<NonNullable<BuilderProcessClientOptions["onCrash"]>>()
+    const { client, life } = connect(fakeBuilder().builder, { onCrash })
+    await client.session
+    life.stop()
+    await life.exited
+    expect(onCrash).not.toHaveBeenCalled()
+  })
+})
+
+/** A builder that prepares (PAR-1182): what it was prepared and started with, and what closed. */
+function preparingBuilder(styles: AppStyles) {
+  const { builder, started, close } = fakeBuilder()
+  const prepared: unknown[] = []
+  const closedUnstarted = vi.fn<() => Promise<void>>(() => Promise.resolve())
+
+  builder.prepare = (options) => {
+    prepared.push(options)
+
+    return Promise.resolve({
+      styles: () => Promise.resolve(styles),
+      start: (config) => builder.start({ ...options, config }),
+      close: closedUnstarted
+    })
+  }
+
+  return { builder, prepared, started, close, closedUnstarted }
+}
+
+describe("a builder that prepares", () => {
+  const appStyles: AppStyles = { styles: ["src/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+
+  it("says which stylesheets the app loads before the project's config is known, then starts with it", async () => {
+    const { builder, prepared, started } = preparingBuilder(appStyles)
+    const config = Promise.withResolvers<ProjectConfig>()
+    const launch = { ...builderProcessOptions(builder, startOptions), config: config.promise }
+    const { client } = connect(builder, {}, undefined, launch)
+
+    expect(await client.styles()).toEqual(appStyles)
+    expect(prepared).toHaveLength(1)
+    expect(started).toEqual([])
+
+    config.resolve(startOptions.config)
+    expect((await client.session).guestUrl).toBe("http://127.0.0.1:5400/guest")
+    expect(started[0]?.config.components).toEqual(startOptions.config.components)
+  })
+
+  it("closes a prepared builder whose config never comes", async () => {
+    const { builder, closedUnstarted, started } = preparingBuilder(appStyles)
+    const config = Promise.withResolvers<ProjectConfig>()
+    const launch = { ...builderProcessOptions(builder, startOptions), config: config.promise }
+    const { client, exit } = connect(builder, {}, undefined, launch)
+    await client.styles()
+
+    config.reject(new Error("The project couldn't be read"))
+    await expect(client.session).rejects.toThrow("The project couldn't be read")
+    await vi.waitFor(() => expect(exit).toHaveBeenCalled())
+    expect(closedUnstarted).toHaveBeenCalledTimes(1)
+    expect(started).toEqual([])
+  })
+
+  it("says nothing of the stylesheets when the builder doesn't prepare", async () => {
+    const { builder } = fakeBuilder()
+    const { client } = connect(builder)
+
+    expect(await client.styles()).toBeUndefined()
+    await client.session
+  })
+})

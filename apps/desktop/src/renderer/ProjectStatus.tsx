@@ -1,7 +1,6 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
-import { Check, Circle, Copy, FolderOpen, LoaderCircle, RotateCw, TriangleAlert } from "lucide-react"
-import { useEffect, useState } from "react"
-import { openProjectFolder } from "./chrome/commands.ts"
+import { Check, Circle, LoaderCircle } from "lucide-react"
+import { ErrorPage } from "./chrome/ErrorPage.tsx"
 import { useLayout } from "./chrome/layout.ts"
 import { isPlaceholder, type Tab, workspace } from "./workspace.ts"
 
@@ -17,6 +16,7 @@ function projectOf(tab: Tab): { name?: string; folder?: string } {
 export function OpeningProject({ tab }: { tab: Tab }) {
   const { name, folder } = projectOf(tab)
   const { steps, current } = tab.progress ?? { steps: ["Opening the project"], current: 0 }
+
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <EditorOutline />
@@ -45,14 +45,22 @@ export function OpeningProject({ tab }: { tab: Tab }) {
 
 /** Where a step is, given the step under way. */
 function stepState(index: number, current: number): "done" | "active" | "pending" {
-  if (index < current) return "done"
+  if (index < current) {
+    return "done"
+  }
+
   return index === current ? "active" : "pending"
 }
 
 function Step({ label, state }: { label: string; state: "done" | "active" | "pending" }) {
   let Icon = Circle
-  if (state === "done") Icon = Check
-  else if (state === "active") Icon = LoaderCircle
+
+  if (state === "done") {
+    Icon = Check
+  } else if (state === "active") {
+    Icon = LoaderCircle
+  }
+
   return (
     <li
       className={`flex items-center gap-2.5 ${state === "active" ? "text-foreground" : "text-muted-foreground"} ${
@@ -71,6 +79,7 @@ function Step({ label, state }: { label: string; state: "done" | "active" | "pen
 /** The editor's panels, canvas and status bar as faint shapes, sized as the project's will be. */
 function EditorOutline() {
   const layout = useLayout()
+
   return (
     <div aria-hidden className="absolute inset-0 flex flex-col">
       <div className="flex min-h-0 flex-1">
@@ -93,7 +102,11 @@ const rows = [72, 56, 64, 40, 68, 52, 60, 36, 48]
 
 function OutlinePanel({ side, open, width }: { side: "left" | "right"; open: boolean; width: number }) {
   const border = side === "left" ? "border-r" : "border-l"
-  if (!open) return <div className={`w-12 shrink-0 ${border}`} />
+
+  if (!open) {
+    return <div className={`w-12 shrink-0 ${border}`} />
+  }
+
   return (
     <div className={`flex shrink-0 flex-col ${border}`} style={{ width }}>
       <div className="h-12 shrink-0 border-b" />
@@ -116,78 +129,31 @@ function OutlineBoard({ className }: { className: string }) {
   )
 }
 
-/**
- * A project that couldn't open: why, in the service's words, and the ways on from here. Trying again opens it in the
- * same tab; a tab that never learned its folder can only open another project.
- */
+/** A project that couldn't open: why, in the service's words, and Close (PAR-1011). */
 export function ProjectFailed({ tab }: { tab: Tab }) {
   const { name, folder } = projectOf(tab)
-  return (
-    <div className="flex min-h-0 flex-1 overflow-y-auto p-6">
-      <div role="alert" className="m-auto flex w-full max-w-lg flex-col gap-5">
-        <span className="grid size-10 place-items-center rounded-full bg-destructive/10 text-destructive">
-          <TriangleAlert className="size-5" />
-        </span>
-        <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-lg font-semibold">{name ? `Couldn't open ${name}` : "Couldn't open the project"}</h1>
-          {folder && (
-            <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
-              <span className="truncate" title={folder}>
-                {folder}
-              </span>
-              <button
-                type="button"
-                className="shrink-0 underline-offset-2 hover:text-foreground hover:underline"
-                onClick={() => void window.canvasHost.showItem(folder)}
-              >
-                Show in folder
-              </button>
-            </p>
-          )}
-        </div>
-        {tab.message && <ErrorDetails message={tab.message} />}
-        <div className="flex flex-wrap gap-2">
-          {folder && (
-            <Button onClick={() => void workspace.reload(tab.id, "Starting the project's builder")}>
-              <RotateCw /> Try again
-            </Button>
-          )}
-          <Button variant={folder ? "outline" : "default"} onClick={() => void openProjectFolder()}>
-            <FolderOpen /> {folder ? "Open another project…" : "Open a project…"}
-          </Button>
-          <Button variant="ghost" onClick={() => void workspace.close(tab.id)}>
-            Close tab
-          </Button>
-        </div>
-      </div>
-    </div>
-  )
-}
 
-/** The error as the service gave it, to read in full or copy into a bug report. */
-function ErrorDetails({ message }: { message: string }) {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const timer = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(timer)
-  }, [copied])
   return (
-    <div className="overflow-hidden rounded-lg border bg-muted/40">
-      <div className="flex items-center justify-between border-b py-1 pr-1 pl-3 text-xs text-muted-foreground">
-        Details
-        <Button
-          variant="ghost"
-          size="xs"
-          className="text-muted-foreground"
-          onClick={() => void navigator.clipboard.writeText(message).then(() => setCopied(true))}
-        >
-          {copied ? <Check /> : <Copy />} {copied ? "Copied" : "Copy"}
-        </Button>
-      </div>
-      <pre className="max-h-56 overflow-auto p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap text-foreground/90 select-text">
-        {message}
-      </pre>
-    </div>
+    <ErrorPage
+      title={name ? `Couldn't open ${name}` : "Couldn't open the project"}
+      subtitle={
+        folder && (
+          <p className="flex min-w-0 items-center gap-3 text-xs text-muted-foreground">
+            <span className="truncate" title={folder}>
+              {folder}
+            </span>
+            <button
+              type="button"
+              className="shrink-0 underline-offset-2 hover:text-foreground hover:underline"
+              onClick={() => void window.canvasHost.showItem(folder)}
+            >
+              Show in folder
+            </button>
+          </p>
+        )
+      }
+      details={tab.message}
+      actions={<Button onClick={() => void workspace.close(tab.id)}>Close</Button>}
+    />
   )
 }

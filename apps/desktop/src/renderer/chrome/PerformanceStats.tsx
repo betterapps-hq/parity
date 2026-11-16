@@ -27,25 +27,31 @@ function percent(value: number): string {
 
 /** Below 50 frames a second is worth a look, below 30 the app feels slow. */
 function fpsTone(fps: number): string {
-  if (fps < 30) return "text-destructive"
+  if (fps < 30) {
+    return "text-destructive"
+  }
+
   return fps < 50 ? "text-amber-600 dark:text-amber-400" : "text-foreground"
 }
 
 /**
- * Frame rate, memory and CPU in the status bar, turned on from View > Performance stats. Clicking it shows the last
+ * Frame rate, memory and CPU in the status bar, turned on from Help > Developer > Performance stats. Clicking it shows the last
  * minute's frame rate and each process.
  */
 export function PerformanceStats() {
   const [open, setOpen] = useState(false)
   const { latest, history } = usePerformanceStats()
+
   const processes = [...(latest?.processes ?? [])].sort(
     (a, b) => roleOrder.indexOf(a.role) - roleOrder.indexOf(b.role) || b.memory - a.memory
   )
+
   const memory = processes.reduce((sum, process) => sum + process.memory, 0)
   const cpu = processes.reduce((sum, process) => sum + process.cpu, 0)
   const lowest = history.length > 0 ? Math.min(...history) : undefined
 
   const label = latest ? `${latest.fps} fps, ${megabytes(memory)}, ${percent(cpu)} CPU` : "Measuring"
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -87,7 +93,9 @@ export function PerformanceStats() {
         </div>
         <div className="flex flex-col gap-2 border-b px-3 py-2.5">
           <div className="flex items-baseline gap-1.5 tabular-nums">
-            <span className={`text-lg font-semibold ${fpsTone(latest?.fps ?? 60)}`}>{latest?.fps ?? "–"}</span>
+            <span className={`text-base font-semibold tabular-nums ${fpsTone(latest?.fps ?? 60)}`}>
+              {latest?.fps ?? "–"}
+            </span>
             <span className="text-muted-foreground">frames a second</span>
             {lowest !== undefined && (
               <span className="ml-auto text-muted-foreground">lowest {lowest} in the last minute</span>
@@ -125,11 +133,11 @@ export function PerformanceStats() {
             </tr>
           </tbody>
         </table>
-        <p className="border-t px-3 py-2 text-muted-foreground">
+        <p className="border-t px-3 py-2 type-description text-muted-foreground">
           {latest?.heap &&
             `This window's JavaScript uses ${megabytes(latest.heap.used)} of ${megabytes(latest.heap.limit)}. `}
-          CPU is a share of all {navigator.hardwareConcurrency} cores. Each project&apos;s builder is counted, but
-          Storybook and the other servers listed under processes, beside these stats, aren&apos;t.
+          CPU is a share of all {navigator.hardwareConcurrency} cores. Each project&apos;s builder is counted, but the
+          other servers in the processes list aren&apos;t.
         </p>
       </PopoverContent>
     </Popover>
@@ -145,6 +153,7 @@ function FrameRateChart({ history }: { history: number[] }) {
   const y = (fps: number) => height - (fps / top) * (height - 2) - 1
   const points = history.map((fps, index) => `${x(index).toFixed(1)},${y(fps).toFixed(1)}`).join(" ")
   const last = history.at(-1)
+
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-10 w-full overflow-visible" aria-hidden>
       <line x1={0} x2={width} y1={y(60)} y2={y(60)} className="stroke-border" strokeDasharray="3 3" />

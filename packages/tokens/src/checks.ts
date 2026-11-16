@@ -57,15 +57,32 @@ export function valueProblem(
   supports: CssSupports
 ): string | undefined {
   const text = value.trim()
-  if (!text) return "Enter a value."
+
+  if (!text) {
+    return "Enter a value."
+  }
+
   const open = unclosedInValue(text)
-  if (open) return open
+
+  if (open) {
+    return open
+  }
+
   const missing = tokenReferences(text).find((name) => lookup(name) === undefined)
-  if (missing) return `There's no token named ${missing}.`
+
+  if (missing) {
+    return `There's no token named ${missing}.`
+  }
+
   const check = valueChecks[kind]
-  if (!check) return undefined
+
+  if (!check) {
+    return undefined
+  }
+
   const [property, noun, example, wrap] = check
   const resolved = substituteReferences(text, lookup)
+
   return supports(property, wrap ? wrap(resolved) : resolved) ? undefined : `That isn't a ${noun}. Try ${example}.`
 }
 
@@ -80,17 +97,29 @@ export function loopProblem(
   references: (name: string) => readonly string[]
 ): string | undefined {
   for (const start of new Set(tokenReferences(value))) {
-    if (start === self) return `${self} can't be built on itself.`
+    if (start === self) {
+      return `${self} can't be built on itself.`
+    }
+
     const seen = new Set<string>()
     const next = [start]
+
     while (next.length > 0) {
       const name = next.pop()!
-      if (name === self) return `${start} is built on ${self}, so this would loop.`
-      if (seen.has(name)) continue
+
+      if (name === self) {
+        return `${start} is built on ${self}, so this would loop.`
+      }
+
+      if (seen.has(name)) {
+        continue
+      }
+
       seen.add(name)
       next.push(...references(name))
     }
   }
+
   return undefined
 }
 
@@ -99,8 +128,12 @@ export function loopProblem(
  * A theme the token sets no value in has the root's. Nothing for a token there isn't.
  */
 export function builtOn(token: Pick<Token, "values" | "derived"> | undefined, theme: string): string[] {
-  if (!token) return []
+  if (!token) {
+    return []
+  }
+
   const built = tokenReferences(token.values[theme] ?? token.values.default ?? "")
+
   return token.derived ? [token.derived.from, ...built] : built
 }
 
@@ -136,12 +169,17 @@ export function checkTokenEdit(edit: TokenEdit): CheckedEdit {
   const { name, kind, values, drafts, lookup, references, supports } = edit
   const problems: Record<string, string | undefined> = {}
   const changes: Record<string, string> = {}
+
   for (const [theme, draft] of Object.entries(drafts)) {
     problems[theme] =
       loopProblem(name, draft, (other) => references(other, theme)) ??
       valueProblem(kind, draft, (other) => lookup(other, theme), supports)
     const value = draft.trim()
-    if (value !== values[theme]) changes[theme] = value
+
+    if (value !== values[theme]) {
+      changes[theme] = value
+    }
   }
+
   return { problems, changes, valid: Object.values(problems).every((problem) => !problem) }
 }

@@ -6,47 +6,80 @@
 //        pnpm dev:prod [project-root]  the window on React's production build, which is faster, but where a change to
 //                                      a component reloads the page (scripts/react-build.ts); it passes --react production
 //   PARITY_STANDARD_ELECTRON=1  run Electron as installed, not Parity's copy of it (scripts/parity-electron.ts)
+//   PARITY_ROOM=1               open the project in a live room with every other copy started this way, on Loro
+//                               (scripts/dev-room.ts); PARITY_ROOM_NAME names this copy's cursor
 import { type ChildProcess, spawn } from "node:child_process"
-import { cpSync } from "node:fs"
+import { cpSync, existsSync, readFileSync } from "node:fs"
 import { join, resolve } from "node:path"
+import { parseEnv } from "node:util"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
-import { parityElectron } from "./parity-electron.ts"
+import { currentCommit } from "../../../scripts/commit.ts"
+import { print } from "../../../scripts/output.ts"
+import { startRoomRelay } from "./dev-room.ts"
+import { installedElectron, parityElectron } from "./parity-electron.ts"
 import { reactFlag, reactProductionMode } from "./react-build.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
 const repoDir = resolve(appDir, "../..")
+
 // A second copy of the app, such as the one `pnpm perf` starts, bundles into its own folder: Electron restarts the
 // service whenever the bundle beside it changes, and the other copy's builds would do that too.
 const uiPort = process.env.PARITY_UI_PORT ?? "5310"
 const outDir = uiPort === "5310" ? join(appDir, "out") : join(appDir, "out", uiPort)
+
 // Frozen, the bundles are built once, so edits made meanwhile can't restart a copy being measured.
 const frozen = process.env.PARITY_UI_FROZEN === "1"
 const { build: react, rest: args } = reactFlag(process.argv.slice(2))
 const project = resolve(args[0] ?? process.env.PARITY_PROJECT ?? join(repoDir, "examples/shadcn-vite"))
 const debugPort = process.env.PARITY_DEBUG_PORT ?? "9333"
-const installedElectron = (await import("electron")).default as unknown as string
-const electronPath =
-  process.env.PARITY_STANDARD_ELECTRON === "1" ? installedElectron : parityElectron(installedElectron)
 
-console.log(`[dev] React's ${react} build`)
+const electronPath =
+  process.env.PARITY_STANDARD_ELECTRON === "1" ? installedElectron() : parityElectron(installedElectron())
+
+print(`[dev] React's ${react} build`)
+
+// A live room: the window reads where the relay is from Vite's environment, so it's set before the UI server starts.
+if (process.env.PARITY_ROOM === "1") {
+  const roomPort = Number(process.env.PARITY_ROOM_PORT ?? "5390")
+  const relay = await startRoomRelay(roomPort)
+  process.env.VITE_PARITY_ROOM = `http://127.0.0.1:${roomPort}`
+
+  // The name on this copy's cursor; without one, the signed-in person's first name.
+  if (process.env.PARITY_ROOM_NAME) {
+    process.env.VITE_PARITY_ROOM_NAME = process.env.PARITY_ROOM_NAME
+  }
+
+  print(
+    `[dev] live room ${process.env.VITE_PARITY_ROOM} (${relay === "started" ? "relay started here" : "another copy's relay"})`
+  )
+}
 
 // The UI's Vite config gives the window React's production build in this mode, and the development build otherwise.
 const ui = await createServer({
   configFile: join(appDir, "vite.config.ts"),
   root: join(appDir, "src/renderer"),
-  ...(react === "production" ? { mode: reactProductionMode } : {})
+  // Unset for the development build, which leaves Vite's own mode.
+  mode: react === "production" ? reactProductionMode : undefined
 })
+
 await ui.listen()
+
 const rendererUrl = ui.resolvedUrls?.local[0]
-if (!rendererUrl) throw new Error("The canvas UI dev server did not report a URL")
+
+if (!rendererUrl) {
+  throw new Error("The canvas UI dev server did not report a URL")
+}
 
 // Workspace packages are TypeScript sources, so they are bundled; everything else loads from node_modules.
 const externalizeDependencies: Plugin = {
   name: "externalize-dependencies",
   setup(build) {
     build.onResolve({ filter: /^[^./]/ }, (args) => {
-      if (args.kind === "entry-point" || args.path.startsWith("@parity-app/")) return undefined
+      if (args.kind === "entry-point" || args.path.startsWith("@parity-app/")) {
+        return undefined
+      }
+
       return { path: args.path, external: true }
     })
   }
@@ -62,13 +95,23 @@ function onBuilt(restart: boolean): Plugin {
     name: "start-electron",
     setup(build) {
       build.onEnd((result) => {
-        if (result.errors.length > 0) return
-        if (pendingBuilds > 0) {
-          pendingBuilds--
-          if (pendingBuilds === 0) startElectron()
+        if (result.errors.length > 0) {
           return
         }
-        if (restart) restartElectron()
+
+        if (pendingBuilds > 0) {
+          pendingBuilds--
+
+          if (pendingBuilds === 0) {
+            startElectron()
+          }
+
+          return
+        }
+
+        if (restart) {
+          restartElectron()
+        }
       })
     }
   }
@@ -89,7 +132,7 @@ cpSync(join(appDir, "resources"), join(outDir, "resources"), { recursive: true }
 const builds: BuildContext[] = [
   await context({
     ...shared,
-    entryPoints: { main: join(appDir, "src/main/index.ts") },
+    entryPoints: { main: join(appDir, "src/main/index.ts"), "hang-watch": join(appDir, "src/main/hang-watch.ts") },
     format: "esm",
     outExtension: { ".js": ".mjs" },
     plugins: [externalizeDependencies, onBuilt(true)]
@@ -100,7 +143,21 @@ const builds: BuildContext[] = [
     entryPoints: {
       utility: join(appDir, "src/utility/index.ts"),
       "props-worker": join(appDir, "src/utility/props-worker.ts"),
-      "builder-process": join(appDir, "src/utility/builder-process.ts")
+      "builder-process": join(appDir, "src/utility/builder-process.ts"),
+      "extension-host": join(appDir, "src/utility/extension-host.ts"),
+      // Parity's own extensions, which a host loads only when one activates.
+      "extensions/react": join(appDir, "../../packages/extension-react/src/extension.ts"),
+      "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts"),
+      "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts"),
+      "extensions/tailwind": join(appDir, "../../packages/extension-tailwind/src/extension.ts"),
+      "extensions/vite": join(appDir, "../../packages/extension-vite/src/extension.ts"),
+      "extensions/rspack": join(appDir, "../../packages/extension-rspack/src/extension.ts"),
+      "extensions/rsbuild": join(appDir, "../../packages/extension-rsbuild/src/extension.ts"),
+      "extensions/turbopack": join(appDir, "../../packages/extension-turbopack/src/extension.ts"),
+      "extensions/webpack": join(appDir, "../../packages/extension-webpack/src/extension.ts"),
+      "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts"),
+      "extensions/react-router": join(appDir, "../../packages/extension-react-router/src/extension.ts"),
+      "extensions/portless": join(appDir, "../../packages/extension-portless/src/extension.ts")
     },
     format: "esm",
     outExtension: { ".js": ".mjs" },
@@ -108,36 +165,73 @@ const builds: BuildContext[] = [
   }),
   await context({
     ...shared,
-    entryPoints: { preload: join(appDir, "src/preload/index.ts") },
+    entryPoints: {
+      preload: join(appDir, "src/preload/index.ts"),
+      "render-preload": join(appDir, "src/preload/render.ts")
+    },
     format: "cjs",
     outExtension: { ".js": ".cjs" },
     plugins: [externalizeDependencies, onBuilt(true)]
   })
 ]
 
+/**
+ * Connectors' keys from `.env.local` beside the app, which Git ignores, for main (PAR-829): every `PARITY_` variable
+ * ending in `_KEY`, so a new connector needs nothing here. Main reads only the ones its connectors name. Vite reads the
+ * same file for the window but passes on only `VITE_` settings, so the keys never reach a page. One set in the shell
+ * wins.
+ */
+function connectorKeys(): NodeJS.ProcessEnv {
+  const file = join(appDir, ".env.local")
+
+  if (!existsSync(file)) {
+    return {}
+  }
+
+  const set = Object.entries(parseEnv(readFileSync(file, "utf8")))
+
+  return Object.fromEntries(set.filter(([name, value]) => /^PARITY_\w+_KEY$/i.test(name) && value?.trim()))
+}
+
 function startElectron(): void {
   const env: NodeJS.ProcessEnv = {
+    ...connectorKeys(),
     ...process.env,
     PARITY_RENDERER_URL: rendererUrl,
     PARITY_PROJECT: project,
     PARITY_DEBUG_PORT: debugPort,
-    PARITY_DEV_RUNNER: String(process.pid)
+    PARITY_DEV_RUNNER: String(process.pid),
+    // Names this copy's Sentry release by the commit it runs (PAR-625).
+    PARITY_COMMIT: currentCommit(appDir),
+    // Stacks name the source files and lines, read from the bundles' source maps, so a development copy's errors reach
+    // Sentry resolved without uploading anything. A frozen copy, which `pnpm perf` measures, skips the cost of reading
+    // every map as its modules load.
+    NODE_OPTIONS: frozen
+      ? process.env.NODE_OPTIONS
+      : [process.env.NODE_OPTIONS, "--enable-source-maps"].filter(Boolean).join(" ")
   }
+
   delete env.ELECTRON_RUN_AS_NODE
-  console.log(`[dev] canvas UI ${rendererUrl}`)
-  console.log(`[dev] project ${project}`)
-  console.log(`[dev] DevTools protocol on port ${debugPort}`)
+  print(`[dev] canvas UI ${rendererUrl}`)
+  print(`[dev] project ${project}`)
+  print(`[dev] DevTools protocol on port ${debugPort}`)
   electron = spawn(electronPath, [uiPort === "5310" ? appDir : join(outDir, "main.mjs")], { stdio: "inherit", env })
   electron.on("exit", () => {
-    if (restarting) return
+    if (restarting) {
+      return
+    }
+
     void shutdown()
   })
 }
 
 function restartElectron(): void {
   // Both builds can finish together after one change; a second restart would start a second Electron.
-  if (!electron || restarting) return
-  console.log("[dev] main process or preload changed, restarting Electron")
+  if (!electron || restarting) {
+    return
+  }
+
+  print("[dev] main process or preload changed, restarting Electron")
   restarting = true
   electron.once("exit", () => {
     restarting = false

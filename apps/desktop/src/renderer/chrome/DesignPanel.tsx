@@ -1,33 +1,39 @@
-import {
-  Badge,
-  Button,
-  Input,
-  Label,
-  RadioGroup,
-  RadioGroupItem,
-  Switch,
-  ToggleGroup,
-  ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
-import type { ContainerKind } from "@parity-app/core"
-import { kindName, kindTitle, selectionKey } from "@parity-app/editor"
+import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
+import { updateNote } from "@parity-app/multiplayer"
 import { Crown, MousePointerClick } from "lucide-react"
+import type { ComponentType, ReactNode } from "react"
+import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { containerModes, modeNames, withMainMode } from "../canvas/view.ts"
-import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../design-store.ts"
+import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
+import { pickedStory, screensLook, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
+import { containerModes } from "../canvas/view.ts"
+import { useComponents } from "../components-store.ts"
+import { useExtensions } from "../extensions.ts"
+import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
+import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
-import { ComponentsSection, ParamsSection } from "./ComponentsSection.tsx"
-import { setDesignKind } from "./designs.ts"
+import { ApiRoutePanel, selectedApiRoute, useProjectRoutes } from "./ApiRoutes.tsx"
+import { componentOffers, pageOffers } from "./command-offers.ts"
+import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
+import { ComponentsSection } from "./ComponentsSection.tsx"
 import { ExportSection } from "./ExportSection.tsx"
-import { FieldTarget, FirstStateName } from "./fields.tsx"
+import { ExtensionSections } from "./ExtensionTabs.tsx"
 import { Hint } from "./Hint.tsx"
 import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
+import { Name } from "./Name.tsx"
+import { NodePanel } from "./NodePanel.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
-import { StatesSection } from "./StatesSection.tsx"
+import { readFromCode, writesProps } from "./read-from-code.ts"
+import { ReferencePanel } from "./ReferencePanel.tsx"
+import { PageGroupPanel, RouteProps, RouteSection } from "./RoutePanel.tsx"
+import { useLayer } from "./selected-layer.ts"
+import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
+import { TriedSize } from "./TriedSize.tsx"
 import { ModeViewportIcon } from "./viewports.tsx"
 
 /**
@@ -35,103 +41,254 @@ import { ModeViewportIcon } from "./viewports.tsx"
  * edit the selection, so a run of Up and Down presses in one ends when the selection changes.
  */
 export function DesignTab() {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  return (
+    <DesignTabFields>
+      <SelectedPanel />
+    </DesignTabFields>
+  )
+}
+
+/**
+ * What every section in the Design tab reads beside the selection: which selection its fields edit, and the first
+ * state's name. A story drawing one section alone puts it in this.
+ */
+export function DesignTabFields({ children }: { children: ReactNode }) {
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
+
   return (
     <FieldTarget value={selectionKey(selected)}>
-      <FirstStateName value={entry?.container.states[0]?.name ?? "Default"}>
-        <SelectedPanel />
-      </FirstStateName>
+      <FirstStateName value={entry?.container.states?.[0]?.name ?? "Default"}>{children}</FirstStateName>
     </FieldTarget>
   )
 }
 
 function SelectedPanel() {
-  const { store, selection } = useProject()
+  const session = useProject()
+  const { id, selection } = session
   const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
-  if (selected.note) return <NotePanel noteKey={selected.note} />
+  const entry = useContainerEntry(session, selected.design)
+  const pickedGroup = selectedPageGroup(id, selected)
+  // A layout group isn't a design: the selection holds its route by ref.
+  const group = routePageGroups(id).find(({ key }) => key === pickedGroup)
+  // Nor is an API route, which draws nothing (PAR-1174).
+  const api = selectedApiRoute(useProjectRoutes(session), selected)
+
+  if (selected.note) {
+    return <NotePanel noteKey={selected.note} />
+  }
+
+  if (selected.reference) {
+    return <ReferencePanel referenceKey={selected.reference} />
+  }
+
+  if (group) {
+    return <PageGroupPanel group={group} />
+  }
+
+  if (api) {
+    return <ApiRoutePanel route={api} />
+  }
+
+  const node = selected.refs?.at(-1)
+
+  if (node) {
+    return <NodePanel node={node} />
+  }
+
   if (!entry) {
     return (
-      <div className="flex flex-col items-center gap-2 px-6 py-12 text-center text-sm text-muted-foreground">
+      <div className="type-empty flex flex-col items-center gap-2 px-6 py-12 text-center text-muted-foreground">
         <MousePointerClick className="size-5" />
         Select a screen, component or frame on the canvas or in Layers.
-        <span className="text-xs">Click inside one to select a layer, and double-click to go deeper.</span>
+        {/* A non-breaking hyphen, so the balanced hint never breaks "double-click" across its lines. */}
+        <span className="text-xs">Click inside one to select a layer, and double‑click to go deeper.</span>
       </div>
     )
   }
+
   if (selected.nodes && selected.nodes.length > 1) {
     // Another set of layers starts its fields afresh, as another layer does, rather than keeping what was typed.
     return <MultiLayerPanel key={selected.nodes.join(",")} entry={entry} ids={selected.nodes} />
   }
-  if (selected.designs && selected.designs.length > 1) return <ArrangePanel keys={selected.designs} />
-  if (selected.node) return <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+
+  if (selected.designs && selected.designs.length > 1) {
+    return <ArrangePanel keys={selected.designs} />
+  }
+
+  if (selected.node) {
+    const panel = <LayerPanel key={selected.node} entry={entry} nodeId={selected.node} />
+
+    // A story's layers can be dragged to another size, to see how it responds, which is put back from here.
+    const tried = entry.path === storyScreensFile && <TriedSize entry={entry} />
+
+    // A layer of a page, a component's board or a story is read from the project's code: its values show, and nothing
+    // edits them.
+    return readFromCode(entry.path) && !writesProps(entry.path, selected.node) ? (
+      <>
+        <fieldset disabled className="contents">
+          {panel}
+        </fieldset>
+        {tried}
+      </>
+    ) : (
+      <>
+        {panel}
+        {tried}
+      </>
+    )
+  }
+
   return <DesignPanel entry={entry} />
 }
 
-/** The kinds a design can be, lightest first, as the kind switch lists them. */
-const kinds: readonly ContainerKind[] = ["frame", "component", "screen"]
-
+/** A whole design's sections, as `panelParts` picks them from what it can do (PAR-1032). */
 function DesignPanel({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
-  const { store } = session
-  const settings = useModeSettings(store)
-  const { container, key } = entry
+  const components = useComponents(session.components)
+  const can = designCapabilities(entry.container, (component) => components[component]?.takesStyle)
+  // A page of the app (PAR-1076): its header, its path params as props, its route and Export; nothing of it is designed.
+  const route = routePageRoute(session.id, entry.container.id)
+
+  if (route !== undefined) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <RouteProps entry={entry} route={route} />
+        <RouteSection route={route} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
+  // A story: its header, the props it draws its component with, which are its args, and Export.
+  if (entry.path === storyScreensFile) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <StoryProps entry={entry} />
+        <TriedSize entry={entry} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
+  // One of the project's components on its board: its header, what its code says of it, and Export.
+  const component = boardComponent(session.id, entry.container.id)
+
+  if (component !== undefined) {
+    return (
+      <>
+        <DesignHeader entry={entry} />
+        <ComponentSourceSection component={component} />
+        <ExtensionSections selected={{ nodeType: "component", target: { type: "component", key: component } }} />
+        <DesignExport entry={entry} />
+      </>
+    )
+  }
+
+  return panelParts(can).map((section) => {
+    const Section = designSections[section]
+
+    return Section && <Section key={section} entry={entry} />
+  })
+}
+
+/**
+ * The picked story's args, as the props of the layer that draws it, which edits write back to its file: the story of
+ * the preview picked last, else the one its board shows.
+ */
+function StoryProps({ entry }: { entry: ContainerEntry }) {
+  const session = useProject()
+  const selection = useSelection(session.selection)
+  const story = pickedStory(entry.container, selection)
+  const layer = useLayer(entry, story === undefined ? "" : storyLayer(story))
+
+  return layer ? <PropsSection layer={layer} /> : null
+}
+
+/** What draws each of a design's sections; a layer's own, as Content and Attributes, aren't a design's. */
+const designSections: Partial<Record<InspectorSection, ComponentType<{ entry: ContainerEntry }>>> = {
+  header: DesignHeader,
+  props: () => <PropsSection />,
+  components: ComponentsSection,
+  styles: FrameStyles,
+  export: DesignExport
+}
+
+/** Export, for a whole design. */
+function DesignExport({ entry }: { entry: ContainerEntry }) {
+  return (
+    <ExportSection
+      targets={[{ design: entry.key, name: entry.container.name }]}
+      label={`Export ${entry.container.name}`}
+    />
+  )
+}
+
+/** A design's name and kind, and for a frame, the mode it's drawn in and that it isn't written to code. */
+function DesignHeader({ entry }: { entry: ContainerEntry }) {
+  const session = useProject()
+  const { extensions } = useExtensions(session)
+  const settings = useModeSettings(session)
+  const { container } = entry
   const { primary } = containerModes(settings, container)
-  const kind = kindName(container.kind)
+  // A page of the app is its route, read from the app's code rather than saved (PAR-1076).
+  const target = routePageTarget(session.id, container)
+  const page = target !== undefined
+  const component = boardComponent(session.id, container.id)
+  const board = component !== undefined
+  const story = entry.path === storyScreensFile
+  let kind = kindTitle(container.kind)
+  let detail = `${kind}, saved in ${entry.path}`
+
+  if (page) {
+    kind = "Route"
+    detail = "Route, read from the app's router"
+  } else if (board) {
+    kind = "Component"
+    detail = "Component, drawn from the project's code"
+  } else if (story) {
+    // Named as its provider's manifest calls its states, read from that tool's file (PAR-1131).
+    const look = screensLook(session.info, container.id)
+    const one = look?.states.one ?? "story"
+    kind = one[0]!.toUpperCase() + one.slice(1)
+    detail = `${kind}, read from its ${look?.name ?? "tool's"} file`
+  }
 
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2">
-          <DesignIcon
-            kind={container.kind}
-            className="size-4 shrink-0"
-            style={{ color: designColor(container.kind) }}
-          />
-          <Input
-            key={container.name}
-            defaultValue={container.name}
-            aria-label={`${kindTitle(container.kind)} name`}
-            className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
-            onBlur={(event) => {
-              const name = event.currentTarget.value.trim()
-              if (name && name !== container.name) {
-                store.updateContainer(key, `Rename ${kind}`, (current) => ({ ...current, name }))
-              }
-            }}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") event.currentTarget.blur()
-            }}
-          />
-        </div>
-        <div className="mt-2 flex items-center gap-2 pl-6">
-          <ToggleGroup
-            variant="outline"
-            size="sm"
-            spacing={0}
-            value={[container.kind ?? "screen"]}
-            aria-label="Kind"
-            onValueChange={([value]) => {
-              const picked = kinds.find((each) => each === value)
-              if (picked) setDesignKind(session, entry, picked)
-            }}
-          >
-            {kinds.map((each) => (
-              <ToggleGroupItem key={each} value={each} className="h-6 px-2 text-xs">
-                {kindTitle(each)}
-              </ToggleGroupItem>
-            ))}
-          </ToggleGroup>
-          <Hint label={entry.path} wait>
-            <Badge variant="outline" className="min-w-0 shrink justify-start font-normal">
-              <span className="truncate">{entry.path}</span>
-            </Badge>
-          </Hint>
-        </div>
-        {container.kind === "frame" && (
-          <div className="mt-2 flex flex-col gap-2 pl-6">
+        <SelectionHeading
+          icon={
+            <DesignIcon
+              kind={board ? "component" : container.kind}
+              route={page}
+              story={story}
+              className={headingIcon}
+            />
+          }
+          color={designColor(board ? "component" : container.kind)}
+          kind={kind}
+          detail={detail}
+          action={
+            // What the project's extensions offer for a board's component or for a page, as Open in browser.
+            (board || target) && (
+              <HeaderActions
+                offers={
+                  target
+                    ? pageOffers(target.route, { session, extensions, placement: "selectionHeading" })
+                    : componentOffers(component, { session, extensions, placement: "selectionHeading" })
+                }
+                page={target !== undefined}
+              />
+            )
+          }
+          name={<Name className={`px-1.5 ${headingName}`}>{container.name}</Name>}
+        />
+        {container.kind === "frame" && !board && !story && (
+          <div className="mt-2 flex flex-col gap-2 pl-1.5">
             <Hint label="Frames are drawn in the project's primary mode" wait>
               <span className="flex w-fit items-center gap-1.5 text-xs text-muted-foreground">
                 <Crown className="size-3 shrink-0 text-amber-400" aria-hidden />
@@ -139,16 +296,12 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
                 Drawn in {primary.name}
               </span>
             </Hint>
-            <p className="text-xs text-muted-foreground">
+            <p className="type-description text-muted-foreground">
               A frame isn&apos;t written to code. Convert it to a component or a screen to use it in your app.
             </p>
           </div>
         )}
       </div>
-
-      {container.kind === "frame" ? <FrameStyles entry={entry} /> : <ScreenOrComponentSections entry={entry} />}
-
-      <ExportSection targets={[{ design: key, name: container.name }]} label={`Export ${container.name}`} />
     </>
   )
 }
@@ -159,114 +312,18 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
  */
 function FrameStyles({ entry }: { entry: ContainerEntry }) {
   const editor = useStyleEditor(entry, [entry.container.root.id])
-  return editor ? <StyleSections editor={editor} node={entry.container.root} /> : null
-}
 
-/** A screen's or component's states, params or components, and the modes it shows. */
-function ScreenOrComponentSections({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
-  const settings = useModeSettings(store)
-  const selected = useSelection(selection)
-  const { container, key } = entry
-  const { primary, all } = containerModes(settings, container)
-  const shown = new Set(container.view?.modes ?? [])
-  const kind = kindName(container.kind)
-  const setModes = (modes: string[]) =>
-    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
-
-  return (
-    <>
-      <StatesSection entry={entry} />
-      {container.kind === "component" ? <ParamsSection entry={entry} /> : <ComponentsSection entry={entry} />}
-
-      <PanelSection
-        title="Modes"
-        description={`Pick the mode this ${kind} shows first. Turn others on to see them beside it. Edit modes in the Modes tab.`}
-      >
-        <RadioGroup
-          value={primary.id}
-          onValueChange={(mode) =>
-            store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
-          }
-          className="gap-0.5"
-          aria-label="Shown first"
-        >
-          {all.map((mode, index) => {
-            const isMain = mode.id === primary.id
-            const isSelected = selected.mode === mode.id
-            return (
-              <div
-                key={mode.id}
-                className={`flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-accent/50 ${
-                  isSelected ? "bg-accent/60" : ""
-                }`}
-              >
-                <RadioGroupItem value={mode.id} id={`main-${mode.id}`} aria-label={`Show in ${mode.name}`} />
-                <Label
-                  htmlFor={`main-${mode.id}`}
-                  className="flex min-w-0 flex-1 cursor-pointer flex-col items-start gap-0 font-normal"
-                >
-                  <span className="flex items-center gap-1.5 text-sm">
-                    <ModeViewportIcon of={mode} className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                    <span className="truncate">{mode.name}</span>
-                    {index === 0 && <Crown className="size-3 shrink-0 text-amber-400" aria-label="Project primary" />}
-                  </span>
-                  <span className="flex flex-wrap gap-1 pt-0.5">
-                    <OptionChip>{mode.width}px</OptionChip>
-                    {mode.options.slice(1).map(({ variable, option }) => (
-                      <OptionChip key={variable.id}>{option.name}</OptionChip>
-                    ))}
-                  </span>
-                </Label>
-                {isMain ? (
-                  <span className="text-xs whitespace-nowrap text-muted-foreground">Shown first</span>
-                ) : (
-                  <Hint label="Show beside the first preview">
-                    <span className="inline-flex">
-                      <Switch
-                        size="sm"
-                        aria-label={`Show ${mode.name} beside it`}
-                        checked={shown.has(mode.id)}
-                        onCheckedChange={(on) =>
-                          setModes(
-                            all
-                              .filter((m) => !(m.id === primary.id) && (m.id === mode.id ? on : shown.has(m.id)))
-                              .map((m) => m.id)
-                          )
-                        }
-                      />
-                    </span>
-                  </Hint>
-                )}
-              </div>
-            )
-          })}
-        </RadioGroup>
-        <div className="mt-3 flex gap-2 px-1">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setModes(all.filter((mode) => mode.id !== primary.id).map((mode) => mode.id))}
-          >
-            Show all
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => setModes([])}>
-            Only {primary.name}
-          </Button>
-        </div>
-      </PanelSection>
-    </>
-  )
-}
-
-function OptionChip({ children }: { children: React.ReactNode }) {
-  return <span className="rounded bg-muted px-1.5 py-px text-[11px] text-muted-foreground">{children}</span>
+  return editor ? <StyleSections editor={editor} container={entry.container} /> : null
 }
 
 function NotePanel({ noteKey }: { noteKey: string }) {
-  const { store } = useProject()
-  const note = useNotes(store).find((entry) => entry.key === noteKey)
-  if (!note) return null
+  const session = useProject()
+  const note = useNotes(session).find((entry) => entry.key === noteKey)
+
+  if (!note) {
+    return null
+  }
+
   return (
     <PanelSection title="Text on the canvas">
       <textarea
@@ -275,15 +332,16 @@ function NotePanel({ noteKey }: { noteKey: string }) {
         rows={5}
         onBlur={(event) => {
           const text = event.currentTarget.value
+
           if (text !== note.note.text) {
-            store.updateNote(noteKey, text.trim() ? "Edit text" : "Delete text", (current) =>
+            updateNote(session.doc, noteKey, text.trim() ? "Edit text" : "Delete text", (current) =>
               text.trim() ? { ...current, text } : undefined
             )
           }
         }}
         className="w-full resize-y rounded-md border border-input bg-transparent px-2.5 py-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 dark:bg-input/30"
       />
-      <p className="mt-2 px-1 text-xs text-muted-foreground">
+      <p className="type-description mt-2 px-1 text-muted-foreground">
         Saved in {note.path}. Double-click it on the canvas to edit in place.
       </p>
     </PanelSection>

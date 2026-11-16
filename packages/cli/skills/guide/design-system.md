@@ -5,7 +5,7 @@ around them. A design that only uses the system's pieces is one the code can bui
 
 ## Spacing
 
-Spacing is a scale of steps (`4` is 1rem in a default Tailwind project). Use a few steps consistently:
+Spacing is a scale of steps (`{ step: 4 }` is 1rem in a default Tailwind project). Use a few steps consistently:
 
 | Between                                      | Steps   |
 | -------------------------------------------- | ------- |

@@ -11,6 +11,7 @@ export const refreshLead = 60_000
 export function refreshDelay(token: AccessToken, now: number): number {
   const lifetime = token.issuedAt === undefined ? Infinity : token.expiresAt - token.issuedAt
   const at = token.expiresAt - Math.min(refreshLead, lifetime / 2)
+
   return Math.max(0, at - now)
 }
 

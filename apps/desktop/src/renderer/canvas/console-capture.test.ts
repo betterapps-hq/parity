@@ -11,10 +11,12 @@ function fakeWindow() {
   const written: string[] = []
   const listeners = new Map<string, (event: Event) => void>()
   const later: (() => void)[] = []
+
   const write =
     (level: string) =>
     (...args: unknown[]) =>
       written.push(`${level} ${args.join(" ")}`)
+
   const target: CaptureTarget = {
     console: {
       log: write("log"),
@@ -26,23 +28,30 @@ function fakeWindow() {
     addEventListener: (type, listener) => listeners.set(type, listener),
     setTimeout: (run) => later.push(run)
   }
+
   const dispatch = (type: string, path: object[]) =>
-    listeners.get(type)!({ composedPath: () => path } as unknown as Event)
+    // SAFETY: the capture reads only an event's path.
+    listeners.get(type)!({ composedPath: () => path } as never)
+
   const endTask = () => later.splice(0).forEach((run) => run())
+
   return { target, written, dispatch, endTask }
 }
 
 describe("which frame a console message comes from", () => {
   it("is the frame an event's path goes through, by its design, state and mode", () => {
-    expect(frameContext([button, host, { dataset: {} }] as unknown as EventTarget[])).toEqual({
+    // SAFETY: frameContext reads only each target's dataset, as these stand-ins have one or don't.
+    expect(frameContext([button, host, { dataset: {} }] as never)).toEqual({
       design: "app.par#pricing",
       state: "yearly",
       mode: "desktop-light"
     })
     // The board around frames is marked with its design too, but isn't a frame.
-    expect(frameContext([{ dataset: { design: "app.par#pricing" } }] as unknown as EventTarget[])).toBeUndefined()
+    // SAFETY: as above.
+    expect(frameContext([{ dataset: { design: "app.par#pricing" } }] as never)).toBeUndefined()
     // The window and the document have no dataset.
-    expect(frameContext([{}] as unknown as EventTarget[])).toBeUndefined()
+    // SAFETY: as above.
+    expect(frameContext([{}] as never)).toBeUndefined()
   })
 
   it("is announced before each message written while a frame handles an event, and not after its task", () => {
@@ -71,6 +80,7 @@ describe("which frame a console message comes from", () => {
       "    at onClick (http://127.0.0.1:5173/src/member-row.tsx?t=17:9:58)",
       "    at http://127.0.0.1:5173/node_modules/.vite/deps/react-dom.js:120:9"
     ].join("\n")
+
     expect(callSite(stack)).toEqual({ source: "http://127.0.0.1:5173/src/member-row.tsx?t=17", line: 9 })
     // Parity's own call has none, so the console's own source stands.
     expect(callSite(stack.split("\n").slice(0, 3).join("\n"))).toBeUndefined()

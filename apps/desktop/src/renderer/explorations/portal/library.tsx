@@ -5,7 +5,6 @@ import { Button } from "@buildkitgg/shadcn-baseui-kit"
  * project can be updated from here or handed to an agent.
  */
 import { Bot, Check, ChevronRight, Package, RefreshCw } from "lucide-react"
-import type { ReactNode } from "react"
 import { people } from "../explore-data.ts"
 import { Avatar } from "../parts.tsx"
 import { deliverables } from "./boards.ts"
@@ -20,88 +19,90 @@ const ink = "oklch(0.25 0.03 280)"
 const accent = "oklch(0.58 0.2 280)"
 
 /** A component as a small picture of itself. */
-const previews: Record<string, ReactNode> = {
-  Button: (
-    <span className="flex gap-2">
-      <span className="rounded-md px-3 py-1.5 text-[11px] font-medium text-white" style={{ background: accent }}>
-        Save
+const previews = new Map(
+  Object.entries({
+    Button: (
+      <span className="flex gap-2">
+        <span className="rounded-md px-3 py-1.5 text-[11px] font-medium text-white" style={{ background: accent }}>
+          Save
+        </span>
+        <span className="rounded-md border border-black/15 px-3 py-1.5 text-[11px] font-medium" style={{ color: ink }}>
+          Cancel
+        </span>
       </span>
-      <span className="rounded-md border border-black/15 px-3 py-1.5 text-[11px] font-medium" style={{ color: ink }}>
-        Cancel
+    ),
+    Toggle: (
+      <span className="flex items-center gap-3">
+        <span className="flex h-5 w-9 items-center justify-end rounded-full p-0.5" style={{ background: accent }}>
+          <span className="size-4 rounded-full bg-white shadow" />
+        </span>
+        <span className="flex h-5 w-9 items-center rounded-full bg-black/15 p-0.5">
+          <span className="size-4 rounded-full bg-white shadow" />
+        </span>
+        <span className="flex h-4 w-7 items-center justify-end rounded-full p-0.5" style={{ background: accent }}>
+          <span className="size-3 rounded-full bg-white shadow" />
+        </span>
       </span>
-    </span>
-  ),
-  Toggle: (
-    <span className="flex items-center gap-3">
-      <span className="flex h-5 w-9 items-center justify-end rounded-full p-0.5" style={{ background: accent }}>
-        <span className="size-4 rounded-full bg-white shadow" />
+    ),
+    Menu: (
+      <span
+        className="flex w-28 flex-col gap-0.5 rounded-md border border-black/10 bg-white p-1 text-[10px] shadow-md"
+        style={{ color: ink }}
+      >
+        <span className="rounded px-1.5 py-0.5" style={{ background: "oklch(0.95 0.02 280)" }}>
+          Rename
+        </span>
+        <span className="px-1.5 py-0.5">Duplicate</span>
+        <span className="px-1.5 py-0.5 text-[oklch(0.55_0.2_25)]">Delete</span>
       </span>
-      <span className="flex h-5 w-9 items-center rounded-full bg-black/15 p-0.5">
-        <span className="size-4 rounded-full bg-white shadow" />
+    ),
+    Input: (
+      <span className="flex w-32 items-center rounded-md border border-black/15 bg-white px-2 py-1.5 text-[10px] text-black/40">
+        name@kestrel.dev
       </span>
-      <span className="flex h-4 w-7 items-center justify-end rounded-full p-0.5" style={{ background: accent }}>
-        <span className="size-3 rounded-full bg-white shadow" />
+    ),
+    Badge: (
+      <span className="flex gap-1.5 text-[10px] font-medium">
+        <span className="rounded-full px-2 py-0.5 text-white" style={{ background: accent }}>
+          New
+        </span>
+        <span className="rounded-full bg-black/10 px-2 py-0.5" style={{ color: ink }}>
+          Draft
+        </span>
       </span>
-    </span>
-  ),
-  Menu: (
-    <span
-      className="flex w-28 flex-col gap-0.5 rounded-md border border-black/10 bg-white p-1 text-[10px] shadow-md"
-      style={{ color: ink }}
-    >
-      <span className="rounded px-1.5 py-0.5" style={{ background: "oklch(0.95 0.02 280)" }}>
-        Rename
+    ),
+    Tabs: (
+      <span className="flex rounded-md bg-black/10 p-0.5 text-[10px]" style={{ color: ink }}>
+        <span className="rounded bg-white px-2 py-0.5 shadow-sm">Week</span>
+        <span className="px-2 py-0.5">Month</span>
+        <span className="px-2 py-0.5">Year</span>
       </span>
-      <span className="px-1.5 py-0.5">Duplicate</span>
-      <span className="px-1.5 py-0.5 text-[oklch(0.55_0.2_25)]">Delete</span>
-    </span>
-  ),
-  Input: (
-    <span className="flex w-32 items-center rounded-md border border-black/15 bg-white px-2 py-1.5 text-[10px] text-black/40">
-      name@kestrel.dev
-    </span>
-  ),
-  Badge: (
-    <span className="flex gap-1.5 text-[10px] font-medium">
-      <span className="rounded-full px-2 py-0.5 text-white" style={{ background: accent }}>
-        New
+    ),
+    Avatar: (
+      <span className="flex -space-x-1.5">
+        {[25, 160, 280].map((hue) => (
+          <span
+            key={hue}
+            className="size-6 rounded-full ring-2 ring-white"
+            style={{ background: `oklch(0.7 0.13 ${hue})` }}
+          />
+        ))}
       </span>
-      <span className="rounded-full bg-black/10 px-2 py-0.5" style={{ color: ink }}>
-        Draft
+    ),
+    Dialog: (
+      <span className="flex w-32 flex-col gap-1.5 rounded-lg bg-white p-2 shadow-lg ring-1 ring-black/10">
+        <span className="h-1.5 w-16 rounded-full" style={{ background: ink }} />
+        <span className="h-1 w-24 rounded-full bg-black/15" />
+        <span className="ml-auto h-3 w-9 rounded" style={{ background: accent }} />
       </span>
-    </span>
-  ),
-  Tabs: (
-    <span className="flex rounded-md bg-black/10 p-0.5 text-[10px]" style={{ color: ink }}>
-      <span className="rounded bg-white px-2 py-0.5 shadow-sm">Week</span>
-      <span className="px-2 py-0.5">Month</span>
-      <span className="px-2 py-0.5">Year</span>
-    </span>
-  ),
-  Avatar: (
-    <span className="flex -space-x-1.5">
-      {[25, 160, 280].map((hue) => (
-        <span
-          key={hue}
-          className="size-6 rounded-full ring-2 ring-white"
-          style={{ background: `oklch(0.7 0.13 ${hue})` }}
-        />
-      ))}
-    </span>
-  ),
-  Dialog: (
-    <span className="flex w-32 flex-col gap-1.5 rounded-lg bg-white p-2 shadow-lg ring-1 ring-black/10">
-      <span className="h-1.5 w-16 rounded-full" style={{ background: ink }} />
-      <span className="h-1 w-24 rounded-full bg-black/15" />
-      <span className="ml-auto h-3 w-9 rounded" style={{ background: accent }} />
-    </span>
-  ),
-  Tooltip: (
-    <span className="rounded-md px-2 py-1 text-[10px] text-white shadow" style={{ background: ink }}>
-      Copied
-    </span>
-  )
-}
+    ),
+    Tooltip: (
+      <span className="rounded-md px-2 py-1 text-[10px] text-white shadow" style={{ background: ink }}>
+        Copied
+      </span>
+    )
+  })
+)
 
 const components: { name: string; uses: number; changed?: string }[] = [
   { name: "Button", uses: 214, changed: "2.4" },
@@ -120,7 +121,7 @@ const components: { name: string; uses: number; changed?: string }[] = [
  * that Handoff reads. Pricing's BillingToggle is the website's own, so it isn't here.
  */
 const toggleUses = Object.values(
-  Object.values(deliverables)
+  [...deliverables.values()]
     .flatMap((board) =>
       board.parts
         .filter((part) => part.name === "Toggle" && part.library)
@@ -129,15 +130,17 @@ const toggleUses = Object.values(
     .reduce<Record<string, { project: string; version: string; boards: string[] }>>((all, use) => {
       const entry = (all[use.project] ??= { project: use.project, version: use.version, boards: [] })
       entry.boards.push(use.board)
+
       return all
     }, {})
 ).sort((a, b) => b.version.localeCompare(a.version))
 
 function ComponentCard({ name, uses, changed }: { name: string; uses: number; changed?: string }) {
   const picked = name === "Toggle"
+
   return (
     <div className={`flex flex-col gap-2 rounded-xl border bg-card p-2 ${picked ? "ring-2 ring-foreground/40" : ""}`}>
-      <div className="grid h-24 place-items-center rounded-lg bg-[oklch(0.97_0.005_280)]">{previews[name]}</div>
+      <div className="grid h-24 place-items-center rounded-lg bg-[oklch(0.97_0.005_280)]">{previews.get(name)}</div>
       <span className="flex items-center gap-2 px-1 text-sm">
         <span className="font-mono text-[13px]">{name}</span>
         {changed && (
@@ -154,6 +157,7 @@ function ComponentCard({ name, uses, changed }: { name: string; uses: number; ch
 /** The picked component: where it lives, what its last release changed, and which projects are behind. */
 function ToggleDetail() {
   const behind = toggleUses.filter((use) => use.version !== "2.4")
+
   return (
     <aside className="flex w-[24rem] shrink-0 flex-col overflow-y-auto border-l bg-background">
       <section className="flex flex-col gap-3 border-b px-5 py-5">
@@ -164,7 +168,9 @@ function ToggleDetail() {
           </span>
         </span>
         <span className="font-mono text-xs text-muted-foreground">packages/ui/src/toggle.tsx</span>
-        <div className="grid h-28 place-items-center rounded-lg bg-[oklch(0.97_0.005_280)]">{previews.Toggle}</div>
+        <div className="grid h-28 place-items-center rounded-lg bg-[oklch(0.97_0.005_280)]">
+          {previews.get("Toggle")}
+        </div>
         <span className="text-xs text-muted-foreground">
           Props <span className="font-mono text-foreground">checked</span>,{" "}
           <span className="font-mono text-foreground">size</span> <span style={{ color: violet }}>new</span>,{" "}
@@ -180,6 +186,7 @@ function ToggleDetail() {
         {toggleUses.map((use) => {
           const shown = portalProject(use.project)
           const old = use.version !== "2.4"
+
           return (
             <div key={use.project} className="flex items-center gap-3 py-1.5 text-sm">
               <span className="flex min-w-0 flex-1 flex-col">
@@ -218,6 +225,7 @@ function ToggleDetail() {
 
 export function LibraryPage() {
   const library = portalProject("library")
+
   return (
     <PortalPage active="libraries" path="kestrel/libraries/kestrel-ui">
       <div className="flex h-full">

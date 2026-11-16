@@ -8,7 +8,7 @@ import {
   type MeasuredLayer,
   type Point
 } from "@parity-app/editor"
-import type { ContainerEntry } from "../design-store.ts"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { findNodeElement, nodeBox } from "../frame.ts"
 
 /**
@@ -26,14 +26,17 @@ export class DragLayouts {
     const measured: MeasuredLayer[] = []
     walkNodes(root, (node) => {
       const element = node.type === "layout" ? findNodeElement(host, node.id) : undefined
-      measured.push({
-        id: node.id,
-        box: nodeBox(host, node.id),
-        ...(element ? { flow: flowOf(getComputedStyle(element)) } : {})
-      })
+      const layer: MeasuredLayer = { id: node.id, box: nodeBox(host, node.id) }
+
+      if (element) {
+        layer.flow = flowOf(getComputedStyle(element))
+      }
+
+      measured.push(layer)
     })
     const layout = frameLayout(host.getBoundingClientRect(), measured)
     this.frames.set(host, layout)
+
     return layout
   }
 
@@ -68,5 +71,6 @@ export function dropInFrame(
     source,
     ids
   })
+
   return found && { ...found, host }
 }

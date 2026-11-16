@@ -18,24 +18,36 @@ export interface AnatomyCheck {
  */
 export function readAnatomy(docs: ExampleFile[], names: string[]): Map<string, string[][]> {
   const blocks: ExampleFile[] = []
+
   for (const doc of docs) {
     const sections = doc.text.split(/^(?=#{2,3} )/m).filter((section) => /^#{2,3} (?:Anatomy|Usage)\b/.test(section))
+
     for (const section of sections) {
       for (const [index, match] of [...section.matchAll(/```(?:jsx|tsx|js|ts)\b[^\n]*\n([\s\S]*?)```/g)].entries()) {
         const code = match[1]!
           .replace(/^import[\s\S]*?from\s+["'][^"']+["'];?$/gm, "")
           .replace(/^import\s+["'][^"']+["'];?$/gm, "")
           .trim()
-        if (!code.startsWith("<")) continue
+
+        if (!code.startsWith("<")) {
+          continue
+        }
+
         blocks.push({ path: `${doc.path}#${index}`, text: `const anatomy = (<>\n${code}\n</>)` })
       }
     }
   }
+
   const anatomy = new Map<string, string[][]>()
+
   for (const [name, use] of readExamples(blocks, names)) {
     const placed = use.paths.filter((path) => path.length > 0)
-    if (placed.length > 0) anatomy.set(name, placed)
+
+    if (placed.length > 0) {
+      anatomy.set(name, placed)
+    }
   }
+
   return anatomy
 }
 
@@ -49,28 +61,43 @@ export function checkAnatomy(
   list: Record<string, { parents?: string[]; optionalParents?: string[]; visual?: boolean }>
 ): AnatomyCheck {
   const check: AnatomyCheck = { parts: 0, placed: 0, complete: 0, differ: [] }
+
   for (const [name, paths] of anatomy) {
     const entry = list[name]
-    if (!entry || entry.visual === false) continue
+
+    if (!entry || entry.visual === false) {
+      continue
+    }
+
     // Only a part of a family counts: docs nest any component somewhere (a Button in an AlertAction).
     // Portals are left out of chains on purpose (they move content out of the frame), so they aren't counted missing.
     const known = paths
       .map((path) => path.filter((parent) => parent in list && !parent.endsWith("Portal")))
       .filter((path) => path.length > 0 && familyOf(path[0]!) === familyOf(name))
-    if (known.length === 0) continue
+
+    if (known.length === 0) {
+      continue
+    }
+
     check.parts++
     const chain = entry.parents ?? []
     const needed = chain.filter((parent) => !entry.optionalParents?.includes(parent) && !parent.endsWith("Portal"))
+
     const right = known.filter(
       (path) => path.length > 0 && chain.includes(path[0]!) && needed.every((parent) => path.includes(parent))
     )
+
     if (right.length > 0) {
       check.placed++
-      if (right.some((path) => path.every((parent) => chain.includes(parent)))) check.complete++
+
+      if (right.some((path) => path.every((parent) => chain.includes(parent)))) {
+        check.complete++
+      }
     } else {
       const docs = known.find((path) => path.length > 0)!
       check.differ.push({ name, docs: [...docs].reverse(), file: chain })
     }
   }
+
   return check
 }

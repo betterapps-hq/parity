@@ -22,12 +22,14 @@ const partialMs = 60_000
 const dataImage = z
   .string()
   .regex(/^data:image\/(?:webp|png);base64,[\d+/=A-Za-z]+$/, "expected a WebP or PNG as a data URL")
+
 const pictureFrame = z.object({
   src: dataImage,
   mode: z.string(),
   width: finiteNumber.positive(),
   height: finiteNumber.positive()
 })
+
 const keptPicture = jsonText(
   z.object({
     root: z.string(),
@@ -42,15 +44,23 @@ const keptPicture = jsonText(
  */
 export async function storePicture(root: string, picture: ProjectPicture): Promise<ProjectPicture> {
   const kept: ProjectPicture = { taken: picture.taken, screens: await Promise.all(picture.screens.map(cutScreen)) }
-  if (folder) await writeWhole(pictureFile(folder, root), Buffer.from(JSON.stringify({ root, ...kept })))
+
+  if (folder) {
+    await writeWhole(pictureFile(folder, root), Buffer.from(JSON.stringify({ root, ...kept })))
+  }
+
   return kept
 }
 
 /** The pictures kept for these projects, by root. One not kept, or that can't be read, is left out. */
 export async function readPictures(roots: readonly string[]): Promise<Record<string, ProjectPicture>> {
-  if (!folder) return {}
+  if (!folder) {
+    return {}
+  }
+
   const dir = folder
   const read = await Promise.all(roots.map(async (root) => [root, await readPicture(dir, root)] as const))
+
   return Object.fromEntries(read.filter((entry): entry is readonly [string, ProjectPicture] => entry[1] !== undefined))
 }
 
@@ -59,7 +69,10 @@ export async function readPictures(roots: readonly string[]): Promise<Record<str
  * now is left alone.
  */
 export async function keepOnlyPictures(roots: readonly string[]): Promise<void> {
-  if (!folder) return
+  if (!folder) {
+    return
+  }
+
   const dir = folder
   const kept = new Set(roots.map((root) => fileName(root)))
   const names = await readdir(dir).catch((): string[] => [])
@@ -69,10 +82,15 @@ export async function keepOnlyPictures(roots: readonly string[]): Promise<void> 
       .filter((name) => !kept.has(name))
       .map(async (name) => {
         const file = join(dir, name)
+
         if (name.endsWith(".partial")) {
           const { mtimeMs } = await stat(file).catch(() => ({ mtimeMs: now }))
-          if (now - mtimeMs < partialMs) return
+
+          if (now - mtimeMs < partialMs) {
+            return
+          }
         }
+
         await rm(file, { force: true }).catch(() => undefined)
       })
   )
@@ -81,6 +99,7 @@ export async function keepOnlyPictures(roots: readonly string[]): Promise<void> 
 async function readPicture(dir: string, root: string): Promise<ProjectPicture | undefined> {
   try {
     const { root: of, taken, screens } = parseData(keptPicture, await readFile(pictureFile(dir, root), "utf8"))
+
     // Each file says whose it is, so a root never reads another's picture.
     return of === root ? { taken, screens } : undefined
   } catch {
@@ -90,14 +109,20 @@ async function readPicture(dir: string, root: string): Promise<ProjectPicture | 
 
 async function cutScreen(screen: PictureScreen): Promise<PictureScreen> {
   const main = await cutFrame(screen.main)
+
   return screen.phone ? { ...screen, main, phone: await cutFrame(screen.phone) } : { ...screen, main }
 }
 
 /** A frame's bitmap cut to the top of its window; as it was when it's no taller, or sharp can't cut it. */
 async function cutFrame(frame: PictureFrame): Promise<PictureFrame> {
   const data = /^data:image\/(?:webp|png);base64,(.*)$/s.exec(frame.src)?.[1]
-  if (!data) return frame
+
+  if (!data) {
+    return frame
+  }
+
   const top = await topOfPicture(Buffer.from(data, "base64"), frame.height / frame.width).catch(() => undefined)
+
   return top ? { ...frame, src: `data:image/webp;base64,${top.toString("base64")}` } : frame
 }
 

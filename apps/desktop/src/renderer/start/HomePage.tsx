@@ -2,7 +2,9 @@ import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowRight, FileInput, FolderOpen, Inbox } from "lucide-react"
 import { useEffect, useId, useMemo } from "react"
 import { useAccount } from "../account/account.ts"
-import { formatKeys } from "../chrome/keys.ts"
+import { shortcutOf } from "../chrome/keymap.ts"
+import { Name } from "../chrome/Name.tsx"
+import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
 import { useExampleFolder, useKnownProjects } from "../workspace.ts"
 import { examplePicture } from "./example-picture.ts"
 import { ProjectArt } from "./ProjectArt.tsx"
@@ -10,13 +12,14 @@ import { accent } from "./ProjectCard.tsx"
 import { ProjectList } from "./ProjectList.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
 import { StartActionsProvider, useStartActions, workspaceActions } from "./start-actions.ts"
-import { HomeAccountMenu, NewProjectButton, OpenMenu, SearchButton } from "./StartControls.tsx"
+import { NewProjectButton, OpenMenu, SearchButton, WorkspaceMenu } from "./StartControls.tsx"
 import { useNow } from "./use-now.ts"
 
 /** Home, pinned first in the tab strip, with the projects the window remembers and the example when there is one. */
 export function HomePage({ active }: { active: boolean }) {
   const projects = useKnownProjects()
   const example = useExampleFolder()
+
   const actions = useMemo(
     () =>
       example
@@ -24,6 +27,7 @@ export function HomePage({ active }: { active: boolean }) {
         : workspaceActions,
     [example]
   )
+
   return (
     <StartActionsProvider value={actions}>
       <Home projects={projects} active={active} />
@@ -42,12 +46,13 @@ export function Home({ projects, active = true }: { projects: readonly KnownProj
   const { example } = useStartActions()
   const bringYourOwn = !last && !!example
   const side = bringYourOwn || signedIn
+
   return (
     <main hidden={!active} aria-label="Home" className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-4 pt-6 pb-14 sm:px-10">
         <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3">
-          <HomeAccountMenu />
-          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
+          <WorkspaceMenu />
+          <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2 max-sm:w-full">
             <SearchButton />
             <OpenMenu />
             <NewProjectButton />
@@ -77,13 +82,21 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
   const now = useNow()
   const resume = () => actions.open(project.root)
   useEffect(() => {
-    if (!active) return
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Enter" && event.target === document.body && !event.defaultPrevented) resume()
+    if (!active) {
+      return
     }
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Enter" && event.target === document.body && !event.defaultPrevented) {
+        resume()
+      }
+    }
+
     window.addEventListener("keydown", onKey)
+
     return () => window.removeEventListener("keydown", onKey)
   })
+
   return (
     <section
       aria-label="Continue where you left off"
@@ -103,13 +116,15 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
       <div className="flex min-w-0 flex-col items-start gap-3">
         <div className="flex max-w-full flex-col gap-1">
           <span className="text-xs text-muted-foreground">Continue where you left off</span>
-          <h2 className="max-w-full truncate text-lg font-semibold tracking-tight">{project.name}</h2>
+          <h2 className="max-w-full truncate text-lg font-semibold tracking-tight">
+            <Name>{project.name}</Name>
+          </h2>
         </div>
-        <p className="max-w-full text-sm text-pretty wrap-anywhere text-muted-foreground">
+        <p className="max-w-full type-body wrap-anywhere text-muted-foreground">
           {project.opened === undefined ? project.root : `You last opened it ${whenLabel(project.opened, now)}.`}
         </p>
         <Button onClick={resume} aria-label={`Resume ${project.name}`} className="mt-1 gap-2">
-          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">{formatKeys("Enter")}</Kbd>
+          Resume <Kbd className="bg-primary-foreground/10 text-primary-foreground/70">{shortcutOf("confirm")}</Kbd>
         </Button>
       </div>
     </section>
@@ -123,6 +138,7 @@ export function ContinueCard({ project, active }: { project: KnownProject; activ
 export function FirstTime() {
   const actions = useStartActions()
   const { example } = actions
+
   if (!example) {
     return (
       <section
@@ -137,7 +153,7 @@ export function FirstTime() {
               Open your React app
             </h2>
           </div>
-          <p className="text-sm text-pretty text-muted-foreground">
+          <p className="type-body text-muted-foreground">
             Parity puts your app&apos;s screens and components on a canvas, drawn by your own code. Changes you make on
             the canvas are written back to it.
           </p>
@@ -153,8 +169,10 @@ export function FirstTime() {
       </section>
     )
   }
+
   const project: KnownProject = { root: example.root, name: example.name, starred: false, recent: false }
   const open = () => actions.open(example.root)
+
   return (
     <section
       aria-labelledby="first-time"
@@ -178,7 +196,7 @@ export function FirstTime() {
             {example.name}, an example app
           </h2>
         </div>
-        <p className="text-sm text-pretty text-muted-foreground">
+        <p className="type-body text-muted-foreground">
           See its screens in desktop and mobile, drawn by its own code. Then pick another variant for a button, put two
           layers in a row, or see what the accessibility checks find.
         </p>
@@ -237,6 +255,7 @@ function OpenArt() {
 function BringYourOwn() {
   const actions = useStartActions()
   const detail = useId()
+
   const ways = [
     { icon: FolderOpen, name: "Open a folder", detail: "A React app on this computer", onClick: actions.openFolder },
     {
@@ -246,11 +265,10 @@ function BringYourOwn() {
       onClick: actions.openFile
     }
   ]
+
   return (
     <section aria-labelledby="bring-your-own" className="flex flex-col gap-1.5">
-      <h2 id="bring-your-own" className="text-sm font-semibold">
-        Bring your own app
-      </h2>
+      <SectionTitle id="bring-your-own" title="Bring your own app" />
       <ul className="-mx-2 flex flex-col">
         {ways.map((way, index) => (
           <li key={way.name}>
@@ -265,7 +283,7 @@ function BringYourOwn() {
                 <way.icon className="size-4" />
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-[13px] font-medium">{way.name}</span>
+                <span className="text-sm font-medium">{way.name}</span>
                 <span id={`${detail}-${index}`} className="truncate text-xs text-muted-foreground">
                   {way.detail}
                 </span>
@@ -286,20 +304,27 @@ function BringYourOwn() {
 function ForYou() {
   return (
     <section aria-labelledby="for-you" className="flex flex-col gap-2.5">
-      <h2 id="for-you" className="text-sm font-semibold">
-        For you
-      </h2>
+      <SectionTitle id="for-you" title="For you" />
       <div className="flex items-start gap-3 rounded-xl border border-dashed p-4">
         <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
           <Inbox className="size-4" />
         </span>
         <div className="flex min-w-0 flex-col gap-1">
-          <p className="text-[13px] font-medium">Nothing needs you</p>
-          <p className="text-xs text-pretty text-muted-foreground">
+          <p className="text-sm font-medium">Nothing needs you</p>
+          <p className="type-description text-muted-foreground">
             Comments, mentions and reviews that need you show up here.
           </p>
         </div>
       </div>
     </section>
   )
+}
+
+/**
+ * A section's title on Home: the inspector's section title, which leads what it heads, as Bring your own app and For
+ * you lead their rows. It carries the id the section is labelled by, and sits at its rows' edge, without the indent and
+ * margin a title keeps over a panel's fields.
+ */
+function SectionTitle({ id, title }: { id: string; title: string }) {
+  return <PanelSectionTitle id={id} title={title} as="h2" spacing="-ml-1" />
 }

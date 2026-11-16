@@ -20,14 +20,17 @@ afterEach(async () => {
 /** Opens and closes nothing, saying what it was asked. */
 function projects() {
   const asked: string[] = []
+
   return {
     asked,
     open: (root: string) => {
       asked.push(`open ${root}`)
+
       return Promise.resolve()
     },
     close: (root: string) => {
       asked.push(`close ${root}`)
+
       return Promise.resolve()
     }
   }

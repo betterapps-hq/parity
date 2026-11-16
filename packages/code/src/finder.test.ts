@@ -1,12 +1,12 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import type { RendererAdapter } from "@parity-app/core"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { findAll, reactFinder } from "./finder.ts"
+import type { ComponentReader } from "./listing.ts"
 
 /** Exported functions are components, as a renderer's parse would read them. */
-const renderer = {
+const renderer: ComponentReader = {
   componentExtensions: [".tsx"],
   findComponents: (source: string) =>
     [...source.matchAll(/export function ([A-Z]\w*)/g)].map((match) => ({
@@ -14,7 +14,7 @@ const renderer = {
       export: match[1]!,
       as: "function"
     }))
-} as unknown as RendererAdapter
+}
 
 let root: string
 
@@ -41,18 +41,19 @@ describe("finding an app's components through the finder contract", () => {
     await write("src/app/orders/page.tsx", "export function OrdersPage() { return null }")
     await write("src/features/stat-card.tsx", "export function StatCard(props: { value: number }) { return null }")
 
-    const found = await findAll(reactFinder, renderer, root, "src/components/ui")
+    const found = await findAll(reactFinder, renderer, root)
     const byId = Object.fromEntries(found.map((component) => [component.id, component]))
     expect(Object.keys(byId).sort()).toEqual(["Button", "OrdersPage", "StatCard"])
     expect(byId.Button).toMatchObject({
       path: "src/components/ui/button.tsx",
       export: "Button",
       import: "@/components/ui/button",
-      role: "kit",
+      role: "app",
       evidence: "function"
     })
     expect(byId.Button!.props?.map((prop) => prop.name).sort()).toEqual(["label", "size"])
-    expect(byId.OrdersPage).toMatchObject({ role: "page", import: "@/app/orders/page" })
+    // The CLI reads no routes, which only a router extension gives, so a route file is the app's like any other.
+    expect(byId.OrdersPage).toMatchObject({ role: "app", import: "@/app/orders/page" })
     expect(byId.StatCard).toMatchObject({ role: "app", import: "@/features/stat-card" })
   })
 })

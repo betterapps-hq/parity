@@ -1,0 +1,106 @@
+{
+  "name": "@parity-app/extension-nextjs",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Next.js in Parity: the app's routes from the App Router and the Pages Router, each page drawn on canvas.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./package.json": "./package.json"
+  },
+  "devDependencies": {
+    "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extensions": "workspace:*"
+  },
+  "peerDependencies": {
+    "next": "^16.0.0"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
+  },
+  "parity": {
+    "displayName": "Next.js",
+    "prefix": "nextjs",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "fillRule": "evenodd",
+      "path": "M12 0a12 12 0 1 1 0 24 12 12 0 0 1 0-24ZM7.5 6.5v11h1.75V9.4l7.53 10.03a10.1 10.1 0 0 0 1.4-1.08L9.25 6.5Zm7.25 0v7.25h1.75V6.5Z"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "permissions": {
+      "read": [
+        "app",
+        "app/**",
+        "pages",
+        "pages/**",
+        "src/app",
+        "src/app/**",
+        "src/pages",
+        "src/pages/**",
+        "next.config.*"
+      ]
+    },
+    "contributes": {
+      "commands": [
+        {
+          "id": "nextjs.open",
+          "title": "Open in browser"
+        },
+        {
+          "id": "nextjs.showRoutes",
+          "title": "Show routes",
+          "icon": "layers"
+        }
+      ],
+      "menus": {
+        "layers": [
+          {
+            "command": "nextjs.open",
+            "when": "node.type == route"
+          }
+        ],
+        "canvas": [
+          {
+            "command": "nextjs.open",
+            "when": "node.type == route"
+          }
+        ],
+        "selectionHeading": [
+          {
+            "command": "nextjs.open",
+            "when": "node.type == route"
+          }
+        ],
+        "search": [
+          {
+            "command": "nextjs.open",
+            "when": "node.type == route"
+          }
+        ]
+      },
+      "statusItems": [
+        {
+          "id": "nextjs.routes",
+          "title": "Next.js",
+          "command": "nextjs.showRoutes"
+        }
+      ],
+      "nodeTypes": [
+        {
+          "id": "route",
+          "name": "Route",
+          "icon": "route"
+        }
+      ],
+      "providers": {
+        "router": {}
+      }
+    }
+  }
+}

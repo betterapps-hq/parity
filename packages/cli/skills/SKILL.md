@@ -13,8 +13,9 @@ it.
 | --------------------------- | -------------------------------------------------------------------------------------- |
 | `execute.md`                | Before any change: the functions a snippet can call, with examples. Required.          |
 | `document.md`               | Before any change: designs, nodes, styles, states and responsive patches. Required.    |
+| `reference.md`              | Before calling a function you haven't used: its exact arguments and result.            |
 | `guide/components.md`       | Using the project's components, making component designs, instances and params, icons. |
-| `guide/states-and-modes.md` | Loading, empty, error and other states; themes, viewports and locales.                 |
+| `guide/states-and-modes.md` | A component's loading, empty, error and other states; themes, viewports and locales.   |
 | `guide/checking.md`         | Screenshots, layout problems, accessibility, the console, and trying a design.         |
 | `guide/design-system.md`    | Composing screens from the project's components and tokens.                            |
 | `guide/web-app.md`          | Designing web app screens: dashboards, settings, lists, forms.                         |
@@ -27,22 +28,41 @@ The same tools are MCP tools and `parity` commands in a terminal. They act on a 
 the active tab of the Parity window they used last. When the person says "this" or "what I've selected" without naming a
 project, pass `tab: "active"` (`--tab active`) and read `get_app_state` for the selection.
 
-| MCP                   | CLI                          | What it does                                                                                                                                                                        |
-| --------------------- | ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `get_app_state`       | `parity state`               | Designs, the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
-| `get_status`          | `parity status`              | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                                                       |
-| `get_modes`           | `parity modes [design]`      | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                                          |
-| `execute`             | `parity exec`                | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                                                      |
-| `screenshot`          | `parity screenshot <design>` | Renders a design in its states and modes, offscreen, and returns the images.                                                                                                        |
-| `find_problems`       | `parity problems <design>`   | Render errors, overflow, clipping and unknown components, per frame.                                                                                                                |
-| `check_accessibility` | `parity a11y <design>`       | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                                                        |
-| `get_console`         | `parity console`             | What the project's own code wrote to the console, on the canvas and offscreen.                                                                                                      |
-| `get_tokens`          | `parity tokens`              | Tokens filtered by category, source or name, with values in every theme.                                                                                                            |
-| `get_components`      | `parity components`          | Components, libraries, icon sets and exports left out or failing to render.                                                                                                         |
-| `get_props`           | `parity props <Component>`   | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                    |
-| `get_tabs`            | `parity tabs`                | The open projects.                                                                                                                                                                  |
-| `open_project`        | `parity open <folder>`       | Opens a project in a new tab.                                                                                                                                                       |
-| `read_skill`          | `parity skill [file]`        | This skill.                                                                                                                                                                         |
+Use the MCP tools when you have them: the server starts once, and each call then costs only the app's own work. In a
+terminal, run `parity`, not `npx @parity-app/cli`: npx spends 1–2 seconds finding the package on every call. When
+`parity` isn't found and you have no Parity MCP tools, ask the person to choose Help > Install the Parity CLI in Parity,
+then use a new terminal.
+
+When you give Parity work to subagents that run at the same time, give each a short name and have it pass that name as
+`subagent` on every MCP call (`subagent: "Header"`). The canvas then shows a cursor for each one, so the person can
+follow them. Subagents share your connection, so without a name they all move one cursor. In a terminal, set
+`PARITY_AGENT_NAME` to a different name for each instead.
+
+| MCP                   | CLI                                             | What it does                                                                                                                                                                                                            |
+| --------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `get_app_state`       | `parity state`                                  | Designs (with how many references each has), the selection, modes (the primary one marked), components and token names, and what Parity detected (builder and config, package manager, installed versions). Start here. |
+| `get_status`          | `parity status`                                 | The revision, whether anything is unsaved and which files and tokens, the last save, and undo and redo; `summary` names them.                                                                                           |
+| `get_modes`           | `parity modes [design]`                         | Viewports (the ids `Responsive` takes), modes (the ids renders take) and what each design shows; a design adds its frames.                                                                                              |
+| `execute`             | `parity exec`                                   | Runs a JavaScript snippet against the designs. Its changes land as one undo step, merged per design with edits made meanwhile.                                                                                          |
+| `screenshot`          | `parity screenshot <design>`                    | Renders a design in its states and modes, offscreen, and returns the images.                                                                                                                                            |
+| `find_problems`       | `parity problems <design>`                      | Render errors, overflow, clipping, squeezing, unknown components and content drawn outside the frame, per frame.                                                                                                        |
+| `check_accessibility` | `parity a11y <design>`                          | axe-core against WCAG 2.2 AA, per frame, on the layers that break each rule.                                                                                                                                            |
+| `get_console`         | `parity console`                                | What the project's own code wrote to the console, on the canvas and offscreen.                                                                                                                                          |
+| `get_tokens`          | `parity tokens`                                 | Tokens filtered by category, source or name, with values in every theme.                                                                                                                                                |
+| `get_components`      | `parity components`                             | Components, libraries, icon sets and exports left out or failing to render.                                                                                                                                             |
+| `get_props`           | `parity props <Component>`                      | Props from source, then what it goes inside and holds, its slots and an example to insert; `all` adds passed-through attributes.                                                                                        |
+| `get_images`          | `parity images`                                 | The project's images (files in `public/images`, linked photos) with what uses each, in designs and code.                                                                                                                |
+| `get_extensions`      | `parity extensions`                             | The project's extensions, as Storybook's: commands, agent tools with their input schemas, node types and facts.                                                                                                         |
+| `run_extension`       | `parity run <command\|tool>`                    | Runs an extension's command, for a component, or its agent tool with input; gives back what it returned, as the page Open in Storybook opened.                                                                          |
+| `remove_image`        | `parity images remove <img>`                    | Removes an image file nothing uses; says where one is still used.                                                                                                                                                       |
+| `get_tabs`            | `parity tabs`                                   | The open projects.                                                                                                                                                                                                      |
+| `open_project`        | `parity open <folder>`                          | Opens a project in a new tab.                                                                                                                                                                                           |
+| `find_references`     | `parity references "<screen>"`                  | Screens from real apps, with previews to look at, when this copy of Parity can search.                                                                                                                                  |
+| `get_references`      | `parity references placed [design]`             | The screens placed beside designs as references, with who placed each and why, and their pictures to look at.                                                                                                           |
+| `find_media`          | `parity media "<subject>"`                      | Stock photos, illustrations, vectors or videos, with previews to look at.                                                                                                                                               |
+| `place_result`        | `parity place <connector> <id> "<design/node>"` | Puts a picture a search found into an image node, a video into a video node, or either into a component's prop, as one undoable edit. Credit its author and the source where the design shows it.                       |
+| `report_problem`      | `parity report "<problem>"`                     | Reports a problem in Parity itself to its developers, with the window's screenshot and replay and the design's frames; returns the link.                                                                                |
+| `read_skill`          | `parity skill [file]`                           | This skill.                                                                                                                                                                                                             |
 
 The token, component and prop tools read what designs can use without writing a snippet in either transport.
 `parity components` also says which file each of the project's own components is written in, which of the app's exports
@@ -89,18 +109,28 @@ keeping the designs there, so ask before running that in someone's project.
 
 1. **Get your bearings.** Call `get_app_state`. Note the designs, which one is selected (the person usually means that
    one), the modes, and the components. Designs, states and nodes have ids; use them.
-2. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
-   of what's there. Find the components you need with `Components()` and their props with `Props()`.
-3. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
+2. **See how real apps do it,** for a common screen such as onboarding, a paywall, settings or a checkout:
+   `find_references` with one screen per search, its type and up to three parts it shows ("paywall with a free trial").
+   Follow the patterns you see with the project's own components and tokens, never an app's layout, text or branding,
+   and say which apps you drew on. Leave the ones you drew on beside the design with `PlaceReference` in `execute`, each
+   with a note on what you took from it. If it says there's no key, carry on without it. For a real photo or
+   illustration, look at `find_media` previews and put the one you choose in an image node with `place_result`; for a
+   video, insert a `video` node and place it there. Searches give no link to paste.
+3. **Look before you change.** Read the design with `Get("design-id", { depth: 3 })` in `execute`, and take a screenshot
+   of what's there. When `get_app_state` gives the design `references`, look at them first with `get_references` for
+   that design: they're the screens the person or an agent picked for it, with notes on why. Find the components you
+   need with `Components()` and their props with `Props()`.
+4. **Change it in one snippet.** Build or edit the design with `Insert`, `Update`, `Replace`, `Move` and the rest. A
    snippet either applies whole, as one step the person can undo, or changes nothing. Name the layouts you make. If it
    fails because the person changed a design it changes, run it again by its `editId`.
-4. **Cover every state.** A screen that loads has a loading state, a list has an empty one, a form has an error one. Add
-   them with `AddState`, as changes to the base design, not as copies.
-5. **Check every frame.** Screenshot the design in all its states and the modes it shows (`state: "all"`,
-   `mode: "shown"`). Run `find_problems` and `check_accessibility` too, and read the warnings `execute` returns: they're
-   usually a token that doesn't exist or a prop the component doesn't take. A render failure comes first and means a
-   frame wasn't checked. Fix what you find, then check again.
-6. **Say what you did.** Tell the person what changed and what you couldn't verify. Ask them to try anything interactive
+5. **Cover every state.** A component that loads has a loading state, a list has an empty one, a form has an error one.
+   Add them with `AddState`, as changes to the base design, not as copies. Only a component has states.
+6. **Check every frame.** Screenshot the design in all its states and the modes it shows as one sheet (`state: "all"`,
+   `mode: "shown"`, `sheet: true`), then screenshot any frame that needs a closer look on its own. Run `find_problems`
+   and `check_accessibility` too, and read the warnings `execute` returns: they're usually a token that doesn't exist or
+   a prop the component doesn't take. A render failure comes first and means a frame wasn't checked. Fix what you find,
+   then check again.
+7. **Say what you did.** Tell the person what changed and what you couldn't verify. Ask them to try anything interactive
    themselves with the Interact tool (I), which hands their mouse and keyboard to the real components.
 
 Your changes to designs are on the canvas but not saved: the person saves (Ctrl+S) or undoes them, as with their own
@@ -120,13 +150,18 @@ parity status --summary
 - **Use the project's components.** `Components()` lists them; library components are namespaced, as in `nova/Button`,
   and icons too, as in `lucide/Heart`. A name that isn't in the list renders as a placeholder. Don't rebuild a button,
   card or input out of layouts and text when the project has one.
-- **Use the project's tokens.** Colours, radii, shadows, fonts, sizes, leading and tracking name a token, such as
-  `muted-foreground`, `radius-lg` or `text-sm`, without the `--`. Lengths are steps of the spacing scale: `4` is four
-  spacing units (1rem in a default Tailwind project). `GetTokens()` lists them. Never write a raw colour or pixel value.
+- **Use the project's tokens.** Colours, radii, shadows, fonts, font sizes, line heights and letter spacing name a token
+  without the `--`, as `{ token: "muted-foreground" }`, `{ token: "radius-lg" }` or `{ token: "text-sm" }`. Lengths are
+  steps of the spacing scale: `{ step: 4 }` is four spacing units (1rem in a default Tailwind project). `GetTokens()`
+  lists them. A colour or size written out, as `{ value: "#2f6fed" }` or `{ value: "13px" }`, is drawn but leaves the
+  design system, and `execute` warns about it. When a design hands you one, use the nearest token:
+  `GetTokens({ nearest: "#2f6fed" })` lists the closest first, and a length takes a category too, as in
+  `GetTokens({ nearest: "13px", category: "font-size" })`.
 - **Prefer semantic colours** (`background`, `foreground`, `card`, `muted`, `muted-foreground`, `primary`, `border`,
   `destructive`) over palette ones (`color-blue-500`). They change with the theme; palette colours don't.
-- **Layout is auto layout.** A `layout` node is a flex box (or a grid with `display: "grid"`); children fill, hug or
-  take a fixed length. Avoid absolute positioning unless something truly overlaps, such as a badge on an avatar.
+- **Layout is auto layout.** A `layout` node is a flex box (or a grid with `display: "grid"`); children fill
+  (`{ size: "fill" }`), hug (`{ size: "hug" }`) or take a length. Avoid absolute positioning unless something truly
+  overlaps, such as a badge on an avatar.
 - **One design, every viewport.** Don't copy a screen for mobile. Patch it with `Responsive(node, "mobile", patch)`:
   hide the sidebar, stack the columns, shrink the padding.
 - **Real content.** Write the words the screen would show: names, numbers, dates and messages that fit the product.
@@ -144,3 +179,13 @@ parity status --summary
 `edits` (exact find and replace on the snippet) instead of sending it all again. The error names the line. Common
 causes: a node path that matches two designs (write it as `design/node`), a node property that doesn't exist, and a
 state change to something states can't change (only `hidden`, `text`, `props` and `style`).
+
+When Parity itself gets something wrong, report it with `report_problem` (`parity report`), even if nothing failed: a
+screenshot that doesn't match the design, a check that missed something or flagged nothing wrong, a call that should
+have worked. Say what you did, what you expected and what you saw, and name the design, state or node. It goes to the
+Parity team in Sentry, with the window's screenshot and replay, the call's trace and the frames, and gives you the link
+to pass on. Don't report a project's own bugs or your snippet's mistakes this way.
+
+```sh
+parity report "The default state's screenshot shows the outline variant" --design button --state default
+```

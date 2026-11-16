@@ -25,62 +25,89 @@ export function boardDormant(at: { hidden: boolean; drawn: boolean; far: boolean
   return (at.hidden && at.drawn) || (at.far && !at.selected)
 }
 
-/** Frames waiting to wake, in the order they asked. */
-const waking = new Set<() => void>()
+/** Frames waiting to wake, in the order they asked, each with how near it is to the middle of the view. */
+const waking = new Map<() => void, (() => number) | undefined>()
 let frame = 0
 
 /**
  * Whether a frame's design is drawn. Zoomed far out, a frame showing its bitmap (`canSleep`) sleeps: it lets go of its
  * design's React root and elements, most of what each frame holds, and keeps its size and its bitmap. It wakes once
- * it's no longer to sleep and its board is near the view, one frame each animation frame, since waking a whole
- * project's frames at once kept the page busy for seconds. One out of view stays asleep, showing its bitmap, until it
- * comes near, unless what it shows changes (`shows`, as its bitmap is keyed): then it wakes wherever it is, so its
- * board takes the new size, which agents read. Without `rest`, as outside a canvas, a frame never sleeps.
+ * it's no longer to sleep and it's near the view, both its board and the frame itself (`view.near`, since a board with
+ * many states and modes is large), one frame each animation frame, since waking a whole project's frames at once kept
+ * the page busy for seconds, the one most in view first (`view.rank`, PAR-955). One away from the view stays asleep,
+ * showing its bitmap, until it comes near, unless what it shows changes (`shows`, as its bitmap is keyed): then it wakes
+ * wherever it is, so its board takes the new size, which agents read. Without `rest`, as outside a canvas, a frame never
+ * sleeps.
  */
-export function useAwake(canSleep: boolean, rest: BoardRest | undefined, shows: string): boolean {
+export function useAwake(
+  canSleep: boolean,
+  rest: BoardRest | undefined,
+  shows: string,
+  view?: { rank: () => number; near: Signal<boolean> }
+): boolean {
   // What the frame showed when it fell asleep; nothing while it's awake.
   const [slept, setSlept] = useState<string>()
   const awake = slept === undefined
   const changed = !awake && slept !== shows
   useEffect(() => {
-    if (!rest) return undefined
+    if (!rest) {
+      return undefined
+    }
+
     if (awake) {
-      if (!canSleep) return undefined
+      if (!canSleep) {
+        return undefined
+      }
+
       // It falls asleep just after the effects run, not while they do. Waking a project's frames one by one, each
       // falling asleep from its effect kept React's effect pass scheduling another render dozens of times in a row,
       // which React's development build reports as "Maximum update depth exceeded" (PAR-606).
       let live = true
+
       const stop = react("frame sleeps", () => {
-        if (!rest.dormant.get()) return
+        if (!rest.dormant.get()) {
+          return
+        }
+
         queueMicrotask(() => {
-          if (live && rest.dormant.get()) setSlept(shows)
+          if (live && rest.dormant.get()) {
+            setSlept(shows)
+          }
         })
       })
+
       return () => {
         live = false
         stop()
       }
     }
+
     let cancel: (() => void) | undefined
+
     const stop = react("frame wakes", () => {
-      if (changed || (rest.near.get() && !(canSleep && rest.dormant.get()))) {
-        cancel ??= wakeSoon(() => setSlept(undefined))
+      const near = rest.near.get() && (view?.near.get() ?? true)
+
+      if (changed || (near && !(canSleep && rest.dormant.get()))) {
+        cancel ??= wakeSoon(() => setSlept(undefined), view?.rank)
       } else {
         cancel?.()
         cancel = undefined
       }
     })
+
     return () => {
       stop()
       cancel?.()
     }
-  }, [awake, canSleep, rest, shows, changed])
+  }, [awake, canSleep, rest, shows, changed, view])
+
   return awake
 }
 
-function wakeSoon(wake: () => void): () => void {
-  waking.add(wake)
+function wakeSoon(wake: () => void, rank?: () => number): () => void {
+  waking.set(wake, rank)
   frame ||= requestAnimationFrame(wakeNext)
+
   return () => {
     waking.delete(wake)
   }
@@ -88,9 +115,27 @@ function wakeSoon(wake: () => void): () => void {
 
 function wakeNext(): void {
   frame = 0
-  const [next] = waking
-  if (!next) return
+  let next: (() => void) | undefined
+  let nearest = Number.POSITIVE_INFINITY
+
+  // Ranked when its turn comes, so a camera still moving wakes what's in view now. Ties go to the earliest asked.
+  for (const [wake, rank] of waking) {
+    const distance = rank?.() ?? Number.POSITIVE_INFINITY
+
+    if (!next || distance < nearest) {
+      next = wake
+      nearest = distance
+    }
+  }
+
+  if (!next) {
+    return
+  }
+
   waking.delete(next)
   next()
-  if (waking.size > 0) frame = requestAnimationFrame(wakeNext)
+
+  if (waking.size > 0) {
+    frame = requestAnimationFrame(wakeNext)
+  }
 }

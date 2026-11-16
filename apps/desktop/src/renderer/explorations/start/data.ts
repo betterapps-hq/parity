@@ -72,6 +72,11 @@ export const organizations = {
 
 export type OrgId = keyof typeof organizations
 
+/** Whether a name is one of the organizations'. */
+export function isOrgId(name: string): name is OrgId {
+  return Object.hasOwn(organizations, name)
+}
+
 export interface StartProject {
   id: string
   name: string

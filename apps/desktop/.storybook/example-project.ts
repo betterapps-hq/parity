@@ -1,17 +1,49 @@
 import { readdir, readFile } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import { guestModuleSource, taggedModule } from "@parity-app/builder-vite"
 import { hasElementSources, inferProps } from "@parity-app/code"
-import { type ComponentInfo, defaultModeSettings, parseCanvasDocument } from "@parity-app/core"
-import { detectProject, discoverProject, readPackage } from "@parity-app/project"
-import { reactRenderer } from "@parity-app/renderer-react"
-import { tailwindStyles } from "@parity-app/styles-tailwind"
+import {
+  type Adapter,
+  type ComponentInfo,
+  defaultModeSettings,
+  detectPeers,
+  extensionBuilder,
+  extensionEntities,
+  extensionRenderer,
+  extensionTool,
+  parseCanvasDocument
+} from "@parity-app/core"
+import { findComponents } from "@parity-app/extension-react/components"
+import reactExtension from "@parity-app/extension-react/package.json" with { type: "json" }
+import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { exportStoryScreen, importStories, importStoryScreens } from "@parity-app/extension-storybook/screens"
+import { type ProjectStorybook, projectStorybook } from "@parity-app/extension-storybook/storybook"
+import { handles, readTheme } from "@parity-app/extension-tailwind"
+import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
+import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
+import {
+  guestModuleSource,
+  moduleStylesId,
+  moduleStylesSource,
+  taggedModule,
+  viteBuilder
+} from "@parity-app/extension-vite/builder"
+import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
+import {
+  adapterStatus,
+  detectAdapters,
+  detectContext,
+  detectProject,
+  discoverProject,
+  projectSource,
+  readPackage
+} from "@parity-app/project"
 import type { Plugin } from "vite"
 import type { ProjectInfo } from "../src/shared/protocol.ts"
 
 /** The project stories open: the shadcn example, as the app's service finds it. */
 const root = resolve(import.meta.dirname, "../../../examples/shadcn-vite")
+
 /**
  * The designs stories open in place of the example's own: only the ones stories use. The example keeps growing as a
  * stress test for `pnpm dev` and `pnpm perf`, and opening all of it made every story slow.
@@ -20,7 +52,8 @@ const designs = resolve(import.meta.dirname, "example.par")
 const projectId = "virtual:parity/example-project"
 const guestId = "virtual:parity/example-guest"
 const rendererId = "virtual:canvas/renderer"
-/** The example's source files as text by their path from its root, as the service's `code.read` reads them. */
+
+/** The example's source files as text by their path from its root, for the Code panel exploration to show. */
 const sourcesId = "virtual:parity/example-sources"
 const require = createRequire(import.meta.url)
 
@@ -36,6 +69,7 @@ export function exampleProject(): Plugin {
   const project = () => (found ??= discover())
   let building = false
   let guestChunk: string | undefined
+
   return {
     name: "parity:example-project",
     enforce: "pre",
@@ -49,45 +83,84 @@ export function exampleProject(): Plugin {
       }
     },
     resolveId(source, importer) {
-      if (source === projectId || source === guestId || source === sourcesId) return `\0${source}`
+      if (source === projectId || source === guestId || source === sourcesId) {
+        return `\0${source}`
+      }
+
       // The example's files import each other by `@/`, which its own Vite config points at its `src`.
       if (source.startsWith("@/") && importer && inExample(importer)) {
         return this.resolve(join(root, "src", source.slice(2)), importer, { skipSelf: true })
       }
-      if (importer !== `\0${guestId}`) return undefined
+
+      if (importer !== `\0${guestId}`) {
+        return undefined
+      }
+
       // The guest module imports the renderer's runtime, the project's files by root path, and libraries by name.
-      if (source === rendererId) return require.resolve("@parity-app/renderer-react/guest")
-      if (source.startsWith("/")) return join(root, source)
+      if (source === rendererId) {
+        return require.resolve("@parity-app/extension-react/guest")
+      }
+
+      // The collector of the stylesheets the project's modules import, which the project's builder serves.
+      if (source === moduleStylesId) {
+        return `\0${moduleStylesId}`
+      }
+
+      if (source.startsWith("/")) {
+        return join(root, source)
+      }
+
       return this.resolve(source, join(root, "src", "main.tsx"), { skipSelf: true })
     },
     async load(id) {
       if (id === `\0${projectId}`) {
-        const { info, components } = await project()
+        const { info, components, storybook } = await project()
         this.addWatchFile(designs)
         // The bundler writes the chunk's URL in, relative to the page or absolute as the build's base is; the canvas
         // wants it absolute.
         const url = guestChunk ? `import.meta.ROLLUP_FILE_URL_${guestChunk}` : JSON.stringify(`/@id/__x00__${guestId}`)
+
         return [
-          `const project = ${JSON.stringify({ info, components })}`,
+          `const project = ${JSON.stringify({ info, components, storybook })}`,
           `project.info.guestUrl = new URL(${url}, location.href).href`,
           "export default project"
         ].join("\n")
       }
-      if (id.split("?")[0] === `\0${guestId}`) return guestModuleSource((await project()).config)
-      if (id === `\0${sourcesId}`) return `export default ${JSON.stringify(await sourceFiles())}`
+
+      if (id.split("?")[0] === `\0${guestId}`) {
+        return guestModuleSource((await project()).config)
+      }
+
+      if (id === `\0${moduleStylesId}`) {
+        return moduleStylesSource([])
+      }
+
+      if (id === `\0${sourcesId}`) {
+        return `export default ${JSON.stringify(await sourceFiles())}`
+      }
+
       return undefined
     },
     handleHotUpdate({ file }) {
       // Changing the designs reads the project again, as reopening it would.
-      if (resolve(file) === designs) found = undefined
+      if (resolve(file) === designs) {
+        found = undefined
+      }
     },
     transform(code, id) {
       // The project's own builder scans the project for class names; this one scans the canvas app. Adds the example's
       // source and the designs stories open, so the classes its components and those designs use are compiled.
       const [path] = id.split("?")
+
       // The example's elements carry their lines, as the project's builder gives them in development (PAR-167).
-      if (path && inExample(path) && hasElementSources(path)) return taggedModule(root.replaceAll("\\", "/"), code, id)
-      if (!path || resolve(path) !== join(root, "src", "index.css")) return undefined
+      if (path && inExample(path) && hasElementSources(path)) {
+        return taggedModule(root.replaceAll("\\", "/"), code, id)
+      }
+
+      if (!path || resolve(path) !== join(root, "src", "index.css")) {
+        return undefined
+      }
+
       return `${code}\n@source "./";\n@source "${relative(dirname(path), designs).replaceAll("\\", "/")}";\n`
     }
   }
@@ -96,17 +169,23 @@ export function exampleProject(): Plugin {
 /** The example's own source files, by their path from its root with `/` between folders. */
 async function sourceFiles(): Promise<Record<string, string>> {
   const files: Record<string, string> = {}
+
   for (const entry of await readdir(join(root, "src"), { recursive: true, withFileTypes: true })) {
-    if (!entry.isFile() || !/\.(tsx?|jsx?|css)$/.test(entry.name)) continue
+    if (!entry.isFile() || !/\.(tsx?|jsx?|css)$/.test(entry.name)) {
+      continue
+    }
+
     const path = join(entry.parentPath, entry.name)
     files[relative(root, path).replaceAll("\\", "/")] = await readFile(path, "utf8")
   }
+
   return files
 }
 
 /** Whether a module is one of the example's own files. */
 function inExample(id: string): boolean {
   const path = relative(root, id.split("?")[0] ?? id)
+
   return !!path && !path.startsWith("..") && !isAbsolute(path)
 }
 
@@ -114,43 +193,100 @@ async function discover(): Promise<{
   config: Awaited<ReturnType<typeof discoverProject>>
   info: Omit<ProjectInfo, "guestUrl">
   components: Record<string, ComponentInfo>
+  storybook: ProjectStorybook
 }> {
   const pkg = (await readPackage(root))?.manifest
-  if (!pkg) throw new Error(`There's no package.json in ${root}`)
-  const config = await discoverProject(root, reactRenderer, pkg)
+
+  if (!pkg) {
+    throw new Error(`There's no package.json in ${root}`)
+  }
+
+  // The adapters the app's service would choose: the example is React, built with Vite and styled with Tailwind.
+  const project = detectContext(root, pkg)
+
+  const found = async <A extends Adapter>(list: A[]) =>
+    (await detectAdapters(project, list)).filter(({ detection }) => detection.found)
+
+  const [rendererFound] = await found([{ ...extensionRenderer(reactExtension)!, findComponents }])
+
+  if (!rendererFound) {
+    throw new Error(`No renderer supports ${root}`)
+  }
+
+  const renderer = rendererFound.adapter
+  // The builder isn't started or asked whether it serves the example: stories use the example's Vite as installed. It's
+  // asked which stylesheets the app loads, as the app asks it.
+  const builder = { ...viteBuilder, ...extensionBuilder(viteExtension)! }
+  const builderFound = { adapter: builder, detection: { found: true, summary: `${builder.name} for the example` } }
+
+  const entitiesFound = await found([
+    {
+      ...extensionEntities(storybookExtension)!,
+      import: importStoryScreens,
+      export: exportStoryScreen
+    }
+  ])
+
+  const extensionTools = [tailwindExtension, routerExtension].flatMap((extension) => extensionTool(extension) ?? [])
+
+  const extensions = extensionTools.flatMap((tool) => {
+    const detection = detectPeers(pkg, tool.versions)
+
+    return detection.found ? [{ adapter: tool, detection }] : []
+  })
+
+  const config = await discoverProject(root, renderer, pkg, { styles: builder.styles?.(detectContext(root, pkg)) })
   const stylesheet = config.styles[0]
-  const theme = stylesheet ? await tailwindStyles.loadTheme(root, stylesheet).catch(() => []) : []
+  const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
+  // Tailwind reads the theme, as its extension's styles provider does in the app.
+  const theme = stylesheet && handles(source) ? await readTheme(root, stylesheet).catch(() => []) : []
   const mainDocument = config.documents.find((path) => !path.includes("/")) ?? "shadcn-vite.par"
   // The example's main designs file is the only one stories open, read from Storybook's own copy.
   const documents = [await readDocument(mainDocument)]
   const main = documents[0]?.document
+
+  const detection = await detectProject(root, pkg, [rendererFound, builderFound, ...extensions, ...entitiesFound])
+
+  const used = entitiesFound.map(({ adapter }) => adapter)
+
+  const tools = [{ adapter: renderer }, { adapter: builder, version: "8" }, ...used.map((adapter) => ({ adapter }))]
+
   const info: Omit<ProjectInfo, "guestUrl"> = {
     id: root,
     root,
     name: pkg.name ?? "shadcn-vite",
-    renderer: { id: reactRenderer.id, name: reactRenderer.name },
-    builder: { id: "vite", name: "Vite", toolVersion: "8" },
-    ...(stylesheet ? { styles: { id: tailwindStyles.id, name: tailwindStyles.name, stylesheet } } : {}),
+    renderer: { id: renderer.id, name: renderer.name },
+    builder: { id: builder.id, name: builder.name, toolVersion: "8" },
     theme,
+    routes: [],
+    entities: {},
+    status: adapterStatus(tools, detection),
     componentCount: Object.keys(config.components).length,
     sources: config.components,
     libraries: config.libraries,
-    ...(config.storybook ? { storybook: config.storybook } : {}),
-    ...(config.describedTokens ? { describedTokens: config.describedTokens } : {}),
     notes: config.notes,
-    detection: await detectProject(root, pkg),
+    detection,
     documents,
     mainDocument,
     modes: { settings: main?.modes ?? defaultModeSettings, custom: !!main?.modes }
   }
-  return { config, info, components: inferProps(root, config.components) }
+
+  if (stylesheet && handles(source)) {
+    info.styles = { id: "tailwind", name: "Tailwind CSS", stylesheet }
+  }
+
+  if (config.describedTokens) {
+    info.describedTokens = config.describedTokens
+  }
+
+  // Storybook's extension reads the example's stories as it does a project's, for its stand-in in stories.
+  const { stories } = await importStories(projectSource(root, config.components))
+  const storybook = projectStorybook(pkg.scripts, ".storybook", stories)
+
+  return { config, info, components: inferProps(root, config.components), storybook }
 }
 
-/** Storybook's designs under the example's file name, or why they couldn't be read. */
+/** Storybook's designs under the example's file name. */
 async function readDocument(path: string): Promise<ProjectInfo["documents"][number]> {
-  try {
-    return { path, document: parseCanvasDocument(JSON.parse(await readFile(designs, "utf8"))) }
-  } catch (error) {
-    return { path, error: error instanceof Error ? error.message : String(error) }
-  }
+  return { path, document: parseCanvasDocument(JSON.parse(await readFile(designs, "utf8"))) }
 }

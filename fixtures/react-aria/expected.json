@@ -32,8 +32,7 @@
       "from": "node_modules/vite",
       "config": "vite.config.mts",
       "status": "supported",
-      "drops": "2027-06-24",
-      "summary": "Vite 7.3.7 from node_modules/vite, config vite.config.mts; tested until June 2027"
+      "summary": "Vite 7.3.7 from node_modules/vite, config vite.config.mts"
     },
     {
       "id": "tailwind",
@@ -50,8 +49,7 @@
       "from": "node_modules/storybook",
       "config": ".storybook/main.ts",
       "status": "supported",
-      "drops": "2027-05-28",
-      "summary": "Storybook 9.1.21 from node_modules/storybook, config .storybook/main.ts; tested until May 2027"
+      "summary": "Storybook 9.1.21 from node_modules/storybook, config .storybook/main.ts"
     }
   ],
   "styles": {
@@ -124,17 +122,20 @@
     "Button": {
       "path": "src/components/Button.tsx",
       "export": "Button",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "TextField": {
       "path": "src/components/TextField.tsx",
       "export": "TextField",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     },
     "ThemeToggle": {
       "path": "src/components/ThemeToggle.tsx",
       "export": "ThemeToggle",
-      "as": "function"
+      "as": "function",
+      "lazy": true
     }
   },
   "libraries": [
@@ -153,42 +154,12 @@
       "version": "4.3.5"
     }
   ],
-  "storybook": {
-    "configDir": ".storybook",
-    "main": ".storybook/main.ts",
-    "script": "storybook",
-    "port": 6006,
-    "stories": {
-      "Button": [
-        {
-          "path": "src/components/Button.stories.tsx",
-          "title": "Components/Button",
-          "exports": [
-            "Primary",
-            "Secondary"
-          ]
-        }
-      ],
-      "TextField": [
-        {
-          "path": "src/components/TextField.stories.tsx",
-          "title": "Components/TextField",
-          "exports": [
-            "Default",
-            "Invalid"
-          ]
-        }
-      ]
-    }
-  },
   "notes": [
-    "styles from /src/main.tsx: src/index.css",
-    "the UI kit is in src/components",
+    "styles the builder found: src/index.css",
     "4 components in 5 files from tsconfig.app.json",
     "not read, since they mount the app: src/main.tsx",
     "0 components from Hugeicons (@hugeicons/core-free-icons)",
     "155 components from React Aria Components (react-aria-components)",
-    "no .par project file yet",
-    "Storybook in .storybook, with stories for 2 components"
+    "no .par project file yet"
   ]
 }

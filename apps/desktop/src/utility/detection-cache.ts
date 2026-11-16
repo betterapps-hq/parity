@@ -12,10 +12,10 @@ import { checkerVersion } from "./props.ts"
  * A saved component's or its props' outer shape, which is all that's checked: the file outlives app updates, but the
  * props records inside are large, and they're the checker's own output from a version with the same fingerprint.
  */
-const sourceShape = z.looseObject({ path: z.string(), export: z.string() })
-const infoShape = z.looseObject({ name: z.string(), path: z.string(), props: z.array(z.unknown()) })
-const savedSource = z.custom<ComponentSource>((value) => sourceShape.safeParse(value).success)
-const savedInfo = z.custom<ComponentInfo>((value) => infoShape.safeParse(value).success)
+const sourceOutline = z.looseObject({ path: z.string(), export: z.string() })
+const infoOutline = z.looseObject({ name: z.string(), path: z.string(), props: z.array(z.unknown()) })
+const savedSource = z.custom<ComponentSource>((value) => sourceOutline.safeParse(value).success)
+const savedInfo = z.custom<ComponentInfo>((value) => infoOutline.safeParse(value).success)
 
 /**
  * What the type checker and props found in a project, saved outside it under a fingerprint of what they read, so
@@ -63,6 +63,7 @@ export async function savedDetection(
   // None yet, one cut short, or one this version can't read: the checker reads the project again.
   const text = await readFile(cacheFile(root), "utf8").catch(() => undefined)
   const saved = text === undefined ? undefined : savedText.safeParse(text).data
+
   return saved?.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint }
 }
 
@@ -77,7 +78,10 @@ export async function saveDetection(
   fingerprint: string,
   found: Omit<SavedDetection, "fingerprint">
 ): Promise<void> {
-  if ((await fingerprintOf(root, files, discovered)) !== fingerprint) return
+  if ((await fingerprintOf(root, files, discovered)) !== fingerprint) {
+    return
+  }
+
   try {
     await mkdir(cacheDir, { recursive: true })
     await writeFile(cacheFile(root), JSON.stringify({ fingerprint, ...found }))

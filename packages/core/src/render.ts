@@ -1,41 +1,78 @@
+import {
+  type CssDeclaration,
+  declarations,
+  type Direction,
+  isHug,
+  type LayerKind,
+  type NodeStyle,
+  type StyleContext
+} from "@parity-app/style-schema"
+import { z } from "zod"
 import type { FrameViewport } from "./adapters.ts"
 import { screenHeightForWidth } from "./devices.ts"
-import type {
-  ContainerSpec,
-  DesignNode,
-  InstanceNode,
-  Length,
-  NodePatch,
-  NodeStyle,
-  Padding,
-  ParamSpec,
-  Size,
-  StateSpec
+import {
+  type ComponentNode,
+  type ContainerSpec,
+  type DesignNode,
+  designStates,
+  type FrameSize,
+  type InstanceNode,
+  isAccessibilityProp,
+  type NodePatch,
+  type ParamSpec,
+  type PatchUnset,
+  type PropValues,
+  type StateSpec,
+  type VideoNode
 } from "./document.ts"
 import type { ResolvedMode } from "./modes.ts"
+import { isComposite } from "./values/evaluate.ts"
 
 /**
  * A design resolved for one state in one viewport: what a renderer adapter mounts. Framework-neutral: elements are
- * plain DOM with inline styles, and components are the project's own, by id.
+ * plain DOM, each with the CSS declarations a frame draws it from as rules (`frameRules`), and components are the
+ * project's own, by id.
  */
-export type RenderNode =
-  | {
-      kind: "element"
-      nodeId: string
-      tag: string
-      style: Record<string, string>
-      children: RenderNode[]
-      /** HTML attributes beyond the style, like an image's `src` and `alt`. */
-      attributes?: Record<string, string>
-    }
-  | { kind: "text"; text: string }
-  | {
-      kind: "component"
-      nodeId: string
-      component: string
-      props: Record<string, unknown>
-      slots: Record<string, RenderNode[]>
-    }
+export type RenderNode = RenderElement | { kind: "text"; text: string } | RenderComponent
+
+/** A plain DOM element, and the CSS it's drawn with. */
+export interface RenderElement {
+  kind: "element"
+  nodeId: string
+  tag: string
+  /**
+   * The layer's style as CSS declarations, one for each property in the order they're written. A frame draws them as
+   * a rule for the node, not as an inline style, so a rule can also hold what an inline style can't, such as a state.
+   */
+  declarations: CssDeclaration[]
+  /**
+   * The classes of the project's styling framework that draw the declarations instead, where its own compiler wrote
+   * every one of them (`withClasses`). A frame gives the element these and no rule.
+   */
+  classes?: string[]
+  children: RenderNode[]
+  /** HTML attributes beyond the style, like an image's `src` and `alt`. */
+  attributes?: ElementAttributes
+}
+
+/** One of the project's own components, by id, with its props and what fills its slots. */
+export interface RenderComponent {
+  kind: "component"
+  nodeId: string
+  component: string
+  props: PropValues
+  slots: Record<string, RenderNode[]>
+}
+
+/** CSS properties by their camel-cased names, as the inline style a component's `style` prop takes. */
+export interface InlineStyle {
+  [property: string]: string
+}
+
+/** HTML attributes by name. */
+export interface ElementAttributes {
+  [name: string]: string
+}
 
 /**
  * Marks the element of a layout that draws nothing inside it, in this state and viewport, so the canvas can give it a
@@ -49,19 +86,52 @@ export const emptyLayoutAttribute = "data-canvas-empty-layout"
 
 type Axis = "width" | "height"
 
+/**
+ * A resolved tree without `emptyLayoutAttribute`, so its empty layouts draw as the project's code draws them: a frame
+ * that isn't edited, such as a screenshot or an export, gives them no size or outline of their own (PAR-888). The tree
+ * given is left as it is.
+ */
+export function withoutEmptyLayoutMarks(tree: readonly RenderNode[]): RenderNode[] {
+  return tree.map((node): RenderNode => {
+    if (node.kind === "component") {
+      const slots = Object.entries(node.slots).map(([slot, children]) => [slot, withoutEmptyLayoutMarks(children)])
+
+      return { ...node, slots: Object.fromEntries(slots) }
+    }
+
+    if (node.kind !== "element") {
+      return node
+    }
+
+    const { attributes, ...rest } = node
+    const unmarked: RenderNode = { ...rest, children: withoutEmptyLayoutMarks(node.children) }
+    const kept = Object.entries(attributes ?? {}).filter(([name]) => name !== emptyLayoutAttribute)
+
+    if (kept.length > 0) {
+      unmarked.attributes = Object.fromEntries(kept)
+    }
+
+    return unmarked
+  })
+}
+
 /** The axes a style gives no fixed length or least length. */
 function unsizedAxes(style: NodeStyle): Axis[] {
   return (["width", "height"] as const).filter((axis) => {
     const size = style[axis]
     const least = axis === "width" ? style.minWidth : style.minHeight
-    return (size === undefined || size === "hug" || size === "fill") && least === undefined
+
+    return (size === undefined || "size" in size) && least === undefined
   })
 }
 
 /** Every component a resolved tree draws, by id, outermost first, as often as it's drawn. */
 export function renderedComponents(tree: readonly RenderNode[]): string[] {
   return tree.flatMap((node) => {
-    if (node.kind === "component") return [node.component, ...Object.values(node.slots).flatMap(renderedComponents)]
+    if (node.kind === "component") {
+      return [node.component, ...Object.values(node.slots).flatMap(renderedComponents)]
+    }
+
     return node.kind === "element" ? renderedComponents(node.children) : []
   })
 }
@@ -71,28 +141,72 @@ export type ComponentLibrary = ReadonlyMap<string, ContainerSpec>
 
 /** What a design's own board renders: its root, inside the components it needs around it. */
 export function boardRoot(design: ContainerSpec): DesignNode {
-  return (design.context ?? []).reduceRight<DesignNode>(
-    (inner, wrapper, index) => ({
-      type: "component",
-      id: `context-${index}`,
-      component: wrapper.component,
-      ...(wrapper.props ? { props: wrapper.props } : {}),
-      slots: { children: [inner] }
-    }),
-    design.root
-  )
+  return (design.context ?? []).reduceRight<DesignNode>(contextWrapper, design.root)
+}
+
+/** One of the components a design's board draws around it, as a node holding what's inside it. */
+function contextWrapper(
+  inner: DesignNode,
+  wrapper: NonNullable<ContainerSpec["context"]>[number],
+  index: number
+): ComponentNode {
+  const id = `context-${index}`
+  const slots = { children: [inner] }
+
+  return wrapper.props
+    ? { type: "component", id, component: wrapper.component, props: wrapper.props, slots }
+    : { type: "component", id, component: wrapper.component, slots }
+}
+
+/**
+ * Whether a screen or a story file fits its content: its root layout hugs its content's width, so each mode's frame is
+ * as wide as what it draws, in a window as wide as the mode's viewport, as Storybook draws a story at its own size in a
+ * full-width window. The width each mode's frame is drawn at is kept in `frames`, as the canvas measures it, and a story
+ * file's for each story (see `fittedKey`). A frame has a size of its own and hugs its content there instead (the
+ * editor's `hugsContent`), in a window as wide as itself.
+ */
+export function fitsContent(design: ContainerSpec): boolean {
+  const kind = design.kind ?? "screen"
+
+  return (kind === "screen" || kind === "story") && design.root.type === "layout" && isHug(design.root.style?.width)
+}
+
+/**
+ * Where a design that fits its content keeps the width it's drawn at in a viewport (`frames`): by the viewport, or for a
+ * story file by its story and the viewport, as `Popular/desktop`, since each story draws at its own width.
+ */
+export function fittedKey(design: Pick<ContainerSpec, "kind">, viewport: string, state?: string): string {
+  return design.kind === "story" && state !== undefined ? `${state}/${viewport}` : viewport
 }
 
 /**
  * The size a design's frame is drawn at in a mode: the design's own size for the mode's viewport if it has one, else
  * as wide as the viewport and as tall as its content (no height). A frame has one size of its own, whatever the mode.
+ * A screen that fits its content (`fitsContent`) is drawn as wide as it was measured in that mode, a story file's
+ * `state` as wide as that story was, and never fixes its height.
  */
 export function frameSize(
   design: ContainerSpec,
-  mode: { viewport: string; width: number }
-): { width: number; height?: number } {
+  mode: Pick<ResolvedMode, "viewport" | "width">,
+  state?: string
+): DrawnFrameSize {
+  if (fitsContent(design)) {
+    return { width: design.frames?.[fittedKey(design, mode.viewport, state)]?.width ?? mode.width }
+  }
+
   const size = design.kind === "frame" ? design.size : design.frames?.[mode.viewport]
-  return { width: size?.width ?? mode.width, ...(size?.height === undefined ? {} : { height: size.height }) }
+  const drawn: DrawnFrameSize = { width: size?.width ?? mode.width }
+
+  if (size?.height !== undefined) {
+    drawn.height = size.height
+  }
+
+  return drawn
+}
+
+/** The size a frame is drawn at: always a width, and a height only when the frame doesn't grow with its content. */
+export interface DrawnFrameSize extends FrameSize {
+  width: number
 }
 
 /**
@@ -100,11 +214,9 @@ export function frameSize(
  * as the frame, and as tall as the frame's fixed height, else its viewport's screen, else the device nearest its width.
  * A frame that grows with its content is still drawn whole; this is only how tall its window is.
  */
-export function frameViewport(
-  size: { width: number; height?: number },
-  mode: Pick<ResolvedMode, "options">
-): { width: number; height: number } {
+export function frameViewport(size: DrawnFrameSize, mode: Pick<ResolvedMode, "options">): FrameViewport {
   const screen = mode.options.find(({ variable }) => variable.kind === "viewport")?.option.height
+
   return { width: size.width, height: size.height ?? screen ?? screenHeightForWidth(size.width) }
 }
 
@@ -125,10 +237,14 @@ export interface FrameGeometry {
 /** How a design's frame is drawn in a mode: its size and the window it stands for. */
 export function frameGeometry(
   design: ContainerSpec,
-  mode: Pick<ResolvedMode, "viewport" | "width" | "options">
+  mode: Pick<ResolvedMode, "viewport" | "width" | "options">,
+  state?: string
 ): FrameGeometry {
-  const size = frameSize(design, mode)
-  return { ...size, viewport: frameViewport(size, mode) }
+  const size = frameSize(design, mode, state)
+  // A screen that fits its content is drawn in the mode's whole window, however narrow its frame is.
+  const window = fitsContent(design) ? { width: mode.width } : size
+
+  return { ...size, viewport: frameViewport(window, mode) }
 }
 
 /** Every design that instances can place, by id. */
@@ -148,26 +264,35 @@ export function projectComponentLibrary(
   return componentLibrary([...libraryDesigns, ...own])
 }
 
+/** The part of an instance node that names the design it places. */
+const placement = z.object({ type: z.literal("instance"), design: z.string() })
+
 /** Designs are replaced rather than changed, so what a design places is worked out once per design. */
 const placedBy = new WeakMap<ContainerSpec, readonly string[]>()
 
 /** The ids of the designs a design's instances place, anywhere in it: its tree, its states and its params. */
 export function placedDesigns(design: ContainerSpec): readonly string[] {
   let placed = placedBy.get(design)
+
   if (!placed) {
     const found = new Set<string>()
-    const visit = (value: unknown): void => {
-      if (Array.isArray(value)) for (const item of value) visit(item)
-      else if (typeof value === "object" && value !== null) {
-        const node = value as Partial<InstanceNode>
-        if (node.type === "instance" && typeof node.design === "string") found.add(node.design)
-        for (const item of Object.values(value)) visit(item)
+
+    // Every value anywhere in the design, whichever field holds it, so an instance in a field this code doesn't know
+    // of yet, such as one a state adds, is found too. The replacer sees each value before the ones inside it.
+    JSON.stringify(design, (_key, value) => {
+      const node = placement.safeParse(value)
+
+      if (node.success) {
+        found.add(node.data.design)
       }
-    }
-    visit(design)
+
+      return value
+    })
+
     placed = [...found]
     placedBy.set(design, placed)
   }
+
   return placed
 }
 
@@ -182,16 +307,23 @@ export function reachableLibrary(
   previous?: ComponentLibrary
 ): ComponentLibrary {
   const reached = new Map<string, ContainerSpec>()
+
   const visit = (current: ContainerSpec) => {
     for (const id of placedDesigns(current)) {
       const placed = library.get(id)
-      if (!placed || reached.has(id)) continue
+
+      if (!placed || reached.has(id)) {
+        continue
+      }
+
       reached.set(id, placed)
       visit(placed)
     }
   }
+
   visit(design)
   const same = previous?.size === reached.size && [...reached].every(([id, placed]) => previous.get(id) === placed)
+
   return same ? previous : reached
 }
 
@@ -200,6 +332,11 @@ interface Scope extends EvalScope {
   prefix: string
   /** Component designs being expanded, to stop a component from containing itself. */
   stack: string[]
+  /**
+   * Inside an instance's component: what the instance fills a slot with, drawn as the design around it draws its own
+   * layers, so they keep their ids there. Undefined when the instance leaves the slot to its placeholder.
+   */
+  fills?: (slot: string, parent: Direction) => RenderNode[] | undefined
 }
 
 /**
@@ -213,12 +350,12 @@ export type PatchLayer = Record<string, NodePatch> | undefined
 export interface VariantView {
   params?: Record<string, ParamSpec>
   /** Option ids by param. Missing or unknown ones show the param's default, else its first option. */
-  choices?: Record<string, unknown>
+  choices?: PropValues
 }
 
 /**
- * Applies the viewport's responsive patches, then the variants' and the state's, maps tokens to CSS, and expands
- * instances of component designs with their args bound.
+ * Applies the variants', the state's and the viewport's responsive patches, as `nodePatch` orders them, maps tokens to
+ * CSS, and expands instances of component designs with their args bound.
  */
 export function resolveDesign(
   root: DesignNode,
@@ -242,7 +379,7 @@ export function resolveDesign(
  */
 export interface EvalContext {
   state?: StateSpec
-  variants?: Record<string, unknown>
+  variants?: PropValues
   viewport?: string
   library?: ComponentLibrary
 }
@@ -252,7 +389,7 @@ export interface EvalScope {
   /** Later layers win. On a board: the chosen variant options in param order, then the state. */
   layers: PatchLayer[]
   /** On a board: each param's default, then the variant options shown, as `boardArgs` gives them. */
-  args?: Record<string, unknown>
+  args?: PropValues
 }
 
 /** The layers and args a design's own nodes are evaluated with in a context. */
@@ -262,81 +399,206 @@ export function scopeOf(container: ContainerSpec, context: EvalContext = {}): Ev
 
 function boardScope(
   params: Record<string, ParamSpec> | undefined,
-  chosen: Record<string, unknown> | undefined,
+  chosen: PropValues | undefined,
   state: StateSpec | undefined
 ): EvalScope {
   const choices = variantChoices(params, chosen)
+
   return { layers: [...optionPatches(params, choices), state?.overrides], args: boardArgs(params, choices) }
 }
 
 /**
- * Everything patched over one node in a scope: its responsive patch for the viewport, under every layer's patch for
- * it. Layers are keyed by the node's own id, since an instance's scope keys them by the paths below it.
+ * Everything patched over one node in a scope, as the code it stands for would draw it (PAR-902). A viewport's
+ * responsive patch is a breakpoint, CSS that applies whatever the app's state is, so its style wins over every layer's
+ * patch for the node, and its `hidden: true` hides the node whatever a layer shows. Text, props and `hidden: false` are
+ * the app's to change, so they sit under the layers: a state, variant or instance can still change the words or hide
+ * what the viewport shows. Layers are keyed by the node's own id, since an instance's scope keys them by the paths
+ * below it.
  */
 export function nodePatch(layers: readonly PatchLayer[], node: DesignNode, viewport?: string): NodePatch {
-  return layeredPatch(layers, node.id, viewport === undefined ? undefined : node.responsive?.[viewport])
+  const responsive = viewport === undefined ? undefined : node.responsive?.[viewport]
+
+  if (!responsive) {
+    return layeredPatch(layers, node.id)
+  }
+
+  const { under, over } = splitResponsive(responsive)
+
+  return mergePatches(layeredPatch(layers, node.id, under), over)
 }
 
 /**
- * One node as it's drawn in a scope: its own values, then the params it binds from `args`, then its responsive
- * patch, the variant options and the state, later ones winning. Every node goes through this step, on a board, inside
- * an instance and in `resolveDesign`.
+ * A responsive patch in two parts: what the app's state can change (text, props, and showing a node the design hides),
+ * and what the breakpoint decides over it (style, and hiding a node).
+ */
+interface ResponsiveParts {
+  /** Applied under the layers, which can change it. */
+  under: NodePatch
+  /** Applied over the layers, whatever they say. */
+  over: NodePatch
+}
+
+function splitResponsive(patch: NodePatch): ResponsiveParts {
+  const under: NodePatch = {}
+  const over: NodePatch = {}
+
+  if (patch.hidden === false) {
+    under.hidden = false
+  } else if (patch.hidden === true) {
+    over.hidden = true
+  }
+
+  if (patch.text !== undefined) {
+    under.text = patch.text
+  }
+
+  if (patch.props) {
+    under.props = patch.props
+  }
+
+  if (patch.unset?.props) {
+    under.unset = { props: patch.unset.props }
+  }
+
+  if (patch.style) {
+    over.style = patch.style
+  }
+
+  if (patch.unset?.style) {
+    over.unset = { style: patch.unset.style }
+  }
+
+  return { under, over }
+}
+
+/**
+ * One node as it's drawn in a scope: its own values, then the params it binds from `args`, then everything patched
+ * over it, as `nodePatch` orders the variant options, the state and its responsive patch. Every node goes through this
+ * step, on a board, inside an instance and in `resolveDesign`.
  */
 export function drawnNode(node: DesignNode, scope: EvalScope, viewport?: string): DesignNode {
   return applyPatch(node, nodePatch(scope.layers, node, viewport), scope.args)
 }
 
 /**
- * A node with a patch applied, and with the params it's bound to filled in from `args`, as it renders. A patch's text,
- * props and visibility win over bound values. The bindings themselves stay on the node.
+ * A node with a patch applied, and with the params it's bound to filled in from `args`, as it renders. A patch's text
+ * and props win over bound values. The bindings themselves stay on the node.
  */
-export function applyPatch(node: DesignNode, patch: NodePatch, args?: Record<string, unknown>): DesignNode {
+export function applyPatch(node: DesignNode, patch: NodePatch, args?: PropValues): DesignNode {
   const bound = (param: string | undefined) =>
     param !== undefined && args && Object.hasOwn(args, param) ? { value: args[param] } : undefined
-  const next = { ...node } as DesignNode
-  const visible = bound(node.bind?.visible)
-  const hidden = patch.hidden ?? (visible ? !visible.value : node.hidden)
+
+  const next: DesignNode = { ...node }
+  const hidden = patch.hidden ?? node.hidden
+
   if (hidden !== node.hidden) {
-    if (hidden) next.hidden = true
-    else delete next.hidden
+    if (hidden) {
+      next.hidden = true
+    } else {
+      delete next.hidden
+    }
   }
+
   if ((patch.style && Object.keys(patch.style).length > 0) || patch.unset?.style?.length) {
     const style = { ...without(node.style, patch.unset?.style), ...patch.style }
-    if (Object.keys(style).length > 0) next.style = style
-    else delete next.style
+
+    if (Object.keys(style).length > 0) {
+      next.style = style
+    } else {
+      delete next.style
+    }
   }
+
   if (next.type === "text") {
     const text = bound(next.bind?.text)
-    if (patch.text !== undefined) next.text = patch.text
-    else if (text) next.text = String(text.value)
+
+    if (patch.text !== undefined) {
+      next.text = patch.text
+    } else if (text) {
+      next.text = String(text.value)
+    }
   }
-  if (next.type === "component") {
-    const props: Record<string, unknown> = { ...next.props }
+
+  if (next.type === "component" || next.type === "layout" || next.type === "text") {
+    const props: PropValues = { ...next.props }
+
     for (const [prop, param] of Object.entries(next.bind?.props ?? {})) {
       const value = bound(param)
-      if (value) props[prop] = value.value
+
+      if (value) {
+        props[prop] = value.value
+      }
     }
-    for (const prop of patch.unset?.props ?? []) delete props[prop]
+
+    for (const prop of patch.unset?.props ?? []) {
+      delete props[prop]
+    }
+
     Object.assign(props, patch.props)
-    if (Object.keys(props).length > 0) next.props = props
-    else delete next.props
+
+    if (Object.keys(props).length > 0) {
+      // SAFETY: a layout's or text's props are checked when its file loads, and `accessibilityAttributes` writes only
+      // the accessibility attributes among what a patch or a param gives it.
+      next.props = props as typeof next.props
+    } else {
+      delete next.props
+    }
   }
+
   if (
     next.type === "instance" &&
     ((patch.props && Object.keys(patch.props).length > 0) || patch.unset?.props?.length)
   ) {
     const args = { ...without(next.args, patch.unset?.props), ...patch.props }
-    if (Object.keys(args).length > 0) next.args = args
-    else delete next.args
+
+    if (Object.keys(args).length > 0) {
+      next.args = args
+    } else {
+      delete next.args
+    }
   }
+
   return next
+}
+
+/**
+ * A layout's or text's props as the attributes its element carries, by their HTML names and as text, as React writes
+ * `aria-hidden={true}`. Only accessibility attributes (`isAccessibilityProp`): a patch's or a param's other props
+ * are left off.
+ */
+export function accessibilityAttributes(props: PropValues | undefined): ElementAttributes {
+  const attributes: ElementAttributes = {}
+
+  for (const [name, value] of Object.entries(props ?? {})) {
+    const written = attributeValue.safeParse(value)
+
+    if (isAccessibilityProp(name) && written.success) {
+      attributes[name] = String(written.data)
+    }
+  }
+
+  return attributes
+}
+
+/** What an attribute can be written from: text, a number or a boolean. */
+const attributeValue = z.union([z.string(), z.number(), z.boolean()])
+
+/** `{ attributes }` when there are any, so an element without them has none. */
+function withAttributes(attributes: ElementAttributes): { attributes?: ElementAttributes } {
+  return Object.keys(attributes).length > 0 ? { attributes } : {}
 }
 
 /** `values` without `keys`. */
 export function without<T extends object>(values: T | undefined, keys: readonly string[] | undefined): T {
-  const next = { ...values } as Record<string, unknown>
-  for (const key of keys ?? []) delete next[key]
-  return next as T
+  // SAFETY: callers take away only keys that `T` leaves optional (style properties, props, args), and the empty copy
+  // made for `undefined` is a `T` with none of them set.
+  const next = { ...values } as T
+
+  for (const key of keys ?? []) {
+    Reflect.deleteProperty(next, key)
+  }
+
+  return next
 }
 
 /**
@@ -345,14 +607,15 @@ export function without<T extends object>(values: T | undefined, keys: readonly 
  */
 export function boardArgs(
   params: Record<string, ParamSpec> | undefined,
-  choices: Record<string, string>
-): Record<string, unknown> | undefined {
+  choices: VariantChoices
+): PropValues | undefined {
   const args = { ...paramDefaults(params), ...choices }
+
   return Object.keys(args).length > 0 ? args : undefined
 }
 
 /** Each param's default, by name, for the params that have one. */
-export function paramDefaults(params: Record<string, ParamSpec> | undefined): Record<string, unknown> {
+export function paramDefaults(params: Record<string, ParamSpec> | undefined): PropValues {
   return Object.fromEntries(
     Object.entries(params ?? {}).flatMap(([name, param]) =>
       param.default === undefined ? [] : [[name, param.default]]
@@ -361,25 +624,29 @@ export function paramDefaults(params: Record<string, ParamSpec> | undefined): Re
 }
 
 /** The option each variant param shows: the chosen one when it exists, else the param's default, else its first. */
-export function variantChoices(
-  params: Record<string, ParamSpec> | undefined,
-  chosen: Record<string, unknown> = {}
-): Record<string, string> {
-  const choices: Record<string, string> = {}
+export function variantChoices(params: Record<string, ParamSpec> | undefined, chosen: PropValues = {}): VariantChoices {
+  const choices: VariantChoices = {}
+
   for (const [name, param] of Object.entries(params ?? {})) {
     const options = param.type === "variant" ? (param.options ?? []) : []
-    if (options.length === 0) continue
-    const pick = [chosen[name], param.default].find((value) => options.some((option) => option.id === value))
-    choices[name] = typeof pick === "string" ? pick : options[0]!.id
+    const option = (id: PropValues[string]) => options.find((candidate) => candidate.id === id)
+    const pick = option(chosen[name]) ?? option(param.default) ?? options[0]
+
+    if (pick) {
+      choices[name] = pick.id
+    }
   }
+
   return choices
 }
 
+/** The option id each variant param shows, by param. */
+export interface VariantChoices {
+  [param: string]: string
+}
+
 /** The patches of the chosen variant options, in param order. */
-export function optionPatches(
-  params: Record<string, ParamSpec> | undefined,
-  choices: Record<string, string>
-): PatchLayer[] {
+export function optionPatches(params: Record<string, ParamSpec> | undefined, choices: VariantChoices): PatchLayer[] {
   return Object.entries(choices).map(
     ([name, option]) => params?.[name]?.options?.find((candidate) => candidate.id === option)?.overrides
   )
@@ -387,10 +654,17 @@ export function optionPatches(
 
 /** The patches a layer has for nodes inside one instance, keyed by their path below it. */
 export function withinInstance(layer: PatchLayer, instanceId: string): PatchLayer {
-  if (!layer) return undefined
+  if (!layer) {
+    return undefined
+  }
+
   const prefix = `${instanceId}/`
   const inside = Object.entries(layer).filter(([key]) => key.startsWith(prefix))
-  if (inside.length === 0) return undefined
+
+  if (inside.length === 0) {
+    return undefined
+  }
+
   return Object.fromEntries(inside.map(([key, patch]) => [key.slice(prefix.length), patch]))
 }
 
@@ -408,12 +682,14 @@ export function instanceScope(
   component: ContainerSpec,
   patch: NodePatch,
   layers: readonly PatchLayer[]
-): { args: Record<string, unknown>; layers: PatchLayer[] } {
+): Required<EvalScope> {
   const defaults = paramDefaults(component.params)
   // A param the patch takes away goes back to its default.
   const given = { ...without(node.args, patch.unset?.props), ...patch.props }
   const choices = variantChoices(component.params, given)
-  const componentState = component.states.find((candidate) => candidate.id === node.state) ?? component.states[0]
+  // An instance shows its component's base state: other states only stress-test the component on its own board.
+  const componentState = designStates(component)[0]
+
   return {
     args: { ...defaults, ...given, ...choices },
     layers: [
@@ -433,32 +709,51 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
     // The same step as `drawnNode`, keeping the patch, which an instance passes into its component.
     const patch = nodePatch(scope.layers, node, viewportId)
     const shown = applyPatch(node, patch, scope.args)
-    if (shown.hidden) return []
+
+    if (shown.hidden) {
+      return []
+    }
+
     const style = shown.style ?? {}
 
     switch (shown.type) {
+      // A route draws nothing of its own here: its component draws in the app's own page (PAR-1076).
+      case "route":
+        return shown.children.flatMap((child) => resolve(child, parent))
       case "layout": {
-        const children = shown.children.flatMap((child) => resolve(child, style.direction ?? "column"))
+        const direction = style.flexDirection ?? "column"
+        const filled = shown.slot === undefined ? undefined : scope.fills?.(shown.slot, direction)
+        const children = filled ?? shown.children.flatMap((child) => resolve(child, direction))
+
+        const element: RenderElement = {
+          kind: "element",
+          nodeId: id(node),
+          tag: "div",
+          // A child placed against the layout's edges is placed in the layout, as its code would be written.
+          declarations: cssOf(style, "layout", parent, { anchors: children.some(isAbsolute) }),
+          children,
+          ...withAttributes(accessibilityAttributes(shown.props))
+        }
+
+        if (children.length > 0) {
+          return [element]
+        }
+
+        // The canvas gives an empty layout a size to see, select and drop into (see `emptyLayoutAttribute`).
         return [
-          {
-            kind: "element",
-            nodeId: id(node),
-            tag: "div",
-            style: layoutCss(style, parent),
-            // The canvas gives an empty layout a size to see, select and drop into (see `emptyLayoutAttribute`).
-            ...(children.length === 0 ? { attributes: { [emptyLayoutAttribute]: unsizedAxes(style).join(" ") } } : {}),
-            children
-          }
+          { ...element, attributes: { ...element.attributes, [emptyLayoutAttribute]: unsizedAxes(style).join(" ") } }
         ]
       }
+
       case "text":
         return [
           {
             kind: "element",
             nodeId: id(node),
             tag: shown.tag ?? "p",
-            style: textCss(style, parent),
-            children: [{ kind: "text", text: shown.text }]
+            declarations: cssOf(style, "text", parent, { inline: inlineTags.has(shown.tag ?? "p") }),
+            children: [{ kind: "text", text: shown.text }],
+            ...withAttributes(accessibilityAttributes(shown.props))
           }
         ]
       case "image":
@@ -467,273 +762,227 @@ function resolveTree(root: DesignNode, viewportId: string, library: ComponentLib
             kind: "element",
             nodeId: id(node),
             tag: "img",
-            style: { display: "block", objectFit: shown.fit ?? "cover", ...componentCss(style, parent) },
+            declarations: mediaCss(shown.fit, cssOf(style, shown.type, parent)),
             attributes: { src: shown.src, alt: shown.alt ?? "" },
             children: []
           }
         ]
+      case "video":
+        return [
+          {
+            kind: "element",
+            nodeId: id(node),
+            tag: "video",
+            declarations: mediaCss(shown.fit, cssOf(style, shown.type, parent)),
+            attributes: videoAttributes(shown),
+            children: []
+          }
+        ]
       case "component": {
-        const props: Record<string, unknown> = { ...shown.props }
+        const props = { ...shown.props }
         // A component's own styles come from its props; what the design sets on it lands on its root as inline styles.
-        const box = componentCss(style, parent)
-        if (Object.keys(box).length > 0) props.style = { ...(props.style as object | undefined), ...box }
+        const box = inlineStyle(style, shown.type, parent)
+
+        if (Object.keys(box).length > 0) {
+          props.style = withInlineStyle(props.style, box)
+        }
+
         const slots: Record<string, RenderNode[]> = {}
+
         for (const [slot, children] of Object.entries(shown.slots ?? {})) {
           slots[slot] = children.flatMap((child) => resolve(child))
         }
+
         return [{ kind: "component", nodeId: id(node), component: shown.component, props, slots }]
       }
+
       case "instance": {
         const component = library.get(shown.design)
+
         if (!component || scope.stack.includes(shown.design)) {
           const problem = component ? `${shown.design} contains itself` : `No component design "${shown.design}"`
+
           return [{ kind: "component", nodeId: id(node), component: problem, props: {}, slots: {} }]
         }
+
         const expanded = instanceScope(shown, component, patch, scope.layers)
+        const filling = shown.slots
+
         const inner = resolveTree(component.root, viewportId, library, {
           ...expanded,
           prefix: id(node),
-          stack: [...scope.stack, shown.design]
+          stack: [...scope.stack, shown.design],
+          fills: (slot, direction) =>
+            filling?.[slot]?.length ? filling[slot].flatMap((child) => resolve(child, direction)) : undefined
         })
+
         const [first] = inner
+
         if (first && first.kind !== "text") {
           // The instance's place in its layout (width, grow) applies to the component's root, which takes its id.
-          const box = componentCss(style, parent)
           first.nodeId = id(node)
+
           if (first.kind === "element") {
-            first.style = { ...first.style, ...box }
+            first.declarations = over(first.declarations, cssOf(style, shown.type, parent))
             // An empty root is unsized along an axis the instance sizes only as the instance sizes it, so a length the
             // instance gives it counts, and so does hugging over its component's fixed one; on another axis, as its
             // component sizes it.
             const unsized = first.attributes?.[emptyLayoutAttribute]
+
             if (unsized !== undefined) {
               const own = unsizedAxes(style)
+
               const axes = (["width", "height"] as const).filter((axis) => {
                 const least = axis === "width" ? style.minWidth : style.minHeight
+
                 return style[axis] !== undefined || least !== undefined
                   ? own.includes(axis)
                   : unsized.split(" ").includes(axis)
               })
+
               first.attributes = { ...first.attributes, [emptyLayoutAttribute]: axes.join(" ") }
             }
-          } else if (Object.keys(box).length > 0)
-            first.props = { ...first.props, style: { ...(first.props.style as object | undefined), ...box } }
+          } else {
+            const box = inlineStyle(style, shown.type, parent)
+
+            if (Object.keys(box).length > 0) {
+              first.props = { ...first.props, style: withInlineStyle(first.props.style, box) }
+            }
+          }
         }
+
         return inner
       }
     }
   }
+
   return resolve(root)
+}
+
+/** Text tags drawn inline, which take a width or alignment only once drawn as a block. */
+const inlineTags: ReadonlySet<string> = new Set(["span", "strong"])
+
+/** A layer's style as the CSS declarations its element is drawn from. */
+function cssOf(
+  style: NodeStyle,
+  kind: LayerKind,
+  parent: Direction | undefined,
+  context: Pick<StyleContext, "inline" | "anchors"> = {}
+): CssDeclaration[] {
+  return declarations(style, { ...context, kind, parent }).map(({ property, value }) => ({ property, value }))
+}
+
+/** Whether a drawn node is placed against its parent's edges: an element by its rule, a component by its style. */
+function isAbsolute(node: RenderNode): boolean {
+  if (node.kind === "element") {
+    return node.declarations.some(({ property, value }) => property === "position" && value === "absolute")
+  }
+
+  const style = node.kind === "component" ? node.props.style : undefined
+
+  return isComposite(style) && "position" in style && style.position === "absolute"
+}
+
+/** `upper` laid over `under`: a property both declare takes the upper value, where the lower one wrote it. */
+function over(under: readonly CssDeclaration[], upper: readonly CssDeclaration[]): CssDeclaration[] {
+  const css = new Map(under.map((declaration) => [declaration.property, declaration]))
+
+  for (const declaration of upper) {
+    css.set(declaration.property, declaration)
+  }
+
+  return [...css.values()]
+}
+
+/** What an image or a video draws before its style: a block that covers its box, or fits it as `fit` says. */
+function mediaCss(fit: string | undefined, own: readonly CssDeclaration[]): CssDeclaration[] {
+  return over(
+    [
+      { property: "display", value: "block" },
+      { property: "object-fit", value: fit ?? "cover" }
+    ],
+    own
+  )
+}
+
+/**
+ * A layer's style as the inline style a component takes in its `style` prop, since its DOM is its own and no rule of
+ * the frame's is sure to reach it: its declarations, each property camel-cased as the DOM's `style` names it
+ * (`align-self` as `alignSelf`, `-webkit-line-clamp` as `WebkitLineClamp`).
+ */
+function inlineStyle(style: NodeStyle, kind: LayerKind, parent: Direction | undefined): InlineStyle {
+  const css: InlineStyle = {}
+
+  for (const { property, value } of declarations(style, { kind, parent })) {
+    css[property.replaceAll(/-([a-z])/g, (_match, letter: string) => letter.toUpperCase())] = value
+  }
+
+  return css
+}
+
+/** A component's `style` prop, whatever the props give it, with the design's inline styles over it. */
+function withInlineStyle(style: PropValues[string], box: InlineStyle): InlineStyle {
+  return Object.assign({}, style, box)
 }
 
 /** `over` applied on top of `under`. */
 export function mergePatches(under: NodePatch | undefined, over: NodePatch | undefined): NodePatch {
-  if (!over) return under ?? {}
+  if (!over) {
+    return under ?? {}
+  }
+
   // What the upper patch takes away goes from the lower one's values, and what it sets is no longer taken away.
-  const props = mergeUnset(under?.unset?.props, over.unset?.props, over.props)
-  const style = mergeUnset(under?.unset?.style, over.unset?.style, over.style)
-  return {
+  const props = mergeUnset(under?.unset?.props, over.unset?.props, Object.keys(over.props ?? {}))
+  const style = mergeUnset(under?.unset?.style, over.unset?.style, Object.keys(over.style ?? {}))
+
+  const merged: NodePatch = {
     hidden: over.hidden ?? under?.hidden,
     text: over.text ?? under?.text,
     props: { ...without(under?.props, over.unset?.props), ...over.props },
-    style: { ...without(under?.style, over.unset?.style), ...over.style },
-    ...(props || style ? { unset: { ...(props ? { props } : {}), ...(style ? { style } : {}) } } : {})
+    style: { ...without(under?.style, over.unset?.style), ...over.style }
   }
+
+  if (props || style) {
+    const unset: PatchUnset = {}
+
+    if (props) {
+      unset.props = props
+    }
+
+    if (style) {
+      unset.style = style
+    }
+
+    merged.unset = unset
+  }
+
+  return merged
 }
 
 /** The keys two patches take away, one over the other, less those the upper one sets. */
 function mergeUnset<K extends string>(
   under: readonly K[] | undefined,
   over: readonly K[] | undefined,
-  set: object | undefined
+  set: readonly string[]
 ): K[] | undefined {
-  const keys = [...new Set([...(under ?? []), ...(over ?? [])])].filter((key) => !Object.hasOwn(set ?? {}, key))
+  const keys = [...new Set([...(under ?? []), ...(over ?? [])])].filter((key) => !set.includes(key))
+
   return keys.length > 0 ? keys : undefined
 }
 
-/** A step of the spacing scale (a multiple of the project's spacing unit), or a length token. */
-export function spacing(value: Length): string {
-  if (typeof value === "string") return token(value)
-  return value === 0 ? "0" : `calc(var(--spacing) * ${value})`
-}
-
-/** A reference to one of the project's custom properties. */
-export function token(name: string): string {
-  return `var(--${name})`
-}
-
 /**
- * Values the radius field takes that the styling framework writes as a keyword rather than a variable, with the CSS
- * each comes to. `radius-full` is Tailwind's `rounded-full`: a corner as round as the box allows, so a square is a
- * circle and a wide box a pill at any size. Tailwind's theme has no `--radius-full`, so the name isn't a token; a
- * project that declares one keeps its own value.
+ * A video's attributes, by their HTML names as the project's code would write them: one with controls waits to be
+ * played; one without plays by itself, without sound (which a browser needs before it plays one by itself), round and
+ * round, in its place rather than full screen on a phone.
  */
-export const radiusKeywords: Readonly<Record<string, string>> = { "radius-full": "calc(infinity * 1px)" }
+export function videoAttributes(video: Pick<VideoNode, "src" | "alt" | "controls">): ElementAttributes {
+  const attributes: ElementAttributes = { src: video.src }
 
-/** The CSS for a radius: the token's variable, falling back to the keyword's value for a keyword. */
-function radiusCss(name: string): string {
-  const keyword = radiusKeywords[name]
-  return keyword === undefined ? token(name) : `var(--${name}, ${keyword})`
-}
-
-type Direction = "row" | "column"
-
-const flexAlign = { start: "flex-start", center: "center", end: "flex-end", stretch: "stretch" } as const
-const flexJustify = {
-  start: "flex-start",
-  center: "center",
-  end: "flex-end",
-  between: "space-between",
-  around: "space-around",
-  evenly: "space-evenly"
-} as const
-
-function layoutCss(style: NodeStyle, parent: Direction | undefined): Record<string, string> {
-  const grid = style.display === "grid"
-  const css: Record<string, string> = {
-    display: grid ? "grid" : "flex",
-    position: "relative",
-    minWidth: "0",
-    ...surfaceCss(style),
-    ...spacingCss(style),
-    ...boxCss(style, parent)
+  if (video.alt) {
+    attributes["aria-label"] = video.alt
   }
-  if (grid) {
-    css.gridTemplateColumns = `repeat(${style.columns ?? 2}, minmax(0, 1fr))`
-    if (style.rows !== undefined) css.gridTemplateRows = `repeat(${style.rows}, minmax(0, 1fr))`
-  } else {
-    css.flexDirection = style.direction ?? "column"
-    if (style.wrap) css.flexWrap = "wrap"
-  }
-  if (style.gap !== undefined) css.gap = spacing(style.gap)
-  if (style.rowGap !== undefined) css.rowGap = spacing(style.rowGap)
-  if (style.align) css.alignItems = flexAlign[style.align]
-  if (style.justify) {
-    // A grid places items within their cells along the row; distributing space is for the tracks themselves.
-    const distributes = style.justify === "between" || style.justify === "around" || style.justify === "evenly"
-    if (grid && !distributes) css.justifyItems = flexAlign[style.justify as "start" | "center" | "end"]
-    else css.justifyContent = flexJustify[style.justify]
-  }
-  return css
-}
 
-function textCss(style: NodeStyle, parent: Direction | undefined): Record<string, string> {
-  const css: Record<string, string> = {
-    margin: "0",
-    ...surfaceCss(style),
-    ...spacingCss(style),
-    ...boxCss(style, parent)
-  }
-  // Hugging text is Figma's auto width: as wide as its line, never wrapped by its parent, only by a maximum width.
-  if (style.width === "hug") css.width = "max-content"
-  if (style.lines === 1) {
-    Object.assign(css, { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })
-  } else if (style.lines !== undefined && style.lines > 1) {
-    Object.assign(css, {
-      display: "-webkit-box",
-      WebkitBoxOrient: "vertical",
-      WebkitLineClamp: String(style.lines),
-      overflow: "hidden"
-    })
-  }
-  return css
-}
-
-/** Everything a design can set on a component: its surface, spacing, place in the layout and type. */
-function componentCss(style: NodeStyle, parent: Direction | undefined): Record<string, string> {
-  return { ...surfaceCss(style), ...spacingCss(style), ...boxCss(style, parent) }
-}
-
-/** Padding and margin, each on all sides, per axis, or per side. */
-function spacingCss(style: NodeStyle): Record<string, string> {
-  const css: Record<string, string> = {}
-  if (style.padding !== undefined) css.padding = sidesCss(style.padding)
-  if (style.margin !== undefined) css.margin = sidesCss(style.margin)
-  return css
-}
-
-function sidesCss(value: Padding): string {
-  return (Array.isArray(value) ? value : [value]).map(spacing).join(" ")
-}
-/** Fill, border, corners, shadow and clipping: what layouts and text draw themselves. */
-function surfaceCss(style: NodeStyle): Record<string, string> {
-  const css: Record<string, string> = {}
-  if (style.background) css.background = token(style.background)
-  if (style.border !== undefined || style.borderWidth !== undefined) {
-    css.borderWidth = `${style.borderWidth ?? 1}px`
-    css.borderStyle = style.borderStyle ?? "solid"
-    css.borderColor = style.border ? token(style.border) : "var(--border, currentColor)"
-  }
-  if (style.radius) css.borderRadius = radiusCss(style.radius)
-  if (style.shadow) css.boxShadow = token(style.shadow)
-  if (style.overflow) css.overflow = style.overflow === "scroll" ? "auto" : style.overflow
-  return css
-}
-
-/**
- * What applies to any node, including a component's root: its size and place in the parent's layout, opacity, and
- * type, which the text inside inherits.
- */
-function boxCss(style: NodeStyle, parent: Direction | undefined): Record<string, string> {
-  const css: Record<string, string> = {}
-  if (style.grow) fill(css, parent === "column" ? "height" : "width", parent ?? "row")
-  sizeCss(css, "width", style.width, parent)
-  sizeCss(css, "height", style.height, parent)
-  if (style.minWidth !== undefined) css.minWidth = spacing(style.minWidth)
-  if (style.maxWidth !== undefined) css.maxWidth = spacing(style.maxWidth)
-  if (style.minHeight !== undefined) css.minHeight = spacing(style.minHeight)
-  if (style.maxHeight !== undefined) css.maxHeight = spacing(style.maxHeight)
-  if (style.self) css.alignSelf = flexAlign[style.self]
-  if (style.colSpan !== undefined) css.gridColumn = `span ${style.colSpan} / span ${style.colSpan}`
-  if (style.rowSpan !== undefined) css.gridRow = `span ${style.rowSpan} / span ${style.rowSpan}`
-  if (style.position === "absolute") {
-    css.position = "absolute"
-    for (const side of ["top", "right", "bottom", "left"] as const) {
-      if (style[side] !== undefined) css[side] = spacing(style[side])
-    }
-  }
-  if (style.opacity !== undefined) css.opacity = String(style.opacity / 100)
-  if (style.foreground) css.color = token(style.foreground)
-  if (style.font) css.fontFamily = token(style.font)
-  if (style.size) {
-    css.fontSize = token(style.size)
-    css.lineHeight = `var(--${style.size}--line-height, 1.5)`
-  }
-  if (style.leading) css.lineHeight = token(style.leading)
-  if (style.weight !== undefined) css.fontWeight = String(style.weight)
-  if (style.tracking) css.letterSpacing = token(style.tracking)
-  if (style.textAlign) css.textAlign = style.textAlign
-  if (style.transform) css.textTransform = style.transform
-  if (style.decoration) css.textDecorationLine = style.decoration
-  if (style.italic) css.fontStyle = "italic"
-  return css
-}
-
-/**
- * Figma's sizing in flex terms. Filling the parent's main axis grows into the free space; filling the cross axis
- * stretches. A fixed length doesn't shrink along the main axis. Outside a layout, fill is the whole parent.
- */
-function sizeCss(
-  css: Record<string, string>,
-  axis: "width" | "height",
-  size: Size | undefined,
-  parent: Direction | undefined
-) {
-  if (size === undefined) return
-  const main = parent !== undefined && (axis === "width") === (parent === "row")
-  if (size === "hug") css[axis] = "fit-content"
-  else if (size === "fill") fill(css, axis, parent)
-  else {
-    css[axis] = spacing(size)
-    if (main) css.flexShrink = "0"
-  }
-}
-
-function fill(css: Record<string, string>, axis: "width" | "height", parent: Direction | undefined) {
-  const min = axis === "width" ? "minWidth" : "minHeight"
-  if (parent === undefined) css[axis] = "100%"
-  else if ((axis === "width") === (parent === "row")) {
-    css.flex = "1 1 0%"
-    css[min] = "0"
-  } else css.alignSelf = "stretch"
+  return video.controls
+    ? { ...attributes, controls: "", playsinline: "" }
+    : { ...attributes, autoplay: "", muted: "", loop: "", playsinline: "" }
 }

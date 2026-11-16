@@ -1,0 +1,349 @@
+import { describe, expect, it } from "vitest"
+import { elementSources, guestModuleSource, taggedModule } from "./builder.ts"
+
+describe("guestModuleSource", () => {
+  it("imports the renderer, styles and components in order", () => {
+    const source = guestModuleSource({
+      styles: ["src/index.css"],
+      components: { Button: { path: "./src/components/ui/button.tsx", export: "Button" } },
+      documents: [],
+      libraries: []
+    })
+
+    expect(source).toContain(
+      'Promise.all([import("virtual:canvas/renderer"), import("/src/index.css?inline"), import("/src/components/ui/button.tsx").catch('
+    )
+    expect(source).toContain('css: [modules[1].default].join("\\n")')
+    expect(source).toContain('"Button": modules[2].loadError ? failed(modules[2].loadError) : modules[2]["Button"]')
+  })
+
+  // React Router's Vite plugin wraps the app's modules for Fast Refresh, and they throw without its preamble (PAR-1145).
+  it("says Fast Refresh's preamble is installed before any of the app's modules load", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: { Button: { path: "app/components/Button.tsx", export: "Button" } },
+      documents: [],
+      libraries: []
+    })
+
+    const preamble = source.indexOf("globalThis.__vite_plugin_react_preamble_installed__ ??= true")
+
+    expect(preamble).toBeGreaterThanOrEqual(0)
+    expect(source).toContain("globalThis.$RefreshReg$ ??= () => {}")
+    expect(source).toContain("globalThis.$RefreshSig$ ??= () => (type) => type")
+    expect(preamble).toBeLessThan(source.indexOf("import("))
+  })
+
+  it("keeps a project module that fails to load to its own components", async () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {
+        Broken: { path: "src/broken.tsx", export: "default" },
+        Fine: { path: "src/fine.tsx", export: "Fine" }
+      },
+      documents: [],
+      libraries: []
+    })
+
+    const modules = new Map<string, object>([
+      ["virtual:canvas/renderer", { createGuest: <Init>(init: Init) => init }],
+      ["virtual:canvas/module-styles", { moduleStyles: {} }],
+      ["/src/fine.tsx", { Fine: "fine" }]
+    ])
+
+    // Runs the module with `load` standing in for the dev server, which fails on the broken file as on a syntax error.
+    const body = source.replace("export default ", "return ").replaceAll("import(", "load(")
+
+    // SAFETY: the guest module's default export is what `createGuest` returns, which here is the init it was given, and
+    // its components are the project modules' exports, with a stand-in that throws for the one that failed to load.
+    // oxlint-disable-next-line eslint/no-new-func -- the test runs the generated module's source, which is a string
+    const run = new Function("load", `return (async () => { ${body} })()`) as (
+      load: (id: string) => Promise<object>
+    ) => Promise<{ components: { Fine: string; Broken: () => void } }>
+
+    const guest = await run(async (id) => {
+      const module = modules.get(id)
+
+      if (module) {
+        return module
+      }
+
+      throw new Error(`Failed to parse ${id}`)
+    })
+
+    expect(guest.components.Fine).toBe("fine")
+    expect(() => guest.components.Broken()).toThrow("its module didn't load: Failed to parse /src/broken.tsx")
+  })
+
+  it("loads the rest of the app's components when they're first drawn", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: { OrdersPage: { path: "src/app/orders/page.tsx", export: "default", lazy: true } },
+      documents: [],
+      libraries: []
+    })
+
+    expect(source).not.toContain('import("/src/app/orders/page.tsx").catch(')
+    expect(source).toContain(
+      '"OrdersPage": () => import("/src/app/orders/page.tsx").then((module) => module["default"], (error) => failed('
+    )
+  })
+
+  it("imports a workspace package by its name, keeping a failed load to its own components", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: { "ui/Button": { path: "@acme/ui", export: "Button", library: "ui" } },
+      documents: [],
+      libraries: [
+        {
+          id: "ui",
+          name: "@acme/ui",
+          package: "@acme/ui",
+          importName: "@acme/ui",
+          stylesImported: true,
+          workspace: "../../packages/ui"
+        }
+      ]
+    })
+
+    expect(source).toContain('import("@acme/ui").catch(')
+    expect(source).toContain('"ui/Button": modules[1].loadError ? failed(modules[1].loadError) : modules[1]["Button"]')
+  })
+})
+
+describe("guestModuleSource with libraries", () => {
+  it("imports icon renderers and decorator modules, loading the decorators' optionally", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: { "baseui/Dialog.Root": { path: "@base-ui/react", export: "Dialog.Root", library: "baseui" } },
+      documents: [],
+      libraries: [
+        {
+          id: "hugeicons",
+          name: "Hugeicons",
+          kind: "icons",
+          package: "@hugeicons/core-free-icons",
+          importName: "@hugeicons/core-free-icons",
+          stylesImported: true,
+          icons: { render: { import: "@hugeicons/react", component: "HugeiconsIcon", prop: "icon" }, match: "Icon$" }
+        },
+        {
+          id: "mui",
+          name: "Material UI",
+          package: "@mui/material",
+          importName: "@mui/material",
+          stylesImported: true,
+          decorators: [{ wrap: { import: "@mui/material/styles", component: "ThemeProvider" } }]
+        }
+      ]
+    })
+
+    expect(source).toContain('"baseui/Dialog.Root": modules[1]["Dialog"]?.["Root"]')
+    expect(source).toContain('renderer: { component: modules[3]["HugeiconsIcon"], prop: "icon" }')
+    expect(source).toContain('import("@mui/material/styles").catch(')
+    expect(source).toContain('"@mui/material/styles": modules[4]')
+  })
+
+  it("puts the extensions' decorators around the libraries', loading their modules optionally (PAR-1152)", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      frameDecorators: [
+        {
+          extension: "react-router",
+          decorator: {
+            wrap: { import: "react-router", component: "MemoryRouter", props: { initialEntries: [{ $frame: "url" }] } }
+          }
+        }
+      ],
+      libraries: [
+        {
+          id: "mui",
+          name: "Material UI",
+          package: "@mui/material",
+          importName: "@mui/material",
+          stylesImported: true,
+          decorators: [{ wrap: { import: "@mui/material/styles", component: "ThemeProvider" } }]
+        }
+      ]
+    })
+
+    // Outermost first: the router wraps the theme, as in an app.
+    expect(source.indexOf('"library":"react-router"')).toBeLessThan(source.indexOf('"library":"mui"'))
+    expect(source.indexOf('"library":"react-router"')).toBeGreaterThan(-1)
+    expect(source).toContain('import("react-router").catch(')
+    expect(source).toContain('"react-router": modules[')
+  })
+
+  it("imports each style an icon set keeps in a module of its own, by its path in the package", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "heroicons",
+          name: "Heroicons",
+          kind: "icons",
+          package: "@heroicons/react",
+          importName: "@heroicons/react",
+          stylesImported: true,
+          icons: {
+            import: "@heroicons/react/24/outline",
+            render: "export",
+            variants: {
+              modules: { "24 Outline": "@heroicons/react/24/outline", "16 Solid": "@heroicons/react/16/solid" },
+              default: { style: "24 Outline" }
+            }
+          }
+        }
+      ]
+    })
+
+    expect(source).toContain('import("@heroicons/react/16/solid")')
+    expect(source).toMatch(/"heroicons": \{ module: modules\[\d\], styles: \{ "16\/solid": modules\[\d\] \} \}/)
+  })
+})
+
+describe("resolved library aliases", () => {
+  it("loads discovered icon modules by the alias while retaining stable style keys", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "icons",
+          name: "Icons",
+          kind: "icons",
+          package: "@real/icons",
+          importName: "@acme/icons",
+          stylesImported: true,
+          icons: {
+            import: "@acme/icons/outline",
+            render: "export",
+            variants: {
+              modules: { Outline: "@acme/icons/outline", Solid: "@acme/icons/solid" },
+              default: { style: "Outline" }
+            }
+          }
+        }
+      ]
+    })
+
+    expect(source).toContain('import("@acme/icons/outline")')
+    expect(source).toContain('import("@acme/icons/solid")')
+    expect(source).not.toContain("@real/icons")
+    expect(source).toMatch(/styles: \{ "solid": modules\[\d+\]/)
+  })
+})
+
+describe("guestModuleSource with values a package makes", () => {
+  it("loads design-only factories, without treating literal $import data as a required module", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {},
+      documents: [],
+      libraries: [
+        {
+          id: "kit",
+          name: "Kit",
+          package: "kit",
+          importName: "kit",
+          stylesImported: true,
+          designs: [
+            {
+              id: "kit/label",
+              name: "Label",
+              kind: "component",
+              position: { x: 0, y: 0 },
+              states: [],
+              root: {
+                type: "component",
+                id: "label",
+                component: "kit/Label",
+                props: {
+                  value: { $call: { import: "design-values", export: "make" } },
+                  literal: { $import: "literal-data", export: "value" }
+                }
+              }
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(source).toContain('import("design-values")')
+    expect(source).not.toContain('import("literal-data")')
+  })
+
+  it("loads the modules its components' samples call, for the guest to make them", () => {
+    const source = guestModuleSource({
+      styles: [],
+      components: {
+        "chakra/TreeView.Root": {
+          path: "@chakra-ui/react",
+          export: "TreeView.Root",
+          library: "chakra",
+          sample: {
+            props: {
+              collection: {
+                $call: { import: "@chakra-ui/react/collection", export: "createTreeCollection" },
+                args: [{}]
+              }
+            }
+          }
+        }
+      },
+      documents: [],
+      libraries: []
+    })
+
+    expect(source).toContain('import("@chakra-ui/react/collection")')
+    expect(source).toMatch(/modules: \{ "@chakra-ui\/react\/collection": modules\[\d+\] \}/)
+  })
+})
+
+describe("guestModuleSource with package stylesheets", () => {
+  it("draws them before the project's styles, apart, so they aren't read for tokens", () => {
+    const source = guestModuleSource({
+      styles: ["src/index.css"],
+      packageStyles: ["@mantine/core/styles.css"],
+      components: {},
+      documents: [],
+      libraries: []
+    })
+
+    expect(source).toContain('import("@mantine/core/styles.css?inline")')
+    expect(source).toContain("  css: [modules[2].default].join")
+    expect(source).toContain("  packageCss: [modules[1].default].join")
+  })
+})
+
+describe("element sources in the guest", () => {
+  const code = "export const Card = () => <div>card</div>\n"
+  const root = "D:/shop"
+
+  it("tags the project's own JSX, named from the root, whatever the query", () => {
+    expect(taggedModule(root, code, "D:/shop/src/card.tsx?t=1")?.code).toContain(
+      'data-parity-source={"src/card.tsx:1:27"}'
+    )
+  })
+
+  it("names a workspace package's file outside the root from the root", () => {
+    expect(taggedModule(root, code, "D:/packages/ui/src/card.tsx")?.code).toContain(
+      '"../packages/ui/src/card.tsx:1:27"'
+    )
+  })
+
+  it("leaves installed packages, virtual modules and files without JSX alone", () => {
+    expect(taggedModule(root, code, "D:/shop/node_modules/kit/card.jsx")).toBeUndefined()
+    expect(taggedModule(root, code, "\0virtual:canvas/guest")).toBeUndefined()
+    expect(taggedModule(root, code, "D:/shop/src/card.ts")).toBeUndefined()
+  })
+
+  it("is for the development server alone", () => {
+    expect(elementSources(root)).toMatchObject({ name: "canvas:element-sources", enforce: "pre", apply: "serve" })
+  })
+})

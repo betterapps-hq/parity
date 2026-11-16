@@ -20,6 +20,10 @@ export function formatElementSource({ path, line, column }: ElementSource): stri
 /** Reads the attribute's value, which comes from the page, so anything else reads as none. */
 export function parseElementSource(value: string | null | undefined): ElementSource | undefined {
   const match = value ? /^(.+):([1-9]\d*):([1-9]\d*)$/.exec(value) : null
-  if (!match?.[1] || !match[2] || !match[3]) return undefined
+
+  if (!match?.[1] || !match[2] || !match[3]) {
+    return undefined
+  }
+
   return { path: match[1], line: Number(match[2]), column: Number(match[3]) }
 }

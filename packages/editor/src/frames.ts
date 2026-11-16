@@ -3,15 +3,20 @@ import {
   type ContainerSpec,
   detachInstance,
   type FrameSize,
+  fitsContent,
+  fittedKey,
   generateId,
+  isHug,
+  lengthSteps,
   type ModeSettings,
   type ResolvedMode,
   resolveModes,
   screenHeightForWidth,
-  uniqueId,
+  designId,
   walkNodes
 } from "@parity-app/core"
 import { newDesign } from "./create.ts"
+import type { Point } from "./drop-slot.ts"
 import { layersName } from "./new-screen.ts"
 
 /**
@@ -24,7 +29,11 @@ import { layersName } from "./new-screen.ts"
 export function nextFrameName(names: Iterable<string>, base = "Frame"): string {
   const pattern = new RegExp(`^${base} (\\d+)$`)
   let highest = 0
-  for (const name of names) highest = Math.max(highest, Number(pattern.exec(name)?.[1] ?? 0))
+
+  for (const name of names) {
+    highest = Math.max(highest, Number(pattern.exec(name)?.[1] ?? 0))
+  }
+
   return `${base} ${highest + 1}`
 }
 
@@ -41,6 +50,7 @@ export function drawnFrame(
   size: { width: number; height: number }
 ): ContainerSpec {
   const name = nextFrameName(taken.map((design) => design.name))
+
   const frame = newDesign(
     "frame",
     [],
@@ -49,9 +59,10 @@ export function drawnFrame(
       size: { width: Math.round(size.width), height: Math.round(size.height) }
     }
   )
+
   return {
     ...frame,
-    id: uniqueId(
+    id: designId(
       name,
       taken.map((design) => design.id)
     ),
@@ -67,45 +78,65 @@ export interface CanvasBox {
   maxY: number
 }
 
+/** Where a point snapped to, and the edges it snapped to on each axis that did. */
+export interface EdgeSnap {
+  point: Point
+  guides: Partial<Point>
+}
+
 /**
  * A point the frame tool drags to, snapped to the nearest edge of the designs around it on each axis, within `reach`
  * canvas pixels, with the edges it snapped to for guides. Without one in reach, an axis is where the pointer is.
  */
-export function snapToEdges(
-  point: { x: number; y: number },
-  boxes: readonly CanvasBox[],
-  reach: number
-): { point: { x: number; y: number }; guides: { x?: number; y?: number } } {
+export function snapToEdges(point: Point, boxes: readonly CanvasBox[], reach: number): EdgeSnap {
   const nearest = (value: number, edges: number[]) => {
     let best: number | undefined
+
     for (const edge of edges) {
       if (Math.abs(value - edge) <= reach && (best === undefined || Math.abs(value - edge) < Math.abs(value - best))) {
         best = edge
       }
     }
+
     return best
   }
+
   const x = nearest(
     point.x,
     boxes.flatMap((box) => [box.minX, box.maxX])
   )
+
   const y = nearest(
     point.y,
     boxes.flatMap((box) => [box.minY, box.maxY])
   )
-  return {
-    point: { x: x ?? point.x, y: y ?? point.y },
-    guides: { ...(x === undefined ? {} : { x }), ...(y === undefined ? {} : { y }) }
+
+  const guides: Partial<Point> = {}
+
+  if (x !== undefined) {
+    guides.x = x
   }
+
+  if (y !== undefined) {
+    guides.y = y
+  }
+
+  return { point: { x: x ?? point.x, y: y ?? point.y }, guides }
+}
+
+/** A box by its top left, width and height, in canvas pixels. */
+export interface CanvasRect {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 /** The box dragged out from one corner to the other, whichever way the drag went, in whole pixels. */
-export function draggedBox(
-  from: { x: number; y: number },
-  to: { x: number; y: number }
-): { x: number; y: number; width: number; height: number } {
+export function draggedBox(from: Point, to: Point): CanvasRect {
   const x = Math.round(Math.min(from.x, to.x))
   const y = Math.round(Math.min(from.y, to.y))
+
   return {
     x,
     y,
@@ -116,18 +147,47 @@ export function draggedBox(
 
 /** Whether a frame is as wide as what's in it: its root layout hugs its content, so its size follows the root's. */
 export function hugsContent(design: ContainerSpec): boolean {
-  return design.kind === "frame" && design.root.type === "layout" && design.root.style?.width === "hug"
+  return design.kind === "frame" && design.root.type === "layout" && isHug(design.root.style?.width)
+}
+
+/** Whether the canvas measures a design to fit it to what it draws: a frame that hugs it, or a screen (`fitsContent`). */
+export function fitsDrawn(design: ContainerSpec): boolean {
+  return hugsContent(design) || fitsContent(design)
 }
 
 /**
  * A frame that hugs its content (see `hugsContent`), at the width its root is drawn at, in whole pixels. The canvas
  * measures the root as it's drawn, so the frame's own size, which its bitmap, agents and exports go by, stays the size
- * it shows at. Undefined when it's already that wide, or doesn't hug.
+ * it shows at. A screen that fits its content is fitted in the `viewport` it was drawn in, since it draws differently in
+ * each, and a story file's story in its `state` too, since each story draws at its own width. Undefined when it's already that wide, or doesn't hug.
  */
-export function fittedFrame(design: ContainerSpec, drawnWidth: number): ContainerSpec | undefined {
-  if (!hugsContent(design)) return undefined
+export function fittedFrame(
+  design: ContainerSpec,
+  drawnWidth: number,
+  viewport?: string,
+  state?: string
+): ContainerSpec | undefined {
   const width = Math.max(1, Math.round(drawnWidth))
-  if (design.size?.width === width && design.size.height === undefined) return undefined
+
+  if (viewport !== undefined && fitsContent(design)) {
+    const key = fittedKey(design, viewport, state)
+    const frame = design.frames?.[key]
+
+    if (frame?.width === width && frame.height === undefined) {
+      return undefined
+    }
+
+    return { ...design, frames: { ...design.frames, [key]: { width } } }
+  }
+
+  if (!hugsContent(design)) {
+    return undefined
+  }
+
+  if (design.size?.width === width && design.size.height === undefined) {
+    return undefined
+  }
+
   return { ...design, size: { width } }
 }
 
@@ -137,15 +197,24 @@ export function fittedFrame(design: ContainerSpec, drawnWidth: number): Containe
  * viewport's (see `withFrame`).
  */
 export function withFrameSize(design: ContainerSpec, size: FrameSize): ContainerSpec {
-  if (design.kind !== "frame") return design
+  if (design.kind !== "frame") {
+    return design
+  }
+
   const next: ContainerSpec = { ...design }
-  if (size.width === undefined && size.height === undefined) delete next.size
-  else next.size = size
+
+  if (size.width === undefined && size.height === undefined) {
+    delete next.size
+  } else {
+    next.size = size
+  }
+
   if (size.width !== undefined && hugsContent(design) && design.root.type === "layout") {
     const style = { ...design.root.style }
     delete style.width
     next.root = { ...design.root, style }
   }
+
   return next
 }
 
@@ -155,11 +224,21 @@ export function withFrameSize(design: ContainerSpec, size: FrameSize): Container
  * it. Selecting a frame edits this; `frameRootStored` puts an edit back. Anything but a frame is left as it is.
  */
 export function frameRootShown(design: ContainerSpec, unit: number): ContainerSpec {
-  if (design.kind !== "frame" || design.root.type !== "layout") return design
+  if (design.kind !== "frame" || design.root.type !== "layout") {
+    return design
+  }
+
   const style = { ...design.root.style }
   const { width, height } = design.size ?? {}
-  if (width !== undefined && style.width !== "hug") style.width = width / unit
-  if (height !== undefined) style.height = height / unit
+
+  if (width !== undefined && !isHug(style.width)) {
+    style.width = { step: width / unit }
+  }
+
+  if (height !== undefined) {
+    style.height = { step: height / unit }
+  }
+
   return { ...design, root: { ...design.root, style } }
 }
 
@@ -169,19 +248,47 @@ export function frameRootShown(design: ContainerSpec, unit: number): ContainerSp
  * the primary mode and as tall as its content.
  */
 export function frameRootStored(design: ContainerSpec, unit: number): ContainerSpec {
-  if (design.kind !== "frame" || design.root.type !== "layout") return design
+  if (design.kind !== "frame" || design.root.type !== "layout") {
+    return design
+  }
+
   const style = { ...design.root.style }
   const size: FrameSize = {}
-  if (typeof style.width === "number") size.width = Math.round(style.width * unit)
-  else if (style.width === "hug" && design.size?.width !== undefined) size.width = design.size.width
-  if (typeof style.height === "number") size.height = Math.round(style.height * unit)
-  if (style.width !== "hug") delete style.width
+
+  const width = lengthSteps(style.width)
+  const height = lengthSteps(style.height)
+
+  if (width !== undefined) {
+    size.width = Math.round(width * unit)
+  } else if (isHug(style.width) && design.size?.width !== undefined) {
+    size.width = design.size.width
+  }
+
+  if (height !== undefined) {
+    size.height = Math.round(height * unit)
+  }
+
+  if (!isHug(style.width)) {
+    delete style.width
+  }
+
   delete style.height
   const { style: _, ...bare } = design.root
   const next: ContainerSpec = { ...design, root: Object.keys(style).length > 0 ? { ...bare, style } : bare }
-  if (size.width === undefined && size.height === undefined) delete next.size
-  else next.size = size
+
+  if (size.width === undefined && size.height === undefined) {
+    delete next.size
+  } else {
+    next.size = size
+  }
+
   return next
+}
+
+/** A new frame, and the id of the layer in it to edit. */
+export interface NewFrame {
+  design: ContainerSpec
+  node: string
 }
 
 /**
@@ -189,29 +296,30 @@ export function frameRootStored(design: ContainerSpec, unit: number): ContainerS
  * clip its letters, and its top left `at`. It's named after its text (see `textFrameRenamed`). Returns the frame and the
  * text layer's id, to edit it in place.
  */
-export function frameOfText(
-  text: string,
-  taken: Iterable<string>,
-  at: { x: number; y: number }
-): { design: ContainerSpec; node: string } {
+export function frameOfText(text: string, taken: Iterable<string>, at: Point): NewFrame {
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)
   const node = generateId(ids)
   const name = layersName([{ type: "text", id: node, text }])
+
   return {
     design: {
-      id: uniqueId(name, taken),
+      id: designId(name, taken),
       name,
       kind: "frame",
       position: { x: Math.round(at.x), y: Math.round(at.y) },
       root: {
         type: "layout",
         id: rootId,
-        style: { padding: 2, width: "hug", background: "background", foreground: "foreground" },
+        style: {
+          padding: { step: 2 },
+          width: { size: "hug" },
+          fills: [{ type: "solid", color: { token: "background" } }],
+          color: { token: "foreground" }
+        },
         children: [{ type: "text", id: node, text }]
-      },
-      states: [{ id: "default", name: "Default" }]
+      }
     },
     node
   }
@@ -224,9 +332,14 @@ export function frameOfText(
  */
 export function textFrameRenamed(design: ContainerSpec, node: string, before: string, after: string): ContainerSpec {
   const children = design.root.type === "layout" ? design.root.children : []
-  if (design.kind !== "frame" || children.length !== 1 || children[0]!.id !== node) return design
+
+  if (design.kind !== "frame" || children.length !== 1 || children[0]!.id !== node) {
+    return design
+  }
+
   const was = layersName([{ type: "text", id: "text", text: before }])
   const name = layersName([{ type: "text", id: "text", text: after }])
+
   return design.name === was && name !== was && after.trim() ? { ...design, name } : design
 }
 
@@ -248,12 +361,15 @@ export interface FramePreset {
  */
 export function framePresets(settings: ModeSettings): FramePreset[] {
   const presets: FramePreset[] = []
+
   for (const mode of resolveModes(settings)) {
     const option = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
     const name = option?.name ?? mode.name
     const found = presets.find((preset) => preset.name === name && preset.width === mode.width)
-    if (found) found.modes.push(mode.name)
-    else {
+
+    if (found) {
+      found.modes.push(mode.name)
+    } else {
       presets.push({
         mode,
         name,
@@ -263,6 +379,7 @@ export function framePresets(settings: ModeSettings): FramePreset[] {
       })
     }
   }
+
   return presets
 }
 
@@ -270,8 +387,11 @@ export function framePresets(settings: ModeSettings): FramePreset[] {
 export function instanceCount(design: ContainerSpec, id: string): number {
   let count = 0
   walkNodes(design.root, (node) => {
-    if (node.type === "instance" && node.design === id) count += 1
+    if (node.type === "instance" && node.design === id) {
+      count += 1
+    }
   })
+
   return count
 }
 
@@ -282,7 +402,10 @@ export function instanceCount(design: ContainerSpec, id: string): number {
 export function detachInstancesOf(design: ContainerSpec, id: string, library: ComponentLibrary): ContainerSpec {
   const instances: string[] = []
   walkNodes(design.root, (node) => {
-    if (node.type === "instance" && node.design === id) instances.push(node.id)
+    if (node.type === "instance" && node.design === id) {
+      instances.push(node.id)
+    }
   })
+
   return instances.reduce((current, instance) => detachInstance(current, instance, library), design)
 }

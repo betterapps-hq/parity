@@ -12,19 +12,25 @@ export function startConsole(host: ConsoleHost = window.canvasHost.console): voi
   captureConsole(host)
   const sessions = (): FedProject[] => workspace.getTabs().flatMap((tab) => (tab.session ? [tab.session] : []))
   const read = new Set<string>()
+
   const fill = () => {
     for (const session of sessions()) {
       const { guestUrl } = session.info
       const key = `${session.id}\n${guestUrl}`
-      if (read.has(key)) continue
+
+      if (read.has(key)) {
+        continue
+      }
+
       read.add(key)
       host.read(guestUrl).then(
-        (entries) => consoleLog(session.id).update(entries, guestUrl),
+        (entries) => consoleLog(session.id).update(entries, guestUrl, session.info.builder?.console),
         // What comes next still shows.
         () => undefined
       )
     }
   }
+
   workspace.subscribe(fill)
   fill()
   host.subscribe((change) => routeConsoleChange(change, sessions()))

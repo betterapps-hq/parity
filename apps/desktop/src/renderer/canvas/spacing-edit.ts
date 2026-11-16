@@ -1,7 +1,7 @@
-import { boardTarget, editNode, type Length, type NodeStyle } from "@parity-app/core"
+import { boardTarget, editNode, type FieldLength, lengthToken, type NodeStyle } from "@parity-app/core"
 import {
+  type EditFrame,
   type LengthToken,
-  type PaddingSide,
   paddingSides,
   pickedSpacing,
   resizeStart,
@@ -9,17 +9,19 @@ import {
   type SpacingEditStart,
   spacingDrag,
   type SpacingHandle,
-  type SpacingLayout,
   sidesOf,
   spacingStep,
   typedSpacing
 } from "@parity-app/editor"
+import { containerEntry, editFrame, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { px } from "../lengths.ts"
 import { resolveTokenValue, spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
+import type { AreaSpace, FrameGeometry } from "./frame-geometry.ts"
 import { followPress, gestures } from "./gesture.ts"
+import { type SpacingMeasure, spacingMeasure } from "./layer-measure.ts"
 import { sidesHeld, type SpacingKeys } from "./SpacingHandles.tsx"
 
 /**
@@ -36,64 +38,42 @@ export interface SpacingTarget {
   node: string
 }
 
-/** A selected layout measured for its handles. */
-export interface SpacingMeasure {
-  /** In the overlay's pixels. */
-  layout: SpacingLayout
-  /** What its padding and gap draw at, in its own pixels. */
-  drawn: { padding: Record<PaddingSide, number>; gap: number }
-  /** Screen pixels per layout pixel. */
-  scale: number
-}
-
 /**
- * Measures a laid out element and its children that are drawn in the flow, with `toOverlay` taking screen pixels to
- * the overlay's. Its children run along a single line when it's a flex box that doesn't wrap; a grid or a wrap has
- * gaps in two directions, which have no handles yet.
+ * Measures a laid out element in its frame and its children that are drawn (see `spacingMeasure`). Its children run
+ * along a single line when it's a flex box that doesn't wrap; a grid or a wrap has gaps in two directions, which have
+ * no handles yet.
  */
 export function measureSpacing(
+  frame: FrameGeometry,
   element: HTMLElement,
   children: readonly (HTMLElement | undefined)[],
-  toOverlay: (rect: DOMRect) => { left: number; top: number; right: number; bottom: number }
+  space: AreaSpace
 ): SpacingMeasure {
-  const rect = element.getBoundingClientRect()
   const style = getComputedStyle(element)
-  const scale = rect.width / Math.max(1, element.offsetWidth)
-  const own = (name: string) => parseFloat(style.getPropertyValue(name)) || 0
-  const sides = (prefix: string, suffix = ""): Record<PaddingSide, number> => ({
-    top: own(`${prefix}-top${suffix}`),
-    right: own(`${prefix}-right${suffix}`),
-    bottom: own(`${prefix}-bottom${suffix}`),
-    left: own(`${prefix}-left${suffix}`)
-  })
-  const scaled = (values: Record<PaddingSide, number>) =>
-    Object.fromEntries(Object.entries(values).map(([side, value]) => [side, value * scale])) as Record<
-      PaddingSide,
-      number
-    >
-  const padding = sides("padding")
   const row = style.flexDirection.startsWith("row")
+
   const drawn = children.flatMap((child) => {
-    if (!child) return []
-    const box = child.getBoundingClientRect()
-    return box.width > 0 || box.height > 0
-      ? [{ box: toOverlay(box), flows: getComputedStyle(child).position !== "absolute" }]
+    if (!child) {
+      return []
+    }
+
+    const box = frame.element(child).borderBox
+
+    return box.right > box.left || box.bottom > box.top
+      ? [{ box, flows: getComputedStyle(child).position !== "absolute" }]
       : []
   })
-  return {
-    layout: {
-      rect: toOverlay(rect),
-      border: scaled(sides("border", "-width")),
-      padding: scaled(padding),
-      children: drawn.filter((child) => child.flows).map((child) => child.box),
-      // No handle covers a child, so a click on one selects it, those placed absolutely too.
-      covered: drawn.map((child) => child.box),
+
+  return spacingMeasure(
+    frame.element(element),
+    drawn,
+    {
       direction: row ? "row" : "column",
-      oneLine: style.display.includes("flex") && style.flexWrap === "nowrap"
+      oneLine: style.display.includes("flex") && style.flexWrap === "nowrap",
+      gap: parseFloat(style.getPropertyValue(row ? "column-gap" : "row-gap")) || 0
     },
-    drawn: { padding, gap: own(row ? "column-gap" : "row-gap") },
-    scale
-  }
+    space
+  )
 }
 
 /**
@@ -103,31 +83,48 @@ export function measureSpacing(
  */
 export function lengthTokens(tokens: readonly Token[]): LengthToken[] {
   const unit = spacingUnit(tokens)
+
   return tokens.flatMap((token) => {
-    if ((token.category !== "spacing" && token.category !== "container") || token.derived || token.name === "spacing")
+    if ((token.category !== "spacing" && token.category !== "container") || token.derived || token.name === "spacing") {
       return []
+    }
+
     // The scale's own variable isn't set on Parity's page, so a step of it is worked out here.
     const value = resolveTokenValue(tokens, token.name).replaceAll("var(--spacing)", `${unit}px`)
-    if (value.includes("var(")) return []
+
+    if (value.includes("var(")) {
+      return []
+    }
+
     const length = px(value)
+
     return Number.isFinite(length) ? [{ name: token.name, px: length }] : []
   })
 }
 
 /** What an edit of the target starts from: its style as the frame shows it, and what it draws at. */
 function editStart(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
-): { start: SpacingEditStart; frame: NonNullable<ReturnType<ProjectSession["store"]["editFrame"]>> } | undefined {
-  const { store, tokens } = session
-  const entry = store.getEntry(target.design)
-  const frame = store.editFrame(target)
-  if (!entry || !frame) return undefined
+): { start: SpacingEditStart; frame: EditFrame } | undefined {
+  const { doc, tokens } = session
+  const entry = containerEntry(doc, target.design)
+  const frame = editFrame(doc, target)
+
+  if (!entry || !frame) {
+    return undefined
+  }
+
   const shown = resizeStart(entry.container, target.node, { state: frame.state, viewport: frame.viewport })
-  if (!shown) return undefined
+
+  if (!shown) {
+    return undefined
+  }
+
   const all = tokens.get()
+
   return {
     frame,
     start: {
@@ -141,29 +138,39 @@ function editStart(
   }
 }
 
+/** A spacing as a handle shows it: what it draws at, in CSS pixels, and the token it's bound to. */
+export interface SpacingValue {
+  px: number
+  token?: string
+}
+
 /** What a handle shows when it isn't being dragged: what it draws at, and the token it's bound to. */
 export function spacingValue(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure
-): { px: number; token?: string } {
+): SpacingValue {
   const drawn = handle.kind === "gap" ? measure.drawn.gap : measure.drawn.padding[handle.side]
   const edit = editStart(session, target, handle, measure)
   const style: NodeStyle = edit?.start.style ?? {}
   const written = handle.kind === "gap" ? style.gap : sidesOf(style.padding)?.[paddingSides.indexOf(handle.side)]
-  return typeof written === "string" ? { px: drawn, token: written } : { px: drawn }
+
+  const token = lengthToken(written)
+
+  return token === undefined ? { px: drawn } : { px: drawn, token }
 }
 
 function write(
-  session: ProjectSession,
+  doc: ProjectDoc,
   frame: { design: string; state: { id: string } },
   node: string,
   edit: SpacingEdit,
   gesture?: string
 ): void {
   const label = "gap" in edit.change ? "Change gap" : "Change padding"
-  session.store.updateContainer(
+  updateContainer(
+    doc,
     frame.design,
     label,
     (container) => editNode(container, boardTarget(container, frame.state.id), node, { style: edit.change }),
@@ -173,7 +180,10 @@ function write(
 
 /** The cursor a handle shows while it's dragged: up and down for top and bottom padding, and gaps in a column. */
 export function spacingCursor(handle: SpacingHandle): string {
-  if (handle.kind === "gap") return handle.direction === "row" ? "ew-resize" : "ns-resize"
+  if (handle.kind === "gap") {
+    return handle.direction === "row" ? "ew-resize" : "ns-resize"
+  }
+
   return handle.side === "top" || handle.side === "bottom" ? "ns-resize" : "ew-resize"
 }
 
@@ -183,7 +193,7 @@ export function spacingCursor(handle: SpacingHandle): string {
  * opens the box to type a value in.
  */
 export function pressSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -192,11 +202,15 @@ export function pressSpacing(
   type: () => void
 ): void {
   const edit = editStart(session, target, handle, measure)
-  if (!edit) return
+
+  if (!edit) {
+    return
+  }
+
   const drag = spacingDrag(edit.start)
   const start = { clientX: event.clientX, clientY: event.clientY }
   let last = ""
-  followPress(gestures.resize, session.store, start, {
+  followPress(gestures.resize, session.doc, start, {
     design: edit.frame.design,
     cursor: spacingCursor(handle),
     move(moveEvent, { gesture }) {
@@ -205,12 +219,20 @@ export function pressSpacing(
         dy: moveEvent.clientY - start.clientY,
         ...sidesHeld(moveEvent)
       })
-      if (!next) return
+
+      if (!next) {
+        return
+      }
+
       show(next)
       const serialized = JSON.stringify(next.change)
-      if (serialized === last) return
+
+      if (serialized === last) {
+        return
+      }
+
       last = serialized
-      write(session, edit.frame, target.node, next, gesture)
+      write(session.doc, edit.frame, target.node, next, gesture)
     },
     end: () => show(undefined),
     click: type
@@ -219,7 +241,7 @@ export function pressSpacing(
 
 /** A value typed after a click; the reason when it can't be read. */
 export function typeSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -227,29 +249,41 @@ export function typeSpacing(
   keys: SpacingKeys
 ): string | undefined {
   const edit = editStart(session, target, handle, measure)
-  if (!edit) return undefined
+
+  if (!edit) {
+    return undefined
+  }
+
   const next = typedSpacing(edit.start, text, keys)
-  if ("reason" in next) return next.reason
-  write(session, edit.frame, target.node, next)
+
+  if ("reason" in next) {
+    return next.reason
+  }
+
+  write(session.doc, edit.frame, target.node, next)
+
   return undefined
 }
 
 /** A token or a step picked from the list beside the box. */
 export function pickSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
-  value: Length,
+  value: FieldLength,
   keys: SpacingKeys
 ): void {
   const edit = editStart(session, target, handle, measure)
-  if (edit) write(session, edit.frame, target.node, pickedSpacing(edit.start, value, keys))
+
+  if (edit) {
+    write(session.doc, edit.frame, target.node, pickedSpacing(edit.start, value, keys))
+  }
 }
 
 /** Up or Down on a focused handle. */
 export function stepSpacing(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "doc" | "tokens">,
   target: SpacingTarget,
   handle: SpacingHandle,
   measure: SpacingMeasure,
@@ -257,5 +291,8 @@ export function stepSpacing(
   keys: SpacingKeys
 ): void {
   const edit = editStart(session, target, handle, measure)
-  if (edit) write(session, edit.frame, target.node, spacingStep(edit.start, count, keys))
+
+  if (edit) {
+    write(session.doc, edit.frame, target.node, spacingStep(edit.start, count, keys))
+  }
 }

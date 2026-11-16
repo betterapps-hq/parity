@@ -5,14 +5,14 @@ beside the main frame (`UpdateDesign(design, { showModes: ["mobile-light"] })`) 
 
 ## What usually changes
 
-| On desktop                           | On a phone                                         |
-| ------------------------------------ | -------------------------------------------------- |
-| A sidebar                            | Hidden, with navigation in a top bar or a menu     |
-| Rows of cards or columns of a grid   | One column: `columns: 1`, or `direction: "column"` |
-| A header row with actions at the end | Title above, actions below or in a menu            |
-| Page padding of 8 steps              | 4 to 5 steps                                       |
-| A wide table                         | Fewer columns, or each row as a stacked card       |
-| Side-by-side form fields             | Stacked, full width                                |
+| On desktop                           | On a phone                                                                   |
+| ------------------------------------ | ---------------------------------------------------------------------------- |
+| A sidebar                            | Hidden, with navigation in a top bar or a menu                               |
+| Rows of cards or columns of a grid   | One column: `gridTemplateColumns: [{ fr: 1 }]`, or `flexDirection: "column"` |
+| A header row with actions at the end | Title above, actions below or in a menu                                      |
+| Page padding of 8 steps              | 4 to 5 steps                                                                 |
+| A wide table                         | Fewer columns, or each row as a stacked card                                 |
+| Side-by-side form fields             | Stacked, full width                                                          |
 
 Patch these with `Responsive(node, "mobile", patch)`. Hiding a column in a table means hiding its header cell and the
 matching cell in the row component design.
@@ -26,7 +26,7 @@ matching cell in the row component design.
 
 ## Content
 
-- Text wraps more. Check long names, emails and numbers in every state; `lines: 1` keeps a single line with an ellipsis
-  where wrapping would break a row.
+- Text wraps more. Check long names, emails and numbers in every state; `lineClamp: 1` keeps a single line with an
+  ellipsis where wrapping would break a row.
 - Lead with less. A phone shows the first few items; put the most important ones first.
 - Check the mobile frame with `find_problems`: overflow there usually means a row that needs to stack.

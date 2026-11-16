@@ -1,3 +1,5 @@
+import { z } from "zod"
+
 /** How much an event matters, lowest first. `error` and `fatal` events become Sentry errors (PAR-627). */
 export type Level = "debug" | "info" | "warn" | "error" | "fatal"
 
@@ -26,6 +28,24 @@ export interface EventContext {
 }
 
 /**
+ * One attribute's value, as an event's schema allows: text, a number, a flag, nothing, or lists and objects of them.
+ * An optional attribute that isn't given is `undefined`.
+ */
+export type AttributeValue =
+  | string
+  | number
+  | boolean
+  | null
+  | undefined
+  | readonly AttributeValue[]
+  | { readonly [field: string]: AttributeValue }
+
+/** An event's attributes, by name. */
+export interface Attributes {
+  [name: string]: AttributeValue
+}
+
+/**
  * One recorded event, as every sink receives it. `time` is when it happened, or when a span started, in ISO 8601.
  * A span's event also has its `durationMs`, `outcome` and, under another span, `parentSpanId`.
  */
@@ -38,8 +58,53 @@ export interface Envelope extends EventContext {
   parentSpanId?: string
   durationMs?: number
   outcome?: Outcome
-  attributes: Record<string, unknown>
+  attributes: Attributes
 }
+
+const attributeValue: z.ZodType<AttributeValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.undefined(),
+    z.array(attributeValue),
+    z.record(z.string(), attributeValue)
+  ])
+)
+
+const hex = (length: number) => z.string().regex(new RegExp(`^[0-9a-f]{${length}}$`))
+
+/**
+ * An envelope as another process sends it to main, for the local copy and Sentry: checked there, since it crossed a
+ * process boundary.
+ */
+export const envelopeSchema: z.ZodType<Envelope> = z.object({
+  process: z.enum(["main", "renderer", "render", "service", "worker", "builder", "cli"]),
+  installId: z.string(),
+  sessionId: z.string(),
+  windowId: z.string().optional(),
+  project: z.string().optional(),
+  name: z.string().min(1),
+  time: z.iso.datetime(),
+  level: z.enum(["debug", "info", "warn", "error", "fatal"]),
+  traceId: hex(32).optional(),
+  spanId: hex(16).optional(),
+  parentSpanId: hex(16).optional(),
+  durationMs: z.number().nonnegative().optional(),
+  outcome: z.enum(["ok", "error", "cancelled"]).optional(),
+  attributes: z.record(z.string(), attributeValue)
+})
 
 /** A span's event, once it has ended. */
 export type SpanEnvelope = Envelope & TraceContext & { durationMs: number; outcome: Outcome }
+
+/** Whether an envelope is a span's: it has its trace, its duration and how it ended. */
+export function isSpanEnvelope(envelope: Envelope): envelope is SpanEnvelope {
+  return (
+    envelope.traceId !== undefined &&
+    envelope.spanId !== undefined &&
+    envelope.durationMs !== undefined &&
+    envelope.outcome !== undefined
+  )
+}

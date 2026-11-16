@@ -27,15 +27,25 @@ export interface ProjectConfig {
   documents: string[]
   /** Component libraries the project depends on, whose components the canvas can place too. */
   libraries: LibraryInfo[]
-  /** The project's Storybook, when it has one. */
-  storybook?: StorybookInfo
   /** Design tokens described in DTCG by the project's own `.lib.par` and by its libraries' `.lib.par` files. */
   describedTokens?: DescribedTokens[]
+  /**
+   * What the project's extensions put around every frame, as a router's extension puts a router there (PAR-1152): each
+   * decorator with the extension's prefix, outermost first. They wrap the libraries' decorators. Module specifiers are
+   * the project's own.
+   */
+  frameDecorators?: ExtensionDecorator[]
   /**
    * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
    * by (`nova/Button`), as the apps that install it name them.
    */
   namespace?: string
+}
+
+/** A decorator an extension declares, with the prefix of the extension that declares it. */
+export interface ExtensionDecorator {
+  extension: string
+  decorator: LibraryDecorator
 }
 
 /** The tokens one `.lib.par` describes, or why they couldn't be read. */
@@ -46,29 +56,6 @@ export interface DescribedTokens {
   manifest: string
   tokens: DescribedToken[]
   error?: string
-}
-
-/** How to reach a project's Storybook, and which components have stories there. */
-export interface StorybookInfo {
-  /** Its config folder, relative to the root, usually `.storybook`. */
-  configDir: string
-  /** Its `main` config file, relative to the root, such as `.storybook/main.ts`. */
-  main?: string
-  /** The package.json script that starts it, if there is one. */
-  script?: string
-  /** The port that script asks for. */
-  port?: number
-  /** Story files by component id. */
-  stories: Record<string, StoryFile[]>
-}
-
-export interface StoryFile {
-  /** Relative to the project root. */
-  path: string
-  /** The title its meta sets, when it doesn't leave it to the file's path. */
-  title?: string
-  /** The stories it exports, by export name. */
-  exports: string[]
 }
 
 export interface ComponentSource {
@@ -117,6 +104,7 @@ export interface ComponentSource {
  * what opens or chooses its items by value (an accordion, a navigation menu, tabs) and `value` on those items.
  */
 export const openProps = ["defaultOpen", "defaultValue", "value"] as const
+
 export type OpenProp = (typeof openProps)[number]
 
 /** A component library installed in the project, such as Buildkit's shadcn styles. */
@@ -144,7 +132,7 @@ export interface LibraryInfo {
   breakpoints?: LibraryBreakpoint[]
   /**
    * Its `.lib.par`, relative to the project, when it has one; for a library Parity's registry describes, `registry:`
-   * and the file's name, as in `registry:mui.lib.par`.
+   * and the file's name, as in `registry:@mui+material.lib.par`.
    */
   manifest?: string
   /** How its icons are imported and drawn, for an icon set. Module specifiers are the project's own, as `importName`. */

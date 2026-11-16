@@ -37,27 +37,44 @@ export function knownProjects(
   notes: Readonly<Record<string, ProjectNote>>,
   missing: ReadonlySet<string> = new Set()
 ): KnownProject[] {
-  const known = (root: string, isRecent: boolean): KnownProject => ({
-    root,
-    name: folderName(root),
-    ...(notes[root]?.opened === undefined ? {} : { opened: notes[root].opened }),
-    starred: !!notes[root]?.starred,
-    recent: isRecent,
-    ...(missing.has(root) ? { missing: true } : {})
-  })
+  const known = (root: string, isRecent: boolean) => {
+    const project: KnownProject = { root, name: folderName(root), starred: !!notes[root]?.starred, recent: isRecent }
+    const opened = notes[root]?.opened
+
+    if (opened !== undefined) {
+      project.opened = opened
+    }
+
+    if (missing.has(root)) {
+      project.missing = true
+    }
+
+    return project
+  }
+
   const starred = Object.keys(notes)
     .filter((root) => notes[root]!.starred && !recent.includes(root))
     .map((root) => known(root, false))
     .sort((a, b) => (b.opened ?? 0) - (a.opened ?? 0))
+
   return [...recent.map((root) => known(root, true)), ...starred]
 }
 
 /** The projects a list shows, leaving out `skip`, as Home leaves out the one it offers to continue. */
 export function inScope(projects: readonly KnownProject[], scope: ProjectScope, skip?: string): KnownProject[] {
   return projects.filter((project) => {
-    if (scope === "shared") return false
-    if (scope === "starred") return project.starred
-    if (scope === "recent") return project.recent && project.root !== skip
+    if (scope === "shared") {
+      return false
+    }
+
+    if (scope === "starred") {
+      return project.starred
+    }
+
+    if (scope === "recent") {
+      return project.recent && project.root !== skip
+    }
+
     return true
   })
 }
@@ -72,21 +89,43 @@ const day = 24 * hour
  */
 export function whenLabel(time: number, now: number): string {
   const ago = now - time
-  if (ago < minute) return "just now"
+
+  if (ago < minute) {
+    return "just now"
+  }
+
   if (ago < hour) {
     const minutes = Math.floor(ago / minute)
+
     return minutes === 1 ? "1 minute ago" : `${minutes} minutes ago`
   }
+
   const then = new Date(time)
   const today = startOfDay(new Date(now))
+
   if (time >= today) {
     const hours = Math.floor(ago / hour)
+
     return hours === 1 ? "1 hour ago" : `${hours} hours ago`
   }
-  if (time >= today - day) return `yesterday at ${then.toLocaleTimeString("en-US", { timeStyle: "short" })}`
-  if (time >= today - 6 * day) return `on ${then.toLocaleDateString("en-US", { weekday: "long" })}`
+
+  if (time >= today - day) {
+    return `yesterday at ${then.toLocaleTimeString("en-US", { timeStyle: "short" })}`
+  }
+
+  if (time >= today - 6 * day) {
+    return `on ${then.toLocaleDateString("en-US", { weekday: "long" })}`
+  }
+
   const sameYear = then.getFullYear() === new Date(now).getFullYear()
-  return `on ${then.toLocaleDateString("en-US", { month: "long", day: "numeric", ...(sameYear ? {} : { year: "numeric" }) })}`
+
+  const format: Intl.DateTimeFormatOptions = { month: "long", day: "numeric" }
+
+  if (!sameYear) {
+    format.year = "numeric"
+  }
+
+  return `on ${then.toLocaleDateString("en-US", format)}`
 }
 
 function startOfDay(date: Date): number {
@@ -96,7 +135,11 @@ function startOfDay(date: Date): number {
 /** A hue for a project's picture, the same each time for the same folder. */
 export function projectHue(root: string): number {
   let hash = 0
-  for (const character of root) hash = (hash * 31 + character.charCodeAt(0)) % 360
+
+  for (const character of root) {
+    hash = (hash * 31 + character.charCodeAt(0)) % 360
+  }
+
   return hash
 }
 

@@ -32,8 +32,10 @@ const serviceEnvironment = z.object({
   PARITY_PICTURE_DIR: z.string().optional(),
   /** The list of projects open when the service last ran (see reopening.ts). */
   PARITY_REOPEN_FILE: z.string().optional(),
-  /** Portless's state folder, when it isn't `~/.portless` (see portless.ts). */
-  PORTLESS_STATE_DIR: z.string().optional(),
+  /** Where projects' unsaved changes are kept, in case Parity closes before they're saved (see recovery.ts). */
+  PARITY_RECOVERY_DIR: z.string().optional(),
+  /** Where extensions' state is kept: what `parity.state` saves, and their status items' values (see extension-state.ts). */
+  PARITY_EXTENSION_STATE_FILE: z.string().optional(),
   /**
    * Which copy of the app this service belongs to (PAR-598): its process id and when it started, which name the copy's
    * agent registry entry.
@@ -52,14 +54,16 @@ export function readServiceEnvironment(env: NodeJS.ProcessEnv): ServiceEnvironme
   const set = Object.fromEntries(
     Object.keys(serviceEnvironment.shape).flatMap((name) => {
       const value = env[name]
+
       return value === undefined || value === "" ? [] : [[name, value]]
     })
   )
+
   try {
     return parseData(serviceEnvironment, set)
   } catch (error) {
     throw new TypeError(
-      `The project service can't start with this environment variable: ${(error as Error).message.slice(1)}`
+      `The project service can't start with this environment variable: ${error instanceof Error ? error.message.slice(1) : String(error)}`
     )
   }
 }
@@ -69,5 +73,6 @@ let read: ServiceEnvironment | undefined
 /** The service's environment, read from `process.env` the first time it's asked for. */
 export function environment(): ServiceEnvironment {
   read ??= readServiceEnvironment(process.env)
+
   return read
 }

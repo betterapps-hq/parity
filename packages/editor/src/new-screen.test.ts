@@ -4,6 +4,7 @@ import {
   type ComponentSource,
   type ContainerSpec,
   type DesignNode,
+  type ImageNode,
   findNode,
   nodeIds
 } from "@parity-app/core"
@@ -12,12 +13,16 @@ import type { InsertContext } from "./insert.ts"
 import { designOfItem, designOfLayers, layersName } from "./new-screen.ts"
 
 const text = (id: string, words = id): DesignNode => ({ type: "text", id, text: words })
-const image = (id: string, alt?: string): DesignNode => ({
-  type: "image",
-  id,
-  src: `${id}.png`,
-  ...(alt ? { alt } : {})
-})
+
+const image = (id: string, alt?: string): DesignNode => {
+  const node: ImageNode = { type: "image", id, src: `${id}.png` }
+
+  if (alt) {
+    node.alt = alt
+  }
+
+  return node
+}
 
 /** A badge component design, with a param its instances fill. */
 const badge: ContainerSpec = {
@@ -31,8 +36,7 @@ const badge: ContainerSpec = {
     id: "badge-root",
     name: "Badge",
     children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 const context = (fields: Partial<InsertContext> = {}): InsertContext => ({
@@ -53,7 +57,7 @@ describe("what a new screen is called", () => {
     expect(layersName([text("t", "Sign in to your account")])).toBe("Sign in to your account")
     expect(layersName([{ type: "layout", id: "l", name: "Hero", children: [] }])).toBe("Hero")
     expect(layersName([{ type: "layout", id: "l", children: [] }])).toBe("Column")
-    expect(layersName([{ type: "layout", id: "l", style: { direction: "row" }, children: [] }])).toBe("Row")
+    expect(layersName([{ type: "layout", id: "l", style: { flexDirection: "row" }, children: [] }])).toBe("Row")
     expect(layersName([image("photo", "A hill at dawn")])).toBe("A hill at dawn")
     expect(layersName([image("photo")])).toBe("Image")
   })
@@ -83,15 +87,20 @@ describe("layers with nothing to go into", () => {
   it("become a new frame there, named after them, laid out in a padded column that hugs them", () => {
     const design = designOfLayers([text("heading", "Welcome back")], ["form"], { x: 40, y: 60 })
     expect(design).toMatchObject({
-      id: "welcome-back",
+      id: expect.stringMatching(/^welcome-back-[A-Za-z][A-Za-z0-9]{4}$/),
       name: "Welcome back",
       kind: "frame",
       position: { x: 40, y: 60 },
       root: {
         type: "layout",
-        style: { padding: 6, gap: 4, width: "hug", background: "background", foreground: "foreground" }
-      },
-      states: [{ id: "default", name: "Default" }]
+        style: {
+          padding: { step: 6 },
+          gap: { step: 4 },
+          width: { size: "hug" },
+          fills: [{ type: "solid", color: { token: "background" } }],
+          color: { token: "foreground" }
+        }
+      }
     })
     expect(design).not.toHaveProperty("size")
     expect(inside(design)).toMatchObject([{ type: "text", text: "Welcome back" }])
@@ -99,7 +108,7 @@ describe("layers with nothing to go into", () => {
 
   it("takes an id clear of the designs', and gives every layer a fresh one", () => {
     const design = designOfLayers([text("heading"), text("heading")], ["heading-and-1-more"], { x: 0, y: 0 })
-    expect(design.id).toBe("heading-and-1-more-2")
+    expect(design.id).toMatch(/^heading-and-1-more-[A-Za-z][A-Za-z0-9]{4}$/)
     const ids = [...nodeIds(design.root)]
     expect(ids).toHaveLength(3)
     expect(ids).not.toContain("heading")
@@ -120,13 +129,20 @@ describe("an item with nothing to go into", () => {
       path: "src/components/ui/button.tsx",
       props: [{ name: "children", kind: "node", group: "own" }]
     }
+
     const { design, node } = designOfItem(
       { kind: "component", component: "nova/Button" },
       context({ info: button }),
       ["button"],
       { x: 300, y: -120 }
     )
-    expect(design).toMatchObject({ id: "button-2", name: "Button", kind: "frame", position: { x: 300, y: -120 } })
+
+    expect(design).toMatchObject({
+      id: expect.stringMatching(/^button-[A-Za-z][A-Za-z0-9]{4}$/),
+      name: "Button",
+      kind: "frame",
+      position: { x: 300, y: -120 }
+    })
     expect(inside(design)).toEqual([findNode(design.root, node)])
     expect(findNode(design.root, node)).toMatchObject({ component: "nova/Button", props: { children: "Button" } })
   })
@@ -135,12 +151,14 @@ describe("an item with nothing to go into", () => {
     const instance = designOfItem({ kind: "instance", design: "badge" }, context(), [], { x: 0, y: 0 }, designName)
     expect(instance.design.name).toBe("Badge")
     expect(findNode(instance.design.root, instance.node)).toMatchObject({ type: "instance", design: "badge" })
+
     const picture = designOfItem(
       { kind: "image", src: "images/hill.png", alt: "A hill", width: 1600, height: 900 },
       context(),
       [],
       { x: 0, y: 0 }
     )
+
     expect(picture.design.name).toBe("A hill")
   })
 
@@ -151,11 +169,14 @@ describe("an item with nothing to go into", () => {
       library: "acme",
       ...fields
     })
+
     const sources = { "acme/Tabs": source({}), "acme/Tab": source({ parents: ["acme/Tabs"] }) }
+
     const { design, node } = designOfItem({ kind: "component", component: "acme/Tab" }, context({ sources }), [], {
       x: 0,
       y: 0
     })
+
     expect(design.name).toBe("Tab")
     expect(inside(design)).toMatchObject([{ type: "component", component: "acme/Tabs" }])
     expect(findNode(design.root, node)).toMatchObject({ component: "acme/Tab" })

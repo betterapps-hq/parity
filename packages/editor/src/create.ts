@@ -1,10 +1,10 @@
 import {
-  type ContainerKind,
+  type MadeKind,
   type ContainerSpec,
   type DesignNode,
   type FrameSize,
   generateId,
-  uniqueId
+  designId
 } from "@parity-app/core"
 
 export interface NewDesignOptions {
@@ -20,7 +20,7 @@ export interface NewDesignOptions {
  * empty layout, padded as a pasted design is, at its own `size`. Its id comes from its name, clear of the ids `taken`.
  */
 export function newDesign(
-  kind: ContainerKind,
+  kind: MadeKind,
   taken: Iterable<string>,
   position: { x: number; y: number },
   { viewport, size }: NewDesignOptions = {}
@@ -29,36 +29,63 @@ export function newDesign(
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)
-  const roots: Record<ContainerKind, DesignNode> = {
+
+  const roots: Record<MadeKind, DesignNode> = {
     screen: {
       type: "layout",
       id: rootId,
       name: "Page",
-      style: { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
-      children: [{ type: "text", id: generateId(ids), tag: "h1", text: name, style: { size: "text-2xl", weight: 600 } }]
+      style: {
+        padding: [{ step: 10 }, { step: 12 }],
+        gap: { step: 6 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
+      children: [
+        {
+          type: "text",
+          id: generateId(ids),
+          tag: "h1",
+          text: name,
+          style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+        }
+      ]
     },
     component: {
       type: "layout",
       id: rootId,
       name: "Root",
-      style: { padding: 4, gap: 2 },
+      style: { padding: { step: 4 }, gap: { step: 2 } },
       children: [{ type: "text", id: generateId(ids), text: "Component" }]
     },
     frame: {
       type: "layout",
       id: rootId,
-      style: { padding: 6, gap: 4, background: "background", foreground: "foreground" },
+      style: {
+        padding: { step: 6 },
+        gap: { step: 4 },
+        fills: [{ type: "solid", color: { token: "background" } }],
+        color: { token: "foreground" }
+      },
       children: []
     }
   }
-  return {
-    id: uniqueId(name, taken),
+
+  const design: ContainerSpec = {
+    id: designId(name, taken),
     name,
     kind,
     position,
-    root: roots[kind],
-    states: [{ id: "default", name: "Default" }],
-    ...(kind === "component" && viewport ? { frames: { [viewport]: { width: 480 } } } : {}),
-    ...(kind === "frame" && size ? { size } : {})
+    root: roots[kind]
   }
+
+  if (kind === "component" && viewport) {
+    design.frames = { [viewport]: { width: 480 } }
+  }
+
+  if (kind === "frame" && size) {
+    design.size = size
+  }
+
+  return design
 }

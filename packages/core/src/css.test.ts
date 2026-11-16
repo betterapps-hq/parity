@@ -112,9 +112,60 @@ describe("prepareCanvasCss", () => {
       ":root { --a: 1; }\nhtml, :host { color: red; }\nbody > main { margin: 0; }",
       options
     )
+
     expect(scoped).toContain(":host {")
     expect(scoped).toContain(":host, :host {")
     expect(scoped).toContain("[data-canvas-body] > main {")
+  })
+
+  it("draws the root with a class or attribute on it as the frame's host and body with it, and with :not() as the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; }")).toBe(
+      ":host(.dark) { --c: #000; } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } }"
+    )
+    expect(scoped("html[data-theme=dark] .card { color: white; }")).toBe(
+      ":host([data-theme=dark]) .card, [data-canvas-body][data-theme=dark] .card { color: white; }"
+    )
+    expect(scoped(":root:not(.dark), .x { --c: #fff; }")).toBe(
+      "@layer canvas-qualified-root { :where([data-canvas-body]):not(.dark) { --c: #fff; } } .x { --c: #fff; }"
+    )
+    expect(scoped(":root { --c: #fff; }")).toBe(":host { --c: #fff; }")
+  })
+
+  it("takes a qualified root's rem from its own font size, not a nested rule's, and drops importance on the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; .title { font-size: 24px; } }")).not.toContain("--canvas-root-font-size")
+    expect(scoped(":root.dark { @media (min-width: 600px) { font-size: 24px; } }")).toContain(
+      "@container canvas-viewport (min-width: 600px) { font-size: 24px; --canvas-root-font-size: 24px;"
+    )
+    expect(scoped(":root.dark { --c: #000 !important; }")).toBe(
+      ":host(.dark) { --c: #000 !important; } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } }"
+    )
+  })
+
+  it("keeps a qualified root's nested rules in the project's layer, and draws its colour-scheme block on the body", () => {
+    const scoped = (css: string) => prepareCanvasCss(css, options).scoped
+
+    expect(scoped(":root.dark { --c: #000; .title { color: white; } }")).toBe(
+      ":host(.dark) { --c: #000; .title { color: white; } } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --c: #000; } } [data-canvas-body].dark { .title { color: white; }}"
+    )
+    expect(scoped(":root.dark { @media (prefers-color-scheme: dark) { --c: #000; } }")).toContain(
+      '@layer canvas-qualified-root { :where([data-canvas-body][data-canvas-color-scheme="dark"]).dark { --c: #000; } }'
+    )
+  })
+
+  it("keeps a qualified root as one selector when asked to, for reading its theme as a token's", () => {
+    expect(prepareCanvasCss(":root.dark { --c: #000; }", { ...options, qualifiedRoots: false }).scoped).toBe(
+      ":host.dark { --c: #000; }"
+    )
+  })
+
+  it("makes a qualified root's font size the frame's rem where only the body has the qualifier", () => {
+    expect(prepareCanvasCss(":root.big { font-size: 125%; }", options).scoped).toBe(
+      ":host(.big) { font-size: calc(125 / 100 * 16px); } @layer canvas-qualified-root { :where([data-canvas-body]).big { font-size: calc(125 / 100 * 16px); --canvas-root-font-size: calc(125 / 100 * 16px); --canvas-rem: var(--canvas-root-font-size); } }"
+    )
   })
 
   it("keeps class names that contain document words", () => {
@@ -128,6 +179,7 @@ describe("prepareCanvasCss", () => {
       '@property --tw-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }',
       "@font-face { font-family: Geist; src: url(/node_modules/geist.woff2) format('woff2'); }"
     ].join("\n")
+
     const { scoped, global } = prepareCanvasCss(css, options)
     expect(scoped).not.toContain("@property")
     expect(scoped).not.toContain("@font-face")
@@ -146,6 +198,7 @@ describe("prepareCanvasCss", () => {
       ".\\[\\&_svg\\:not\\(\\[class\\*\\=\\'size-\\'\\]\\)\\]\\:size-4 { & svg:not([class*='size-']) { width: 1rem; } }",
       ":root { --primary: black; }"
     ].join("\n")
+
     const { scoped } = prepareCanvasCss(css, options)
     expect(scoped).toContain(":host { --primary: black; }")
     expect(scoped).toContain(".\\[\\&_svg\\:not\\(\\[class\\*\\=\\'size-\\'\\]\\)\\]\\:size-4 {")
@@ -154,6 +207,7 @@ describe("prepareCanvasCss", () => {
   it("measures viewport units against the frame", () => {
     const css =
       ".a { height: 100vh; min-height: 100svh; width: calc(100vw - 2px); margin-left: -50vw; max-height: calc(100dvh - 6px); }"
+
     expect(prepareCanvasCss(css, options).scoped).toBe(
       ".a { height: calc(100 * var(--canvas-vh, 1vh)); min-height: calc(100 * var(--canvas-vh, 1svh)); " +
         "width: calc(calc(100 * var(--canvas-vw, 1vw)) - 2px); margin-left: calc(-50 * var(--canvas-vw, 1vw)); " +
@@ -186,6 +240,7 @@ describe("prepareCanvasCss", () => {
   it("rewrites the declarations of rules added at run time, not their selectors or media queries", () => {
     const css =
       ".h-\\[100vh\\]{height:50vh}@media (min-width: 40rem){.a:hover{min-height:100dvh;width:1vw;padding:.5rem}}"
+
     expect(rewriteSheetFrameUnits(css)).toBe(
       ".h-\\[100vh\\]{height:calc(50 * var(--canvas-vh, 1vh))}@media (min-width: 40rem){.a:hover{" +
         "min-height:calc(100 * var(--canvas-vh, 1dvh));width:calc(1 * var(--canvas-vw, 1vw));" +
@@ -209,6 +264,7 @@ describe("prepareCanvasCss", () => {
     const css =
       '.mt-\\[1rem\\] { content: "1rem"; background: url(/x-1rem.png); } @media (width >= 40rem) { .a { top: 0 } }' +
       " @container card (width > 20rem) { .b { top: 0 } }"
+
     expect(prepareCanvasCss(css, options).scoped).toBe(
       '.mt-\\[1rem\\] { content: "1rem"; background: url(http://localhost:5555/x-1rem.png); } ' +
         "@container canvas-viewport (width >= 40rem) { .a { top: 0 } } @container card (width > 20rem) { .b { top: 0 } }"
@@ -244,6 +300,7 @@ describe("prepareCanvasCss", () => {
   it("keeps lengths as the project wrote them when asked, as tokens are read", () => {
     const css =
       "html { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } @media (width >= 40rem) { .a { top: 1rem } }"
+
     expect(prepareCanvasCss(css, { ...options, units: false }).scoped).toBe(
       ":host { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } " +
         "@container canvas-viewport (width >= 40rem) { .a { top: 1rem } }"
@@ -277,6 +334,7 @@ describe("collectCustomProperties", () => {
       "@supports (color: oklch(0 0 0)) { .dark { --b: oklch(0 0 0); } }",
       ".card { @media (width >= 40rem) { --c: 3; } }"
     ].join("\n")
+
     expect(collectCustomProperties(css)).toEqual([
       { selector: ":root", atRules: [], name: "a", value: "1" },
       {

@@ -15,7 +15,11 @@ const mainEnvironment = z.object({
     .string()
     .refine((url) => URL.canParse(url), "expected a URL")
     .default("parity://app/index.html"),
-  /** The port for the Chrome DevTools Protocol, so agents and scripts can inspect the canvas; 0 picks a free one. */
+  /**
+   * The port for the Chrome DevTools Protocol, so agents and scripts can inspect the canvas; 0 picks a free one. It
+   * works in installed copies too, on purpose: `scripts/try-update.ts` drives a built copy through it, and whoever can
+   * set Parity's environment can pass Chromium's own `--remote-debugging-port` anyway (PAR-982).
+   */
   PARITY_DEBUG_PORT: wholeNumber.pipe(z.int().max(65535)).optional(),
   /** The page's size, such as 1439x901, which `pnpm perf` and the end-to-end tests ask for. */
   PARITY_WINDOW_SIZE: z
@@ -23,6 +27,7 @@ const mainEnvironment = z.object({
     .regex(/^\d+x\d+$/, "expected a size such as 1440x900")
     .transform((size) => {
       const [width = 0, height = 0] = size.split("x").map(Number)
+
       return { width, height }
     })
     .pipe(z.object({ width: z.int().min(1), height: z.int().min(1) }))
@@ -31,8 +36,23 @@ const mainEnvironment = z.object({
   PARITY_USER_DATA: nonBlankString.optional(),
   /** The project the window opens first. */
   PARITY_PROJECT: nonBlankString.optional(),
+  /** The commit a copy run from source was started on, which the dev runner sets to name its Sentry release. */
+  PARITY_COMMIT: z
+    .string()
+    .regex(/^[0-9a-f]{40}$/, "expected a full commit hash")
+    .optional(),
+  /**
+   * Someone to start signed in as, as JSON, for a copy with its own user data folder, which has no kept session: the
+   * end-to-end tests, `pnpm perf` and the checks of a built copy. `{"email":"ada@example.com"}`.
+   * A stand-in with no tokens, which never asks WorkOS, so nothing Parity's service guards works as them.
+   */
+  PARITY_SIGNED_IN_AS: nonBlankString.optional(),
   /** The dev runner's process id, which it sets on the copy it runs. */
   PARITY_DEV_RUNNER: wholeNumber.pipe(z.int().min(1)).optional(),
+  /** Names a test pass, so its events, errors and replays group together in Sentry (PAR-630). */
+  PARITY_TEST_RUN: nonBlankString.optional(),
+  /** The tester's name, shown as Sentry's user (PAR-630). */
+  PARITY_TESTER: nonBlankString.optional(),
   /** Where an AppImage is, which its runtime sets; Linux updates only work from one. */
   APPIMAGE: z.string().optional()
 })
@@ -45,9 +65,12 @@ export type MainEnvironment = z.infer<typeof mainEnvironment>
  */
 export function readEnvironment(env: NodeJS.ProcessEnv): MainEnvironment {
   const set = Object.fromEntries(Object.entries(env).filter(([, value]) => value !== ""))
+
   try {
     return parseData(mainEnvironment, set)
   } catch (error) {
-    throw new TypeError(`Parity can't start with this environment variable: ${(error as Error).message.slice(1)}`)
+    // `parseData` throws a `TypeError` whose message starts with the variable's pointer.
+    const message = error instanceof Error ? error.message : String(error)
+    throw new TypeError(`Parity can't start with this environment variable: ${message.slice(1)}`)
   }
 }

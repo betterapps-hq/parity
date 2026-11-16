@@ -1,6 +1,9 @@
+import type { StylePrinter } from "@parity-app/style-schema"
 import { z } from "zod"
+import type { ContainerSpec } from "./document.ts"
+import type { GuestComponentSource } from "./guest-changes.ts"
 import type { ComponentEvidence, LibraryDecorator } from "./library.ts"
-import type { ComponentSource, ProjectConfig } from "./project.ts"
+import type { ProjectConfig } from "./project.ts"
 import type { ComponentRenderStatus } from "./render-status.ts"
 import type { RenderNode } from "./render.ts"
 import { jsonText, parseData } from "./schema.ts"
@@ -47,7 +50,12 @@ export const packageManifest = z.looseObject({
     .union([z.string(), z.looseObject({ url: z.string().optional(), directory: z.string().optional() })])
     .optional(),
   /** The package manager and version a project asks for, as Corepack writes it (`pnpm@10.4.0`). */
-  packageManager: z.string().optional()
+  packageManager: z.string().optional(),
+  /**
+   * The versions of the tools a package ships inside it, by package name, as Vite+'s core writes them
+   * (`{ "vite": "8.3.5" }`). Detection reads it when a project installs the package under one of those names.
+   */
+  bundledVersions: z.record(z.string(), z.string()).optional()
 })
 
 export type PackageManifest = z.infer<typeof packageManifest>
@@ -65,16 +73,178 @@ export function parseManifest(text: string, file: string): PackageManifest {
 }
 
 /**
+ * The first of `packages` a package.json declares as a dependency, dev dependency or optional dependency, else the
+ * first in `scope` (as `@storybook/`), as an adapter's `detect` asks whether the project uses its tool.
+ */
+export function declares(pkg: PackageManifest, packages: readonly string[], scope?: string): string | undefined {
+  const declared = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies, ...pkg.optionalDependencies })
+
+  return (
+    packages.find((name) => declared.includes(name)) ??
+    (scope ? declared.find((name) => name.startsWith(scope)) : undefined)
+  )
+}
+
+/**
+ * What an adapter adds to the status bar about its tool, which the app draws as it's given: an icon, a value in bold,
+ * and words after it, with a tooltip. A project's tools each tell their own, so a new adapter adds its items without
+ * the app changing.
+ */
+export interface StatusItem {
+  /** A Lucide icon's name, as `route`. Without one, the item shows its adapter's logo. */
+  icon?: string
+  /** What's in bold: the tool's name, or a count. */
+  value: string
+  /** The words after it, as ` in Storybook` or ` 8.3.5`, which a narrow status bar leaves to screen readers. */
+  words?: string
+  /** The tooltip's title. */
+  hint: string
+  /** The tooltip's line, saying what it does or what clicking it does. */
+  detail?: string
+  /** What clicking it does: open one of the app's left panel tabs. */
+  opens?: { tab: string }
+}
+
+/** What an adapter's status items are made from: what Parity found of its tool in the project. */
+export interface StatusFacts {
+  /** The tool's version, as detection or the running tool says it. */
+  version?: string
+  /** The project's package manager's name. */
+  packageManager: string
+}
+
+/** A status item, with the adapter that gave it, and that adapter's logo when the item names no icon. */
+export interface AdapterStatusItem extends StatusItem {
+  adapter: string
+  logo?: AdapterIcon
+}
+
+/**
+ * An adapter's logo, as one shape the app fills with the text's colour, so it reads as an icon beside Lucide's in any
+ * theme. It's path data rather than SVG markup, so it draws nothing but the shape.
+ */
+export interface AdapterIcon {
+  /** The `viewBox` the path is drawn in, as `0 0 24 24`. */
+  viewBox: string
+  /** The path's data, every part of the logo in one. */
+  path: string
+  /** How overlapping parts fill: `evenodd` cuts one out of another, as the S out of Storybook's book. */
+  fillRule?: "nonzero" | "evenodd"
+}
+
+/**
+ * What every adapter has, whatever it integrates: who it is, its logo, whether the project uses its tool, which version
+ * Parity tests, and what it adds to the status bar.
+ */
+export interface Adapter {
+  id: string
+  name: string
+  /** Its tool's logo. */
+  icon?: AdapterIcon
+  /**
+   * Whether the project uses its tool, and what was found: its version, when the tool can say, and its config file.
+   * Every adapter is asked when a project opens, and only those that find their tool are used.
+   */
+  detect(project: DetectContext): Promise<AdapterDetection>
+  /**
+   * Files, relative to the project root, whose coming or going means the project is detected again, as a builder's
+   * config files (PAR-826). A tool follows a change to one's contents itself.
+   */
+  watches?: readonly string[]
+  /**
+   * Where its tool's version is installed, and which versions Parity tests: when each major came out, or the range an
+   * extension's peer dependencies give (see {@link peerVersions}).
+   */
+  versions?: ToolVersions
+  /** What it adds to the status bar. */
+  status?(facts: StatusFacts): StatusItem[]
+}
+
+/** What every adapter's `detect` reads the project through, so it can look wherever its tool leaves a trace. */
+export interface DetectContext {
+  /** The project's root folder. */
+  root: string
+  pkg: PackageManifest
+  /** A file's text by its path from the root, with forward slashes, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+}
+
+/** What an adapter's `detect` found: its tool's version and config file, or what it looked for when it found nothing. */
+export interface AdapterDetection {
+  found: boolean
+  /** The tool's version, when the tool says it, as a builder asks its build tool. Otherwise the installed package's. */
+  version?: string
+  /** Its config file, relative to the project root. */
+  config?: string
+  /** What was found, or what was looked for, in a sentence. */
+  summary: string
+}
+
+/**
+ * Where a tool's version is installed, and which versions Parity tests: an extension's range, or when each major came
+ * out, for the version cutoff that tests a major for two years from its own x.0.0, and always the newest.
+ */
+export interface ToolVersions {
+  /** Packages that carry its version, the main one first. */
+  packages: string[]
+  /**
+   * Each major's first stable release (x.0.0), from the npm registry, oldest first, for the two-year cutoff. Add one when
+   * it comes out. Set for a tool whose adapter isn't an extension yet; an extension gives `range` instead.
+   */
+  majors?: [major: number, released: string][]
+  /**
+   * The versions its extension supports, as a semver range from its main peer dependency: inside is supported, above is
+   * newer than it was tested with, and below is older than it supports.
+   */
+  range?: string
+  /** A scope every package of which is one of the tool's, as `@storybook/`, beside `packages`. */
+  scope?: string
+  /** How majors are written, such as Tailwind's `v4`. */
+  prefix?: string
+  /** Packages that ship the tool and may be installed in its place, with their names for people. */
+  distributions?: Record<string, string>
+}
+
+/** What an extension's manifest says of its tool's versions that its peer dependencies can't. */
+export type ToolVersionsExtra = Pick<ToolVersions, "scope" | "prefix" | "distributions">
+
+/**
+ * A tool's versions from an extension's `package.json`: its peer dependencies name the packages that carry the version,
+ * the main one first, and the main one's range is what it supports. `extra` is the manifest's `versions`, for what peer
+ * dependencies can't say. Nothing when it has no peer dependencies.
+ */
+export function peerVersions(
+  peerDependencies: Readonly<Record<string, string>> | undefined,
+  extra: ToolVersionsExtra = {}
+): ToolVersions | undefined {
+  const [main, ...rest] = Object.entries(peerDependencies ?? {})
+
+  return main ? { packages: [main[0], ...rest.map(([name]) => name)], range: main[1], ...extra } : undefined
+}
+
+/**
+ * The default detector: an extension's tool is found when the project's package.json declares any of its peer
+ * dependencies, as {@link peerVersions} gives them, so most extensions need no `detect` of their own.
+ */
+export function detectPeers(
+  pkg: PackageManifest,
+  versions: Pick<ToolVersions, "packages" | "scope">
+): AdapterDetection {
+  const declared = declares(pkg, versions.packages, versions.scope)
+
+  return declared
+    ? { found: true, summary: `${declared} in package.json` }
+    : { found: false, summary: `None of ${versions.packages.join(", ")} in package.json` }
+}
+
+/**
  * Mounts components of one UI framework (React, Vue, Svelte…).
  *
  * The adapter has two halves. This object runs in the host and describes the framework. Its guest module is compiled by
  * the customer's own toolchain into the customer's module graph, so components render with the customer's copy of the
  * framework rather than the canvas app's.
  */
-export interface RendererAdapter {
-  id: string
-  name: string
-  detect(pkg: PackageManifest): boolean
+export interface RendererAdapter extends Adapter {
   /** Module specifier, resolvable from the host, whose module exports `createGuest(init: GuestInit): Guest`. */
   guestModule: string
   /** Packages that must resolve to exactly one copy, taken from the customer's project. */
@@ -91,9 +261,80 @@ export interface RendererAdapter {
   componentExtensions: string[]
   /**
    * The components a file exports, from its text alone, so a whole app can be read in a fraction of a second. The
-   * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export.
+   * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export. A renderer
+   * an extension gives answers through its provider, so asynchronously (PAR-1095).
    */
-  findComponents(source: string, file: string): ComponentExport[]
+  findComponents(source: string, file: string): ComponentExport[] | Promise<ComponentExport[]>
+}
+
+/** A renderer as its extension's manifest describes it, before its provider reads any components (PAR-1095). */
+export type RendererDescription = Omit<RendererAdapter, "findComponents">
+
+/** What of an extension's `package.json` describes the renderer it gives. */
+export interface RendererPackage {
+  name: string
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    icon?: AdapterIcon
+    contributes: {
+      providers?: {
+        renderer?: {
+          guest: string
+          runtimePackages: string[]
+          runtimeImports: string[]
+          developmentStandIns?: Record<string, string>
+          componentExtensions: string[]
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The renderer an extension's manifest describes (PAR-1095), or nothing when it gives none: named by its prefix, its
+ * guest module the package export its manifest names, and found when the project declares every runtime package.
+ */
+export function extensionRenderer(pkg: RendererPackage): RendererDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const renderer = contributes.providers?.renderer
+
+  if (!renderer) {
+    return undefined
+  }
+
+  const { guest, runtimePackages, runtimeImports, developmentStandIns, componentExtensions } = renderer
+  const packages = runtimePackages.join(" and ")
+  const versions = peerVersions(pkg.peerDependencies)
+
+  const description: RendererDescription = {
+    id: prefix,
+    name: displayName,
+    async detect({ pkg: project }) {
+      const found = runtimePackages.every((name) => declares(project, [name]) !== undefined)
+
+      return { found, summary: found ? `${packages} in package.json` : `No ${packages} in package.json` }
+    },
+    guestModule: `${pkg.name}/${guest.replace(/^\.\//, "")}`,
+    runtimePackages,
+    runtimeImports,
+    componentExtensions
+  }
+
+  if (icon) {
+    description.icon = icon
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  if (developmentStandIns) {
+    description.developmentStandIns = developmentStandIns
+  }
+
+  return description
 }
 
 /** An export a renderer recognises as a component. */
@@ -127,40 +368,209 @@ export interface BuilderStartOptions {
   port?: number
 }
 
+/** The extensions a JavaScript tool's config file may have: `vite.config.ts`, `.storybook/main.mjs`. */
+export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] as const
+
 /**
  * Compiles a customer's components with the customer's own build setup (Vite, webpack, Next.js…) and serves them to the
  * canvas as a guest module.
  */
-export interface BuilderAdapter {
-  id: string
-  name: string
-  /** Whether this builder serves the project, asked of the project's own build tool where it can be. */
-  detect(root: string): Promise<BuilderDetection>
+export interface BuilderAdapter extends Adapter {
+  /** Its config files, relative to the project root, which say whether it serves the project (PAR-826). */
+  watches: readonly string[]
+  /** What its dev build writes to the console and serves that isn't the project's own, from its manifest. */
+  console?: BuilderConsole
   start(options: BuilderStartOptions): Promise<BuilderSession>
+  /**
+   * Starts in two steps, so the slow part overlaps Parity reading the project (PAR-1182). The build tool loads the
+   * project's config and plugins before the project's components are known. Then the prepared builder says which
+   * global stylesheets the app loads, using that same build tool, and starts once it has the project's config. A
+   * builder without it is started whole, once the config is known.
+   */
+  prepare?(options: BuilderPrepareOptions): Promise<PreparedBuilder>
+  /**
+   * The global stylesheets the app loads, as the build tool resolves the app's imports from its entries: the only
+   * source Parity has for them. Empty when the app loads none, as with CSS-in-JS.
+   */
+  styles?(project: DetectContext): Promise<AppStyles>
 }
 
-/** What a builder found: the tool's version and config file, or what it looked for when it found nothing. */
-export interface BuilderDetection {
-  found: boolean
-  version?: string
-  /** The config file, relative to the project root. */
-  config?: string
-  /** What was found, or what was looked for, in a sentence. */
-  summary: string
+/** What a builder prepares with (`BuilderAdapter.prepare`): its start options, less the project's config. */
+export type BuilderPrepareOptions = Omit<BuilderStartOptions, "config">
+
+/** A builder whose build tool has loaded the project's config, and hasn't started serving yet. */
+export interface PreparedBuilder {
+  /** The global stylesheets the app loads, as `BuilderAdapter.styles` finds them, using the prepared build tool. */
+  styles(): Promise<AppStyles>
+  /** Starts serving the guest of `config`. A builder starts once. */
+  start(config: ProjectConfig): Promise<BuilderSession>
+  /** Closes the build tool without starting it. */
+  close(): Promise<void>
 }
+
+/**
+ * What a builder's dev build adds that isn't the project's own, as regular expressions: the messages it writes to the
+ * console, such as Vite's about hot updates, and the paths of modules it makes, such as Vite's `@vite/client`.
+ */
+export interface BuilderConsole {
+  /** Messages it writes, which the Console panel and agents leave out. */
+  chatter?: string[]
+  /** Paths, from the server's root without the leading slash, of modules it makes rather than serves from the project. */
+  generatedPaths?: string[]
+}
+
+/** Whether a console message is the builder's own chatter, as its manifest describes it. */
+export function isBuilderChatter(text: string, builder: BuilderConsole | undefined): boolean {
+  return (builder?.chatter ?? []).some((pattern) => new RegExp(pattern).test(text))
+}
+
+/** Whether a path the builder serves, from its root without the leading slash, is a module it made. */
+export function isGeneratedPath(path: string, builder: BuilderConsole | undefined): boolean {
+  return (builder?.generatedPaths ?? []).some((pattern) => new RegExp(pattern).test(path))
+}
+
+/** The global stylesheets an app loads, as its builder reports them (`BuilderAdapter.styles`). */
+export interface AppStyles {
+  /** The project's own, by path from its root with forward slashes, in the order the app loads them. */
+  styles: string[]
+  /** Packages' stylesheets, by the specifier that loads them, as `@mantine/core/styles.css`, in the order loaded. */
+  packageStyles: string[]
+  /** The project files the answer came from, such as the module that imports them, from the root with forward slashes. */
+  from: string[]
+}
+
+/**
+ * A builder as its extension's manifest describes it (PAR-1095): its provider says whether it serves a project, and its
+ * entry module starts it, in the builder process.
+ */
+export type BuilderDescription = Omit<BuilderAdapter, "start" | "prepare" | "detect" | "styles">
+
+/** What of an extension's `package.json` describes the builder it gives. */
+export interface BuilderPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    icon?: AdapterIcon
+    versions?: ToolVersionsExtra
+    contributes: { providers?: { builder?: { entry: string; watches: string[]; console?: BuilderConsole } } }
+  }
+}
+
+/** The builder an extension's manifest describes (PAR-1095), named by its prefix, or nothing when it gives none. */
+export function extensionBuilder(pkg: BuilderPackage): BuilderDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const builder = contributes.providers?.builder
+
+  if (!builder) {
+    return undefined
+  }
+
+  const description: BuilderDescription = { id: prefix, name: displayName, watches: builder.watches }
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  if (icon) {
+    description.icon = icon
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  if (builder.console) {
+    description.console = builder.console
+  }
+
+  return description
+}
+
+/** A tool one of Parity's own extensions gives: its prefix and name, and its versions from its peer dependencies. */
+export type ExtensionTool = Pick<Adapter, "id" | "name"> & {
+  versions: ToolVersions
+  /** Whether it styles the project, which detection lists before the tools whose files are entities, as it always has. */
+  styles: boolean
+}
+
+/** What of an extension's `package.json` names its tool. */
+export interface ToolPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    versions?: ToolVersionsExtra
+    contributes?: { providers?: object }
+  }
+}
+
+/**
+ * The tool an extension gives (PAR-1095), found when the project's package.json declares one of its peer dependencies
+ * and listed with its version among what the project uses; nothing for one without peer dependencies.
+ */
+export function extensionTool(pkg: ToolPackage): ExtensionTool | undefined {
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  const styles = "styles" in (pkg.parity.contributes?.providers ?? {})
+
+  return versions && { id: pkg.parity.prefix, name: pkg.parity.displayName, versions, styles }
+}
+
+/** What a builder found: its build tool's version, asked of the tool itself, and its config file. */
+export type BuilderDetection = AdapterDetection
 
 export interface BuilderSession {
   /** URL of an ES module whose default export is a {@link Guest}. */
   guestUrl: string
   /** Version of the customer's build tool. */
   toolVersion: string
+  /**
+   * Tells `listener` each time a project file it serves changes on disk (PAR-165), so the canvas can load the components
+   * it touches again. Returns what stops it.
+   */
+  codeChanges?(listener: (change: CodeChange) => void): () => void
+  /**
+   * Where the guest is served with its stylesheets as they are after the change stamped `stamp` (PAR-821). A builder
+   * whose changes say `styles` serves there a guest that imports its stylesheets as they are now, at an address the
+   * windows haven't loaded, since a page never loads a module twice; it keeps serving it there until it closes. A
+   * builder without it is started again on a new port when its stylesheets change instead.
+   */
+  restyledGuestUrl?(stamp: number): string
+  /**
+   * The project files the modules of `files` load, themselves included, however deep, as the build tool resolved their
+   * imports (PAR-994): what a frame's trace lists, beside what Parity's own import scan finds. Paths are relative to the
+   * root, with forward slashes. Packages are left out, since the lockfile stands for them, and so are files a plugin only
+   * watches, as Tailwind does every file it scans for class names. Nothing when the tool can't say for one of `files`,
+   * as for a module it hasn't built yet.
+   */
+  loadedFiles?(files: string[]): Promise<string[] | undefined>
   close(): Promise<void>
 }
 
+/**
+ * Project files whose code changed, by the builder's account: a file that changed on disk, and the components' files
+ * that import it, however deep. Imported again with `?t=<stamp>`, each module imports what changed afresh too.
+ */
+export interface CodeChange {
+  /** The component files among them, relative to the project root. */
+  paths: string[]
+  /** What they're stamped with, which goes up with each change. */
+  stamp: number
+  /**
+   * One of the stylesheets the guest's compiled CSS is made from changed too, so the guest's CSS is new: the guest at
+   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821).
+   */
+  styles?: boolean
+}
+
+/** A module as a build loaded it: its exports by name, whatever the customer's package exports. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- a customer's package can export anything; the renderer reads it by name
+export type ModuleExports = Record<string, unknown>
+
 /** What a builder passes to the renderer's `createGuest`. */
 export interface GuestInit {
-  components: Record<string, unknown>
+  /** The project's components by id, as its modules export them. */
+  components: ModuleExports
   /** Components loaded the first time they're drawn: each resolves to the component, or one that shows why it can't. */
+  // oxlint-disable-next-line anti-slop/no-unknown-returns -- a component is whatever the customer's module exports
   lazyComponents?: Record<string, () => Promise<unknown>>
   /**
    * Icon packages by library id, whole: an icon is `lucide/Heart`, or `heroicons/16/solid/CogIcon` in a style kept in
@@ -174,18 +584,31 @@ export interface GuestInit {
    * read for tokens: a library's tokens come from its `.lib.par`, and the rest are its components' own variables.
    */
   packageCss?: string
+  /**
+   * Stylesheets the project's modules import as they load, such as a component's own CSS or CSS modules, which a dev
+   * server would otherwise add to the page's head, where they'd restyle Parity's own window.
+   */
+  moduleStyles?: ModuleStyles
   /** Libraries' decorators, outermost first, with the modules they import by specifier. */
   decorators?: GuestDecorators
   /** Categories for custom properties libraries describe, by name without `--`. */
   tokenCategories?: Record<string, TokenCategory>
 }
 
+/** The stylesheets a guest's modules imported, which frames draw with after the project's global stylesheets. */
+export interface ModuleStyles {
+  /** Each one's CSS as compiled, in the order they were first imported. */
+  sheets(): string[]
+  /** Calls `listener` when one is added, changed or taken away, and gives back what stops that. */
+  subscribe(listener: () => void): () => void
+}
+
 /** One icon package, and how its icons are drawn. */
 export interface GuestIconSet {
   /** The package's module: its exports are the icons, or the data a renderer draws. */
-  module: Record<string, unknown>
+  module: ModuleExports
   /** The modules of styles it keeps in modules of their own, by the key its icons' ids name each with. */
-  styles?: Record<string, Record<string, unknown>>
+  styles?: Record<string, ModuleExports>
   /** Exports that are icons, as a regular expression. Defaults to every export that can be one. */
   match?: string
   /** Exports that look like icons but aren't. */
@@ -197,7 +620,7 @@ export interface GuestIconSet {
 export interface GuestDecorators {
   list: { library: string; decorator: LibraryDecorator }[]
   /** Modules by specifier; a module that failed to load is the error it failed with. */
-  modules: Record<string, Record<string, unknown> | { loadError: string }>
+  modules: Record<string, ModuleExports | { loadError: string }>
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
@@ -209,9 +632,9 @@ export interface Guest {
   /**
    * Adds the project's components found after the guest loaded, by the type checker or in files added since, by id.
    * Each loads the first time it's drawn. An id the guest already has is drawn from its new file from then on, as when
-   * a component moves.
+   * a component moves, and one given a new `version` loads its module again, as when its code changed (PAR-165).
    */
-  addComponents?(sources: Record<string, Pick<ComponentSource, "path" | "export">>): void
+  addComponents?(sources: Record<string, GuestComponentSource>): void
   /**
    * Takes back components `addComponents` gave whose source went away. One the guest loaded with is drawn as it loaded
    * again; one it was only given is no longer a component. Ids it wasn't given change nothing.
@@ -247,25 +670,48 @@ export interface Guest {
   iconAliases?(library: string, style?: string): Record<string, string[]>
   css: string
   packageCss?: string
+  moduleStyles?: ModuleStyles
   tokenCategories?: Record<string, TokenCategory>
   /** Renders a resolved design. Components the guest doesn't know render as a visible placeholder. */
   mount(target: HTMLElement, tree: RenderNode[], options?: MountOptions): MountHandle
 }
 
 export interface MountOptions {
-  onError?(error: unknown): void
+  /**
+   * An error the frame hit. `layer` is set when a component's boundary caught it: that component draws its error box
+   * in its place and the rest of the frame draws. Without it, the error stopped the frame drawing.
+   */
+  onError?(cause: unknown, layer?: { nodeId: string; component: string }): void
+  /**
+   * The frame's failing layers, each time they change: one entry for each node whose component is drawing its error
+   * box, empty once they all draw again. Not called after the frame is unmounted.
+   */
+  onFailures?(failures: readonly LayerFailure[]): void
   /**
    * The frame's mode as Storybook globals: each variable's chosen option, as in `{ theme: "dark", viewport: "mobile" }`.
    * Decorators read them.
    */
   globals?: Record<string, string>
-  /** Renders without the libraries' decorators, as the Icons panel's previews do. */
+  /** Renders without the libraries' and extensions' decorators, as the Icons panel's previews do. */
   bare?: boolean
+  /**
+   * The URL the frame stands for, as a page's does, which decorators read as `{ "$frame": "url" }`: a router's
+   * extension starts its router there. `/` when unset.
+   */
+  url?: string
   /**
    * The window the frame stands for. The project's code that asks the window its size (`matchMedia`, `innerWidth`,
    * resize events) gets this instead of Parity's window while it renders the frame or handles its events.
    */
   viewport?: FrameViewport
+}
+
+/** A layer whose component failed to draw in a frame, and what it threw. */
+export interface LayerFailure {
+  /** The design node, as the render tree names it: prefixed with its instance's path inside a component design. */
+  nodeId: string
+  component: string
+  error: string
 }
 
 export interface FrameViewport {
@@ -308,21 +754,198 @@ export interface DrawnNodes {
   nodeOf(element: Element): string | undefined
 }
 
-/**
- * Reads a styling framework's theme (Tailwind, Panda, vanilla-extract…) from a project's own installation. Compiled CSS
- * only carries the variables the project's code already uses; the theme has every value a design may pick.
- */
-export interface StylesAdapter {
-  id: string
-  name: string
-  /** Whether a stylesheet of the project uses this framework. */
-  detect(source: string): boolean
-  /** Every theme variable, resolved by the project's own copy of the framework. */
-  loadTheme(root: string, stylesheet: string): Promise<ThemeVariable[]>
+/** A styling framework that writes a layer's declarations as classes, and compiles classes as the project's build does. */
+export interface ClassPrinter extends StylePrinter<string[]> {
+  /**
+   * The CSS these classes compile to in this project, as one stylesheet in the framework's own cascade layer and
+   * order, so a frame that gives its elements the classes draws them as the project's built CSS would (PAR-942). A
+   * class the framework doesn't know compiles to nothing.
+   */
+  css(classes: readonly string[]): string
 }
 
 /** A theme variable without its `--`, as the framework defines it. */
 export interface ThemeVariable {
   name: string
   value: string
+}
+
+/**
+ * Translates a tool's own files, which Parity doesn't read itself, to Parity's entities, and back: Storybook's stories
+ * to screens, for one. It reads through `source`, so it runs without a disk, and gives back only entities, so nothing
+ * outside it knows the tool's format. A project can have several: each fills in the entities its tool describes.
+ */
+export interface EntitiesAdapter extends Adapter {
+  /** How Parity shows the screens it imports, as its extension's manifest says (PAR-1131). */
+  screens?: ScreensLook
+  /** The entities the tool's files describe. */
+  import(source: EntitiesSource): Promise<ProjectEntities>
+  /**
+   * A screen it imported, as edited in Parity, written back to the tool's files: each file it changes, with its new
+   * text. None when the edit is one the tool's files can't hold.
+   */
+  export?(screen: ImportedScreen, edited: ContainerSpec, source: EntitiesSource): Promise<FileWrite[]>
+}
+
+/**
+ * How Parity shows an entities provider's screens (PAR-1131): what Layers lists them under, what their states are
+ * called, and the colour of their icons. Nothing in Parity names the tool otherwise.
+ */
+export interface ScreensLook {
+  /** Its tool's name, as a screen's detail says which tool's file it's read from. */
+  name: string
+  /** What Layers lists its screens under, as `Stories`. */
+  group: string
+  /** What a screen's states are called, as `story` and `stories`. */
+  states: { one: string; many: string }
+  /** The colour of its screens' icons, a CSS colour in a light and in a dark theme. */
+  color?: { light: string; dark: string }
+}
+
+/**
+ * An entities provider as its extension's manifest describes it (PAR-1095), with what Parity's detection finds of its
+ * tool: its provider imports and exports the entities.
+ */
+export type EntitiesDescription = Omit<EntitiesAdapter, "import" | "export">
+
+/** What of an extension's `package.json` describes the entities provider it gives. */
+export interface EntitiesPackage {
+  peerDependencies?: Readonly<Record<string, string>>
+  parity: {
+    prefix: string
+    displayName: string
+    /** As JSON gives it: its fill rule, when it has one, is `nonzero` or `evenodd`. */
+    icon?: { viewBox: string; path: string; fillRule?: string }
+    versions?: ToolVersionsExtra
+    contributes: {
+      providers?: {
+        entities?: {
+          watches?: string[]
+          group?: string
+          states?: { one: string; many: string }
+          color?: { light: string; dark: string }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * The entities provider an extension's manifest describes (PAR-1095), named by its prefix; nothing when it gives none.
+ * Its tool is found when the project's package.json declares one of the extension's peer dependencies or a package in
+ * its versions' scope (PAR-1131), and its config is the first of the files its provider watches that's there.
+ */
+export function extensionEntities(pkg: EntitiesPackage): EntitiesDescription | undefined {
+  const { prefix, displayName, icon, contributes } = pkg.parity
+  const entities = contributes.providers?.entities
+
+  if (!entities) {
+    return undefined
+  }
+
+  const peers = Object.keys(pkg.peerDependencies ?? {})
+  const scope = pkg.parity.versions?.scope
+
+  const detect: EntitiesDescription["detect"] = async (project) => {
+    const dependency = declares(project.pkg, peers, scope)
+
+    if (!dependency) {
+      const named = [...peers, ...(scope ? [`${scope}*`] : [])].join(" or ")
+
+      return { found: false, summary: `No ${named} package in package.json` }
+    }
+
+    for (const config of entities.watches ?? []) {
+      if ((await project.read(config)) !== undefined) {
+        return { found: true, config, summary: `${dependency} in package.json, config ${config}` }
+      }
+    }
+
+    return { found: true, summary: `${dependency} in package.json` }
+  }
+
+  const description: EntitiesDescription = { id: prefix, name: displayName, detect }
+  const versions = peerVersions(pkg.peerDependencies, pkg.parity.versions)
+
+  if (icon) {
+    const { viewBox, path, fillRule } = icon
+    description.icon =
+      fillRule === "evenodd" || fillRule === "nonzero" ? { viewBox, path, fillRule } : { viewBox, path }
+  }
+
+  if (versions) {
+    description.versions = versions
+  }
+
+  if (entities.watches) {
+    description.watches = entities.watches
+  }
+
+  // Without its own words, its screens are listed under its tool's name, with states as any design's are.
+  description.screens = {
+    name: displayName,
+    group: entities.group ?? displayName,
+    states: entities.states ?? { one: "state", many: "states" }
+  }
+
+  if (entities.color) {
+    description.screens.color = entities.color
+  }
+
+  return description
+}
+
+/** A file an adapter writes, by its path from the project's root, with its whole new text. */
+export interface FileWrite {
+  path: string
+  text: string
+}
+
+/** How an entities adapter reads a project: its files, and which of the project's components an import names. */
+export interface EntitiesSource {
+  /** The project's files whose path matches, from the root, with forward slashes, leaving out dependencies and builds. */
+  files(match: RegExp): Promise<string[]>
+  /** A file's text by its path from the root, or undefined when there's no such file. */
+  read(path: string): Promise<string | undefined>
+  /** The key of the project's component that `file` imports as `name` from `specifier`, if it's one. */
+  componentFor(file: string, specifier: string, name: string): Promise<string | undefined>
+}
+
+/** Parity's entities, as far as a tool's files describe them. */
+export interface ProjectEntities {
+  screens?: ImportedScreen[]
+  /** How each provider's screens are shown, by the provider's id, which each screen names as its `adapter`. */
+  looks?: Record<string, ScreensLook>
+  /**
+   * Code the screens draw that isn't one of the project's components, by the id their component layers name, which
+   * the guest loads from its file as it loads a component: a story's `render` function, given its args as props.
+   */
+  sources?: Record<string, GuestComponentSource>
+}
+
+/** A screen read from a tool's files, with where it came from. */
+export interface ImportedScreen {
+  /** The adapter that read it. */
+  adapter: string
+  /** Where it is in the tool's files, unique among the adapter's: a story as `src/stories/button.stories.tsx#Outline`. */
+  ref: string
+  /** The group it's listed in, as a story's title: `UI/Button`. */
+  group: string
+  /** The folders Layers lists it in, outermost first, as `UI` then `Button`; at the top without any. */
+  folders?: string[]
+  /** The project's component it's about, by its key, as the component a story's meta names. */
+  component?: string
+  screen: ContainerSpec
+}
+
+/**
+ * A token value Save writes in one theme (`default` for the root, otherwise the theme it names, such as `dark`), or
+ * `value` undefined to take the token's declaration out of that theme: a value the theme didn't have, undone after it
+ * was saved.
+ */
+export interface TokenWrite {
+  /** Without `--`. */
+  name: string
+  theme: string
+  value: string | undefined
 }

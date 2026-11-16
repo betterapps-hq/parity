@@ -1,6 +1,6 @@
 import { createRequire } from "node:module"
-import { guestModuleSource } from "@parity-app/builder-vite"
 import { componentLibrary, type ContainerSpec, type ProjectConfig, resolveDesign } from "@parity-app/core"
+import { guestModuleSource, moduleStylesId, moduleStylesSource } from "@parity-app/extension-vite/builder"
 import { build } from "esbuild"
 import { chromium } from "playwright-core"
 import { expect, it } from "vite-plus/test"
@@ -24,25 +24,34 @@ it("renders a library design whose factory modules appear in no sample or decora
       }
     }
   }
+
   const config: ProjectConfig = {
     styles: [],
     documents: [],
     components: { "kit/Label": { path: "kit", export: "Label", library: "kit" } },
     libraries: [{ id: "kit", name: "Kit", package: "kit", importName: "kit", stylesImported: true, designs: [design] }]
   }
+
   const tree = resolveDesign(
     { type: "instance", id: "placed", design: design.id },
     undefined,
     "desktop",
     componentLibrary([design])
   )
-  const modules: Record<string, string> = {
-    fixture: guestModuleSource(config),
-    kit: 'import {createElement} from "react"; export function Label({value}) { return createElement("span", {"data-design-value": ""}, value) }',
-    "design-values": 'export function create(value) { return "Design-only " + value }',
-    "nested-values": 'export function create() { return "factory loaded" }'
-  }
+
+  const modules = new Map([
+    ["fixture", guestModuleSource(config)],
+    [moduleStylesId, moduleStylesSource([])],
+    [
+      "kit",
+      'import {createElement} from "react"; export function Label({value}) { return createElement("span", {"data-design-value": ""}, value) }'
+    ],
+    ["design-values", 'export function create(value) { return "Design-only " + value }'],
+    ["nested-values", 'export function create() { return "factory loaded" }']
+  ])
+
   const require = createRequire(import.meta.url)
+
   const bundle = await build({
     stdin: {
       contents: `import guest from "fixture"; guest.mount(document.getElementById("frame"), ${JSON.stringify(tree)})`,
@@ -57,21 +66,26 @@ it("renders a library design whose factory modules appear in no sample or decora
         name: "library-fixture",
         setup(builder) {
           builder.onResolve({ filter: /^virtual:canvas\/renderer$/ }, () => ({
-            path: require.resolve("@parity-app/renderer-react/guest")
+            path: require.resolve("@parity-app/extension-react/guest")
           }))
-          builder.onResolve({ filter: /^(fixture|kit|design-values|nested-values)$/ }, ({ path }) => ({
-            path,
-            namespace: "fixture"
-          }))
+          builder.onResolve(
+            { filter: /^(fixture|kit|design-values|nested-values|virtual:canvas\/module-styles)$/ },
+            ({ path }) => ({
+              path,
+              namespace: "fixture"
+            })
+          )
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
-            contents: modules[path],
+            contents: modules.get(path),
             resolveDir: import.meta.dirname
           }))
         }
       }
     ]
   })
+
   const browser = await chromium.launch({ channel: "chrome", headless: true })
+
   try {
     const page = await browser.newPage()
     await page.route("http://library.test/app.js", (route) =>

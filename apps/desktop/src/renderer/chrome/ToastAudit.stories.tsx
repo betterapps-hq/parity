@@ -459,7 +459,7 @@ const groups: Group[] = [
         before: { kind: "info", title: "Its left is the spacing-4 token, so it doesn't nudge that way" },
         after: {
           kind: "info",
-          title: "Can't nudge left",
+          title: "Can't nudge that way",
           description: "Its left edge is set by the spacing-4 token."
         },
         why: "The title was the whole explanation. Lead with what happened."
@@ -505,6 +505,32 @@ const groups: Group[] = [
           description: "Select a layout, or a layer to add it after."
         },
         why: "The instruction was the title. Say what happened, then what works."
+      },
+      {
+        when: "Dropping a layer from another design on an instance's slot",
+        before: { kind: "info", title: "Only layers in this design can go in Actions" },
+        after: {
+          kind: "info",
+          title: "Can't drop that here",
+          description: "Only layers in this design can go in Actions."
+        },
+        why: "The slot's name was in the title. Say what happened, then why."
+      },
+      {
+        when: "Dropping an instance on one of its own slots",
+        before: { kind: "info", title: "Plan card can't go in its own slot" },
+        after: { kind: "info", title: "Can't drop that here", description: "Plan card can't go in its own slot." },
+        why: "Same as above."
+      },
+      {
+        when: "Dropping a layer on a slot of an instance inside it",
+        before: { kind: "info", title: "Pricing grid can't go in Actions, which is inside it" },
+        after: {
+          kind: "info",
+          title: "Can't drop that here",
+          description: "Pricing grid can't go in Actions, which is inside it."
+        },
+        why: "Same as above."
       }
     ]
   },
@@ -756,12 +782,12 @@ const groups: Group[] = [
           description: "The builder stopped responding"
         },
         after: {
-          kind: "warning",
+          kind: "error",
           title: "Couldn't reload the project",
-          description: "The change was undone, but shadcn-vite didn't reload.",
+          description: "The change was undone, but the project didn't reload.",
           action: "Reload"
         },
-        why: "The title was longer than the message. The undo worked, so it's a warning."
+        why: "The title was longer than the message, and the description says the undo itself worked."
       }
     ]
   },
@@ -896,6 +922,68 @@ const groups: Group[] = [
         why: "Says where things stand, and the button replaces the sentence."
       },
       {
+        when: "Adding an account",
+        before: { kind: "plain", title: "Added ana@acme.com" },
+        after: { kind: "success", title: "Added an account", description: "You're signed in as ana@acme.com." },
+        why: "An email can be any length, so it moves to the description."
+      },
+      {
+        when: "Signing in again to an account that was signed out",
+        before: { kind: "plain", title: "Signed in again as ana@acme.com" },
+        after: { kind: "success", title: "Signed in again", description: "You're signed in as ana@acme.com." },
+        why: "An email can be any length, so it moves to the description."
+      },
+      {
+        when: "Adding an account that's already signed in",
+        before: { kind: "plain", title: "ana@acme.com is already signed in" },
+        after: { kind: "info", title: "Nothing to add", description: "ana@acme.com is already signed in." },
+        why: "Says nothing happened, and why."
+      },
+      {
+        when: "Removing an account",
+        before: { kind: "plain", title: "Removed ana@acme.com" },
+        after: { kind: "success", title: "Removed an account", description: "Parity forgot ana@acme.com." },
+        why: "An email can be any length, so it moves to the description."
+      },
+      {
+        when: "Signing out of the account you're in, with another signed in",
+        before: { kind: "plain", title: "Signed out of ana@acme.com" },
+        after: {
+          kind: "success",
+          title: "Signed out of an account",
+          description: "You're in Acme as ben@acme.com now."
+        },
+        why: "Says which account you're in now, which is what changed."
+      },
+      {
+        when: "Signing out of an account fails",
+        before: { kind: "error", title: "Parity couldn't sign you out", description: "Try again in a moment." },
+        after: {
+          kind: "error",
+          title: "Couldn't sign out",
+          description: "ana@acme.com is still signed in.",
+          action: "Try again"
+        },
+        why: "Says where things stand, and the button replaces the sentence."
+      },
+      {
+        when: "Switching accounts",
+        before: { kind: "plain", title: "Switched to ben@acme.com", description: "You're in Acme now." },
+        after: { kind: "success", title: "Switched accounts", description: "You're in Acme as ben@acme.com now." },
+        why: "An email can be any length, so it moves to the description."
+      },
+      {
+        when: "Switching accounts fails",
+        before: { kind: "error", title: "Parity couldn't switch accounts", description: "Try again in a moment." },
+        after: {
+          kind: "error",
+          title: "Couldn't switch accounts",
+          description: "You're still in Acme as ana@acme.com.",
+          action: "Try again"
+        },
+        why: "Says where things stand, and the button replaces the sentence."
+      },
+      {
         when: "Signing out",
         before: { kind: "plain", title: "You're signed out", description: "Projects on this computer stay open." },
         after: { kind: "success", title: "You're signed out", description: "Projects on this computer stay open." },
@@ -995,6 +1083,123 @@ const groups: Group[] = [
         why: "A shorter button."
       }
     ]
+  },
+  {
+    name: "Extensions and the CLI",
+    entries: [
+      {
+        when: "Help > Install the Parity CLI, when its folder isn't on PATH",
+        before: {
+          kind: "success",
+          title: "Installed the Parity CLI",
+          description: "Add C:/Users/sam/AppData/Local/Parity/bin to your PATH to run it."
+        },
+        after: {
+          kind: "success",
+          title: "Installed the Parity CLI",
+          description: "Add C:/Users/sam/AppData/Local/Parity/bin to your PATH to run it."
+        },
+        why: "Clear already: the one thing left to do."
+      },
+      {
+        when: "Help > Install the Parity CLI, when terminals open before need restarting",
+        before: { kind: "success", title: "Installed the Parity CLI", description: "Open a new terminal to run it." },
+        after: { kind: "success", title: "Installed the Parity CLI", description: "Open a new terminal to run it." },
+        why: "Clear already."
+      },
+      {
+        when: "Help > Install the Parity CLI, ready to run",
+        before: { kind: "success", title: "Installed the Parity CLI" },
+        after: { kind: "success", title: "Installed the Parity CLI" },
+        why: "Clear already."
+      },
+      {
+        when: "Help > Install the Parity CLI fails",
+        before: {
+          kind: "error",
+          title: "Couldn't install the Parity CLI",
+          description: "EACCES: permission denied, mkdir 'C:/Program Files/Parity/bin'"
+        },
+        after: {
+          kind: "error",
+          title: "Couldn't install the Parity CLI",
+          description: "Parity doesn't have permission."
+        },
+        why: "The reason in plain words."
+      },
+      {
+        when: "An extension's command fails",
+        before: {
+          kind: "error",
+          title: "Open in Storybook didn't work",
+          description: "Storybook isn't running in this project"
+        },
+        after: {
+          kind: "error",
+          title: "Couldn't run the command",
+          description: "Storybook isn't running in this project."
+        },
+        why: "Failures start with Couldn't, and the command's name, which the extension picks, stays out of the title."
+      },
+      {
+        when: "An extension's command fails because the extension stopped",
+        before: {
+          kind: "error",
+          title: "Open in Storybook didn't work",
+          description: "Storybook couldn't start: It crashed 3 times in a row.",
+          action: "Restart"
+        },
+        after: {
+          kind: "error",
+          title: "Couldn't run the command",
+          description: "Storybook couldn't start: It crashed 3 times in a row.",
+          action: "Restart"
+        },
+        why: "Same as above."
+      },
+      {
+        when: "An extension crashes",
+        before: {
+          kind: "warning",
+          title: "Storybook stopped",
+          description: "It crashed 3 times in a row.",
+          action: "Restart"
+        },
+        after: {
+          kind: "warning",
+          title: "An extension stopped",
+          description: "Storybook: It crashed 3 times in a row.",
+          action: "Restart"
+        },
+        why: "The extension's name goes in the description, with the reason."
+      },
+      {
+        when: "An extension stops answering",
+        before: {
+          kind: "warning",
+          title: "Storybook isn't answering",
+          description: "Not answering after 10 seconds",
+          action: "Restart"
+        },
+        after: {
+          kind: "warning",
+          title: "An extension isn't answering",
+          description: "Storybook: Not answering after 10 seconds.",
+          action: "Restart"
+        },
+        why: "Same as above."
+      },
+      {
+        when: "Restarting an extension fails",
+        before: { kind: "error", title: "Couldn't restart the extension" },
+        after: {
+          kind: "error",
+          title: "Couldn't restart the extension",
+          description: "The project service isn't running."
+        },
+        why: "Adds the reason."
+      }
+    ]
   }
 ]
 
@@ -1016,41 +1221,55 @@ const tints: Partial<Record<Kind, string>> = {
 
 function Shown({ tinted }: { tinted: boolean }) {
   const { toasts } = useToastManager()
-  return toasts.map((shown) => (
-    <Toast key={shown.id} toast={shown} className="relative bottom-auto h-auto [transform:none]">
-      <ToastContent>
-        {icons[(shown.type as Kind | undefined) ?? "plain"] && (
-          <span
-            className="shrink-0 [&_svg:not([class*='size-'])]:size-4"
-            style={tinted ? { color: tints[shown.type as Kind] } : undefined}
-          >
-            {icons[shown.type as Kind]}
-          </span>
-        )}
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <ToastTitle />
-          <ToastDescription className="whitespace-pre-line" />
-        </div>
-        <ToastAction />
-        <ToastClose />
-      </ToastContent>
-    </Toast>
-  ))
+
+  return toasts.map((shown) => {
+    // SAFETY: Specimen only adds toasts whose type is a Kind, or none for a plain one.
+    const kind = (shown.type ?? "plain") as Kind
+
+    return (
+      <Toast key={shown.id} toast={shown} className="relative bottom-auto h-auto [transform:none]">
+        <ToastContent>
+          {icons[kind] && (
+            <span
+              className="shrink-0 [&_svg:not([class*='size-'])]:size-4"
+              style={tinted ? { color: tints[kind] } : undefined}
+            >
+              {icons[kind]}
+            </span>
+          )}
+          <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <ToastTitle />
+            <ToastDescription className="whitespace-pre-line" />
+          </div>
+          <ToastAction />
+          <ToastClose />
+        </ToastContent>
+      </Toast>
+    )
+  })
 }
 
 /** One toast exactly as the kit draws it, held open. */
 function Specimen({ shown, tinted = false }: { shown: Shown; tinted?: boolean }) {
   const [manager] = useState(() => createToastManager())
+
   useEffect(() => {
-    const id = manager.add({
+    const options: Parameters<typeof manager.add>[0] = {
       type: shown.kind === "plain" ? undefined : shown.kind,
       title: shown.title,
       description: shown.description,
-      timeout: 0,
-      ...(shown.action ? { actionProps: { children: shown.action } } : {})
-    })
+      timeout: 0
+    }
+
+    if (shown.action) {
+      options.actionProps = { children: shown.action }
+    }
+
+    const id = manager.add(options)
+
     return () => manager.close(id)
   }, [manager, shown])
+
   return (
     <ToastProvider toastManager={manager}>
       <ToastViewport className="static mx-0 w-full max-w-sm">
@@ -1066,12 +1285,14 @@ const columns = { gridTemplateColumns: "3rem minmax(0, 1fr) minmax(0, 1fr)" }
 /** Each entry with its number, counted through every group. */
 const numbered = groups.map((group, index) => {
   const before = groups.slice(0, index).reduce((sum, earlier) => sum + earlier.entries.length, 0)
+
   return { ...group, entries: group.entries.map((entry, at) => ({ ...entry, number: before + at + 1 })) }
 })
 
 function Audit() {
   const total = groups.reduce((sum, group) => sum + group.entries.length, 0)
   const changed = groups.reduce((sum, group) => sum + group.entries.filter((entry) => !same(entry)).length, 0)
+
   return (
     <div className="bg-background p-8 text-foreground" style={{ height: "100vh", overflowY: "auto" }}>
       <h1 className="text-lg font-semibold">Toast audit</h1>
@@ -1132,6 +1353,7 @@ const meta = {
 } satisfies Meta<typeof Audit>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Every toast in the app, numbered, as it reads now and as proposed. */

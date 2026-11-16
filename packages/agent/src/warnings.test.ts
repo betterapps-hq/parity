@@ -4,9 +4,11 @@ import { groupWarnings, warningLine } from "./warnings.ts"
 describe("warning groups", () => {
   it("gathers one finding in many places into a group with a count and every place", () => {
     const at = Array.from({ length: 12 }, (_, index) => `home/row${index}`)
+
     const groups = groupWarnings(
       at.map((place) => ({ category: "unnamed_layout", message: "name layouts that group things", at: place }))
     )
+
     expect(groups).toEqual([
       { category: "unnamed_layout", severity: "suggestion", message: "name layouts that group things", count: 12, at }
     ])
@@ -29,6 +31,7 @@ describe("warning groups", () => {
       { category: "render_failed", message: "failed to render: boom", at: "Home (Default, Desktop)" },
       { category: "overlap", message: "Home (home) overlaps Pricing (pricing)" }
     ])
+
     expect(groups.map((group) => [group.severity, group.category, group.count])).toEqual([
       ["error", "render_failed", 1],
       ["warning", "unknown_prop", 1],

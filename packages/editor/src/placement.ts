@@ -1,3 +1,5 @@
+import type { Point } from "./drop-slot.ts"
+
 /**
  * Where new designs go on the canvas: a new design to the right of everything, a component made from layers above
  * everything, and copies beside their originals in the first free space, panning to them when they land off screen.
@@ -31,17 +33,22 @@ const componentRise = 640
  * Where copies of designs go: to the right of the originals, top-aligned with them, at the first place along that row
  * where they keep `gap` clear of everything else on the canvas. Returns the copies' new top-left corner.
  */
-export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap = designGap): { x: number; y: number } {
+export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap = designGap): Point {
   const width = original.maxX - original.minX
   const height = original.maxY - original.minY
   const y = original.minY
   let x = original.maxX + gap
+
   for (;;) {
     const blocking = taken.filter(
       (other) =>
         other.minX < x + width + gap && other.maxX + gap > x && other.minY < y + height + gap && other.maxY + gap > y
     )
-    if (blocking.length === 0) return { x, y }
+
+    if (blocking.length === 0) {
+      return { x, y }
+    }
+
     x = Math.max(...blocking.map((other) => other.maxX)) + gap
   }
 }
@@ -50,13 +57,15 @@ export function freeSpotBeside(original: Bounds, taken: readonly Bounds[], gap =
  * Where a new design goes: `gap` to the right of everything on the canvas, top-aligned with the topmost design's
  * position, in whole pixels. On an empty canvas, `gap` from the origin.
  */
-export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): { x: number; y: number } {
+export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): Point {
   let right = 0
   let top = Infinity
+
   for (const design of designs) {
     right = Math.max(right, design.bounds ? design.bounds.maxX : design.position.x + undrawnWidth)
     top = Math.min(top, design.position.y)
   }
+
   return { x: Math.round(right + gap), y: Number.isFinite(top) ? top : 0 }
 }
 
@@ -64,12 +73,13 @@ export function rightOfEverything(designs: readonly PlacedDesign[], gap = 240): 
  * Where a component made from a design's layers goes: above everything on the canvas, lined up with the design it
  * came from, so components sit on top and screens below.
  */
-export function aboveEverything(
-  from: { x: number; y: number },
-  designs: readonly PlacedDesign[]
-): { x: number; y: number } {
+export function aboveEverything(from: Point, designs: readonly PlacedDesign[]): Point {
   let top = from.y
-  for (const design of designs) top = Math.min(top, design.bounds?.minY ?? design.position.y)
+
+  for (const design of designs) {
+    top = Math.min(top, design.bounds?.minY ?? design.position.y)
+  }
+
   return { x: from.x, y: Math.round(top - componentRise) }
 }
 
@@ -93,19 +103,24 @@ export function pastedPlacement(
   taken: readonly Bounds[]
 ): PastedPlacement {
   const drawn = designs.flatMap((design) => design.bounds ?? [])
+
   if (designs.length === 0 || drawn.length < designs.length) {
     const left = Math.min(...designs.map((design) => design.position.x))
     const top = Math.min(...designs.map((design) => design.position.y))
+
     return { shift: designs.length === 0 ? { x: 0, y: 0 } : { x: center.x - left, y: center.y - top } }
   }
+
   const around = {
     minX: Math.min(...drawn.map((box) => box.minX)),
     minY: Math.min(...drawn.map((box) => box.minY)),
     maxX: Math.max(...drawn.map((box) => box.maxX)),
     maxY: Math.max(...drawn.map((box) => box.maxY))
   }
+
   const spot = freeSpotBeside(around, taken)
   const shift = { x: spot.x - around.minX, y: 0 }
+
   return {
     shift,
     shown: { minX: around.minX + shift.x, minY: around.minY, maxX: around.maxX + shift.x, maxY: around.maxY }
@@ -127,11 +142,20 @@ export function panToShow(view: Bounds, target: Bounds, margin = 0): { x: number
     if (max - min + 2 * margin > viewMax - viewMin) {
       return min - margin < viewMin || min + margin > viewMax ? min - margin - viewMin : 0
     }
-    if (min - margin < viewMin) return min - margin - viewMin
-    if (max + margin > viewMax) return max + margin - viewMax
+
+    if (min - margin < viewMin) {
+      return min - margin - viewMin
+    }
+
+    if (max + margin > viewMax) {
+      return max + margin - viewMax
+    }
+
     return 0
   }
+
   const x = along(view.minX, view.maxX, target.minX, target.maxX)
   const y = along(view.minY, view.maxY, target.minY, target.maxY)
+
   return x === 0 && y === 0 ? undefined : { x, y }
 }

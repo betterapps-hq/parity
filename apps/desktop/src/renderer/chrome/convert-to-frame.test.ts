@@ -1,6 +1,6 @@
 import { type ContainerSpec, defaultModeSettings, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { dropLines, frameDrops } from "./convert-to-frame.ts"
+import { droppedStatesLine, dropLines, frameDrops } from "./convert-to-frame.ts"
 
 const modes = resolveModes(defaultModeSettings)
 
@@ -35,8 +35,7 @@ const pricing: ContainerSpec = {
       { type: "instance", id: "a", design: "plan-card" },
       { type: "instance", id: "b", design: "plan-card" }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 describe("converting a screen or component to a frame", () => {
@@ -51,11 +50,18 @@ describe("converting a screen or component to a frame", () => {
     ])
   })
 
-  it("says nothing goes for a screen with one state and no previews, so it converts without asking", () => {
+  it("says nothing goes for a screen with no previews, so it converts without asking", () => {
     expect(dropLines(frameDrops(pricing, [planCard, pricing], defaultModeSettings))).toEqual([])
   })
 
   it("names a screen's instances of nothing, since only a component is placed", () => {
     expect(frameDrops(pricing, [pricing], defaultModeSettings).instances).toEqual([])
+  })
+})
+
+describe("converting a component to a screen (PAR-1002)", () => {
+  it("names the states it drops, since only a component has states", () => {
+    expect(droppedStatesLine(["Yearly"])).toBe("Removed 1 state: Yearly")
+    expect(droppedStatesLine(["Hover", "Pressed", "Disabled"])).toBe("Removed 3 states: Hover, Pressed and Disabled")
   })
 })

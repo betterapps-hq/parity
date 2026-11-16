@@ -44,28 +44,54 @@ export function readTsconfig(root: string): ProjectTsconfig {
   // A missing file has no real path of its own, so its folder's stands in.
   const real = (path: string) => (existsSync(path) ? realPath(path) : join(realPath(dirname(path)), basename(path)))
   const readFile = (path: string) => read.add(slashes(relative(realRoot, real(path))))
+
   const visit = (path: string) => {
     const key = slashes(path)
-    if (seen.has(key)) return
+
+    if (seen.has(key)) {
+      return
+    }
+
     seen.add(key)
     // Listed before it's parsed, so a referenced config that's missing or broken counts when it appears or is fixed.
     readFile(path)
-    if (!existsSync(path)) return
-    const parsed = ts.getParsedCommandLineOfConfigFile(path, {}, host)
-    if (!parsed) return
-    for (const base of extendedFiles(parsed.options)) readFile(base)
+
+    if (!existsSync(path)) {
+      return
+    }
+
+    // TypeScript keeps every config the `extends` chain reads in this cache, under its own spelling of the path.
+    const extended = new Map<string, ts.ExtendedConfigCacheEntry>()
+    const parsed = ts.getParsedCommandLineOfConfigFile(path, {}, host, extended)
+
+    if (!parsed) {
+      return
+    }
+
+    for (const { extendedResult } of extended.values()) {
+      readFile(extendedResult.fileName)
+    }
+
     configs.push({
       path: slashes(relative(root, path)),
       files: parsed.fileNames.map(slashes),
       // A config that only lists references still carries settings its references don't, such as shared `paths`.
       options: parsed.options
     })
-    for (const reference of parsed.projectReferences ?? []) visit(ts.resolveProjectReferencePath(reference))
+
+    for (const reference of parsed.projectReferences ?? []) {
+      visit(ts.resolveProjectReferencePath(reference))
+    }
   }
-  if (start) visit(start)
+
+  if (start) {
+    visit(start)
+  }
+
   const withFiles = configs.filter((config) => config.files.length > 0)
   const app = withFiles.find((config) => config.options.jsx !== undefined) ?? withFiles[0]
-  return { configs, ...(app ? { app } : {}), read: [...read] }
+
+  return app ? { configs, app, read: [...read] } : { configs, read: [...read] }
 }
 
 /**
@@ -76,10 +102,16 @@ export function resolvePathAlias(root: string, tsconfig: ProjectTsconfig, alias:
   for (const { pattern, target, base } of pathMappings(root, tsconfig)) {
     const prefix = pattern.replace(/\*$/, "")
     const matches = pattern.endsWith("*") ? alias.startsWith(prefix) : alias === pattern
-    if (!matches) continue
+
+    if (!matches) {
+      continue
+    }
+
     const resolved = join(base, target.replace(/\*$/, "") + (pattern.endsWith("*") ? alias.slice(prefix.length) : ""))
+
     return posix.normalize(slashes(relative(root, resolved)))
   }
+
   return undefined
 }
 
@@ -92,32 +124,54 @@ export function importAlias(root: string, tsconfig: ProjectTsconfig, path: strin
   const module = slashes(path)
     .replace(/\.[cm]?[jt]sx?$/, "")
     .replace(/\/index$/, "")
+
   let best: { alias: string; depth: number } | undefined
+
   for (const { pattern, target, base } of pathMappings(root, tsconfig)) {
     const folder = posix.normalize(slashes(relative(root, join(base, target.replace(/\*$/, "")))))
+
     if (!pattern.endsWith("*")) {
-      if (folder.replace(/\.[cm]?[jt]sx?$/, "").replace(/\/index$/, "") === module) return pattern
+      if (folder.replace(/\.[cm]?[jt]sx?$/, "").replace(/\/index$/, "") === module) {
+        return pattern
+      }
+
       continue
     }
+
     const prefix = folder === "." ? "" : `${folder}/`
-    if (!module.startsWith(prefix) || (best && best.depth >= prefix.length)) continue
+
+    if (!module.startsWith(prefix) || (best && best.depth >= prefix.length)) {
+      continue
+    }
+
     best = { alias: pattern.slice(0, -1) + module.slice(prefix.length), depth: prefix.length }
   }
+
   return best?.alias
 }
 
+/** One `paths` entry: its pattern, its first target, and the folder that target is relative to. */
+interface PathMapping {
+  pattern: string
+  target: string
+  base: string
+}
+
 /** Every `paths` entry, the app's config first, then the others, since a solution-style root often holds shared ones. */
-function pathMappings(root: string, tsconfig: ProjectTsconfig): { pattern: string; target: string; base: string }[] {
+function pathMappings(root: string, tsconfig: ProjectTsconfig): PathMapping[] {
   const ordered = [
     ...(tsconfig.app ? [tsconfig.app] : []),
     ...tsconfig.configs.filter((config) => config !== tsconfig.app)
   ]
+
   return ordered.flatMap((config) => {
     // Without `baseUrl`, paths are relative to the config that declares them, which TypeScript records for us.
     const base =
       config.options.baseUrl ??
+      // SAFETY: TypeScript's config parser sets `pathsBasePath`, an internal option, to the folder of the config with `paths`.
       (config.options as { pathsBasePath?: string }).pathsBasePath ??
       dirname(join(root, config.path))
+
     return Object.entries(config.options.paths ?? {}).flatMap(([pattern, targets]) =>
       targets[0] === undefined ? [] : [{ pattern, target: targets[0], base }]
     )
@@ -131,17 +185,6 @@ function realPath(path: string): string {
   } catch {
     return path
   }
-}
-
-/**
- * The configs a parsed config's `extends` chain read, absolute. TypeScript keeps them on the config's own source file,
- * which `CompilerOptions` types only by its index signature.
- */
-function extendedFiles(options: ts.CompilerOptions): string[] {
-  const file = options.configFile
-  if (typeof file !== "object" || file === null || Array.isArray(file) || !("extendedSourceFiles" in file)) return []
-  const extended: unknown = file.extendedSourceFiles
-  return Array.isArray(extended) ? extended.filter((path) => typeof path === "string") : []
 }
 
 const host: ts.ParseConfigFileHost = {

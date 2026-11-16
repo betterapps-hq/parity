@@ -9,9 +9,10 @@ import {
 } from "./component-list.ts"
 import type { CheckedComponent } from "./listing.ts"
 
-/** The UI kit's components load with the canvas; the rest of the app's load as they're drawn. */
+/** One that loads with the canvas; the app's components that detection lists load as they're drawn. */
 const button: ComponentSource = { path: "src/ui/button.tsx", export: "Button", as: "function" }
-/** An export of the UI kit the parse can't decide, such as `const Select = SelectPrimitive.Root`. */
+
+/** An export the parse can't decide, such as `const Select = SelectPrimitive.Root`. */
 const select: ComponentSource = { path: "src/ui/select.tsx", export: "Select" }
 const toast: ComponentSource = { path: "src/ui/toast.tsx", export: "Toast" }
 const card: ComponentSource = { path: "src/card.tsx", export: "Card", as: "function", lazy: true }
@@ -21,8 +22,10 @@ const badge: ComponentSource = { path: "@acme/nova", export: "Badge", library: "
 /** An export the person put on the list, which detection leaves out. */
 const menuRef: ComponentRef = { path: "src/menu.tsx", export: "Menu" }
 const menu: ComponentSource = { ...menuRef, lazy: true, included: true }
+
 /** The same export once the person takes it back off, waiting for the type checker. */
 const undecidedMenu: ComponentSource = { ...menuRef, lazy: true }
+
 /** Another Select, which only the type checker recognises. */
 const formSelect: ComponentSource = { path: "src/forms/select.tsx", export: "Select", as: "function", lazy: true }
 
@@ -32,6 +35,7 @@ const leftOut = (path: string, name: string): LeftOutExport => ({
   export: name,
   reason: "Its type isn't a component"
 })
+
 const selectLeftOut = leftOut(select.path, "Select")
 const utilsLeftOut = leftOut("src/lib/utils.ts", "cn")
 const cardHookLeftOut = leftOut(card.path, "useCard")
@@ -201,15 +205,12 @@ describe("nextComponentList", () => {
         read: new Map([
           [toast.path, undefined],
           [card.path, undefined],
-          [
-            "src/cards/card.tsx",
-            [{ name: "Card", path: "src/cards/card.tsx", export: "Card", as: "function", uiKit: false }]
-          ],
+          ["src/cards/card.tsx", [{ name: "Card", path: "src/cards/card.tsx", export: "Card", as: "function" }]],
           [
             button.path,
             [
-              { name: "Button", path: button.path, export: "Button", as: "function", uiKit: true },
-              { name: "IconButton", path: button.path, export: "IconButton", as: "forwardRef", uiKit: true }
+              { name: "Button", path: button.path, export: "Button", as: "function" },
+              { name: "IconButton", path: button.path, export: "IconButton", as: "forwardRef" }
             ]
           ],
           [menuRef.path, []]
@@ -221,7 +222,7 @@ describe("nextComponentList", () => {
             Button: button,
             Badge: badge,
             Card: { ...card, path: "src/cards/card.tsx" },
-            IconButton: { path: button.path, export: "IconButton", as: "forwardRef" },
+            IconButton: { path: button.path, export: "IconButton", as: "forwardRef", lazy: true },
             Menu: menu
           },
           leftOut: [utilsLeftOut],
@@ -230,7 +231,7 @@ describe("nextComponentList", () => {
         guest: {
           add: {
             Card: { ...card, path: "src/cards/card.tsx" },
-            IconButton: { path: button.path, export: "IconButton", as: "forwardRef" }
+            IconButton: { path: button.path, export: "IconButton", as: "forwardRef", lazy: true }
           },
           drop: ["Toast"]
         },
@@ -316,11 +317,13 @@ describe("nextComponentList", () => {
       leftOut: [],
       corrections: { include: [menuRef] }
     }
+
     const events: ComponentListEvent[] = [
       { kind: "corrected", corrections },
-      { kind: "filesRead", read: new Map([[menuRef.path, [{ name: "Menu", ...menuRef, uiKit: false }]]]) },
+      { kind: "filesRead", read: new Map([[menuRef.path, [{ name: "Menu", ...menuRef }]]]) },
       { kind: "checked", result: { components: checked, leftOut: [] }, files: new Set([menuRef.path]) }
     ]
+
     const end = events.reduce((list, event) => nextComponentList(list, event).list, start)
     expect(end.sources).toEqual(expected)
   })

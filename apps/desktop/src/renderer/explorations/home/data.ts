@@ -1,4 +1,4 @@
-import type { Organization } from "../../../shared/account.ts"
+import type { Organization, SignInProvider } from "../../../shared/account.ts"
 import type { PictureFrame, PictureScreen, ProjectPicture } from "../../../shared/protocol.ts"
 import dashboardDesktop from "../../start/example-pictures/dashboard-desktop.webp?inline"
 import dashboardMobile from "../../start/example-pictures/dashboard-mobile.webp?inline"
@@ -70,7 +70,24 @@ export interface ReceivedInvitation {
   expired?: boolean
 }
 
+/** Someone signed in: who they are there, and their organizations. Each account has its own Personal too. */
+export interface Account {
+  person: Person
+  teams: Team[]
+  /** How they signed in, to sign in the same way again. */
+  provider?: SignInProvider
+  /** WorkOS ended the session, as a company's policy does; the account stays until you sign in again. */
+  ended?: boolean
+}
+
+/** You, in the account you sign in with first. */
 export const you: Person = { name: "Andrew Craswell", email: "andrew@kestrel.dev" }
+
+/** You again, in your company's account, which signs in through Microsoft Entra ID. */
+export const work: Person = { name: "Andrew Craswell", email: "andrew.craswell@contoso.com" }
+
+/** You once more, with a Google or GitHub account that's in no organization. */
+export const gmail: Person = { name: "Andrew Craswell", email: "andrew.craswell@gmail.com" }
 
 const maya = { name: "Maya Chen", email: "maya.chen@kestrel.dev" }
 const sam = { name: "Sam Ortiz", email: "sortiz@kestrel.dev" }
@@ -179,6 +196,7 @@ const firstNames = [
   "Yusuf",
   "Zara"
 ]
+
 const lastNames = [
   "Abbott",
   "Adams",
@@ -214,7 +232,7 @@ const lastNames = [
 
 /**
  * Contoso, a company the size of Microsoft's own sample one: 1,201 people, added and removed by Microsoft Entra ID
- * rather than invited, with a handful of admins.
+ * rather than invited, with a handful of admins. You're in it with your work account.
  */
 export const contoso: Team = {
   id: "org_01CONTOSO_LTD",
@@ -222,7 +240,7 @@ export const contoso: Team = {
   role: "Admin",
   directory: "Microsoft Entra ID",
   members: [
-    { ...you, role: "Admin" },
+    { ...work, role: "Admin" },
     ...lastNames.flatMap((last, row) =>
       firstNames.map((first, column) => ({
         name: `${first} ${last}`,
@@ -232,7 +250,15 @@ export const contoso: Team = {
     )
   ],
   invitations: [],
-  notes: []
+  notes: [
+    {
+      id: "wei",
+      from: { name: "Wei Zhou", email: "wei.zhou@contoso.com" },
+      did: "asked you to review Dashboard",
+      project: "market-square",
+      at: minutes(45)
+    }
+  ]
 }
 
 export const northwindInvitation: ReceivedInvitation = {
@@ -254,7 +280,7 @@ export const sampleRecent = [
   "D:\\apps\\notebook"
 ]
 
-export const sampleNotes: Record<string, ProjectNote> = {
+export const sampleNotes = {
   "D:\\apps\\kestrel-website": { opened: minutes(12) },
   "D:\\apps\\cloud-console": { opened: minutes(180), starred: true },
   "D:\\apps\\walkies": { opened: minutes(60 * 22) },
@@ -266,7 +292,7 @@ export const sampleNotes: Record<string, ProjectNote> = {
   "D:\\apps\\team-chat": { opened: days(400) },
   "D:\\apps\\notebook": { opened: days(420) },
   "D:\\archive\\old-portal": { opened: days(500), starred: true }
-}
+} satisfies Record<string, ProjectNote>
 
 const desktop = (src: string, width = 1280): PictureFrame => ({ src, mode: "Desktop Light", width, height: 800 })
 const mobile = (src: string): PictureFrame => ({ src, mode: "Mobile Light", width: 390, height: 844 })
@@ -280,7 +306,7 @@ const pricing = { name: "Pricing", main: desktop(pricingDesktop), phone: mobile(
 const picture = (...screens: PictureScreen[]): ProjectPicture => ({ taken: minutes(12), screens })
 
 /** The example project's screens, as each project's picture keeps them; the rest show the placeholder. */
-export const samplePictures: Record<string, ProjectPicture> = {
+export const samplePictures = {
   "D:\\apps\\kestrel-website": picture(teamMembers, dashboard, signIn, settings, pricing),
   "D:\\apps\\cloud-console": picture(dashboard, settings, pricing),
   "D:\\apps\\walkies": picture(signIn, settings),
@@ -290,4 +316,4 @@ export const samplePictures: Record<string, ProjectPicture> = {
   "D:\\apps\\market-square": picture(pricing, signIn),
   "D:\\apps\\team-chat": picture({ name: "Sign in", main: signIn.phone }),
   "D:\\apps\\notebook": picture(teamMembers)
-}
+} satisfies Record<string, ProjectPicture>

@@ -1,13 +1,23 @@
-import { defaultModeSettings, type DesignNode, findNode, frameGeometry, resolveModes } from "@parity-app/core"
-import { describe, expect, it } from "vite-plus/test"
-import { execute } from "./run.ts"
+import {
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignNode,
+  designStates,
+  findNode,
+  frameGeometry,
+  resolveModes
+} from "@parity-app/core"
+import { describe, expect, it, vi } from "vite-plus/test"
+import { z } from "zod"
+import { replies } from "./contracts.ts"
+import { execute, type SnippetLimits } from "./run.ts"
 import type {
-  AccessibilityFinding,
   AgentChangeSet,
   AgentEvent,
   AgentHooks,
   AgentSnapshot,
   FrameRequest,
+  FrameResult,
   IconNames,
   IconSet
 } from "./types.ts"
@@ -27,11 +37,13 @@ function snapshot(): AgentSnapshot {
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [
             {
               id: "signup",
               name: "Sign up",
+              // A component, since only a component has states, which most of these calls exercise.
+              kind: "component",
               position: { x: 0, y: 0 },
               root: {
                 type: "layout",
@@ -47,8 +59,7 @@ function snapshot(): AgentSnapshot {
                     props: { children: "Sign up" }
                   }
                 ]
-              },
-              states: [{ id: "default", name: "Default" }]
+              }
             }
           ]
         }
@@ -73,53 +84,84 @@ function snapshot(): AgentSnapshot {
   }
 }
 
+/** A new design's id: `stem` and five random characters. */
+function fresh(stem: string) {
+  return expect.stringMatching(new RegExp(`^${stem}-[A-Za-z][A-Za-z0-9]{4}$`))
+}
+
 function hooks(events: AgentEvent[] = []): AgentHooks {
   return {
     presence: (batch) => events.push(...batch),
-    render: async ({ mode, capture, audit }) => ({
-      width: mode.width,
-      height: 600,
-      nodes: [{ id: "title", x: 0, y: 0, width: mode.width + 10, height: 40 }],
-      overflowsX: mode.width < 500,
-      unknownComponents: [],
-      ...(capture ? { png: "iVBOR" } : {}),
-      ...(audit
-        ? {
-            issues: [
+    render: async ({ mode, capture, audit }) => {
+      const frame: FrameResult = {
+        width: mode.width,
+        height: 600,
+        nodes: [{ id: "title", x: 0, y: 0, width: mode.width + 10, height: 40 }],
+        overflowsX: mode.width < 500,
+        unknownComponents: []
+      }
+
+      if (capture) {
+        frame.png = "iVBOR"
+      }
+
+      if (audit) {
+        frame.issues = [
+          {
+            rule: "color-contrast",
+            impact: "serious" as const,
+            help: "Elements must meet minimum color contrast ratio thresholds",
+            helpUrl: "https://dequeuniversity.com/rules/axe/4.14/color-contrast",
+            nodes: [
               {
-                rule: "color-contrast",
-                impact: "serious" as const,
-                help: "Elements must meet minimum color contrast ratio thresholds",
-                helpUrl: "https://dequeuniversity.com/rules/axe/4.14/color-contrast",
-                nodes: [
-                  {
-                    id: "title",
-                    detail: "#999999 on #ffffff is 2.84:1, and 24px text needs 4.5:1.",
-                    contrast: {
-                      foreground: "#999999",
-                      background: "#ffffff",
-                      ratio: 2.84,
-                      required: 4.5,
-                      fontSize: 24,
-                      bold: false
-                    }
-                  },
-                  { id: "frame-root", detail: "Outside any node" },
-                  { id: "submit/label", detail: "Inside an instance" },
-                  { id: "submit/icon", detail: "Inside the same instance" },
-                  { id: "", detail: "Also outside any node" }
-                ]
-              }
+                id: "title",
+                detail: "#999999 on #ffffff is 2.84:1, and 24px text needs 4.5:1.",
+                contrast: {
+                  foreground: "#999999",
+                  background: "#ffffff",
+                  ratio: 2.84,
+                  required: 4.5,
+                  fontSize: 24,
+                  bold: false
+                }
+              },
+              { id: "frame-root", detail: "Outside any node" },
+              { id: "submit/label", detail: "Inside an instance" },
+              { id: "submit/icon", detail: "Inside the same instance" },
+              { id: "", detail: "Also outside any node" }
             ]
           }
-        : {})
-    })
+        ]
+      }
+
+      return frame
+    }
   }
+}
+
+/** What a snippet printed as JSON, read as `schema` says. */
+function printed<T extends z.ZodType>(text: string | undefined, schema: T): z.output<T> {
+  return schema.parse(JSON.parse(text ?? "null"))
+}
+
+/** Accessibility findings, as the app answers them. */
+const findingList = replies.accessibility.shape.findings
+
+/** A design's root, which the fixture's designs make a layout. */
+function layoutRoot(design: ContainerSpec | undefined): Extract<DesignNode, { type: "layout" }> {
+  const root = design?.root
+
+  if (root?.type !== "layout") {
+    throw new Error("The fixture's design has no layout root")
+  }
+
+  return root
 }
 
 describe("execute", () => {
   it("applies every change as one result and shows the work", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Add a hint",
@@ -131,12 +173,13 @@ Print(Get("page", {depth: 1}).children.length)`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(result.output).toEqual(["3"])
     expect(result.created.Hint).toMatch(/^[a-zA-Z0-9]{5}$/)
     const container = result.changes.designs[0]!.after!
     expect(findNode(container.root, "submit")).toMatchObject({ props: { children: "Sign up", variant: "outline" } })
-    expect(container.states[1]).toEqual({
+    expect(container.states![1]).toEqual({
       id: "loading",
       name: "Loading",
       overrides: { submit: { props: { disabled: true } } }
@@ -146,9 +189,36 @@ Print(Get("page", {depth: 1}).children.length)`
     expect(events.at(-1)).toMatchObject({ kind: "end" })
   })
 
+  it("sets a layer's transitions, a state's own, reads them back, and clears them with null (PAR-934)", async () => {
+    const result = await execute(
+      {
+        label: "Animate the button",
+        code: `Update("submit", {style: {transition: [{property: "colors", duration: {step: 200}, easing: {keyword: "ease-out"}}]}})
+AddState("signup", {name: "Pressed", changes: {Submit: {style: {transition: [{property: "transform", easing: {spring: {duration: 400, bounce: 0.3}}}]}}}})
+Print(JSON.stringify(Get("submit").style.transition))
+Print(Get("submit", {state: "pressed"}).style.transition[0].easing.spring.duration)
+Update("submit", {style: {transition: null}}, {state: "pressed"})`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.output).toEqual([
+      '[{"property":"colors","duration":{"step":200},"easing":{"keyword":"ease-out"}}]',
+      "400"
+    ])
+    const container = result.changes.designs[0]!.after!
+    expect(findNode(container.root, "submit")?.style?.transition).toEqual([
+      { property: "colors", duration: { step: 200 }, easing: { keyword: "ease-out" } }
+    ])
+    expect(container.states![1]?.overrides?.submit?.style?.transition).toBeUndefined()
+  })
+
   it("gives GetModes a copy, so editing it in place and setting it leaves the call's starting point as read", async () => {
     const read = snapshot()
     const before = structuredClone(read.modes)
+
     const option = await execute(
       {
         label: "Rename an option",
@@ -157,6 +227,7 @@ Print(Get("page", {depth: 1}).children.length)`
       read,
       hooks()
     )
+
     expect(option.error).toBeUndefined()
     expect(read.modes).toEqual(before)
     expect(option.changes.modes?.base).toEqual(before)
@@ -167,6 +238,7 @@ Print(Get("page", {depth: 1}).children.length)`
       read,
       hooks()
     )
+
     expect(renamed.error).toBeUndefined()
     expect(read.modes).toEqual(before)
     expect(renamed.changes.modes?.after.modes[0]!.name).toBe("X")
@@ -177,6 +249,7 @@ Print(Get("page", {depth: 1}).children.length)`
     read.documents[0]!.document.containers[0]!.view = { modes: ["mobile-light"] }
     const before = structuredClone(read)
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Read modes",
@@ -187,6 +260,7 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
       read,
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(JSON.parse(result.output[0]!)).toEqual({
       viewports: ["desktop", "tablet", "mobile"],
@@ -233,11 +307,13 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
 
   it("changes nothing when the snippet fails, and retries with edits", async () => {
     const shared = snapshot()
+
     const failed = await execute(
       { label: "Broken", code: `Update("submit", {props: {variant: "ghost"}})\nUpdate("missing", {text: "x"})` },
       shared,
       hooks()
     )
+
     expect(failed.ok).toBe(false)
     expect(failed.error).toContain(`No node "missing"`)
     expect(failed.error).toContain("line 2")
@@ -248,6 +324,7 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
       shared,
       hooks()
     )
+
     expect(retried.ok).toBe(true)
     expect(findNode(retried.changes.designs[0]!.after!.root, "title")).toMatchObject({ text: "x" })
   })
@@ -263,20 +340,21 @@ Print(JSON.stringify({ viewports: all.viewports.map((v) => v.id), modes: all.mod
     const result = await execute(
       {
         label: "New screen",
-        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {background: "background"}, children: [{type: "text", text: "Plans", style: {size: "text-2xl"}}]}})
+        code: `id = CreateDesign({name: "Pricing", root: {type: "layout", name: "Page", style: {fills: [{type: "solid", color: {token: "background"}}]}, children: [{type: "text", text: "Plans", style: {fontSize: {token: "text-2xl"}}}]}})
 Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       },
       snapshot(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
-    expect(result.output).toEqual(["pricing true"])
+    expect(result.output).toEqual([expect.stringMatching(/^pricing-[A-Za-z][A-Za-z0-9]{4} true$/)])
     expect(result.changes.designs).toHaveLength(1)
     expect(result.changes.designs[0]).toMatchObject({
       path: "app.par",
-      id: "pricing",
+      id: fresh("pricing"),
       base: null,
-      after: { id: "pricing", kind: "screen", position: { x: 1640, y: 0 } }
+      after: { id: fresh("pricing"), kind: "screen", position: { x: 1640, y: 0 } }
     })
   })
 
@@ -284,10 +362,12 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
     const other = { ...signup, id: "about", name: "About", position: { x: 2000, y: 0 } }
+
     const read = {
       ...base,
-      documents: [{ path: "app.par", document: { version: 3 as const, containers: [signup, other] } }]
+      documents: [{ path: "app.par", document: { version: 4 as const, containers: [signup, other] } }]
     }
+
     const result = await execute(
       {
         label: "Rework",
@@ -296,10 +376,11 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
       read,
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.changes.designs.map(({ id, base, after }) => [id, base?.name ?? null, after?.name ?? null])).toEqual([
       ["signup", "Sign up", "Register"],
-      ["pricing", null, "Plans"],
+      [fresh("pricing"), null, "Plans"],
       ["about", "About", null]
     ])
     expect(result.changes.modes).toBeUndefined()
@@ -308,15 +389,18 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
   it("applies through the editor, and fails naming the designs the editor refused, keeping the snippet to retry", async () => {
     const shared = snapshot()
     const applied: AgentChangeSet[] = []
+
     const refuse: AgentHooks = {
       ...hooks(),
       apply: async () => [{ path: "app.par", id: "signup", name: "Sign up", reason: "changed" }]
     }
+
     const failed = await execute(
       { label: "Rename", code: `UpdateDesign("Sign up", {name: "Register"})` },
       shared,
       refuse
     )
+
     expect(failed.ok).toBe(false)
     expect(failed.error).toBe(
       'Not applied: since this call read the tab, "Sign up" (app.par) was changed in the editor, and this call ' +
@@ -335,18 +419,20 @@ Print(id, FindEmptySpace({width: 100, height: 100}).x > 1400)`
 
   it("shows a move as a drag, and warns when a moved board lands on another", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Tidy up",
         code: `CreateDesign({name: "Pricing", x: 2000, y: 0})
-UpdateDesign("pricing", {x: 600, y: 300})
+UpdateDesign("Pricing", {x: 600, y: 300})
 Print(JSON.stringify(Overlaps("signup")))`
       },
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
-    expect(events.filter((event) => event.design === "app.par#pricing").map((event) => event.kind)).toEqual([
+    expect(events.flatMap((event) => (event.design?.startsWith("app.par#pricing-") ? [event.kind] : []))).toEqual([
       "write",
       "move"
     ])
@@ -355,13 +441,13 @@ Print(JSON.stringify(Overlaps("signup")))`
       to: { x: 600, y: 300 }
     })
     expect(JSON.parse(result.output[0]!)).toEqual([
-      { designs: ["signup", "pricing"], names: ["Sign up", "Pricing"], width: 800, height: 760, estimated: true }
+      { designs: ["signup", fresh("pricing")], names: ["Sign up", "Pricing"], width: 800, height: 760, estimated: true }
     ])
     expect(result.warningGroups).toContainEqual(
       expect.objectContaining({
         category: "overlap",
-        message: expect.stringContaining(
-          "Sign up (signup) and Pricing (pricing) overlap by 800x760 (estimated, as Pricing isn't drawn yet)"
+        message: expect.stringMatching(
+          /Sign up \(signup\) and Pricing \(pricing-\w{5}\) overlap by 800x760 \(estimated, as Pricing isn't drawn yet\)/
         )
       })
     )
@@ -372,17 +458,18 @@ Print(JSON.stringify(Overlaps("signup")))`
       {
         label: "Stack",
         code: `CreateDesign({name: "Below", x: 0, y: 1000})
-Print(JSON.stringify(Overlaps("below")))`
+Print(JSON.stringify(Overlaps("Below")))`
       },
       snapshot(),
       hooks()
     )
-    expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", "below"], titleOnly: true }])
+
+    expect(JSON.parse(result.output[0]!)).toMatchObject([{ designs: ["signup", fresh("below")], titleOnly: true }])
     expect(result.warningGroups).toContainEqual(
       expect.objectContaining({
         category: "title_clearance",
-        message: expect.stringContaining(
-          "The title of Below (below) would cover Sign up (signup): the boards are clear, but Below starts less than 160 below it"
+        message: expect.stringMatching(
+          /The title of Below \(below-\w{5}\) would cover Sign up \(signup\): the boards are clear, but Below starts less than 160 below it/
         )
       })
     )
@@ -429,11 +516,13 @@ Print(JSON.stringify(Overlaps("below")))`
     const base = snapshot()
     const document = base.documents[0]!.document
     document.containers.push({ ...document.containers[0]!, id: "copy", name: "Copy", position: { x: 100, y: 100 } })
+
     const result = await execute(
       { label: "Add", code: `CreateDesign({ name: "Pricing", x: 0, y: 1000 })` },
       base,
       hooks()
     )
+
     // Pricing's title crowds Sign up, and its estimated board reaches Copy. Copy on Sign up was there already.
     const boards = result.warningGroups.filter((group) => group.category !== "not_a_token")
     expect(boards.map((group) => group.category)).toEqual(["title_clearance", "overlap", "canvas_overlaps"])
@@ -445,6 +534,7 @@ Print(JSON.stringify(Overlaps("below")))`
     base.bounds = {}
     const signup = base.documents[0]!.document.containers[0]!
     signup.frames = { desktop: { width: 3000 } }
+
     const result = await execute(
       {
         label: "Wide",
@@ -454,10 +544,11 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
+
     // The 3000 frame and the board's gutter, 30 each side as it's drawn at 40%, reach to 3060, past the new design's left
     // edge at 1800.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
-      { designs: ["signup", "pricing"], width: 3060 - 1800, estimated: true }
+      { designs: ["signup", fresh("pricing")], width: 3060 - 1800, estimated: true }
     ])
   })
 
@@ -467,6 +558,7 @@ Print(JSON.stringify(Overlaps()))`
     const signup = base.documents[0]!.document.containers[0]!
     signup.frames = { desktop: { width: 1280, height: 3000 } }
     signup.view = { modes: ["desktop-dark"] }
+
     const result = await execute(
       {
         label: "Tall",
@@ -477,12 +569,13 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
+
     // 3000 tall, under a 90 caption band and above 30 of gutter, as it's drawn at 40%: 3120 reaches past 3200 less a 160
     // title band. The dark companion is drawn at half size after a divider of 30, 2.5 and 30, so the board is
     // 1280 + 640 + 62.5 + 60, rounded up to 2043 wide, past 2000.
     expect(JSON.parse(result.output[0]!)).toMatchObject([
-      { designs: ["signup", "below"], titleOnly: true, estimated: true },
-      { designs: ["signup", "beside"], width: 43, estimated: true }
+      { designs: ["signup", fresh("below")], titleOnly: true, estimated: true },
+      { designs: ["signup", fresh("beside")], width: 43, estimated: true }
     ])
     expect(result.warnings).toContainEqual(expect.stringContaining("estimated, as Sign up and Below aren't drawn yet"))
   })
@@ -490,6 +583,7 @@ Print(JSON.stringify(Overlaps()))`
   it("prefers the size a board was drawn at to an estimate", async () => {
     const base = snapshot()
     base.documents[0]!.document.containers[0]!.frames = { desktop: { width: 3000 } }
+
     const result = await execute(
       {
         label: "Drawn",
@@ -499,6 +593,7 @@ Print(JSON.stringify(Overlaps()))`
       base,
       hooks()
     )
+
     // Drawn 1400 wide, the board ends before 1800, whatever its frames would suggest.
     expect(JSON.parse(result.output[0]!)).toEqual([])
   })
@@ -507,13 +602,44 @@ Print(JSON.stringify(Overlaps()))`
     const result = await execute(
       {
         label: "Off system",
-        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {background: "hotpink"}})`
+        code: `Insert("page", {type: "component", component: "Carousel"})\nUpdate("page", {style: {fills: [{type: "solid", color: {token: "hotpink"}}]}})`
       },
       snapshot(),
       hooks()
     )
+
     expect(result.warnings.join("\n")).toContain(`"Carousel" isn't one of the project's components`)
-    expect(result.warnings.join("\n")).toContain(`background "hotpink" isn't a token`)
+    expect(result.warnings.join("\n")).toContain(`fills "hotpink" isn't a token`)
+  })
+
+  it("fills a layer with a stack of paints, reads it back, and checks each paint's tokens (PAR-931)", async () => {
+    const stack = [
+      {
+        type: "linear",
+        angle: 90,
+        stops: [
+          { color: { token: "primary" }, position: 0 },
+          { color: { token: "nope" }, position: 100 }
+        ]
+      },
+      { type: "image", src: "/images/hero.jpg", fit: "fill" },
+      { type: "solid", color: { token: "background", alpha: { step: 80 } } }
+    ]
+
+    const result = await execute(
+      {
+        label: "Hero fill",
+        code: `Update("page", {style: {fills: ${JSON.stringify(stack)}}})
+Print(JSON.stringify(Get("page").style.fills))`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(JSON.parse(result.output[0]!)).toEqual(stack)
+    expect(findNode(result.changes.designs[0]!.after!.root, "page")?.style?.fills).toEqual(stack)
+    expect(result.warnings.join("\n")).toContain(`fills "nope" isn't a token`)
+    expect(result.warnings.join("\n")).not.toContain(`fills "primary"`)
   })
 
   it("lists radius-full with the radius tokens and takes it without a warning (PAR-458)", async () => {
@@ -522,19 +648,20 @@ Print(JSON.stringify(Overlaps()))`
         label: "Pill",
         code: [
           `Print(JSON.stringify(GetTokens({ category: "radius" })))`,
-          `Update("submit", {style: {radius: "radius-full"}})`,
-          `Update("title", {style: {background: "radius-full"}})`
+          `Update("submit", {style: {borderRadius: {token: "radius-full"}}})`,
+          `Update("title", {style: {fills: [{type: "solid", color: {token: "radius-full"}}]}})`
         ].join("\n")
       },
       snapshot(),
       hooks()
     )
+
     expect(JSON.parse(result.output[0]!)).toEqual([
       { name: "radius-full", category: "radius", source: "keyword", values: { default: "calc(infinity * 1px)" } }
     ])
-    expect(result.warnings.join("\n")).not.toContain(`radius "radius-full"`)
+    expect(result.warnings.join("\n")).not.toContain(`borderRadius "radius-full"`)
     // A keyword is a radius only: as a color it's still not a token.
-    expect(result.warnings.join("\n")).toContain(`background "radius-full" isn't a token`)
+    expect(result.warnings.join("\n")).toContain(`fills "radius-full" isn't a token`)
   })
 
   it("lists a project's own --radius-full as its token, not the keyword", async () => {
@@ -547,12 +674,54 @@ Print(JSON.stringify(Overlaps()))`
     ])
   })
 
+  it("lists the tokens nearest a color or a length, nearest first, with how far each is (PAR-833)", async () => {
+    const shadcn = snapshot()
+    shadcn.tokens = [
+      { name: "color-blue-500", category: "color", source: "theme", values: { default: "oklch(62.3% 0.214 259.815)" } },
+      { name: "color-blue-600", category: "color", source: "theme", values: { default: "oklch(54.6% 0.245 262.881)" } },
+      { name: "primary", category: "color", source: "semantic", values: { default: "var(--color-blue-600)" } },
+      { name: "accent", category: "color", source: "semantic", values: { default: "blue" } },
+      { name: "radius", category: "radius", source: "semantic", values: { default: "0.625rem" } },
+      { name: "radius-sm", category: "radius", source: "semantic", values: { default: "calc(var(--radius) - 4px)" } },
+      { name: "text-sm", category: "font-size", source: "theme", values: { default: "0.875rem" } }
+    ]
+
+    const code = [
+      `Print(JSON.stringify(GetTokens({ nearest: "#2f6fed" }).map(({ name, distance }) => [name, distance])))`,
+      `Print(JSON.stringify(GetTokens({ nearest: "#2f6fed", source: "semantic" })[0]))`,
+      `Print(JSON.stringify(GetTokens({ nearest: "7px", category: "radius" }).map(({ name, distance }) => [name, distance])))`
+    ].join("\n")
+
+    const result = await execute({ label: "Nearest", code }, shadcn, hooks())
+    const [colors, semantic, radii] = result.output.map((line) => JSON.parse(line))
+
+    // accent's "blue" can't be read, so it isn't listed; primary comes to blue-600 through its reference.
+    expect(colors).toEqual([
+      ["color-blue-500", 0.046],
+      ["primary", 0.052],
+      ["color-blue-600", 0.052]
+    ])
+    expect(semantic).toEqual({
+      name: "primary",
+      category: "color",
+      source: "semantic",
+      values: { default: "var(--color-blue-600)" },
+      distance: 0.052
+    })
+    // radius-full, the keyword, is as round as the box allows, which no length is near.
+    expect(radii).toEqual([
+      ["radius-sm", 1],
+      ["radius", 3]
+    ])
+  })
+
   it("rejects nodes that don't fit the format", async () => {
     const result = await execute(
       { label: "Bad", code: `Insert("page", {type: "text", text: "x", fontSize: 12})` },
       snapshot(),
       hooks()
     )
+
     expect(result.ok).toBe(false)
     expect(result.error).toContain("node/fontSize: unknown property")
     expect(result.details).toEqual({ code: "invalid_input", retryable: false, field: "node/fontSize" })
@@ -560,6 +729,7 @@ Print(JSON.stringify(Overlaps()))`
 
   it("measures, finds problems and screenshots any state in any mode", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Check",
@@ -571,6 +741,7 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("390 Title")
     // Every mode's title is wider than its viewport; that accounts for the mobile frame's overflow.
@@ -578,7 +749,7 @@ Print(await Screenshot("signup", {mode: ["desktop-light", "tablet-light"]}))`
     expect(result.output[2]).toBe("2")
     expect(result.screenshots.map((shot) => shot.mode)).toEqual(["desktop-light", "tablet-light"])
     // Each look shows as what it is, so the agent's cursor can say so.
-    const looks = new Set(events.filter((event) => event.design).map((event) => event.kind))
+    const looks = new Set(events.flatMap((event) => (event.design ? [event.kind] : [])))
     expect(looks).toEqual(new Set(["measure", "problems", "screenshot"]))
   })
 
@@ -616,9 +787,10 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         })
       }
     )
+
     expect(result.ok).toBe(true)
     expect(result.output[0]).toBe("default mobile-light page")
-    const problems = JSON.parse(result.output[1]!) as { kind: string; mode: string }[]
+    const problems = printed(result.output[1], z.array(z.looseObject({ kind: z.string(), mode: z.string() })))
     expect(problems.filter((problem) => problem.kind === "frame-overflow")).toEqual([
       {
         state: "default",
@@ -645,8 +817,52 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     })
   })
 
+  it("gives a node's box and what clips it in the same shapes from Measure and Problems (PAR-915)", async () => {
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const m = await Measure("signup", {mode: "mobile-light"})
+const title = m.nodes.find((node) => node.id === "title")
+const problem = (await Problems("signup", {mode: "mobile-light"})).find((each) => each.kind === "clipped")
+Print(JSON.stringify({ measured: { box: title.box, clip: title.clip }, problem: { box: problem.box, container: problem.container } }))`
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        render: async ({ mode }) => ({
+          width: mode.width,
+          height: 600,
+          overflowsX: false,
+          unknownComponents: [],
+          nodes: [
+            { id: "page", x: 0, y: 0, width: mode.width, height: 600 },
+            {
+              id: "title",
+              parent: "page",
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 40,
+              clipped: true,
+              clip: { node: "page", x: 0, y: 10, width: mode.width, height: 590 }
+            }
+          ]
+        })
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    const box = { x: 0, y: 0, width: 200, height: 40 }
+    const clip = { node: "page", name: "Page", box: { x: 0, y: 10, width: 390, height: 590 } }
+    expect(JSON.parse(result.output[0] ?? "")).toEqual({
+      measured: { box, clip },
+      problem: { box, container: clip }
+    })
+  })
+
   it("says where the project's code writes each node's element (PAR-167)", async () => {
     const source = "src/components/ui/button.tsx:44:5"
+
     const result = await execute(
       { label: "Check", code: `Print(JSON.stringify((await Measure("signup")).nodes.map((node) => node.source)))` },
       snapshot(),
@@ -665,6 +881,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         })
       }
     )
+
     expect(result.output[0]).toBe(JSON.stringify([null, source]))
   })
 
@@ -684,6 +901,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     }
     const requests: FrameRequest[] = []
     const base = hooks()
+
     const result = await execute(
       { label: "Check", code: `await Measure("signup")\nawait Screenshot("signup")\nawait Accessibility("signup")` },
       shared,
@@ -691,24 +909,68 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         presence: () => undefined,
         render: (request) => {
           requests.push(request)
+
           return base.render(request)
         }
       }
     )
+
     expect(result.ok).toBe(true)
     // The frame grows with its content, and its window is the mode's 1234px screen, as on the canvas.
     const [mode] = resolveModes(shared.modes)
     const live = frameGeometry(shared.documents[0]!.document.containers[0]!, mode!)
     expect(live).toEqual({ width: 1280, viewport: { width: 1280, height: 1234 } })
     expect(requests).toHaveLength(3)
+
     for (const request of requests) {
       expect(request.height).toBeUndefined()
       expect(request.viewport).toEqual(live.viewport)
     }
   })
 
+  it("draws every frame a check asks for at once, and answers in the order asked", async () => {
+    const modes = ["desktop-light", "tablet-light", "mobile-light"]
+    const waiting: (() => void)[] = []
+    let drawing = 0
+    let mostAtOnce = 0
+
+    // Each frame is held until none starts for a moment, then they finish last first.
+    const render: AgentHooks["render"] = async (request) => {
+      drawing++
+      mostAtOnce = Math.max(mostAtOnce, drawing)
+      await new Promise<void>((resolve) => {
+        waiting.push(resolve)
+        setTimeout(() => {
+          for (const finish of waiting.splice(0).reverse()) {
+            finish()
+          }
+        }, 20)
+      })
+      drawing--
+
+      return hooks().render(request)
+    }
+
+    const result = await execute(
+      {
+        label: "Check",
+        code: `const found = await Accessibility("signup", {mode: ${JSON.stringify(modes)}})
+Print(JSON.stringify(found.map((finding) => finding.mode)))
+Print(await Screenshot("signup", {mode: ${JSON.stringify(modes)}}))`
+      },
+      snapshot(),
+      { ...hooks(), render }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(mostAtOnce).toBe(modes.length)
+    expect([...new Set(printed(result.output[0], z.array(z.string())))]).toEqual(modes)
+    expect(result.screenshots.map((shot) => shot.mode)).toEqual(modes)
+  })
+
   it("checks accessibility in each mode, naming the layers", async () => {
     const events: AgentEvent[] = []
+
     const result = await execute(
       {
         label: "Check",
@@ -717,12 +979,10 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
       snapshot(),
       hooks(events)
     )
+
     expect(result.ok).toBe(true)
-    expect(events.filter((event) => event.design).map((event) => event.kind)).toEqual([
-      "accessibility",
-      "accessibility"
-    ])
-    const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
+    expect(events.flatMap((event) => (event.design ? [event.kind] : []))).toEqual(["accessibility", "accessibility"])
+    const findings = printed(result.output[0], findingList)
     // Per mode: the title, the frame once, and the instance once for everything inside it.
     expect(findings).toHaveLength(6)
     expect(findings[2]).toMatchObject({ node: "submit", name: "Submit", detail: "Inside an instance" })
@@ -748,11 +1008,13 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     )
     const requested: (string[] | undefined)[] = []
     const base = hooks()
+
     // The title fails on white in light, and passes on black in mobile, where primary would fail.
     const render: AgentHooks["render"] = async (request) => {
       requested.push(request.colorTokens)
       const frame = await base.render(request)
       const mobile = request.mode.id === "mobile-light"
+
       return {
         ...frame,
         contrast: {
@@ -770,6 +1032,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         }
       }
     }
+
     const result = await execute(
       {
         label: "Check",
@@ -778,13 +1041,14 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
       project,
       { presence: () => undefined, render }
     )
+
     expect(result.ok).toBe(true)
     // Only color tokens are read, in every frame.
     expect(requested).toEqual([
       ["background", "primary", "muted", "neutral-500"],
       ["background", "primary", "muted", "neutral-500"]
     ])
-    const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
+    const findings = printed(result.output[0], findingList)
     const title = findings.find((finding) => finding.node === "title" && finding.mode === "desktop-light")
     // primary would pass on white, but not on black, where the title passes now. Only neutral-500 passes on both, so it's
     // suggested though it isn't semantic, at its lower ratio of the two.
@@ -793,6 +1057,7 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
 
   it("gives no contrast fix when coloring the layer wouldn't reach its text", async () => {
     const base = hooks()
+
     const render: AgentHooks["render"] = async (request) => ({
       ...(await base.render(request)),
       contrast: {
@@ -802,12 +1067,14 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
         ]
       }
     })
+
     const result = await execute(
       { label: "Check", code: `Print(JSON.stringify(await Accessibility("signup")))` },
       snapshot(),
       { presence: () => undefined, render }
     )
-    const findings = JSON.parse(result.output[0]!) as AccessibilityFinding[]
+
+    const findings = printed(result.output[0], findingList)
     expect(findings[0]?.contrast).not.toHaveProperty("fix")
   })
 
@@ -817,27 +1084,25 @@ Print(JSON.stringify(await Problems("signup", {mode: "all"})))`
     project.documents[0]!.document.containers = [
       {
         ...signup!,
-        root: {
-          ...signup!.root,
-          children: [{ type: "instance", id: "submit", design: "member-row" }]
-        } as typeof signup.root
+        root: { ...layoutRoot(signup), children: [{ type: "instance", id: "submit", design: "member-row" }] }
       },
       {
         id: "member-row",
         name: "Member row",
         kind: "component",
         position: { x: 0, y: 1000 },
-        root: { type: "layout", id: "row", children: [] },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "layout", id: "row", children: [] }
       }
     ]
+
     const result = await execute(
       { label: "Check", code: `Print(JSON.stringify(await Accessibility("signup")))` },
       project,
       hooks()
     )
+
     expect(result.ok).toBe(true)
-    const findings = JSON.parse(result.output[0]!) as Record<string, unknown>[]
+    const findings = printed(result.output[0], findingList)
     expect(findings.find((finding) => finding.node === "submit")).toMatchObject({ name: "Member row" })
   })
 })
@@ -846,10 +1111,12 @@ describe("render inputs", () => {
   /** Hooks that keep each frame asked for. */
   function recording(requests: FrameRequest[]): AgentHooks {
     const base = hooks()
+
     return {
       ...base,
       render: (request) => {
         requests.push(request)
+
         return base.render(request)
       }
     }
@@ -869,10 +1136,7 @@ describe("render inputs", () => {
     project.documents[0]!.document.containers = [
       {
         ...signup!,
-        root: {
-          ...signup!.root,
-          children: [{ type: "instance", id: "row", design: "kit/label" }]
-        } as typeof signup.root
+        root: { ...layoutRoot(signup), children: [{ type: "instance", id: "row", design: "kit/label" }] }
       }
     ]
     project.libraryDesigns = [
@@ -881,18 +1145,20 @@ describe("render inputs", () => {
         name: "Label",
         kind: "component",
         position: { x: 0, y: 0 },
-        root: { type: "text", id: "text", text: "From the kit" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "From the kit" }
       }
     ]
     const requests: FrameRequest[] = []
+
     const result = await execute(
       { label: "Look", code: `await Measure("signup"); await Problems("signup"); await Screenshot("signup")` },
       project,
       recording(requests)
     )
+
     expect(result.ok).toBe(true)
     expect(requests.length).toBeGreaterThan(2)
+
     for (const request of requests) {
       expect(JSON.stringify(request.tree)).toContain("From the kit")
       expect(JSON.stringify(request.tree)).not.toContain("No component design")
@@ -907,10 +1173,10 @@ describe("render inputs", () => {
         name: "Label",
         kind: "component",
         position: { x: 0, y: 0 },
-        root: { type: "text", id: "text", text: "From the kit" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "From the kit" }
       }
     ]
+
     const result = await execute(
       {
         label: "Place",
@@ -920,6 +1186,7 @@ Insert("page", {type: "instance", design: "kit/missing"})`
       project,
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const missing = result.warnings.filter((warning) => warning.includes("no component design"))
     expect(missing).toEqual([expect.stringContaining('"kit/missing"')])
@@ -931,18 +1198,14 @@ Insert("page", {type: "instance", design: "kit/missing"})`
     project.documents[0]!.document.containers = [
       {
         ...signup!,
-        root: {
-          ...signup!.root,
-          children: [{ type: "instance", id: "row", design: "kit/label" }]
-        } as typeof signup.root
+        root: { ...layoutRoot(signup), children: [{ type: "instance", id: "row", design: "kit/label" }] }
       },
       {
         id: "kit/label",
         name: "Label",
         kind: "component",
         position: { x: 0, y: 1000 },
-        root: { type: "text", id: "text", text: "The project's own" },
-        states: [{ id: "default", name: "Default" }]
+        root: { type: "text", id: "text", text: "The project's own" }
       }
     ]
     project.libraryDesigns = [
@@ -961,7 +1224,9 @@ Insert("page", {type: "instance", design: "kit/missing"})`
         { name: "background", theme: "dark", value: "navy" }
       ]
     }
+
     const requests: FrameRequest[] = []
+
     const result = await execute(
       {
         label: "Tokens",
@@ -972,6 +1237,7 @@ await Measure("signup")`
       project,
       recording(requests)
     )
+
     expect(result.ok).toBe(true)
     expect(requests[0]!.tokens).toEqual(project.tokenOverrides)
     expect(requests[1]!.tokens).toEqual([
@@ -988,6 +1254,77 @@ await Measure("signup")`
   })
 })
 
+describe("SetTokens adds a token the project doesn't have (PAR-911)", () => {
+  it("lists the new token and takes it in a style without a warning, in the same call", async () => {
+    let applied: unknown
+
+    const result = await execute(
+      {
+        label: "Page titles",
+        code: [
+          `Update("title", {style: {fontSize: {token: "text-display"}}})`,
+          `SetTokens({ "text-display": "4rem", "shadow-popup": { default: "0 8px 24px black", dark: "none" } })`,
+          `Update("page", {style: {boxShadow: [{type: "drop", token: "shadow-popup"}]}})`,
+          `Print(JSON.stringify(GetTokens({ search: "text-display" })))`,
+          `Print(JSON.stringify(GetTokens({ category: "shadow" })))`
+        ].join("\n")
+      },
+      snapshot(),
+      {
+        ...hooks(),
+        apply: async (changes) => {
+          applied = changes.tokens
+
+          return []
+        }
+      }
+    )
+
+    expect(result.ok).toBe(true)
+    expect(result.warnings).toEqual([])
+    expect(JSON.parse(result.output[0]!)).toEqual([
+      { name: "text-display", category: "font-size", source: "semantic", values: { default: "4rem" } }
+    ])
+    expect(JSON.parse(result.output[1]!)).toEqual([
+      {
+        name: "shadow-popup",
+        category: "shadow",
+        source: "semantic",
+        values: { default: "0 8px 24px black", dark: "none" }
+      }
+    ])
+    expect(applied).toEqual([
+      { name: "text-display", theme: "default", value: "4rem" },
+      { name: "shadow-popup", theme: "default", value: "0 8px 24px black" },
+      { name: "shadow-popup", theme: "dark", value: "none" }
+    ])
+  })
+
+  it("warns about the name until a call adds it, saying how", async () => {
+    const before = await execute(
+      { label: "Page titles", code: `Update("title", {style: {fontSize: {token: "text-display"}}})` },
+      snapshot(),
+      hooks()
+    )
+
+    expect(before.warnings.join("\n")).toContain(`fontSize "text-display" isn't a token`)
+    expect(before.warnings.join("\n")).toContain(`add text-display with SetTokens`)
+  })
+
+  it("shows a changed token's new value in GetTokens", async () => {
+    const result = await execute(
+      {
+        label: "Tokens",
+        code: `SetTokens({ primary: "blue" })\nPrint(GetTokens({ search: "primary" })[0].values.default)`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.output).toEqual(["blue"])
+  })
+})
+
 describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
   /** The browser's `CSS.supports`, as the app answers it: a color is a named one, a hex or `oklch()`. */
   function checking(asked: { property: string; value: string }[] = []): AgentHooks {
@@ -995,6 +1332,7 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
       ...hooks(),
       supports: async (queries) => {
         asked.push(...queries)
+
         return queries.map(({ property, value }) =>
           property === "color" ? /^(white|black|blue|green|#[\da-f]{3,8}|oklch\(.+\))$/i.test(value) : true
         )
@@ -1004,15 +1342,19 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
 
   async function refusal(code: string, ask = checking()) {
     let applied = false
+
     const result = await execute({ label: "Tokens", code }, snapshot(), {
       ...ask,
       apply: async () => {
         applied = true
+
         return []
       }
     })
+
     expect(result.ok).toBe(false)
     expect(applied).toBe(false)
+
     return { error: result.error, details: result.details }
   }
 
@@ -1033,17 +1375,30 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
     ).toMatch(/^SetTokens\/primary\/default: background is built on primary, so this would loop\. /)
   })
 
-  it("refuses a value that isn't its token's kind, asking the browser once", async () => {
+  it("refuses a value that isn't its token's kind by CSS's grammar, without a browser", async () => {
     const asked: { property: string; value: string }[] = []
-    expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, checking(asked))).error).toBe(
+
+    for (const ask of [hooks(), checking(asked)]) {
+      expect((await refusal(`SetTokens({ primary: { dark: "bluish" } })`, ask)).error).toBe(
+        "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb. (line 1, column 1)"
+      )
+    }
+
+    expect(asked).toEqual([])
+  })
+
+  it("refuses a value the grammar allows and the browser doesn't, asking the browser once", async () => {
+    const asked: { property: string; value: string }[] = []
+    expect((await refusal(`SetTokens({ primary: { dark: "rebeccapurple" } })`, checking(asked))).error).toBe(
       "SetTokens/primary/dark: That isn't a color. Try oklch(0.6 0.2 250) or #2563eb."
     )
-    expect(asked).toEqual([{ property: "color", value: "bluish" }])
+    expect(asked).toEqual([{ property: "color", value: "rebeccapurple" }])
   })
 
   it("accepts good values, references filled in, and applies them", async () => {
     const asked: { property: string; value: string }[] = []
     let applied: unknown
+
     const result = await execute(
       { label: "Tokens", code: `SetTokens({ primary: "oklch(0.6 0.2 250)", background: { dark: "var(--primary)" } })` },
       snapshot(),
@@ -1051,10 +1406,12 @@ describe("SetTokens refuses what the token detail refuses (PAR-584)", () => {
         ...checking(asked),
         apply: async (changes) => {
           applied = changes.tokens
+
           return []
         }
       }
     )
+
     expect(result.ok).toBe(true)
     // Dark has no primary of its own, so the reference comes to the root's new value.
     expect(asked).toEqual([
@@ -1079,12 +1436,14 @@ Insert("page", {type: "component", component: "Heart"})`
       { ...snapshot(), iconSets: [lucide] },
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const unknown = result.warnings.filter((warning) => warning.includes("isn't one of the project's components"))
     expect(unknown).toEqual([expect.stringContaining('"Heart"')])
   })
 
   const lucide: IconSet = { id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }
+
   const heroicons: IconSet = {
     id: "heroicons",
     name: "Heroicons",
@@ -1100,18 +1459,23 @@ Insert("page", {type: "component", component: "Heart"})`
       }
     }
   }
-  const names: Record<string, IconNames> = {
-    lucide: {
-      names: ["Heart", "HeartCrack", "Settings", "Bell", "Star"],
-      aliases: { Settings: ["Cog"] },
-      tags: { Heart: ["love"] }
-    },
-    "heroicons/": { names: ["BellIcon", "CogIcon"] },
-    "heroicons/24/solid": { names: ["CogIcon"] }
-  }
+
+  const names = new Map<string, IconNames>([
+    [
+      "lucide",
+      {
+        names: ["Heart", "HeartCrack", "Settings", "Bell", "Star"],
+        aliases: { Settings: ["Cog"] },
+        tags: { Heart: ["love"] }
+      }
+    ],
+    ["heroicons/", { names: ["BellIcon", "CogIcon"] }],
+    ["heroicons/24/solid", { names: ["CogIcon"] }]
+  ])
+
   const withIcons = (): AgentHooks => ({
     ...hooks(),
-    iconNames: async (set, module) => names[set === "lucide" ? set : `${set}/${module ?? ""}`]!
+    iconNames: async (set, module) => names.get(set === "lucide" ? set : `${set}/${module ?? ""}`)!
   })
 
   it("lists the project's icon sets with their styles and how designs name their icons", async () => {
@@ -1120,6 +1484,7 @@ Insert("page", {type: "component", component: "Heart"})`
       { ...snapshot(), iconSets: [lucide, heroicons] },
       withIcons()
     )
+
     expect(JSON.parse(result.output[0]!)).toEqual([
       {
         id: "lucide",
@@ -1153,6 +1518,7 @@ Print(await Icons("heroicons", { style: "solid" }))`
       { ...snapshot(), iconSets: [lucide, heroicons] },
       withIcons()
     )
+
     expect(result.ok).toBe(true)
     expect(result.warnings).toEqual([])
     expect(result.output).toEqual([
@@ -1169,12 +1535,14 @@ Print(await Icons("heroicons", { style: "solid" }))`
   it("runs the skill's example", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
+
     const dashboard = {
       ...signup,
       id: "dashboard",
       name: "Dashboard",
       root: { type: "layout" as const, id: "toolbar", name: "Toolbar", children: [] }
     }
+
     const result = await execute(
       {
         label: "Settings button",
@@ -1189,10 +1557,11 @@ Insert("dashboard/Toolbar", {
       {
         ...base,
         iconSets: [lucide],
-        documents: [{ path: "app.par", document: { version: 3, containers: [signup, dashboard] } }]
+        documents: [{ path: "app.par", document: { version: 4, containers: [signup, dashboard] } }]
       },
       withIcons()
     )
+
     expect(result.error).toBeUndefined()
     const toolbar = result.changes.designs[0]!.after!.root
     expect(toolbar.type === "layout" && toolbar.children[0]).toMatchObject({
@@ -1207,12 +1576,15 @@ Insert("dashboard/Toolbar", {
       { ...snapshot(), iconSets: [lucide] },
       withIcons()
     )
+
     expect(missing.error).toContain(`"phosphor" isn't one of the project's icon sets: lucide`)
+
     const style = await execute(
       { label: "Icons", code: `await Icons("heroicons", { style: "mini" })` },
       { ...snapshot(), iconSets: [heroicons] },
       withIcons()
     )
+
     expect(style.error).toContain(`Heroicons comes in outline, solid, not "mini"`)
   })
 })
@@ -1221,7 +1593,11 @@ describe("warning groups", () => {
   it("reports each finding once with its places, render failures first and naming tips last", async () => {
     const base = snapshot()
     const page = base.documents[0]!.document.containers[0]!.root
-    if (page.type !== "layout") throw new Error("Expected a layout")
+
+    if (page.type !== "layout") {
+      throw new Error("Expected a layout")
+    }
+
     // An unnamed layout that was there before the call isn't this call's to name.
     page.children.push({
       type: "layout",
@@ -1231,10 +1607,12 @@ describe("warning groups", () => {
         { type: "text", id: "old-b", text: "B" }
       ]
     })
+
     const failing: AgentHooks = {
       ...hooks(),
       render: async (request) => ({ ...(await hooks().render(request)), error: "boom" })
     }
+
     const result = await execute(
       {
         label: "Rows",
@@ -1243,12 +1621,13 @@ describe("warning groups", () => {
 }
 Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
 Insert("page", { type: "component", component: "Button", props: { tone: "loud" } })
-Update("submit", { style: { background: "hotpink" } })
+Update("submit", { style: { fills: [{ type: "solid", color: { token: "hotpink" } }] } })
 await Screenshot("signup")`
       },
       base,
       failing
     )
+
     expect(result.error).toBeUndefined()
     expect(result.warningGroups.map(({ severity, category, count }) => [severity, category, count])).toEqual([
       ["error", "render_failed", 1],
@@ -1278,6 +1657,7 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
       snapshot(),
       hooks()
     )
+
     expect(result.output).toEqual(["variant children"])
     expect(result.warnings).toEqual(
       expect.arrayContaining([
@@ -1289,6 +1669,7 @@ Update("submit", {props: {variant: "primary", tone: "loud"}})`
 
   it("tells an agent the provider a sidebar needs, with an example it inserts as it is", async () => {
     const nova = { path: "@buildkit/nova", library: "nova" }
+
     const result = await execute(
       {
         label: "Sidebar",
@@ -1307,6 +1688,7 @@ Insert("page", composition.example.node)`
       },
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.output).toEqual(["nova/SidebarProvider"])
     const page = result.changes.designs[0]?.after?.root
@@ -1330,16 +1712,16 @@ Print(GetModes(id).designs[0].frames)`
       snapshot(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.changes.designs[0]!.after).toMatchObject({
       kind: "frame",
       size: { width: 400, height: 300 },
-      root: { type: "layout", children: [{ type: "text", text: "Idea" }] },
-      states: [{ id: "default", name: "Default" }]
+      root: { type: "layout", children: [{ type: "text", text: "Idea" }] }
     })
     expect(result.changes.designs[0]!.after).not.toHaveProperty("view")
     expect(result.output).toEqual([
-      '{"state":"default","mode":"desktop-light","beside":[]} 1',
+      '{"mode":"desktop-light","beside":[]} 1',
       '[{"mode":"desktop-light","width":400,"height":300,"window":{"width":400,"height":300}}]'
     ])
     expect(result.screenshots).toMatchObject([{ mode: "desktop-light", width: 400 }])
@@ -1351,16 +1733,21 @@ Print(GetModes(id).designs[0].frames)`
       snapshot(),
       hooks()
     )
+
     // Right of Sign up's 1400 board, with the gap boards keep.
     expect(result.changes.designs[0]!.after).toMatchObject({ kind: "frame", position: { y: 0 } })
     expect(result.changes.designs[0]!.after!.position.x).toBeGreaterThan(1400)
   })
 
-  it("turns a screen into a frame, saying what it dropped, and back", async () => {
+  it("turns a component into a frame, saying what it dropped, and into a screen", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.states.push({ id: "error", name: "Error", overrides: { title: { text: "Try again" } } })
+    signup.states = [
+      ...designStates(signup),
+      { id: "error", name: "Error", overrides: { title: { text: "Try again" } } }
+    ]
     signup.view = { modes: ["mobile-light"], state: "error" }
+
     const result = await execute(
       {
         label: "Sketch it",
@@ -1372,22 +1759,26 @@ Print(GetDesign("signup").frames)`
       base,
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.warnings).toContain("Sign up is a frame now. States dropped: Error. Modes dropped: mobile-light.")
     expect(result.output).toEqual(['{"width":600}', '{"desktop":{"width":600}}'])
-    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen", states: [{ id: "default" }] })
+    expect(result.changes.designs[0]!.after).toMatchObject({ kind: "screen" })
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("states")
   })
 
   it("refuses what a frame doesn't have: other states, modes and sizes per viewport", async () => {
     const base = snapshot()
     const frame = { ...base.documents[0]!.document.containers[0]!, kind: "frame" as const, size: { width: 400 } }
     base.documents[0]!.document.containers = [frame]
+
     const calls: [string, string, string][] = [
-      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, which has one state"],
+      [`AddState("signup", { name: "Error" })`, "design", "Sign up is a frame, and only a component has states"],
       [`UpdateDesign("signup", { showModes: ["mobile-light"] })`, "showModes", "takes no showModes"],
       [`await Screenshot("signup", { mode: "mobile-light" })`, "mode", "drawn only in the primary mode, desktop-light"],
       [`UpdateDesign(CreateDesign({ name: "Home" }), { width: 400 })`, "width", "only a frame takes a width"]
     ]
+
     for (const [code, field, message] of calls) {
       const result = await execute({ label: "Try", code }, base, hooks())
       expect(result.ok).toBe(false)
@@ -1408,12 +1799,71 @@ UpdateDesign(sketch, { kind: "screen" }) // keeps its layers, and its size in th
       snapshot(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
-    expect(result.screenshots).toMatchObject([{ design: "sketch", mode: "desktop-light", width: 480 }])
+    expect(result.screenshots).toMatchObject([{ design: fresh("sketch"), mode: "desktop-light", width: 480 }])
     expect(result.changes.designs[0]!.after).toMatchObject({
       kind: "screen",
       frames: { desktop: { width: 480, height: 320 } }
     })
+  })
+})
+
+describe("states, only a component's (PAR-1002)", () => {
+  /** Sign up, a component, beside Home, a screen with the same layers. */
+  function withScreen(): AgentSnapshot {
+    const base = snapshot()
+    const [signup] = base.documents[0]!.document.containers
+    const { states: _states, ...layers } = structuredClone(signup!)
+    base.documents[0]!.document.containers.push({
+      ...layers,
+      id: "home",
+      name: "Home",
+      kind: "screen",
+      position: { x: 3000, y: 0 }
+    })
+
+    return base
+  }
+
+  it("lists a component's states and showing state, and a screen's modes alone", async () => {
+    const result = await execute({ label: "Read", code: `Print(JSON.stringify(Designs()))` }, withScreen(), hooks())
+    const [component, screen] = JSON.parse(result.output[0]!)
+
+    expect(component).toMatchObject({ id: "signup", kind: "component", states: [{ id: "default", name: "Default" }] })
+    expect(component.showing).toEqual({ state: "default", mode: "desktop-light", beside: [] })
+    expect(screen).toMatchObject({ id: "home", kind: "screen", showing: { mode: "desktop-light", beside: [] } })
+    expect(screen).not.toHaveProperty("states")
+    expect(screen.showing).not.toHaveProperty("state")
+  })
+
+  it.each([
+    `AddState("home", { name: "Loading" })`,
+    `UpdateState("home", "loading", { name: "Waiting" })`,
+    `DeleteState("home", "loading")`,
+    `Update("home/title", { text: "Hi" }, { state: "loading" })`,
+    `Get("home/title", { state: "loading" })`,
+    `UpdateDesign("home", { allStates: true })`,
+    `CreateDesign({ name: "About", baseState: "Signed out" })`,
+    `await Screenshot("home", { state: "loading" })`
+  ])("refuses %s on a screen, saying only a component has states", async (code) => {
+    const result = await execute({ label: "Try", code }, withScreen(), hooks())
+
+    expect(result.ok).toBe(false)
+    expect(result.error).toMatch(/is a screen, and only a component has states/)
+    expect(result.details).toMatchObject({ code: "invalid_input", field: "design" })
+  })
+
+  it("draws and edits a screen in its base state", async () => {
+    const result = await execute(
+      { label: "Edit", code: `Update("home/title", { text: "Welcome" })\nawait Screenshot("home", { state: "all" })` },
+      withScreen(),
+      hooks()
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toMatchObject([{ design: "home", state: "default" }])
+    expect(result.changes.designs[0]!.after).not.toHaveProperty("states")
   })
 })
 
@@ -1474,6 +1924,7 @@ describe("coded failures", () => {
       { id: "error", name: "Failed" },
       { id: "error-2", name: "Failed" }
     ]
+
     const calls = [
       `UpdateState("signup", "Busy", { name: "Waiting" })`,
       `DeleteState("signup", "Busy")`,
@@ -1485,6 +1936,7 @@ describe("coded failures", () => {
       `await Problems("signup", { state: ["default", "Busy"] })`,
       `await Accessibility("signup", { state: "Busy" })`
     ]
+
     for (const code of calls) {
       const result = await execute({ label: "Try", code }, base, hooks())
       // The call rides along, so a failure names which one went wrong.
@@ -1501,16 +1953,19 @@ describe("coded failures", () => {
         }
       })
     }
+
     const duplicate = await execute({ label: "Try", code: `DeleteState("signup", "Failed")` }, base, hooks())
     expect(duplicate.error).toContain('"Failed" names 2 states, "error" and "error-2"; use the id of the one you mean.')
     expect(duplicate.details?.alternatives?.slice(0, 2)).toEqual(["error", "error-2"])
+
     const byId = await execute(
       { label: "Try", code: `UpdateState("signup", "loading", { name: "Waiting" })` },
       base,
       hooks()
     )
+
     expect(byId.error).toBeUndefined()
-    expect(byId.changes.designs[0]!.after!.states[1]).toEqual({ id: "loading", name: "Waiting" })
+    expect(byId.changes.designs[0]!.after!.states![1]).toEqual({ id: "loading", name: "Waiting" })
   })
 
   it("explains that Measure draws one frame when given a list, all or shown, before rendering (PAR-461)", async () => {
@@ -1520,6 +1975,7 @@ describe("coded failures", () => {
       { id: "loading", name: "Busy" }
     ]
     const modes = resolveModes(base.modes).map((mode) => mode.id)
+
     const calls = [
       { option: `{ state: "all" }`, field: "state", given: '"all"', ids: ["default", "loading"] },
       { option: `{ state: ["default", "loading"] }`, field: "state", given: "a list", ids: ["default", "loading"] },
@@ -1527,13 +1983,16 @@ describe("coded failures", () => {
       { option: `{ mode: "shown" }`, field: "mode", given: '"shown"', ids: modes },
       { option: `{ mode: [${JSON.stringify(modes[0])}] }`, field: "mode", given: "a list", ids: modes }
     ]
+
     for (const { option, field, given, ids } of calls) {
       const rendered: unknown[] = []
       const code = `await Measure("signup", ${option})`
+
       const result = await execute({ label: "Try", code }, base, {
         ...hooks(),
         render: async (job) => (rendered.push(job), hooks().render(job))
       })
+
       expect({ code, error: result.error, details: result.details, rendered }).toEqual({
         code,
         error:
@@ -1547,6 +2006,7 @@ describe("coded failures", () => {
         rendered: []
       })
     }
+
     // One state and one mode still measure, as do the checks that take a matrix.
     const single = await execute(
       {
@@ -1558,6 +2018,7 @@ await Problems("signup", { state: "all", mode: "all" })`
       base,
       hooks()
     )
+
     expect(single.error).toBeUndefined()
     // A frame takes only the primary mode, so that's all it lists.
     base.documents[0]!.document.containers[0]!.kind = "frame"
@@ -1585,6 +2046,7 @@ await Problems("signup", { state: "all", mode: "all" })`
     { code: `Props("Button", { every: true })`, field: "every", message: "unknown property" },
     { code: `await Icons("lucide", { limit: 0 })`, field: "limit", message: "expected more than 0" },
     { code: `GetTokens({ category: 1 })`, field: "category", message: "expected a string" },
+    { code: `GetTokens({ nearest: "blue" })`, field: "nearest", message: 'or a length in px or rem, not "blue"' },
     { code: `GetModes(1)`, field: "design", message: "expected a string" },
     { code: `CreateDesign("Home")`, field: "spec", message: "expected an object" },
     { code: `CreateDesign({ name: "Home", file: "home.json" })`, field: "file", message: "expected a .par file" },
@@ -1594,7 +2056,7 @@ await Problems("signup", { state: "all", mode: "all" })`
     { code: `Insert("page", { type: "text", text: 1 })`, field: "node/text", message: "expected a string" },
     { code: `Insert("page", { type: "text", text: "Hi" }, { index: -1 })`, field: "index", message: "at least 0" },
     { code: `Insert(document, { type: "layout" }, { kind: "page" })`, field: "kind", message: "expected one of" },
-    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "a number or a string" },
+    { code: `Update("title", { style: { gap: true } })`, field: "style/gap", message: "expected { step }, { token }" },
     { code: `Update("title", { width: 3 })`, field: "width", message: "use Replace, Move or Responsive" },
     { code: `Update("title", { text: "Hi" }, { state: 1 })`, field: "state", message: "expected a string" },
     { code: `Replace("title", "text")`, field: "node", message: "expected an object" },
@@ -1629,18 +2091,40 @@ await Problems("signup", { state: "all", mode: "all" })`
     expect(result.changes).toEqual({ designs: [], tokens: [] })
   })
 
+  it("sets and reads a layer's order, and refuses one that isn't whole", async () => {
+    const result = await execute(
+      {
+        label: "Order",
+        code: `Update("title", { style: { zIndex: { step: 10 } } })
+Print(Get("title").style.zIndex.step)`
+      },
+      snapshot(),
+      hooks()
+    )
+
+    expect(result.output).toEqual(["10"])
+    expect(findNode(result.changes.designs[0]!.after!.root, "title")).toMatchObject({ style: { zIndex: { step: 10 } } })
+
+    const refused = await execute(
+      { label: "Order", code: `Update("title", { style: { zIndex: { step: 1.5 } } })` },
+      snapshot(),
+      hooks()
+    )
+
+    expect(refused.ok).toBe(false)
+    expect(refused.error).toContain("expected a whole number")
+  })
+
   it("still reads null as taking a value away", async () => {
     const base = snapshot()
     const signup = base.documents[0]!.document.containers[0]!
-    signup.root = {
-      ...signup.root,
-      responsive: { mobile: { style: { gap: 2 } } }
-    } as DesignNode
+    signup.root = { ...layoutRoot(signup), responsive: { mobile: { style: { gap: { step: 2 } } } } }
+
     const result = await execute(
       {
         label: "Clear",
-        code: `Update("title", { name: null, style: { size: "text-2xl" } })
-Update("title", { style: { size: null } })
+        code: `Update("title", { name: null, style: { fontSize: { token: "text-2xl" } } })
+Update("title", { style: { fontSize: null } })
 Responsive("page", "mobile", null)
 AddState("signup", { name: "Error", changes: { title: { text: "Try again" } } })
 UpdateState("signup", "error", { changes: { title: null } })`
@@ -1648,11 +2132,12 @@ UpdateState("signup", "error", { changes: { title: null } })`
       base,
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     const after = result.changes.designs[0]!.after!
     expect(findNode(after.root, "title")).toEqual({ type: "text", id: "title", text: "Create an account" })
     expect(after.root.responsive).toBeUndefined()
-    expect(after.states[1]).toEqual({ id: "error", name: "Error" })
+    expect(after.states![1]).toEqual({ id: "error", name: "Error" })
   })
 })
 
@@ -1661,10 +2146,13 @@ describe("Replace", () => {
   function patched(): AgentSnapshot {
     const read = snapshot()
     const [design] = read.documents[0]!.document.containers
-    const page = design!.root as Extract<DesignNode, { type: "layout" }>
-    page.responsive = { mobile: { style: { gap: 2 } } }
+    const page = layoutRoot(design)
+    page.responsive = { mobile: { style: { gap: { step: 2 } } } }
     page.children[0]!.responsive = { mobile: { hidden: true }, tablet: { text: "Sign up" } }
-    design!.states.push({ id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } })
+    design!.states = [
+      ...designStates(design!),
+      { id: "loading", name: "Loading", overrides: { submit: { props: { disabled: true } } } }
+    ]
     design!.params = {
       size: {
         type: "variant",
@@ -1674,6 +2162,7 @@ describe("Replace", () => {
         ]
       }
     }
+
     return read
   }
 
@@ -1686,6 +2175,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     expect(result.discarded).toEqual([
       {
@@ -1696,8 +2186,8 @@ describe("Replace", () => {
       }
     ])
     const after = result.changes.designs[0]!.after!
-    expect(after.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
-    expect(after.root.responsive).toEqual({ mobile: { style: { gap: 2 } } })
+    expect(after.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(after.root.responsive).toEqual({ mobile: { style: { gap: { step: 2 } } } })
   })
 
   it("reports every node's patches when it replaces the root, which clears the states", async () => {
@@ -1706,6 +2196,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     expect(result.discarded?.[0]).toMatchObject({ design: "signup", replaced: "page" })
     expect(result.discarded?.[0]!.nodes).toEqual([
@@ -1723,10 +2214,11 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.error).toBeUndefined()
     const change = result.changes.designs[0]!
-    expect(change.base!.states[1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
-    expect(change.after!.states[1]!.overrides).toBeUndefined()
+    expect(change.base!.states![1]!.overrides).toEqual({ submit: { props: { disabled: true } } })
+    expect(change.after!.states![1]!.overrides).toBeUndefined()
   })
 
   it("reports nothing when the call fails and changes nothing", async () => {
@@ -1735,6 +2227,7 @@ describe("Replace", () => {
       patched(),
       hooks()
     )
+
     expect(result.ok).toBe(false)
     expect(result.discarded).toBeUndefined()
     expect(result.changes.designs).toEqual([])
@@ -1750,6 +2243,7 @@ Replace(id, {type: "component", component: "Button", props: {children: "Go"}})`
       snapshot(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     expect(result).not.toHaveProperty("discarded")
   })
@@ -1765,10 +2259,186 @@ UpdateState("signup", "loading", { changes: { [title]: { text: "Signing you up�
       patched(),
       hooks()
     )
+
     expect(result.ok).toBe(true)
     const after = result.changes.designs[0]!.after!
     const title = result.discarded![0]!.replacement
     expect(findNode(after.root, title)?.responsive).toEqual({ mobile: { hidden: true } })
-    expect(after.states[1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
+    expect(after.states![1]!.overrides?.[title]).toEqual({ text: "Signing you up…" })
+  })
+})
+
+// A stretch counts the API's own work the snippet waits on, which takes far longer while the whole suite runs.
+describe("time limits (PAR-1037)", { timeout: 15_000 }, () => {
+  // Shorter limits than an agent's, so a stopped snippet stops quickly.
+  const limits: SnippetLimits = { total: 2500, stretch: 1000 }
+
+  it("keeps a value assigned without const or let for the tab's next call", async () => {
+    const read = snapshot()
+
+    await execute({ label: "Keep", code: `kept = Designs().length` }, read, hooks(), limits)
+    const result = await execute({ label: "Read", code: `Print(kept)` }, read, hooks(), limits)
+
+    expect(result.output).toEqual(["1"])
+  })
+
+  it.each([
+    { name: "a loop after an await", code: `await null\nwhile (true) {}`, error: /1 second of computing/ },
+    { name: "a loop of awaited screenshots", code: `while (true) await Screenshot("signup")`, error: /2\.5 seconds/ }
+  ])("stops $name, changes nothing, and leaves the tab's context for the next call", async ({ code, error }) => {
+    const read = snapshot()
+    await execute({ label: "Keep", code: `kept = "before"` }, read, hooks(), limits)
+
+    const stopped = await execute(
+      { label: "Loop", code: `Update("submit", { props: { variant: "outline" } })\n${code}` },
+      read,
+      hooks(),
+      limits
+    )
+
+    expect(stopped.ok).toBe(false)
+    expect(stopped.error).toMatch(error)
+    expect(stopped.details).toEqual({ code: "execution_failed", retryable: false })
+    expect(stopped.editId).toBeTruthy()
+    expect(stopped.changes.designs).toEqual([])
+
+    const next = await execute(
+      { label: "Read", code: `Print(kept)\nawait Screenshot("signup")` },
+      read,
+      hooks(),
+      limits
+    )
+
+    expect(next.error).toBeUndefined()
+    expect(next.output).toEqual(["before"])
+    expect(next.screenshots).toHaveLength(1)
+  })
+
+  // A clock that moves on with each reading puts the run's deadline between every two of its checks in turn, so one of
+  // these runs stops just as an awaited screenshot settles, which real time hits only now and then (PAR-1124).
+  it("stops a loop of screenshots wherever its deadline falls, leaving nothing for the tab's next call", async () => {
+    let now = 0
+    vi.spyOn(performance, "now").mockImplementation(() => ++now)
+    const leaked: number[] = []
+
+    try {
+      for (let total = 1; total <= 80; total++) {
+        const read = snapshot()
+        const unlimited = { total: Number.POSITIVE_INFINITY, stretch: 1000 }
+        await execute({ label: "Keep", code: `kept = "before"` }, read, hooks(), unlimited)
+        await execute({ label: "Loop", code: `while (true) await Screenshot("signup")` }, read, hooks(), {
+          total,
+          stretch: 1000
+        })
+        const next = await execute({ label: "Read", code: `await Screenshot("signup")` }, read, hooks(), unlimited)
+
+        if (next.screenshots.length !== 1) {
+          leaked.push(total)
+        }
+      }
+    } finally {
+      vi.restoreAllMocks()
+    }
+
+    expect(leaked).toEqual([])
+  })
+
+  // A clock that moves on with each reading spends the run's time before its first call, which refuses. A job queued
+  // ahead of that then makes the evaluation time out, discarding the snippet's promise with it (PAR-1139). The job
+  // stops after 50 ms, far past the evaluation's limit, so the test can't hang whatever that limit does.
+  it("stops a snippet failing in an evaluation that times out without leaving a rejection unhandled", async () => {
+    let now = 0
+    vi.spyOn(performance, "now").mockImplementation(() => ++now)
+    const unhandled: unknown[] = []
+    const record = (cause: unknown) => unhandled.push(cause)
+    process.on("unhandledRejection", record)
+
+    try {
+      const stopped = await execute(
+        {
+          label: "Late",
+          code: `Promise.resolve().then(() => { const end = Date.now() + 50; while (Date.now() < end) {} })\nawait Screenshot("signup")`
+        },
+        snapshot(),
+        hooks(),
+        { total: 1, stretch: 1000 }
+      )
+
+      // Unhandled rejections are reported once the process's own jobs have run.
+      await new Promise((resolve) => setTimeout(resolve, 10))
+
+      expect(stopped.error).toMatch(/0\.001 seconds/)
+      expect(unhandled).toEqual([])
+    } finally {
+      process.off("unhandledRejection", record)
+      vi.restoreAllMocks()
+    }
+  })
+
+  it("leaves a stopped snippet's next step out of the tab's next call", async () => {
+    const read = snapshot()
+    const fast = hooks()
+
+    // Each render holds the process, so the call that runs past the deadline settles before the run's timer can fire.
+    const blocking: AgentHooks = {
+      ...fast,
+      render: async (request) => {
+        await Promise.resolve()
+        const end = performance.now() + 400
+
+        while (performance.now() < end) {
+          // Holding the process, as a long synchronous render would.
+        }
+
+        return fast.render(request)
+      }
+    }
+
+    const stopped = await execute({ label: "Loop", code: `while (true) await Screenshot("signup")` }, read, blocking, {
+      total: 1000,
+      stretch: 1000
+    })
+
+    expect(stopped.error).toMatch(/1 second, the most/)
+
+    const next = await execute({ label: "Read", code: `Print("next")` }, read, fast, limits)
+
+    expect(next.output).toEqual(["next"])
+    expect(next.screenshots).toEqual([])
+  })
+
+  it("goes on after a call that settled before the snippet awaited it", async () => {
+    const result = await execute(
+      { label: "Look", code: `const later = Screenshot("signup")\nawait Measure("signup")\nawait later` },
+      snapshot(),
+      hooks(),
+      limits
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toHaveLength(1)
+  })
+
+  it("lets renders that take longer than the computing limit finish within the run's time", async () => {
+    const fast = hooks()
+
+    const slow: AgentHooks = {
+      ...fast,
+      render: async (request) => {
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        return fast.render(request)
+      }
+    }
+
+    const result = await execute(
+      { label: "Look", code: `for (let i = 0; i < 3; i++) await Screenshot("signup")` },
+      snapshot(),
+      slow,
+      limits
+    )
+
+    expect(result.error).toBeUndefined()
+    expect(result.screenshots).toHaveLength(3)
   })
 })

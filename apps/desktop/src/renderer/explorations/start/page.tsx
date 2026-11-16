@@ -59,7 +59,7 @@ import { agentPalettes } from "../../agent/agent-colors.ts"
 import { AgentBadge, AgentPointer } from "../../agent/AgentPointer.tsx"
 import { formatKeys } from "../../chrome/keys.ts"
 import { me, people, type Person } from "../explore-data.ts"
-import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab } from "../parts.tsx"
+import { Avatar, AzureDevOpsMark, ExploreWindow, GitHubMark, type MockTab, withVariables } from "../parts.tsx"
 import { OrgBadge } from "../start-page-parts.tsx"
 import {
   type Design,
@@ -67,6 +67,7 @@ import {
   forYou,
   lastVisits,
   organizations,
+  isOrgId,
   type OrgId,
   project as findProject,
   projects,
@@ -122,6 +123,7 @@ export const kestrelMember: StartAccount = { email: "andrew@kestrel.dev", orgs: 
  */
 function useLive(project: StartProject): StartProject["live"] {
   const account = useAccount()
+
   return project.live && (account || project.live.who.agent) ? project.live : undefined
 }
 
@@ -129,9 +131,14 @@ function useLive(project: StartProject): StartProject["live"] {
 function useWaiting(): ForYouItem[] {
   const start = useStart()
   const account = useAccount()
-  if (!account) return []
+
+  if (!account) {
+    return []
+  }
+
   return forYou.filter((item) => {
     const org = projects.find((candidate) => candidate.name === item.project)?.org
+
     return !start.done?.includes(item.id) && (!org || account.orgs.includes(org))
   })
 }
@@ -139,6 +146,7 @@ function useWaiting(): ForYouItem[] {
 /** Who's signed in, with the start page stories' Kestrel member when no one said. */
 export function useAccount(): StartAccount | null {
   const { account } = useStart()
+
   return account === undefined ? kestrelMember : account
 }
 
@@ -176,6 +184,7 @@ export function StartWindow({
   children: ReactNode
 }) {
   const account = useAccount()
+
   return (
     <ExploreWindow
       tabs={tabs}
@@ -221,6 +230,7 @@ function StartMenus({
   onHome?: () => void
 }) {
   const start = useStart()
+
   return (
     <Menubar className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
       <MenubarMenu>
@@ -306,6 +316,7 @@ function Inbox({ enabled }: { enabled: boolean }) {
   const all = useWaiting()
   const waiting = enabled ? all : []
   const unread = waiting.filter((item) => item.unread).length
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
@@ -370,6 +381,7 @@ function NobodyAvatar({ size }: { size: number }) {
 export function AccountMenu() {
   const start = useStart()
   const account = useAccount()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -421,12 +433,15 @@ export function AccountMenu() {
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Agents</DropdownMenuLabel>
           {agentChoices.map((agent) => {
             const on = !!start.agents?.includes(agent.name)
+
             return (
               <DropdownMenuItem
                 key={agent.name}
                 closeOnClick={on}
                 onClick={() => {
-                  if (!on) start.connectAgent?.(agent.name)
+                  if (!on) {
+                    start.connectAgent?.(agent.name)
+                  }
                 }}
               >
                 <Avatar person={agent} size={18} /> {agent.name}
@@ -470,16 +485,16 @@ const liveStyles = `
 `
 
 /** Cursor colors, the same ones the canvas gives each of them. */
-const palettes: Record<string, number> = {
-  [people.claude.name]: 7,
-  [people.maya.name]: 0,
-  [people.cursor.name]: 4,
-  [people.jonas.name]: 1,
-  [people.priya.name]: 5
-}
+const palettes = new Map([
+  [people.claude.name, 7],
+  [people.maya.name, 0],
+  [people.cursor.name, 4],
+  [people.jonas.name, 1],
+  [people.priya.name, 5]
+])
 
 function paletteFor(person: Person) {
-  return agentPalettes[palettes[person.name] ?? 9]!
+  return agentPalettes[palettes.get(person.name) ?? 9]!
 }
 
 /** Someone's cursor at work on a design: an agent shows what it's doing, a person their name. */
@@ -497,10 +512,11 @@ function LiveCursor({
   small?: boolean
 }) {
   const palette = paletteFor(who)
+
   return (
     <div
       className={`pointer-events-none absolute z-10 ${small ? "scale-[0.8]" : ""} origin-top-left motion-safe:animate-[var(--drift)]`}
-      style={{ ...style, ["--drift" as string]: `start-live-${path} ${path === "a" ? 9 : 11}s ease-in-out infinite` }}
+      style={withVariables({ "--drift": `start-live-${path} ${path === "a" ? 9 : 11}s ease-in-out infinite` }, style)}
     >
       <AgentPointer palette={palette} />
       {who.agent && !small ? (
@@ -557,6 +573,7 @@ export function CanvasArt({
   const { look } = project
   const label = "absolute -top-[18px] left-0 text-[11px] font-medium whitespace-nowrap text-white/45"
   const frame = "absolute overflow-visible rounded-[5px] shadow-[0_16px_40px_-10px_rgb(0_0_0/0.7)] ring-1 ring-white/10"
+
   return (
     <div
       className={`${/\b(absolute|fixed)\b/.test(className) ? "" : "relative"} overflow-hidden bg-[#0f0f12] ${className}`}
@@ -614,7 +631,8 @@ export function CanvasArt({
 export function ProjectTab({ project }: { project: StartProject }) {
   const visit = Object.values(lastVisits).find((candidate) => candidate.project === project.id)
   const design = project.designs.find((item) => item.name === visit?.design) ?? project.designs[0]
-  if (!design)
+
+  if (!design) {
     return (
       <div className="absolute inset-0 grid place-items-center bg-[#0f0f12] text-sm text-muted-foreground">
         <p className="max-w-[340px] text-center text-pretty">
@@ -622,6 +640,8 @@ export function ProjectTab({ project }: { project: StartProject }) {
         </p>
       </div>
     )
+  }
+
   return (
     <CanvasArt project={project} design={design} labels pins={!!project.comments} fill className="absolute inset-0" />
   )
@@ -635,6 +655,7 @@ function firstName(person: Person): string {
 function editedBy(project: StartProject): string {
   const who = project.editedBy === me ? "you" : firstName(project.editedBy)
   const when = /^\d/.test(project.edited) ? project.edited : project.edited.toLowerCase()
+
   return `Edited ${when} by ${who}`
 }
 
@@ -646,6 +667,7 @@ function listed(items: string[]): string {
 /** Someone in a project right now: their avatar, with a dot. */
 function Here({ who, className = "" }: { who: Person; className?: string }) {
   const label = who.agent ? `${who.name} is working here` : `${firstName(who)} is here`
+
   return (
     <span className={`relative flex ${className}`} title={label}>
       <Avatar person={who} size={22} />
@@ -670,6 +692,7 @@ function ProjectMenu({
   className?: string
 }) {
   const start = useStart()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -736,13 +759,18 @@ export function ProjectCard({
   const [hovered, setHovered] = useState(false)
   const design = project.designs[index]!
   const many = project.designs.length > 1
+
   return (
     <article
       className="group/card relative flex flex-col gap-2.5"
       onPointerEnter={() => setHovered(true)}
       onPointerMove={(event) => {
         const box = art.current?.getBoundingClientRect()
-        if (!box || event.clientY > box.bottom) return setIndex(0)
+
+        if (!box || event.clientY > box.bottom) {
+          return setIndex(0)
+        }
+
         const share = (event.clientX - box.left) / box.width
         setIndex(Math.min(project.designs.length - 1, Math.max(0, Math.floor(share * project.designs.length))))
       }}
@@ -754,7 +782,7 @@ export function ProjectCard({
       <div
         ref={art}
         className="relative overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/card:ring-2 group-hover/card:ring-(--parity)"
-        style={{ ["--parity" as string]: parity }}
+        style={withVariables({ "--parity": parity })}
       >
         <CanvasArt project={project} design={design} live={false} />
         {many && (
@@ -823,15 +851,20 @@ export function ContinueCard({ visit }: { visit: Visit }) {
   const resume = () => start.openProject?.(project.id)
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Enter" && event.target === document.body) resume()
+      if (event.key === "Enter" && event.target === document.body) {
+        resume()
+      }
     }
+
     window.addEventListener("keydown", onKey)
+
     return () => window.removeEventListener("keydown", onKey)
   })
+
   return (
     <section
       className="group/continue relative grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-center gap-7"
-      style={{ ["--parity" as string]: parity }}
+      style={withVariables({ "--parity": parity })}
     >
       <div className="overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/continue:ring-2 group-hover/continue:ring-(--parity)">
         <CanvasArt project={project} design={design} labels live={false} />
@@ -866,10 +899,15 @@ export function ContinueCard({ visit }: { visit: Visit }) {
 function ForYouRow({ item, onOpen }: { item: ForYouItem; onOpen?: () => void }) {
   const start = useStart()
   const target = projects.find((candidate) => candidate.name === item.project)
+
   const open = () => {
-    if (target) start.openProject?.(target.id)
+    if (target) {
+      start.openProject?.(target.id)
+    }
+
     onOpen?.()
   }
+
   return (
     <li className="group/row relative -mx-2 flex items-start gap-2.5 rounded-lg px-2 py-2 hover:bg-muted/40">
       <Avatar person={item.who} size={22} className="shrink-0" />
@@ -912,6 +950,7 @@ export function ForYouPanel({ limit = 4 }: { limit?: number }) {
   const start = useStart()
   const account = useAccount()
   const waiting = useWaiting()
+
   return (
     <section className="flex flex-col gap-1.5">
       <h2 className="flex items-baseline gap-2 text-sm font-semibold">
@@ -1020,14 +1059,29 @@ export function RecentProjects({ org, skip, rows = 1 }: { org?: OrgId; skip?: st
   const [more, setMore] = useState(false)
   const [starred, setStarred] = useState(() => projects.filter((project) => project.starred).map(({ id }) => id))
   const [removed, setRemoved] = useState<string[]>([])
+
   const listed = projects.filter((project) => {
-    if (org && project.org !== org) return false
-    if (scope === "starred") return starred.includes(project.id)
-    if (scope === "shared") return !!project.shared
-    if (scope === "recent") return project.id !== skip && !removed.includes(project.id)
+    if (org && project.org !== org) {
+      return false
+    }
+
+    if (scope === "starred") {
+      return starred.includes(project.id)
+    }
+
+    if (scope === "shared") {
+      return !!project.shared
+    }
+
+    if (scope === "recent") {
+      return project.id !== skip && !removed.includes(project.id)
+    }
+
     return true
   })
+
   const shown = more ? listed : listed.slice(0, rows * 4)
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="sr-only">Projects</h2>
@@ -1077,6 +1131,7 @@ export function RecentProjects({ org, skip, rows = 1 }: { org?: OrgId; skip?: st
 /** A stack's mark: its initials on its color. */
 export function StackMark({ stack, size = 20 }: { stack: Stack; size?: number }) {
   const chroma = stack.hue === 0 ? 0 : 0.09
+
   return (
     <span
       className="grid shrink-0 place-items-center rounded-md font-mono font-bold tracking-tight"
@@ -1096,6 +1151,7 @@ export function StackMark({ stack, size = 20 }: { stack: Stack; size?: number })
 /** A template: its first design, drawn in the template's own look, then its name and the stack it's on. */
 export function TemplateCard({ template, onPick }: { template: Template; onPick?: (template: Template) => void }) {
   const start = useStart()
+
   return (
     <button
       type="button"
@@ -1105,7 +1161,7 @@ export function TemplateCard({ template, onPick }: { template: Template; onPick?
           : start.newProject?.({ tab: "template", stack: template.stack, template: template.id })
       }
       className="group/template flex flex-col gap-2.5 text-left outline-none"
-      style={{ ["--parity" as string]: parity }}
+      style={withVariables({ "--parity": parity })}
     >
       <span className="relative block overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/template:ring-2 group-hover/template:ring-(--parity) group-focus-visible/template:ring-2 group-focus-visible/template:ring-ring">
         <DesignRender kind={template.designs[0]!.kind} look={template.look} />
@@ -1124,6 +1180,7 @@ export function TemplateCard({ template, onPick }: { template: Template; onPick?
 /** Looks like a field, opens search: projects, designs, components, people and commands. */
 export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?: () => void }) {
   const start = useStart()
+
   return (
     <button
       type="button"
@@ -1146,6 +1203,7 @@ export function SearchButton({ large, onOpen }: { large?: boolean; onOpen?: () =
 /** Opening what's already there: a folder, a project file, or a repository to clone. */
 export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
   const start = useStart()
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -1176,6 +1234,7 @@ export function OpenMenu({ size = "lg" }: { size?: "lg" | "default" }) {
 
 export function NewProjectButton({ onClick, size = "lg" }: { onClick?: () => void; size?: "lg" | "default" }) {
   const start = useStart()
+
   return (
     <Button size={size} onClick={onClick ?? (() => start.newProject?.())}>
       <Plus /> New project
@@ -1193,6 +1252,7 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
   const org = organizations[value]
   const choices = account ? account.orgs.map((id) => organizations[id]) : [organizations.personal]
   const inOne = choices.some((candidate) => candidate.id !== "personal")
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -1208,7 +1268,7 @@ export function OrgSwitcher({ value = "kestrel", onChange }: { value?: OrgId; on
         }
       />
       <DropdownMenuContent align="start" className="w-60">
-        <DropdownMenuRadioGroup value={value} onValueChange={(next) => onChange?.(next as OrgId)}>
+        <DropdownMenuRadioGroup value={value} onValueChange={(next: string) => isOrgId(next) && onChange?.(next)}>
           {choices.map((candidate) => (
             <DropdownMenuRadioItem key={candidate.id} value={candidate.id}>
               <OrgBadge org={candidate} size={18} /> {candidate.name}
@@ -1246,6 +1306,7 @@ export function HomePage() {
   const account = useAccount()
   const [org, setOrg] = useState<OrgId>(account?.orgs[0] ?? "personal")
   const visit = lastVisits[org]
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-6 pb-14">

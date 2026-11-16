@@ -1,0 +1,192 @@
+import { DurationArt } from "../../chrome/token-previews.tsx"
+import { stepCount } from "./css-values.ts"
+import {
+  asToken,
+  ownValue,
+  type Reading,
+  readUnitNumber,
+  type ScrubKeys,
+  stepToken,
+  tokenChip,
+  tokenNamed,
+  useLiveRow,
+  useTokens,
+  ValueField
+} from "./field-parts.tsx"
+import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
+import { durationToken } from "./tokens.ts"
+
+/** What's typed comes to: a time to store as it is (a token, or unset), or a number of milliseconds. */
+type Typed = { time: Time | undefined } | { ms: number }
+
+const namespace = "duration-"
+
+/**
+ * A time (PAR-652's Time): milliseconds, as a transition's Duration and Delay take them. `0.2s` typed becomes 200ms; one
+ * read from code keeps `s` until it's edited. Any whole millisecond is a step (`duration-200`), unmarked while the
+ * project has no duration tokens and marked once it has some. Up and Down step 10ms, Shift 100ms and Alt 1ms, as
+ * dragging its mark does per screen pixel; a token steps to the next. With a spring, the spring decides how long it takes, so Duration shows its settle time, set by Easing. Its
+ * tokens are the project's (`useTokens`), drawn as a track whose dot crosses it in that time.
+ */
+export function TimeField({
+  label,
+  which,
+  value,
+  defaultMs,
+  setBy,
+  mixed,
+  onChange
+}: {
+  label: string
+  which: "duration" | "delay"
+  value: Time | undefined
+  /** What it is unset: Tailwind's default duration, or no delay. */
+  defaultMs: number
+  /** Another control that sets it, as a spring sets Duration, with how long that comes to. */
+  setBy?: { control: string; ms: number; onChange: (ms: number) => void }
+  mixed?: boolean
+  onChange: (value: Time | undefined) => void
+}) {
+  const { tokens, create } = useTokens("duration")
+  const ms = setBy ? setBy.ms : timeMs(value, tokens)
+  const name = value !== undefined && "token" in value ? value.token : undefined
+  const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
+  const own = value !== undefined && !("token" in value) ? value : undefined
+
+  const set = (next: number) => {
+    const whole = Math.round(next * 100) / 100
+    const allowed = which === "delay" ? whole : Math.max(0, whole)
+
+    if (setBy) {
+      setBy.onChange(allowed)
+    } else {
+      onChange(Number.isInteger(allowed) ? { step: allowed } : { value: `${allowed}ms` })
+    }
+  }
+
+  let comesTo: string | undefined
+
+  if (setBy) {
+    comesTo = `set by ${setBy.control}`
+  } else if (token) {
+    comesTo = token.detail
+  } else if (own && "value" in own && splitUnit(own.value)?.unit === "s") {
+    comesTo = `as ${own.value}`
+  }
+
+  const read = (text: string): Reading<Typed> => {
+    const trimmed = text.trim()
+
+    if (trimmed === "") {
+      return { value: { time: undefined } }
+    }
+
+    const named = tokenNamed(tokens, trimmed, namespace)
+
+    if (named) {
+      return { value: { time: { token: named.name } } }
+    }
+
+    const reading = readUnitNumber(trimmed, {
+      units: timeUnits,
+      current: ms ?? defaultMs,
+      label,
+      takes: "Enter a time, such as 200ms or 0.2s"
+    })
+
+    if ("reason" in reading) {
+      return reading
+    }
+
+    if (which === "duration" && reading.value < 0) {
+      return { reason: "A duration can't be negative" }
+    }
+
+    return { value: { ms: reading.value } }
+  }
+
+  const step = (up: boolean, { shift, alt }: ScrubKeys) => {
+    if (token) {
+      // As every token steps: to the next in scale order, Shift to the first or last.
+      onChange({ token: stepToken(tokens, token, up, shift).name })
+
+      return
+    }
+
+    // Alt steps the smallest step, a millisecond.
+    const by = alt && !shift ? stepCount(up, false) : stepCount(up, shift) * 10
+    set((ms ?? defaultMs) + by)
+  }
+
+  // Its time drawn as Easing draws its curve, with the Tokens panel's mark: a track whose dot crosses it in that time
+  // while the field's hovered or focused. Its track is the color of the Easing's curve, faint where it's unset, as the
+  // curve is.
+  const { live, rowProps } = useLiveRow()
+
+  const preview = (
+    <span
+      aria-hidden
+      className={`grid w-5 shrink-0 place-items-center ${value === undefined && !setBy ? "text-muted-foreground/60" : "text-foreground"}`}
+    >
+      <DurationArt value={`${ms ?? defaultMs}ms`} width={18} height={12} playing={live(label)} />
+    </span>
+  )
+
+  return (
+    <div className="min-w-0" {...rowProps(label)}>
+      <ValueField
+        label={label}
+        inner={preview}
+        // Dragging the mark, or the row's name, scrubs it 10ms per screen pixel, 100ms with Shift and 1ms with Alt.
+        scrub={{
+          from: () => ms ?? defaultMs,
+          apply: (next) => set(next),
+          by: { step: 10, shiftStep: 100, altStep: 1, min: which === "duration" ? 0 : undefined }
+        }}
+        shown={own === undefined || setBy || ms === undefined ? undefined : String(ms)}
+        placeholder={String(setBy ? setBy.ms : defaultMs)}
+        mixed={mixed}
+        chip={tokenChip(name, token, {
+          namespace,
+          pick: (picked) => onChange(asToken(picked)),
+          detach: (each) => onChange({ step: each.ms })
+        })}
+        unit="ms"
+        comesTo={comesTo}
+        own={
+          own === undefined || setBy || ms === undefined
+            ? undefined
+            : ownValue({
+                value: ms,
+                text: `${ms}ms`,
+                tokens,
+                measure: (each) => each.ms,
+                make: (made) => durationToken(made, ms),
+                namespace,
+                create,
+                allow: own.allow,
+                onToken: (made) => onChange({ token: made }),
+                onAllow: (reason) => {
+                  const plain = "step" in own ? { step: own.step } : { value: own.value }
+                  onChange(reason === undefined ? plain : { ...plain, allow: reason })
+                }
+              })
+        }
+        tokens={
+          tokens.length > 0
+            ? { list: tokens, current: name, onPick: (picked) => onChange(picked ? { token: picked } : undefined) }
+            : undefined
+        }
+        read={read}
+        onCommit={(typed) => {
+          if ("ms" in typed) {
+            set(typed.ms)
+          } else {
+            onChange(typed.time)
+          }
+        }}
+        onStep={step}
+      />
+    </div>
+  )
+}

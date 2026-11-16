@@ -12,6 +12,7 @@ export { default as CircleCheck, default as CheckCircle } from './icons/circle-c
 export { LucideProvider, useLucideContext } from './context.mjs';
 export { default as Icon } from './Icon.mjs';
 `
+
 const exports = iconExports(index)
 const dist = "lucide-react/dist/esm"
 

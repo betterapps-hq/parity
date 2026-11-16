@@ -229,6 +229,7 @@ describe("spacing a layer evenly with its siblings", () => {
     const kept = { siblings, parent: row, spacing: new EvenSpacing(siblings) }
     // Across the row and above and below it, so it joins other rows of siblings and comes back to ones it's been in.
     const path = [97, 140, 203, 260, 330, 203, 97].flatMap((x) => [0, 100, 150, 100].map((y) => tile(x, y)))
+
     for (const box of path) {
       expect(snapLayer(box, kept, 1)).toEqual(snapLayer(box, { siblings, parent: row }, 1))
       expect(snapLayer(box, kept, 2)).toEqual(snapLayer(box, { siblings, parent: row }, 2))

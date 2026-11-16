@@ -18,6 +18,7 @@ const meta = {
 } satisfies Meta<typeof AppWindow>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The shadcn example open: layers and assets on the left, its designs on the canvas, the inspector on the right. */
@@ -43,7 +44,10 @@ export const NoProjectOpen: Story = {
   loaders: [
     async () => {
       await openProjects("empty", "example")
-      for (const tab of workspace.getTabs()) await workspace.close(tab.id)
+
+      for (const tab of workspace.getTabs()) {
+        await workspace.close(tab.id)
+      }
     }
   ]
 }

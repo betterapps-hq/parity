@@ -1,0 +1,102 @@
+import type { ContainerSpec } from "@parity-app/core"
+import { containerEntry } from "@parity-app/multiplayer"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
+import { openTestSession } from "../doc-fixtures.ts"
+import { setWindowTelemetry } from "../report-error.ts"
+import { detachAndRecord, pushAndRecord } from "./component-events.ts"
+import { extractIntoComponent } from "./components.ts"
+
+// Extracting measures the designs on the canvas, which there isn't one of here.
+vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key }))
+
+const sink = createTestSink()
+const recorded = () => sink.named("component.changed").map((event) => event.attributes)
+
+beforeEach(() => {
+  setWindowTelemetry(
+    createTelemetry({
+      events: registeredEvents,
+      context: { process: "renderer", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+  )
+})
+
+afterEach(() => {
+  setWindowTelemetry(undefined)
+  sink.clear()
+})
+
+const card: ContainerSpec = {
+  id: "card",
+  name: "Card",
+  kind: "component",
+  position: { x: 0, y: 0 },
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "title", text: "Hello" }] }
+}
+
+/** A screen, Home, placing Card twice: `first` with its title overridden, `second` as the component has it. */
+function setup() {
+  const home: ContainerSpec = {
+    id: "home",
+    name: "Home",
+    position: { x: 0, y: 0 },
+    root: {
+      type: "layout",
+      id: "page",
+      children: [
+        { type: "instance", id: "first", design: "card", overrides: { title: { text: "Welcome" } } },
+        { type: "instance", id: "second", design: "card" },
+        { type: "text", id: "note", text: "Fine print" }
+      ]
+    }
+  }
+
+  return openTestSession([{ path: "app.par", document: { version: 4, containers: [card, home] } }])
+}
+
+describe("component.changed (PAR-728)", () => {
+  it("records an instance detached, with its design, the instance and the component it followed", () => {
+    const session = setup()
+    detachAndRecord(session, "app.par#home", "first")
+    expect(session.doc.design("app.par#home")?.root).toMatchObject({
+      children: [{ type: "layout", id: "first" }, { type: "instance" }, {}]
+    })
+    expect(recorded()).toEqual([{ action: "detach", design: "app.par#home", layers: ["first"], component: "card" }])
+  })
+
+  it("records nothing for a layer that isn't an instance", () => {
+    const session = setup()
+    detachAndRecord(session, "app.par#home", "page")
+    expect(recorded()).toEqual([])
+  })
+
+  it("records a copy's overrides pushed to its component", () => {
+    const { doc } = setup()
+    pushAndRecord(doc, "app.par#home", "app.par#card", "first")
+    expect(doc.design("app.par#card")?.root).toMatchObject({ children: [{ text: "Welcome" }] })
+    expect(recorded()).toEqual([{ action: "push", design: "app.par#home", layers: ["first"], component: "card" }])
+  })
+
+  it("records a layer's overrides pushed from inside a copy against the layer's path", () => {
+    const { doc } = setup()
+    pushAndRecord(doc, "app.par#home", "app.par#card", "first", { key: "title", path: "first/title" })
+    expect(recorded()).toEqual([{ action: "push", design: "app.par#home", layers: ["first/title"], component: "card" }])
+  })
+
+  it("records layers made a component, with the component made", () => {
+    const { doc } = setup()
+    const key = extractIntoComponent({ doc, editor: undefined }, containerEntry(doc, "app.par#home")!, ["note"], "Note")
+    const made = doc.design(key)!
+    expect(made).toMatchObject({ name: "Note", kind: "component" })
+    expect(recorded()).toEqual([{ action: "extract", design: "app.par#home", layers: ["note"], component: made.id }])
+  })
+
+  it("records nothing for a push that throws", () => {
+    const { doc } = setup()
+    expect(() => pushAndRecord(doc, "app.par#home", "app.par#card", "page")).toThrow("isn't an instance")
+    expect(recorded()).toEqual([])
+  })
+})

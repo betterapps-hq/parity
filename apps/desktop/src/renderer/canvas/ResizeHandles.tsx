@@ -1,3 +1,4 @@
+import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { type Edge, handleBoxes } from "@parity-app/editor"
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"
@@ -41,10 +42,15 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
   const { color } = handles
   const [hint, setHint] = useState<Edge>()
   const [pressed, setPressed] = useState(false)
+
   return handleBoxes(handles.box, handles.edges).map(({ edge, box }) => {
     const corner = edge.length === 2
     let style: CSSProperties = { left: box.x, top: box.y, width: box.w, height: box.h }
-    if (corner) style = { ...style, background: "white", border: `1.5px solid ${color}`, borderRadius: 2 }
+
+    if (corner) {
+      style = { ...style, background: "white", border: `1.5px solid ${color}`, borderRadius: 2 }
+    }
+
     return (
       <Hint
         key={edge}
@@ -55,7 +61,9 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
           ) : (
             <>
               <KeyHints rows={[{ keys: held.fromMiddle.keys, does: "From the middle" }]} />
-              <span className="mt-1 block">Double-click to hug, {formatKeys(held.fill.keys)}+double-click to fill</span>
+              <span className="mt-1 block">
+                Double-click to hug, <Kbd>{formatKeys(held.fill.keys)}</Kbd>+double-click to fill
+              </span>
             </>
           )
         }
@@ -68,16 +76,21 @@ export function ResizeHandles({ handles, onStart, onReset }: ResizeHandlesProps)
           className={`resize-handle pointer-events-auto absolute ${corner ? "z-10 shadow-sm" : ""}`}
           style={{ ...style, cursor: resizeCursors[edge] }}
           onPointerDown={(event) => {
-            if (event.button !== 0) return
+            if (event.button !== 0) {
+              return
+            }
+
             event.stopPropagation()
             event.preventDefault()
             setHint(undefined)
             setPressed(true)
+
             const release = () => {
               setPressed(false)
               window.removeEventListener("pointerup", release, true)
               window.removeEventListener("pointercancel", release, true)
             }
+
             window.addEventListener("pointerup", release, true)
             window.addEventListener("pointercancel", release, true)
             onStart(edge, event)

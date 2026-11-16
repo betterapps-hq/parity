@@ -9,20 +9,42 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 /** The design added since `before`, by its key. */
 async function added(before: { key: string }[]) {
   await expect.poll(async () => (await app.designs()).length).toBe(before.length + 1)
+
   return (await app.designs()).find((design) => !before.some((old) => old.key === design.key))!
 }
 
 function frameOf(key: string) {
   return app.page.evaluate((key) => {
-    const { container } = window.e2e!.session().store.getEntry(key)!
+    const container = window.e2e!.session().doc.design(key)!
+
     return { kind: container.kind, size: container.size, name: container.name }
   }, key)
+}
+
+/** Picks `item` from the title menu of the design named `name`, which a right-click on its title opens. */
+async function convertFromTitle(name: string, item: string) {
+  // Selecting it first waits for the title to settle where the zoom puts it.
+  await app.selectDesign(name)
+
+  const box = await app.page
+    .locator(".design-title > div > button")
+    .filter({ hasText: new RegExp(`^${name}$`) })
+    .boundingBox()
+
+  if (!box) {
+    throw new Error(`${name}'s title isn't drawn`)
+  }
+
+  await app.rightClick({ x: box.x + box.width / 2, y: box.y + box.height / 2 })
+  await app.page.getByRole("menuitem", { name: item }).click()
 }
 
 describe("the frame tool", () => {
@@ -76,15 +98,18 @@ describe("text on the empty canvas", () => {
     await app.page.keyboard.type("Plans for every team")
     await app.page.keyboard.press("Enter")
     await expect.poll(async () => (await frameOf(frame.key)).name).toBe("Plans for every team")
+
     // It hugs its text on one line: as wide as the text and its padding, no wider.
     const lines = () =>
       app.page.evaluate((key) => {
         const host = document.querySelector(`.frame-view[data-design="${CSS.escape(key)}"] [data-frame]`)
         const text = host?.shadowRoot?.querySelector("[data-canvas-node]")?.firstElementChild
+
         return text instanceof HTMLElement
           ? Math.round(text.offsetHeight / parseFloat(getComputedStyle(text).lineHeight))
           : 0
       }, frame.key)
+
     await expect.poll(lines).toBe(1)
     const width = (await frameOf(frame.key)).size?.width ?? 0
     expect(width).toBeGreaterThan(100)
@@ -100,17 +125,16 @@ describe("converting a frame", () => {
     await app.page.keyboard.press("f")
     await app.click(screen)
     const frame = await added(before)
-    await app.page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Component" }).click()
+    await convertFromTitle(frame.name, "Convert to component")
     await expect.poll(async () => (await frameOf(frame.key)).kind).toBe("component")
     expect(await app.undoLabel()).toBe("Convert to component")
     await app.page.locator('[data-slot="toast"]').getByRole("button", { name: "Undo" }).click()
     await expect.poll(async () => (await frameOf(frame.key)).kind).toBe("frame")
   })
 
-  it("asks before a screen with states becomes a frame, saying what it drops", async () => {
+  it("asks before a screen with modes beside it becomes a frame, saying what it drops", async () => {
     await app.show("Pricing", 0.3)
-    await app.selectDesign("Pricing")
-    await app.page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Frame" }).click()
+    await convertFromTitle("Pricing", "Convert to frame")
     const dialog = app.page.getByRole("dialog")
     await expect.poll(() => dialog.innerText()).toContain("Convert Pricing to a frame?")
     await dialog.getByRole("button", { name: "Cancel" }).click()

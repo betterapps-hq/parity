@@ -1,17 +1,20 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
+import { type Adapter, type AdapterDetection, declares, type PackageManifest } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core/schema"
+import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
+import { type AdapterFound, addCommand, cutoff, detectPackageManager, detectProject } from "./detect.ts"
 import { findLockfiles } from "./lockfile.ts"
 
 let root: string
 
 /** Writes a fixture folder: each key a path under the root, each value its JSON or text. */
-async function fixture(files: Record<string, unknown>) {
+async function fixture(files: Record<string, JsonValue>) {
   for (const [path, content] of Object.entries(files)) {
     await mkdir(dirname(join(root, path)), { recursive: true })
-    await writeFile(join(root, path), typeof content === "string" ? content : JSON.stringify(content))
+    await writeFile(join(root, path), isText(content) ? content : JSON.stringify(content))
   }
 }
 
@@ -19,6 +22,77 @@ async function fixture(files: Record<string, unknown>) {
 const installed = (name: string, version: string) => ({ [`node_modules/${name}/package.json`]: { name, version } })
 
 const today = new Date("2026-10-28T12:00:00Z")
+
+type Tool = Pick<Adapter, "id" | "name" | "versions">
+
+/**
+ * Tools as their adapters give them: with the majors released by `today`, or, for Storybook, the range its extension's
+ * peer dependencies give.
+ */
+const tools: Tool[] = [
+  {
+    id: "react",
+    name: "React",
+    versions: {
+      packages: ["react"],
+      majors: [
+        [18, "2022-03-29"],
+        [19, "2024-12-05"]
+      ]
+    }
+  },
+  {
+    id: "vite",
+    name: "Vite",
+    versions: {
+      packages: ["vite"],
+      distributions: { "@voidzero-dev/vite-plus-core": "Vite+" },
+      majors: [
+        [5, "2023-11-16"],
+        [6, "2024-11-26"],
+        [7, "2025-06-24"],
+        [8, "2026-03-12"]
+      ]
+    }
+  },
+  {
+    id: "tailwind",
+    name: "Tailwind CSS",
+    versions: {
+      packages: ["tailwindcss"],
+      prefix: "v",
+      majors: [
+        [3, "2021-12-09"],
+        [4, "2025-01-21"]
+      ]
+    }
+  },
+  {
+    id: "storybook",
+    name: "Storybook",
+    versions: {
+      packages: ["storybook", "@storybook/react"],
+      scope: "@storybook/",
+      range: "^9.0.0 || ^10.0.0"
+    }
+  }
+]
+
+/**
+ * What each tool's adapter found, as their `detect` does: a tool the package.json declares, and the builder, with what
+ * it found of its build tool.
+ */
+function found(pkg: PackageManifest, builder?: { id: string; detection: AdapterDetection }): AdapterFound<Tool>[] {
+  return tools.flatMap((tool) => {
+    if (builder?.id === tool.id) {
+      return [{ adapter: tool, detection: builder.detection }]
+    }
+
+    const declared = declares(pkg, tool.versions!.packages, tool.versions!.scope)
+
+    return declared ? [{ adapter: tool, detection: { found: true, summary: `${declared} in package.json` } }] : []
+  })
+}
 
 beforeEach(async () => {
   root = await mkdtemp(join(tmpdir(), "parity-detect-"))
@@ -126,13 +200,13 @@ describe("addCommand", () => {
 })
 
 describe("cutoff", () => {
-  const vite = {
+  const vite: Parameters<typeof cutoff>[0] = {
     majors: [
       [5, "2023-11-16"],
       [6, "2024-11-26"],
       [7, "2025-06-24"],
       [8, "2026-03-12"]
-    ] as [number, string][]
+    ]
   }
 
   it("drops a major two years after its own release", () => {
@@ -148,6 +222,22 @@ describe("cutoff", () => {
   })
 })
 
+describe("cutoff with an extension's range", () => {
+  const storybook = { range: "^9.0.0 || ^10.0.0" }
+
+  it("supports a version in the range, whenever it came out", () => {
+    expect(cutoff(storybook, "9.1.2", new Date("2031-01-01T00:00:00Z"))).toEqual({ status: "supported" })
+    expect(cutoff(storybook, "10.6.5", today)).toEqual({ status: "supported" })
+    expect(cutoff(storybook, "10.0.0-beta.3", today)).toEqual({ status: "supported" })
+  })
+
+  it("says a version above the range is newer and one below it is dropped", () => {
+    expect(cutoff(storybook, "11.0.0", today)).toEqual({ status: "newer" })
+    expect(cutoff(storybook, "8.6.14", today)).toEqual({ status: "dropped" })
+    expect(cutoff({ range: "^1.0.0" }, "1.170.46", today)).toEqual({ status: "supported" })
+  })
+})
+
 describe("detectProject", () => {
   it("reads installed versions from each package's own package.json, with the builder's config", async () => {
     const pkg = { dependencies: { react: "^19.1.0" }, devDependencies: { vite: "^8.0.0", tailwindcss: "^4.0.0" } }
@@ -158,12 +248,10 @@ describe("detectProject", () => {
       ...installed("vite", "8.3.5"),
       ...installed("tailwindcss", "4.3.3")
     })
-    const detection = await detectProject(
-      root,
-      pkg,
-      { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.cts", summary: "" } },
-      today
-    )
+
+    const builder = { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.cts", summary: "" } }
+    const detection = await detectProject(root, pkg, found(pkg, builder), today)
+
     expect(detection.packageManager.agent).toBe("pnpm")
     expect(detection.tools.map((tool) => tool.summary)).toEqual([
       "React 19.2.0 from node_modules/react",
@@ -179,6 +267,7 @@ describe("detectProject", () => {
       dependencies: { react: "^18.2.0" },
       devDependencies: { vite: "^5.0.0", tailwindcss: "^3.4.0", storybook: "^8.0.0" }
     }
+
     await fixture({
       "package.json": pkg,
       ...installed("react", "18.3.1"),
@@ -186,7 +275,7 @@ describe("detectProject", () => {
       ...installed("tailwindcss", "3.4.17"),
       ...installed("storybook", "8.6.14")
     })
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools.map((tool) => [tool.id, tool.status])).toEqual([
       ["react", "dropped"],
       ["vite", "dropped"],
@@ -204,10 +293,10 @@ describe("detectProject", () => {
     )
   })
 
-  it("says until when a tested version stays tested", async () => {
+  it("says until when a version the cutoff tests stays tested, and gives no date for a range", async () => {
     const pkg = { devDependencies: { vite: "^6.0.0", storybook: "^9.0.0" } }
     await fixture({ "package.json": pkg, ...installed("vite", "6.4.1"), ...installed("storybook", "9.1.2") })
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools).toMatchObject([
       {
         id: "vite",
@@ -215,43 +304,29 @@ describe("detectProject", () => {
         drops: "2026-11-26",
         summary: expect.stringContaining("tested until November 2026")
       },
-      { id: "storybook", status: "supported", drops: "2027-05-28" }
+      { id: "storybook", status: "supported", summary: "Storybook 9.1.2 from node_modules/storybook" }
     ])
-  })
-
-  it("finds Storybook's main config, in the folder its script names", async () => {
-    const pkg = { devDependencies: { storybook: "^10.0.0" } }
-    await fixture({ "package.json": pkg, ...installed("storybook", "10.6.5"), ".storybook/main.mts": "" })
-    expect((await detectProject(root, pkg, undefined, today)).tools[0]).toMatchObject({
-      config: ".storybook/main.mts",
-      summary: "Storybook 10.6.5 from node_modules/storybook, config .storybook/main.mts"
-    })
-
-    const scripted = { ...pkg, scripts: { storybook: "storybook dev -p 6006 -c config/sb" } }
-    await fixture({ "config/sb/main.cjs": "" })
-    expect((await detectProject(root, scripted, undefined, today)).tools[0]).toMatchObject({
-      config: "config/sb/main.cjs"
-    })
+    expect(detection.tools[1]?.drops).toBeUndefined()
   })
 
   it("reads Storybook 6 from its framework package", async () => {
     const pkg = { devDependencies: { "@storybook/react": "^6.5.0" } }
     await fixture({ "package.json": pkg, ...installed("@storybook/react", "6.5.16") })
-    const [storybook] = (await detectProject(root, pkg, undefined, today)).tools
+    const [storybook] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(storybook).toMatchObject({ id: "storybook", version: "6.5.16", status: "dropped" })
   })
 
   it("finds packages hoisted to a workspace root", async () => {
     const pkg = { dependencies: { react: "^19.0.0" } }
     await fixture({ "packages/app/package.json": pkg, ...installed("react", "19.2.0") })
-    const [react] = (await detectProject(join(root, "packages/app"), pkg, undefined, today)).tools
+    const [react] = (await detectProject(join(root, "packages/app"), pkg, found(pkg), today)).tools
     expect(react).toMatchObject({ version: "19.2.0", from: "../../node_modules/react" })
   })
 
   it("reports declared packages that aren't installed, and leaves out tools the project doesn't use", async () => {
     const pkg = { dependencies: { react: "^19.1.0" } }
     await fixture({ "package.json": pkg })
-    const detection = await detectProject(root, pkg, undefined, today)
+    const detection = await detectProject(root, pkg, found(pkg), today)
     expect(detection.tools).toEqual([
       {
         id: "react",
@@ -263,10 +338,96 @@ describe("detectProject", () => {
     ])
   })
 
+  it("reads the Vite that Vite+ ships when vite is aliased to its core", async () => {
+    const pkg = { devDependencies: { vite: "npm:@voidzero-dev/vite-plus-core@1.4.0" } }
+    await fixture({
+      "package.json": pkg,
+      "node_modules/vite/package.json": {
+        name: "@voidzero-dev/vite-plus-core",
+        version: "1.4.0",
+        bundledVersions: { vite: "8.3.5", rolldown: "1.2.15" }
+      }
+    })
+
+    const detection = await detectProject(root, pkg, found(pkg), today)
+    expect(detection.tools).toEqual([
+      {
+        id: "vite",
+        name: "Vite",
+        version: "8.3.5",
+        from: "node_modules/vite",
+        status: "supported",
+        summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
+      }
+    ])
+    expect(detection.notice).toBeUndefined()
+  })
+
+  it("reads Vite+ that pnpm links in from a workspace catalog", async () => {
+    // As the better-apps monorepo has it: `vite: catalog:` in package.json, the catalog aliasing it to Vite+'s core,
+    // and pnpm linking `node_modules/vite` to its store.
+    const pkg = { devDependencies: { vite: "catalog:" } }
+    const store = "node_modules/.pnpm/@voidzero-dev+vite-plus-core@1.4.0/node_modules/@voidzero-dev/vite-plus-core"
+    await fixture({
+      "package.json": pkg,
+      "pnpm-workspace.yaml": "catalog:\n  vite: npm:@voidzero-dev/vite-plus-core@1.4.0\n",
+      [`${store}/package.json`]: {
+        name: "@voidzero-dev/vite-plus-core",
+        version: "1.4.0",
+        bundledVersions: { vite: "8.3.5" }
+      }
+    })
+    await symlink(join(root, store), join(root, "node_modules/vite"), "junction")
+
+    const [vite] = (await detectProject(root, pkg, found(pkg), today)).tools
+    expect(vite).toMatchObject({
+      version: "8.3.5",
+      status: "supported",
+      summary: "Vite 8.3.5 from node_modules/vite, shipped by Vite+ 1.4.0 (@voidzero-dev/vite-plus-core)"
+    })
+  })
+
+  it("names an alias Parity doesn't know by its package", async () => {
+    const pkg = { devDependencies: { vite: "npm:some-vite-fork@2.0.0" } }
+    await fixture({
+      "package.json": pkg,
+      "node_modules/vite/package.json": { name: "some-vite-fork", version: "2.0.0", bundledVersions: { vite: "8.3.5" } }
+    })
+
+    const [vite] = (await detectProject(root, pkg, found(pkg), today)).tools
+    expect(vite).toMatchObject({
+      version: "8.3.5",
+      summary: "Vite 8.3.5 from node_modules/vite, shipped by some-vite-fork 2.0.0"
+    })
+  })
+
+  it("never takes an alias's own version for the tool's", async () => {
+    const pkg = { devDependencies: { vite: "npm:some-vite-fork@1.0.0" } }
+    await fixture({
+      "package.json": pkg,
+      "node_modules/vite/package.json": { name: "some-vite-fork", version: "1.0.0" }
+    })
+
+    const builder = { id: "vite", detection: { found: true, version: "8.3.5", config: "vite.config.ts", summary: "" } }
+    expect((await detectProject(root, pkg, found(pkg, builder), today)).tools[0]).toMatchObject({
+      version: "8.3.5",
+      status: "supported"
+    })
+
+    const [vite] = (await detectProject(root, pkg, found(pkg), today)).tools
+    expect(vite).toEqual({
+      id: "vite",
+      name: "Vite",
+      from: "node_modules/vite",
+      summary:
+        "Vite from node_modules/vite, installed as some-vite-fork 1.0.0, which doesn't say which Vite version it ships"
+    })
+  })
+
   it("marks a major newer than any Parity knows", async () => {
     const pkg = { dependencies: { react: "^20.0.0" } }
     await fixture({ "package.json": pkg, ...installed("react", "20.0.0") })
-    const [react] = (await detectProject(root, pkg, undefined, today)).tools
+    const [react] = (await detectProject(root, pkg, found(pkg), today)).tools
     expect(react).toMatchObject({ status: "newer" })
   })
 })

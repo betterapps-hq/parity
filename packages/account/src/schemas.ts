@@ -2,7 +2,7 @@ import { z } from "zod"
 
 /*
  * WorkOS's answers, as its AuthKit reference describes them. They're third-party JSON, so each is a loose object that
- * reads only the fields Parity uses (decisions.md, "Data Parity didn't make is checked with zod"). Fields WorkOS lists
+ * reads only the fields Parity uses. Fields WorkOS lists
  * as optional may come back as null.
  */
 
@@ -38,6 +38,8 @@ export const workosError = z.looseObject({
   email: z.string().optional().catch(undefined),
   /** Who signed in, which WorkOS gives when they have to choose an organization. */
   user: z.looseObject({ email: z.string() }).optional().catch(undefined),
+  /** What finishes the sign-in once the person chooses, with `organization_selection_required` (PAR-1143). */
+  pending_authentication_token: z.string().optional().catch(undefined),
   /** The organizations to choose from, with `organization_selection_required`. */
   organizations: z
     .array(z.looseObject({ id: z.string(), name: z.string() }).transform(({ id, name }) => ({ id, name })))

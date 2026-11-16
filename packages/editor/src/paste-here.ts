@@ -2,13 +2,12 @@ import {
   type ContainerSpec,
   type DesignNode,
   insertNode,
+  lengthSteps,
   locateNode,
-  nodeIds,
   type NodeStyle,
-  type StateSpec,
-  withFreshIds
+  type StateSpec
 } from "@parity-app/core"
-import { fitBindings } from "./clipboard.ts"
+import { copiesFor, type Pasted } from "./clipboard.ts"
 import { type Box, type Flow, type Point, type Rect, type SlotChild, slotAt } from "./drop-slot.ts"
 import { boardReader } from "./shown.ts"
 
@@ -42,8 +41,6 @@ export interface HereLayout {
   unit: number
 }
 
-const insets = ["top", "right", "bottom", "left"] as const
-
 /** Spacing steps between copies placed side by side at the pointer, as a pasted screen spaces its layers. */
 const besideGap = 4
 
@@ -54,7 +51,7 @@ const besideGap = 4
  * pointer. A copy that's absolutely placed itself goes in the slot and at the pointer. At the pointer is its left and
  * top in half steps of the spacing scale, in place of its own insets, though one stretched between its insets keeps its
  * right or bottom (see `placedAt`); several copies placed there go side by side from it. Copies keep the bindings the
- * design has params for (see `fitBindings`). Image files dropped onto the canvas land the same way. Returns the design
+ * design has params for (see `copiesFor`). Image files dropped onto the canvas land the same way. Returns the design
  * and the copies' ids; none when `here` isn't one of the design's layouts or a slot of one of its components.
  */
 export function pasteHere(
@@ -63,26 +60,39 @@ export function pasteHere(
   here: HereLayout,
   state: StateSpec,
   viewport?: string
-): { container: ContainerSpec; copies: string[] } {
+): Pasted {
   const target = slotHere(container, here, state, viewport)
-  if (!target) return { container, copies: [] }
+
+  if (!target) {
+    return { container, copies: [] }
+  }
+
   const { layout, slot, free, index, at } = target
-  const taken = nodeIds(container.root)
   // Several copies placed at the pointer go side by side from it, each a gap right of the one before when that one has
   // a width of its own; one that fills or hugs leaves the next where it starts.
   let left = at.left
-  const copies = nodes.map((node) => {
-    const copy = withFreshIds(fitBindings(node, container), taken)
-    if (!free && copy.style?.position !== "absolute") return copy
+
+  const copies = copiesFor(container, nodes).map((copy) => {
+    if (!free && copy.style?.position !== "absolute") {
+      return copy
+    }
+
     const placed = placedAt(copy, { left, top: at.top })
-    const width = copy.style?.width
-    if (typeof width === "number") left += width + besideGap
+    const width = lengthSteps(copy.style?.width)
+
+    if (width !== undefined) {
+      left += width + besideGap
+    }
+
     return placed
   })
+
   let root = container.root
+
   for (const [offset, copy] of copies.entries()) {
-    root = insertNode(root, layout, copy, { index: index + offset, ...(slot ? { slot } : {}) })
+    root = insertNode(root, layout, copy, { index: index + offset, slot })
   }
+
   return { container: { ...container, root }, copies: copies.map((copy) => copy.id) }
 }
 
@@ -116,22 +126,38 @@ export function slotHere(
   viewport?: string
 ): HereSlot | undefined {
   const layout = locateNode(container.root, here.layout)?.node
+
   const at = {
     left: halfSteps(here.point.x - here.origin.x, here),
     top: halfSteps(here.point.y - here.origin.y, here)
   }
+
   if (layout?.type === "component") {
     const { slot } = here
     const children = slot ? layout.slots?.[slot] : undefined
-    if (!slot || !children) return undefined
+
+    if (!slot || !children) {
+      return undefined
+    }
+
     const place = slotAt(here.children, here.point, here.flow, here.box, children.length)
+
     return { layout: layout.id, slot, free: false, index: place.index, at, line: place.line }
   }
-  if (layout?.type !== "layout") return undefined
+
+  if (layout?.type !== "layout") {
+    return undefined
+  }
+
   const free = boardReader(container, { state, viewport })(layout).style?.position === "absolute"
   const count = layout.children.length
-  if (free) return { layout: layout.id, free, index: count, at }
+
+  if (free) {
+    return { layout: layout.id, free, index: count, at }
+  }
+
   const slot = slotAt(here.children, here.point, here.flow, here.box, count)
+
   return { layout: layout.id, free, index: slot.index, at, line: slot.line }
 }
 
@@ -146,16 +172,20 @@ function halfSteps(screen: number, here: HereLayout): number {
  */
 export function placedAt(node: DesignNode, at: { left: number; top: number }): DesignNode {
   const style = node.style ?? {}
-  const own = Object.fromEntries(Object.entries(style).filter(([key]) => !(insets as readonly string[]).includes(key)))
+  const { top: _top, right: _right, bottom: _bottom, left: _left, ...own } = style
+
   const stretched = (start: "left" | "top", end: "right" | "bottom", size: "width" | "height") =>
     style[start] !== undefined && style[end] !== undefined && style[size] === undefined
-  const placed: NodeStyle = {
-    ...own,
-    position: "absolute",
-    left: at.left,
-    top: at.top,
-    ...(stretched("left", "right", "width") ? { right: style.right } : {}),
-    ...(stretched("top", "bottom", "height") ? { bottom: style.bottom } : {})
+
+  const placed: NodeStyle = { ...own, position: "absolute", left: { step: at.left }, top: { step: at.top } }
+
+  if (stretched("left", "right", "width")) {
+    placed.right = style.right
   }
+
+  if (stretched("top", "bottom", "height")) {
+    placed.bottom = style.bottom
+  }
+
   return { ...node, style: placed }
 }

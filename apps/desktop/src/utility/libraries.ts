@@ -1,10 +1,11 @@
-import { type ChildProcess, spawn } from "node:child_process"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
+import { endedByItself, type Lifecycle } from "@parity-app/processes"
 import { addCommand, detectPackageManager, libraryCatalog, withStylesImport } from "@parity-app/project"
 import type { ProjectEditResult, ServiceMethods } from "../shared/protocol.ts"
+import { spawnChild } from "./children.ts"
 import { applyProjectEdit } from "./edits.ts"
-import { killTree, trackProcess } from "./processes.ts"
+import { trackProcess } from "./processes.ts"
 import { message, type OpenProject } from "./projects.ts"
 
 export async function catalogFor({ info }: OpenProject): Promise<ServiceMethods["library.catalog"]["result"]> {
@@ -27,28 +28,36 @@ export async function addLibrary(
   { library }: ServiceMethods["library.add"]["params"]
 ): Promise<ServiceMethods["library.add"]["result"]> {
   const definition = (await libraryCatalog()).find((candidate) => candidate.id === library)
-  if (!definition) throw new Error(`No library "${library}"`)
+
+  if (!definition) {
+    throw new Error(`No library "${library}"`)
+  }
+
   // Detected again, in case the project changed package manager since it opened.
   const packageManager = await detectPackageManager(project.info.root)
   const { command, args } = addCommand(packageManager.agent, [definition.package])
-  let child: ChildProcess | undefined
+  let life: Lifecycle | undefined
+
   const task = trackProcess(
     {
       id: `install:${project.info.id}`,
-      kind: "install",
-      shape: "task",
+      owner: { kind: "parity", role: "install" },
+      lifetime: "task",
       name: `Install ${definition.name}`,
       projectId: project.info.id,
       project: project.info.name,
-      status: "running",
+      state: "running",
       detail: [command, ...args].join(" ")
     },
-    { stop: () => child?.pid && killTree(child.pid) }
+    { stop: () => life?.stop() }
   )
+
   let log: string
   let edit: ProjectEditResult | undefined
+
   try {
-    log = await run(command, args, project.info.root, (spawned) => (child = spawned))
+    log = await run(command, args, project.info.root, (started) => (life = started))
+
     if (definition.tailwindEntry) {
       edit = await importLibraryStyles(project, definition.name, `${definition.package}/${definition.tailwindEntry}`)
     }
@@ -57,10 +66,13 @@ export async function addLibrary(
       task.set("canceled")
       throw new Error(`Installing ${definition.name} was canceled`, { cause: error })
     }
+
     task.set("failed", { summary: `${command} couldn't install ${definition.package}`, error: message(error) })
     throw error
   }
+
   task.set("passed", { summary: `Added ${definition.package}` })
+
   return edit ? { log, edit } : { log }
 }
 
@@ -70,15 +82,24 @@ export async function importStyles(
 ): Promise<ProjectEditResult | undefined> {
   const { info } = project
   const installed = info.libraries.find((candidate) => candidate.id === library)
-  if (!installed?.tailwindEntry) throw new Error(`${library} has no styles to import`)
+
+  if (!installed?.tailwindEntry) {
+    throw new Error(`${library} has no styles to import`)
+  }
+
   const edit = await importLibraryStyles(project, installed.name, `${installed.importName}/${installed.tailwindEntry}`)
   installed.stylesImported = true
+
   return edit
 }
 
 function stylesheetOf(project: OpenProject): string {
   const stylesheet = project.info.styles?.stylesheet ?? project.stylesheets[0]
-  if (!stylesheet) throw new Error("The project has no stylesheet to import the library's styles into")
+
+  if (!stylesheet) {
+    throw new Error("The project has no stylesheet to import the library's styles into")
+  }
+
   return stylesheet
 }
 
@@ -91,28 +112,39 @@ async function importLibraryStyles(
   const stylesheet = stylesheetOf(project)
   const source = await readFile(join(project.info.root, stylesheet), "utf8")
   const content = withStylesImport(source, specifier)
-  if (content === undefined) return undefined
+
+  if (content === undefined) {
+    return undefined
+  }
+
   return applyProjectEdit(project, {
     label: `Import ${name}'s styles`,
     files: [{ kind: "replace", path: stylesheet, expected: source, content }]
   })
 }
 
-function run(command: string, args: string[], cwd: string, started: (child: ChildProcess) => void): Promise<string> {
-  return new Promise((resolve, reject) => {
-    // Package managers are .cmd scripts on Windows, which only start through a shell. The arguments are package
-    // names from the catalog, never anything typed.
-    const env = { ...process.env }
-    // This is the project's package manager, whose install scripts may launch an Electron app of their own.
-    for (const key of Object.keys(env)) if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") delete env[key]
-    const child = spawn(command, args, { cwd, shell: process.platform === "win32", env })
-    started(child)
-    let log = ""
-    child.stdout.on("data", (chunk: Buffer) => (log += chunk.toString()))
-    child.stderr.on("data", (chunk: Buffer) => (log += chunk.toString()))
-    child.on("error", reject)
-    child.on("close", (code) =>
-      code === 0 ? resolve(log) : reject(new Error(`${command} ${args.join(" ")} failed:\n${log.slice(-2000)}`))
-    )
-  })
+/** Runs the package manager in the project's folder, and settles with the end of what it printed once it succeeds. */
+async function run(command: string, args: string[], cwd: string, started: (life: Lifecycle) => void): Promise<string> {
+  const env = { ...process.env }
+
+  // This is the project's package manager, whose install scripts may launch an Electron app of their own.
+  for (const key of Object.keys(env)) {
+    if (key.toUpperCase() === "ELECTRON_RUN_AS_NODE") {
+      delete env[key]
+    }
+  }
+
+  // Package managers are .cmd scripts on Windows, which only start through a shell. The arguments are package names
+  // from the catalog, never anything typed.
+  const life = spawnChild(command, args, { cwd, shell: process.platform === "win32", env })
+  started(life)
+  const exit = await life.exited
+
+  if (exit.code === 0) {
+    return exit.output
+  }
+
+  throw new Error(
+    exit.error ? endedByItself(command, exit) : `${command} ${args.join(" ")} failed:\n${exit.output.trim()}`
+  )
 }

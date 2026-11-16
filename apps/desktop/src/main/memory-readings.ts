@@ -6,10 +6,15 @@
 /** The PowerShell reader's answer on Windows: `pid=bytes` pairs, with -1 for a process it couldn't read. */
 export function windowsAnswer(line: string): Map<number, number> {
   const sizes = new Map<number, number>()
+
   for (const pair of line.trim().split(/\s+/)) {
     const [pid, bytes] = pair.split("=").map(Number)
-    if (pid && bytes && bytes > 0) sizes.set(pid, bytes)
+
+    if (pid && bytes && bytes > 0) {
+      sizes.set(pid, bytes)
+    }
   }
+
   return sizes
 }
 
@@ -20,10 +25,17 @@ export function windowsAnswer(line: string): Map<number, number> {
  */
 export function linuxAnonymous(status: string): number | undefined {
   const kilobytes = /^RssAnon:\s+(\d+)\s+kB$/m.exec(status)?.[1]
+
   return kilobytes === undefined ? undefined : Number(kilobytes) * 1024
 }
 
-const units: Record<string, number> = { B: 1, K: 2 ** 10, M: 2 ** 20, G: 2 ** 30, T: 2 ** 40 }
+const units = new Map([
+  ["B", 1],
+  ["K", 2 ** 10],
+  ["M", 2 ** 20],
+  ["G", 2 ** 30],
+  ["T", 2 ** 40]
+])
 
 /**
  * Each process's memory footprint on macOS, which Activity Monitor's Memory column shows, from
@@ -33,13 +45,19 @@ const units: Record<string, number> = { B: 1, K: 2 ** 10, M: 2 ** 20, G: 2 ** 30
 export function macFootprints(top: string): Map<number, number> {
   const sizes = new Map<number, number>()
   let rows = false
+
   for (const line of top.split("\n")) {
     if (!rows) {
       rows = /^\s*PID\s+MEM\s*$/.test(line)
       continue
     }
+
     const row = /^\s*(\d+)\s+([\d.]+)([BKMGT])[+-]?\s*$/.exec(line)
-    if (row) sizes.set(Number(row[1]), Math.round(Number(row[2]) * units[row[3]!]!))
+
+    if (row) {
+      sizes.set(Number(row[1]), Math.round(Number(row[2]) * units.get(row[3]!)!))
+    }
   }
+
   return sizes
 }

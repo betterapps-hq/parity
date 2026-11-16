@@ -1,7 +1,6 @@
 # Proposal: the public repository, CI and releases
 
-Status: draft, 2026-10-29. The work is the Repository, CI and releases stream in Linear, and the calls made are in
-[decisions.md](../decisions.md) under "Repository and releases".
+Status: draft, 2026-10-29. The work is the Repository, CI and releases stream in Linear.
 
 ## In one line
 
@@ -34,15 +33,17 @@ to npm and of unsigned installers to GitHub Releases, as betas first and to ever
 - **Only the desktop app and the CLI are versioned,** from Beachball change files (PAR-4). The packages they bundle stay
   `private`. The CLI is on npm as `@parity-app/cli` (PAR-13): 0.0.0 was published by hand on 2026-10-30, and npm trusts
   `ci.yml` in the `npm` environment to publish the rest.
-- **The agency monorepo's stricter lint rules are on** (PAR-396), apart from the three left out below.
+- **Lint extends Buildkit's base config with its anti-slop rules** (PAR-730), which replaced the agency monorepo's rules
+  (PAR-396) and turned on the three those left out. Code that doesn't pass yet is listed by part in `vite.config.ts`,
+  each part with a sub-issue that cleans it up. Storybook uses Buildkit's shared config.
 - **Hooks check what a commit stages and what a push sends** (PAR-3), so other sessions' unfinished work no longer fails
   a commit. `pnpm verify` still checks the whole folder.
 - **The type-aware lint rules are on** (PAR-396), checked with types on push and in CI. One test file turns
-  `no-implied-eval` off in `lint.overrides`, since it runs generated source; decisions.md says why.
+  `no-implied-eval` off in `lint.overrides`, since it runs generated source.
 - **`pnpm check:unused` runs knip** (PAR-395) for unused files, dependencies and exports, from `knip.jsonc`. CI's checks
   job runs it; `pnpm verify` doesn't.
 - **Dependabot keeps dependencies current** (PAR-394): weekly, grouped, a few days behind each release, and never in the
-  fixtures or the Vite+ toolchain. decisions.md has the calls.
+  fixtures or the Vite+ toolchain.
 - **npm delivery is configured** (PAR-14, PAR-10). `cd-npm.yml` publishes `@parity-app/cli` through npm's trusted
   publishing with provenance, once CI passes on `main`. `0.0.0` was published by hand, and npm trusts `cd-npm.yml` with
   the `npm` environment. Terraform has provisioned that environment, restricted to `main` with administrator bypass
@@ -71,14 +72,14 @@ with a type checker that runs on TypeScript 7. Its `vite:monorepo` template has 
 - **Three departures from the template:**
   - **Workspace packages stay source-only** (`exports: ./src/index.ts`). The app bundles them and Node strips their
     types, so they need no build. Only what's published gets `vp pack`: the CLI (see npm packages).
-  - **The example project, the fixtures and `@parity-app/builder-vite` stay on stock Vite.** `examples/shadcn-vite`
-    stands in for a customer's project, and builder-vite drives the customer's own Vite, so the override mustn't reach
-    them. The `prefer-vite-plus-imports` lint rule skips builder-vite for the same reason.
+  - **The example project, the fixtures and `@parity-app/vite-adapter` stay on stock Vite.** `examples/shadcn-vite`
+    stands in for a customer's project, and vite-adapter drives the customer's own Vite, so the override mustn't reach
+    them. The `prefer-vite-plus-imports` lint rule skips vite-adapter for the same reason.
   - **`pnpm verify` keeps its name** and runs `vp check` and `vp test`, since AGENTS.md, work.md and every running
     session use it. Every repo using the shared pipelines has a `pnpm verify`, which is what the shared CI runs.
 - **Two steps, so running sessions aren't broken.** The configuration goes first (PAR-1), made in a worktree, because
   `vp migrate` reinstalls `node_modules` under any running `pnpm dev`. The test files' imports moved to `vite-plus/test`
-  afterwards (PAR-393), and `prefer-vite-plus-imports` is on everywhere but builder-vite.
+  afterwards (PAR-393), and `prefer-vite-plus-imports` is on everywhere but vite-adapter.
 
 ## Checks on commit and push
 
@@ -163,8 +164,8 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
   Parity, since a public repository's runners are free on all three and Parity is developed on Windows. It sets up Vite+
   through `voidzero-dev/setup-vp`, pinned to an exact release, since its docs say the `v1` tag no longer gets updates.
 - **Parity's own steps go before it:** installing the fixture projects with npm, Yarn and Bun
-  (`pnpm --filter @parity-app/fixtures install-projects`), cached on their lockfiles. Without them `detection.test.ts`
-  fails.
+  (`pnpm --filter @parity-app/fixtures install-projects`), cached on their lockfiles. `detection.test.ts` runs only in
+  CI, so a local `pnpm verify` skips it rather than needing them.
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
 - **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions (PAR-394). The shared
@@ -338,7 +339,8 @@ What it doesn't take:
 
 - **Turborepo,** since `vp run` runs tasks and caches them.
 - **Shared config packages** (`@repo/oxlint-config`, `@repo/typescript-config`). Vite+ keeps lint and format settings in
-  the root config, with overrides per folder.
+  the root config, with overrides per folder. Since PAR-730 that config extends Buildkit's published
+  `@buildkitgg/oxlint-config` instead.
 - **"Prefer `type` over `interface`".** Parity's code uses `interface` 414 times to `type`'s 177.
 - **The React Compiler rule and "don't write `useMemo`".** Parity doesn't run the compiler.
 - **Its library catalogs** (`ts-extras`, `ts-pattern`, `tiny-invariant`, `zod`, `@mantine/hooks`) and Fluent UI styling.

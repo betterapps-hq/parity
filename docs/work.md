@@ -3,8 +3,7 @@
 Every piece of planned work for Parity is an issue in Linear, in the
 [Parity project](https://linear.app/agency-platform/project/parity-3179c1feb580) of the Parity team, whose issue IDs
 start with PAR. It moved there from `docs/backlog.md` on 2026-10-29. Sessions reach it through the Linear connector.
-What's decided goes in [decisions.md](decisions.md), designs in [proposals](proposals), and what works in
-[support.md](support.md).
+Designs go in [proposals](proposals), and what works in [support.md](support.md).
 
 ## How sessions use it
 
@@ -22,35 +21,52 @@ What's decided goes in [decisions.md](decisions.md), designs in [proposals](prop
    `Fixes PAR-16` in its description, one line per issue it finishes, so Linear links it and closes the issue when it
    merges.
 5. **Finish:** run `pnpm verify`, then do what the issue's "Update when done" says: the rows it changes in support.md
-   (and ask the Design Editor session to republish the support matrix), the feature's section in editor.md, and any
-   calls you made in decisions.md. Commit as [AGENTS.md](../AGENTS.md) says.
+   (and ask the Design Editor session to republish the support matrix) and the feature's section in editor.md. Commit as
+   [AGENTS.md](../AGENTS.md) says.
 6. **Close it once the work is on main,** with a comment saying what landed: the files, the tests, the doc section and
    the commit. Work lands through a pull request on GitHub (betterapps-hq/parity), as [AGENTS.md](../AGENTS.md) says;
    never commit to or push `main` itself. Once the work is verified, push its branch and open the pull request yourself,
    without waiting to be asked. A pull request closes its issue when it merges, since Linear is connected to
    betterapps-hq: after it merges, check the issue moved to Done and has that comment, and move it or add the comment if
    not. Work that's only partly landed stays In Progress, with a comment saying what's left.
-7. **Found more work?** Create an issue in the Parity project, written as below.
+7. **Found more work?** Create an issue in the Parity project, written as below. A bug Sentry filed is picked up as
+   [Bugs from Sentry](#bugs-from-sentry) says.
 8. **Blocked by a decision?** Create an issue with the Decision label, assigned to the user, that blocks the issue it
-   holds up. Questions go to the user, not into the code. When the user answers, record the answer in decisions.md,
-   close the Decision issue, and update the issues it blocked.
+   holds up. Questions go to the user, not into the code. When the user answers, close the Decision issue and update the
+   issues it blocked.
+
+## Bugs from Sentry
+
+Sentry files bugs itself. A new error, a regression or a report in `parity-desktop` or `parity-cli` becomes a Todo issue
+with the Bug label and its Sentry link, as [sentry.md](sentry.md#alerts) says.
+
+- **Read the Sentry issue before the code.** Open the Sentry link attached to the bug with Sentry's MCP server, which
+  `.mcp.json` and `.codex/config.toml` give every session in this repository. Read its events, stack, breadcrumbs, trace
+  and replay, and the release, environment and `test_run` it came from. The first time, sign in with OAuth as
+  `admin@betterapps.io`: `/mcp` in Claude Code, `codex mcp login sentry` in Codex.
+- **Name the proof in the pull request:** the Sentry event or trace that showed the bug. Closing the Linear issue
+  resolves the Sentry issue in the next release, and Linear reopens the bug if the error comes back after that.
+- **An agent's test pass sets `PARITY_TEST_RUN`** to a name for the pass, so its events, errors and replays carry that
+  `test_run`. When something looks wrong but nothing threw, it reports it with `parity report "<what's wrong>"`, which
+  Sentry files the same way. `parity report` arrives with PAR-646.
 
 ## Writing an issue
 
 - **Title:** what the work does, starting with a verb: "Read SQLite and D1 schemas with PRAGMA".
 - **Description,** in this order:
   - **Done when:** what's true once it's finished, specific enough to check.
-  - **Source:** the proposal section, decisions.md section, audit or request it came from.
+  - **Source:** the proposal section, audit or request it came from.
   - **Update when done:** the docs it changes. Editor features get their section in editor.md with the tests that cover
-    them, adapters and lenses their rows in support.md, agent calls their line in the skill with an example that runs,
-    and every issue decisions.md for any calls made.
+    them, adapters and lenses their rows in support.md, and agent calls their line in the skill with an example that
+    runs.
 - **Stream:** one label from the Stream group, such as Data lens or Canvas and editor.
 - **Estimate:** 2 points is a short session, 3 a full one, 5 a full one with little slack (the backlog's S, M and L).
 - **Blocked by:** the issues it needs first.
 
 ## Statuses, priorities and labels
 
-- **Todo** is planned work. A blocked one shows what it's waiting for.
+- **Todo** is planned work. A blocked one shows what it's waiting for. It's the team's default status, so an issue
+  created without one, or a Sentry bug reopened by a regression, lands there.
 - **Backlog** is work the user put after the core, and work that's parked or waiting on Better Apps.
 - **In Progress, Done** and **Canceled** mean what they say. A split or dropped issue is Canceled with a comment why.
 - **Urgent** is open bugs in what's built, with the refactors they wait on. **High** is the new-user experience and the

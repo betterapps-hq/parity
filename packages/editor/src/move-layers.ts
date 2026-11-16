@@ -5,13 +5,11 @@ import {
   insertNode,
   jsonText,
   moveNodes,
-  nodeIds,
   type StateSpec,
-  topmostNodes,
-  withFreshIds
+  topmostNodes
 } from "@parity-app/core"
 import { z } from "zod"
-import { asShown, fitBindings } from "./clipboard.ts"
+import { asShown, copiesFor } from "./clipboard.ts"
 import type { MoveTarget } from "./drop-target.ts"
 
 /**
@@ -39,18 +37,27 @@ export type MovePlace = Pick<MoveTarget, "parent" | "index" | "slot">
  */
 export function moveLayersWithin(container: ContainerSpec, ids: readonly string[], place: MovePlace): ContainerSpec {
   let root = container.root
+
   try {
     root = moveNodes(container.root, ids, place.parent, { index: place.index, slot: place.slot })
   } catch {
     return container
   }
+
   return JSON.stringify(root) === JSON.stringify(container.root) ? container : { ...container, root }
+}
+
+/** Both designs once layers move from one to the other, and the copies' ids in the destination. */
+export interface LayersMoved {
+  source: ContainerSpec
+  destination: ContainerSpec
+  copies: string[]
 }
 
 /**
  * Moves the layers `ids`, the outermost of them, from one design to a place in another: they leave `source` and copies
  * of them go into `destination`, as the source's board shows them in `state` and `viewport` (see `asShown`), with ids
- * new there and the bindings `destination` has params for (see `fitBindings`). Returns both designs and the copies'
+ * new there and the bindings `destination` has params for (see `copiesFor`). Returns both designs and the copies'
  * ids, to select; both the same and no copies when none of the layers is in `source`.
  */
 export function moveLayersAcross(
@@ -60,16 +67,22 @@ export function moveLayersAcross(
   place: MovePlace,
   state: StateSpec,
   viewport?: string
-): { source: ContainerSpec; destination: ContainerSpec; copies: string[] } {
-  const taken = nodeIds(destination.root)
-  const copies = topmostNodes(source.root, ids).map((node) =>
-    withFreshIds(fitBindings(asShown(source, node, state, viewport), destination), taken)
+): LayersMoved {
+  const copies = copiesFor(
+    destination,
+    topmostNodes(source.root, ids).map((node) => asShown(source, node, state, viewport))
   )
-  if (copies.length === 0) return { source, destination, copies: [] }
+
+  if (copies.length === 0) {
+    return { source, destination, copies: [] }
+  }
+
   let root = destination.root
+
   for (const [offset, copy] of copies.entries()) {
     root = insertNode(root, place.parent, copy, { index: place.index + offset, slot: place.slot })
   }
+
   return {
     source: ids.reduce((next, id) => (findNode(next.root, id) ? deleteNode(next, id) : next), source),
     destination: { ...destination, root },

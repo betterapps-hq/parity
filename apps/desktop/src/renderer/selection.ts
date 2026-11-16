@@ -1,5 +1,17 @@
-import { type Selection, sameSelection } from "@parity-app/editor"
+import {
+  canvasOutlines,
+  pickReview,
+  type Review,
+  type ReviewTool,
+  type Selection,
+  sameSelection,
+  selectedPreviews,
+  startReview,
+  stopReview
+} from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
+import { recordInterface } from "./interface-events.ts"
+import { signal } from "./store.ts"
 
 export interface Hover {
   design: string
@@ -13,7 +25,15 @@ export interface Hover {
  * `frame` draws a frame by dragging on the canvas, and `interact` hands the pointer and keys to the designs' real
  * components, to try them as in a browser.
  */
-export type Tool = "select" | "hand" | "frame" | "text" | "interact"
+export const tools = ["select", "hand", "frame", "text", "interact"] as const
+
+export type Tool = (typeof tools)[number]
+
+const toolNames: readonly string[] = tools
+
+export function isTool(value: string): value is Tool {
+  return toolNames.includes(value)
+}
 
 /** Asks whatever shows a design or layer's name to start renaming it in place. */
 export interface RenameRequest {
@@ -23,11 +43,15 @@ export interface RenameRequest {
   id: number
 }
 
-/** Selection, hover and the current tool for one tab. The canvas, panels and agents all read and write it. */
+/**
+ * Selection, hover, the current tool and the review tool for one tab. The canvas, panels and agents all read and write
+ * it.
+ */
 export class SelectionStore {
   private selection: Selection = {}
   private hover: Hover | undefined
   private tool: Tool = "select"
+  private review: Review<Tool> = startReview()
   /** Counts the times interacting stopped, so frames can go back to showing the design as it is. */
   private interactions = 0
   /**
@@ -38,27 +62,30 @@ export class SelectionStore {
     | { design: string; node: string; mode?: string; state?: string; at?: { x: number; y: number } }
     | undefined
   private rename: RenameRequest | undefined
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   get = () => this.selection
   getHover = () => this.hover
   getTool = () => this.tool
+  getReview = () => this.review
   getInteractions = () => this.interactions
   getEditing = () => this.editing
   getRename = () => this.rename
 
   set(selection: Selection): void {
-    if (sameSelection(selection, this.selection)) return
+    if (sameSelection(selection, this.selection)) {
+      return
+    }
+
     this.selection = selection
+
     if (this.editing && (this.editing.node !== selection.node || this.editing.design !== selection.design)) {
       this.editing = undefined
     }
-    this.notify()
+
+    this.changes.notify()
   }
 
   setHover(hover: Hover | undefined): void {
@@ -70,31 +97,79 @@ export class SelectionStore {
     ) {
       return
     }
+
     this.hover = hover
-    this.notify()
+    this.changes.notify()
   }
 
+  /** Picks a tool. Any tool, Move and select again too, puts a review tool down, staying on the tool picked. */
   setTool(tool: Tool): void {
-    if (tool === this.tool) return
-    if (this.tool === "interact") this.interactions++
-    this.tool = tool
-    this.notify()
+    const reviewing = !!this.review.picked
+
+    if (tool === this.tool && !reviewing) {
+      return
+    }
+
+    if (reviewing) {
+      this.review = stopReview(this.review)
+    }
+
+    this.changeTool(tool)
+    this.changes.notify()
+  }
+
+  /**
+   * Picks a review tool (PAR-795). The canvas goes to Move and select while it's picked, so a click can't draw a frame or
+   * add text underneath, and `stopReviewing` goes back to the tool picked before.
+   */
+  startReviewing(tool: ReviewTool): void {
+    this.review = pickReview(this.review, tool, this.tool)
+    this.changeTool("select")
+    this.changes.notify()
+  }
+
+  /** Puts the review tool down, back on the tool picked before it, as Done and Esc do. */
+  stopReviewing(): void {
+    const { picked, before } = this.review
+
+    if (!picked) {
+      return
+    }
+
+    this.review = stopReview(this.review)
+    this.changeTool(before ?? "select")
+    this.changes.notify()
   }
 
   /** Starts renaming the selected design or layer: the design's title on the canvas, or the layer in the Layers panel. */
   requestRename(): void {
-    if (!this.selection.design) return
+    if (!this.selection.design) {
+      return
+    }
+
     this.rename = { design: this.selection.design, node: this.selection.node, id: (this.rename?.id ?? 0) + 1 }
-    this.notify()
+    this.changes.notify()
   }
 
   setEditing(editing: SelectionStore["editing"]): void {
     this.editing = editing
-    this.notify()
+    this.changes.notify()
   }
 
-  private notify(): void {
-    for (const listener of this.listeners) listener()
+  private changeTool(tool: Tool): void {
+    if (tool === this.tool) {
+      return
+    }
+
+    if (this.tool === "interact") {
+      this.interactions++
+    }
+
+    if ((tool === "interact") !== (this.tool === "interact")) {
+      recordInterface("mode.switched", { mode: tool === "interact" ? "interact" : "design" })
+    }
+
+    this.tool = tool
   }
 }
 
@@ -109,10 +184,59 @@ export function useSelection(store: SelectionStore): Selection {
 export function useDesignSelection(store: SelectionStore, design: string): { selected: boolean; mode?: string } {
   const part = useSyncExternalStore(store.subscribe, () => {
     const selection = store.get()
-    if (selection.design !== design) return ""
+
+    if (selection.design !== design) {
+      return ""
+    }
+
     return !selection.node && selection.mode ? `mode:${selection.mode}` : "design"
   })
+
   return part.startsWith("mode:") ? { selected: true, mode: part.slice("mode:".length) } : { selected: part !== "" }
+}
+
+/**
+ * One design's selected previews, by `state/mode`, the last picked at the end: empty unless previews of it are selected
+ * on their own. A mode picked without a state, as the Modes list picks one, is `/mode`, its column in every state.
+ * Read as a plain string, so a board draws again only when its own previews change.
+ */
+export function usePreviewSelection(store: SelectionStore, design: string): string[] {
+  const part = useSyncExternalStore(store.subscribe, () => {
+    const selection = store.get()
+
+    return selection.design === design ? selectedPreviews(selection).join("\n") : ""
+  })
+
+  return part === "" ? [] : part.split("\n")
+}
+
+/**
+ * Whether a design's board is outlined, as `canvasOutlines` says (PAR-1118): "selected" when the design itself is,
+ * "hovered" when it's under the pointer (`hovered`) or its row in Layers is, and nothing while a layer or preview in it
+ * is selected or a layer in it is hovered, which outline themselves. Read as a plain string, so a board draws again
+ * only when its own outline changes.
+ */
+export function useBoardOutline(store: SelectionStore, design: string, hovered: boolean): "selected" | "hovered" | "" {
+  return useSyncExternalStore(store.subscribe, () => {
+    const hover = store.getHover()
+    let target: Parameters<typeof canvasOutlines>[1]
+
+    if (hover?.node) {
+      target = { kind: "layer", design: hover.design, node: hover.node }
+    } else if (hovered || hover?.design === design) {
+      target = { kind: "design", design }
+    }
+
+    const outline = canvasOutlines(store.get(), target).find(
+      (each) => each.target.kind === "design" && each.target.design === design
+    )
+
+    if (!outline) {
+      return ""
+    }
+
+    return outline.hovered ? "hovered" : "selected"
+  })
 }
 
 export function useHover(store: SelectionStore): Hover | undefined {
@@ -121,6 +245,11 @@ export function useHover(store: SelectionStore): Hover | undefined {
 
 export function useTool(store: SelectionStore): Tool {
   return useSyncExternalStore(store.subscribe, store.getTool)
+}
+
+/** The review tool picked, if one is, the one the review button shows, and what to go back to. */
+export function useReview(store: SelectionStore): Review<Tool> {
+  return useSyncExternalStore(store.subscribe, store.getReview)
 }
 
 /** Whether the designs take the pointer and keys, with the Interact tool. */

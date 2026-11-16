@@ -7,6 +7,7 @@ import { preferredExports } from "./icon-exports.ts"
 /** Writes a declaration file, runs `test` with its path, and removes it. */
 async function withTypes(text: string, test: (file: string) => void): Promise<void> {
   const dir = await mkdtemp(join(tmpdir(), "parity-icon-types-"))
+
   try {
     const file = join(dir, "index.d.ts")
     await writeFile(file, text)
@@ -43,6 +44,7 @@ export { TriangleAlert, TriangleAlert as AlertTriangle, TriangleAlert as Triangl
           ["AlertTriangle", "TriangleAlert", "TriangleAlertIcon"],
           ["X", "XIcon"]
         ]
+
         expect(preferredExports(file, groups, () => true)).toEqual(["TriangleAlert"])
       }
     )

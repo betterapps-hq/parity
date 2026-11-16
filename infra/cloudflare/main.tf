@@ -1,7 +1,6 @@
 # Parity's Cloudflare services, from the shared modules: the Worker each pull request's Storybook is a preview of
-# (PAR-113), the token that deploys it, and the preview environment's settings that preview.yml's publish-storybook and
-# preview-cleanup.yml's unpublish-storybook read. The terraform-apply workflow runs it with its state in R2, beside
-# infra/github's.
+# (PAR-113) and the Workers Parity's service runs in (PAR-947), with the tokens that deploy them and the settings the
+# workflows read. The terraform-apply workflow runs it with its state in R2, beside infra/github's.
 terraform {
   required_version = "= 1.16.6"
   required_providers {
@@ -52,4 +51,71 @@ module "storybook" {
 
 output "storybook" {
   value = module.storybook.environments
+}
+
+# The zone the service's API is served on. Its ID is looked up by name, so it's written nowhere.
+data "cloudflare_zone" "tryparity" {
+  filter = {
+    name = "tryparity.dev"
+  }
+}
+
+# Parity's service, apps/portal (PAR-947, docs/proposals/service.md): a Worker for staging and one for production, the
+# token that deploys them, and the settings cd-portal.yml's and preview.yml's web templates read. Production is served
+# at api.tryparity.dev only. A pull request's preview is a preview of staging's Worker.
+module "portal" {
+  source = "git::https://github.com/betterapps-hq/pipelines.git//terraform/cloudflare-web?ref=main"
+
+  account_id  = "544b5bfd594cd02a5da4b79a2038cc9f"
+  repository  = "parity"
+  name_prefix = "parity-portal"
+
+  environments = {
+    # Nothing else uses staging, so the module makes and owns it.
+    staging = { manage_environment = true }
+    # production exists already, so the module only writes its WEB_ settings into it.
+    production = {
+      custom_domain = {
+        zone_id  = data.cloudflare_zone.tryparity.zone_id
+        hostname = "api.tryparity.dev"
+      }
+      workers_dev  = false
+      preview_urls = false
+    }
+  }
+
+  # The Storybook module owns the preview environment and writes its account ID, so this one only adds to it.
+  previews = {
+    manage_environment = false
+    write_account_id   = false
+  }
+
+  # Deploys bind the KV namespaces below to the Workers, so the token can write KV too (PAR-131).
+  token_permissions = ["Workers Scripts Write", "Workers KV Storage Write"]
+}
+
+# The portal's pages are served at tryparity.dev by the same production Worker (PAR-1003). The module takes one custom
+# domain for an environment, the API's, so this second one is attached here. Both hosts reach every route for now.
+resource "cloudflare_workers_custom_domain" "portal_pages" {
+  account_id = "544b5bfd594cd02a5da4b79a2038cc9f"
+  zone_id    = data.cloudflare_zone.tryparity.zone_id
+  hostname   = "tryparity.dev"
+  service    = module.portal.environments["production"].worker
+}
+
+output "portal" {
+  value = module.portal.environments
+}
+
+# Where the service keeps each search's answer for a day (PAR-131), one namespace for production and one that staging
+# and its previews share. They're made here, not by a deploy, since a preview can't make one: apps/portal/wrangler.jsonc
+# names them by the IDs this outputs, which aren't secret.
+resource "cloudflare_workers_kv_namespace" "search_cache" {
+  for_each   = toset(["production", "staging"])
+  account_id = "544b5bfd594cd02a5da4b79a2038cc9f"
+  title      = "parity-portal-search-cache-${each.key}"
+}
+
+output "search_cache" {
+  value = { for name, namespace in cloudflare_workers_kv_namespace.search_cache : name => namespace.id }
 }

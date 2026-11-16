@@ -61,6 +61,7 @@ describe("modesReport", () => {
       ],
       modes: [{ id: "phone", name: "Phone", values: { viewport: "phone" } }]
     }
+
     const report = modesReport(settings)
     expect(report.viewports[0]).toEqual({ id: "phone", name: "Phone", width: 390, height: 700 })
     expect(report.modes[0]).toMatchObject({ viewport: "phone", width: 390, height: 700, values: { viewport: "phone" } })
@@ -85,6 +86,7 @@ describe("designModes", () => {
       view: { mode: "mobile-light", modes: ["desktop-dark", "missing"], state: "empty", allStates: true },
       frames: { mobile: { width: 390, height: 600 } }
     }
+
     expect(designModes(defaultModeSettings, shown, true)).toEqual({
       id: "home",
       name: "Home",
@@ -104,11 +106,12 @@ describe("designModes", () => {
     const frame: ContainerSpec = {
       ...design,
       kind: "frame",
-      states: [design.states[0]!],
+      states: [design.states![0]!],
       size: { width: 400, height: 300 },
       view: { mode: "mobile-light", modes: ["desktop-dark"] },
       frames: { desktop: { width: 1000 } }
     }
+
     expect(designModes(defaultModeSettings, frame, true)).toEqual({
       id: "home",
       name: "Home",
@@ -121,7 +124,7 @@ describe("designModes", () => {
   })
 
   it("draws a frame without a width as wide as the primary mode's viewport, growing with its content", () => {
-    const frame: ContainerSpec = { ...design, kind: "frame", states: [design.states[0]!] }
+    const frame: ContainerSpec = { ...design, kind: "frame", states: [design.states![0]!] }
     expect(designModes(defaultModeSettings, frame, true).frames).toEqual([
       { mode: "desktop-light", width: 1280, window: { width: 1280, height: 800 } }
     ])

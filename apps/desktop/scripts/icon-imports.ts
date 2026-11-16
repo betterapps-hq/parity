@@ -19,12 +19,17 @@ const reexport = /export\s*\{([^}]*)\}\s*from\s*["']\.\/([^"']+)["']/g
  */
 export function iconExports(index: string): Map<string, IconExport> {
   const exports = new Map<string, IconExport>()
+
   for (const [, list, file] of index.matchAll(reexport)) {
     for (const specifier of list!.split(",")) {
       const [name, as = name] = specifier.trim().split(/\s+as\s+/)
-      if (name && as) exports.set(as, { file: file!, name })
+
+      if (name && as) {
+        exports.set(as, { file: file!, name })
+      }
     }
   }
+
   return exports
 }
 
@@ -41,35 +46,61 @@ export function iconImports(
   dist: string,
   file = "module.tsx"
 ): string | undefined {
-  if (!code.includes("lucide-react")) return undefined
+  if (!code.includes("lucide-react")) {
+    return undefined
+  }
+
   // A `.ts` file may cast with `<T>`, which TSX would read as JSX; anything else may hold JSX.
   const kind = /\.[cm]?ts$/.test(file) ? ts.ScriptKind.TS : ts.ScriptKind.TSX
   const parsed = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, true, kind)
   let next = code
+
   // From the end, so each statement's position still holds once the ones after it have changed.
   for (const statement of [...parsed.statements].reverse()) {
-    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) continue
-    if (statement.moduleSpecifier.text !== "lucide-react") continue
-    const clause = statement.importClause
-    if (clause?.isTypeOnly || !clause?.namedBindings || !ts.isNamedImports(clause.namedBindings) || clause.name)
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier)) {
       continue
+    }
+
+    if (statement.moduleSpecifier.text !== "lucide-react") {
+      continue
+    }
+
+    const clause = statement.importClause
+
+    if (clause?.isTypeOnly || !clause?.namedBindings || !ts.isNamedImports(clause.namedBindings) || clause.name) {
+      continue
+    }
+
     const unknown: string[] = []
     const lines: string[] = []
+
     for (const specifier of clause.namedBindings.elements) {
-      if (specifier.isTypeOnly) continue
+      if (specifier.isTypeOnly) {
+        continue
+      }
+
       const name = (specifier.propertyName ?? specifier.name).text
       const local = specifier.name.text
       const found = exports.get(name)
-      if (!found) unknown.push(specifier.getText(parsed))
-      else lines.push(`import { ${found.name} as ${local} } from "${dist}/${found.file}";`)
+
+      if (!found) {
+        unknown.push(specifier.getText(parsed))
+      } else {
+        lines.push(`import { ${found.name} as ${local} } from "${dist}/${found.file}";`)
+      }
     }
-    if (unknown.length > 0) lines.push(`import { ${unknown.join(", ")} } from "lucide-react";`)
+
+    if (unknown.length > 0) {
+      lines.push(`import { ${unknown.join(", ")} } from "lucide-react";`)
+    }
+
     const from = statement.getStart(parsed)
     const original = code.slice(from, statement.end)
     // In as many lines as the import took, so the lines below keep their numbers and the module's source map holds.
     next =
       next.slice(0, from) + lines.join(" ") + "\n".repeat(original.split("\n").length - 1) + next.slice(statement.end)
   }
+
   return next === code ? undefined : next
 }
 
@@ -85,6 +116,7 @@ export function iconImportsPlugin(): Plugin {
   const require = createRequire(import.meta.url)
   const root = dirname(require.resolve("lucide-react/package.json"))
   const exports = iconExports(readFileSync(join(root, "dist/esm/lucide-react.mjs"), "utf8"))
+
   return {
     name: "parity:icon-imports",
     apply: "serve",
@@ -97,27 +129,39 @@ export function iconImportsPlugin(): Plugin {
       }
     }),
     transform(code, id) {
-      if (id.includes("/node_modules/") || !/\.[cm]?[jt]sx?(\?|$)/.test(id)) return undefined
+      if (id.includes("/node_modules/") || !/\.[cm]?[jt]sx?(\?|$)/.test(id)) {
+        return undefined
+      }
+
       const next = iconImports(code, exports, "lucide-react/dist/esm", id.split("?")[0])
+
       return next === undefined ? undefined : { code: next, map: null }
     }
   }
+}
+
+/** A Rolldown plugin that rewrites code as it's bundled, by its name and its `transform`. */
+interface DependencyIconImports {
+  name: string
+  transform: (code: string, id: string) => { code: string; map: null } | undefined
 }
 
 /**
  * Rewrites the icon imports of the dependencies Vite prebundles, as `iconImportsPlugin` does the app's. Their imports
  * of lucide-react's own files are left for Vite to serve, since the package isn't prebundled.
  */
-export function dependencyIconImports(
-  exports: Map<string, IconExport>,
-  dist: string
-): { name: string; transform: (code: string, id: string) => { code: string; map: null } | undefined } {
+export function dependencyIconImports(exports: Map<string, IconExport>, dist: string): DependencyIconImports {
   return {
     name: "parity:dependency-icon-imports",
     transform(code, id) {
       const file = id.split("?")[0]!
-      if (/[\\/]lucide-react[\\/]/.test(file) || !/\.[cm]?jsx?$/.test(file)) return undefined
+
+      if (/[\\/]lucide-react[\\/]/.test(file) || !/\.[cm]?jsx?$/.test(file)) {
+        return undefined
+      }
+
       const next = iconImports(code, exports, dist, file)
+
       return next === undefined ? undefined : { code: next, map: null }
     }
   }

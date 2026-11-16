@@ -1,24 +1,10 @@
-import {
-  boardTarget,
-  type DesignNode,
-  editNode,
-  locateNode,
-  type NodeChange,
-  type PatchField,
-  propChange,
-  resetOverride,
-  targetPatches
-} from "@parity-app/core"
-import { boardReader, type Selection, editingState } from "@parity-app/editor"
+import { type Selection, type StyleSection } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { useProject } from "../canvas/context.ts"
-import { useComponents } from "../components-store.ts"
-import { type ContainerEntry, useContainerEntry } from "../design-store.ts"
-import { useSelection } from "../selection.ts"
+import { type ContainerEntry } from "../project-doc.ts"
 import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
-import { PropsSection } from "./PropsSection.tsx"
+import { useSelectedLayer } from "./selected-layer.ts"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
@@ -31,6 +17,20 @@ import { StyleSections } from "./StyleSections.tsx"
 /** The active project's providers, with the inspector's content at the right edge where the canvas would end. */
 export function InspectorStage({ children }: { children: ReactNode }) {
   return <ProjectStage className="flex h-screen justify-end bg-background text-foreground">{children}</ProjectStage>
+}
+
+/**
+ * The active project's providers around one section, drawn alone at the inspector's width, without the panel around
+ * it: what a Sections story shows.
+ */
+export function SectionStage({ children, width = 320 }: { children: ReactNode; width?: number }) {
+  return (
+    <ProjectStage className="bg-background p-4 text-foreground">
+      <div className="flex flex-col" style={{ width }}>
+        {children}
+      </div>
+    </ProjectStage>
+  )
 }
 
 /** One section of the panel on its own, as wide and scrolling as the inspector's content. */
@@ -61,62 +61,31 @@ export function inspecting(rightTab: string, prepare?: () => Selection | void): 
   return async () => {
     await openInspector(rightTab)
     const selection = prepare?.()
-    if (selection) example().selection.set(selection)
+
+    if (selection) {
+      example().selection.set(selection)
+    }
   }
 }
 
-/** The selected layer in the state being edited, with the edits the layer panel makes to it. */
-function useSelectedLayer() {
-  const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
-  const components = useComponents(session.components)
-  const nodeId = selected.node
-  const location = entry && nodeId ? locateNode(entry.container.root, nodeId) : undefined
-  if (!entry || !nodeId || !location) return undefined
-  const { container, key } = entry
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const override = targetPatches(container, target)?.[nodeId]
-  const change = (label: string, value: NodeChange, gesture?: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), nodeId, value), {
-      gesture
-    })
-  const reset = (field: PatchField) =>
-    store.updateContainer(key, "Reset change", (current) =>
-      resetOverride(current, boardTarget(current, state.id), nodeId, field)
-    )
-  const node = boardReader(container, { state })(location.node)
-  return { entry, nodeId, node, components, override, change, reset }
-}
-
-/** The selected component layer's props section, as the layer panel shows it. */
-export function SelectedProps() {
+/**
+ * The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown: every one,
+ * or `only` that one alone.
+ */
+export function SelectedStyles({ only }: { only?: StyleSection }) {
   const layer = useSelectedLayer()
-  if (layer?.node.type !== "component") return null
-  const { node, components, override, change, reset } = layer
-  return (
-    <PropsSection
-      node={node}
-      info={components[node.component]}
-      changed={(name) => override?.props?.[name] !== undefined}
-      onChange={(name, value, gesture) => change(`Change ${name}`, propChange(name, value), gesture)}
-      onReset={(name) => reset({ kind: "props", key: name })}
-    />
-  )
+
+  if (!layer) {
+    return null
+  }
+
+  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} only={only} />
 }
 
-/** The selected layer's style sections, as the layer panel shows them, edited in the state and variant shown. */
-export function SelectedStyles() {
-  const layer = useSelectedLayer()
-  if (!layer) return null
-  return <LayerStyles key={layer.nodeId} entry={layer.entry} nodeId={layer.nodeId} node={layer.node} />
-}
-
-function LayerStyles({ entry, nodeId, node }: { entry: ContainerEntry; nodeId: string; node: DesignNode }) {
+function LayerStyles({ entry, nodeId, only }: { entry: ContainerEntry; nodeId: string; only?: StyleSection }) {
   const editor = useStyleEditor(entry, [nodeId])
-  return editor ? <StyleSections editor={editor} node={node} /> : null
+
+  return editor ? <StyleSections editor={editor} container={entry.container} only={only} /> : null
 }
 
 /** Types as a person would, a key at a time. */

@@ -1,18 +1,19 @@
 import {
   componentLibrary,
   type ContainerKind,
-  type ElementSource,
-  type ContainerSpec,
   type DesignNode,
+  type ElementSource,
   findNode,
-  hiddenOnBoard,
   isInnerPath,
+  type LibraryInfo,
   locateInner,
   nodeLabel
 } from "@parity-app/core"
 import { editingState, layersSelection, selectedDesigns, selectedNodes, type Selection } from "@parity-app/editor"
-import type { ContainerEntry } from "../design-store.ts"
-import { type Command, keymap } from "./keymap.ts"
+import type { ContainerEntry } from "@parity-app/multiplayer"
+import type { CommandStates } from "./command-state.ts"
+import { type Command, shortcutOf } from "./keymap.ts"
+import { unnamedIconLabel } from "./layer-kind.ts"
 
 /**
  * What the canvas's right-click menu shows, and what a right-click selects first, as Figma's canvas menu does. These
@@ -26,7 +27,7 @@ export interface MenuItem {
   kind: "item"
   action: MenuAction
   label: string
-  /** The keys shown, the keymap's first for the command. */
+  /** The keys shown, as `shortcutOf` writes them for the command. */
   keys?: string
   enabled: boolean
 }
@@ -69,89 +70,48 @@ export interface MenuTarget {
 /**
  * The menu for a right-click: over a design, Figma's canvas menu as far as Parity's commands go, for the selection,
  * which the right-click has already made (see `rightClickSelection`); on the canvas around designs (`target`
- * undefined), New screen, New component and Insert, then Paste here, then Select all and Zoom to fit, which have
- * nothing to act on when the canvas holds no design and none of its `notes`. Items for layers only (Paste to replace,
- * the order, Wrap in layout and Hide) are left out with designs selected, and Go to the main component unless an
- * instance is. Each is unavailable when the menubar's would be, and, for layers inside an instance, when it can't act
- * on them: Copy, Duplicate, the order, Wrap in layout and Hide. Paste over and Paste to replace stay, and say why they
- * can't. Export, at the Export section's sizes (PAR-185), then, over an element a project file wrote, Open in editor at
- * its line (PAR-167) end the menu.
+ * undefined), New screen, New component, Insert and Find references, then Paste here, then Select all and Zoom to fit.
+ * Items for layers only (Paste to replace, the order, Wrap in layout and Hide) are left out with designs selected, and
+ * Go to the main component unless it can go to one. Whether each item can act, and what it's called, is `states`', as
+ * the menubar and the keys have it. Find references for designs (PAR-840) and Export, at the Export section's sizes
+ * (PAR-185), then, over an element a project file wrote, Open in editor at its line (PAR-167) end the menu.
  */
 export function canvasMenu(
   target: MenuTarget | undefined,
+  states: CommandStates,
   selection: Selection,
   entries: readonly ContainerEntry[],
-  notes = 0
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[] = []
 ): MenuEntry[] {
+  const item = (action: MenuAction, label?: string) => menuItem(action, states, label)
+
   if (!target) {
-    const something = entries.length > 0 || notes > 0
     return sections([
-      [item("newScreen", true), item("newComponent", true), item("insert", true, "Insert…")],
-      [item("pasteHere", true)],
-      [item("selectAll", something), item("zoomToFit", something)]
+      [item("newScreen"), item("newComponent"), item("insert", "Insert…"), item("findReferences", "Find references…")],
+      [item("pasteHere")],
+      [item("selectAll"), item("zoomToFit")]
     ])
   }
-  const entry = selection.design ? entries.find((candidate) => candidate.key === selection.design) : undefined
-  const ids = entry ? selectedNodes(selection) : []
-  const root = entry?.container.root
-  const own = ownLayers(selection, root)
-  const can = layerCommands(selection, root)
-  const layers = ids.length > 0
-  const designs = layers ? 0 : selectedDesigns(selection).length
-  const alone = entry && !selection.node && !selection.designs?.length ? entry.container : undefined
-  const one = ids.length === 1 && own.length === 1 ? own[0] : undefined
-  const instance = one?.type === "instance" ? one : undefined
-  const state = entry ? editingState(entry.container, selection.state) : undefined
-  // As Hide decides: every selected layer hidden as the board shows it, with its variant, the state and the params.
-  const ownIds = own.map((node) => node.id)
-  const hidden = !!entry && !!state && ownIds.length > 0 && hiddenOnBoard(entry.container, state.id, ownIds)
+
+  const layers = selectedNodes(selection).length > 0
   const order: Command[] = ["bringToFront", "bringForward", "sendBackward", "sendToBack"]
+
   return sections([
-    [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries) }],
+    [{ kind: "select-layer", label: "Select layer", choices: layerChoices(target, selection, entries, libraries) }],
     [
-      item("copy", layers ? can.copy : !!selection.design),
-      item("pasteHere", true),
-      item("pasteOver", layers || designs > 0),
-      ...(layers ? [item("pasteReplace", true)] : []),
-      item("duplicate", layers ? can.duplicate : !!selection.design)
+      item("copy"),
+      item("copyAsPng"),
+      item("pasteHere"),
+      item("pasteOver"),
+      ...(layers ? [item("pasteReplace")] : []),
+      item("duplicate")
     ],
-    layers ? order.map((command) => item(command, can.order)) : [],
-    [
-      ...(layers ? [item("wrap", can.wrap)] : []),
-      item("makeComponent", !!alone || !!one, makeLabel(alone)),
-      ...(instance
-        ? [item("goToMain", true, `Go to ${designName(entries, instance.design) ?? "the main component"}`)]
-        : [])
-    ],
-    layers ? [item("hide", can.hide, hidden ? "Show" : "Hide")] : [],
-    [item("exportSelection", true, "Export…")],
+    layers ? order.map((command) => item(command)) : [],
+    [...(layers ? [item("wrap")] : []), item("makeComponent"), ...(states.goToMain.enabled ? [item("goToMain")] : [])],
+    [...(layers ? [item("hide")] : []), item("lock")],
+    [...(layers ? [] : [item("findReferences", "Find references…")]), item("exportSelection", "Export…")],
     target.source ? [{ kind: "open-source", label: "Open in editor", source: target.source }] : []
   ])
-}
-
-/** The commands that copy, move or change the selected layers themselves. */
-export type LayerCommand = "copy" | "duplicate" | "order" | "wrap" | "hide"
-
-/**
- * Which commands that copy, move or change the selected layers can act on them, for this menu and the menubar alike:
- * Copy, Duplicate, Wrap in layout and Hide when any is the design's own, and the order when one layer is selected and
- * it's the design's own. Layers inside an instance, and the design's root, aren't (see `ownLayers`).
- */
-export function layerCommands(selection: Selection, root: DesignNode | undefined): Record<LayerCommand, boolean> {
-  const own = ownLayers(selection, root).length
-  const one = own === 1 && selectedNodes(selection).length === 1
-  return { copy: own > 0, duplicate: own > 0, order: one, wrap: own > 0, hide: own > 0 }
-}
-
-/**
- * The selected layers that are the design `root` draws as its own, as the commands that move or change layers need:
- * not its root, nor a layer inside an instance (`card/title`), which belongs to the instance's component.
- */
-export function ownLayers(selection: Selection, root: DesignNode | undefined): DesignNode[] {
-  return selectedNodes(selection).flatMap((id) => {
-    const node = root && !isInnerPath(id) && id !== root.id ? findNode(root, id) : undefined
-    return node ? [node] : []
-  })
 }
 
 /**
@@ -167,24 +127,43 @@ export function rightClickSelection(
   root: string | undefined
 ): Selection {
   const layers = current.design === target.design ? selectedNodes(current) : []
+
   const inside =
     layers.length > 0 ? layers.some((id) => target.path.includes(id)) : selectedDesigns(current).includes(target.design)
-  if (inside) return current
-  if (!clicked || clicked === root) return { design: target.design }
+
+  if (inside) {
+    return current
+  }
+
+  if (!clicked || clicked === root) {
+    return { design: target.design }
+  }
+
   return layersSelection(target.design, [clicked], target)
 }
 
 /** Every layer under the pointer, outermost first, the design itself at the top, named as the Layers panel names them. */
-function layerChoices(target: MenuTarget, selection: Selection, entries: readonly ContainerEntry[]): LayerChoice[] {
+function layerChoices(
+  target: MenuTarget,
+  selection: Selection,
+  entries: readonly ContainerEntry[],
+  libraries: readonly Pick<LibraryInfo, "id" | "kind">[]
+): LayerChoice[] {
   const entry = entries.find((candidate) => candidate.key === target.design)
-  if (!entry) return []
+
+  if (!entry) {
+    return []
+  }
+
   const { container } = entry
   const picked = selection.design === entry.key ? selectedNodes(selection) : []
   const library = componentLibrary(entries.map((candidate) => candidate.container))
+
   const view = {
     state: editingState(container, selection.design === entry.key ? selection.state : target.state),
     variants: container.view?.variants
   }
+
   const choices: LayerChoice[] = [
     {
       id: container.root.id,
@@ -194,31 +173,42 @@ function layerChoices(target: MenuTarget, selection: Selection, entries: readonl
       selected: picked.length === 0 && selectedDesigns(selection).includes(entry.key)
     }
   ]
+
   for (const id of target.path) {
-    if (id === container.root.id) continue
+    if (id === container.root.id) {
+      continue
+    }
+
     const layer = isInnerPath(id) ? locateInner(container, id, library, view)?.shown : findNode(container.root, id)
-    if (!layer) continue
+
+    if (!layer) {
+      continue
+    }
+
     choices.push({
       id,
       whole: false,
-      label: nodeLabel(layer, (design) => designName(entries, design)),
+      label: unnamedIconLabel(layer, libraries) ?? nodeLabel(layer, (design) => designName(entries, design)),
       layer,
       selected: picked.includes(id)
     })
   }
+
   return choices
 }
 
-/** What Make component says for a design picked alone: Convert to component, or Convert to screen for a component. */
-function makeLabel(alone: ContainerSpec | undefined): string | undefined {
-  if (alone?.kind === "component") return "Convert to screen"
-  return alone ? "Convert to component" : undefined
-}
+/**
+ * An item for a command, with the keymap's keys, and enabled and named as `states` has it. `label` is for a menu's own
+ * fixed wording, as Insert… says it asks what, only for a command whose name never changes. Paste here always applies.
+ */
+export function menuItem(action: MenuAction, states: CommandStates, label?: string): MenuItem {
+  if (action === "pasteHere") {
+    return { kind: "item", action, label: label ?? "Paste here", enabled: true }
+  }
 
-/** An item for a command, labelled and with keys from the keymap unless `label` says otherwise. */
-export function item(action: MenuAction, enabled: boolean, label?: string): MenuItem {
-  if (action === "pasteHere") return { kind: "item", action, label: label ?? "Paste here", enabled }
-  return { kind: "item", action, label: label ?? keymap[action].label, keys: keymap[action].keys[0], enabled }
+  const { enabled, label: named } = states[action]
+
+  return { kind: "item", action, label: label ?? named, keys: shortcutOf(action), enabled }
 }
 
 /** Groups of items with a line between each, leaving out the empty ones. */

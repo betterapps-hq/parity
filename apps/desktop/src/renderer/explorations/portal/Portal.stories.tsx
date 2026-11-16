@@ -31,6 +31,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /**
@@ -52,10 +53,12 @@ function TeamPage() {
   const { apps } = teams
   const here = workingNow.filter((where) => apps.projects.includes(where.project))
   const away = { who: people.lena, project: "library", design: "Components", doing: "", away: "yesterday" }
+
   // The team's week, as the team would read it: anything worded to you is said for the team, or left to your inbox.
   const week = events
     .filter((item) => item.team === "apps" && (item.forTeam || !/\byou\b/.test(item.action)))
     .map((item) => (item.forTeam ? { ...item, ...item.forTeam, design: item.forTeam.design } : item))
+
   return (
     <PortalPage active="apps" path="kestrel/teams/apps">
       <div className="flex flex-col gap-8 px-8 py-7">

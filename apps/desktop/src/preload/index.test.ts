@@ -1,11 +1,17 @@
 import { EventEmitter } from "node:events"
 import { fileURLToPath } from "node:url"
 import { runInNewContext } from "node:vm"
+import type { Envelope, TraceHeaders } from "@parity-app/telemetry"
 import { build } from "esbuild"
 import { beforeAll, describe, expect, it, vi } from "vite-plus/test"
-import type { CanvasHost } from "../shared/protocol.ts"
+import type { BuildInfo, CanvasHost, ConsoleContext } from "../shared/protocol.ts"
+import type { TelemetryHost } from "./telemetry.ts"
+
+/** What the preload sends main before a console message. */
+type ConsoleAnnouncement = ConsoleContext & { level: string }
 
 let code = ""
+
 beforeAll(async () => {
   const result = await build({
     entryPoints: [fileURLToPath(new URL("./index.ts", import.meta.url))],
@@ -15,36 +21,133 @@ beforeAll(async () => {
     external: ["electron"],
     write: false
   })
+
   code = result.outputFiles[0]!.text
 })
 
 /** Run the real preload against Electron's IPC boundary, without a browser or an app process. */
 function preload() {
   const ipc = new EventEmitter()
-  const invoke = vi.fn<(channel: string) => Promise<unknown>>(async () => ({ version: "0.3.0", channel: "beta" }))
+
+  const invoke = vi.fn<
+    (channel: string, method: string, params?: string, trace?: TraceHeaders) => Promise<Partial<BuildInfo> | undefined>
+  >(async () => ({
+    version: "0.3.0",
+    channel: "beta"
+  }))
+
+  const send =
+    vi.fn<(channel: string, method: string, params?: Envelope | ConsoleAnnouncement, trace?: TraceHeaders) => void>()
+
   let host: CanvasHost | undefined
+  let telemetry: TelemetryHost | undefined
   runInNewContext(code, {
     require: (name: string) => {
-      if (name !== "electron") throw new Error(`Unexpected preload dependency ${name}`)
+      if (name !== "electron") {
+        throw new Error(`Unexpected preload dependency ${name}`)
+      }
+
       return {
-        ipcRenderer: Object.assign(ipc, { invoke }),
+        ipcRenderer: Object.assign(ipc, { invoke, send }),
         contextBridge: {
-          exposeInMainWorld: (_key: string, value: CanvasHost) => {
-            host = value
+          exposeInMainWorld: (key: string, value: CanvasHost | TelemetryHost) => {
+            if (key === "canvasHost" && "ask" in value) {
+              host = value
+            }
+
+            if (key === "parityTelemetry" && "record" in value) {
+              telemetry = value
+            }
           }
         }
       }
     },
-    process: { argv: [] }
+    process: { argv: [`--parity-telemetry-run=${encodeURIComponent(JSON.stringify(run))}`] }
   })
-  if (!host) throw new Error("Preload did not expose the canvas host")
-  return { ipc, host, invoke }
+
+  if (!host) {
+    throw new Error("Preload did not expose the canvas host")
+  }
+
+  if (!telemetry) {
+    throw new Error("Preload did not expose telemetry")
+  }
+
+  return { ipc, host, invoke, send, telemetry }
 }
 
-it("exposes installed build identity through its own IPC request", async () => {
+const run = { installId: "install", sessionId: "session", check: true }
+
+it("gives the page none of the open projects' .env values, since a project's code runs there", () => {
+  const { invoke, telemetry } = preload()
+  // Main keeps them and scrubs them from what the page sends (PAR-983), so the page's telemetry has nothing to read them
+  // with, and the preload never asks main for them.
+  expect(Object.keys(telemetry).toSorted()).toEqual(["record", "run", "traceFrom"])
+  expect(invoke).not.toHaveBeenCalled()
+})
+
+it("gives the page main's run and sends main what it records", () => {
+  const { telemetry, send } = preload()
+  expect(telemetry.run).toEqual(run)
+
+  const envelope = {
+    installId: "install",
+    sessionId: "session",
+    process: "renderer",
+    name: "app.started",
+    time: "2026-11-06T17:00:00.000Z",
+    level: "info",
+    attributes: {}
+  } as const
+
+  telemetry.record(envelope)
+  expect(send).toHaveBeenCalledExactlyOnceWith("canvas:tell", "record", envelope)
+})
+
+it("asks main for the installed build's identity by its method", async () => {
   const { host, invoke } = preload()
   expect(await host.getBuildInfo()).toEqual({ version: "0.3.0", channel: "beta" })
-  expect(invoke).toHaveBeenCalledExactlyOnceWith("canvas:build-info")
+  expect(invoke).toHaveBeenCalledExactlyOnceWith("canvas:ask", "buildInfo")
+})
+
+it("sends main the page's trace after what each request sends", async () => {
+  const { host, invoke, send, telemetry } = preload()
+  const trace = { "sentry-trace": "4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-1" }
+  let current: typeof trace | undefined = trace
+  telemetry.traceFrom(() => current)
+
+  await host.pickFolder("Export to")
+  await host.metrics()
+  host.console.announce("warning", { design: "Card" })
+  expect(invoke.mock.calls).toEqual([
+    ["canvas:ask", "pickFolder", "Export to", trace],
+    ["canvas:ask", "metrics", undefined, trace]
+  ])
+  expect(send).toHaveBeenCalledExactlyOnceWith(
+    "canvas:tell",
+    "consoleAnnounce",
+    { level: "warning", design: "Card" },
+    trace
+  )
+
+  // What the page records isn't a span in main, so it goes without the trace.
+  const envelope = {
+    installId: "install",
+    sessionId: "session",
+    process: "renderer",
+    name: "app.started",
+    time: "2026-11-06T17:00:00.000Z",
+    level: "info",
+    attributes: {}
+  } as const
+
+  telemetry.record(envelope)
+  expect(send).toHaveBeenLastCalledWith("canvas:tell", "record", envelope)
+
+  // Outside an action, a request sends only what it did.
+  current = undefined
+  await host.pickFolder("Open project")
+  expect(invoke).toHaveBeenLastCalledWith("canvas:ask", "pickFolder", "Open project")
 })
 
 describe("native update menu handoff", () => {
@@ -82,21 +185,33 @@ describe("native update menu handoff", () => {
   })
 })
 
+/** A message on the window's port to the service, as the channel sends and answers them. */
+interface PortMessage {
+  type: string
+  id: number
+  method?: string
+  params?: object
+  result?: object
+}
+
 /** A DOM `MessagePort` the test holds the other end of: what the preload sends, and a way to answer. */
 function fakePort() {
-  const listeners = new Map<string, ((event: { data?: unknown }) => void)[]>()
-  const sent: { type: string; id: number; method?: string }[] = []
+  const listeners = new Map<string, ((event: { data?: PortMessage }) => void)[]>()
+  const sent: PortMessage[] = []
+
   return {
     sent,
     port: {
-      postMessage: (message: { type: string; id: number; method?: string }) => sent.push(message),
-      addEventListener: (type: string, listener: (event: { data?: unknown }) => void) =>
+      postMessage: (message: PortMessage) => sent.push(message),
+      addEventListener: (type: string, listener: (event: { data?: PortMessage }) => void) =>
         listeners.set(type, [...(listeners.get(type) ?? []), listener]),
       start: () => undefined,
       close: () => undefined
     },
-    deliver: (data: unknown) => {
-      for (const listener of listeners.get("message") ?? []) listener({ data })
+    deliver: (data: PortMessage) => {
+      for (const listener of listeners.get("message") ?? []) {
+        listener({ data })
+      }
     }
   }
 }
@@ -142,6 +257,29 @@ describe("the window's channel to the project service", () => {
     expect(sent.slice(1)).toEqual([
       { type: "response", id: 8, result: [] },
       { type: "response", id: 9, error: "No tab is open", details: { code: "unknown_tab", retryable: false } }
+    ])
+  })
+})
+
+describe("what the window asks main", () => {
+  it("carries none of main's checks, since the sandboxed preload can't load zod", () => {
+    expect(code).not.toContain("node_modules/zod")
+  })
+
+  it("answers main's question about closing as one-way methods", async () => {
+    const { ipc, host, send } = preload()
+    let close = true
+    host.onClosing(() => Promise.resolve(close))
+    ipc.emit("canvas:closing")
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(2))
+    close = false
+    ipc.emit("canvas:closing")
+    await vi.waitFor(() => expect(send).toHaveBeenCalledTimes(4))
+    expect(send.mock.calls).toEqual([
+      ["canvas:tell", "closePending"],
+      ["canvas:tell", "closeReady"],
+      ["canvas:tell", "closePending"],
+      ["canvas:tell", "closeCancel"]
     ])
   })
 })

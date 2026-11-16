@@ -172,6 +172,7 @@ const openSeats = paidSeats - editors
 function SeatRequests() {
   const invite = event("ren-invite")
   const asked = event("noah-seat")
+
   const requests = [
     {
       key: "ren",
@@ -190,6 +191,7 @@ function SeatRequests() {
       approve: "Approve"
     }
   ]
+
   return (
     <section className="flex flex-col gap-2">
       <h2 className="text-[15px] font-semibold">
@@ -342,8 +344,13 @@ export function MembersPage({ overlay }: { overlay?: ReactNode }) {
                   {(["Admin", "Billing admin", "Member", "Guest"] as const).map((role) => {
                     const value = row.roles[role]
                     let cell: ReactNode = value
-                    if (value === true) cell = <Check className="size-4 text-foreground" aria-label="Yes" />
-                    else if (value === false) cell = <Minus className="size-4 opacity-40" aria-label="No" />
+
+                    if (value === true) {
+                      cell = <Check className="size-4 text-foreground" aria-label="Yes" />
+                    } else if (value === false) {
+                      cell = <Minus className="size-4 opacity-40" aria-label="No" />
+                    }
+
                     return (
                       <td key={role} className="py-2.5 pr-4 text-xs text-muted-foreground">
                         {cell}
@@ -518,6 +525,7 @@ export function BillingPage() {
  */
 export function AddSeatsPage() {
   const adding = 2
+
   return (
     <SettingsPage tab="Billing">
       <BillingBody />
@@ -629,13 +637,18 @@ const plans: {
 
 /** What a plan's card offers: nothing for the current one, a conversation for Enterprise, a move for the rest. */
 function planAction(plan: (typeof plans)[number]): ReactNode {
-  if (plan.current)
+  if (plan.current) {
     return (
       <Button variant="outline" disabled>
         Current plan
       </Button>
     )
-  if (plan.name === "Enterprise") return <Button>Talk to us</Button>
+  }
+
+  if (plan.name === "Enterprise") {
+    return <Button>Talk to us</Button>
+  }
+
   return <Button variant="ghost">Move to {plan.name}</Button>
 }
 

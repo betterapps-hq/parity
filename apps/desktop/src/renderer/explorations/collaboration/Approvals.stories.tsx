@@ -18,19 +18,23 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** What the agent says once it has an answer: done after approving, understood after declining. */
 function followUp(proposing: CommentData): CommentData {
   const approved = proposing.proposal!.status === "approved"
   let text: string
-  if (approved)
+
+  if (approved) {
     text =
       "Done. Toggle above is a new state on Pricing: the {Billing toggle} sits above the {Plan cards} as a segmented control."
-  else
+  } else {
     text = proposing.proposal!.reason
       ? "Understood. I'll leave the toggle where it is, and won't try this again unless someone asks."
       : "Okay, I'll leave the toggle where it is."
+  }
+
   return {
     id: `${proposing.id}-reply`,
     author: proposing.author,
@@ -47,7 +51,10 @@ function useAgent(thread: ThreadData, setThread: (change: (current: ThreadData) 
   const proposing = thread.comments.find((comment) => comment.proposal && comment.proposal.status !== "waiting")
   const answered = !!proposing && thread.comments.some((comment) => comment.id === `${proposing.id}-reply`)
   useEffect(() => {
-    if (!proposing || answered) return undefined
+    if (!proposing || answered) {
+      return undefined
+    }
+
     const timer = window.setTimeout(
       () =>
         setThread((current) => ({
@@ -57,6 +64,7 @@ function useAgent(thread: ThreadData, setThread: (change: (current: ThreadData) 
         })),
       proposing.proposal!.status === "approved" ? 3500 : 900
     )
+
     return () => window.clearTimeout(timer)
   }, [proposing, answered, setThread])
 }
@@ -66,8 +74,13 @@ function Live({ initial, canApprove = true }: { initial: ThreadData; canApprove?
   useAgent(thread, setThread)
   const waiting = thread.comments.some((comment) => comment.proposal?.status === "waiting")
   let state: PinState = "selected"
-  if (waiting) state = "waiting"
-  else if (thread.working) state = "working"
+
+  if (waiting) {
+    state = "waiting"
+  } else if (thread.working) {
+    state = "working"
+  }
+
   return (
     <Stage className="flex items-start gap-4">
       <div className="pt-1">
@@ -104,10 +117,12 @@ export const Declining: Story = {
 
 const decided = (status: "approved" | "declined", reason?: string): ThreadData => {
   const [question, proposing] = proposalThread.comments
+
   const answered = {
     ...proposing!,
     proposal: { ...proposing!.proposal!, status, by: me, when: "4 min ago", reason }
   }
+
   return { ...proposalThread, comments: [question!, answered, { ...followUp(answered), when: "2 min ago" }] }
 }
 

@@ -1,0 +1,22 @@
+{
+  "name": "@parity-app/media-player",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Plays video with the app's own controls, built from the UI kit over the browser's video element.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@buildkitgg/shadcn-baseui-kit": "catalog:",
+    "lucide-react": "^1.66.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  }
+}

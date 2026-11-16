@@ -7,7 +7,8 @@ import {
   selectedNodes,
   type Selection
 } from "@parity-app/editor"
-import type { DesignStore } from "../design-store.ts"
+import { containerEntry } from "@parity-app/multiplayer"
+import type { DocSession } from "../project-doc.ts"
 import { childLayers, findLayer } from "./layers.ts"
 
 /**
@@ -42,14 +43,22 @@ export interface Selected {
  */
 export function pickLayer(under: Under, selected: Selected | undefined, deep: boolean): string | undefined {
   const { chain, path } = under
-  if (deep) return chain.length > 1 ? path.at(-1) : undefined
+
+  if (deep) {
+    return chain.length > 1 ? path.at(-1) : undefined
+  }
+
   if (selected?.parent) {
     // Inside an instance its siblings are found among what's drawn, otherwise in the design's own tree.
     const line = isInnerPath(selected.node) ? path : chain
     const index = line.indexOf(selected.parent)
     const sibling = index === -1 ? undefined : line[index + 1]
-    if (sibling) return sibling
+
+    if (sibling) {
+      return sibling
+    }
   }
+
   return chain[1]
 }
 
@@ -58,12 +67,23 @@ export function pickLayer(under: Under, selected: Selected | undefined, deep: bo
  * layers inside it, as the component draws them. Undefined when there's nothing deeper.
  */
 export function pickDeeper(under: Under, selected: Selected | undefined): string | undefined {
-  if (!selected) return under.chain[1]
+  if (!selected) {
+    return under.chain[1]
+  }
+
   const index = under.chain.indexOf(selected.node)
   const child = index === -1 ? undefined : under.chain[index + 1]
-  if (child) return child
+
+  if (child) {
+    return child
+  }
+
   const at = under.path.indexOf(selected.node)
-  if (at !== -1) return under.path[at + 1]
+
+  if (at !== -1) {
+    return under.path[at + 1]
+  }
+
   return pickLayer(under, selected, false)
 }
 
@@ -89,8 +109,15 @@ export function pressTarget(
   keys: { deep: boolean; shift: boolean }
 ): Press {
   const node = pickLayer(under, selected, keys.deep)
-  if (!node) return { kind: "background" }
-  if (keys.shift) return { kind: "toggle", node }
+
+  if (!node) {
+    return { kind: "background" }
+  }
+
+  if (keys.shift) {
+    return { kind: "toggle", node }
+  }
+
   return { kind: nodes.includes(node) ? "keep" : "select", node }
 }
 
@@ -111,8 +138,12 @@ export function hoverTarget(
  * out, as Shift on the board's title does.
  */
 export function boardClick(current: Selection, design: string, shift: boolean): Selection {
-  if (!shift) return { design }
+  if (!shift) {
+    return { design }
+  }
+
   const group = selectedDesigns(current)
+
   return designsSelection(group.includes(design) ? group.filter((key) => key !== design) : [...group, design])
 }
 
@@ -128,13 +159,14 @@ export interface Bounds {
  * isn't drawn has no size, and is never touched.
  */
 export function touchedBy(box: Bounds, layers: readonly { id: string; box: Bounds }[]): string[] {
-  return layers
-    .filter(({ box: layer }) => layer.right > layer.left || layer.bottom > layer.top)
-    .filter(
-      ({ box: layer }) =>
-        layer.left <= box.right && layer.right >= box.left && layer.top <= box.bottom && layer.bottom >= box.top
-    )
-    .map((layer) => layer.id)
+  return layers.flatMap(({ id, box: layer }) => {
+    const drawn = layer.right > layer.left || layer.bottom > layer.top
+
+    const touches =
+      layer.left <= box.right && layer.right >= box.left && layer.top <= box.bottom && layer.bottom >= box.top
+
+    return drawn && touches ? [id] : []
+  })
 }
 
 /**
@@ -151,7 +183,11 @@ export function boxSelection(
 ): Selection {
   const kept = shift && before.design === design ? selectedNodes(before) : []
   const nodes = [...kept, ...touched.filter((id) => !kept.includes(id))]
-  if (nodes.length === 0) return shift ? before : {}
+
+  if (nodes.length === 0) {
+    return shift ? before : {}
+  }
+
   return layersSelection(design, nodes, kept.length > 0 ? { mode: before.mode, state: before.state } : frame)
 }
 
@@ -163,18 +199,33 @@ export type Enter = { edit: { design: string; node: string; mode?: string; state
  * inside the selected design (the one picked last, with several), in the frame they were picked in. Undefined when
  * there's nothing inside.
  */
-export function enterTarget(store: DesignStore, current: Selection): Enter | undefined {
-  const entry = current.design ? store.getEntry(current.design) : undefined
-  if (!entry) return undefined
-  const frame = {
-    ...(current.mode ? { mode: current.mode } : {}),
-    ...(current.state ? { state: current.state } : {})
+export function enterTarget(designs: DocSession, current: Selection): Enter | undefined {
+  const entry = current.design ? containerEntry(designs.doc, current.design) : undefined
+
+  if (!entry) {
+    return undefined
   }
+
+  const frame: Pick<Selection, "mode" | "state"> = {}
+
+  if (current.mode) {
+    frame.mode = current.mode
+  }
+
+  if (current.state) {
+    frame.state = current.state
+  }
+
   const nodes = selectedNodes(current)
   const only = nodes.length === 1 ? nodes[0] : undefined
-  const layer = only ? findLayer(store, entry.container, only) : undefined
-  if (only && layer && editableText(layer) !== undefined) return { edit: { design: entry.key, node: only, ...frame } }
+  const layer = only ? findLayer(designs, entry.container, only) : undefined
+
+  if (only && layer && editableText(layer) !== undefined) {
+    return { edit: { design: entry.key, node: only, ...frame } }
+  }
+
   const parents = nodes.length > 0 ? nodes : [entry.container.root.id]
-  const children = parents.flatMap((id) => childLayers(store, entry.container, id))
+  const children = parents.flatMap((id) => childLayers(designs, entry.container, id))
+
   return children.length > 0 ? { select: layersSelection(entry.key, children, frame) } : undefined
 }

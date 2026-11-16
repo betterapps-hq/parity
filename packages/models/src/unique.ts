@@ -11,6 +11,7 @@ export function uniqueIds(
     if (seen.has(item.id)) {
       context.addIssue({ code: "custom", path: [...path, index, "id"], message: `"${item.id}" is used twice` })
     }
+
     seen.add(item.id)
   })
 }

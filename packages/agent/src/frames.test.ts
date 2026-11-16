@@ -1,4 +1,4 @@
-import { type ContainerSpec, defaultModeSettings, resolveModes } from "@parity-app/core"
+import { type ContainerSpec, defaultModeSettings, designStates, resolveModes } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { accessibilityFindings, addContrastFixes, frameProblems, nodeNames } from "./frames.ts"
 import type { FrameContrast, FrameResult } from "./types.ts"
@@ -16,10 +16,10 @@ const design: ContainerSpec = {
       { type: "component", id: "pay", name: "Pay", component: "Button" },
       { type: "instance", id: "nav", design: "navbar" }
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
-const state = design.states[0]!
+
+const state = designStates(design)[0]!
 const mode = resolveModes(defaultModeSettings)[0]!
 
 function frame(result: Partial<FrameResult>): FrameResult {
@@ -54,6 +54,7 @@ describe("frameProblems", () => {
         ]
       })
     )
+
     expect(problems.map(({ kind, problem }) => [kind, problem])).toEqual([
       ["render-error", "render error: boom"],
       ["unknown-component", `"Card" isn't one of the project's components`],
@@ -66,6 +67,42 @@ describe("frameProblems", () => {
       name: "Pay",
       overflow: { right: 25 }
     })
+  })
+
+  it("says what was drawn outside the frame, where the project's styles don't reach (PAR-881)", () => {
+    expect(frameProblems(design, state, mode, frame({ outside: ['<div class="toast"> "Saved"'] }))).toEqual([
+      {
+        state: "default",
+        mode: mode.id,
+        kind: "outside-frame",
+        problem: `<div class="toast"> "Saved" is drawn outside the frame, without the project's styles, and isn't in its screenshots`
+      }
+    ])
+  })
+
+  it("reports a node drawn narrower than its width by layer name, with both widths (PAR-886)", () => {
+    const squeezed = { width: 112, wants: 256, element: "sidebar-gap" }
+
+    const problems = frameProblems(
+      design,
+      state,
+      mode,
+      frame({ nodes: [{ id: "nav", x: 0, y: 0, width: 112, height: 600, squeezed }] })
+    )
+
+    expect(problems).toEqual([
+      {
+        state: "default",
+        mode: mode.id,
+        kind: "squeezed",
+        problem:
+          "its sidebar-gap element is drawn 112px wide, 144px narrower than its 256px width, squeezed by what's beside it",
+        node: "nav",
+        name: expect.stringContaining("navbar"),
+        box: { x: 0, y: 0, width: 112, height: 600 },
+        squeezed
+      }
+    ])
   })
 
   it("says content is wider than the frame when no node accounts for it", () => {
@@ -81,6 +118,7 @@ describe("frameProblems", () => {
 })
 
 const contrast = { foreground: "#999999", background: "#ffffff", ratio: 2.8, required: 4.5, fontSize: 16, bold: false }
+
 const measured: FrameContrast = {
   tokens: { muted: "#999999", ink: "#111111", body: "#333333" },
   texts: [
@@ -112,6 +150,7 @@ describe("accessibilityFindings", () => {
         ]
       })
     )
+
     expect(found.map((finding) => [finding.node, finding.name])).toEqual([
       ["title", "Welcome"],
       ["nav", expect.any(String)]
@@ -135,6 +174,7 @@ describe("addContrastFixes", () => {
       detail: "",
       contrast: { ...contrast }
     }
+
     const instance = { ...own, node: "nav", name: "Navbar", contrast: { ...contrast } }
     addContrastFixes(
       design,

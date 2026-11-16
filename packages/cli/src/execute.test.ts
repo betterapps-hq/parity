@@ -4,9 +4,18 @@ import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
 import { replies } from "@parity-app/agent/contracts"
 import { type ContainerSpec, defaultModeSettings } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
 import { describeExec } from "./client.ts"
 import { type ExecReply, execResponse, executeRequest, structuredExec } from "./execute.ts"
-import { emptyState, fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
+import {
+  emptyState,
+  fixtureTab,
+  type JsonObject,
+  processTests,
+  succeeded,
+  toolReply,
+  transportFixture
+} from "./transport-fixture.ts"
 
 const success: ExecReply = {
   ok: true,
@@ -17,18 +26,29 @@ const success: ExecReply = {
   created: { home: "home-id" },
   screenshots: [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
 }
+
 const structuredSuccess = structuredExec(execResponse(success))
 const fixture = transportFixture(success)
 const { requests, run, mcp } = fixture
 
+/** The MCP server's listed tools, as far as these tests read them: each one's name and its input's properties. */
+const listedTools = z.array(
+  z.looseObject({
+    name: z.string(),
+    inputSchema: z.looseObject({ properties: z.record(z.string(), z.unknown()).optional() })
+  })
+)
+
 /** What reaches the app: the request, with the tab the CLI routed it to. */
-function expectRequests(params: Record<string, unknown>) {
+function expectRequests(params: JsonObject) {
   expect(requests).toHaveLength(2)
+
   for (const request of requests) {
     expect(request).toEqual(
       expect.objectContaining({ method: "exec", params: { tab: fixtureTab.id, ...params }, agent: "Contract Caller" })
     )
   }
+
   expect(requests).toContainEqual(expect.objectContaining({ agentId: "cli-session" }))
   expect(requests).toContainEqual(expect.objectContaining({ agentId: expect.stringMatching(/^Contract Caller#/) }))
 }
@@ -37,15 +57,56 @@ describe("execute transport contract", processTests, () => {
   it("omits undeclared CLI ids so long names remain distinct at the desktop boundary", async () => {
     const prefix = "Harness ".repeat(16)
     fixture.response = { result: emptyState(fixtureTab) }
+
     for (const suffix of ["One", "Two"]) {
       const cli = await run(["state"], "", { PARITY_AGENT_NAME: prefix + suffix, PARITY_AGENT_ID: undefined })
-      expect(cli.code).toBe(0)
+      expect(cli).toEqual(succeeded)
     }
+
     expect(requests).toEqual([
-      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "One" },
-      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two" }
+      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "One", transport: "cli" },
+      { method: "state", params: { tab: fixtureTab.id }, agent: prefix + "Two", transport: "cli" }
     ])
   })
+  it("sends the subagent an MCP call names beside the session's caller, apart from the operation's params", async () => {
+    fixture.response = { result: emptyState(fixtureTab) }
+    const header = await mcp({ subagent: " Header pass " }, "get_app_state")
+    const blank = await mcp({ subagent: "  " }, "get_app_state")
+    const number = await mcp({ subagent: 3 }, "get_app_state")
+    const unnamed = await mcp({}, "get_app_state")
+
+    for (const protocol of [header, blank, number, unnamed]) {
+      expect(toolReply(protocol.stdout)?.result?.isError).toBe(false)
+    }
+
+    // Each is its own MCP session, with the caller's name and a session id; only the first names a subagent, and a
+    // name that's blank or isn't text is left out rather than refused.
+    const session = { method: "state", params: { tab: fixtureTab.id }, agent: "Contract Caller", transport: "mcp" }
+    expect(requests).toEqual([
+      expect.objectContaining({ ...session, subagent: "Header pass" }),
+      expect.objectContaining(session),
+      expect.objectContaining(session),
+      expect.objectContaining(session)
+    ])
+    expect(requests.filter((request) => "subagent" in request)).toHaveLength(1)
+  })
+
+  it("takes a subagent on every MCP tool that reaches the app, and on none that answers alone", async () => {
+    const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
+    const tools = listedTools.parse(toolReply(result.stdout)?.result?.tools)
+    const takes = (name: string) => tools.find((tool) => tool.name === name)?.inputSchema.properties?.subagent
+    const alone = ["get_logs", "read_skill"]
+
+    for (const tool of tools) {
+      expect([tool.name, takes(tool.name)]).toEqual([
+        tool.name,
+        alone.includes(tool.name) ? undefined : { type: "string" }
+      ])
+    }
+
+    expect(tools.map((tool) => tool.name)).toEqual(expect.arrayContaining([...alone, "get_app_state", "execute"]))
+  })
+
   it("publishes execute defaults and patch constraints through MCP discovery", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
     expect(toolReply(result.stdout)).toEqual(
@@ -74,10 +135,12 @@ describe("execute transport contract", processTests, () => {
   it("rejects a snippet file combined with retry in both adapters", async () => {
     const file = join(fixture.directory, "ambiguous.js")
     await writeFile(file, "Print(1)")
+
     const [cli, protocol] = await Promise.all([
       run(["exec", file, "--edit-id", "failed"], ""),
       mcp({ input: "Print(1)", editId: "failed" })
     ])
+
     expect(requests).toEqual([])
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe("Pass a snippet or an editId, not both")
@@ -93,11 +156,43 @@ describe("execute transport contract", processTests, () => {
       }
     })
   })
+  it("records each run, MCP session and missing app in the CLI's own log, and says how each call came", async () => {
+    const code = "Print(1)\n"
+
+    const [cli, protocol, missing] = await Promise.all([
+      run(["exec", "--label", "Try"], code),
+      mcp({ input: code }),
+      run(["tabs"], "", { PARITY_AGENT_FILE: join(fixture.directory, "none.json") })
+    ])
+
+    expect([cli, missing]).toEqual([succeeded, expect.objectContaining({ code: 1 })])
+    expect(toolReply(protocol.stdout)).toEqual(expect.objectContaining({ result: expect.anything() }))
+    expect(requests.map((request) => String(request.transport)).sort((a, b) => a.localeCompare(b))).toEqual([
+      "cli",
+      "mcp"
+    ])
+    const events = fixture.events()
+    expect(events.every((event) => event.process === "cli")).toBe(true)
+
+    const named = (name: string) =>
+      events
+        .filter((event) => event.name === name)
+        .map((event) => event.attributes)
+        .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+
+    expect(named("cli.ran")).toEqual([
+      { command: "exec", flags: ["label"], exitCode: 0 },
+      { command: "mcp", flags: [], exitCode: 0 },
+      { command: "tabs", flags: [], exitCode: 1, code: "not_running" }
+    ])
+    expect(named("mcp.session")).toEqual([{ client: "Contract Caller" }])
+    expect(named("cli.connectFailed")).toEqual([{ code: "not_running", copies: 0 }])
+  })
   it("maps CLI stdin and MCP input to the same defaults and preserves their response formats", async () => {
     const code = "Print(Designs().length)\n"
     const [cli, protocol] = await Promise.all([run(["exec"], code), mcp({ input: code })])
     expectRequests({ code, label: "Edit designs" })
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(cli.stdout.trim()).toBe(describeExec(execResponse(success)))
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
@@ -117,10 +212,12 @@ describe("execute transport contract", processTests, () => {
     const code = "Print('file input')"
     const file = join(fixture.directory, "input.js")
     await writeFile(file, code)
+
     const [cli, protocol] = await Promise.all([
       run(["exec", file, "--label", "Review home screen", "--tab", "project", "--json"], ""),
       mcp({ input: code, description: "Review home screen", tab: "project" })
     ])
+
     expectRequests({ code, label: "Review home screen", tab: "project" })
     expect(JSON.parse(cli.stdout)).toEqual({
       ...success,
@@ -131,19 +228,79 @@ describe("execute transport contract", processTests, () => {
     )
   })
 
+  it("leaves the named nodes out of a quiet result in both adapters, keeping the designs created (PAR-909)", async () => {
+    const built: ExecReply = {
+      ...success,
+      created: { Plans: "plans-id", Page: "page-id", Title: "title-id" },
+      createdDesigns: { Plans: "plans-id" }
+    }
+
+    fixture.response = { result: built }
+    const code = 'CreateDesign({ name: "Plans" })'
+
+    const [cli, json, protocol] = await Promise.all([
+      run(["exec", "--quiet"], code),
+      run(["exec", "--quiet", "--json"], code),
+      mcp({ input: code, quiet: true })
+    ])
+
+    // Quiet shapes the answer, so the app is never sent it.
+    for (const request of requests) {
+      expect(request).toEqual(expect.objectContaining({ params: { tab: fixtureTab.id, code, label: "Edit designs" } }))
+    }
+
+    expect(cli.code).toBe(0)
+    expect(cli.stdout).toContain("Designs created:\n  Plans = plans-id")
+    expect(cli.stdout).not.toContain("title-id")
+    expect(cli.stdout).toContain("Example warning")
+    const { created: _created, ...quiet } = structuredExec(execResponse(built))
+    expect(JSON.parse(json.stdout)).toEqual(quiet)
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          content: [{ type: "text", text: cli.stdout.trim() }, expect.objectContaining({ type: "image" })],
+          structuredContent: quiet
+        })
+      })
+    )
+  })
+
+  it("lists every named node without quiet, and refuses a quiet that isn't a boolean", async () => {
+    fixture.response = {
+      result: { ...success, created: { Plans: "plans-id", Title: "title-id" }, createdDesigns: { Plans: "plans-id" } }
+    }
+
+    const [cli, protocol] = await Promise.all([run(["exec"], "Print(1)"), mcp({ input: "Print(1)", quiet: "yes" })])
+
+    expect(cli.stdout).toContain("Created:\n  Plans = plans-id\n  Title = title-id")
+    expect(cli.stdout).not.toContain("Designs created:")
+    expect(toolReply(protocol.stdout)).toEqual(
+      expect.objectContaining({
+        result: expect.objectContaining({
+          structuredContent: {
+            error: { code: "invalid_input", message: "quiet must be a boolean", retryable: false, path: "/quiet" }
+          },
+          isError: true
+        })
+      })
+    )
+  })
+
   it("maps retry patches identically, preserving empty replacement strings and all", async () => {
     const edits = [{ find: " old ", replace: "", all: true }]
+
     const [cli] = await Promise.all([
       run(["exec", "--edit-id", "failed", "--edits", JSON.stringify(edits)], ""),
       mcp({ editId: "failed", edits })
     ])
-    expect(cli.code).toBe(0)
+
+    expect(cli).toEqual(succeeded)
     expectRequests({ label: "Edit designs", editId: "failed", edits })
   })
 
   it("defaults retry edits to an empty list for both transports", async () => {
     const [cli] = await Promise.all([run(["exec", "--edit-id", "failed"], ""), mcp({ editId: "failed" })])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expectRequests({ label: "Edit designs", editId: "failed", edits: [] })
   })
 
@@ -201,6 +358,7 @@ describe("execute transport contract", processTests, () => {
         run(["exec", ...args, "--json"], stdin),
         mcp(input)
       ])
+
       expect(requests).toEqual([])
       expect(cli.code).toBe(1)
       expect(cli.stderr.trim()).toBe(error)
@@ -229,12 +387,15 @@ describe("execute transport contract", processTests, () => {
       created: {},
       screenshots: []
     }
+
     fixture.response = { result: failure }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], "Print(1)"),
       run(["exec", "--json"], "Print(1)"),
       mcp({ input: "Print(1)" })
     ])
+
     const canonical = execResponse(failure)
     // A snippet's unknown design isn't one of execute's inputs, so there's no path, but the alternatives stay.
     expect(canonical.error).toEqual({
@@ -271,13 +432,14 @@ describe("execute transport contract", processTests, () => {
         { id: "loading", name: "Loading" }
       ]
     }
+
     const project: AgentSnapshot = {
       tab: "measure",
       components: [],
       tokens: [],
       theme: [],
       modes: defaultModeSettings,
-      documents: [{ path: "app.par", document: { version: 3, containers: [signup] } }],
+      documents: [{ path: "app.par", document: { version: 4, containers: [signup] } }],
       libraryDesigns: [],
       tokenOverrides: [],
       mainDocument: "app.par",
@@ -285,22 +447,28 @@ describe("execute transport contract", processTests, () => {
       selection: {},
       bounds: {}
     }
+
     const render: AgentHooks["render"] = async () => {
       throw new Error("Measure rendered before checking its options")
     }
+
     const code = `await Measure("signup", { state: "all" })`
+
     // The reply as the app builds it from the agent's result, which the CLI's check takes.
     const { changes: _changes, ...result } = await execute({ label: "Measure", code }, project, {
       presence: () => undefined,
       render
     })
+
     const reply = replies.exec.parse({ ...result, applied: false, screenshots: [] })
     fixture.response = { result: reply }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], code),
       run(["exec", "--json"], code),
       mcp({ input: code })
     ])
+
     const canonical = execResponse(reply)
     expect(canonical.error).toEqual({
       code: "invalid_input",
@@ -355,12 +523,15 @@ describe("execute transport contract", processTests, () => {
         }
       ]
     }
+
     fixture.response = { result: replaced }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], "Print(1)"),
       run(["exec", "--json"], "Print(1)"),
       mcp({ input: "Print(1)" })
     ])
+
     const text = describeExec(execResponse(replaced))
     expect(text).toContain(
       [
@@ -386,11 +557,13 @@ describe("execute transport contract", processTests, () => {
 
   it("preserves desktop RPC errors in both transports, coded app_error when the app gives no code", async () => {
     fixture.response = { error: "Tab is not ready" }
+
     const [cli, json, protocol] = await Promise.all([
       run(["exec"], "Print(1)"),
       run(["exec", "--json"], "Print(1)"),
       mcp({ input: "Print(1)" })
     ])
+
     expect(cli.code).toBe(1)
     expect(cli.stderr.trim()).toBe("Tab is not ready")
     const error = { code: "app_error", message: "Tab is not ready", retryable: false }
@@ -407,16 +580,19 @@ describe("execute transport contract", processTests, () => {
       error: "No failed snippet with editId gone; send the whole snippet again",
       details: { code: "unknown_edit_id", retryable: false, field: "editId" }
     }
+
     const [json, protocol] = await Promise.all([
       run(["exec", "--edit-id", "gone", "--json"], ""),
       mcp({ editId: "gone" })
     ])
+
     const error = {
       code: "unknown_edit_id",
       message: "No failed snippet with editId gone; send the whole snippet again",
       retryable: false,
       path: "/editId"
     }
+
     expect(JSON.parse(json.stdout)).toEqual({ error })
     expect(toolReply(protocol.stdout)).toEqual(
       expect.objectContaining({ result: expect.objectContaining({ structuredContent: { error }, isError: true }) })
@@ -425,14 +601,17 @@ describe("execute transport contract", processTests, () => {
 
   it("says the app isn't running, as a retryable not_running, in both", async () => {
     const env = { PARITY_AGENT_FILE: join(fixture.directory, "missing.json") }
+
     const messages = [
       { jsonrpc: "2.0", id: 1, method: "initialize", params: { clientInfo: { name: "Contract Caller" } } },
       { jsonrpc: "2.0", id: 2, method: "tools/call", params: { name: "execute", arguments: { input: "Print(1)" } } }
     ]
+
     const [json, protocol] = await Promise.all([
       run(["exec", "--json"], "Print(1)", env),
       run(["mcp"], messages.map((message) => JSON.stringify(message) + "\n").join(""), env)
     ])
+
     const error = expect.objectContaining({ code: "not_running", retryable: true })
     expect(json.code).toBe(1)
     expect(JSON.parse(json.stdout)).toEqual({ error })
@@ -443,9 +622,12 @@ describe("execute transport contract", processTests, () => {
 
   it("lists tools without output schemas, which cost agents context and no client needs (PAR-510)", async () => {
     const result = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
-    const { tools } = (toolReply(result.stdout) as { result: { tools: Record<string, unknown>[] } }).result
+    const tools = toolReply(result.stdout)?.result?.tools ?? []
     expect(tools.length).toBeGreaterThan(0)
-    for (const tool of tools) expect(tool).not.toHaveProperty("outputSchema")
+
+    for (const tool of tools) {
+      expect(tool).not.toHaveProperty("outputSchema")
+    }
   })
 })
 

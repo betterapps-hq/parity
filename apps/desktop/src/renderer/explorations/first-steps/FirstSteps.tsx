@@ -43,6 +43,7 @@ export function FirstSteps({
 }) {
   const count = firstSteps.filter((step) => done.has(step)).length
   const finished = count === firstSteps.length
+
   return (
     <section
       aria-labelledby="first-steps"
@@ -62,6 +63,7 @@ export function FirstSteps({
       <ol className="flex flex-col">
         {firstSteps.map((step) => {
           const isDone = done.has(step)
+
           return (
             <li key={step}>
               <button

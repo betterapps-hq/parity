@@ -1,6 +1,6 @@
 import { type ContainerSpec, type DesignNode, findNode, nodeIds, type NodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { designsAt, placeOver, replaceLayers } from "./paste-over.ts"
+import { designsAt, placeOver, replaceLayers, selectionToPasteOn } from "./paste-over.ts"
 
 const text = (id: string, extra: { style?: NodeStyle } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
 
@@ -16,7 +16,7 @@ function form(): ContainerSpec {
         text("label"),
         text("placeholder"),
         text("hint"),
-        text("badge", { style: { position: "absolute", top: 2, right: "edge" } }),
+        text("badge", { style: { position: "absolute", top: { step: 2 }, right: { token: "edge" } } }),
         {
           type: "component",
           id: "card",
@@ -33,18 +33,26 @@ function form(): ContainerSpec {
 }
 
 const button: DesignNode = { type: "component", id: "button", component: "ui/Button", props: { variant: "outline" } }
+
 const icon: DesignNode = {
   type: "layout",
   id: "icon",
-  style: { position: "absolute", bottom: 1 },
+  style: { position: "absolute", bottom: { step: 1 } },
   children: [text("glyph")]
 }
-const base = form().states[0]!
+
+const base = form().states![0]!
+
 const children = (container: ContainerSpec, id = "root") => {
   const node = findNode(container.root, id)!
   let nodes: DesignNode[] = []
-  if (node.type === "layout") nodes = node.children
-  else if (node.type === "component") nodes = node.slots!.children!
+
+  if (node.type === "layout") {
+    nodes = node.children
+  } else if (node.type === "component") {
+    nodes = node.slots!.children!
+  }
+
   return nodes.map((child) => (child.type === "component" ? child.component : child.id))
 }
 
@@ -53,7 +61,7 @@ describe("paste over selection", () => {
     const { container, copies } = placeOver(form(), ["placeholder"], [button, text("note")], base)
     expect(children(container)).toEqual(["label", "placeholder", "ui/Button", copies[1], "hint", "badge", "ui/Card"])
     expect(nodeIds(form().root).has(copies[0]!)).toBe(false)
-    expect(container.states[1]!.overrides).toEqual({ placeholder: { text: "Required" } })
+    expect(container.states![1]!.overrides).toEqual({ placeholder: { text: "Required" } })
   })
 
   it("puts them after the last of several selected layers, once", () => {
@@ -71,7 +79,11 @@ describe("paste over selection", () => {
   it("puts them on top of an absolutely placed layer, at its insets", () => {
     const { container, copies } = placeOver(form(), ["badge"], [icon], base)
     expect(children(container)).toEqual(["label", "placeholder", "hint", "badge", copies[0], "ui/Card"])
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", top: 2, right: "edge" })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      top: { step: 2 },
+      right: { token: "edge" }
+    })
     expect(findNode(container.root, "badge")).toBeDefined()
   })
 
@@ -79,14 +91,15 @@ describe("paste over selection", () => {
     // On mobile the hint is placed absolutely; elsewhere it flows.
     const hint: DesignNode = {
       ...text("hint"),
-      responsive: { mobile: { style: { position: "absolute", bottom: 0, left: 2 } } }
+      responsive: { mobile: { style: { position: "absolute", bottom: { step: 0 }, left: { step: 2 } } } }
     }
+
     const responsive: ContainerSpec = { ...form(), root: { type: "layout", id: "root", children: [hint] } }
     const mobile = placeOver(responsive, ["hint"], [icon], base, "mobile")
     expect(findNode(mobile.container.root, mobile.copies[0]!)?.style).toEqual({
       position: "absolute",
-      bottom: 0,
-      left: 2
+      bottom: { step: 0 },
+      left: { step: 2 }
     })
     const desktop = placeOver(responsive, ["hint"], [icon], base, "desktop")
     expect(findNode(desktop.container.root, desktop.copies[0]!)?.style).toEqual(icon.style)
@@ -116,14 +129,15 @@ describe("paste over selection", () => {
   it("puts copied designs at the selected designs' corner, as they sat together", () => {
     const copies = designsAt([design("a", 100, 50), design("b", 1600, 0)], ["home"], { x: 4000, y: 2000 })
     expect(copies.map((copy) => [copy.id, copy.position])).toEqual([
-      ["a", { x: 4000, y: 2050 }],
-      ["b", { x: 5500, y: 2000 }]
+      [expect.stringMatching(/^a-/), { x: 4000, y: 2050 }],
+      [expect.stringMatching(/^b-/), { x: 5500, y: 2000 }]
     ])
   })
 
-  it("gives copied designs new ids when theirs are taken", () => {
+  it("gives copied designs new ids, different from each other", () => {
     const copies = designsAt([design("form", 0, 0), design("form", 10, 0)], ["form"], { x: 0, y: 0 })
-    expect(copies.map((copy) => copy.id)).toEqual(["form-2", "form-3"])
+    expect(copies.map((copy) => copy.id)).toEqual([expect.stringMatching(/^form-/), expect.stringMatching(/^form-/)])
+    expect(copies[0]!.id).not.toBe(copies[1]!.id)
   })
 })
 
@@ -140,7 +154,7 @@ describe("paste to replace", () => {
     const { container, copies } = replaceLayers(original, ["placeholder"], [button], base)
     expect(nodeIds(original.root).has(copies[0]!)).toBe(false)
     expect(copies[0]).not.toBe("button")
-    expect(container.states[1]!.overrides).toBeUndefined()
+    expect(container.states![1]!.overrides).toBeUndefined()
   })
 
   it("replaces each selected layer with its own copy, as Figma does", () => {
@@ -157,7 +171,11 @@ describe("paste to replace", () => {
 
   it("places a copy over an absolutely placed layer at its insets, in place of its own", () => {
     const { container, copies } = replaceLayers(form(), ["badge"], [icon], base)
-    expect(findNode(container.root, copies[0]!)?.style).toEqual({ position: "absolute", top: 2, right: "edge" })
+    expect(findNode(container.root, copies[0]!)?.style).toEqual({
+      position: "absolute",
+      top: { step: 2 },
+      right: { token: "edge" }
+    })
   })
 
   it("leaves the design's root and layers inside instances alone", () => {
@@ -165,5 +183,31 @@ describe("paste to replace", () => {
     const { container, copies } = replaceLayers(original, ["root", "stat/value"], [button], base)
     expect(container).toBe(original)
     expect(copies).toEqual([])
+  })
+})
+
+describe("the selection a paste lands on once the image is saved", () => {
+  const label = { design: "form", node: "label", state: "default" }
+  const hint = { design: "form", node: "hint", state: "default" }
+
+  it("lets Paste over go over the layers selected by then", () => {
+    expect(selectionToPasteOn("over", label, hint)).toBe(hint)
+  })
+
+  it("lets Paste to replace go ahead while the same layers are selected, however they were picked", () => {
+    const both = { design: "form", node: "hint", nodes: ["label", "hint"] }
+    const again = { design: "form", node: "label", nodes: ["hint", "label"] }
+    expect(selectionToPasteOn("replace", both, again)).toBe(again)
+  })
+
+  it("stops Paste to replace when other layers, or the same in another state, were selected meanwhile", () => {
+    expect(selectionToPasteOn("replace", label, hint)).toBeUndefined()
+    expect(selectionToPasteOn("replace", label, { ...label, state: "error" })).toBeUndefined()
+  })
+
+  it("stops both when no layers are selected by then", () => {
+    expect(selectionToPasteOn("over", label, { design: "form" })).toBeUndefined()
+    expect(selectionToPasteOn("over", label, {})).toBeUndefined()
+    expect(selectionToPasteOn("replace", label, { designs: ["form", "card"] })).toBeUndefined()
   })
 })

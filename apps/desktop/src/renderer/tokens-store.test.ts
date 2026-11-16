@@ -10,13 +10,12 @@ let page: Page
 const errors: string[] = []
 
 /**
- * What the page loads: the token and design stores, with a project whose stylesheet declares `--primary` in the root
- * and dark themes, and a writer that keeps what Save writes.
+ * What the page loads: a project document and its token store, with a project whose stylesheet declares `--primary`
+ * in the root and dark themes, and a writer that keeps what Save writes.
  */
 const entry = `
-import { DesignStore } from "./design-store.ts"
+import { openTestSession } from "./doc-fixtures.ts"
 import { keyframesNamed, TokenStore } from "./tokens-store.ts"
-import { defaultModeSettings } from "@parity-app/core"
 
 const tokens = [
   { name: "primary", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
@@ -28,19 +27,16 @@ export const written = []
 export { keyframesNamed }
 
 export function open() {
-  const store = new DesignStore([], defaultModeSettings, "app.par", {
-    saveDocument: async () => undefined,
-    autosave: () => false
-  })
-  return { store, tokens: guest(store) }
+  const designs = openTestSession([])
+  return { designs, tokens: guest(designs) }
 }
 
 /** The guest loading again, as when the project's builder restarts: a fresh sheet and a new token store. */
-export function guest(store) {
+export function guest(designs) {
   const sheet = new CSSStyleSheet()
   sheet.replaceSync(css)
   const write = async (changes) => { written.push(changes) }
-  return { sheet, store: new TokenStore(tokens, sheet, write, store, "src/index.css") }
+  return { sheet, store: new TokenStore(tokens, sheet, write, designs, "src/index.css") }
 }
 
 /** A token's value in a theme, as the sheet declares it. */
@@ -56,6 +52,7 @@ export function declared(sheet, name, theme = "default") {
 
 beforeAll(async () => {
   const renderer = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: renderer, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
@@ -65,6 +62,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage()
   page.on("pageerror", (error) => errors.push(error.message))
@@ -75,9 +73,10 @@ beforeAll(async () => {
     route.fulfill({ contentType: "text/html", body: `<script src="http://parity.test/tokens.js"></script>` })
   )
   await page.goto("http://parity.test/")
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof tokens === "object")))
+
+  if (!(await page.evaluate(() => "tokens" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
@@ -90,23 +89,23 @@ describe("editing tokens", () => {
       // @ts-expect-error The bundle's global.
       const { open, declared, written } = tokens
       written.length = 0
-      const { store, tokens: project } = open()
+      const { designs, tokens: project } = open()
       const seen = (theme?: string) => declared(project.sheet, "primary", theme)
-      const steps: Record<string, unknown> = {}
       project.store.set([
         { name: "primary", theme: "default", value: "red" },
         { name: "primary", theme: "dark", value: "pink" }
       ])
-      steps.edited = [seen(), seen("dark"), store.getHistory().undoLabel, store.hasUnsaved(), written.length]
-      steps.listed = project.store.get()[0].values
-      store.undo()
-      steps.undone = [seen(), seen("dark"), store.hasUnsaved(), project.store.get()[0].values.default]
-      store.redo()
-      steps.redone = [seen(), project.store.previews().length]
-      await store.flush()
-      steps.saved = [written, store.hasUnsaved()]
-      return steps
+      const edited = [seen(), seen("dark"), designs.doc.history().undo[0], designs.saver.hasUnsaved(), written.length]
+      const listed = project.store.get()[0].values
+      designs.doc.undo()
+      const undone = [seen(), seen("dark"), designs.saver.hasUnsaved(), project.store.get()[0].values.default]
+      designs.doc.redo()
+      const redone = [seen(), project.store.previews().length]
+      await designs.saver.flush()
+
+      return { edited, listed, undone, redone, saved: [written, designs.saver.hasUnsaved()] }
     })
+
     expect(result.edited).toEqual(["red", "pink", "Edit primary", true, 0])
     expect(result.listed).toEqual({ default: "red", dark: "pink" })
     expect(result.undone).toEqual(["black", "white", false, "black"])
@@ -126,11 +125,12 @@ describe("editing tokens", () => {
     const result = await page.evaluate(() => {
       // @ts-expect-error The bundle's global.
       const { open, declared } = tokens
-      const { store, tokens: project } = open()
+      const { designs, tokens: project } = open()
       project.store.set([{ name: "radius", theme: "dark", value: "1rem" }])
       const edited = declared(project.sheet, "radius", "dark")
       const previewed = project.store.previews()
-      store.undo()
+      designs.doc.undo()
+
       return [
         edited,
         declared(project.sheet, "radius", "dark"),
@@ -139,6 +139,7 @@ describe("editing tokens", () => {
         project.store.previews()
       ]
     })
+
     // The sheet measures the previewed rem against the frame's root (PAR-156), while the override keeps the value as
     // typed. Frames drawn elsewhere are sent no override for it any more, so they draw the compiled value.
     expect(result).toEqual([
@@ -155,13 +156,15 @@ describe("editing tokens", () => {
       // @ts-expect-error The bundle's global.
       const { open, guest, declared, written } = tokens
       written.length = 0
-      const { store, tokens: first } = open()
+      const { designs, tokens: first } = open()
       first.store.set([{ name: "primary", theme: "default", value: "red" }])
-      const again = guest(store)
+      const again = guest(designs)
       const shown = declared(again.sheet, "primary")
-      await store.flush()
-      return [shown, written.length, store.hasUnsaved()]
+      await designs.saver.flush()
+
+      return [shown, written.length, designs.saver.hasUnsaved()]
     })
+
     expect(result).toEqual(["red", 1, false])
   })
 })
@@ -180,8 +183,10 @@ describe("animation keyframes", () => {
           }
         }`)
       const named = (name: string) => keyframesNamed(sheet.cssRules, name) ?? null
+
       return { bounce: named("bounce"), spin: named("spin"), pulse: named("pulse") }
     })
+
     expect(frames.bounce).toEqual([
       { transform: "translateY(-25%)", easing: "cubic-bezier(0.8, 0, 1, 1)", offset: 0 },
       { transform: "none", easing: "cubic-bezier(0, 0, 0.2, 1)", offset: 0.5 },

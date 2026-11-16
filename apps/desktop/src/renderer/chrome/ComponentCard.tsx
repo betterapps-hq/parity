@@ -1,6 +1,6 @@
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import type { AdapterIcon } from "@parity-app/core"
 import {
-  BookOpen,
   CircleAlert,
   Component,
   Diamond,
@@ -17,16 +17,20 @@ import { type CSSProperties, type ReactElement, type ReactNode, useState } from 
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { Hint } from "./Hint.tsx"
 import type { useHoverCard } from "./hover-card.ts"
+import { Name } from "./Name.tsx"
 import { isProblem, type PreviewStatus, previewStatus, statusWords } from "./preview-status.ts"
 
 /** The picture's box on the card, in CSS pixels: the card's width less its padding, and at most this tall. */
 const stageWidth = 304
 const stageHeight = 176
+
 /** The least a made picture's box is, and the margin round the picture in it. */
 const lowest = 96
 const margin = 24
+
 /** How many of a variant's options the card shows as small pictures; the rest are counted. */
 const shownOptions = 5
 
@@ -34,6 +38,17 @@ const shownOptions = 5
 export interface CardVariant {
   value: string | number | boolean
   preview: PreviewState | undefined
+}
+
+/** One of the project's extensions' commands for a component, as its card's bar offers it. */
+export interface CardOffer {
+  /** Its adapter and id, to tell it from the rest. */
+  id: string
+  name: string
+  logo?: AdapterIcon
+  /** Why it can't act on this component, as `No story found`; its button stays, faded, its hint saying why. */
+  unavailable?: string | undefined
+  run: () => void
 }
 
 export interface ComponentCardProps {
@@ -55,21 +70,21 @@ export interface ComponentCardProps {
   variants?: { prop: string; options: CardVariant[] }
   /** How many times the project's designs place it. */
   uses?: number
-  /** How many stories the project's Storybook has of it. */
-  stories?: number
+  /** What the project's extensions know of it, as `1 story` from Storybook's (PAR-1089). */
+  facts?: readonly { value: string; label: string }[]
   /** Inserts it where the selection is; none where something else inserts, as Enter in the insert picker does. */
   onInsert?: () => void
   /** Opens its file in the person's editor; none for a component without one. */
   onOpenFile?: () => void
-  /** Opens its stories in Storybook; none for a component without any. */
-  onOpenStorybook?: () => void
+  /** What the project's extensions offer for it, as Open in Storybook on one with stories, each an icon button. */
+  offers?: readonly CardOffer[]
   /** Something else pressing or dragging it does, said last. */
   actions?: ReactNode
 }
 
 /**
  * A component's card: its preview, large, on the project's own background, small previews of its variants, then its
- * name, where it's from, how often it's used and its stories, and a bar with what to do with it (PAR-208). It's the
+ * name, where it's from, how often it's used and what extensions know of it, and a bar with what to do with it (PAR-208). It's the
  * panel's surface, a step up from the panel in either theme, so the pictures are the only things on it in the project's
  * colors (PAR-515).
  */
@@ -83,10 +98,10 @@ export function ComponentCard({
   status,
   variants,
   uses,
-  stories,
+  facts: told = [],
   onInsert,
   onOpenFile,
-  onOpenStorybook,
+  offers = [],
   actions
 }: ComponentCardProps) {
   const [shown, setShown] = useState<CardVariant>()
@@ -99,11 +114,14 @@ export function ComponentCard({
   const variant = shown && previewStatus(shown.preview)
   const stage = variant && (variant.kind === "made" || variant.kind === "updating") ? variant : main
   const drawn = main.kind === "made" || main.kind === "updating"
+
   const facts = [
     uses !== undefined && (uses === 0 ? "Not used yet" : `Used ${uses} ${uses === 1 ? "time" : "times"}`),
-    stories !== undefined && stories > 0 && `${stories} ${stories === 1 ? "story" : "stories"}`
+    ...told.map((fact) => `${fact.value} ${fact.label}`)
   ].filter(Boolean)
-  const bar = onInsert || onOpenFile || onOpenStorybook
+
+  const bar = onInsert || onOpenFile || offers.length > 0
+
   return (
     <div className="flex flex-col">
       <div className="p-2 pb-0">
@@ -111,10 +129,11 @@ export function ComponentCard({
       </div>
       {drawn && variants && variants.options.length > 1 && (
         <div className="flex flex-col gap-1 px-3 pt-2" onPointerLeave={() => setShown(undefined)}>
-          <span className="text-[11px] text-muted-foreground">{variants.prop}</span>
+          <span className="text-xs text-muted-foreground">{variants.prop}</span>
           <div className="flex gap-1">
             {variants.options.slice(0, shownOptions).map((option) => {
               const label = String(option.value)
+
               return (
                 <Hint key={label} label={label}>
                   <button
@@ -132,7 +151,7 @@ export function ComponentCard({
               )
             })}
             {variants.options.length > shownOptions && (
-              <span className="grid h-[30px] w-9 place-items-center rounded-md bg-muted text-[11px] text-muted-foreground">
+              <span className="grid h-[30px] w-9 place-items-center rounded-md bg-muted text-2xs text-muted-foreground">
                 +{variants.options.length - shownOptions}
               </span>
             )}
@@ -142,28 +161,26 @@ export function ComponentCard({
       <div className="flex flex-col gap-0.5 px-3 pt-2.5 pb-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <Icon className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-          <span className="min-w-0 truncate text-sm font-medium">{own}</span>
+          <Name className="min-w-0 text-sm font-medium">{own}</Name>
           {from && <span className="shrink-0 text-xs text-muted-foreground">{from}</span>}
         </div>
-        {path && <span className="truncate font-mono text-[11px] text-muted-foreground">{path}</span>}
-        {note && (
-          <span className="text-[11px] text-muted-foreground">{note.charAt(0).toUpperCase() + note.slice(1)}</span>
-        )}
+        {path && <span className="truncate font-mono text-2xs text-muted-foreground">{path}</span>}
+        {note && <span className="text-xs text-muted-foreground">{note.charAt(0).toUpperCase() + note.slice(1)}</span>}
         {facts.length > 0 && (
-          <span className="flex gap-3 text-[11px] text-muted-foreground">
+          <span className="flex gap-3 text-xs text-muted-foreground">
             {facts.map((fact) => (
               <span key={String(fact)}>{fact}</span>
             ))}
           </span>
         )}
         {status && (
-          <span className="mt-1 flex items-start gap-1.5 text-xs text-destructive">
-            <CircleAlert className="mt-px size-3.5 shrink-0" />
+          <span className="type-message mt-1 flex items-start gap-1.5 text-destructive">
+            <CircleAlert className="mt-0.5 size-3.5 shrink-0" />
             {status}
           </span>
         )}
       </div>
-      {actions && <div className="border-t px-3 py-2 text-[11px] text-muted-foreground">{actions}</div>}
+      {actions && <div className="type-description border-t px-3 py-2 text-muted-foreground">{actions}</div>}
       {bar && (
         <div className="flex items-center gap-1 border-t px-2 py-1.5">
           {onInsert && (
@@ -178,18 +195,26 @@ export function ComponentCard({
               </Button>
             </Hint>
           )}
-          {onOpenStorybook && (
-            <Hint label="Open in Storybook">
-              <Button
-                size="icon"
-                variant="ghost"
-                className="size-7"
-                aria-label="Open in Storybook"
-                onClick={onOpenStorybook}
-              >
-                <BookOpen />
-              </Button>
-            </Hint>
+          {offers.map((offer) =>
+            offer.unavailable === undefined ? (
+              <Hint key={offer.id} label={offer.name}>
+                <Button size="icon" variant="ghost" className="size-7" aria-label={offer.name} onClick={offer.run}>
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            ) : (
+              <Hint key={offer.id} label={offer.unavailable}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="size-7 opacity-50"
+                  aria-disabled
+                  aria-label={`${offer.name}, unavailable: ${offer.unavailable}`}
+                >
+                  <AdapterLogo logo={offer.logo} />
+                </Button>
+              </Hint>
+            )
           )}
         </div>
       )}
@@ -220,6 +245,7 @@ export const statusTones: Partial<Record<PreviewStatus["kind"], string>> = {
  */
 function PreviewStage({ status }: { status: PreviewStatus }) {
   const box = "flex items-center justify-center overflow-hidden rounded-md"
+
   if (status.kind === "made" || status.kind === "updating") {
     const { image } = status
     const updating = status.kind === "updating"
@@ -227,6 +253,7 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
     const scale = Math.min(1, stageWidth / (image.width / 2), (stageHeight - margin) / (image.height / 2))
     // The box fits the picture with a margin round it, so a small part isn't lost in a large white page.
     const height = Math.max(lowest, Math.min(stageHeight, (image.height / 2) * scale + margin))
+
     return (
       <div
         className={`${box} relative ring-1 ring-border ring-inset`}
@@ -241,7 +268,7 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
           className={updating ? "opacity-40" : undefined}
         />
         {updating && (
-          <span className="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded-sm bg-popover/90 px-1.5 py-0.5 text-[11px] text-popover-foreground shadow-sm">
+          <span className="absolute right-1.5 bottom-1.5 flex items-center gap-1 rounded-sm bg-popover/90 px-1.5 py-0.5 text-2xs text-popover-foreground shadow-sm">
             <LoaderCircle className="size-3 animate-spin" />
             Updating
           </span>
@@ -249,8 +276,10 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
       </div>
     )
   }
+
   if (status.kind === "waiting" || status.kind === "making") {
     const making = status.kind === "making"
+
     return (
       <div className={`${box} gap-1.5 bg-muted text-xs text-muted-foreground`} style={{ height: lowest }}>
         {making && <LoaderCircle className="size-3.5 animate-spin" />}
@@ -258,8 +287,10 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
       </div>
     )
   }
+
   const Icon = statusIcons[status.kind] ?? CircleAlert
   const tone = statusTones[status.kind] ?? "text-muted-foreground"
+
   return (
     <div
       className={`${box} flex-col gap-1.5 px-4 py-3 text-center ${status.kind === "failed" ? "bg-destructive/10" : "bg-muted"}`}
@@ -268,10 +299,10 @@ function PreviewStage({ status }: { status: PreviewStatus }) {
       <Icon className={`size-4 ${tone}`} />
       <span className={`text-xs ${tone}`}>{statusWords[status.kind].long}</span>
       {status.needs && status.needs.length > 0 && (
-        <span className="font-mono text-[11px] text-muted-foreground">{status.needs.join(", ")}</span>
+        <span className="font-mono text-2xs/4 text-muted-foreground">{status.needs.join(", ")}</span>
       )}
       {status.error && (
-        <span className="line-clamp-3 font-mono text-[11px] break-all text-muted-foreground">{status.error}</span>
+        <span className="line-clamp-3 font-mono text-2xs/4 break-all text-muted-foreground">{status.error}</span>
       )}
     </div>
   )
@@ -296,10 +327,12 @@ export function PreviewThumb({
 }) {
   const box = "relative grid shrink-0 place-items-center overflow-hidden rounded-[5px]"
   const size: CSSProperties = fill ? { width: "100%", aspectRatio: `${width} / ${height}` } : { width, height }
+
   if (status.kind === "made" || status.kind === "updating") {
     const { image } = status
     const room = 4
     const scale = Math.min(1, (width - room) / (image.width / 2), (height - room) / (image.height / 2))
+
     return (
       <span
         aria-hidden
@@ -323,6 +356,7 @@ export function PreviewThumb({
       </span>
     )
   }
+
   if (status.kind === "making") {
     return (
       <span
@@ -338,8 +372,10 @@ export function PreviewThumb({
       />
     )
   }
+
   const Icon = statusIcons[status.kind]
   const dashed = status.kind === "needs-props" ? "border border-dashed border-muted-foreground/40" : ""
+
   return (
     <span aria-hidden className={`${box} bg-muted ${dashed}`} style={size}>
       {Icon && <Icon className={`size-3.5 ${statusTones[status.kind] ?? "text-muted-foreground"}`} />}
@@ -347,11 +383,17 @@ export function PreviewThumb({
   )
 }
 
-/** What a component's row or tile says under its name: why it has no picture, when that's a problem. */
-export function StatusLine({ status }: { status: PreviewStatus }) {
-  if (!isProblem(status) || status.kind === "made") return null
+/**
+ * What a component's row or tile says under its name: why it has no picture, when that's a problem. It sits a step
+ * below the name: a Label under a row's 13px name, a Caption under a tile's 12px one.
+ */
+export function StatusLine({ status, size = "text-xs" }: { status: PreviewStatus; size?: "text-xs" | "text-2xs" }) {
+  if (!isProblem(status) || status.kind === "made") {
+    return null
+  }
+
   return (
-    <span className={`truncate text-[11px] ${statusTones[status.kind] ?? "text-muted-foreground"}`}>
+    <span className={`truncate ${size} ${statusTones[status.kind] ?? "text-muted-foreground"}`}>
       {statusWords[status.kind].short}
     </span>
   )

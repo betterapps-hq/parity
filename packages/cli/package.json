@@ -1,6 +1,6 @@
 {
   "name": "@parity-app/cli",
-  "version": "0.13.0",
+  "version": "0.72.3",
   "license": "MIT",
   "type": "module",
   "description": "Drive the Parity app from a terminal or an agent: read state, run edits, take screenshots, serve MCP.",
@@ -49,6 +49,7 @@
     }
   },
   "dependencies": {
+    "@sentry/node": "catalog:",
     "semver": "^7.8.5",
     "typescript": "6.0.3",
     "zod": "catalog:"
@@ -56,7 +57,11 @@
   "devDependencies": {
     "@parity-app/agent": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension-vite": "workspace:*",
     "@parity-app/libgen": "workspace:*",
-    "@parity-app/registry": "workspace:*"
+    "@parity-app/project": "workspace:*",
+    "@parity-app/registry": "workspace:*",
+    "@parity-app/telemetry": "workspace:*",
+    "@types/semver": "^7.8.0"
   }
 }

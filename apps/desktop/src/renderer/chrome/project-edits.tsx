@@ -1,6 +1,9 @@
 import type { ProjectEditResult } from "../../shared/protocol.ts"
+import { errorCode, type ReportContext, reportError, track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
-import { notify } from "../toasts.tsx"
+import { notify, type ToastOptions } from "../toasts.tsx"
+import type { Attributes } from "./event-attributes.ts"
 
 /**
  * Says the service changed the project's files: which ones and why, with the diff to look at and Undo. `afterUndo`
@@ -10,10 +13,14 @@ import { notify } from "../toasts.tsx"
 export function announceEdit(
   projectId: string,
   edit: ProjectEditResult,
-  options: { id?: string; afterUndo?: () => Promise<unknown> } = {}
+  options: { id?: string; afterUndo?: () => Promise<void> } = {}
 ): void {
-  if (edit.files.length === 0) return
+  if (edit.files.length === 0) {
+    return
+  }
+
   const id = options.id ?? edit.id
+  track("projectEdit.applied", { files: paths(edit), outcome: "ok" })
   const title = edit.files.length === 1 ? "Changed a project file" : `Changed ${edit.files.length} project files`
   showEdit(title, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
 }
@@ -23,42 +30,78 @@ export function announceEdit(
  * in place, since a notification takes its height when it's set. Shown, it stays until it's hidden, to be read.
  */
 function showEdit(title: string, edit: ProjectEditResult, id: string, undo?: () => void, open = false): void {
-  notify.done(title, {
+  const shown: ToastOptions = {
     id,
     description: <EditDetails edit={edit} open={open} toggle={() => showEdit(title, edit, id, undo, !open)} />,
-    timeout: open ? 0 : 10_000,
+    timeout: open ? 0 : 10_000
+  }
+
+  if (undo) {
     // Undo turns this toast into its progress, so it stays.
-    ...(undo ? { action: { label: "Undo", run: undo, keepOpen: true } } : {})
-  })
+    shown.action = { label: "Undo", run: undo, keepOpen: true }
+  }
+
+  notify.done(title, shown)
 }
 
 async function undo(
   projectId: string,
   edit: ProjectEditResult,
   id: string,
-  afterUndo: (() => Promise<unknown>) | undefined
+  afterUndo: (() => Promise<void>) | undefined
 ): Promise<void> {
-  notify.progress("Undoing the change…", { id })
-  let undone: ProjectEditResult
-  try {
-    undone = await request("project.undoEdit", { projectId, id: edit.id })
-  } catch (error) {
-    notify.failed("Couldn't undo the change", { id, error })
+  const undone = await serviceCall({
+    progress: "Undoing the change…",
+    shown: { id },
+    run: () => request("project.undoEdit", { projectId, id: edit.id }),
+    done(answer) {
+      track("projectEdit.undone", { files: paths(answer), outcome: "ok" })
+
+      // It says what was undone once the project has reloaded, below.
+      return "keep"
+    },
+    failed: {
+      operation: "project.undoEdit",
+      title: "Couldn't undo the change",
+      track(error) {
+        const failed: Attributes<"projectEdit.undone"> = { files: paths(edit), outcome: "error" }
+        const code = errorCode(error)
+
+        if (code) {
+          failed.code = code
+        }
+
+        track("projectEdit.undone", failed)
+      }
+    }
+  })
+
+  if (!undone) {
     return
   }
+
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {
     await afterUndo?.()
     showEdit("Undid the change", undone, id)
-  } catch {
-    const reload = afterUndo
-    notify.warning("Couldn't reload the project", {
+  } catch (error) {
+    const report: ReportContext = {
+      operation: "project.reload",
+      title: "Couldn't reload the project",
       id,
-      description: "The change was undone, but the project didn't reload.",
-      timeout: 0,
-      ...(reload ? { action: { label: "Reload", run: () => void reload() } } : {})
-    })
+      description: "The change was undone, but the project didn't reload."
+    }
+
+    if (afterUndo) {
+      report.action = { label: "Reload", run: () => void afterUndo() }
+    }
+
+    reportError(error, report)
   }
+}
+
+function paths(edit: ProjectEditResult): string[] {
+  return edit.files.map((file) => file.path)
 }
 
 function files(edit: ProjectEditResult): string {
@@ -87,7 +130,7 @@ export function EditDetails({ edit, open, toggle }: { edit: ProjectEditResult; o
 /** A unified diff, with what was taken out and put in told apart by color. */
 function Diff({ diff }: { diff: string }) {
   return (
-    <pre className="max-h-48 w-full overflow-auto rounded-sm bg-muted p-2 font-mono text-[11px] leading-4 text-foreground">
+    <pre className="type-code max-h-48 w-full overflow-auto rounded-sm bg-muted p-2 font-mono text-foreground">
       {diff.split("\n").map((line, index) => (
         <div key={index} className={lineClass(line)}>
           {line || " "}
@@ -101,7 +144,14 @@ function lineClass(line: string): string | undefined {
   if (line.startsWith("+++") || line.startsWith("---") || line.startsWith("@@") || line.startsWith("\\")) {
     return "text-muted-foreground"
   }
-  if (line.startsWith("+")) return "text-emerald-600 dark:text-emerald-400"
-  if (line.startsWith("-")) return "text-destructive"
+
+  if (line.startsWith("+")) {
+    return "text-emerald-600 dark:text-emerald-400"
+  }
+
+  if (line.startsWith("-")) {
+    return "text-destructive"
+  }
+
   return undefined
 }

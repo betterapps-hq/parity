@@ -4,7 +4,6 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -12,14 +11,16 @@ import {
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
-  type CanvasDocument,
   type ComponentRef,
   type ComponentRenderStatus,
   type ComponentRole,
   type ComponentSource,
   componentRole,
   describeRenderStatus,
+  emptyDocument,
   groupComponents,
+  type RouteFiles,
+  routeFiles,
   includeComponent,
   type LeftOutExport,
   type LibraryInfo
@@ -32,20 +33,20 @@ import {
   hiddenHeading,
   hiddenReason,
   type InsertItem,
+  type InsertOption,
   type InsertOrigin,
   isLate,
   missingProps,
   previewVariants,
   searchOption
 } from "@parity-app/editor"
+import { applyDocuments, type ProjectDoc } from "@parity-app/multiplayer"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
-  BookOpen,
   ChevronRight,
   CircleAlert,
   Component,
   Diamond,
-  ImageIcon,
   LayoutGrid,
   Library,
   List,
@@ -57,7 +58,6 @@ import {
   StretchHorizontal
 } from "lucide-react"
 import {
-  type DragEvent,
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
@@ -68,41 +68,41 @@ import {
   useSyncExternalStore
 } from "react"
 import type { ProjectInfo } from "../../shared/protocol.ts"
+import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
-import { insertAtSelection, insertMime } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { useExtensions } from "../extensions.ts"
+import type { LoadedGuest } from "../guest.ts"
+import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
 import { request } from "../service.ts"
 import { notify } from "../toasts.tsx"
 import { type ProjectSession, workspace } from "../workspace.ts"
+import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
+import { componentOffers, type PlacedExtensions } from "./command-offers.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
-import { ComponentMenu } from "./ComponentMenu.tsx"
+import { ComponentMenu, type MenuOffer } from "./ComponentMenu.tsx"
+import type { Attributes } from "./event-attributes.ts"
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { GuestIcon, iconCatalog, iconLibraries, iconStyles, iconsOf } from "./icons.tsx"
+import { addAtSelection, dragItem } from "./insert-from-panel.ts"
+import { Name, NameInput } from "./Name.tsx"
+import { GroupLabel } from "./PanelSection.tsx"
 import { type Preferences, setPreferences, usePreferences } from "./preferences.ts"
 import { type PreviewStatus, previewStatus } from "./preview-status.ts"
-import { useProcesses } from "./process-store.ts"
 import { announceEdit } from "./project-edits.tsx"
-import { hasStories, openInStorybook } from "./storybook.ts"
-
-/**
- * Adds an item where the selection is, or as a new screen in the middle of the view with nothing selected, or says
- * what to select when the selected design has nowhere for it.
- */
-function addAtSelection(session: ProjectSession, item: InsertItem): void {
-  if (!insertAtSelection(session, item))
-    notify.info("Nowhere to add it", { description: "Select a layout, or a layer to add it after." })
-}
+import { revealSelection } from "./reveal.ts"
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
 
 /** How each component drawn so far fares on the canvas, as the guest's boundaries saw it. */
-function useRenderStatus(session: ProjectSession): Record<string, ComponentRenderStatus> {
-  const status = session.loaded.guest.renderStatus
+function useRenderStatus(loaded: LoadedGuest): Record<string, ComponentRenderStatus> {
+  const status = loaded.guest.renderStatus
+
   return useSyncExternalStore(status?.subscribe ?? noSubscription, status?.get ?? (() => noStatus))
 }
 
@@ -110,29 +110,19 @@ function useRenderStatus(session: ProjectSession): Record<string, ComponentRende
  * Puts an export on the component list, as an undoable change to the main project file, saved with it. The list follows
  * straight away.
  */
-function listByHand(session: ProjectSession, target: ComponentRef, name: string): void {
-  const { store } = session
+function listByHand(doc: ProjectDoc, target: ComponentRef, name: string): void {
   const ref = { path: target.path, export: target.export }
-  const main: CanvasDocument = store.getDocuments().find((entry) => entry.path === store.mainPath)?.document ?? {
-    version: 3,
-    containers: []
-  }
+
+  const main = doc.file(doc.main) ?? emptyDocument()
+
   const { detection: _, ...rest } = main
   const detection = includeComponent(main.detection, ref)
-  store.applyDocuments(`List ${name} as a component`, [{ path: store.mainPath, document: { ...rest, detection } }])
+  applyDocuments(doc, `List ${name} as a component`, [{ path: doc.main, document: { ...rest, detection } }], {
+    origin: "edit"
+  })
 }
 
-function dragItem(item: InsertItem) {
-  return {
-    draggable: true,
-    onDragStart: (event: DragEvent) => {
-      event.dataTransfer.setData(insertMime, JSON.stringify(item))
-      event.dataTransfer.effectAllowed = "copy"
-    }
-  }
-}
-
-/** A panel's search field, with a magnifier; the Layers panel's too. */
+/** A panel's search field, with a magnifier; the Layers panel's too. It matches names, so it shows their letters. */
 export function SearchField({
   value,
   onChange,
@@ -147,7 +137,7 @@ export function SearchField({
   return (
     <div className="relative px-2 pt-2">
       <Search className="pointer-events-none absolute top-1/2 left-4 mt-1 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <Input
+      <NameInput
         value={value}
         onChange={(event) => onChange(event.currentTarget.value)}
         onKeyDown={onKeyDown}
@@ -159,13 +149,21 @@ export function SearchField({
   )
 }
 
+/**
+ * One of a family's components. `evidence` is why it counts as a component, in words; `hidden` why the insert picker
+ * leaves it out until it's searched for by name (PAR-178).
+ */
+export interface FamilyItem {
+  key: string
+  label: string
+  item: InsertItem
+  evidence?: string
+  hidden?: HiddenReason
+}
+
 export interface Family {
   name: string
-  /**
-   * `evidence` is why it counts as a component, in words; `hidden` why the insert picker leaves it out until it's
-   * searched for by name (PAR-178).
-   */
-  items: { key: string; label: string; item: InsertItem; evidence?: string; hidden?: HiddenReason }[]
+  items: FamilyItem[]
   /** Its name is a folder or a route, shown over a single component too. */
   heading?: true
 }
@@ -185,37 +183,68 @@ export interface Source {
  * rest of the app, by folder or page route. What the picker hides comes last, under a heading of its own, as a
  * library's internal parts always have.
  */
-function families(sources: [string, ComponentSource][], by: "file" | "folder" | "route" = "file"): Family[] {
+function families(
+  sources: [string, ComponentSource][],
+  by: "file" | "folder" | "route" = "file",
+  routes?: RouteFiles
+): Family[] {
   const evidence = new Map(
     // Why detection counts it says nothing a person needs, so only one they listed themselves says so.
     sources.map(([key, source]) => [key, source.included ? "listed by hand" : undefined])
   )
+
   const hidden = new Map(sources.map(([key, source]) => [key, hiddenReason(key, { internal: source.internal })]))
-  const grouped: Family[] = groupComponents(sources, by).map((group) => ({
-    name: group.name,
-    items: group.ids.map((key) => ({
-      key,
-      label: componentLabel(key),
-      item: { kind: "component", component: key },
-      ...(evidence.get(key) ? { evidence: evidence.get(key) } : {}),
-      ...(hidden.get(key) ? { hidden: hidden.get(key) } : {})
-    })),
-    ...(by === "file" ? {} : { heading: true as const })
-  }))
+
+  const grouped = groupComponents(sources, by, routes).map((group) => {
+    const family: Family = {
+      name: group.name,
+      items: group.ids.map((key) => familyItem(key, evidence.get(key), hidden.get(key)))
+    }
+
+    if (by !== "file") {
+      family.heading = true
+    }
+
+    return family
+  })
+
   const apart = grouped.flatMap((family) => family.items.filter((entry) => entry.hidden))
-  if (apart.length === 0) return grouped
-  const shown = grouped
-    .map((family) => ({ ...family, items: family.items.filter((entry) => !entry.hidden) }))
-    .filter((family) => family.items.length > 0)
+
+  if (apart.length === 0) {
+    return grouped
+  }
+
+  const shown = grouped.flatMap((family) => {
+    const items = family.items.filter((entry) => !entry.hidden)
+
+    return items.length > 0 ? [{ ...family, items }] : []
+  })
+
   return [...shown, { name: hiddenHeading(apart.flatMap((entry) => entry.hidden ?? [])), heading: true, items: apart }]
+}
+
+function familyItem(key: string, evidence: string | undefined, hidden: HiddenReason | undefined): FamilyItem {
+  const entry: FamilyItem = { key, label: componentLabel(key), item: { kind: "component", component: key } }
+
+  if (evidence) {
+    entry.evidence = evidence
+  }
+
+  if (hidden) {
+    entry.hidden = hidden
+  }
+
+  return entry
 }
 
 /** The project's own components by role: its UI kit, the rest of the app by folder, and its pages. */
 function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source[] {
   const icon = <Component className="size-3.5" style={{ color: kindColors.component }} />
-  const withRole = (role: ComponentRole) => all.filter(([, source]) => componentRole(source) === role)
+  const routes = routeFiles(info.routes)
+  const withRole = (role: ComponentRole) => all.filter(([, source]) => componentRole(source, routes) === role)
   const kit = withRole("kit")
   const pages = withRole("page")
+
   return [
     ...(kit.length > 0
       ? [{ id: "project:kit", title: "UI kit", icon, origin: "kit" as const, families: families(kit) }]
@@ -226,7 +255,7 @@ function ownSources(info: ProjectInfo, all: [string, ComponentSource][]): Source
       title: "Pages",
       icon: <MonitorSmartphone className="size-3.5" style={{ color: kindColors.screen }} />,
       origin: "page",
-      families: families(pages, "route")
+      families: families(pages, "route", routes)
     }
   ]
 }
@@ -240,6 +269,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
   const all = Object.entries(info.sources).filter(([, source]) => source.visual !== false)
   const designs = entries.filter((entry) => entry.container.kind === "component")
   const list: Source[] = []
+
   if (designs.length > 0) {
     list.push({
       id: "designs",
@@ -258,13 +288,16 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       ]
     })
   }
+
   list.push(...ownSources(info, all))
+
   for (const library of info.libraries.filter((candidate) => candidate.kind !== "icons")) {
     const own = all.filter(([, source]) => source.library === library.id)
     // Its ready-made compositions come first, placed as linked instances, or as copies from their menu. One a project
     // design has the id of is left out, since placing it would place the project's.
     const ownIds = new Set(entries.map((entry) => entry.container.id))
     const offered = (library.designs ?? []).filter((design) => !ownIds.has(design.id))
+
     const designed: Family[] = offered.length
       ? [
           {
@@ -278,6 +311,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
           }
         ]
       : []
+
     list.push({
       id: library.id,
       title: library.name,
@@ -289,6 +323,7 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
       library
     })
   }
+
   return list
 }
 
@@ -300,27 +335,36 @@ export function componentSources(info: ProjectInfo, entries: readonly ContainerE
 function searchFamilies(source: Source, query: string): Family[] {
   const found = source.families.flatMap((family, place) => {
     const items = family.items.flatMap((entry, index) => {
-      const match = searchOption(
-        {
-          key: entry.key,
-          name: entry.label,
-          origin: source.origin,
-          source: source.id,
-          sourceName: source.title,
-          description: family.name,
-          ...(entry.hidden ? { hidden: entry.hidden } : {})
-        },
-        query
-      )
+      const option: InsertOption = {
+        key: entry.key,
+        name: entry.label,
+        origin: source.origin,
+        source: source.id,
+        sourceName: source.title,
+        description: family.name
+      }
+
+      if (entry.hidden) {
+        option.hidden = entry.hidden
+      }
+
+      const match = searchOption(option, query)
+
       // As in the picker, a hidden one the search only partly names comes after the rest.
       return match ? [{ entry, tier: match.tier, late: isLate(entry, match), index }] : []
     })
-    if (items.length === 0) return []
+
+    if (items.length === 0) {
+      return []
+    }
+
     items.sort((a, b) => compareRanked(a, b) || a.index - b.index)
     // The family ranks as its best match, which comes first, and keeps its place among families that rank the same.
     const { tier, late } = items[0]!
+
     return [{ family: { ...family, items: items.map(({ entry }) => entry) }, tier, late, index: place }]
   })
+
   return found.sort((a, b) => compareRanked(a, b) || a.index - b.index).map(({ family }) => family)
 }
 
@@ -340,8 +384,8 @@ const views: { view: ComponentsView; label: string; Icon: typeof List }[] = [
  */
 export function ComponentsPanel() {
   const session = useProject()
-  const { info, store } = session
-  const entries = useContainerEntries(store)
+  const { info } = session
+  const entries = useContainerEntries(session)
   const [query, setQuery] = useState("")
   const { componentsView: view } = usePreferences()
 
@@ -349,11 +393,13 @@ export function ComponentsPanel() {
   const uses = useMemo(() => componentUses(entries.map((entry) => entry.container.root)), [entries])
 
   const needle = query.trim().toLowerCase()
+
   const shown = needle
     ? sources
         .map((source) => ({ ...source, families: searchFamilies(source, needle) }))
         .filter((source) => source.families.length > 0)
     : sources.filter((source) => source.families.length > 0 || source.library)
+
   const leftOut = needle ? notListed(info).filter((entry) => entry.name.toLowerCase().includes(needle)) : []
 
   return (
@@ -371,7 +417,10 @@ export function ComponentsPanel() {
           spacing={0}
           value={[view]}
           onValueChange={([value]) => {
-            if (value) setPreferences({ componentsView: value as ComponentsView })
+            if (value) {
+              // SAFETY: the group's items come from `views`, one for each ComponentsView.
+              setPreferences({ componentsView: value as ComponentsView })
+            }
           }}
           aria-label="Show components as"
         >
@@ -384,7 +433,7 @@ export function ComponentsPanel() {
           ))}
         </ToggleGroup>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto py-2 text-[13px]">
+      <div className="min-h-0 flex-1 overflow-y-auto py-2 text-sm">
         {shown.map((source) => (
           <SourceSection
             // Starting or clearing a search resets what was collapsed by hand, so matches always show.
@@ -405,10 +454,28 @@ export function ComponentsPanel() {
   )
 }
 
+/**
+ * Pressing a component: one of the project's own selects its board on the canvas, which shows what it is, and any
+ * other is added where the selection is.
+ */
+function pick(session: ProjectSession, item: InsertItem, component: string | undefined): void {
+  const board = component === undefined ? undefined : boardKeyOf(session.id, component)
+
+  if (board === undefined) {
+    addAtSelection(session, item)
+
+    return
+  }
+
+  session.selection.set({ design: board })
+  revealSelection(session)
+}
+
 /** The app's exports that aren't listed as components: what the type checker left out, less what the person listed. */
 function notListed(info: ProjectInfo): LeftOutExport[] {
   const key = (ref: ComponentRef) => `${ref.path}#${ref.export}`
   const listed = new Set(Object.values(info.sources).map(key))
+
   return (info.leftOut ?? []).filter((entry) => !listed.has(key(entry)))
 }
 
@@ -418,9 +485,12 @@ function notListed(info: ProjectInfo): LeftOutExport[] {
  */
 function NotListed({ entries }: { entries: LeftOutExport[] }) {
   const session = useProject()
+
   return (
     <section className="mt-2 border-t pt-2" aria-label="Not listed as components">
-      <div className="flex h-7 items-center px-4 text-xs font-medium text-muted-foreground">Not listed</div>
+      <GroupLabel as="div" className="flex h-7 items-center px-4">
+        Not listed
+      </GroupLabel>
       {entries.map((entry) => (
         <div
           key={`${entry.path} ${entry.export}`}
@@ -428,9 +498,12 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
         >
           <div className="min-w-0 flex-1">
             <Hint label={entry.path} wait>
-              <div className="truncate">{entry.name}</div>
+              {/* The hint's trigger, so it's an element that takes the hint's ref. */}
+              <div className="truncate">
+                <Name>{entry.name}</Name>
+              </div>
             </Hint>
-            <div className="text-[11px] leading-snug">
+            <div className="type-message">
               {entry.undecided
                 ? `Can't tell: ${entry.reason}`
                 : `${entry.reason.charAt(0).toUpperCase()}${entry.reason.slice(1)}`}
@@ -440,8 +513,8 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
             <Button
               variant="ghost"
               size="sm"
-              className="h-6 shrink-0 px-2 text-[11px]"
-              onClick={() => listByHand(session, entry, entry.name)}
+              className="h-6 shrink-0 px-2"
+              onClick={() => listByHand(session.doc, entry, entry.name)}
             >
               List it
             </Button>
@@ -465,33 +538,34 @@ function SourceSection({
   uses: ReadonlyMap<string, number>
 }) {
   const session = useProject()
-  const statuses = useRenderStatus(session)
-  const storybookRunning = useProcesses(false).some(
-    (process) => process.kind === "storybook" && process.projectId === session.id && process.status === "running"
-  )
+  const statuses = useRenderStatus(session.loaded)
+
   const [expanded, setExpanded] = useState<boolean>()
   const count = source.families.reduce((total, family) => total + family.items.length, 0)
   const isOpen = expanded ?? open
+
   return (
     <section className="mb-1">
       <button
         type="button"
         onClick={() => setExpanded(!isOpen)}
         aria-expanded={isOpen}
-        className="flex h-7 w-full items-center gap-1.5 px-2 text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="group/source flex h-7 w-full items-center gap-1.5 px-2 text-muted-foreground hover:text-foreground"
       >
         <ChevronRight className={`size-3.5 transition-transform ${isOpen ? "rotate-90" : ""}`} />
         {source.icon}
-        <span className="min-w-0 flex-1 truncate text-left">{source.title}</span>
-        <span className="tabular-nums">{count}</span>
+        <GroupLabel className="flex min-w-0 flex-1 items-center gap-1.5 group-hover/source:text-foreground">
+          <span className="min-w-0 flex-1 truncate text-left">{source.title}</span>
+          <span className="tabular-nums">{count}</span>
+        </GroupLabel>
       </button>
       {source.library && !source.library.stylesImported && <ImportStyles library={source.library} />}
       {isOpen &&
         source.families.map((family) => (
           <div key={family.name} className="mb-1">
             {family.name && (family.items.length > 1 || family.heading) && (
-              <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-[11px] text-muted-foreground`}>
-                {family.name}
+              <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-2xs text-muted-foreground`}>
+                <Name className="block">{family.name}</Name>
               </div>
             )}
             <div className={view === "grid" ? "grid grid-cols-2 gap-1 px-2 pt-1" : undefined}>
@@ -503,7 +577,6 @@ function SourceSection({
                   view={view}
                   uses={uses.get(entry.key) ?? 0}
                   status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                  storybookRunning={storybookRunning}
                 />
               ))}
             </div>
@@ -519,44 +592,52 @@ const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height
 /**
  * An item of a source: a component, whose card opens beside it when the pointer rests on it or the right arrow is
  * pressed on it (PAR-515, PAR-208), or a library's component design, with a hint. In the List and Grid views a
- * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): View in
- * Storybook, and View code in the person's editor, each greyed with why when it can't. A library's design offers its
- * two ways to insert.
+ * component shows its picture, or why it has none. Right-clicking a component opens its menu (PAR-527): what the
+ * project's extensions offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
+ * why when it can't. A library's design offers its two ways to insert.
  */
 function AssetEntry({
   entry,
   source,
   view,
   uses,
-  status,
-  storybookRunning
+  status
 }: {
   entry: Family["items"][number]
   source: Source
   view: ComponentsView
   uses: number
   status: ComponentRenderStatus | undefined
-  storybookRunning: boolean
 }) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-  const stories = component !== undefined && hasStories(session, component)
+
+  const placed: PlacedExtensions = {
+    session,
+    extensions: useExtensions(session).extensions,
+    placement: "componentCard"
+  }
+
+  const offers = componentOffers(component, placed)
   const failing = status && "error" in status
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
   const file = about.onOpenFile !== undefined
   // Pressing it, to add or drag it, or right-clicking it puts the card away.
   const putAway = () => card.setOpen(false)
+
   const icon =
     item.kind === "instance" ? (
       <Diamond className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
     ) : (
       <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
     )
+
   const failingMark = failing && (
     <CircleAlert className="size-3.5 shrink-0 text-destructive" aria-label="Fails to draw" />
   )
+
   // A component design has no picture of its own yet, so its kind's icon stands in for one.
   const picture = (size: { width: number; height: number }, fill = false) =>
     component ? (
@@ -570,19 +651,21 @@ function AssetEntry({
         {icon}
       </span>
     )
+
   let content: ReactNode
   let layout: string
+
   if (view === "grid") {
     layout = "flex w-full min-w-0 flex-col gap-1 rounded-md p-1"
     content = (
       <>
         {picture(thumbSizes.grid, true)}
         <span className="flex w-full min-w-0 flex-col px-0.5">
-          <span className="flex min-w-0 items-center gap-1 text-[11px]">
-            <span className="truncate">{entry.label}</span>
+          <span className="flex min-w-0 items-center gap-1 text-xs">
+            <Name>{entry.label}</Name>
             {failingMark}
           </span>
-          <StatusLine status={pictured} />
+          <StatusLine status={pictured} size="text-2xs" />
         </span>
       </>
     )
@@ -593,7 +676,7 @@ function AssetEntry({
         {picture(thumbSizes.list)}
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="flex min-w-0 items-center gap-1">
-            <span className="truncate">{entry.label}</span>
+            <Name>{entry.label}</Name>
             {failingMark}
           </span>
           <StatusLine status={pictured} />
@@ -605,16 +688,17 @@ function AssetEntry({
     content = (
       <>
         {icon}
-        <span className="truncate">{entry.label}</span>
+        <Name>{entry.label}</Name>
         {failingMark}
       </>
     )
   }
+
   const button = (
     <button
       type="button"
       {...dragItem(item)}
-      onClick={() => addAtSelection(session, item)}
+      onClick={() => pick(session, item, component)}
       {...(component
         ? {
             onPointerEnter: card.enter,
@@ -622,7 +706,10 @@ function AssetEntry({
             onPointerDown: putAway,
             onContextMenu: putAway,
             onKeyDown: (event: KeyboardEvent) => {
-              if (event.key !== "ArrowRight") return
+              if (event.key !== "ArrowRight") {
+                return
+              }
+
               event.preventDefault()
               card.openWithKeyboard()
             },
@@ -635,15 +722,13 @@ function AssetEntry({
       {content}
     </button>
   )
+
   const instance = source.library && item.kind === "instance"
+
   const menu = (component || instance) && (
     <ComponentMenu
-      storybook={
-        component && session.info.storybook
-          ? { stories, running: storybookRunning, open: () => void openInStorybook(session, component) }
-          : undefined
-      }
-      code={component ? { file, open: () => void viewCode(session, component) } : undefined}
+      offers={component ? menuOffers(component, placed) : undefined}
+      code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
     >
       {instance && (
         // A library's design is placed linked, following the library, or as a copy to change freely.
@@ -656,7 +741,9 @@ function AssetEntry({
       )}
     </ComponentMenu>
   )
+
   const trigger = menu ? <ContextMenuTrigger render={button} /> : button
+
   const row = component ? (
     <ComponentPopover
       card={card}
@@ -683,6 +770,7 @@ function AssetEntry({
       {trigger}
     </Hint>
   )
+
   return (
     <AssetRow component={component}>
       {menu ? (
@@ -693,81 +781,129 @@ function AssetEntry({
       ) : (
         row
       )}
-      {stories && (
-        <Hint label="Open in Storybook">
-          <button
-            type="button"
-            aria-label={`Open ${entry.label} in Storybook`}
-            onClick={() => void openInStorybook(session, entry.key)}
-            className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 group-hover/asset:opacity-100 hover:bg-background hover:text-foreground focus-visible:opacity-100`}
-          >
-            <BookOpen className="size-3.5" />
-          </button>
-        </Hint>
+      {offers.length > 0 && (
+        <div
+          className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
+        >
+          {offers.map(({ command, unavailable }) => (
+            // One that can't act stays, faded and focusable, its hint saying why.
+            <Hint key={`${command.extension}:${command.id}`} label={unavailable ?? command.name}>
+              <button
+                type="button"
+                aria-label={
+                  unavailable === undefined
+                    ? `${command.name}: ${entry.label}`
+                    : `${command.name}: ${entry.label}, unavailable: ${unavailable}`
+                }
+                aria-disabled={unavailable !== undefined || undefined}
+                onClick={unavailable === undefined ? () => void command.run() : undefined}
+                className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
+              >
+                <AdapterLogo logo={command.icon} className="size-3.5" />
+              </button>
+            </Hint>
+          ))}
+        </div>
       )}
     </AssetRow>
   )
 }
 
+/** What a component's menu offers from the project's extensions: each command placed for components, greyed with why on one it isn't for. */
+function menuOffers(component: string, placed: PlacedExtensions): MenuOffer[] {
+  return componentOffers(component, placed).map(({ command, unavailable }) => {
+    const offer: MenuOffer = {
+      id: `${command.extension}:${command.id}`,
+      name: command.name,
+      logo: command.icon,
+      run: () => void command.run()
+    }
+
+    if (unavailable !== undefined) {
+      offer.unavailable = unavailable
+    }
+
+    return offer
+  })
+}
+
 /**
  * What a component's card shows, beyond its name (PAR-208): its file, its preview and why it has none, its variants'
- * previews, made only while `shown`, how many stories it has, and opening its file or its stories. `pictured` is its
+ * previews, made only while `shown`, what extensions know of it, as its stories, and opening its file or its stories. `pictured` is its
  * preview's status, for its row.
  */
 export function useComponentCard(
   session: ProjectSession,
   component: string | undefined,
   shown: boolean
-): {
-  pictured: PreviewStatus
-  about: Pick<
-    ComponentCardProps,
-    "path" | "preview" | "missing" | "variants" | "stories" | "onOpenFile" | "onOpenStorybook"
-  >
-} {
-  const preview = useComponentPreview(session.id, component ?? "")
+): ComponentCard {
+  const preview = useComponentPreview(session, component ?? "")
+  const { extensions } = useExtensions(session)
   const info = component ? session.components.get()[component] : undefined
   // Only one that failed or drew nothing is asked which props it lacks, as that's when it says.
   const lacking = preview?.state === "failed" || preview?.state === "empty"
+
   const missing = useMemo(
     () => (component && lacking ? missingProps(component, info, session.info.sources) : []),
     [component, lacking, info, session.info.sources]
   )
+
   const variants = useMemo(() => previewVariants(info), [info])
+
   const options = useMemo(
     () => (component && variants ? variants.options.map((value) => ({ prop: variants.prop, value })) : []),
     [component, variants]
   )
-  const variantPreviews = useVariantPreviews(session.id, component ?? "", options, shown)
-  if (!component) return { pictured: previewStatus(undefined), about: { preview: undefined } }
-  const stories = session.info.storybook?.stories[component]?.length ?? 0
-  return {
-    pictured: previewStatus(preview, missing),
-    about: {
-      path: session.info.sources[component]?.path,
-      preview,
-      missing,
-      ...(variants
-        ? {
-            variants: {
-              prop: variants.prop,
-              options: variants.options.map((value, index) => ({ value, preview: variantPreviews[index] }))
-            }
-          }
-        : {}),
-      stories,
-      ...(componentFile(session, component) === undefined
-        ? {}
-        : { onOpenFile: () => void viewCode(session, component) }),
-      ...(stories > 0 ? { onOpenStorybook: () => void openInStorybook(session, component) } : {})
+
+  const variantPreviews = useVariantPreviews(session, component ?? "", options, shown)
+
+  if (!component) {
+    return { pictured: previewStatus(undefined), about: { preview: undefined } }
+  }
+
+  const facts = extensions.flatMap((extension) => extension.facts[component] ?? [])
+
+  const about: ComponentCard["about"] = { path: session.info.sources[component]?.path, preview, missing, facts }
+
+  if (variants) {
+    about.variants = {
+      prop: variants.prop,
+      options: variants.options.map((value, index) => ({ value, preview: variantPreviews[index] }))
     }
   }
+
+  if (componentFile(session.info, component) !== undefined) {
+    about.onOpenFile = () => void viewCode(session.info, component)
+  }
+
+  const placed: PlacedExtensions = { session, extensions, placement: "componentCard" }
+
+  const offers = componentOffers(component, placed).map(({ command, unavailable }) => ({
+    id: `${command.extension}:${command.id}`,
+    name: command.name,
+    logo: command.icon,
+    unavailable,
+    run: () => void command.run()
+  }))
+
+  if (offers.length > 0) {
+    about.offers = offers
+  }
+
+  return { pictured: previewStatus(preview, missing), about }
+}
+
+/** What {@link useComponentCard} gives a component's row: its preview's status, and what its card shows about it. */
+export interface ComponentCard {
+  pictured: PreviewStatus
+  about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "facts" | "onOpenFile" | "offers">
 }
 
 /** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */
 function AssetRow({ component, children }: { component: string | undefined; children: ReactNode }) {
   const session = useProject()
-  const onScreen = usePreviewOnScreen(session.id, component)
+  const onScreen = usePreviewOnScreen(session, component)
+
   return (
     <div ref={onScreen} className="group/asset relative min-w-0">
       {children}
@@ -776,15 +912,27 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 }
 
 /** Installs a catalog library with the project's package manager, then reopens the tab to load it. */
-async function installLibrary(session: ProjectSession, library: { id: string; name: string }): Promise<void> {
-  const progress = notify.progress(`Installing ${library.name}…`)
+async function installLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
+  const id = notify.progress(`Installing ${library.name}…`)
+
   try {
-    await request("library.add", { projectId: session.id, library: library.id })
-    notify.done(`Installed ${library.name}`, { id: progress })
-    await workspace.reload(session.id, `Loading ${library.name}`)
+    await request("library.add", { projectId, library: library.id })
+    track("library.added", { package: library.id })
+    notify.done(`Installed ${library.name}`, { id })
+    await workspace.reload(projectId, `Loading ${library.name}`)
   } catch (error) {
-    notify.failed(`Couldn't install ${library.name}`, {
-      id: progress,
+    const failed: Attributes<"library.failed"> = { package: library.id }
+    const code = errorCode(error)
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("library.failed", failed)
+    reportError(error, {
+      operation: "library.add",
+      title: `Couldn't install ${library.name}`,
+      id,
       description: "The package manager stopped with an error.",
       details: message(error).slice(-2000)
     })
@@ -797,14 +945,16 @@ const shownIconSets = new Map<string, string>()
 /** The catalog's libraries of one kind, to add to the project; `trigger` replaces the plus button that opens it. */
 function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?: ReactElement }) {
   const session = useProject()
+
   const [catalog, setCatalog] =
     useState<{ id: string; name: string; description: string; kind: "components" | "icons"; installed: boolean }[]>()
+
   return (
     <Popover
       onOpenChange={(open) => {
         if (open && !catalog) {
-          void request("library.catalog", { projectId: session.id }).then(setCatalog, (error: unknown) =>
-            notify.failed("Couldn't load libraries", { error })
+          void request("library.catalog", { projectId: session.id }).then(setCatalog, (cause: unknown) =>
+            reportError(cause, { operation: "library.catalog", title: "Couldn't load libraries" })
           )
         }
       }}
@@ -824,7 +974,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
         }
       />
       <PopoverContent align="end" className="w-80 p-2">
-        <p className="px-1 pb-2 text-xs text-muted-foreground">
+        <p className="type-description px-1 pb-2 text-muted-foreground">
           Libraries install into the project with its package manager. Any package with a <code>.lib.par</code> file is
           picked up on its own.
         </p>
@@ -836,15 +986,18 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
               <li key={library.id} className="flex items-start gap-2 rounded-md p-2 hover:bg-accent/50">
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{library.name}</div>
-                  <div className="text-xs text-muted-foreground">{library.description}</div>
+                  <div className="type-description text-muted-foreground">{library.description}</div>
                 </div>
                 <Button
                   size="sm"
                   variant={library.installed ? "ghost" : "outline"}
                   disabled={library.installed}
                   onClick={() => {
-                    if (kind === "icons") shownIconSets.set(session.id, library.id)
-                    void installLibrary(session, library)
+                    if (kind === "icons") {
+                      shownIconSets.set(session.id, library.id)
+                    }
+
+                    void installLibrary(session.id, library)
                   }}
                 >
                   {library.installed ? "Added" : "Add"}
@@ -859,13 +1012,14 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
 
 function ImportStyles({ library }: { library: LibraryInfo }) {
   const session = useProject()
+
   return (
-    <div className="mx-2 mb-1 rounded-md border border-dashed p-2 text-xs text-muted-foreground">
+    <div className="type-message mx-2 mb-1 rounded-md border border-dashed p-2 text-muted-foreground">
       Its styles aren&apos;t imported yet, so its components render unstyled.{" "}
       <button
         type="button"
         className="font-medium text-foreground underline-offset-2 hover:underline"
-        onClick={() => void importStyles(session, library)}
+        onClick={() => void importStyles(session.id, library)}
       >
         Import them
       </button>
@@ -877,25 +1031,39 @@ function ImportStyles({ library }: { library: LibraryInfo }) {
  * Imports a library's styles into the project's stylesheet, then reopens the tab to draw with them, and says what it
  * changed, to look at or undo.
  */
-export async function importStyles(session: ProjectSession, library: LibraryInfo): Promise<void> {
+export async function importStyles(projectId: string, library: LibraryInfo): Promise<void> {
   try {
-    const edit = await request("library.importStyles", { projectId: session.id, library: library.id })
-    await workspace.reload(session.id, `Loading ${library.name}'s styles`)
+    const edit = await request("library.importStyles", { projectId, library: library.id })
+
+    const imported: Attributes<"styles.imported"> = {
+      package: library.package,
+      files: edit?.files.map((file) => file.path) ?? []
+    }
+
+    if (library.version) {
+      imported.version = library.version
+    }
+
+    track("styles.imported", imported)
+    await workspace.reload(projectId, `Loading ${library.name}'s styles`)
+
     if (edit) {
-      announceEdit(session.id, edit, {
-        afterUndo: () => workspace.reload(session.id, `Taking out ${library.name}'s styles`)
+      announceEdit(projectId, edit, {
+        afterUndo: () => workspace.reload(projectId, `Taking out ${library.name}'s styles`)
       })
     }
   } catch (error) {
-    notify.failed(`Couldn't import ${library.name}'s styles`, {
-      error,
-      retry: () => void importStyles(session, library)
+    reportError(error, {
+      operation: "library.importStyles",
+      title: `Couldn't import ${library.name}'s styles`,
+      retry: () => void importStyles(projectId, library)
     })
   }
 }
 
 /** The smallest an icon's cell gets, in pixels: room to aim at its icon. Cells grow so each row fills the panel. */
 const iconCell = 52
+
 /** How big each icon is drawn, in pixels. */
 const iconSize = 20
 
@@ -920,14 +1088,20 @@ export function IconsPanel() {
 
   useLayoutEffect(() => {
     const element = scrollRef.current
-    if (!element) return undefined
+
+    if (!element) {
+      return undefined
+    }
+
     const observer = new ResizeObserver(([entry]) => {
       const width = entry!.contentRect.width
       const fit = Math.max(1, Math.floor(width / iconCell))
       const cell = Math.max(iconCell, Math.floor(width / fit))
       setGrid((current) => (current.columns === fit && current.cell === cell ? current : { columns: fit, cell }))
     })
+
     observer.observe(element)
+
     return () => observer.disconnect()
   }, [library])
 
@@ -935,8 +1109,10 @@ export function IconsPanel() {
     () => (library ? iconCatalog(session.loaded, library, style) : undefined),
     [session.loaded, library, style]
   )
+
   const all = catalog?.entries ?? []
   const matches = useMemo(() => (catalog ? catalog.search(query) : []), [catalog, query])
+
   // The app doesn't use the React Compiler, whose memoizing this rule guards against; the virtualizer is used here only.
   // oxlint-disable-next-line react/incompatible-library
   const virtualizer = useVirtualizer({
@@ -945,18 +1121,19 @@ export function IconsPanel() {
     estimateSize: () => grid.cell,
     overscan: 8
   })
+
   // Rows change height with the panel's width; the virtualizer keeps the heights it measured until told.
   useLayoutEffect(() => virtualizer.measure(), [virtualizer, grid.cell])
 
   if (!library) {
     return (
-      <div className="flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
+      <div className="type-empty flex flex-col items-center gap-3 px-6 py-10 text-center text-muted-foreground">
         <Smile className="size-6" />
         <p>
           Add an icon library to drop icons into screens and components. They render with the project&apos;s own copy.
         </p>
         <div className="flex gap-2">
-          <Button size="sm" onClick={() => void installLibrary(session, { id: "lucide", name: "Lucide" })}>
+          <Button size="sm" onClick={() => void installLibrary(session.id, { id: "lucide", name: "Lucide" })}>
             <Plus /> Add Lucide
           </Button>
           <AddLibrary
@@ -971,6 +1148,7 @@ export function IconsPanel() {
       </div>
     )
   }
+
   return (
     <>
       {(sets.length > 1 || styles.length > 0) && (
@@ -1060,17 +1238,6 @@ export function IconsPanel() {
   )
 }
 
-/** Stock photos aren't offered yet; images come in by pasting them onto the canvas. */
-export function ImagesPanel() {
-  return (
-    <div className="flex flex-col items-center gap-3 px-6 py-10 text-center text-sm text-muted-foreground">
-      <ImageIcon className="size-6" />
-      <p className="font-medium text-foreground">Stock photos are coming soon</p>
-      <p>Until then, paste an image onto the canvas to add it. It&apos;s saved into the project.</p>
-    </div>
-  )
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+function message(cause: unknown): string {
+  return cause instanceof Error ? cause.message : String(cause)
 }

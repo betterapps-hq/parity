@@ -33,6 +33,7 @@ describe("applyProjectEdit", () => {
         { kind: "create", path: "public/images/a.png", content: new Uint8Array([137, 80, 78, 71]) }
       ]
     })
+
     expect(await read("index.css")).toBe('@import "tailwindcss";\n@import "nova/styles.css";\n')
     expect([...(await readFile(join(project.info.root, "public/images/a.png")))]).toEqual([137, 80, 78, 71])
     expect(project.known.get("index.css")).toBe('@import "tailwindcss";\n@import "nova/styles.css";\n')
@@ -78,6 +79,7 @@ describe("applyProjectEdit", () => {
         label: "Add a line",
         files: [{ kind: "patch", path: "index.css", find: '"tailwindcss";\n', replace: `"tailwindcss";\n${line}\n` }]
       })
+
     await Promise.all([add("a"), add("b")])
     expect(await read("index.css")).toBe('@import "tailwindcss";\nb\na\n')
   })
@@ -95,6 +97,7 @@ describe("undoProjectEdit", () => {
       label: "Import Nova's styles",
       files: [{ kind: "patch", path: "index.css", find: "\n", replace: '\n@import "nova/styles.css";\n' }]
     })
+
     const image = await applyProjectEdit(project, {
       label: "Paste image",
       files: [{ kind: "create", path: "public/a.png", content: new Uint8Array([1]) }]

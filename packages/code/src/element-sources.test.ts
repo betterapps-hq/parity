@@ -61,17 +61,21 @@ describe("tagElementSources", () => {
     const original = card.split("\n")
     const lines = decode(tagged?.map.mappings ?? "")
     expect(lines).toHaveLength(original.length)
+
     // From each segment to the next, the generated text is the original text it maps to, and then any attribute added.
     for (const [index, segments] of lines.entries()) {
       for (const [at, segment] of segments.entries()) {
         const until = segments[at + 1]?.generated ?? generated[index]?.length ?? 0
+
         const piece = (generated[index]?.slice(segment.generated, until) ?? "").replace(
           / data-parity-source=\{"[^"]*"\}$/,
           ""
         )
+
         expect(segment.line).toBe(index)
         expect(original[index]?.slice(segment.column, segment.column + piece.length)).toBe(piece)
       }
+
       const last = segments.at(-1)
       expect((original[index]?.length ?? 0) - (last?.column ?? 0)).toBe(
         (generated[index]?.length ?? 0) - (last?.generated ?? 0)
@@ -99,24 +103,33 @@ const digits = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/
 function decode(mappings: string): { generated: number; line: number; column: number }[][] {
   let line = 0
   let column = 0
+
   return mappings.split(";").map((text) => {
     let generated = 0
+
     return text.split(",").map((segment) => {
       const values: number[] = []
       let value = 0
       let shift = 0
+
       for (const char of segment) {
         const digit = digits.indexOf(char)
-        value += (digit & 31) << shift
+        value += (digit % 32) * 2 ** shift
         shift += 5
-        if (digit & 32) continue
-        values.push(value & 1 ? -(value >> 1) : value >> 1)
+
+        if (digit >= 32) {
+          continue
+        }
+
+        values.push(value % 2 === 1 ? -Math.floor(value / 2) : value / 2)
         value = 0
         shift = 0
       }
+
       generated += values[0] ?? 0
       line += values[2] ?? 0
       column += values[3] ?? 0
+
       return { generated, line, column }
     })
   })

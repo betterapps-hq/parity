@@ -5,10 +5,10 @@ import {
   type NodeStyle,
   generateId,
   nodeLabel,
-  uniqueId,
-  withFreshIds
+  designId
 } from "@parity-app/core"
-import { fitBindings } from "./clipboard.ts"
+import { copiesFor } from "./clipboard.ts"
+import type { NewFrame } from "./frames.ts"
 import { componentLabel, type InsertContext, insertIntoDesign, type InsertItem } from "./insert.ts"
 
 /**
@@ -24,11 +24,11 @@ import { componentLabel, type InsertContext, insertIntoDesign, type InsertItem }
  * project's background, as a new frame is.
  */
 export const landedStyle = {
-  padding: 6,
-  gap: 4,
-  width: "hug",
-  background: "background",
-  foreground: "foreground"
+  padding: { step: 6 },
+  gap: { step: 4 },
+  width: { size: "hug" },
+  fills: [{ type: "solid", color: { token: "background" } }],
+  color: { token: "foreground" }
 } as const satisfies NodeStyle
 
 /** A design's name by its id, as the Layers panel names an instance after the design it places. */
@@ -36,15 +36,27 @@ export type DesignName = (id: string) => string | undefined
 
 /**
  * What a frame made of `nodes` is called, after what's in it: one layer's name as the Layers panel gives it, with a
- * component named without its library ("Button") and an instance after its design; "Images" for several images; and
+ * component named without its library ("Button") and an instance after its design; "Images" for several images and "Videos" for several videos; and
  * the first layer's name and how many more for several others ("Headline and 2 more").
  */
 export function layersName(nodes: readonly DesignNode[], designName?: DesignName): string {
   const [first] = nodes
-  if (!first) return "Untitled frame"
-  if (nodes.length > 1 && nodes.every((node) => node.type === "image")) return "Images"
+
+  if (!first) {
+    return "Untitled frame"
+  }
+
+  if (nodes.length > 1 && nodes.every((node) => node.type === "image")) {
+    return "Images"
+  }
+
+  if (nodes.length > 1 && nodes.every((node) => node.type === "video")) {
+    return "Videos"
+  }
+
   const name =
     first.type === "component" && !first.name ? componentLabel(first.component) : nodeLabel(first, designName)
+
   return nodes.length === 1 ? name : `${name} and ${nodes.length - 1} more`
 }
 
@@ -65,15 +77,17 @@ export function designOfLayers(
   const rootId = generateId(ids)
   ids.add(rootId)
   const name = layersName(nodes, designName)
+
   const design: ContainerSpec = {
-    id: uniqueId(name, taken),
+    id: designId(name, taken),
     name,
     kind: "frame",
     position: at,
-    root: { type: "layout", id: rootId, style: { ...landedStyle }, children: [] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: rootId, style: { ...landedStyle }, children: [] }
   }
-  const children = nodes.map((node) => withFreshIds(fitBindings(node, design), ids))
+
+  const children = copiesFor(design, nodes, ids)
+
   return { ...design, root: { type: "layout", id: rootId, style: { ...landedStyle }, children } }
 }
 
@@ -88,10 +102,11 @@ export function designOfItem(
   taken: Iterable<string>,
   at: { x: number; y: number },
   designName?: DesignName
-): { design: ContainerSpec; node: string } {
+): NewFrame {
   const empty = designOfLayers([], [], at)
   const { container, node } = insertIntoDesign(empty, { parent: empty.root.id }, item, context)
   const placed = findNode(container.root, node)
   const name = layersName(placed ? [placed] : [], designName)
-  return { design: { ...container, id: uniqueId(name, taken), name }, node }
+
+  return { design: { ...container, id: designId(name, taken), name }, node }
 }

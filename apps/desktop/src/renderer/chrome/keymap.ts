@@ -1,8 +1,10 @@
-import { matches } from "./keys.ts"
+import { windowStore } from "../store.ts"
+import { formatKeys, isMac, matches } from "./keys.ts"
 
 /**
- * Every keyboard shortcut, in one place. The menus and tooltips show these keys, the Keyboard shortcuts dialog lists
- * them, and the key handlers match events against them, so what's shown is what works.
+ * Every keyboard shortcut, in one place. The menus and tooltips show these keys through `shortcutOf`, the Keyboard
+ * shortcuts dialog lists them and the key handlers match events against them through `keysOf`, so what's shown is
+ * what works.
  *
  * Keys are written as on Windows, a space between each: `Ctrl Shift Z`. `formatKeys` shows them joined by `+` on
  * Windows and Linux (`Ctrl+Shift+Z`), and with the Mac's symbols on a Mac, where Ctrl is Cmd. The first keys are the
@@ -24,6 +26,9 @@ export const keymap = {
   frame: { group: "Tools", label: "Frame", keys: ["F", "A"] },
   text: { group: "Tools", label: "Text", keys: ["T"] },
   interact: { group: "Tools", label: "Interact with previews", keys: ["I"] },
+  comment: { group: "Tools", label: "Comment", keys: ["C"] },
+  annotate: { group: "Tools", label: "Annotate", keys: ["Shift T"] },
+  findReferences: { group: "Tools", label: "Find references", keys: ["R"] },
 
   selectAll: { group: "Selection", label: "Select all", keys: ["Ctrl A"] },
   selectInverse: { group: "Selection", label: "Select inverse", keys: ["Ctrl Shift A"] },
@@ -38,6 +43,7 @@ export const keymap = {
 
   undo: { group: "Edit", label: "Undo", keys: ["Ctrl Z"] },
   redo: { group: "Edit", label: "Redo", keys: ["Ctrl Shift Z", "Ctrl Y"] },
+  repeat: { group: "Edit", label: "Repeat last action", keys: ["Ctrl Alt P"] },
   cut: { group: "Edit", label: "Cut", keys: ["Ctrl X"] },
   copy: { group: "Edit", label: "Copy", keys: ["Ctrl C"] },
   paste: { group: "Edit", label: "Paste", keys: ["Ctrl V"] },
@@ -56,13 +62,14 @@ export const keymap = {
   wrap: { group: "Object", label: "Wrap in layout", keys: ["Ctrl G", "Ctrl Alt G", "Shift A"] },
   unwrap: { group: "Object", label: "Unwrap layout", keys: ["Ctrl Shift G", "Alt Shift A", "Ctrl Backspace"] },
   makeComponent: { group: "Object", label: "Make component", keys: ["Ctrl Alt K"] },
-  goToMain: { group: "Object", label: "Go to the main component", keys: ["Ctrl Alt Shift K"] },
+  goToMain: { group: "Object", label: "Go to component", keys: ["Ctrl Alt Shift K"] },
   detach: { group: "Object", label: "Detach instance", keys: ["Ctrl Alt B"] },
   bringForward: { group: "Object", label: "Bring forward", keys: ["Ctrl ]"] },
   sendBackward: { group: "Object", label: "Send backward", keys: ["Ctrl ["] },
   bringToFront: { group: "Object", label: "Bring to front", keys: ["Ctrl Shift ]", "]"] },
   sendToBack: { group: "Object", label: "Send to back", keys: ["Ctrl Shift [", "["] },
   hide: { group: "Object", label: "Hide or show", keys: ["Ctrl Shift H"] },
+  lock: { group: "Object", label: "Lock or unlock", keys: ["Ctrl Shift L"] },
 
   alignLeft: { group: "Arrange", label: "Align left", keys: ["Alt A"] },
   alignCenter: { group: "Arrange", label: "Align horizontal centers", keys: ["Alt H"] },
@@ -95,7 +102,7 @@ export const keymap = {
   save: { group: "File", label: "Save", keys: ["Ctrl S"] },
   saveCopy: { group: "File", label: "Save a copy", keys: ["Ctrl Shift S"] },
   exportSelection: { group: "File", label: "Export selected", keys: ["Ctrl Shift E"] },
-  closeTab: { group: "File", label: "Close tab", keys: ["Ctrl W"] },
+  closeTab: { group: "File", label: "Close project", keys: ["Ctrl W"] },
   settings: { group: "File", label: "Settings", keys: ["Ctrl ,"] },
 
   actions: { group: "Help", label: "Search actions", keys: ["Ctrl K", "Ctrl /"] },
@@ -127,13 +134,64 @@ export const gestures = {
   deepest: { group: "Selection", label: "Select the deepest layer under the pointer", keys: "Ctrl", with: "click" }
 } as const satisfies Record<string, Gesture>
 
+/**
+ * Keys a control or the system answers to on its own, which the app shows beside it but doesn't bind: Windows closes the
+ * window on Alt F4, and a viewer closes on Esc and steps with the arrows. They aren't commands, so the key handlers
+ * don't match them and the Keyboard shortcuts list leaves them out.
+ */
+export const fixedKeys = {
+  exit: "Alt F4",
+  close: "Esc",
+  previous: "←",
+  next: "→",
+  confirm: "Enter",
+  remove: "Del"
+} as const
+
+export type Fixed = keyof typeof fixedKeys
+
+/** Something whose keys are shown: a command, or a control's fixed keys. */
+export type Shortcut = Command | Fixed
+
+/**
+ * The keys each command has now, with the person's changes from `keybindings.json`, which `keybindings.ts` applies
+ * (PAR-1085); nothing until there are any, so the keymap's apply.
+ */
+export const commandKeys = windowStore<Readonly<Record<Command, readonly string[]>> | undefined>(() => undefined)
+
+/**
+ * Every keys that run a command, the shown ones first, with the person's changes. The key handlers and every place that
+ * shows keys read them here rather than from `keymap`, so a binding changed in one place works and shows everywhere at
+ * once. Views read them as they draw, which for menus and tooltips is as they open.
+ */
+export function keysOf(command: Command): readonly string[] {
+  return commandKeys.get()?.[command] ?? keymap[command].keys
+}
+
+/**
+ * The keys shown for a command or a control, as the platform writes them: `Ctrl+T`, or `⌘T` on a Mac. A command shows
+ * its first keys. Every menu, tooltip and list that shows one key reads it here.
+ */
+export function shortcutOf(shortcut: Shortcut, mac = isMac()): string {
+  return formatKeys(isFixed(shortcut) ? fixedKeys[shortcut] : (keysOf(shortcut)[0] ?? ""), mac)
+}
+
+function isFixed(shortcut: Shortcut): shortcut is Fixed {
+  return Object.hasOwn(fixedKeys, shortcut)
+}
+
 /** Whether a key event is one of a binding's shortcuts. */
 function isShortcut(event: KeyboardEvent, command: Command): boolean {
-  return keymap[command].keys.some((keys) => matches(event, keys))
+  return keysOf(command).some((keys) => matches(event, keys))
 }
 
 /** The binding, if any, a key event matches. */
 export function shortcutFor(event: KeyboardEvent, commands: Iterable<Command>): Command | undefined {
-  for (const command of commands) if (isShortcut(event, command)) return command
+  for (const command of commands) {
+    if (isShortcut(event, command)) {
+      return command
+    }
+  }
+
   return undefined
 }

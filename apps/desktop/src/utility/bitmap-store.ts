@@ -1,40 +1,36 @@
 import { createHash } from "node:crypto"
 import { mkdir, open, readdir, readFile, rename, rm, stat, utimes, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import {
-  type CachedFile,
-  type ComponentSource,
-  cacheRemovals,
-  jsonText,
-  plainObject,
-  webpSize,
-  webpText,
-  withWebpText
-} from "@parity-app/core"
+import { type FrameTrace, frameTrace } from "@parity-app/change-detection"
+import { type ComponentSource, jsonText, plainObject } from "@parity-app/core"
+import { type CachedFile, cacheRemovals, webpSize, webpText, withWebpText } from "@parity-app/processes"
 import type { CodeSnapshot } from "@parity-app/project"
 import { z } from "zod"
 import type { PreviewImage, RenderJob } from "../shared/protocol.ts"
 import { bitmapName } from "../shared/render-job.ts"
+import { degraded } from "./degraded.ts"
 import { environment } from "./environment.ts"
 
 /**
  * Frame bitmaps and component previews kept on disk, so a project opened again shows them at once (PAR-158, PAR-207).
  * They live in Parity's app data, which main names (`PARITY_BITMAP_DIR`), one folder per project, as lossless WebP
- * (PAR-535). A frame bitmap is named by what it shows: the project's code as the guest drawing it was loaded
- * (`codeSnapshot`) and the render job, as `bitmapName` names it. Each carries its frame's height. Component previews are in the project's `previews`
+ * (PAR-535). A frame bitmap is named by the render job, as `bitmapName` names it, and carries its frame's height and
+ * its trace: the files the frame read and the digest of their contents (PAR-994). It's the frame as drawn now while its
+ * trace holds, and otherwise stands in, stale, while the frame is captured again for new code (PAR-993).
+ * Component previews are in the project's `previews`
  * folder, two pictures each, named by `previewKey`, with an index of each component's latest. Without a folder, as in
  * tests, nothing is kept.
  */
 
 /**
  * What a guest's address was first served, which kept bitmaps and previews are named by: the project's code
- * (`codeSnapshot`) and its fingerprint, and the components the guest was served with.
+ * (`codeSnapshot`), whose salt says what draws it, and the components the guest was served with.
  */
 export interface ServedCode {
   code: Promise<CodeSnapshot>
-  fingerprint: Promise<string>
   sources: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>
 }
+
 const folder = environment().PARITY_BITMAP_DIR
 
 /** Writes since the cache was last swept; it's swept again after this many, and when the service starts. */
@@ -45,42 +41,99 @@ let sweeping: Promise<void> | undefined
 /** The text the frame's height is kept under, inside the WebP. */
 const heightKeyword = "parity:height"
 
+/** The text the frame's trace is kept under, inside the WebP, as JSON (PAR-994). */
+const traceKeyword = "parity:trace"
+
+/** A kept bitmap, as a lossless WebP in base64, with its frame's height when it was captured. */
+export interface StoredBitmap {
+  webp: string
+  height: number
+  /** Its trace doesn't hold: it's of other code, and stands in until the frame is captured for this code (PAR-993). */
+  stale?: true
+}
+
 /**
- * The bitmap a job draws, as a lossless WebP in base64, and the frame's height when it was captured, if one was kept for
- * the code it's drawn with. Showing it counts as using it.
+ * The bitmap kept for a job, and the frame's height when it was captured; stale unless `holds` says its trace still
+ * holds, as when none of the files the frame read has changed (PAR-994). Showing it counts as using it.
  */
 export async function storedBitmap(
   served: ServedCode,
-  job: RenderJob
-): Promise<{ webp: string; height: number } | undefined> {
-  if (!folder) return undefined
-  const file = bitmapFile(await served.fingerprint, served, job)
+  job: RenderJob,
+  holds: (trace: FrameTrace) => Promise<boolean>
+): Promise<StoredBitmap | undefined> {
+  if (!folder) {
+    return undefined
+  }
+
+  const file = bitmapFile(served, job)
+
   try {
     const webp = await readFile(file)
     const height = Number(webpText(webp, heightKeyword))
+
     // Every bitmap kept says how tall its frame was; one that doesn't isn't one this version wrote.
-    if (!(height > 0)) return undefined
+    if (!(height > 0)) {
+      return undefined
+    }
+
     const now = new Date()
     void utimes(file, now, now).catch(() => undefined)
-    return { webp: webp.toString("base64"), height }
+    const trace = keptTrace(webpText(webp, traceKeyword))
+    const kept = { webp: webp.toString("base64"), height }
+
+    return trace && (await holds(trace).catch(() => false)) ? kept : { ...kept, stale: true }
+  } catch {
+    return undefined
+  }
+}
+
+/** The trace kept inside a bitmap, when it has one this version wrote. */
+function keptTrace(text: string | undefined): FrameTrace | undefined {
+  if (text === undefined) {
+    return undefined
+  }
+
+  try {
+    const parsed = frameTrace.safeParse(JSON.parse(text))
+
+    return parsed.success ? parsed.data : undefined
   } catch {
     return undefined
   }
 }
 
 /**
- * Keeps a captured bitmap, as a lossless WebP, with the frame's height in its own CSS pixels inside it. It's written
- * beside its name and then renamed, so a reader never finds half a file.
+ * Keeps a captured bitmap, as a lossless WebP, with the frame's height in its own CSS pixels and its trace inside it,
+ * the trace taken before the capture, so a file changed during the capture leaves the bitmap stale rather than current.
+ * Without a trace it's kept to stand in, stale. It's written beside its name and then renamed, so a reader never finds
+ * half a file.
  */
-export async function storeBitmap(served: ServedCode, job: RenderJob, webp: Uint8Array, height: number): Promise<void> {
-  if (!folder) return
-  try {
-    const file = bitmapFile(await served.fingerprint, served, job)
-    await writeWhole(file, withWebpText(webp, heightKeyword, String(height)))
-  } catch (error) {
-    console.warn(`[service] couldn't keep a frame bitmap: ${message(error)}`)
+export async function storeBitmap(
+  served: ServedCode,
+  job: RenderJob,
+  webp: Uint8Array,
+  height: number,
+  trace: FrameTrace | undefined
+): Promise<void> {
+  if (!folder) {
     return
   }
+
+  try {
+    const sized = withWebpText(webp, heightKeyword, String(height))
+
+    // Only the files and their digest: which component reads which says what changed in it, not whether the bitmap holds.
+    const kept = trace
+      ? withWebpText(sized, traceKeyword, JSON.stringify({ files: trace.files, digest: trace.digest }))
+      : sized
+
+    await writeWhole(bitmapFile(served, job), kept)
+  } catch (error) {
+    degraded("frame_bitmap", "couldn't keep a frame bitmap", error, job.projectId)
+
+    return
+  }
+
   wrote()
 }
 
@@ -102,24 +155,31 @@ export type PreviewRecord = z.infer<typeof previewRecord>
 
 /** Each component's latest preview by id, for a project, as kept in its `previews/index.json`. */
 const indexes = new Map<string, Promise<Map<string, PreviewRecord>>>()
+
 /** Index writes by project, one after another, so a later one never lands under an earlier one. */
 const indexWrites = new Map<string, Promise<void>>()
 
 /** The index of a project's component previews, read from disk the first time it's asked for. */
 export function previewIndex(projectId: string): Promise<Map<string, PreviewRecord>> {
   let index = indexes.get(projectId)
+
   if (!index) {
     index = readIndex(projectId)
     indexes.set(projectId, index)
   }
+
   return index
 }
 
 /** A preview's pictures, when both are on disk for its key, with the large one's size read from its header. */
 export async function storedPreview(projectId: string, key: string): Promise<PreviewImage | undefined> {
-  if (!folder) return undefined
+  if (!folder) {
+    return undefined
+  }
+
   const thumb = await stat(previewFile(projectId, key, "thumb")).catch(() => undefined)
   const size = thumb?.isFile() ? await pictureSize(previewFile(projectId, key, "large")) : undefined
+
   return size && previewImage(projectId, key, size)
 }
 
@@ -135,23 +195,33 @@ export async function storePreview(
   pictures?: Record<PreviewSize, Buffer>,
   size?: { width: number; height: number }
 ): Promise<PreviewImage | undefined> {
-  if (!folder) return undefined
+  if (!folder) {
+    return undefined
+  }
+
   try {
     if (pictures) {
       await writeWhole(previewFile(projectId, record.key, "thumb"), pictures.thumb)
       await writeWhole(previewFile(projectId, record.key, "large"), pictures.large)
     }
   } catch (error) {
-    console.warn(`[service] couldn't keep a component preview: ${message(error)}`)
+    degraded("component_preview", "couldn't keep a component preview", error, projectId)
+
     return undefined
   }
+
   const index = await previewIndex(projectId)
   index.set(component, record)
   const write = (indexWrites.get(projectId) ?? Promise.resolve()).then(() => writeIndex(projectId, index))
   indexWrites.set(projectId, write)
   await write
-  if (!pictures || !size) return undefined
+
+  if (!pictures || !size) {
+    return undefined
+  }
+
   wrote()
+
   return previewImage(projectId, record.key, size)
 }
 
@@ -171,10 +241,15 @@ function previewImage(projectId: string, key: string, size: { width: number; hei
 /** A WebP's size, from its header; nothing when it isn't one or can't be read. */
 async function pictureSize(file: string): Promise<{ width: number; height: number } | undefined> {
   const handle = await open(file).catch(() => undefined)
-  if (!handle) return undefined
+
+  if (!handle) {
+    return undefined
+  }
+
   try {
     const header = Buffer.alloc(30)
     const { bytesRead } = await handle.read(header, 0, 30, 0)
+
     return webpSize(header.subarray(0, bytesRead))
   } finally {
     await handle.close()
@@ -186,9 +261,13 @@ async function pictureSize(file: string): Promise<{ width: number; height: numbe
  * for 30 days, and the least recently used bitmaps and previews once there's more than 200 MB.
  */
 export function sweepBitmaps(now = Date.now()): Promise<void> {
-  if (!folder) return Promise.resolve()
+  if (!folder) {
+    return Promise.resolve()
+  }
+
   writes = 0
   sweeping ??= sweep(folder, now).finally(() => (sweeping = undefined))
+
   return sweeping
 }
 
@@ -197,7 +276,10 @@ export function sweepBitmaps(now = Date.now()): Promise<void> {
  * they're needed, and previews are made again.
  */
 export async function clearBitmaps(): Promise<void> {
-  if (!folder) return
+  if (!folder) {
+    return
+  }
+
   await sweeping
   await Promise.all(indexWrites.values())
   indexes.clear()
@@ -206,24 +288,47 @@ export async function clearBitmaps(): Promise<void> {
 
 async function sweep(root: string, now: number): Promise<void> {
   const files: CachedFile[] = []
+
   const list = async (project: string, path: string) => {
     for (const name of await readdir(path).catch(() => [])) {
       const file = join(path, name)
       const info = await stat(file).catch(() => undefined)
-      if (info?.isDirectory() && name === previewsName) await list(project, file)
-      if (!info?.isFile()) continue
+
+      if (info?.isDirectory() && name === previewsName) {
+        await list(project, file)
+      }
+
+      if (!info?.isFile()) {
+        continue
+      }
+
       const partial = name.endsWith(".partial")
-      files.push({ path: file, project, size: info.size, used: info.mtimeMs, ...(partial ? { partial } : {}) })
+      files.push({ path: file, project, size: info.size, used: info.mtimeMs, partial })
     }
   }
-  for (const project of await readdir(root).catch(() => [])) await list(project, join(root, project))
+
+  for (const project of await readdir(root).catch(() => [])) {
+    await list(project, join(root, project))
+  }
+
   const removed = cacheRemovals(files, now)
-  for (const path of removed) await rm(path, { force: true }).catch(() => undefined)
+
+  for (const path of removed) {
+    await rm(path, { force: true }).catch(() => undefined)
+  }
+
   // A project's index that went names pictures it no longer has; read again, it's empty.
-  if (removed.some((path) => path.endsWith(indexName))) indexes.clear()
+  if (removed.some((path) => path.endsWith(indexName))) {
+    indexes.clear()
+  }
+
   for (const project of await readdir(root).catch(() => [])) {
     const previews = join(root, project, previewsName)
-    if ((await readdir(previews).catch(() => ["?"])).length === 0) await rm(previews, { recursive: true, force: true })
+
+    if ((await readdir(previews).catch(() => ["?"])).length === 0) {
+      await rm(previews, { recursive: true, force: true })
+    }
+
     if ((await readdir(join(root, project)).catch(() => ["?"])).length === 0) {
       await rm(join(root, project), { recursive: true, force: true }).catch(() => undefined)
     }
@@ -241,14 +346,23 @@ const indexFile = jsonText(z.object({ format: z.literal(indexFormat), components
 
 async function readIndex(projectId: string): Promise<Map<string, PreviewRecord>> {
   const index = new Map<string, PreviewRecord>()
-  if (!folder) return index
+
+  if (!folder) {
+    return index
+  }
+
   const text = await readFile(join(previewFolder(projectId), indexName), "utf8").catch(() => undefined)
   // None yet, one a crash cut short or one of another format: every preview is looked for again.
   const read = text === undefined ? undefined : indexFile.safeParse(text).data
+
   for (const [component, value] of Object.entries(read?.components ?? {})) {
     const record = previewRecord.safeParse(value)
-    if (record.success) index.set(component, record.data)
+
+    if (record.success) {
+      index.set(component, record.data)
+    }
   }
+
   return index
 }
 
@@ -258,13 +372,14 @@ async function writeIndex(projectId: string, index: Map<string, PreviewRecord>):
     const contents = JSON.stringify({ format: indexFormat, components: Object.fromEntries(index) })
     await writeWhole(join(previewFolder(projectId), indexName), Buffer.from(contents))
   } catch (error) {
-    console.warn(`[service] couldn't keep the component preview index: ${message(error)}`)
+    degraded("preview_index", "couldn't keep the component preview index", error, projectId)
   }
 }
 
 /** Writes a file beside its name and then renames it, so a reader never finds half a file. */
 export async function writeWhole(file: string, contents: Uint8Array): Promise<void> {
   const partial = `${file}.${process.pid}.${Math.random().toString(36).slice(2)}.partial`
+
   try {
     await mkdir(join(file, ".."), { recursive: true })
     await writeFile(partial, contents)
@@ -276,11 +391,9 @@ export async function writeWhole(file: string, contents: Uint8Array): Promise<vo
 }
 
 function wrote(): void {
-  if (++writes >= sweepEvery) void sweepBitmaps()
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  if (++writes >= sweepEvery) {
+    void sweepBitmaps()
+  }
 }
 
 /** A project's folder's name: its id hashed, so any root makes a safe name. */
@@ -300,12 +413,12 @@ function previewFile(projectId: string, key: string, size: PreviewSize): string 
   return join(previewFolder(projectId), `${key}-${size}.webp`)
 }
 
-/** A bitmap's file, named by the code its guest was served and by the job, as `bitmapName` names it. */
-function bitmapFile(fingerprint: string, served: ServedCode, job: RenderJob): string {
-  const name = createHash("sha256")
-    .update(fingerprint)
-    .update("\0")
-    .update(bitmapName(job, served.sources))
-    .digest("hex")
-  return join(projectFolder(job.projectId), `${name.slice(0, 40)}.webp`)
+/**
+ * A bitmap's file, named by the job as `bitmapName` names it, whatever code drew it: its trace says which (PAR-994). The
+ * prefix keeps it apart from bitmaps kept before traces, named by the whole project's code, which age out.
+ */
+function bitmapFile(served: ServedCode, job: RenderJob): string {
+  const name = createHash("sha256").update("latest\0").update(bitmapName(job, served.sources)).digest("hex")
+
+  return join(projectFolder(job.projectId), `latest-${name.slice(0, 40)}.webp`)
 }

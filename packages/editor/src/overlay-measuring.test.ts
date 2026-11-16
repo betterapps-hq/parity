@@ -54,10 +54,13 @@ describe("measuresNext", () => {
 
   it("goes on measuring until it settles after a change, without asking about animations", () => {
     let asked = 0
+
     const animating = () => {
       asked++
+
       return false
     }
+
     expect(measuresNext({ now: 1000, until: 1500, showing: true, animating })).toBe(true)
     expect(asked).toBe(0)
   })

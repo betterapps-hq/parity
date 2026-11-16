@@ -1,5 +1,6 @@
-import { childNodes, type DesignNode, locateNode, nodeOnBoard } from "@parity-app/core"
+import { childNodes, type DesignNode, designStates, locateNode, nodeOnBoard } from "@parity-app/core"
 import { activeState, selectedNodes, type Selection } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import { ChevronRight, EyeOff, MonitorSmartphone, PenLine, Plus } from "lucide-react"
 import { type KeyboardEvent, useMemo, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
@@ -7,14 +8,14 @@ import { DesignIcon, designColor, kindColors, layerLabel, nodeColor, NodeIcon } 
 import { createDesign } from "../../chrome/create.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
-import { type ContainerEntry, useContainerEntries } from "../../design-store.ts"
+import { type ContainerEntry, projectLibrary, useContainerEntries } from "../../project-doc.ts"
 import { useHover, useSelection } from "../../selection.ts"
 
 /*
  * The Layers tab once a screen and its root are one thing: each screen or component lists its root's children straight
  * under its own row, as Figma lists a frame's, with no "Page" row between. Its rows look as LayerTree's do; dragging,
  * renaming and the right-click menu are left out, since they don't change. The headings and empty rows follow the
- * approved start design (PAR-541 in decisions.md).
+ * approved start design (PAR-541).
  */
 
 interface Row {
@@ -31,17 +32,24 @@ function rowId(design: string, node?: string): string {
 
 /** The rows a selection highlights: the design's own row for the design or its root, else each selected layer's. */
 function selectedRows(selected: Selection, root: string | undefined): Set<string> {
-  if (!selected.design) return new Set()
+  if (!selected.design) {
+    return new Set()
+  }
+
   const nodes = selectedNodes(selected).filter((id) => id !== root)
   const design = selected.design
-  if (nodes.length === 0) return new Set(selected.designs ?? [design])
+
+  if (nodes.length === 0) {
+    return new Set(selected.designs ?? [design])
+  }
+
   return new Set(nodes.map((id) => rowId(design, id)))
 }
 
 export function ContainerLayers() {
   const session = useProject()
-  const { store, selection } = session
-  const entries = useContainerEntries(store)
+  const { selection } = session
+  const entries = useContainerEntries(session)
   const selected = useSelection(selection)
   const hover = useHover(selection)
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set())
@@ -49,13 +57,18 @@ export function ContainerLayers() {
   // A new selection opens its design and every layer around it, as LayerTree's does, without a row for the root.
   const [revealed, setRevealed] = useState<string>()
   const revealKey = `${selected.design ?? ""}/${selected.node ?? ""}`
+
   if (revealed !== revealKey) {
     setRevealed(revealKey)
-    const entry = selected.design ? store.getEntry(selected.design) : undefined
+    const entry = selected.design ? containerEntry(session.doc, selected.design) : undefined
+
     if (entry) {
       const ancestors = selected.node ? (locateNode(entry.container.root, selected.node)?.ancestors ?? []) : []
       const ids = [entry.key, ...ancestors.slice(1).map((ancestor) => rowId(entry.key, ancestor.id))]
-      if (!ids.every((id) => expanded.has(id))) setExpanded(new Set([...expanded, ...ids]))
+
+      if (!ids.every((id) => expanded.has(id))) {
+        setExpanded(new Set([...expanded, ...ids]))
+      }
     }
   }
 
@@ -66,7 +79,7 @@ export function ContainerLayers() {
         kind: "component" as const,
         entries: entries.filter((entry) => entry.container.kind === "component"),
         action: "New component",
-        keys: "Ctrl Alt Shift N",
+        command: "newComponent" as const,
         none: "No components yet."
       },
       {
@@ -74,64 +87,101 @@ export function ContainerLayers() {
         kind: "screen" as const,
         entries: entries.filter((entry) => entry.container.kind !== "component"),
         action: "New screen",
-        keys: "Ctrl Alt N",
+        command: "newScreen" as const,
         none: "No screens yet."
       }
     ],
     [entries]
   )
+
   const rows = useMemo(() => {
     const list: Row[] = []
+
     for (const entry of groups.flatMap((group) => group.entries)) {
       const top = childNodes(entry.container.root)
       list.push({ id: entry.key, depth: 0, entry, hasChildren: top.length > 0 })
-      if (!expanded.has(entry.key)) continue
+
+      if (!expanded.has(entry.key)) {
+        continue
+      }
+
       const visit = (node: DesignNode, depth: number) => {
         const id = rowId(entry.key, node.id)
         const children = childNodes(node)
         list.push({ id, depth, entry, node, hasChildren: children.length > 0 })
-        if (expanded.has(id)) for (const child of children) visit(child, depth + 1)
+
+        if (expanded.has(id)) {
+          for (const child of children) {
+            visit(child, depth + 1)
+          }
+        }
       }
-      for (const node of top) visit(node, 1)
+
+      for (const node of top) {
+        visit(node, 1)
+      }
     }
+
     return list
   }, [groups, expanded])
 
   const toggle = (id: string, open?: boolean) =>
     setExpanded((current) => {
       const next = new Set(current)
-      if (open ?? !next.has(id)) next.add(id)
-      else next.delete(id)
+
+      if (open ?? !next.has(id)) {
+        next.add(id)
+      } else {
+        next.delete(id)
+      }
+
       return next
     })
+
   const select = (row: Row) =>
     selection.set(row.node ? { design: row.entry.key, node: row.node.id } : { design: row.entry.key })
 
-  const highlighted = selectedRows(
-    selected,
-    selected.design ? store.getEntry(selected.design)?.container.root.id : undefined
-  )
+  const highlighted = selectedRows(selected, selected.design ? session.doc.design(selected.design)?.root.id : undefined)
+
   const focused = rows.find((row) => highlighted.has(row.id))?.id
 
   const onKeyDown = (event: KeyboardEvent) => {
     const index = rows.findIndex((row) => row.id === focused)
     const row = rows[index]
-    if (!row) return
+
+    if (!row) {
+      return
+    }
+
     const move = (target: Row | undefined) => {
-      if (!target) return
+      if (!target) {
+        return
+      }
+
       event.preventDefault()
       select(target)
     }
-    if (event.key === "ArrowDown") move(rows[index + 1])
-    else if (event.key === "ArrowUp") move(rows[index - 1])
-    else if (event.key === "ArrowRight") {
+
+    if (event.key === "ArrowDown") {
+      move(rows[index + 1])
+    } else if (event.key === "ArrowUp") {
+      move(rows[index - 1])
+    } else if (event.key === "ArrowRight") {
       event.preventDefault()
-      if (row.hasChildren && !expanded.has(row.id)) toggle(row.id, true)
-      else move(rows[index + 1]?.depth === row.depth + 1 ? rows[index + 1] : undefined)
+
+      if (row.hasChildren && !expanded.has(row.id)) {
+        toggle(row.id, true)
+      } else {
+        move(rows[index + 1]?.depth === row.depth + 1 ? rows[index + 1] : undefined)
+      }
     } else if (event.key === "ArrowLeft") {
       event.preventDefault()
-      if (row.hasChildren && expanded.has(row.id)) toggle(row.id, false)
-      else move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+
+      if (row.hasChildren && expanded.has(row.id)) {
+        toggle(row.id, false)
+      } else {
+        move(rows.slice(0, index).findLast((candidate) => candidate.depth < row.depth))
+      }
     }
   }
 
@@ -146,7 +196,7 @@ export function ContainerLayers() {
             {group.entries.length > 0 && <span className="tabular-nums">{group.entries.length}</span>}
             <IconButton
               label={group.action}
-              shortcut={group.keys}
+              shortcut={group.command}
               onClick={() => createDesign(session, group.kind)}
               className="size-6"
             >
@@ -206,19 +256,23 @@ function LayerRow({
   onHover: (on: boolean) => void
 }) {
   const session = useProject()
-  const entries = useContainerEntries(session.store)
+  const entries = useContainerEntries(session)
   const { container } = row.entry
   const state = activeState(container)
   const color = row.node ? nodeColor(row.node) : designColor(container.kind)
-  const label = row.node ? layerLabel(row.node, entries, session.store.getComponentLibrary()) : container.name
+  const label = row.node ? layerLabel(row.node, entries, projectLibrary(session)) : container.name
   // The root's own changes, in the state shown or on a viewport, mark the screen's row, since the root has no row.
   const own = row.node ?? container.root
   const changed = state.overrides?.[own.id]
   const viewports = Object.keys(own.responsive ?? {})
   const hidden = row.node ? (nodeOnBoard(container, row.node, state).hidden ?? false) : false
   let background = "hover:bg-accent/40"
-  if (selected) background = "bg-accent text-accent-foreground"
-  else if (hovered) background = "bg-accent/40"
+
+  if (selected) {
+    background = "bg-accent text-accent-foreground"
+  } else if (hovered) {
+    background = "bg-accent/40"
+  }
 
   return (
     <div
@@ -275,8 +329,11 @@ function LayerRow({
         )}
         {hidden && <EyeOff className="size-3" aria-label="Hidden" />}
         {row.depth === 0 && (
-          <Hint label={container.states.length === 1 ? "1 state" : `${container.states.length} states`} wait>
-            <span className="text-xs tabular-nums opacity-70">{container.states.length}</span>
+          <Hint
+            label={designStates(container).length === 1 ? "1 state" : `${designStates(container).length} states`}
+            wait
+          >
+            <span className="text-xs tabular-nums opacity-70">{designStates(container).length}</span>
           </Hint>
         )}
       </span>

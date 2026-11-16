@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { type AccessToken, refreshDelay, retryDelay } from "./index.ts"
 
 const issuedAt = 1_800_000_000_000
+
 const token: AccessToken = {
   userId: "user_01ANA",
   sessionId: "session_01",

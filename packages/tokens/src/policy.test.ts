@@ -92,15 +92,21 @@ describe("themeAttributes", () => {
     })
   })
 
-  it("leaves out class themes, the light theme, attributes on the root, conditional rules and colour schemes", () => {
+  it("names an attribute on the root, which frames draw on their body too (PAR-896)", () => {
+    expect(read(":root { --bg: #fff; }\n:root[data-theme=ocean], :host([data-theme=ocean]) { --bg: blue; }")).toEqual({
+      ocean: { "data-theme": "ocean" }
+    })
+  })
+
+  it("leaves out class themes, the light theme, conditional rules and colour schemes", () => {
     const css = [
       ":root { --bg: #fff; }",
       ".dark { --bg: #111; }",
       "[data-theme=light] { --bg: #fafafa; }",
-      ":root[data-theme=ocean], :host([data-theme=ocean]) { --bg: blue; }",
       "@media (width > 40rem) { [data-theme=sand] { --bg: tan; } }",
       "@media (prefers-color-scheme: dark) { :root { --bg: #000; } }"
     ].join("\n")
+
     expect(read(css)).toEqual({})
   })
 
@@ -127,6 +133,7 @@ describe("frameAttributes", () => {
   it("gives the frame the dark colour scheme only when its mode shows the dark theme (PAR-138)", () => {
     const scheme = (classNames: string[]) =>
       frameAttributes({ classNames, attributes: {} }, {})["data-canvas-color-scheme"]
+
     expect(scheme(["dark"])).toBe("dark")
     expect(scheme(["contrast", "dark"])).toBe("dark")
     expect(scheme(["ocean"])).toBe("light")

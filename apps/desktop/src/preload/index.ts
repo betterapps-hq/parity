@@ -4,14 +4,15 @@ import { ipc } from "../shared/channels.ts"
 import {
   type CanvasHost,
   type ConsoleChange,
-  type LoggedEntry,
-  type ProcessUsage,
   type ServeAnswer,
   type ServiceMethods,
   type WindowMethod,
   type WindowMethods,
+  type WindowParams,
   windowMethods
 } from "../shared/protocol.ts"
+import { ask, tell } from "./main.ts"
+import { exposeTelemetry } from "./telemetry.ts"
 
 /**
  * The window's channel to the project service. Requests wait until main gives the page its port, and a second port
@@ -21,6 +22,7 @@ const service = createChannel<WindowMethods, ServiceMethods>({
   notServing: () => new Error("The canvas window isn't ready yet"),
   disconnected: () => new Error("The project service restarted")
 })
+
 const reconnectListeners = new Set<() => void>()
 const showUpdateListeners = new Set<() => void>()
 let pendingShowUpdate = false
@@ -28,16 +30,30 @@ let connections = 0
 
 // A native menu action may arrive after load but before React mounts and subscribes.
 ipcRenderer.on(ipc.showUpdates, () => {
-  if (showUpdateListeners.size === 0) pendingShowUpdate = true
-  else for (const listener of showUpdateListeners) listener()
+  if (showUpdateListeners.size === 0) {
+    pendingShowUpdate = true
+  } else {
+    for (const listener of showUpdateListeners) {
+      listener()
+    }
+  }
 })
 
 ipcRenderer.on(ipc.port, (event) => {
   const next = event.ports[0]
-  if (!next) return
+
+  if (!next) {
+    return
+  }
+
   service.connect(domPort(next))
   connections++
-  if (connections > 1) for (const listener of reconnectListeners) listener()
+
+  if (connections > 1) {
+    for (const listener of reconnectListeners) {
+      listener()
+    }
+  }
 })
 
 /**
@@ -45,69 +61,151 @@ ipcRenderer.on(ipc.port, (event) => {
  * bridge keeps only its message; its details go back to the service as they came.
  */
 function windowHandlers(
-  handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>
+  handler: (method: WindowMethod, params: WindowParams) => Promise<ServeAnswer>
 ): Handlers<WindowMethods> {
-  const answer = async (method: WindowMethod, params: unknown) => {
+  const answer = async (method: WindowMethod, params: WindowParams) => {
     const reply = await handler(method, params)
-    if ("error" in reply) throw plainErrors.decode(reply.error, reply.details)
+
+    if ("error" in reply) {
+      throw plainErrors.decode(reply.error, reply.details)
+    }
+
     return reply.result
   }
+
+  // SAFETY: `windowMethods` lists every key of `WindowMethods`, and each entry answers through the page's one handler.
   return Object.fromEntries(
-    windowMethods.map((method) => [method, (params: unknown) => answer(method, params)])
+    windowMethods.map((method) => [method, (params: WindowParams) => answer(method, params)])
   ) as Handlers<WindowMethods>
 }
+
+/** The last of something main sent, kept for a page that starts listening after it arrived, and who's listening. */
+function lastHeard<T>(channel: string) {
+  const listeners = new Set<(value: T) => void>()
+  let last: { value: T } | undefined
+
+  ipcRenderer.on(channel, (_event, value: T) => {
+    last = { value }
+
+    for (const listener of listeners) {
+      listener(value)
+    }
+  })
+
+  return (listener: (value: T) => void) => {
+    listeners.add(listener)
+
+    if (last) {
+      listener(last.value)
+    }
+
+    return () => {
+      listeners.delete(listener)
+    }
+  }
+}
+
+type ViewHost = CanvasHost["settingsView"]
+
+const isSettings = process.argv.includes("--parity-settings-view")
+
+const settingsView: ViewHost = {
+  isSettings,
+  open: (opening) => ask("settingsOpen", opening),
+  publish: (project) => tell("settingsProject", project),
+  onProjectChange: (listener) => {
+    const changed = (_event: Electron.IpcRendererEvent, change: Parameters<typeof listener>[0]) => listener(change)
+    ipcRenderer.on(ipc.settingsProjectChange, changed)
+
+    return () => {
+      ipcRenderer.removeListener(ipc.settingsProjectChange, changed)
+    }
+  },
+  onOpening: lastHeard<Parameters<Parameters<ViewHost["onOpening"]>[0]>[0]>(ipc.settingsOpening),
+  onProject: lastHeard<Parameters<Parameters<ViewHost["onProject"]>[0]>[0]>(ipc.settingsProject),
+  changeProject: (change) => ask("settingsProjectChange", change),
+  changeExtensions: (change) => ask("extensionSettingsChange", change),
+  close: () => ask("settingsClose")
+}
+
+/**
+ * The bridge to the page. What it asks main is one line a method, each typed by `hostMethods` through `ask` and `tell`,
+ * so a line that sends the wrong thing, or promises the page something main doesn't answer, doesn't compile (PAR-965).
+ */
 const host: CanvasHost = {
   appVersion:
     process.argv.find((argument) => argument.startsWith("--parity-version="))?.slice("--parity-version=".length) ??
     "unknown",
-  getBuildInfo: () => ipcRenderer.invoke(ipc.buildInfo),
+  getBuildInfo: () => ask("buildInfo"),
+  telemetry: {
+    get: () => ask("telemetryState"),
+    setLevel: (level) => ask("telemetryLevel", level)
+  },
+  report: {
+    prepare: () => ask("reportPrepare"),
+    send: (report) => ask("reportSend", report),
+    lastCrash: () => ask("reportLastCrash")
+  },
   updates: {
-    get: () => ipcRenderer.invoke(ipc.updateState),
-    check: () => ipcRenderer.invoke(ipc.updateCheck),
-    setBeta: (beta) => ipcRenderer.invoke(ipc.updateBeta, beta),
-    act: () => ipcRenderer.invoke(ipc.updateAct),
+    get: () => ask("updateState"),
+    check: () => ask("updateCheck"),
+    setBeta: (beta) => ask("updateBeta", beta),
+    act: () => ask("updateAct"),
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
       ipcRenderer.on(ipc.updateChanged, changed)
+
       return () => {
         ipcRenderer.removeListener(ipc.updateChanged, changed)
       }
     },
     onShow: (listener) => {
       showUpdateListeners.add(listener)
+
       if (pendingShowUpdate) {
         pendingShowUpdate = false
         listener()
       }
+
       return () => {
         showUpdateListeners.delete(listener)
       }
     }
   },
   account: {
-    get: () => ipcRenderer.invoke(ipc.accountState),
+    get: () => ask("accountState"),
     subscribe: (listener) => {
+      // oxlint-disable-next-line anti-slop/no-unknown-parameters -- account state as main sends it, which the window checks against `accountState` as it arrives
       const changed = (_event: Electron.IpcRendererEvent, state: unknown) => listener(state)
       ipcRenderer.on(ipc.accountChanged, changed)
+
       return () => {
         ipcRenderer.removeListener(ipc.accountChanged, changed)
       }
     },
-    signIn: (request) => ipcRenderer.invoke(ipc.accountSignIn, request) as Promise<void>,
-    reopen: () => ipcRenderer.invoke(ipc.accountReopen) as Promise<void>,
-    cancel: () => ipcRenderer.invoke(ipc.accountCancel) as Promise<void>,
-    signOut: () => ipcRenderer.invoke(ipc.accountSignOut) as Promise<void>,
-    switchOrganization: (organizationId) => ipcRenderer.invoke(ipc.accountSwitch, organizationId) as Promise<void>
+    signIn: (request) => ask("accountSignIn", request),
+    reopen: () => ask("accountReopen"),
+    cancel: () => ask("accountCancel"),
+    signOut: (email) => ask("accountSignOut", email),
+    switchOrganization: (organizationId) => ask("accountSwitch", organizationId),
+    use: (email) => ask("accountUse", email)
+  },
+  connectors: {
+    get: () => ask("connectorsState"),
+    search: (search) => ask("connectorsSearch", search),
+    recent: () => ask("connectorsRecent"),
+    placed: (placed) => ask("connectorsPlaced", placed)
   },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
     .slice(1)
     .join("="),
-  ask: (method, params) =>
-    service.request(method, params).then(
+  signInRequired: process.argv.includes("--parity-sign-in-required"),
+  ask: (method, params, trace) =>
+    service.request(method, params, trace).then(
       (result) => ({ result }),
-      (error: unknown) => plainErrors.encode(error)
+      (cause: unknown) => plainErrors.encode(cause)
     ),
   serve(next) {
     service.serve(windowHandlers(next))
@@ -115,22 +213,72 @@ const host: CanvasHost = {
   onReconnect(listener) {
     reconnectListeners.add(listener)
   },
-  pickFolder: (title) => ipcRenderer.invoke(ipc.pickFolder, title) as Promise<string | undefined>,
-  pickProjectFile: () => ipcRenderer.invoke(ipc.pickProjectFile) as Promise<string | undefined>,
-  saveFile: (options) => ipcRenderer.invoke(ipc.saveDialog, options) as Promise<string | undefined>,
-  showItem: (path) => ipcRenderer.invoke(ipc.showItem, path) as Promise<void>,
-  openInEditor: (request) => ipcRenderer.invoke(ipc.openInEditor, request) as Promise<{ opened: string }>,
-  quit: () => ipcRenderer.invoke(ipc.quit) as Promise<void>,
-  toggleDevTools: () => ipcRenderer.invoke(ipc.toggleDevTools) as Promise<void>,
-  setTheme: (theme) => ipcRenderer.invoke(ipc.setTheme, theme) as Promise<void>,
-  metrics: () => ipcRenderer.invoke(ipc.metrics) as Promise<ProcessUsage[]>,
+  pickFolder: (title) => ask("pickFolder", title),
+  pickProjectFile: () => ask("pickProjectFile"),
+  saveFile: (options) => ask("saveDialog", options),
+  showItem: (path) => ask("showItem", path),
+  copiedFiles: () => ask("copiedFiles"),
+  openInEditor: (request) => ask("openInEditor", request),
+  installCli: () => ask("installCli"),
+  quit: () => ask("quit"),
+  toggleDevTools: () => ask("toggleDevTools"),
+  settingsView,
+  openInParity: (url) => ask("openInParity", url),
+  settings: {
+    // SAFETY: main answers this channel with its settings state, and main and this script ship together.
+    now: () => ipcRenderer.sendSync(ipc.settingsNow) as ReturnType<CanvasHost["settings"]["now"]>,
+    change: (change) => ask("settingsChange", change),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
+      ipcRenderer.on(ipc.settingsChanged, changed)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.settingsChanged, changed)
+      }
+    }
+  },
+  // SAFETY: main answers this channel with what state.json and projects.json hold, and ships with this script.
+  saved: () => ipcRenderer.sendSync(ipc.stateNow) as ReturnType<CanvasHost["saved"]>,
+  projects: {
+    change: (change) => ask("projectsChange", change),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, projects: Parameters<typeof listener>[0]) =>
+        listener(projects)
+
+      ipcRenderer.on(ipc.projectsChanged, changed)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.projectsChanged, changed)
+      }
+    }
+  },
+  state: {
+    set: (key, value) => tell("stateSet", { key, value }),
+    claimTabs: () => ask("tabsClaim"),
+    saveTabs: (tabs) => tell("tabsSave", tabs)
+  },
+  keybindings: {
+    get: () => ask("keybindingsState"),
+    replace: (replacements) => ask("keybindingsReplace", replacements),
+    open: () => ask("keybindingsOpen"),
+    subscribe: (listener) => {
+      const changed = (_event: Electron.IpcRendererEvent, state: Parameters<typeof listener>[0]) => listener(state)
+      ipcRenderer.on(ipc.keybindingsChanged, changed)
+
+      return () => {
+        ipcRenderer.removeListener(ipc.keybindingsChanged, changed)
+      }
+    }
+  },
+  metrics: () => ask("metrics"),
   console: {
-    announce: (level, context) => ipcRenderer.send(ipc.consoleAnnounce, { level, ...context }),
-    read: (origin) => ipcRenderer.invoke(ipc.consoleRead, origin) as Promise<LoggedEntry[]>,
-    clear: (origin) => ipcRenderer.invoke(ipc.consoleClear, origin) as Promise<void>,
+    announce: (level, context) => tell("consoleAnnounce", { level, ...context }),
+    read: (origin) => ask("consoleRead", origin),
+    clear: (origin) => ask("consoleClear", origin),
     subscribe: (listener) => {
       const changed = (_event: Electron.IpcRendererEvent, change: ConsoleChange) => listener(change)
       ipcRenderer.on(ipc.consoleChanged, changed)
+
       return () => {
         ipcRenderer.removeListener(ipc.consoleChanged, changed)
       }
@@ -138,13 +286,15 @@ const host: CanvasHost = {
   },
   onClosing(listener) {
     ipcRenderer.on(ipc.closing, () => {
-      ipcRenderer.send(ipc.closePending)
+      tell("closePending")
       listener().then(
-        (close) => ipcRenderer.send(close ? ipc.closeReady : ipc.closeCancel),
-        () => ipcRenderer.send(ipc.closeCancel)
+        (close) => tell(close ? "closeReady" : "closeCancel"),
+        () => tell("closeCancel")
       )
     })
   }
 }
 
 contextBridge.exposeInMainWorld("canvasHost", host)
+
+exposeTelemetry()

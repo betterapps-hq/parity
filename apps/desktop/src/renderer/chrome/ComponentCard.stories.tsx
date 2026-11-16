@@ -6,6 +6,7 @@ import { expect, userEvent, within } from "storybook/test"
 import type { PreviewImage } from "../../shared/protocol.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import type { PreviewState } from "../component-previews.ts"
+import { projectInfo, roots, standInExtensions } from "../stories/host.ts"
 import accordion from "../stories/previews/accordion.png?inline"
 import attachmentGroup from "../stories/previews/attachment-group.png?inline"
 import button from "../stories/previews/button.png?inline"
@@ -22,6 +23,12 @@ import { type CardVariant, ComponentCard, type ComponentCardProps, ComponentPopo
 import { Hint } from "./Hint.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { formatKeys } from "./keys.ts"
+import { Name } from "./Name.tsx"
+
+/** The example project's Storybook logo, as its extension offers Open in Storybook with it. */
+const storybookLogo = standInExtensions(projectInfo(roots.example)).find(
+  (extension) => extension.id === "storybook"
+)?.icon
 
 /**
  * A component's card in the Assets panel: its preview, large, with its name, file and what to do with it. It opens
@@ -34,6 +41,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** A kept preview's pictures, sized as the store gives them. */
@@ -43,6 +51,7 @@ const picture = (src: string, width: number, height: number): PreviewImage => ({
   width,
   height
 })
+
 const pictures = {
   inputGroupText: picture(inputGroupText, 134, 104),
   button: picture(button, 339, 88),
@@ -51,6 +60,7 @@ const pictures = {
   calendar: picture(calendar, 291, 352),
   attachmentGroup: picture(attachmentGroup, 608, 285)
 }
+
 const made = (image: PreviewImage): PreviewState => ({ state: "made", image })
 
 const cards: (ComponentCardProps & { label: string })[] = [
@@ -222,10 +232,10 @@ export const VariantsAndActions: Story = {
             ]
           }}
           uses={153}
-          stories={1}
+          facts={[{ value: "1", label: "story" }]}
           onInsert={() => undefined}
           onOpenFile={() => undefined}
-          onOpenStorybook={() => undefined}
+          offers={[{ id: "storybook:open", name: "Open in Storybook", logo: storybookLogo, run: () => undefined }]}
         />
       </Surface>
       <Surface label="Variants still being made">
@@ -275,13 +285,14 @@ function Row({
       className="flex h-7 w-full cursor-grab items-center gap-2 rounded-md pr-8 pl-8 text-left text-sm hover:bg-accent aria-expanded:bg-accent"
     >
       <Component className="size-3.5 shrink-0" style={{ color: kindColors.component }} />
-      <span className="truncate">{name}</span>
+      <Name>{name}</Name>
     </button>
   )
 }
 
 function OpenRow({ name, ...props }: ComponentCardProps) {
   const card = useHoverCard(true)
+
   return (
     <ComponentPopover {...props} name={name} card={card}>
       <Row name={name.slice(name.lastIndexOf("/") + 1)} card={card} />
@@ -298,7 +309,9 @@ export const BesideItsRow: Story = {
     <Stage className="p-0">
       <div className="flex h-screen">
         <div className="flex w-64 flex-col border-r bg-background py-2">
-          <div className="px-8 pt-1 text-[11px] text-muted-foreground">input-group</div>
+          <div className="px-8 pt-1 text-2xs text-muted-foreground">
+            <Name className="block">input-group</Name>
+          </div>
           {["InputGroup", "InputGroupAddon", "InputGroupButton", "InputGroupInput"].map((name) => (
             <Row key={name} name={name} />
           ))}
@@ -308,7 +321,9 @@ export const BesideItsRow: Story = {
             preview={made(pictures.inputGroupText)}
           />
           <Row name="InputGroupTextarea" />
-          <div className="px-8 pt-1 text-[11px] text-muted-foreground">input-otp</div>
+          <div className="px-8 pt-1 text-2xs text-muted-foreground">
+            <Name className="block">input-otp</Name>
+          </div>
           <Row name="InputOTP" />
         </div>
         <div className="flex-1 bg-muted/40" />

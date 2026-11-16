@@ -13,12 +13,14 @@ afterEach(() => vi.useRealTimers())
 describe("bounded GitHub metadata requests", () => {
   it("aborts a stalled request after three seconds", async () => {
     vi.useFakeTimers()
+
     const request = vi.fn<typeof fetch>().mockImplementation(
       (_url, options) =>
         new Promise((_resolve, reject) => {
           options?.signal?.addEventListener("abort", () => reject(new Error("Timed out")))
         })
     )
+
     await Promise.all([
       expect(githubRelease("/latest", request)).rejects.toThrow("Timed out"),
       vi.advanceTimersByTimeAsync(3000)
@@ -40,6 +42,7 @@ describe("empty stable GitHub feed", () => {
       .fn<typeof fetch>()
       .mockResolvedValueOnce(new Response(null, { status: 404 }))
       .mockResolvedValueOnce(Response.json([{ draft: false, prerelease: true }]))
+
     const error = Object.assign(new Error(missingStable.message.replace("404", "406")), { code: missingStable.code })
     expect(await noStableRelease(error, false, request)).toBe(true)
   })
@@ -50,6 +53,7 @@ describe("empty stable GitHub feed", () => {
         .fn<typeof fetch>()
         .mockResolvedValueOnce(new Response(null, { status: 404 }))
         .mockResolvedValueOnce(Response.json(data))
+
       expect(await noStableRelease(missingStable, false, request)).toBe(true)
       expect(request.mock.calls.map(([url]) => url)).toEqual([
         "https://api.github.com/repos/betterapps-hq/parity/releases/latest",
@@ -65,6 +69,7 @@ describe("empty stable GitHub feed", () => {
         .fn<typeof fetch>()
         .mockResolvedValueOnce(new Response(null, { status: 404 }))
         .mockResolvedValueOnce(new Response(null, { status }))
+
       expect(await noStableRelease(missingStable, false, request)).toBe(false)
     }
   )
@@ -76,6 +81,7 @@ describe("empty stable GitHub feed", () => {
         .fn<typeof fetch>()
         .mockResolvedValueOnce(new Response(null, { status: 404 }))
         .mockResolvedValueOnce(Response.json(data))
+
       expect(await noStableRelease(missingStable, false, request)).toBe(false)
     }
   )
@@ -85,6 +91,7 @@ describe("empty stable GitHub feed", () => {
       .fn<typeof fetch>()
       .mockRejectedValueOnce(new Error("Offline"))
       .mockResolvedValueOnce(Response.json({ prerelease: false }))
+
     expect(await noStableRelease(missingStable, false, request)).toBe(false)
     expect(await noStableRelease(missingStable, false, request)).toBe(false)
   })
@@ -92,6 +99,7 @@ describe("empty stable GitHub feed", () => {
   it("does not probe GitHub for beta checks, generic feeds, missing artifacts, or non-404 failures", async () => {
     const request = vi.fn<typeof fetch>()
     expect(await noStableRelease(missingStable, true, request)).toBe(false)
+
     for (const error of [
       new Error("Offline"),
       Object.assign(new Error("Cannot find latest.yml: 404"), { code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND" }),
@@ -100,8 +108,10 @@ describe("empty stable GitHub feed", () => {
         new Error(missingStable.message.replace("https://github.com/betterapps-hq/parity", "http://127.0.0.1:8000")),
         { code: missingStable.code }
       )
-    ])
+    ]) {
       expect(await noStableRelease(error, false, request)).toBe(false)
+    }
+
     expect(request).not.toHaveBeenCalled()
   })
 })

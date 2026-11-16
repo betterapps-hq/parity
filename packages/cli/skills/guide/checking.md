@@ -9,6 +9,11 @@ would show. Run them after every change you make, and before you tell the person
 the edge, a skeleton that doesn't match what it stands for, colours that disappear in dark mode. `scale: 2` helps with
 small details.
 
+To see many frames at once, pass `sheet: true` to `screenshot` (`parity screenshot <design> --sheet`). You get one image
+per design instead of one per frame: a component's states in rows, modes in columns, each labeled. The CLI saves it as
+one file, so it's one read. A sheet is kept within 2,000 pixels, so big frames are shrunk; its `scale` says by how much.
+Screenshot a single state and mode to read small text.
+
 ## Layout problems
 
 `find_problems`, or `Problems` in a snippet, lists what's wrong in each frame without looking at it:
@@ -18,7 +23,9 @@ small details.
 - **Overflow.** A node that sticks out of the frame, by its width or where it's placed, usually a row that needs to wrap
   or stack on mobile. The finding gives the node, its box, the frame's, and how many pixels past which edge.
 - **Clipping.** A node cut off by an ancestor with `overflow: hidden` or a fixed size, named in the finding with its
-  box. A node that only spills past a parent that doesn't clip still shows, so it isn't listed.
+  box. What an ancestor with `overflow: scroll` scrolls to isn't cut off, so a row of chips or days that scrolls
+  sideways is clean, as long as the row itself fits the frame. A node that only spills past a parent that doesn't clip
+  still shows, so it isn't listed.
 - **Unknown components.** A name that isn't in `Components()`; it draws as a placeholder.
 
 `Measure` gives every node's box in one frame, for checking alignment or sizes by numbers. It takes one state and one
@@ -48,6 +55,11 @@ person's canvas and from your offscreen renders. React warnings about props, key
 they show on screen. `clear: true` empties it, so the next read shows only what's new.
 
 React's warnings keep their `%s` placeholders, with the values that fill them listed after the message.
+
+When Parity itself misbehaves (a render that never finishes, a save that fails), `get_logs` reads its own events, with
+their traces, from the app's local log: `parity logs --level warn --since 10m`. When a bug needs filing by hand,
+`parity diagnostics` writes a zip of what Help > Report a problem sends: the last hour of the log, versions, the open
+projects and the latest run that didn't quit. Read it before attaching it.
 
 ## Trying it
 

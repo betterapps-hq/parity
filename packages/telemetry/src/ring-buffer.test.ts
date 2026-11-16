@@ -12,7 +12,11 @@ describe("RingBuffer", () => {
 
   it("drops the oldest once full, however many times it wraps", () => {
     const buffer = new RingBuffer<number>(3)
-    for (let item = 1; item <= 8; item++) buffer.push(item)
+
+    for (let item = 1; item <= 8; item++) {
+      buffer.push(item)
+    }
+
     expect(buffer.toArray()).toEqual([6, 7, 8])
     expect(buffer.size).toBe(3)
   })

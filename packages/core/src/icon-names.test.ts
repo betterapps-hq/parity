@@ -63,6 +63,7 @@ describe("iconStyleModules", () => {
         default: { style: "24 Outline" }
       }
     }
+
     expect(iconStyleModules(icons, "@heroicons/react")).toEqual([
       { style: "16 Solid", import: "@heroicons/react/16/solid", key: "16/solid" },
       { style: "24 Solid", import: "@heroicons/react/24/solid", key: "24/solid" }

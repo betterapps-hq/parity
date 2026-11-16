@@ -7,7 +7,9 @@ import {
   CodedError,
   containerKinds,
   finiteNumber,
+  imageCredit,
   nodeStyle,
+  paramTypes,
   patchUnset,
   plainObject,
   textTags
@@ -19,6 +21,7 @@ import { z } from "zod"
  * Checks one argument and returns what the schema reads from it, or throws `invalid_input` with the field at fault, as
  * `node/children/0/type`. `name` is the parameter's name, which starts the field.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a snippet passes whatever JavaScript it likes
 export function readArgument<T extends z.ZodType>(schema: T, value: unknown, name: string): z.output<T> {
   return read(schema, value, `/${name}`, name)
 }
@@ -27,22 +30,33 @@ export function readArgument<T extends z.ZodType>(schema: T, value: unknown, nam
  * Checks an argument that is an object of named fields, such as a call's options, whose fields name themselves:
  * `width`, `style/gap`. The parameter's `name` is the field only when the argument itself is wrong.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a snippet passes whatever JavaScript it likes
 export function readFields<T extends z.ZodType>(schema: T, value: unknown, name: string): z.output<T> {
   return read(schema, value, "", name)
 }
 
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what a snippet passed, checked here
 function read<T extends z.ZodType>(schema: T, value: unknown, at: string, name: string): z.output<T> {
   const checked = checkData(schema, value, at)
-  if (checked.success) return checked.data
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const { pointer, message } = checked.problem
   const field = pointer.slice(1) || name
   throw new CodedError(`${field}: ${message}`, { code: "invalid_input", field })
 }
 
-/** Each of a shape's fields optional, with `null` to take its value away. */
-function nullable<const Shape extends z.core.$ZodLooseShape>(shape: Shape) {
-  return Object.fromEntries(Object.entries(shape).map(([key, field]) => [key, z.nullable(field).optional()])) as {
-    [Key in keyof Shape]: z.ZodOptional<z.ZodNullable<Shape[Key]>>
+// The fields `z.strictObject` takes, by its own parameter rather than zod's internal name for them.
+type ObjectFields = NonNullable<Parameters<typeof z.strictObject>[0]>
+
+/** Each of an object's fields optional, with `null` to take its value away. */
+function nullable<const Fields extends ObjectFields>(fields: Fields) {
+  // SAFETY: the entries are `fields`' own, each wrapped the same way, so the object has every key of `Fields` with
+  // its schema made nullable and optional; `Object.fromEntries` only knows it has string keys.
+  return Object.fromEntries(Object.entries(fields).map(([key, field]) => [key, z.nullable(field).optional()])) as {
+    [Key in keyof Fields]: z.ZodOptional<z.ZodNullable<Fields[Key]>>
   }
 }
 
@@ -72,6 +86,35 @@ export const patchInput = z.strictObject({
 
 export type PatchInput = z.infer<typeof patchInput>
 
+/** A variant's option: its id, made from its name unless given, and what it changes, keyed by node id or name. */
+const optionInput = z.strictObject({
+  id: z.string().min(1).optional(),
+  name: z.string().min(1),
+  overrides: z.record(z.string(), patchInput).optional()
+})
+
+export type OptionInput = z.infer<typeof optionInput>
+
+/** A param, as `CreateDesign` and `AddParam` take it. A variant's default can be an option's id or name. */
+export const paramInput = z.strictObject({
+  type: z.enum(paramTypes),
+  default: z.unknown().optional(),
+  description: z.string().optional(),
+  options: z.array(optionInput).min(1).optional()
+})
+
+export type ParamInput = z.infer<typeof paramInput>
+
+/** `UpdateParam`'s change. `null` takes away the default or the description; `options` is the whole new list. */
+export const paramUpdate = z.strictObject({
+  name: z.string().optional(),
+  default: z.unknown().optional(),
+  description: z.string().nullish(),
+  options: z.array(optionInput).min(1).optional()
+})
+
+export type ParamUpdate = z.infer<typeof paramUpdate>
+
 /** `Update`'s change: a patch, and the node's name, tag and component in the base state. */
 export const updateChange = z.strictObject(
   {
@@ -80,7 +123,18 @@ export const updateChange = z.strictObject(
     tag: z.enum(textTags).nullish(),
     component: z.string().optional(),
     /** An instance's args, as props. */
-    args: plainObject.optional()
+    args: plainObject.optional(),
+    /** An image's picture, its description and who made it, in the base design only. */
+    src: z.string().min(1).optional(),
+    alt: z.string().nullish(),
+    credit: imageCredit.nullish(),
+    /** Binds a field to one of the component's params, or with `null` unbinds it, in the base design only. */
+    bind: z
+      .strictObject({
+        text: z.string().nullish(),
+        props: z.record(z.string(), z.string().nullable()).optional()
+      })
+      .optional()
   },
   {
     error: (issue) =>
@@ -103,7 +157,9 @@ export const designInput = z.strictObject({
   baseState: z.string().optional(),
   /** A frame's own size, in pixels. */
   width: pixels.optional(),
-  height: pixels.optional()
+  height: pixels.optional(),
+  /** A component's params, by name. */
+  params: z.record(z.string(), paramInput).optional()
 })
 
 export type DesignInput = z.infer<typeof designInput>
@@ -130,13 +186,13 @@ export const designUpdate = z.strictObject({
 
 export type DesignUpdate = z.infer<typeof designUpdate>
 
-const placeShape = { index: z.int().nonnegative().optional(), slot: z.string().optional() }
+const placeFields = { index: z.int().nonnegative().optional(), slot: z.string().optional() }
 
-export const placeOptions = z.strictObject(placeShape).optional()
+export const placeOptions = z.strictObject(placeFields).optional()
 
 export type PlaceOptions = z.infer<typeof placeOptions>
 
-export const copyOptions = z.strictObject({ ...placeShape, name: z.string().optional() }).optional()
+export const copyOptions = z.strictObject({ ...placeFields, name: z.string().optional() }).optional()
 
 export const getOptions = z
   .strictObject({
@@ -153,7 +209,7 @@ export type GetOptions = z.infer<typeof getOptions>
 /** What `Get` reads: a path, or a function it calls for every node. */
 export const getPath = z.string("expected a path, or a function to call for every node")
 
-const matrixShape = {
+const matrixFields = {
   /** A state id, a list of them, or "all". Defaults to the state the design shows. */
   state: z.union([z.string(), z.array(z.string())]).optional(),
   /** A mode id, a list, "shown" (what the design shows) or "all". Defaults to the primary mode. */
@@ -161,11 +217,11 @@ const matrixShape = {
 }
 
 /** Which frames a check draws: the states and modes asked for. */
-export const matrixOptions = z.strictObject(matrixShape).optional()
+export const matrixOptions = z.strictObject(matrixFields).optional()
 
 export type MatrixOptions = z.infer<typeof matrixOptions>
 
-export const screenshotOptions = z.strictObject({ ...matrixShape, scale: finiteNumber.optional() }).optional()
+export const screenshotOptions = z.strictObject({ ...matrixFields, scale: finiteNumber.optional() }).optional()
 
 export const propsOptions = z.strictObject({ all: z.boolean().optional() }).optional()
 
@@ -181,8 +237,16 @@ export const iconOptions = z
   .optional()
 
 export const tokenFilter = z
-  .strictObject({ category: z.string().optional(), source: z.string().optional(), search: z.string().optional() })
+  .strictObject({
+    category: z.string().optional(),
+    source: z.string().optional(),
+    search: z.string().optional(),
+    /** A color or length that isn't a token, such as `#2f6fed` or `13px`: the tokens nearest it, nearest first. */
+    nearest: z.string().optional()
+  })
   .optional()
+
+export type TokenFilter = NonNullable<z.infer<typeof tokenFilter>>
 
 /** A state's changes, keyed by node id or name; `null` clears a node's override. */
 const stateChanges = z.record(z.string(), patchInput.nullable()).optional()
@@ -191,8 +255,11 @@ export const newState = z.strictObject({ name: z.string(), changes: stateChanges
 
 export const stateUpdate = z.strictObject({ name: z.string().optional(), changes: stateChanges })
 
-/** Token values by name, as one value or one per theme. */
-export const tokenValues = z.record(z.string(), z.union([z.string(), z.record(z.string(), z.string())]))
+/** Token values by name, as one value or one per theme. One value is the `default` theme's. */
+export const tokenValues = z.record(
+  z.string(),
+  z.union([z.string().transform((value) => ({ default: value })), z.record(z.string(), z.string())])
+)
 
 export const spaceOptions = z.strictObject({
   width: finiteNumber,
@@ -200,6 +267,13 @@ export const spaceOptions = z.strictObject({
   direction: z.enum(["right", "below"]).optional(),
   padding: finiteNumber.optional(),
   near: z.string().optional()
+})
+
+/** `PlaceReference`'s options: the design it's for, why it's here, and the connector that found it. */
+export const referenceOptions = z.strictObject({
+  near: z.string().optional(),
+  note: z.string().max(500).optional(),
+  connector: z.string().optional()
 })
 
 export const extractNodes = z.union([z.string(), z.array(z.string()).min(1)])

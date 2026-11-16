@@ -7,6 +7,12 @@ import {
   type ModesResponse,
   type ProblemsResponse,
   type PropsResponse,
+  type FindResponse,
+  type ImagesResponse,
+  type PlaceResponse,
+  type PlacedReferencesResponse,
+  type RemoveImageResponse,
+  type ReportResponse,
   type StatusResponse,
   describeAccessibility,
   describeComponents,
@@ -15,18 +21,38 @@ import {
   describeModes,
   describeProblems,
   describeProps,
+  describeImages,
+  describeMedia,
+  describePlace,
+  describePlacedReferences,
+  describeReferences,
+  describeRemovedImage,
+  describeExtensionRun,
+  describeExtensions,
+  type ExtensionsResponse,
+  type RunExtensionResponse,
+  describeReport,
   describeStatus,
   describeTokens
 } from "./client.ts"
 import { type ExecReply, type Screenshot, execResponse, structuredExec } from "./execute.ts"
-import { bounded, operations, skillOperation } from "./operations.ts"
-import { emptyState, fixtureTab, processTests, toolReply, transportFixture } from "./transport-fixture.ts"
+import { bounded, type OperationFields, operations, skillOperation } from "./operations.ts"
+import {
+  emptyState,
+  fixtureTab,
+  type JsonObject,
+  processTests,
+  succeeded,
+  toolReply,
+  transportFixture
+} from "./transport-fixture.ts"
 
 const fixture = transportFixture({})
 const { requests, run, mcp } = fixture
 const tab = { id: "project", name: "Project" }
 const screenshot: ExecReply = { ok: true, applied: false, output: [], warnings: [], created: {}, screenshots: [] }
 const problems: ProblemsResponse = { tab, design: { id: "home", name: "Home" }, problems: [], frames: 1, warnings: [] }
+
 const accessibility: AccessibilityResponse = {
   tab,
   design: { id: "home", name: "Home" },
@@ -34,11 +60,13 @@ const accessibility: AccessibilityResponse = {
   frames: 1,
   warnings: []
 }
+
 const consoleReply = { tab, entries: [] }
 const consoleResult: ConsoleResponse = { ...consoleReply, total: 0, truncated: false }
 const noTokens = { tokens: [], total: 0, truncated: false }
 const components: ComponentsResponse = { components: ["Button", "Card"] }
 const props: PropsResponse = { component: "Button", known: true, props: [] }
+
 const sidebar: PropsResponse = {
   component: "nova/Sidebar",
   path: "@buildkit/nova",
@@ -60,6 +88,7 @@ const sidebar: PropsResponse = {
     }
   }
 }
+
 const status: StatusResponse = {
   tab,
   revision: "a1b2c3d4:3",
@@ -72,6 +101,7 @@ const status: StatusResponse = {
   undo: { count: 3 },
   redo: { count: 0 }
 }
+
 const modes: ModesResponse = {
   tab,
   variables: [
@@ -93,14 +123,140 @@ const modes: ModesResponse = {
   ],
   designs: [{ id: "home", name: "Home", state: "default", states: ["default"], main: "mobile-light", beside: [] }]
 }
+
+const imagesFound: ImagesResponse = {
+  images: [
+    {
+      kind: "file",
+      src: "/images/hero.png",
+      path: "public/images/hero.png",
+      name: "hero.png",
+      bytes: 2048,
+      alt: "A desk",
+      usedBy: [{ document: "app.par", design: "home", designName: "Home", node: "hero" }],
+      usedInCode: [{ path: "src/index.css", line: 2 }]
+    },
+    {
+      kind: "linked",
+      src: "https://images.unsplash.com/photo-1",
+      name: "Photo by Ada Park",
+      credit: { name: "Ada Park", url: "https://unsplash.com/@adapark", source: "Unsplash" },
+      usedBy: [],
+      usedInCode: []
+    }
+  ],
+  total: 3,
+  truncated: true
+}
+
+const removedImage: RemoveImageResponse = { path: "public/images/unused.webp", label: "Remove image" }
+
+const extensionsFound: ExtensionsResponse = {
+  tab: { id: "tab-1", name: "Shop" },
+  extensions: [
+    {
+      id: "@parity-app/extension-storybook-a11y",
+      name: "Storybook accessibility",
+      state: "running",
+      commands: [{ id: "a11y.open", title: "Check accessibility in Storybook" }],
+      tools: [
+        {
+          name: "a11y.page",
+          description: "Gives the page.",
+          input: { type: "object", properties: { component: { type: "string" } }, required: ["component"] }
+        }
+      ],
+      nodeTypes: [],
+      facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }]
+    }
+  ]
+}
+
+const ranExtension: RunExtensionResponse = {
+  tab: { id: "tab-1", name: "Shop" },
+  name: "storybook.open",
+  result: { url: "http://localhost:6006/?path=/docs/button--docs" }
+}
+
+const reported: ReportResponse = {
+  feedbackId: "0a1b2c",
+  link: "https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b2c/",
+  traceId: "4bf92f3577b34da6a3ce929d0e0e4736",
+  replayId: "r1",
+  tags: { tab: "Project", design: "home", state: "default", node: "title" },
+  attachments: ["screenshot.png", "home default mobile-light.png", "events.jsonl"]
+}
+
+const calm = {
+  id: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+  connector: "mobbin",
+  source: "Mobbin",
+  title: "Calm",
+  platform: "ios" as const,
+  link: "https://mobbin.com/screens/1b9d6bcd",
+  credit: [{ name: "Calm" }, { name: "Mobbin", url: "https://mobbin.com/screens/1b9d6bcd" }],
+  preview: { path: "/references/calm.webp", mimeType: "image/webp" as const }
+}
+
+const references: FindResponse = { found: [calm] }
+
+/** Two references on the canvas: one an agent placed for Pricing, with a note, and one whose picture has expired. */
+const onCanvas: PlacedReferencesResponse = {
+  tab: { id: "tab-1", name: "Project" },
+  references: [
+    {
+      id: "r1",
+      app: "Calm",
+      platform: "ios",
+      link: "https://mobbin.com/screens/1b9d6bcd",
+      picture: "https://images.mobbin.com/calm.png",
+      query: "pricing page",
+      note: "Yearly is picked by default",
+      by: "Claude",
+      design: { id: "pricing", name: "Pricing", file: "app.par" },
+      preview: { path: "/references/calm-r1.png", mimeType: "image/png" }
+    },
+    {
+      id: "r2",
+      app: "Ledgerly",
+      link: "https://mobbin.com/screens/2",
+      picture: "https://images.mobbin.com/ledgerly.png",
+      expired: true,
+      design: { id: "pricing", name: "Pricing", file: "app.par" }
+    }
+  ]
+}
+
+const placed: PlaceResponse = {
+  placed: true,
+  node: "home/Hero/Photo",
+  image: "https://images.unsplash.com/photo-1",
+  credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
+}
+
+const photos: FindResponse = {
+  found: [
+    {
+      id: "Dwu85P9SOIk",
+      connector: "unsplash",
+      source: "Unsplash",
+      title: "white desk",
+      link: "https://unsplash.com/photos/Dwu85P9SOIk",
+      credit: [{ name: "Ada Park" }, { name: "Unsplash" }]
+    }
+  ],
+  allowance: { remaining: 49, limit: 50 }
+}
+
 const project = resolve("some/../project")
+
 interface Case {
   name: string
   cli: string[]
   tool: string
   method: keyof typeof operations
-  input: Record<string, unknown>
-  params: Record<string, unknown>
+  input: OperationFields
+  params: JsonObject
   /** What the app answers. */
   result: unknown
   /** What CLI --json prints and MCP returns as structuredContent. */
@@ -109,6 +265,7 @@ interface Case {
   /** MCP's text when it differs: data results are compact JSON there. */
   mcpText?: string
 }
+
 const cases: Case[] = [
   {
     name: "tabs",
@@ -175,7 +332,7 @@ const cases: Case[] = [
     tool: "screenshot",
     method: "screenshot",
     input: { design: "home" },
-    params: { design: "home", scale: 1 },
+    params: { design: "home", scale: 1, sheet: false },
     result: screenshot,
     structured: structuredExec(execResponse(screenshot)),
     text: describeExec(execResponse(screenshot))
@@ -256,40 +413,144 @@ const cases: Case[] = [
     result: sidebar,
     structured: sidebar,
     text: describeProps(sidebar)
+  },
+  {
+    name: "report",
+    cli: ["report", "The title is cut off", "--design", "home", "--node", "title"],
+    tool: "report_problem",
+    method: "report",
+    input: { message: "The title is cut off", design: "home", node: "title" },
+    params: { message: "The title is cut off", design: "home", node: "title" },
+    result: reported,
+    structured: reported,
+    text: describeReport(reported)
+  },
+  {
+    name: "references",
+    cli: ["references", "paywall", "with", "a", "free", "trial", "--platform", "ios"],
+    tool: "find_references",
+    method: "references",
+    input: { query: "paywall with a free trial", platform: "ios" },
+    params: { query: "paywall with a free trial", platform: "ios", limit: 6 },
+    result: references,
+    structured: references,
+    text: describeReferences(references)
+  },
+  {
+    name: "placed references",
+    cli: ["references", "placed", "pricing"],
+    tool: "get_references",
+    method: "placedReferences",
+    input: { design: "pricing" },
+    params: { design: "pricing", limit: 6 },
+    result: onCanvas,
+    structured: onCanvas,
+    text: describePlacedReferences(onCanvas)
+  },
+  {
+    name: "media",
+    cli: ["media", "desk", "by", "a", "window", "--type", "vectors", "--orientation", "vertical", "--page", "2"],
+    tool: "find_media",
+    method: "media",
+    input: { query: "desk by a window", type: "vectors", orientation: "vertical", page: 2 },
+    params: { query: "desk by a window", type: "vectors", orientation: "vertical", limit: 6, page: 2 },
+    result: photos,
+    structured: photos,
+    text: describeMedia(photos)
+  },
+  {
+    name: "place",
+    cli: ["place", "unsplash", "Dwu85P9SOIk", "home/Hero/Photo"],
+    tool: "place_result",
+    method: "place",
+    input: { connector: "unsplash", id: "Dwu85P9SOIk", node: "home/Hero/Photo" },
+    params: { connector: "unsplash", id: "Dwu85P9SOIk", node: "home/Hero/Photo" },
+    result: placed,
+    structured: placed,
+    text: describePlace(placed)
+  },
+  {
+    name: "images",
+    cli: ["images", "--search", "desk", "--unused"],
+    tool: "get_images",
+    method: "images",
+    input: { search: "desk", unused: true },
+    params: { search: "desk", unused: true, limit: 50 },
+    result: imagesFound,
+    structured: imagesFound,
+    text: describeImages(imagesFound)
+  },
+  {
+    name: "remove image",
+    cli: ["images", "remove", "unused.webp"],
+    tool: "remove_image",
+    method: "removeImage",
+    input: { image: "unused.webp" },
+    params: { image: "unused.webp" },
+    result: removedImage,
+    structured: removedImage,
+    text: describeRemovedImage(removedImage)
+  },
+  {
+    name: "extensions",
+    cli: ["extensions"],
+    tool: "get_extensions",
+    method: "extensions",
+    input: {},
+    params: {},
+    result: extensionsFound,
+    structured: extensionsFound,
+    text: describeExtensions(extensionsFound)
+  },
+  {
+    name: "run an extension's command",
+    cli: ["run", "storybook.open", "--component", "Button"],
+    tool: "run_extension",
+    method: "runExtension",
+    input: { name: "storybook.open", component: "Button" },
+    params: { name: "storybook.open", component: "Button" },
+    result: ranExtension,
+    structured: ranExtension,
+    text: describeExtensionRun(ranExtension)
   }
 ]
-function expectedReply(text: string, structured: unknown, isError = false, images: Screenshot[] = []) {
+
+function expectedReply<Structured>(text: string, structured: Structured, isError = false, images: Screenshot[] = []) {
+  const content = [
+    { type: "text", text },
+    ...images.map((shot) => ({ type: "image", data: shot.png, mimeType: "image/png" }))
+  ]
+
   return {
     jsonrpc: "2.0",
     id: 2,
-    result: {
-      content: [
-        { type: "text", text },
-        ...images.map((shot) => ({ type: "image", data: shot.png, mimeType: "image/png" }))
-      ],
-      ...(structured === undefined ? {} : { structuredContent: structured }),
-      isError
-    }
+    result: structured === undefined ? { content, isError } : { content, structuredContent: structured, isError }
   }
 }
+
 /** An invalid request's structured failure, pointing at the field. */
 function invalid(message: string, path?: string) {
-  return { error: { code: "invalid_input", message, retryable: false, ...(path ? { path } : {}) } }
+  const error = { code: "invalid_input", message, retryable: false }
+
+  return { error: path ? { ...error, path } : error }
 }
+
 /** What reaches the app: each transport's request, with the tab the CLI routed it to; `tabs` asks no more than routing. */
-function expectRequests(method: string, params: Record<string, unknown>) {
-  const { routing } = operations[method as keyof typeof operations]
-  const sent = routing === "tab" ? { tab: fixtureTab.id, ...params } : params
+function expectRequests(method: keyof typeof operations, params: JsonObject) {
+  const { routing } = operations[method]
+  const sent = routing === "tab" || routing === "tab-or-any" ? { tab: fixtureTab.id, ...params } : params
   expect(requests).toHaveLength(routing === "copies" ? 0 : 2)
-  for (const request of requests)
+
+  for (const request of requests) {
     expect(request).toEqual(expect.objectContaining({ method, params: sent, agent: "Contract Caller" }))
+  }
 }
 
 describe("remaining transport contracts", processTests, () => {
   it.each(cases)("shares $name defaults and human output", async (entry) => {
     fixture.response = { result: entry.result }
     const [cli, protocol] = await Promise.all([run(entry.cli), mcp(entry.input, entry.tool)])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(cli.stdout.trim()).toBe(entry.text)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
     expectRequests(entry.method, entry.params)
@@ -299,11 +560,13 @@ describe("remaining transport contracts", processTests, () => {
     "keeps $name JSON output and explicit tab selection",
     async (entry) => {
       fixture.response = { result: entry.result }
+
       const [cli, protocol] = await Promise.all([
         run([...entry.cli, "--json", "--tab", "project"]),
         mcp({ ...entry.input, tab: "project" }, entry.tool)
       ])
-      expect(cli.code).toBe(0)
+
+      expect(cli).toEqual(succeeded)
       expect(JSON.parse(cli.stdout)).toEqual(entry.structured)
       expect(toolReply(protocol.stdout)).toEqual(expectedReply(entry.mcpText ?? entry.text, entry.structured))
       expectRequests(entry.method, { ...entry.params, tab: "project" })
@@ -318,11 +581,13 @@ describe("remaining transport contracts", processTests, () => {
         error: "Shop is still opening",
         details: { code: "tab_not_ready", retryable: true }
       }
+
       const [cli, json, protocol] = await Promise.all([
         run(entry.cli),
         run([...entry.cli, "--json"]),
         mcp(entry.input, entry.tool)
       ])
+
       expect(cli.code).toBe(1)
       expect(cli.stderr.trim()).toBe("Shop is still opening")
       const failure = { error: { code: "tab_not_ready", message: "Shop is still opening", retryable: true } }
@@ -486,13 +751,13 @@ describe("remaining transport contracts", processTests, () => {
     expect(requests).toEqual([])
   })
 
-  it.each([
+  it.each<Omit<Case, "name" | "structured" | "text">>([
     {
       cli: ["screenshot", "home", "--state", "ready", "--state", "empty", "--mode", "mobile", "--scale", "0.25"],
       tool: "screenshot",
       method: "screenshot",
       input: { design: "home", state: ["ready", "empty"], mode: ["mobile"], scale: 0.25 },
-      params: { design: "home", state: ["ready", "empty"], mode: "mobile", scale: 0.25 },
+      params: { design: "home", state: ["ready", "empty"], mode: "mobile", scale: 0.25, sheet: false },
       result: screenshot
     },
     {
@@ -528,6 +793,14 @@ describe("remaining transport contracts", processTests, () => {
       result: []
     },
     {
+      cli: ["tokens", "--nearest", "13px", "--category", "radius"],
+      tool: "get_tokens",
+      method: "tokens",
+      input: { nearest: "13px", category: "radius" },
+      params: { nearest: "13px", category: "radius", limit: 100 },
+      result: []
+    },
+    {
       cli: ["status", "--summary", "--limit", "3"],
       tool: "get_status",
       method: "status",
@@ -554,7 +827,7 @@ describe("remaining transport contracts", processTests, () => {
   ])("normalizes explicit $tool options identically", async ({ cli: args, tool, method, input, params, result }) => {
     fixture.response = { result }
     const [cli, protocol] = await Promise.all([run(args), mcp(input, tool)])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(toolReply(protocol.stdout)).toEqual(
       expect.objectContaining({ result: expect.objectContaining({ isError: false }) })
     )
@@ -564,7 +837,7 @@ describe("remaining transport contracts", processTests, () => {
   it("resolves a CLI relative folder before entering the shared open operation", async () => {
     fixture.response = { result: fixtureTab }
     const [cli] = await Promise.all([run(["open", "some/../project"]), mcp({ root: project }, "open_project")])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expectRequests("open", { root: project })
   })
 
@@ -572,27 +845,54 @@ describe("remaining transport contracts", processTests, () => {
     const shots = [{ path: "/shot.png", png: "AA==", design: "home", state: "default", mode: "desktop" }]
     const result = { ...screenshot, screenshots: shots }
     fixture.response = { result }
+
     const [cli, protocol] = await Promise.all([
       run(["screenshot", "home", "--json"]),
       mcp({ design: "home" }, "screenshot")
     ])
+
     const structured = {
       ...result,
       screenshots: [{ path: "/shot.png", design: "home", state: "default", mode: "desktop" }]
     }
+
     expect(JSON.parse(cli.stdout)).toEqual(structured)
     expect(toolReply(protocol.stdout)).toEqual(
       expectedReply(describeExec(execResponse(result)), structured, false, shots)
     )
   })
 
+  it("sends sheet, returns each sheet as an image, and names its file in the text", async () => {
+    const shot = { path: "/home-sheet.png", png: "AA==", design: "home", state: "default", mode: "desktop" }
+    const frames = [{ state: "default", mode: "desktop", x: 24, y: 114, width: 640, height: 400 }]
+    const sheets = [{ design: "home", path: "/home-sheet.png", png: "AA==", width: 688, height: 538, scale: 1, frames }]
+    const result = { ...screenshot, sheets }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([
+      run(["screenshot", "home", "--sheet", "--json"]),
+      mcp({ design: "home", sheet: true }, "screenshot")
+    ])
+
+    const { png: _png, ...sheet } = sheets[0]!
+    const structured = { ...result, sheets: [sheet] }
+    const text = describeExec(execResponse(result))
+
+    expect(fixture.requests.at(-1)?.params).toMatchObject({ design: "home", sheet: true })
+    expect(JSON.parse(cli.stdout)).toEqual(structured)
+    expect(toolReply(protocol.stdout)).toEqual(expectedReply(text, structured, false, [shot]))
+    expect(text).toContain("home, 1 state by 1 mode: /home-sheet.png")
+  })
+
   it("bounds tokens to the limit, the first ones, and says how many there were", async () => {
     const token = (name: string) => ({ name, category: "color", source: "semantic", values: { default: "#000" } })
     fixture.response = { result: [token("a"), token("b"), token("c")] }
+
     const [cli, protocol] = await Promise.all([
       run(["tokens", "--limit", "2", "--json"]),
       mcp({ limit: 2 }, "get_tokens")
     ])
+
     const structured = { tokens: [token("a"), token("b")], total: 3, truncated: true }
     expect(JSON.parse(cli.stdout)).toEqual(structured)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply(describeTokens(structured), structured))
@@ -609,11 +909,14 @@ describe("remaining transport contracts", processTests, () => {
       first: last,
       last
     })
+
     fixture.response = { result: { tab, entries: [entry("one", 1), entry("two", 2), entry("three", 3)] } }
+
     const [cli, protocol] = await Promise.all([
       run(["console", "--limit", "2", "--json"]),
       mcp({ limit: 2 }, "get_console")
     ])
+
     const structured = { tab, entries: [entry("two", 2), entry("three", 3)], total: 3, truncated: true }
     expect(JSON.parse(cli.stdout)).toEqual(structured)
     expect(toolReply(protocol.stdout)).toEqual(
@@ -680,11 +983,13 @@ describe("remaining transport contracts", processTests, () => {
     }
   ])("signals $tool failures consistently with full details", async ({ cli: args, tool, result, text }) => {
     fixture.response = { result }
+
     const [cli, json, protocol] = await Promise.all([
       run(args),
       run([...args, "--json"]),
       mcp({ design: "home" }, tool)
     ])
+
     expect(cli.code).toBe(1)
     expect(cli.stdout.trim()).toBe(text)
     expect(json.code).toBe(1)
@@ -692,9 +997,9 @@ describe("remaining transport contracts", processTests, () => {
   })
 
   it.each([{}, { path: "execute.md" }])("shares skill reading without desktop RPC: %j", async (input) => {
-    const args = "path" in input && typeof input.path === "string" ? [input.path] : []
+    const args = input.path === undefined ? [] : [input.path]
     const [cli, protocol] = await Promise.all([run(["skill", ...args]), mcp(input, "read_skill")])
-    expect(cli.code).toBe(0)
+    expect(cli).toEqual(succeeded)
     expect(toolReply(protocol.stdout)).toEqual({
       jsonrpc: "2.0",
       id: 2,
@@ -713,6 +1018,7 @@ describe("remaining transport contracts", processTests, () => {
       run(["skill", path, "--json"]),
       mcp({ path }, "read_skill")
     ])
+
     expect(cli.code).toBe(1)
     const failure = JSON.parse(json.stdout)
     expect(failure.error).toEqual(expect.objectContaining({ code: "invalid_input", path: "/path" }))
@@ -721,7 +1027,7 @@ describe("remaining transport contracts", processTests, () => {
     expect(requests).toEqual([])
   })
 
-  const malformedMcp: { tool: string; input: Record<string, unknown>; error: string; path: string }[] = [
+  const malformedMcp: { tool: string; input: JsonObject; error: string; path: string }[] = [
     { tool: "get_console", input: { clear: "false" }, error: "clear must be a boolean", path: "/clear" },
     { tool: "get_props", input: { component: "Button", all: 1 }, error: "all must be a boolean", path: "/all" },
     { tool: "get_tokens", input: { search: 1 }, error: "search must be a string", path: "/search" },
@@ -759,6 +1065,7 @@ describe("remaining transport contracts", processTests, () => {
     },
     { tool: "get_modes", input: { mode: "mobile" }, error: "Unknown input field mode", path: "/mode" }
   ]
+
   it.each(malformedMcp)("rejects malformed MCP $tool arguments without RPC", async ({ tool, input, error, path }) => {
     const protocol = await mcp(input, tool)
     expect(toolReply(protocol.stdout)).toEqual(expectedReply(error, invalid(error, path), true))
@@ -775,6 +1082,7 @@ describe("remaining transport contracts", processTests, () => {
         params: { name: "get_tabs", arguments: [] }
       }) + "\n"
     )
+
     expect(toolReply(protocol.stdout)).toEqual(
       expectedReply("Operation input must be an object", invalid("Operation input must be an object"), true)
     )
@@ -794,16 +1102,17 @@ describe("remaining transport contracts", processTests, () => {
         }
       })
     )
-    for (const entry of cases)
+
+    // Each is its contract's schema, with the subagent a call can name beside its fields (PAR-960).
+    for (const entry of cases) {
+      const contract = operations[entry.method].inputSchema
+      const inputSchema = { ...contract, properties: { ...contract.properties, subagent: { type: "string" } } }
       expect(toolReply(protocol.stdout)).toEqual(
         expect.objectContaining({
-          result: {
-            tools: expect.arrayContaining([
-              expect.objectContaining({ name: entry.tool, inputSchema: operations[entry.method].inputSchema })
-            ])
-          }
+          result: { tools: expect.arrayContaining([expect.objectContaining({ name: entry.tool, inputSchema })]) }
         })
       )
+    }
   })
 
   // Published from the zod schemas (PAR-590): clients that take anyOf but not oneOf, and pattern, still read them.
@@ -844,10 +1153,145 @@ describe("remaining transport contracts", processTests, () => {
 
   // Every agent that loads Parity's tools pays for this list in its context, so it grows only on purpose (PAR-510).
   // Raise the budget when a tool earns it, not to make room for longer schemas or descriptions.
+  it("names the test pass PARITY_TEST_RUN names in a report, unless the command names another", async () => {
+    fixture.response = { result: reported }
+    const fromVariable = await run(["report", "Wrong colour", "--state", "error"], "", { PARITY_TEST_RUN: "pass-7" })
+    expect(fromVariable).toEqual(succeeded)
+    await run(["report", "Wrong colour", "--test-run", "pass-8"], "", { PARITY_TEST_RUN: "pass-7" })
+
+    const sent = (testRun: string, state?: string) =>
+      expect.objectContaining({
+        method: "report",
+        params: state
+          ? { tab: fixtureTab.id, message: "Wrong colour", state, testRun }
+          : { tab: fixtureTab.id, message: "Wrong colour", testRun }
+      })
+
+    expect(requests).toEqual([sent("pass-7", "error"), sent("pass-8")])
+  })
+
+  it("says what a report is tied to and tagged with, and where it went", () => {
+    expect(describeReport(reported).split("\n")).toEqual([
+      "Reported to Sentry: https://sentry.io/organizations/better-apps/projects/parity-desktop/events/0a1b2c/",
+      "Tied to trace 4bf92f3577b34da6a3ce929d0e0e4736 and replay r1.",
+      "Tagged tab Project, design home, state default, node title.",
+      "Sent with screenshot.png, home default mobile-light.png, events.jsonl.",
+      "Sentry files it in Linear and links the issue from the feedback."
+    ])
+  })
+
   it("keeps the MCP tool list within its budget", async () => {
     const protocol = await run(["mcp"], JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list" }) + "\n")
-    const { tools } = (toolReply(protocol.stdout) as { result: { tools: unknown[] } }).result
-    // 11.7 KB when set, down from 33 KB with output schemas.
-    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(12 * 1024)
+    const tools = toolReply(protocol.stdout)?.result?.tools
+    // 11.7 KB when set, down from 33 KB with output schemas; 12.5 KB with get_logs (PAR-636); 13.6 KB with
+    // report_problem (PAR-646); 14.6 KB with find_references (PAR-829), 15.6 KB with find_photos (now find_media), 16.1 KB with a
+    // connector to name on each, 17.2 KB with place_result, 18.8 KB with get_images and remove_image (PAR-834), 19 KB with find_media taking a type (PAR-837), 19.5 KB with get_references (PAR-889),
+    // 20.2 KB with get_tokens' nearest (PAR-833), 21.1 KB with a bare subagent on each tool that reaches the app
+    // (PAR-960), 22.8 KB with get_extensions and run_extension (PAR-1096), so 23 KB.
+    expect(Buffer.byteLength(JSON.stringify(tools))).toBeLessThanOrEqual(23 * 1024)
+  })
+
+  it("shows each reference's preview as an image over MCP, and leaves its base64 out of --json", async () => {
+    const result = { found: [{ ...calm, preview: { ...calm.preview, data: "UklGRg==" } }] }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([
+      run(["references", "paywall", "--json"]),
+      mcp({ query: "paywall" }, "find_references")
+    ])
+
+    expect(JSON.parse(cli.stdout)).toEqual(references)
+    expect(toolReply(protocol.stdout)?.result?.content).toEqual([
+      { type: "text", text: describeReferences(result) },
+      { type: "image", data: "UklGRg==", mimeType: "image/webp" }
+    ])
+  })
+
+  it("says why a references search found nothing, and exits with 1 only when it's something to fix", async () => {
+    const noKey = "This copy of Parity has no Mobbin key, so it can't search Mobbin. Carry on without Mobbin."
+    fixture.response = { result: { found: [], problem: { code: "no-key", message: noKey } } }
+    const without = await run(["references", "paywall"])
+    fixture.response = {
+      result: { found: [], problem: { code: "invalid", message: "Mobbin's platform can be web or ios." } }
+    }
+    const invalid = await run(["references", "paywall"])
+
+    expect([without.stdout.trim(), without.code]).toEqual([noKey, 0])
+    expect([invalid.stdout.trim(), invalid.code]).toEqual(["Mobbin's platform can be web or ios.", 1])
+  })
+
+  it("says a search has run out rather than that nothing matches", () => {
+    expect(describeReferences({ found: [], done: true })).toBe("No more results for this search.")
+    expect(describeReferences({ found: [] })).toBe(
+      "Nothing matches. Try fewer parts, other words, or the other platform."
+    )
+  })
+
+  it("lists each screen found with its link, id and preview, and what to do with them", () => {
+    expect(describeReferences(references).split("\n")).toEqual([
+      "1 screen from Mobbin:",
+      "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   by Calm",
+      "   mobbin 1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+      "   preview /references/calm.webp",
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding. Credit the app and the source."
+    ])
+  })
+
+  it("shows each placed reference's picture over MCP, and leaves its base64 out of --json", async () => {
+    const [first, second] = onCanvas.references
+    const preview = { path: "/references/calm-r1.png", mimeType: "image/png" as const, data: "iVBORw==" }
+    const result = { ...onCanvas, references: [{ ...first, preview }, second] }
+    fixture.response = { result }
+
+    const [cli, protocol] = await Promise.all([run(["references", "placed", "--json"]), mcp({}, "get_references")])
+
+    expect(JSON.parse(cli.stdout)).toEqual(onCanvas)
+    expect(toolReply(protocol.stdout)?.result?.content).toEqual([
+      { type: "text", text: describePlacedReferences(result) },
+      { type: "image", data: "iVBORw==", mimeType: "image/png" }
+    ])
+  })
+
+  it("lists each placed reference with the design it's for, who placed it and why, and its picture", () => {
+    expect(describePlacedReferences(onCanvas).split("\n")).toEqual([
+      "2 references on Project's canvas:",
+      "1. Calm (ios) https://mobbin.com/screens/1b9d6bcd",
+      "   for Pricing, placed by Claude: Yearly is picked by default",
+      '   found with "pricing page"',
+      "   picture /references/calm-r1.png",
+      "2. Ledgerly https://mobbin.com/screens/2",
+      "   for Pricing, placed by the person",
+      "   picture expired",
+      "Follow their patterns with the project's own components and tokens; never copy an app's layout, text or branding."
+    ])
+    expect(describePlacedReferences({ ...onCanvas, references: [] })).toBe("No references to show.")
+    expect(
+      describePlacedReferences({ ...onCanvas, withoutPictures: 3 })
+        .split("\n")
+        .at(-2)
+    ).toBe("3 more without pictures: name a design or raise limit to see them.")
+  })
+
+  it("lists each stock result found with its author, and how many searches are left", () => {
+    expect(describeMedia(photos).split("\n")).toEqual([
+      "1 result from Unsplash:",
+      "1. white desk https://unsplash.com/photos/Dwu85P9SOIk",
+      "   by Ada Park",
+      "   unsplash Dwu85P9SOIk",
+      "   no preview: open the link",
+      "Unsplash allows 49 more searches for now.",
+      'Place a picture in an image node, or a video in a video node, with place_result (parity place <connector> <id> "<node>"), then credit its author and the source where the design shows it.'
+    ])
+  })
+
+  it("says where a photo was placed and who to credit, or why it wasn't", () => {
+    expect(describePlace(placed).split("\n")).toEqual([
+      "Placed in home/Hero/Photo.",
+      "Credit Ada Park, then Unsplash where the design shows it."
+    ])
+    expect(describePlace({ placed: false, problem: { code: "invalid", message: "Search again." } })).toBe(
+      "Search again."
+    )
   })
 })

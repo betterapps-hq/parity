@@ -1,8 +1,1471 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Fri, 06 Nov 2026 10:42:47 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 07:27:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.6
+
+Mon, 16 Nov 2026 07:27:47 GMT
+
+### Patches
+
+- Keep the stylesheets a project's modules import out of Parity's own window, and draw them in its frames instead
+  (PAR-1181) (ajcraswell@gmail.com)
+- Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into
+  the browser (ajcraswell@gmail.com)
+- Rsbuild's supported range starts at 1.4, matching Rspack's (ajcraswell@gmail.com)
+
+## 0.96.5
+
+Mon, 16 Nov 2026 04:19:41 GMT
+
+### Patches
+
+- Open a project with one Vite server: the builder starts as soon as the renderer is known and says which stylesheets
+  the app loads, instead of a second server loading the project's config first (ajcraswell@gmail.com)
+
+## 0.96.4
+
+Mon, 16 Nov 2026 03:58:25 GMT
+
+### Patches
+
+- Leave the builder's own console chatter to its manifest, and drop the inspector's dead Tailwind readouts
+  (ajcraswell@gmail.com)
+
+## 0.96.3
+
+Mon, 16 Nov 2026 01:53:02 GMT
+
+### Patches
+
+- Session Replay no longer keeps a snapshot of the page each time it pauses and resumes, which grew the window's memory
+  with every zoom (ajcraswell@gmail.com)
+
+## 0.96.2
+
+Mon, 16 Nov 2026 01:24:28 GMT
+
+### Patches
+
+- Server and API routes no longer show up as pages: TanStack Start server routes and React Router resource routes are
+  left out of a project's routes. (ajcraswell@gmail.com)
+- Session Replay no longer keeps every frame it records for the whole session, which grew the window's memory without
+  end (ajcraswell@gmail.com)
+
+## 0.96.1
+
+Mon, 16 Nov 2026 00:29:30 GMT
+
+### Patches
+
+- Next.js projects on Turbopack load components found after the start, and reload changed code, without restarting the
+  builder (ajcraswell@gmail.com)
+
+## 0.96.0
+
+Mon, 16 Nov 2026 00:11:32 GMT
+
+### Minor changes
+
+- Next.js components that read the router draw on canvas, inside a still router at the root. (ajcraswell@gmail.com)
+- Components that render React Router's or TanStack Router's Link now draw on canvas on their own, inside a router at
+  the frame's URL. (ajcraswell@gmail.com)
+- Next.js projects draw their own App Router and Pages Router pages on canvas, in each frame's mode, on Turbopack and
+  webpack (ajcraswell@gmail.com)
+- The editor's designs live in a project document on the local provider, with operation-based undo and a saver, in place
+  of the design store. (ajcraswell@gmail.com)
+- A Next.js project's layers lead back to their code: the Next builders tag each element with its source.
+  (ajcraswell@gmail.com)
+- TanStack Router apps that declare their routes in code, with createRootRoute and createRoute, now have their pages
+  listed and drawn. (ajcraswell@gmail.com)
+
+### Patches
+
+- The Components panel, component boards and the Home screen take pages from the project's routes, whatever its router
+  calls its files (ajcraswell@gmail.com)
+
+## 0.95.0
+
+Sun, 15 Nov 2026 22:03:29 GMT
+
+### Minor changes
+
+- Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the
+  extension API (ajcraswell@gmail.com)
+
+## 0.94.0
+
+Sun, 15 Nov 2026 14:54:03 GMT
+
+### Minor changes
+
+- Read React Router's routes, from framework mode's routes.ts, file-based routes or library mode, as an extension
+  (ajcraswell@gmail.com)
+
+## 0.93.0
+
+Sun, 15 Nov 2026 14:17:23 GMT
+
+### Minor changes
+
+- Build and draw components for Rsbuild projects, with the Rspack config Rsbuild gives (ajcraswell@gmail.com)
+- Build and draw components for Rspack projects, through a builder shared with other webpack-compatible tools
+  (ajcraswell@gmail.com)
+- Open Next.js apps that run Turbopack: their components and pages draw with the project's own Next and config.
+  (ajcraswell@gmail.com)
+- Routes are router-neutral: a router's extension gives each route's kind and its URL as segments, rather than its own
+  path syntax (ajcraswell@gmail.com)
+- Support React 18: components draw on it, component layers forward refs, and frames report errors without React 19's
+  root callbacks. (ajcraswell@gmail.com)
+
+### Patches
+
+- Remove adapter actions, which no adapter declares any more; extensions' commands are what components and pages offer
+  (ajcraswell@gmail.com)
+- Choosing an organization at sign-in finishes through Parity's service, without signing in to Google again
+  (ajcraswell@gmail.com)
+- Notice a stylesheet or module the app imports once it's created, and ignore commented-out and dynamic imports in an
+  inline module script (ajcraswell@gmail.com)
+- Storybook is found and read by its extension alone; Parity's core no longer reads the project's Storybook
+  (ajcraswell@gmail.com)
+- project.opened records each detected tool's version in one tools field, instead of a field per tool
+  (ajcraswell@gmail.com)
+- Check only the layers a change made, so undo and edits on large designs cost a fraction of what they did
+  (ajcraswell@gmail.com)
+- The browser page after signing in says you're signed in when an organization is still to pick (ajcraswell@gmail.com)
+- Skip any tool's *-static build folder when reading the app's code, rather than Storybook's by name
+  (ajcraswell@gmail.com)
+- Draw a component loaded on demand once its module loads, even when the load finished before the frame's effect ran
+  (ajcraswell@gmail.com)
+- Story files are named, grouped and coloured as their extension's manifest says, rather than by Storybook's name in
+  Parity (ajcraswell@gmail.com)
+- Stop reading shadcn's components.json and the UI kit folder: stylesheets come from the app's entry or the usual
+  places, every detected component loads as it's drawn, and components sharing a name all gain their folders.
+  (ajcraswell@gmail.com)
+
+## 0.92.0
+
+Sun, 15 Nov 2026 08:24:15 GMT
+
+### Minor changes
+
+- Storybook's stories are read and written through its extension's entities provider (ajcraswell@gmail.com)
+
+### Patches
+
+- Compare a design's layers in time that grows with the design, not its square, so edits and pastes on large designs
+  cost about a tenth of what they did (ajcraswell@gmail.com)
+
+## 0.91.0
+
+Sun, 15 Nov 2026 06:12:33 GMT
+
+### Minor changes
+
+- Vite runs as an extension through a builder provider (ajcraswell@gmail.com)
+- Settings' Keyboard shortcuts asks before taking another command's keys, offering a swap, and can reset one shortcut or
+  all of them (ajcraswell@gmail.com)
+
+### Patches
+
+- Settings lists every installed extension from its manifest: name, logo and settings, Portless and Storybook
+  accessibility among them (ajcraswell@gmail.com)
+- File > Settings and Ctrl+, open Settings again (ajcraswell@gmail.com)
+- Stop a snippet that fails in an evaluation that times out without leaving its rejection unhandled
+  (ajcraswell@gmail.com)
+
+## 0.90.0
+
+Sun, 15 Nov 2026 03:16:47 GMT
+
+### Minor changes
+
+- React runs as an extension through a renderer provider (ajcraswell@gmail.com)
+
+### Patches
+
+- Tab from a design's title no longer goes on to another design's console badge (ajcraswell@gmail.com)
+
+## 0.89.1
+
+Sun, 15 Nov 2026 02:47:01 GMT
+
+### Patches
+
+- Only Settings can change your shortcuts; the editor window, where a project's code runs, can't (ajcraswell@gmail.com)
+
+## 0.89.0
+
+Sun, 15 Nov 2026 02:05:36 GMT
+
+### Minor changes
+
+- Extensions start, adopt and watch a project's processes with parity.processes, which outlive their host; Storybook
+  runs on it (ajcraswell@gmail.com)
+- Tailwind CSS runs as an extension through a styles provider (ajcraswell@gmail.com)
+- A key changed in keybindings.json, by hand or in another running copy, applies at once in every copy
+  (ajcraswell@gmail.com)
+- Settings' diagnostics level, Get beta updates and the install ID are kept in settings.json, which the CLI reads too
+  (ajcraswell@gmail.com)
+- Extensions can register address and discovery providers, and read and watch files the read permission names; Portless
+  is now a built-in extension. (ajcraswell@gmail.com)
+- TanStack Router runs as an extension: its router provider gives the routes, and Open in browser and the route count
+  are its own (ajcraswell@gmail.com)
+
+### Patches
+
+- Keep the UI kit folder components.json names while it's empty, keep a page's frame out of Tab outside Interact, and
+  let a story's preview sleep zoomed far out (ajcraswell@gmail.com)
+- A board's first state label lines up with its frames, as the later rows' labels do (ajcraswell@gmail.com)
+- A second copy of Parity running at once no longer waits about 3 seconds for the first: each copy's windows use a
+  session folder of their own. (ajcraswell@gmail.com)
+- Every outline on the canvas takes the color of what it goes round, and selecting a layer or preview no longer outlines
+  its board (ajcraswell@gmail.com)
+
+## 0.88.0
+
+Sun, 15 Nov 2026 00:20:48 GMT
+
+### Minor changes
+
+- Extensions can offer an API to each other and tools to agents: parity extensions and parity run (get_extensions and
+  run_extension) list a project's extensions and run their commands and tools, with each change named after the agent
+  and the extension (ajcraswell@gmail.com)
+- Processes have one start per id, ready checks, tasks, restarts after a crash and checks on adopted servers, and send
+  processes.* events in place of server.* (ajcraswell@gmail.com)
+
+### Patches
+
+- New designs get ids with a readable stem and five random characters, and a pasted design always gets a new id, so
+  designs added by different people don't collide (ajcraswell@gmail.com)
+
+## 0.87.0
+
+Sat, 14 Nov 2026 23:31:46 GMT
+
+### Minor changes
+
+- Extensions draw declarative views in panel tabs, Design tab sections and pages; Storybook adds a Stories tab, a
+  Stories section and a setup guide (ajcraswell@gmail.com)
+
+## 0.86.0
+
+Sat, 14 Nov 2026 22:44:46 GMT
+
+### Minor changes
+
+- Layout, open tabs, recent searches and recent and starred projects move into state.json and projects.json, which every
+  copy of Parity shares. (ajcraswell@gmail.com)
+- Storybook and TanStack Router take their supported versions from their extensions' peer dependencies
+  (ajcraswell@gmail.com)
+- Extensions with the edits permission change designs as one undo step named after them, and write project files through
+  Parity, never .par files (ajcraswell@gmail.com)
+- Each Storybook file is one story design with its stories as rows, and views drop modes, stories and params that no
+  longer exist (ajcraswell@gmail.com)
+- Extensions can read and change the selection by node, move around the window, run Parity's own commands, show commands
+  only where a when expression holds, and add keys, which Parity's own win (PAR-1092) (ajcraswell@gmail.com)
+- Extensions get app and project settings from their manifests: Storybook's config folder and where stories open,
+  changed in Settings, now its own view that loads no project code (ajcraswell@gmail.com)
+- Carry the rest of the canvas container design: saved-baseline resets, the title's chips and Open in browser, carrying
+  that fades and selects, and a screen-sized preview ring (ajcraswell@gmail.com)
+
+## 0.85.0
+
+Sat, 14 Nov 2026 21:19:06 GMT
+
+### Minor changes
+
+- Settings builds each extension's Adds from what its adapter and extension tell the window (ajcraswell@gmail.com)
+
+## 0.84.0
+
+Sat, 14 Nov 2026 20:03:51 GMT
+
+### Minor changes
+
+- Settings are kept in settings.json, which every copy of Parity shares: a change in one copy reaches the others, and
+  the theme no longer resets. (ajcraswell@gmail.com)
+
+## 0.83.0
+
+Sat, 14 Nov 2026 12:19:19 GMT
+
+### Minor changes
+
+- Count changes from the last git commit in a git repository, through swappable change detectors (ajcraswell@gmail.com)
+- Update the node index in place from what an edit touched, and tell watchers once per settled edit
+  (ajcraswell@gmail.com)
+- Show, hide and reorder a board's rows and columns from its title menus, labels and headers, and wrap long rows
+  (ajcraswell@gmail.com)
+- Settings is a paged dialog with a page for the open project's own settings, shortcut rebinding saved in
+  keybindings.json, and a page for each built-in extension (ajcraswell@gmail.com)
+- Previews on a board can be selected, zoomed, set to their own width, theme and language, and resized by a handle that
+  lands on the app's breakpoints (ajcraswell@gmail.com)
+- Run each extension in its own host, with the manifest read first; Storybook's command, fact and status item come from
+  its host (ajcraswell@gmail.com)
+- Pages, component boards and stories keep their modes, scales, route params and tried sizes when the project reopens,
+  and Open in browser shows on the canvas and in Search actions (ajcraswell@gmail.com)
+
+### Patches
+
+- Name the registry's library files for their packages, so a project opens without reading the files of packages it
+  doesn't use (ajcraswell@gmail.com)
+
+## 0.82.6
+
+Sat, 14 Nov 2026 11:03:46 GMT
+
+### Patches
+
+- Find a project's library files by an index, so a project opens sooner (ajcraswell@gmail.com)
+
+## 0.82.5
+
+Sat, 14 Nov 2026 10:41:18 GMT
+
+### Patches
+
+- Load an open project's canvas and panels in a chunk of their own, so the window paints sooner (ajcraswell@gmail.com)
+
+## 0.82.4
+
+Sat, 14 Nov 2026 10:25:05 GMT
+
+### Patches
+
+- Keep compiled code for main, the service and builders between launches, so the app and projects open sooner
+  (ajcraswell@gmail.com)
+
+## 0.82.3
+
+Sat, 14 Nov 2026 09:46:47 GMT
+
+### Patches
+
+- Keep the window's compiled code between launches, so it paints sooner (ajcraswell@gmail.com)
+
+## 0.82.2
+
+Sat, 14 Nov 2026 08:53:51 GMT
+
+### Patches
+
+- Keep a builder process loaded before a project opens, so a project's builder starts sooner (ajcraswell@gmail.com)
+
+## 0.82.1
+
+Sat, 14 Nov 2026 06:02:52 GMT
+
+### Patches
+
+- A copy of Parity that can't read the kept accounts no longer deletes the file and signs every copy out.
+  (ajcraswell@gmail.com)
+- Start a project's builder before detection confirms it, so a project opens sooner (ajcraswell@gmail.com)
+
+## 0.82.0
+
+Fri, 13 Nov 2026 10:50:18 GMT
+
+### Minor changes
+
+- Count changes from the last git commit in a git repository, through swappable change detectors (ajcraswell@gmail.com)
+
+## 0.81.0
+
+Fri, 13 Nov 2026 06:50:37 GMT
+
+### Minor changes
+
+- A layout's and a text layer's Design panels lead with the sections each uses most, and Typography folds on a layout
+  until it's set (ajcraswell@gmail.com)
+
+## 0.80.6
+
+Fri, 13 Nov 2026 06:22:21 GMT
+
+### Patches
+
+- Every design added to or deleted from a file, by the editor or an agent, goes through core's addDesigns and
+  removeDesigns, and a new file starts as emptyDocument, so the format's version is written in one place.
+  (ajcraswell@gmail.com)
+- Set a layer's name, tag, picture and other own fields through one function, so Layers, the Content section and an
+  agent's Update agree: an empty name or alt text takes it away, and a field the layer doesn't have is refused
+  (ajcraswell@gmail.com)
+
+## 0.80.5
+
+Fri, 13 Nov 2026 06:01:58 GMT
+
+### Patches
+
+- Work out what a token comes to in one place, tokenValue, which the editor and the agent's SetTokens checks both read
+  (PAR-1049) (ajcraswell@gmail.com)
+- Every shortcut shown reads the keymap through one lookup, shortcutOf, so a changed binding will show everywhere at
+  once (ajcraswell@gmail.com)
+- Export and Report draw their frames through the agent API as functions, not as snippets in the vm, so no snippet time
+  limit applies to them (ajcraswell@gmail.com)
+- Agent snippets are stopped once they run for 2 minutes or compute for 5 seconds between awaits, including after their
+  first await, and fail without changing anything (ajcraswell@gmail.com)
+- Agents' viewport patches are written through core's editResponsive, and a state an agent writes keeps an unset key the
+  layer doesn't have (ajcraswell@gmail.com)
+- An agent's Copy now copies layers as Ctrl+V pastes them: as the base shows them, keeping only the bindings the
+  destination has params for. (ajcraswell@gmail.com)
+- Chip fields open their list as close below the box as a select does (ajcraswell@gmail.com)
+
+## 0.80.4
+
+Fri, 13 Nov 2026 04:51:57 GMT
+
+### Patches
+
+- End a crashed project service's Storybook and other servers, which it can no longer stop itself (ajcraswell@gmail.com)
+
+## 0.80.3
+
+Fri, 13 Nov 2026 04:24:09 GMT
+
+### Patches
+
+- Keep the text editor on its text in every frame of a zoom, with every canvas overlay measured by one scheduler
+  (ajcraswell@gmail.com)
+- Tidy the menus: each command in one menu, an icon on every item, Copy as PNG in Edit and the canvas menu, and upkeep
+  under Help > Developer (ajcraswell@gmail.com)
+- Keep open projects' .env values out of every window's page, and scrub them from what windows send in main
+  (ajcraswell@gmail.com)
+- Start, stop and time out every child process and worker through one lifecycle, with one output tail size
+  (ajcraswell@gmail.com)
+- Layer order items in the Object menu show layer icons: one layer for a step, a stack for all the way.
+  (ajcraswell@gmail.com)
+
+## 0.80.2
+
+Fri, 13 Nov 2026 02:33:22 GMT
+
+### Patches
+
+- Core and editor name what other packages may use in src/index.ts (ajcraswell@gmail.com)
+- Send a replay of the editor window when an end-to-end test fails in CI (ajcraswell@gmail.com)
+
+## 0.80.1
+
+Fri, 13 Nov 2026 02:03:37 GMT
+
+### Patches
+
+- The desktop app's process logic moves out of core into @parity-app/processes (ajcraswell@gmail.com)
+
+## 0.80.0
+
+Fri, 13 Nov 2026 01:34:11 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+### Patches
+
+- Field reasons in units of their own say what the field takes after a maths failure, and the Design panel's CSS readers
+  move into the style package (ajcraswell@gmail.com)
+- Decide what each paste does with each kind of clipboard content in one function, decidePaste, and name a paste's undo
+  step with pasteStepName in place of pasteLabel (PAR-985) (ajcraswell@gmail.com)
+- The Design tab picks every section a selection shows from one table (ajcraswell@gmail.com)
+
+## 0.79.0
+
+Fri, 13 Nov 2026 01:07:43 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+## 0.78.1
+
+Fri, 13 Nov 2026 00:49:27 GMT
+
+### Patches
+
+- A component's props are one section, on a component design and on any instance (ajcraswell@gmail.com)
+
+## 0.78.0
+
+Fri, 13 Nov 2026 00:21:56 GMT
+
+### Minor changes
+
+- A component instance's attributes have their own Attributes section, after its props (ajcraswell@gmail.com)
+
+### Patches
+
+- Open code in an editor on Windows from folders with % or & in their names, name screenshot files safely, and put a
+  list entry back if it goes while it's dragged (PAR-982) (ajcraswell@gmail.com)
+
+## 0.77.1
+
+Thu, 12 Nov 2026 23:58:16 GMT
+
+### Patches
+
+- Selection headers no longer offer Open in editor; its design is kept as an exploration (ajcraswell@gmail.com)
+- Show the newest accessibility check's result when a design is checked again before the last check answers (PAR-979)
+  (ajcraswell@gmail.com)
+- Class names and a slot's layer share one chips field built on the kit's Combobox chips (ajcraswell@gmail.com)
+
+## 0.77.0
+
+Thu, 12 Nov 2026 23:26:30 GMT
+
+### Minor changes
+
+- One field row across the Design tab: an image's or video's Content and an instance's slots name their fields above
+  them, as every other section does (ajcraswell@gmail.com)
+
+## 0.76.0
+
+Thu, 12 Nov 2026 23:04:50 GMT
+
+### Minor changes
+
+- Edit a className prop as tags (ajcraswell@gmail.com)
+
+### Patches
+
+- The Design panel lists only the project's own tokens, converted once, and new shadows name only tokens the project has
+  (ajcraswell@gmail.com)
+
+## 0.75.0
+
+Thu, 12 Nov 2026 22:45:53 GMT
+
+### Minor changes
+
+- Rebuild the Design tab's style sections on the approved controls, editing the document's styles with the project's own
+  tokens (ajcraswell@gmail.com)
+- Remove binding a layer's visibility to a component prop: bind.visible is gone from the file format, the agent API and
+  the inspector. Text and props still bind. (ajcraswell@gmail.com)
+- Mark a value changed in the state being edited with a dot on its control (ajcraswell@gmail.com)
+- The Design tab's fields run through one edit session: Escape cancels a scrub, a run of Up and Down or a drag inside a
+  control is one undo step that Escape takes back, Fill, Effects and Motion preview too, and +8, Up and scrubs in a
+  mixed W, H or side work from each layer's own value (ajcraswell@gmail.com)
+
+### Patches
+
+- Paste over and Paste to replace read the selection again once a pasted image is saved: Paste over goes over what's
+  selected by then, and Paste to replace replaces nothing when the selection changed meanwhile (ajcraswell@gmail.com)
+- Take the Code tab out of the inspector, with the canvas's Inspect picking only it started; the canvas menu's Open in
+  editor stays (ajcraswell@gmail.com)
+
+## 0.74.4
+
+Thu, 12 Nov 2026 21:49:43 GMT
+
+### Patches
+
+- Select popups inset their items by 4px, like the app's other menus (ajcraswell@gmail.com)
+
+## 0.74.3
+
+Thu, 12 Nov 2026 20:51:03 GMT
+
+### Patches
+
+- A tab closed while the project service restarts no longer leaves its project open in the new service or its guest
+  loaded (PAR-978) (ajcraswell@gmail.com)
+
+## 0.74.2
+
+Thu, 12 Nov 2026 19:51:56 GMT
+
+### Patches
+
+- Stop a project's Storybook and its workers when Parity quits or restarts its project service, on Windows, macOS and
+  Linux (ajcraswell@gmail.com)
+
+## 0.74.1
+
+Thu, 12 Nov 2026 19:27:29 GMT
+
+### Patches
+
+- Keep you signed in when the saved session's write is cut short: the file is written whole (PAR-977)
+  (ajcraswell@gmail.com)
+- Keep the editor and render windows on Parity's page: links off it open in the browser, and only Parity's page gets a
+  channel to the project service (ajcraswell@gmail.com)
+- Each tab keeps its own console filter, and closing a tab lets go of its previews, accessibility checks, media list and
+  Props state (ajcraswell@gmail.com)
+
+## 0.74.0
+
+Thu, 12 Nov 2026 14:06:12 GMT
+
+### Minor changes
+
+- Sign in before anything else: the sign-in screen shows whenever you're signed out, with no way past it
+  (ajcraswell@gmail.com)
+
+## 0.73.0
+
+Thu, 12 Nov 2026 12:53:06 GMT
+
+### Minor changes
+
+- A design file that isn't JSON or doesn't match its format stops the project opening, and the Couldn't open page says
+  which file and why, with one Close button (ajcraswell@gmail.com)
+
+### Patches
+
+- Write project files whole, so a save cut off partway leaves the file as it was, and decide what's inside a project
+  with one check (PAR-973) (ajcraswell@gmail.com)
+
+## 0.72.0
+
+Thu, 12 Nov 2026 12:29:14 GMT
+
+### Minor changes
+
+- Frames in view are drawn and captured first, and swap their bitmaps for designs while zooming in (PAR-955)
+  (ajcraswell@gmail.com)
+
+## 0.71.1
+
+Thu, 12 Nov 2026 12:10:21 GMT
+
+### Patches
+
+- Show frames' bitmaps from 10% zoom on every screen, rather than from 25% of the screen's own pixels
+  (ajcraswell@gmail.com)
+
+## 0.71.0
+
+Thu, 12 Nov 2026 11:51:21 GMT
+
+### Minor changes
+
+- Search Mobbin and Pixabay from an installed copy through Parity's service, once you're signed in
+  (ajcraswell@gmail.com)
+- Design files are version 4: style keys are named after their CSS properties (flexDirection, alignItems, fontSize,
+  fills, boxShadow), and lengths, sizes and colors are stored with their form ({ step: 4 }, { token: "primary" }, {
+  size: "fill" }). A version 3 file no longer opens (ajcraswell@gmail.com)
+
+## 0.70.1
+
+Thu, 12 Nov 2026 10:56:04 GMT
+
+### Patches
+
+- Every menu, the keys, search and the toolbar now agree on whether a command can run and what it's called; File >
+  Export selected runs the same export as Ctrl+Shift+E. (ajcraswell@gmail.com)
+
+## 0.70.0
+
+Thu, 12 Nov 2026 10:38:14 GMT
+
+### Minor changes
+
+- Parity can tell whether each frame, the nodes in it and its board changed since the project opened, and undoing an
+  edit counts as unchanged again (ajcraswell@gmail.com)
+- States belong to component designs only: screens, frames and instances no longer have them, and the agent's Designs()
+  lists states for components alone (ajcraswell@gmail.com)
+
+### Patches
+
+- Frames in a Tailwind project draw layers with the classes a person would write: m-0, gap-1 and font-medium in place of
+  m-[0], gap-[calc(var(--spacing)_*_1)] and font-[500] (ajcraswell@gmail.com)
+- Read a frame's scale and its layers' boxes from where they're drawn, so resizing, dragging, nudging, snapping, padding
+  handles, the text editor and Paste here agree at every zoom (ajcraswell@gmail.com)
+- An open project keeps one session from opening to closing its tab, so a code change or a reconnect no longer empties
+  its media list or retakes its start page picture (ajcraswell@gmail.com)
+- Repeated parts pair a component's props by name, so two parts writing the same props in another order get the right
+  values and extract cleanly (PAR-998) (ajcraswell@gmail.com)
+- Check that every request a window sends main comes from Parity's own window, unless the request is one the render
+  windows send too (ajcraswell@gmail.com)
+
+## 0.69.0
+
+Thu, 12 Nov 2026 08:27:06 GMT
+
+### Minor changes
+
+- Kept frame pictures are reused while the files each frame reads are unchanged, so a branch switch, a new worktree or
+  an edit to one component no longer recaptures every frame (ajcraswell@gmail.com)
+
+## 0.68.3
+
+Thu, 12 Nov 2026 08:08:09 GMT
+
+### Patches
+
+- An instance's filled slots are copied as shown, keep only the bindings a paste has params for, follow a library's
+  design names, bake in on Detach, count as structure in repeated parts, and read as drawn in agents' Get
+  (ajcraswell@gmail.com)
+
+## 0.68.2
+
+Thu, 12 Nov 2026 07:49:23 GMT
+
+### Patches
+
+- A frame in a Tailwind project no longer loses classes when it asks for more before the last ask is answered, which
+  could put a layer in the wrong place. (ajcraswell@gmail.com)
+- A frame shows its last picture, at its size, while it's captured again after the project's code changes, rather than a
+  placeholder (ajcraswell@gmail.com)
+
+## 0.68.1
+
+Thu, 12 Nov 2026 07:22:15 GMT
+
+### Patches
+
+- Session Replay records the window's canvases, such as the selection overlay, which replays showed as empty boxes
+  (ajcraswell@gmail.com)
+- Help > Install the parity command is now Install the Parity CLI…, and its toasts and docs say Parity CLI
+  (ajcraswell@gmail.com)
+
+## 0.68.0
+
+Thu, 12 Nov 2026 05:54:28 GMT
+
+### Minor changes
+
+- Give each subagent its own cursor on the canvas: MCP tools take an optional subagent name (ajcraswell@gmail.com)
+
+## 0.67.0
+
+Thu, 12 Nov 2026 05:19:08 GMT
+
+### Minor changes
+
+- SetTokens adds a token the project doesn't have, and a style naming a missing token is told what the project has
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Report a crashed project service with what it printed, and name the pre-promotion environment beta
+  (ajcraswell@gmail.com)
+- Offscreen captures for frame bitmaps, previews and exports are taken again after a repaint when Chromium had no frame
+  to copy (ajcraswell@gmail.com)
+- Beta update checks no longer fail while a package tag leads GitHub's releases feed, and a failed update reports
+  electron-updater's error code (ajcraswell@gmail.com)
+- parity lib check answers a missing or unknown library as invalid input instead of reporting it as a crash, and a
+  builder stopped by a signal isn't sent to Sentry as an error (ajcraswell@gmail.com)
+- Checks draw every state and mode they ask for at once, and startup isn't timed through a locked screen, sleep or a
+  minimized window (ajcraswell@gmail.com)
+- Main hangs outside JavaScript say where main resumed instead of naming that frame as where it was stuck, and main's
+  own blocked reports group as one Sentry issue. (ajcraswell@gmail.com)
+
+## 0.66.0
+
+Thu, 12 Nov 2026 04:24:53 GMT
+
+### Minor changes
+
+- Agents get reference.md, a snippet API reference generated from the code: every function's signature, arguments and
+  result, and every type they name, with their doc comments (ajcraswell@gmail.com)
+- Keep a recovery copy of unsaved changes and offer to restore it after a crash or forced quit (ajcraswell@gmail.com)
+- Frames draw layers from CSS rules, and from the project's own compiled Tailwind classes, instead of inline styles; a
+  layout is relative only when a child is placed in it (ajcraswell@gmail.com)
+
+## 0.65.0
+
+Thu, 12 Nov 2026 04:02:26 GMT
+
+### Minor changes
+
+- Measure gives each node's box under `box` and what clips it as `{ node, name, box }`, the shapes Problems uses; the
+  agent docs say what Get's visit `parent` holds, that an absolute node's parent needs nothing, and how instances take
+  overrides (ajcraswell@gmail.com)
+- Component props take dates as { $date } values, made as new Date(...) makes them, and layout and text layers take
+  role, id and aria-* props on their elements. (ajcraswell@gmail.com)
+
+### Patches
+
+- Zooming the canvas is smoother with diagnostics on: Session Replay pauses while the zoom moves and resumes once it
+  settles (ajcraswell@gmail.com)
+
+## 0.64.0
+
+Thu, 12 Nov 2026 03:17:27 GMT
+
+### Minor changes
+
+- parity exec --quiet, and execute's quiet, leave out the named nodes a snippet created and list just the designs it
+  created (PAR-909) (ajcraswell@gmail.com)
+- Inline text (span, strong) given a width, maximum, alignment or one line draws as a block; a new overflowWrap style
+  breaks long words; an absolutely placed component with left and right stretches between them (ajcraswell@gmail.com)
+
+### Patches
+
+- Problems no longer reports what a container that scrolls scrolls to as clipped, past the frame or spilling out
+  (PAR-904) (ajcraswell@gmail.com)
+- Phone and tablet frames take Parity's thin 6px scrollbars instead of the desktop browser's 15px ones, on the canvas
+  and offscreen (ajcraswell@gmail.com)
+- Offer a crash report only after a real crash, not after an agent or a force-quit stopped Parity (ajcraswell@gmail.com)
+- A viewport's responsive style and hiding now win over states, variant options and instance overrides, as a media query
+  wins over app state; its text and props stay under them (PAR-902). (ajcraswell@gmail.com)
+
+## 0.63.0
+
+Thu, 12 Nov 2026 02:22:04 GMT
+
+### Minor changes
+
+- Layers take transitions: what changes, duration, easing or spring, and delay, drawn on the canvas, edited in Motion
+  and by agents (PAR-934) (ajcraswell@gmail.com)
+- Help > Install the parity command puts a parity command on PATH that runs the CLI shipped with the app, about 1.5 s
+  faster per call than npx (ajcraswell@gmail.com)
+- Agents declare a component design's params directly: CreateDesign takes params, AddParam, UpdateParam and DeleteParam
+  change them, and Update binds a node (PAR-901) (ajcraswell@gmail.com)
+
+### Patches
+
+- Each builder adapter names the config files detection follows, so adding or removing one detects an open project again
+  (ajcraswell@gmail.com)
+- Check a token value against its kind's CSS grammar as SetTokens runs, without waiting for the app's window
+  (ajcraswell@gmail.com)
+- Setting a prop to null removes it without warning, and a node path with too many or empty parts says what's wrong and
+  shows design/node (ajcraswell@gmail.com)
+- A layer that fills across its parent with a maximum width or its own alignment now takes the parent's width up to that
+  maximum and then sits where it's aligned, instead of hugging its content (PAR-897). (ajcraswell@gmail.com)
+- Record what frames show once the canvas rests zoomed far out, and how long until they all show their bitmaps
+  (ajcraswell@gmail.com)
+
+## 0.62.0
+
+Thu, 12 Nov 2026 00:46:21 GMT
+
+### Minor changes
+
+- Fill a layer with a stack of colors, gradients and images: `background` takes a list of paints as well as one color
+  token (ajcraswell@gmail.com)
+
+### Patches
+
+- A frame in the Dark mode shows a theme switched on by an attribute on the root, such as :root[data-theme=dark]
+  (ajcraswell@gmail.com)
+
+## 0.61.0
+
+Thu, 12 Nov 2026 00:07:58 GMT
+
+### Minor changes
+
+- Set a layer's order (z-index): a whole number or a z-index token, in the document, the render, the agent's tools and
+  the Design panel's Layer order section (ajcraswell@gmail.com)
+- Effects: a stack of shadows, layer and background filters, and a transform, edited in the Design tab's Effects section
+  and by the agent. Text case is now textTransform. (ajcraswell@gmail.com)
+
+## 0.60.0
+
+Wed, 11 Nov 2026 11:07:41 GMT
+
+### Minor changes
+
+- Pick a layer's style sections from what it can do, move the approved styling controls into the inspector, and have
+  each field's label name its control (ajcraswell@gmail.com)
+
+## 0.59.0
+
+Wed, 11 Nov 2026 09:32:21 GMT
+
+### Minor changes
+
+- Agents can ask for the tokens nearest a raw color or length: GetTokens({ nearest }), parity tokens --nearest and MCP
+  get_tokens list them nearest first, with how far each is (ajcraswell@gmail.com)
+
+## 0.58.0
+
+Wed, 11 Nov 2026 09:09:16 GMT
+
+### Minor changes
+
+- Problems reports a node squeezed narrower than its width, and a node in the layout's flow spilling out of a parent
+  that doesn't clip (ajcraswell@gmail.com)
+
+## 0.57.1
+
+Wed, 11 Nov 2026 08:41:52 GMT
+
+### Patches
+
+- Draw empty layouts as the code does in screenshots, exports and measurements; only the canvas gives them a size and
+  dashes (ajcraswell@gmail.com)
+- Draw popups that components portal to the page's body inside their frame, with the project's styles, and report
+  content left outside the frame in problems (PAR-881) (ajcraswell@gmail.com)
+- Agents' state changes keep values equal to the base, Responsive merges style and props key by key, and instance
+  overrides can name layers (ajcraswell@gmail.com)
+
+## 0.57.0
+
+Wed, 11 Nov 2026 08:07:17 GMT
+
+### Minor changes
+
+- screenshot --sheet (MCP sheet: true) returns one labeled contact sheet per design, every state and mode, instead of
+  one image per frame (ajcraswell@gmail.com)
+
+### Patches
+
+- Agents' states and Update can change a layer inside an instance by its instance/inner path, as the editor can
+  (ajcraswell@gmail.com)
+
+## 0.56.0
+
+Wed, 11 Nov 2026 01:41:00 GMT
+
+### Minor changes
+
+- Etched lines split the floating bars, Insert and Find references sit beside Search, Comment is pink, and every bar's
+  controls pop when picked and spring when pressed. (ajcraswell@gmail.com)
+
+## 0.55.0
+
+Tue, 10 Nov 2026 23:55:31 GMT
+
+### Minor changes
+
+- Add a video layer: MP4 and WebM files are imported by drop, paste and the Media tab into public/videos, found and
+  played in the Media tab, added from Pixabay, and placed by agents with place_result (ajcraswell@gmail.com)
+
+## 0.54.1
+
+Tue, 10 Nov 2026 22:34:20 GMT
+
+### Patches
+
+- Count a video's length down on its result tile while it plays (ajcraswell@gmail.com)
+
+## 0.54.0
+
+Tue, 10 Nov 2026 22:21:38 GMT
+
+### Minor changes
+
+- Agents read the references placed beside a design: References() in execute, get_references with the pictures, and a
+  count per design in get_app_state. A reference records the design it was found for. (ajcraswell@gmail.com)
+
+## 0.53.1
+
+Tue, 10 Nov 2026 21:21:25 GMT
+
+### Patches
+
+- Group every main hang, and every UnknownVizError, as one Sentry issue each, so Sentry's alert files one Linear bug
+  instead of one per stack (ajcraswell@gmail.com)
+
+## 0.53.0
+
+Tue, 10 Nov 2026 20:59:49 GMT
+
+### Minor changes
+
+- Place references from Mobbin on the canvas, from Find references and by agents' PlaceReference, kept in the project's
+  file beside notes (ajcraswell@gmail.com)
+
+## 0.52.1
+
+Tue, 10 Nov 2026 14:26:25 GMT
+
+### Patches
+
+- Media card: stays open while you search where a picture is used, Escape steps back, small pictures keep their size,
+  and files of the same name are told apart (ajcraswell@gmail.com)
+
+## 0.52.0
+
+Tue, 10 Nov 2026 13:40:41 GMT
+
+### Minor changes
+
+- Redesign the Media card: facts in labelled rows, where it's used that scales to hundreds of layers, and transparency
+  on a grid (ajcraswell@gmail.com)
+
+## 0.51.0
+
+Tue, 10 Nov 2026 13:05:34 GMT
+
+### Minor changes
+
+- Find stock pictures on Pixabay in a library browser and add them to the project from the Media tab, credited
+  (ajcraswell@gmail.com)
+
+## 0.50.0
+
+Tue, 10 Nov 2026 12:19:07 GMT
+
+### Minor changes
+
+- The Media tab replaces the Images tab: the project's pictures as a wall, each with a card, to insert, drag onto the
+  canvas, add or remove. (ajcraswell@gmail.com)
+
+## 0.49.0
+
+Tue, 10 Nov 2026 11:20:34 GMT
+
+### Minor changes
+
+- Search Mobbin's screens from main with an API key, kept encrypted, through a connector the window and agents share
+  (ajcraswell@gmail.com)
+
+## 0.48.0
+
+Tue, 10 Nov 2026 10:25:44 GMT
+
+### Minor changes
+
+- Agents list a project's images with get_images and parity images, with what uses each, and remove an unused one with
+  remove_image and parity images remove (ajcraswell@gmail.com)
+
+## 0.47.2
+
+Tue, 10 Nov 2026 07:08:11 GMT
+
+### Patches
+
+- Link each published version's Sentry release to the commits since the previous version (ajcraswell@gmail.com)
+
+## 0.47.1
+
+Tue, 10 Nov 2026 05:43:16 GMT
+
+### Patches
+
+- Redraw frames, bitmaps and screenshots with a project stylesheet's new CSS as soon as it's saved
+  (ajcraswell@gmail.com)
+- Count warnings in export.done, and record a design file that changed on disk while it had unsaved changes
+  (ajcraswell@gmail.com)
+
+## 0.47.0
+
+Tue, 10 Nov 2026 05:21:48 GMT
+
+### Minor changes
+
+- Attach the last 5 minutes of events to crashes and fatal errors, and say where main was stuck in a hang
+  (ajcraswell@gmail.com)
+
+## 0.46.0
+
+Tue, 10 Nov 2026 05:09:47 GMT
+
+### Minor changes
+
+- Record the project service's degraded modes, such as a project it can't watch or bitmaps it can't keep, as
+  service.degraded events (ajcraswell@gmail.com)
+- Record window and main hangs as they start, and report a hang the app exited during on the next run
+  (ajcraswell@gmail.com)
+- Record signing in, refreshing, signing out and failures of the kept accounts as account.* events
+  (ajcraswell@gmail.com)
+- Main's IPC handlers run in request.handled spans in the window's trace, with the error code when they fail
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Frames draw a root with a class or attribute on it, such as :root.dark, which matched nothing before
+  (ajcraswell@gmail.com)
+- Read the Vite version Vite+ ships when a project aliases vite to @voidzero-dev/vite-plus-core, instead of reporting
+  Vite+'s own version as an untested Vite (ajcraswell@gmail.com)
+- A failed frame's picture goes only with errors about that frame, not every error for 10 minutes (ajcraswell@gmail.com)
+- A report sent with Share diagnostics off sends only the report, and what was written loses its secrets
+  (ajcraswell@gmail.com)
+- What a project's own code logs to the console no longer goes to Sentry as breadcrumbs (ajcraswell@gmail.com)
+- Detect an open project again when components.json, its stylesheets, dependencies or Vite config change, and when
+  parity open names it (ajcraswell@gmail.com)
+- Record why a new install ID couldn't be saved, as telemetry.saveFailed (ajcraswell@gmail.com)
+
+## 0.45.1
+
+Mon, 09 Nov 2026 13:35:47 GMT
+
+### Patches
+
+- Keep a thin padding or gap handle hovered, with its hatching and value, while its hint opens over a still pointer
+  (ajcraswell@gmail.com)
+
+## 0.45.0
+
+Mon, 09 Nov 2026 13:04:55 GMT
+
+### Minor changes
+
+- The canvas draws padding and gaps in modes' green and hatches them as Figma does, only while a handle is hovered,
+  focused or dragged, with value chips in dark text (ajcraswell@gmail.com)
+
+### Patches
+
+- Duplicate lint disables are gone: one guard tells a named length from steps, the renderer keeps one set of bit
+  helpers, and module exports are checked with instanceof Function (ajcraswell@gmail.com)
+- Keep what GitHub says about the installed version through the cache it now shares with the CLI (ajcraswell@gmail.com)
+
+## 0.44.0
+
+Mon, 09 Nov 2026 12:29:40 GMT
+
+### Minor changes
+
+- Rebuild the canvas toolbar: tools with menus, a review button whose Comment and annotation tools warp the toolbar into
+  their own bars, and Zoom in its own corner (ajcraswell@gmail.com)
+
+## 0.43.0
+
+Mon, 09 Nov 2026 12:11:34 GMT
+
+### Minor changes
+
+- Unnamed icon layers are called by their icon, as Plus rather than lucide/Plus, in Layers, search and the inspector.
+  (ajcraswell@gmail.com)
+- Report a published app whose release has been promoted to everyone as the production environment in Sentry (PAR-779)
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Bring the canvas code up to Buildkit's lint rules, renaming tldraw's shape names for the canvas's own
+  (ajcraswell@gmail.com)
+- Start the project service again when it crashes, backing off when it keeps crashing, and reconnect open windows
+  (PAR-788) (ajcraswell@gmail.com)
+
+## 0.42.0
+
+Mon, 09 Nov 2026 11:25:40 GMT
+
+### Minor changes
+
+- Icon layers show the Smile icon wherever a layer's kind shows, instead of the component box (ajcraswell@gmail.com)
+
+### Patches
+
+- Brings the rest of the desktop renderer up to Buildkit's lint rules: its top-level files and its agent, stories, start
+  and account folders (ajcraswell@gmail.com)
+
+## 0.41.0
+
+Mon, 09 Nov 2026 10:50:00 GMT
+
+### Minor changes
+
+- Installed builds report to Sentry as preview or release instead of tester, so a pull request's preview installer no
+  longer reads as the published app (ajcraswell@gmail.com)
+- Text layers are green in the layers tree, the design panel and their outline on the canvas, so they stand out among a
+  design's layers. (ajcraswell@gmail.com)
+- Record the project service exiting, windows hanging and main's loop blocked as events with how long they lasted
+  (PAR-771) (ajcraswell@gmail.com)
+- process.memory sends each role's memory and bitmapCache.used each hit rate as numbers Sentry can chart
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Colored icons keep their color when their menu, menubar, select or combobox item is highlighted (ajcraswell@gmail.com)
+- Bring the tokens package up to Buildkit's lint rules, with no change in behavior (ajcraswell@gmail.com)
+- CI sends only errors and reports to Sentry; its spans, logs and replays stay in the local copy (PAR-777)
+  (ajcraswell@gmail.com)
+- Exports record how long they took, as durationMs on export.done and export.failed (PAR-773) (ajcraswell@gmail.com)
+- Zoomed out, a narrow board's title runs into the free canvas beside it instead of truncating at the board's edge
+  (ajcraswell@gmail.com)
+
+## 0.40.5
+
+Mon, 09 Nov 2026 06:57:27 GMT
+
+### Patches
+
+- Ask for a project's kept frame bitmaps in one request, as JSON text, so reopening a project spends less of the
+  window's time before its first frame (ajcraswell@gmail.com)
+- Open projects sooner: a design's title mounts its menus and hint only once it's hovered, focused, right-clicked or
+  selected (ajcraswell@gmail.com)
+
+## 0.40.4
+
+Mon, 09 Nov 2026 05:37:21 GMT
+
+### Patches
+
+- Brings the desktop app's chrome folder up to Buildkit's lint rules, and names tldraw shape IDs canvasIdFor and a
+  process's server-or-task field lifetime (ajcraswell@gmail.com)
+
+## 0.40.3
+
+Mon, 09 Nov 2026 04:17:56 GMT
+
+### Patches
+
+- Panels' scrollbars are a thin 6px rounded thumb with no track or arrows, in place of Chromium's wide Windows
+  scrollbar. (ajcraswell@gmail.com)
+- Report a problem opened from a part's fallback lists the error it sends, such as The (ajcraswell@gmail.com)
+- Sentry's own spans pass the secret scrubber, sent inside their transaction (PAR-756) (ajcraswell@gmail.com)
+- Open an offscreen render window again after its renderer crashes, so frame captures recover, and record the
+  interrupted frame as crashed (ajcraswell@gmail.com)
+
+## 0.40.2
+
+Mon, 09 Nov 2026 03:41:24 GMT
+
+### Patches
+
+- Record gesture.ended and document.saved in the trace of the drag or edit they belong to (ajcraswell@gmail.com)
+
+## 0.40.1
+
+Mon, 09 Nov 2026 03:07:10 GMT
+
+### Patches
+
+- A call that finds a quit copy's entry no longer fails when another call is removing it at the same moment, as on
+  Windows. (ajcraswell@gmail.com)
+- Session Replay no longer records a project's canvas as it mounts, so the first frame shows sooner
+  (ajcraswell@gmail.com)
+
+## 0.40.0
+
+Mon, 09 Nov 2026 02:25:03 GMT
+
+### Minor changes
+
+- Record renames made in Layers and on a board's title as inspector.changed, and Detach, Push to main and Make component
+  as component.changed (ajcraswell@gmail.com)
+
+### Patches
+
+- project.openFailed carries the project's React, Vite, Tailwind, Storybook and TypeScript versions, including when the
+  builder can't load the project's config (ajcraswell@gmail.com)
+- A report sent from an error's fallback is linked in Sentry to the error it caught (ajcraswell@gmail.com)
+
+## 0.39.2
+
+Mon, 09 Nov 2026 01:50:16 GMT
+
+### Patches
+
+- Session Replay recordings scrub secrets from the window's text, and mask fields named as secrets
+  (ajcraswell@gmail.com)
+- Side panel tabs sit on a transparent strip, so they blend into the panel (ajcraswell@gmail.com)
+
+## 0.39.1
+
+Mon, 09 Nov 2026 01:32:26 GMT
+
+### Patches
+
+- Show a project's first frame sooner when it opens: its boards measure their sizes together, laying the page out once
+  rather than once per board (ajcraswell@gmail.com)
+- A frame that fails offscreen reports the render page's own error message and stack, not Electron's "Script failed to
+  execute" (ajcraswell@gmail.com)
+
+## 0.39.0
+
+Mon, 09 Nov 2026 00:29:40 GMT
+
+### Minor changes
+
+- Agents report problems in Parity with parity report and MCP's report_problem: a Sentry feedback with the window's
+  screenshot and replay, the call's trace and the design's frames, returning its link (ajcraswell@gmail.com)
+- Set the interface in Inter, on four sizes for the chrome with nothing under 11px, regular text a step heavier,
+  sentence-case section titles, and code in each system's monospace. (ajcraswell@gmail.com)
+- The inspector's Design tab starts with what's selected, as its icon and kind in the kind's color above its name, with
+  which component or file on hover (ajcraswell@gmail.com)
+
+## 0.38.0
+
+Sun, 08 Nov 2026 23:45:38 GMT
+
+### Minor changes
+
+- Record the rest of the inspector's changes as inspector.changed: names, images, an instance's state and component,
+  prop bindings, slots, states, a component's props and variants, resets, and token edits (ajcraswell@gmail.com)
+- Record the first frame a newly opened project's canvas draws, and put the whole open in one trace (PAR-711)
+  (ajcraswell@gmail.com)
+- Record app.first_project, the time from the app starting to the first project's tab being ready to draw, and whether
+  the window restored it (ajcraswell@gmail.com)
+
+## 0.37.0
+
+Sun, 08 Nov 2026 22:43:32 GMT
+
+### Minor changes
+
+- Record gestures, undo and redo, inspector changes, inserts, pastes and text edits as telemetry events (PAR-640)
+  (ajcraswell@gmail.com)
+
+## 0.36.1
+
+Sun, 08 Nov 2026 21:40:38 GMT
+
+### Patches
+
+- Name the Design tab's token pickers for their property and value, such as Fill, primary, so a screen reader says which
+  row each sets (ajcraswell@gmail.com)
+
+## 0.36.0
+
+Sun, 08 Nov 2026 21:20:53 GMT
+
+### Minor changes
+
+- Record project opening, detection, builders and servers (PAR-637) (ajcraswell@gmail.com)
+
+## 0.35.0
+
+Sun, 08 Nov 2026 12:58:18 GMT
+
+### Minor changes
+
+- Record each agent call in the app with its inputs, outcome and warnings, and the CLI's own runs, connection failures,
+  version mismatches and MCP sessions in ~/.parity/logs (ajcraswell@gmail.com)
+
+### Patches
+
+- The Design panel no longer has a Frame, Component and Screen switch; convert a design from its title menu
+  (ajcraswell@gmail.com)
+
+## 0.34.0
+
+Sun, 08 Nov 2026 11:33:42 GMT
+
+### Minor changes
+
+- Record every action in the action list as command.ran, with where it came from, whether it applied, and the selection
+  (PAR-639) (ajcraswell@gmail.com)
+
+## 0.33.0
+
+Sun, 08 Nov 2026 11:13:59 GMT
+
+### Minor changes
+
+- Search actions (Ctrl+K) finds designs, layers, components, tokens and panel actions, with recent picks first, and
+  Repeat last action (Ctrl+Alt+P) runs the last change again on the selection (ajcraswell@gmail.com)
+- Record frame renders, frame failures, component previews and the bitmap cache's hit rate in telemetry
+  (ajcraswell@gmail.com)
+
+## 0.32.0
+
+Sat, 07 Nov 2026 11:02:22 GMT
+
+### Minor changes
+
+- A part of the window that fails while it draws now says so in its own place, with Try again and Report a problem, and
+  the rest of the window keeps working (ajcraswell@gmail.com)
+
+## 0.31.0
+
+Sat, 07 Nov 2026 09:34:17 GMT
+
+### Minor changes
+
+- Layers opens an instance's row to the layers inside it, read-only apart from each layer's eye (ajcraswell@gmail.com)
+
+## 0.30.0
+
+Sat, 07 Nov 2026 09:04:55 GMT
+
+### Minor changes
+
+- Failing components draw a hatched box and show in the console with why and how to fix them, the console filters levels
+  from a menu, and saved component code reaches the canvas live (ajcraswell@gmail.com)
+
+## 0.29.0
+
+Sat, 07 Nov 2026 04:57:51 GMT
+
+### Minor changes
+
+- Lock layers and designs with Ctrl+Shift+L, a lock on each Layers row, and Lock in the canvas and row menus: a locked
+  one can't be selected or moved on the canvas, only from Layers, and stays locked in the .par (ajcraswell@gmail.com)
+
+## 0.28.1
+
+Sat, 07 Nov 2026 04:09:47 GMT
+
+### Patches
+
+- Share diagnostics keeps one short description, on or off, so Settings doesn't shift when it's turned
+  (ajcraswell@gmail.com)
+
+## 0.28.0
+
+Sat, 07 Nov 2026 03:48:15 GMT
+
+### Minor changes
+
+- Add Help > Report a problem, which sends what happened with a screenshot, logs, versions and projects, and offers
+  itself after a crash; add parity diagnostics, which writes the same as a zip (PAR-635) (ajcraswell@gmail.com)
+
+## 0.27.0
+
+Sat, 07 Nov 2026 03:33:55 GMT
+
+### Minor changes
+
+- Record failed data checks as data.invalid and refused projects as project.unsupported (PAR-633) (ajcraswell@gmail.com)
+- parity logs and get_logs read Parity's own events from the local log, by level, process, trace, test run or time
+  (PAR-636) (ajcraswell@gmail.com)
+- Record every error notification as error.caught, failed service requests, and saves, exports, project edits and
+  libraries (ajcraswell@gmail.com)
+
+## 0.26.0
+
+Sat, 07 Nov 2026 02:36:08 GMT
+
+### Minor changes
+
+- Record tabs, panels, dialogs, modes, settings and start page actions as telemetry events (ajcraswell@gmail.com)
+
+## 0.25.0
+
+Sat, 07 Nov 2026 02:04:08 GMT
+
+### Minor changes
+
+- Carry trace context across the window, the service, main, render jobs, builders and the CLI (PAR-629)
+  (ajcraswell@gmail.com)
+- Record startup, quitting, updates, memory, service lag and long tasks as telemetry events (PAR-631)
+  (ajcraswell@gmail.com)
+- Tag every event with its test run, who's driving (a person or an agent, with its caller and client) and the tester or
+  agent as Sentry's user (ajcraswell@gmail.com)
+- Mark a component design's layouts as slots: children or named, listed with its params in Props, with Make slot beside
+  Make component and the slots outlined on the canvas (ajcraswell@gmail.com)
+
+### Patches
+
+- Scrub the open projects' .env values from telemetry in every process (ajcraswell@gmail.com)
+
+## 0.24.0
+
+Sat, 07 Nov 2026 00:54:36 GMT
+
+### Minor changes
+
+- Record the editor window with Session Replay, and send the frames on the canvas with errors and a frame's last bitmap
+  with a failed render (PAR-624) (ajcraswell@gmail.com)
+
+## 0.23.0
+
+Sat, 07 Nov 2026 00:05:43 GMT
+
+### Minor changes
+
+- Settings > Privacy > Share diagnostics turns Parity's diagnostics on or off without a restart, and About shows whether
+  they're on and the install ID. (ajcraswell@gmail.com)
+
+## 0.22.0
+
+Fri, 06 Nov 2026 18:37:59 GMT
+
+### Minor changes
+
+- Stay signed in to several accounts and switch between them: your accounts are in a panel from your picture in the
+  title bar, each with its own Sign out, and Home's top left is a workspace menu for the account you're in
+  (ajcraswell@gmail.com)
+- Name every build as a Sentry release and upload its source maps, so stack traces resolve to source
+  (ajcraswell@gmail.com)
+- Home's account menu becomes a workspace menu, and your accounts move to a panel in the title bar where each has its
+  own Sign out (exploration); on a phone, Home's search spans its row and Show more follows the cards
+  (ajcraswell@gmail.com)
+- Send events as Sentry logs, breadcrumbs and spans through main, and keep a local copy in rotating log files
+  (ajcraswell@gmail.com)
+
+### Patches
+
+- Read Buildkit's styles' tokens from their DTCG tokens.json, with a description on every token (ajcraswell@gmail.com)
 
 ## 0.21.0
 

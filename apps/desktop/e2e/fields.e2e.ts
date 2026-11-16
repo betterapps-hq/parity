@@ -9,14 +9,16 @@ let app: App
 beforeAll(async () => {
   app = await App.connect()
 })
+
 afterEach(() => app?.reset())
+
 afterAll(() => app?.close())
 
 const brand = "aP9rK"
 const plans = "Wre7g"
 
-const width = () => app.page.locator('input[aria-label="Width"]')
-const brandWidth = async () => (await app.style("Pricing", brand)).width
+const width = () => app.page.locator('input[aria-label="Width"]').first()
+const brandWidth = () => app.steps("Pricing", brand, "width")
 const drawnWidth = async () => (await app.size("Pricing", brand))?.width
 
 async function selectBrand(): Promise<void> {
@@ -33,10 +35,11 @@ async function typeOver(field: ReturnType<typeof width>, text: string): Promise<
 }
 
 describe("typing in a length field", () => {
-  it("previews each keystroke on the canvas, and Enter makes it one undo step, keeping the field", async () => {
+  it("previews each keystroke on the canvas, and Enter makes it one undo step, leaving the field", async () => {
     await selectBrand()
     await width().click()
     await width().press("ControlOrMeta+a")
+
     for (const [key, shown] of [
       ["3", 3],
       ["2", 32],
@@ -47,23 +50,17 @@ describe("typing in a length field", () => {
       await expect.poll(drawnWidth).toBe(shown)
       expect(await brandWidth()).toBe(8)
     }
+
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(80)
     expect(await drawnWidth()).toBe(320)
     expect(await width().inputValue()).toBe("320")
-    expect(await width().evaluate((input) => input === document.activeElement)).toBe(true)
-    expect(
-      await width().evaluate(
-        (input) =>
-          input instanceof HTMLInputElement && input.selectionStart === 0 && input.selectionEnd === input.value.length
-      )
-    ).toBe(true)
-    await width().press("Escape")
+    expect(await width().evaluate((input) => input === document.activeElement)).toBe(false)
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
   })
 
-  it("reads px, and keeps a width off the scale, flagged, with the nearest step one click away (PAR-194)", async () => {
+  it("reads px, and keeps a width off the spacing scale as it is", async () => {
     await selectBrand()
     await typeOver(width(), "16px")
     await width().press("Enter")
@@ -72,22 +69,21 @@ describe("typing in a length field", () => {
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(70.25)
     expect(await width().inputValue()).toBe("281")
-    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "281px is off the scale" }).count()).toBe(1)
-    await app.page.getByRole("button", { name: "Use 280px for width" }).click()
-    await expect.poll(brandWidth).toBe(70)
-    await expect.poll(() => app.page.getByRole("status").filter({ hasText: "off the scale" }).count()).toBe(0)
   })
 
-  it("keeps what it can't read, with the reason, and Escape puts the value back", async () => {
+  it("keeps what it can't read, with the reason, and Escape puts the value back, then leaves", async () => {
     await selectBrand()
     await typeOver(width(), "abc")
     await width().press("Enter")
     await expect.poll(() => width().getAttribute("aria-invalid")).toBe("true")
     expect(await width().inputValue()).toBe("abc")
-    await expect.poll(() => app.page.getByRole("alert").filter({ hasText: `Can't read "abc"` }).count()).toBe(1)
+    expect(await width().evaluate((input) => input.getAttribute("aria-describedby"))).toBeTruthy()
+    await expect.poll(() => app.page.getByText(`"abc" isn't a valid number`).count()).toBe(1)
     expect(await brandWidth()).toBe(8)
     await width().press("Escape")
     await expect.poll(() => width().inputValue()).toBe("32")
+    expect(await width().evaluate((input) => input === document.activeElement)).toBe(true)
+    await width().press("Escape")
     expect(await width().evaluate((input) => input === document.activeElement)).toBe(false)
   })
 
@@ -97,13 +93,19 @@ describe("typing in a length field", () => {
     // As an agent's edit would.
     await app.page.evaluate((brand) => {
       const e2e = window.e2e!
-      e2e.session().store.updateContainer(e2e.key("Pricing"), "Agent", (container) => {
-        const edit = (node: typeof container.root): typeof container.root => {
-          if (node.id === brand) return { ...node, style: { ...node.style, width: 10 } }
-          return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+      const key = e2e.key("Pricing")
+      const { doc } = e2e.session()
+      const container = doc.design(key)!
+
+      const edit = (node: typeof container.root): typeof container.root => {
+        if (node.id === brand) {
+          return { ...node, style: { ...node.style, width: { step: 10 } } }
         }
-        return { ...container, root: edit(container.root) }
-      })
+
+        return node.type === "layout" ? { ...node, children: node.children.map(edit) } : node
+      }
+
+      doc.transact("Agent", [{ op: "replaceRoot", design: key, root: edit(container.root) }], { origin: "agent" })
     }, brand)
     await expect.poll(brandWidth).toBe(10)
     expect(await width().inputValue()).toBe("12")
@@ -116,6 +118,7 @@ describe("stepping and scrubbing", () => {
   it("steps a length with Up and Down, ten with Shift, as one undo step however slowly (PAR-441)", async () => {
     await selectBrand()
     await width().click()
+
     // Each press is made at once, and the run is one undo step, with pauses longer than a second between presses.
     for (const [key, steps] of [
       ["ArrowUp", 9],
@@ -126,71 +129,115 @@ describe("stepping and scrubbing", () => {
       await expect.poll(brandWidth, { interval: 10 }).toBe(steps)
       await app.page.waitForTimeout(1200)
     }
+
     expect(await width().inputValue()).toBe("72")
-    await width().press("Escape")
+    // Leaving keeps the run, and one Undo takes it all back.
+    await width().press("Tab")
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
   })
 
-  it("works maths out in Opacity, where % is the unit", async () => {
+  it("takes a run of Up and Down back on Escape, leaving nothing to undo (PAR-968)", async () => {
     await selectBrand()
-    const opacity = app.page.locator('input[aria-label="Opacity"]')
-    await typeOver(opacity, "50-10")
-    await opacity.press("Enter")
-    await expect.poll(async () => (await app.style("Pricing", brand)).opacity).toBe(40)
+    await width().click()
+    await width().press("ArrowUp")
+    await width().press("ArrowUp")
+    await expect.poll(brandWidth).toBe(10)
+    await width().press("Escape")
+    await expect.poll(brandWidth).toBe(8)
+    expect(await width().inputValue()).toBe("32")
+    expect(await app.undoLabel()).toBeUndefined()
   })
 
-  it("scrubs the Width label a step per 2px, previewing, and makes one undo step on release", async () => {
+  it("scrubs W a spacing step per two pixels, previewing on the canvas, and makes one undo step on release", async () => {
     await selectBrand()
-    const label = app.page.getByText("Width", { exact: true }).first()
+    const label = app.page.getByText("W", { exact: true }).first()
     const box = (await label.boundingBox())!
     const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+
     const during = await app.drag(from, { x: from.x + 20, y: from.y }, async () => ({
       drawn: await drawnWidth(),
-      stored: await brandWidth(),
-      shown: await width().inputValue()
+      stored: await brandWidth()
     }))
-    // Ten steps further, on the canvas and in the field, with the design unchanged until the release.
-    expect(during).toEqual({ drawn: 72, stored: 8, shown: "72" })
+
+    // Ten steps further on the canvas, with the design unchanged until the release.
+    expect(during).toEqual({ drawn: 72, stored: 8 })
     await expect.poll(brandWidth).toBe(18)
     await app.page.keyboard.press("Control+z")
     await expect.poll(brandWidth).toBe(8)
   })
+
+  it("puts a scrub back on Escape, making nothing (PAR-968)", async () => {
+    await selectBrand()
+    const label = app.page.getByText("W", { exact: true }).first()
+    const box = (await label.boundingBox())!
+    const from = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    await app.page.mouse.move(from.x, from.y)
+    await app.page.mouse.down()
+    await app.page.mouse.move(from.x + 20, from.y, { steps: 5 })
+    await expect.poll(drawnWidth).toBe(72)
+    await app.page.keyboard.press("Escape")
+    await expect.poll(drawnWidth).toBe(32)
+    await app.page.mouse.up()
+    expect(await brandWidth()).toBe(8)
+    expect(await app.undoLabel()).toBeUndefined()
+  })
 })
 
 describe("several layers", () => {
-  it("adds 8px to each with Mixed+8", async () => {
+  it("shows Mixed, and gives each the value typed", async () => {
     await selectBrand()
     await app.toggleInLayers("Pricing", plans)
     await expect.poll(async () => (await app.selection()).nodes).toEqual([brand, plans])
-    await expect.poll(() => width().inputValue()).toBe("Mixed")
-    // The note on what differs says how to change each from its own value (PAR-203).
+    await expect.poll(() => width().getAttribute("placeholder")).toBe("Mixed")
+    expect(await width().inputValue()).toBe("")
     expect(await app.page.getByText("Different across these layers").textContent()).toContain(
-      "Mixed+8 adds 8 to each layer's own value"
+      "adds 8 to each layer's own value"
     )
-    await width().click()
-    await width().press("End")
-    await width().pressSequentially("+8", { delay: 20 })
+    await typeOver(width(), "48")
+    await width().press("Enter")
+    await expect.poll(brandWidth).toBe(12)
+    expect(await app.steps("Pricing", plans, "width")).toBe(12)
+  })
+
+  it("works +8 and Up out from each layer's own width, as one undo step each (PAR-968)", async () => {
+    await selectBrand()
+    await app.toggleInLayers("Pricing", plans)
+    await expect.poll(() => width().getAttribute("placeholder")).toBe("Mixed")
+    const plansWidth = () => app.steps("Pricing", plans, "width")
+    const before = await plansWidth()
+    await typeOver(width(), "+8")
     await width().press("Enter")
     await expect.poll(brandWidth).toBe(10)
-    expect((await app.style("Pricing", plans)).width).toBe(302)
+    expect(await plansWidth()).toBe(Number(before) + 2)
+    await app.page.keyboard.press("Control+z")
+    await expect.poll(brandWidth).toBe(8)
+    await width().click()
+    await width().press("ArrowUp")
+    await expect.poll(brandWidth).toBe(9)
+    expect(await plansWidth()).toBe(Number(before) + 1)
   })
 })
 
 describe("number props (PAR-203)", () => {
   // App sidebar's Seats bar, a nova/Progress whose value is 70.
   const seats = "LiOql"
-  const valueField = () => app.page.locator('input[aria-label="value"]')
+  // Named by its row's label, the prop's name with a capital first letter.
+  const valueField = () => app.page.getByRole("textbox", { name: "Value", exact: true })
+
   const storedValue = async () => {
     const node = await app.node("App sidebar", seats)
+
     return node?.type === "component" ? node.props?.value : undefined
   }
+
   /** The value the bar is drawn with, which the component sets on its progressbar. */
   const drawnValue = () =>
     app.page.evaluate((seats) => {
       const e2e = window.e2e!
       const element = window.e2eModules!.frames.findNodeElement(e2e.frame(e2e.key("App sidebar")), seats)
       const bar = element?.matches('[role="progressbar"]') ? element : element?.querySelector('[role="progressbar"]')
+
       return bar?.getAttribute("aria-valuenow")
     }, seats)
 
@@ -204,6 +251,7 @@ describe("number props (PAR-203)", () => {
     await selectSeats()
     await valueField().click()
     await valueField().press("ControlOrMeta+a")
+
     for (const [key, shown] of [
       ["2", "2"],
       ["5", "25"]
@@ -211,6 +259,7 @@ describe("number props (PAR-203)", () => {
       await app.page.keyboard.press(key)
       await expect.poll(drawnValue).toBe(shown)
     }
+
     await valueField().press("Enter")
     await expect.poll(storedValue).toBe(25)
     expect(await drawnValue()).toBe("25")

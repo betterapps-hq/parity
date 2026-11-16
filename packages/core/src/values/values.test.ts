@@ -1,34 +1,45 @@
 import { describe, expect, it } from "vite-plus/test"
 import { iconAliases } from "../icon-names.ts"
 import { parseData } from "../schema.ts"
-import { evaluateValue, readRenderSlotKey, renderSlotKey, type ValueHost, valueImports } from "./evaluate.ts"
+import { evaluateValue, exportOf, readRenderSlotKey, renderSlotKey, type ValueHost, valueImports } from "./evaluate.ts"
 import { decoratorValue, sampleValue } from "./grammar.ts"
 
 /** A module whose `make` returns a list that `add` pushes to, so a test sees what was called on it. */
 const theme = { dark: true }
-const modules: Record<string, Record<string, unknown>> = {
-  pkg: {
-    default: "the default export",
-    theme,
-    Tooltip: { Provider: "provider" },
-    make: (...items: unknown[]) => ({
-      items,
-      add(item: unknown) {
-        this.items.push(item)
-      },
-      fail() {
-        throw new Error("needs the app")
-      }
-    })
-  }
-}
+
+/** What the tests' calls pass to `make` and `add`. */
+type Item = number | typeof theme | undefined
+
+const modules = new Map([
+  [
+    "pkg",
+    {
+      default: "the default export",
+      theme,
+      Tooltip: { Provider: "provider" },
+      make: (...items: Item[]) => ({
+        items,
+        add(item: Item) {
+          this.items.push(item)
+        },
+        fail() {
+          throw new Error("needs the app")
+        }
+      })
+    }
+  ]
+])
 
 function host(globals: Record<string, string> = {}): ValueHost {
   return {
     exported(specifier, path) {
-      const module = modules[specifier]
-      if (!module) throw new Error(`${specifier} isn't loaded`)
-      return path.split(".").reduce<unknown>((found, part) => (found as Record<string, unknown>)?.[part], module)
+      const module = modules.get(specifier)
+
+      if (!module) {
+        throw new Error(`${specifier} isn't loaded`)
+      }
+
+      return exportOf(module, path)
     },
     global: (name) => globals[name],
     frame: (part) => `frame ${part}`,
@@ -68,13 +79,14 @@ describe("decorator and sample values", () => {
     ["forms inside plain JSON and lists", { props: [{ $frame: "lang" }] }, {}, { props: ["frame lang"] }]
   ])("evaluates %s", (_, value, globals, expected) => {
     expect(() => parseData(decoratorValue, value)).not.toThrow()
-    expect(evaluateValue(value, host(globals))).toMatchObject(expected as object)
+    // Wrapped, so text is compared whole and an object by the keys the case names.
+    expect({ evaluated: evaluateValue(value, host(globals)) }).toMatchObject({ evaluated: expected })
   })
 
   it("makes a function of a `$function` value, worked out when it's called", () => {
     const made = evaluateValue({ $function: { $import: "pkg", export: "theme" } }, host())
-    expect(typeof made).toBe("function")
-    expect((made as () => unknown)()).toBe(theme)
+    expect(made).toBeInstanceOf(Function)
+    expect(made instanceof Function && made()).toBe(theme)
   })
 
   it("makes each call once for as long as the host keeps it", () => {
@@ -121,6 +133,32 @@ describe("decorator and sample values", () => {
     )
   })
 
+  it("makes a date as `new Date(...)` makes it in the project's code, in a sample and a decorator (PAR-912)", () => {
+    const value = { selected: { $date: "2026-11-19T00:00:00" }, disabled: { before: { $date: 1_763_510_400_000 } } }
+    expect(parseData(sampleValue, value)).toEqual(value)
+    expect(evaluateValue(value, host(), "sample")).toEqual({
+      selected: new Date("2026-11-19T00:00:00"),
+      disabled: { before: new Date(1_763_510_400_000) }
+    })
+    expect(evaluateValue({ $date: "2026-11-19" }, host())).toEqual(new Date("2026-11-19"))
+    expect(valueImports(value, "sample")).toEqual([])
+  })
+
+  it("makes each date once for as long as the host keeps it, so a prop doesn't change between draws", () => {
+    const shared = host()
+    const date = { $date: "2026-11-19T00:00:00" }
+    expect(evaluateValue([date, { ...date }], shared, "sample")).toSatisfy(([a, b]: unknown[]) => a === b)
+  })
+
+  it.each([
+    [{ $date: "next Thursday" }, "/$date: expected a date, such as 2026-11-19T00:00:00"],
+    [{ $date: true }, "/$date:"],
+    [{ $date: "2026-11-19", zone: "UTC" }, "zone"]
+  ])("refuses a date `new Date` can't read: %j", (value, message) => {
+    expect(() => parseData(sampleValue, value)).toThrow(message)
+    expect(() => parseData(decoratorValue, value)).toThrow(message)
+  })
+
   it("lists the modules a value imports, from every form and argument, each once", () => {
     const value = {
       a: { $import: "one" },
@@ -133,6 +171,7 @@ describe("decorator and sample values", () => {
       d: { $function: { $import: "six" } },
       e: { import: "not a module" }
     }
+
     expect(valueImports(value)).toEqual(["one", "two", "three", "four", "five", "six"])
   })
 })
@@ -158,14 +197,14 @@ describe("iconAliases", () => {
   const module = { Heart: heart, HeartIcon: heart, Gear: gear, Settings01Icon: gear, Cog: gear, icons: {}, Icon: heart }
 
   it("lists each icon once, by the shortest name the pattern matches, with every name it's exported under", () => {
-    expect(iconAliases(module, { match: "Icon$", exclude: ["Icon"] }, (value) => typeof value === "function")).toEqual([
+    expect(iconAliases(module, { match: "Icon$", exclude: ["Icon"] }, (value) => value instanceof Function)).toEqual([
       { name: "HeartIcon", names: ["Heart", "HeartIcon"] },
       { name: "Settings01Icon", names: ["Gear", "Settings01Icon", "Cog"] }
     ])
   })
 
   it("matches every capitalised export without a pattern", () => {
-    expect(iconAliases(module, undefined, (value) => typeof value === "function").map(({ name }) => name)).toEqual([
+    expect(iconAliases(module, undefined, (value) => value instanceof Function).map(({ name }) => name)).toEqual([
       "Icon",
       "Cog"
     ])

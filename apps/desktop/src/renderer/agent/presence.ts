@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
+import { signal } from "../store.ts"
 import { heldBoards } from "./held-boards.ts"
 
 /**
@@ -8,53 +9,84 @@ import { heldBoards } from "./held-boards.ts"
  */
 class PresenceQueue {
   private readonly queues = new Map<string, PresenceEvent[]>()
-  private readonly listeners = new Set<() => void>()
+  private readonly changes = signal()
   /** Agents with a cursor in each tab, in the order they arrived. */
   private readonly present = new Map<string, string[]>()
   /** Tabs whose canvas is playing their queue, by how many players. */
   private readonly watched = new Map<string, number>()
   private version = 0
+  /** Told of the events this copy's agents send, which a live room passes on to the other copies. */
+  private readonly pushed = new Set<(events: PresenceEvent[]) => void>()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
-  }
+  subscribe = this.changes.subscribe
 
   getVersion = () => this.version
 
   /** Marks a tab's queue as played, so its moves wait for the cursor to drag them. */
   watch(tab: string): () => void {
     this.watched.set(tab, (this.watched.get(tab) ?? 0) + 1)
+
     return () => {
       const count = (this.watched.get(tab) ?? 1) - 1
-      if (count > 0) this.watched.set(tab, count)
-      else this.watched.delete(tab)
+
+      if (count > 0) {
+        this.watched.set(tab, count)
+      } else {
+        this.watched.delete(tab)
+      }
     }
   }
 
-  push(events: PresenceEvent[]): void {
+  /** Listens to the events this copy's agents send, not those passed on from another copy. */
+  onPush(listener: (events: PresenceEvent[]) => void): () => void {
+    this.pushed.add(listener)
+
+    return () => {
+      this.pushed.delete(listener)
+    }
+  }
+
+  /** Queues agents' events; `passedOn` for those another copy in a live room sent. */
+  push(events: PresenceEvent[], passedOn = false): void {
+    if (!passedOn) {
+      for (const listener of this.pushed) {
+        listener(events)
+      }
+    }
+
     for (const event of events) {
       const id = queueId(event.tab, agentOf(event))
       const queue = this.queues.get(id) ?? []
+
       // A long call shouldn't take minutes to replay: keep the start, the latest steps and the end.
       if (queue.length > 24) {
         for (const dropped of queue.splice(1, queue.length - 16)) {
-          if (dropped.kind === "move" && dropped.design && dropped.to)
+          if (dropped.kind === "move" && dropped.design && dropped.to) {
             heldBoards.finish(dropped.tab, dropped.design, dropped.to)
+          }
         }
       }
+
       // A move lands on the canvas before the cursor gets to it; hold the board back until it does.
       if (event.kind === "move" && event.design && event.from && event.to) {
-        if (!this.watched.has(event.tab)) continue
+        if (!this.watched.has(event.tab)) {
+          continue
+        }
+
         heldBoards.hold(event.tab, event.design, event.from)
       }
+
       queue.push(event)
       this.queues.set(id, queue)
       const present = this.present.get(event.tab) ?? []
-      if (!present.includes(agentOf(event))) this.present.set(event.tab, [...present, agentOf(event)])
+
+      if (!present.includes(agentOf(event))) {
+        this.present.set(event.tab, [...present, agentOf(event)])
+      }
     }
+
     this.version++
-    for (const listener of this.listeners) listener()
+    this.changes.notify()
   }
 
   /** The agents with a cursor in a tab: from their first step until they retire. */
@@ -64,12 +96,20 @@ class PresenceQueue {
 
   /** Takes an idle agent's cursor away, unless it has steps waiting again. */
   retire(tab: string, agent: string): void {
-    if (this.waiting(tab, agent) > 0) return
+    if (this.waiting(tab, agent) > 0) {
+      return
+    }
+
     const present = this.present.get(tab)?.filter((id) => id !== agent) ?? []
-    if (present.length > 0) this.present.set(tab, present)
-    else this.present.delete(tab)
+
+    if (present.length > 0) {
+      this.present.set(tab, present)
+    } else {
+      this.present.delete(tab)
+    }
+
     this.version++
-    for (const listener of this.listeners) listener()
+    this.changes.notify()
   }
 
   /** How many of an agent's steps are waiting to play in a tab. */
@@ -79,7 +119,11 @@ class PresenceQueue {
 
   take(tab: string, agent: string): PresenceEvent | undefined {
     const event = this.queues.get(queueId(tab, agent))?.shift()
-    if (event) this.version++
+
+    if (event) {
+      this.version++
+    }
+
     return event
   }
 }

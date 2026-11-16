@@ -29,10 +29,12 @@ describe("finding an app's components with the checker", () => {
       "src/components/index.tsx",
       'export { StatCard } from "./widgets/stat-card"\nexport { StatCard as Stat } from "./widgets/stat-card"'
     )
+
     // The index comes first, so without the rule it would be listed there, as `Stat`.
     const entries = ["src/components/index.tsx", "src/components/widgets/stat-card.tsx"].map(
       (path) => `${root}/${path}`
     )
+
     const report = findComponents({ entries, root, defaultExports: true })
     expect(report.components.map((component) => [component.name, component.entry.slice(root.length + 1)])).toEqual([
       ["StatCard", "src/components/widgets/stat-card.tsx"]

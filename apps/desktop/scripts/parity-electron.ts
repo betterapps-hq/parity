@@ -17,22 +17,38 @@ import {
   rmSync,
   writeFileSync
 } from "node:fs"
+import { createRequire } from "node:module"
 import { dirname, join, resolve } from "node:path"
+import { z } from "zod"
 
 const appDir = resolve(import.meta.dirname, "..")
 const cacheDir = join(appDir, "node_modules/.cache")
+
+/**
+ * The Electron program the `electron` package installed. Its main module gives Node the program's path, though its
+ * types describe the API the app sees, so the path is checked here.
+ */
+export function installedElectron(): string {
+  return z.string().parse(createRequire(import.meta.url)("electron"))
+}
 
 /**
  * The program to run the app with: a copy of Electron named Parity, with Parity's icon. Electron as installed if the
  * copy can't be made, with a warning, since the app still runs.
  */
 export function parityElectron(electron: string): string {
-  const make = { win32: windows, darwin: mac, linux }[process.platform as string]
-  if (!make) return electron
+  const makers: Partial<Record<NodeJS.Platform, (electron: string) => string>> = { win32: windows, darwin: mac, linux }
+  const make = makers[process.platform]
+
+  if (!make) {
+    return electron
+  }
+
   try {
     return make(electron)
   } catch (error) {
     console.warn(`[dev] running as Electron, since Parity's copy of it couldn't be made: ${String(error)}`)
+
     return electron
   }
 }
@@ -47,27 +63,40 @@ function cached(version: string, icon: string, program: string, fill: (folder: s
     .update(readFileSync(join(appDir, "resources", icon)))
     .digest("hex")
     .slice(0, 8)
+
   const name = `parity-electron-${version}-${hash}`
   const target = join(cacheDir, name)
-  if (existsSync(join(target, program))) return join(target, program)
+
+  if (existsSync(join(target, program))) {
+    return join(target, program)
+  }
+
   const making = `${target}-${process.pid}`
+
   try {
     mkdirSync(making, { recursive: true })
     fill(making)
     renameSync(making, target)
   } catch (error) {
-    if (!existsSync(join(target, program))) throw error
+    if (!existsSync(join(target, program))) {
+      throw error
+    }
   } finally {
     rmSync(making, { recursive: true, force: true })
   }
+
   for (const old of readdirSync(cacheDir)) {
-    if (!old.startsWith("parity-electron-") || old === name) continue
+    if (!old.startsWith("parity-electron-") || old === name) {
+      continue
+    }
+
     try {
       rmSync(join(cacheDir, old), { recursive: true })
     } catch {
       // In use by a copy of the app that's still running.
     }
   }
+
   return join(target, program)
 }
 
@@ -78,12 +107,18 @@ function cached(version: string, icon: string, program: string, fill: (folder: s
 function windows(electron: string): string {
   const dist = dirname(electron)
   const version = readFileSync(join(dist, "version"), "utf8").trim()
+
   return cached(version, "icon.ico", "Parity.exe", (folder) => {
     linkAll(dist, folder, new Set(["electron.exe", "debug.log"]))
     const binary = readFileSync(electron)
-    if (!nameParity(binary)) throw new Error("its version information has no name to change")
+
+    if (!nameParity(binary)) {
+      throw new Error("its version information has no name to change")
+    }
+
     const exe = join(folder, "Parity.exe")
     writeFileSync(exe, binary)
+
     const replaced = spawnSync(
       "powershell.exe",
       ["-NoProfile", "-NonInteractive", "-EncodedCommand", Buffer.from(replaceIcon, "utf16le").toString("base64")],
@@ -93,7 +128,10 @@ function windows(electron: string): string {
         windowsHide: true
       }
     )
-    if (replaced.status !== 0) throw new Error(`its icon couldn't be replaced: ${replaced.stderr.trim()}`)
+
+    if (replaced.status !== 0) {
+      throw new Error(`its icon couldn't be replaced: ${replaced.stderr.trim()}`)
+    }
   })
 }
 
@@ -106,14 +144,17 @@ function windows(electron: string): string {
 function mac(electron: string): string {
   const bundle = resolve(electron, "../../..")
   const version = readFileSync(join(dirname(bundle), "version"), "utf8").trim()
+
   return cached(version, "dock.png", "Parity.app/Contents/MacOS/Parity", (folder) => {
     const app = join(folder, "Parity.app")
     cpSync(bundle, app, { recursive: true, verbatimSymlinks: true, mode: constants.COPYFILE_FICLONE })
     renameSync(join(app, "Contents/MacOS/Electron"), join(app, "Contents/MacOS/Parity"))
     const plist = join(app, "Contents/Info.plist")
+
     for (const key of ["CFBundleExecutable", "CFBundleName", "CFBundleDisplayName"]) {
       execFileSync("plutil", ["-replace", key, "-string", "Parity", plist])
     }
+
     const iconFile = execFileSync("plutil", ["-extract", "CFBundleIconFile", "raw", plist], { encoding: "utf8" }).trim()
     const icns = join(app, "Contents/Resources", iconFile.endsWith(".icns") ? iconFile : `${iconFile}.icns`)
     execFileSync("sips", ["-s", "format", "icns", join(appDir, "resources/dock.png"), "--out", icns], {
@@ -131,6 +172,7 @@ function mac(electron: string): string {
 function linux(electron: string): string {
   const dist = dirname(electron)
   const version = readFileSync(join(dist, "version"), "utf8").trim()
+
   return cached(version, "icon.png", "parity", (folder) => {
     linkAll(dist, folder, new Set(["debug.log"]), new Set(["chrome-sandbox"]))
     linkSync(electron, join(folder, "parity"))
@@ -143,19 +185,28 @@ function linux(electron: string): string {
  */
 function linkAll(from: string, to: string, skipped: Set<string>, linkedOnly = new Set<string>()): void {
   mkdirSync(to, { recursive: true })
+
   for (const entry of readdirSync(from, { withFileTypes: true })) {
-    if (skipped.has(entry.name)) continue
+    if (skipped.has(entry.name)) {
+      continue
+    }
+
     const source = join(from, entry.name)
     const copy = join(to, entry.name)
+
     if (entry.isDirectory()) {
       linkAll(source, copy, skipped, linkedOnly)
       continue
     }
+
     try {
       linkSync(source, copy)
     } catch (error) {
-      if (!linkedOnly.has(entry.name)) copyFileSync(source, copy)
-      else console.warn(`[dev] ${entry.name} couldn't be linked, so it's left out: ${String(error)}`)
+      if (!linkedOnly.has(entry.name)) {
+        copyFileSync(source, copy)
+      } else {
+        console.warn(`[dev] ${entry.name} couldn't be linked, so it's left out: ${String(error)}`)
+      }
     }
   }
 }
@@ -167,20 +218,30 @@ function linkAll(from: string, to: string, skipped: Set<string>, linkedOnly = ne
 function nameParity(binary: Buffer): boolean {
   const key = Buffer.from("VS_VERSION_INFO", "utf16le")
   let start = -1
+
   // The resource begins with its length, which the key's other appearances, in code, don't have.
   for (let at = binary.indexOf(key); at !== -1 && start === -1; at = binary.indexOf(key, at + 1)) {
     const length = binary.readUInt16LE(at - 6)
-    if (length > 64 && length < 8192) start = at - 6
+
+    if (length > 64 && length < 8192) {
+      start = at - 6
+    }
   }
-  if (start === -1) return false
+
+  if (start === -1) {
+    return false
+  }
+
   const end = start + binary.readUInt16LE(start)
   const electron = Buffer.from("Electron", "utf16le")
   const parity = Buffer.concat([Buffer.from("Parity", "utf16le"), Buffer.alloc(electron.length - 12)])
   let named = false
+
   for (let at = binary.indexOf(electron, start); at !== -1 && at < end; at = binary.indexOf(electron, at + 1)) {
     parity.copy(binary, at)
     named = true
   }
+
   return named
 }
 

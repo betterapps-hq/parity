@@ -1,34 +1,16 @@
-import { codeEditors } from "@parity-app/core"
-import { describe, expect, it, vi } from "vite-plus/test"
-import {
-  checked,
-  consoleAnnouncement,
-  consoleOrigin,
-  openInEditorRequest,
-  shownItem,
-  themeSource
-} from "./ipc-checks.ts"
+import { codeEditors } from "@parity-app/processes"
+import { describe, expect, it } from "vite-plus/test"
+import { consoleAnnouncement, consoleOrigin, openInEditorRequest, problemReport, shownItem } from "./ipc-checks.ts"
 
 const file = process.platform === "win32" ? "C:\\work\\app\\src\\Button.tsx" : "/work/app/src/Button.tsx"
 
 describe("open-in-editor's request", () => {
-  it("reaches its handler when it's a file and an editor", () => {
-    const handler = vi.fn<(event: unknown, request: unknown) => string>(() => "opened")
-    const request = { file, export: "Button", editor: "vscode" }
-    expect(checked(openInEditorRequest, handler)({}, request)).toBe("opened")
-    expect(handler).toHaveBeenCalledWith({}, request)
-  })
-
-  it("is refused before its handler when it isn't one", () => {
-    const handler = vi.fn<() => void>()
-    const open = checked(openInEditorRequest, handler)
-    expect(() => open({}, { file: 42, editor: "vscode" })).toThrow(new TypeError("/file: expected a string"))
-    expect(() => open({}, { file: "--goto", editor: "vscode" })).toThrow("/file: expected an absolute path")
-    expect(() => open({}, { file, editor: "notepad" })).toThrow('/editor: expected one of "auto", "system", "vscode"')
-    expect(() => open({}, { file, editor: "zed", shell: true })).toThrow("/shell: unknown property")
-    expect(() => open({}, "open Button.tsx")).toThrow("/: expected an object")
-    expect(() => open({}, { file, line: 0, editor: "zed" })).toThrow("/line")
-    expect(handler).not.toHaveBeenCalled()
+  it("is a file's absolute path and an editor, and nothing more", () => {
+    expect(openInEditorRequest.safeParse({ file, export: "Button", editor: "vscode" }).success).toBe(true)
+    expect(openInEditorRequest.safeParse({ file: "--goto", editor: "vscode" }).success).toBe(false)
+    expect(openInEditorRequest.safeParse({ file, editor: "notepad" }).success).toBe(false)
+    expect(openInEditorRequest.safeParse({ file, editor: "zed", shell: true }).success).toBe(false)
+    expect(openInEditorRequest.safeParse({ file, line: 0, editor: "zed" }).success).toBe(false)
   })
 
   it("takes the line an element's source gives", () => {
@@ -36,13 +18,14 @@ describe("open-in-editor's request", () => {
   })
 
   it("takes every editor Settings lists", () => {
-    for (const { id } of codeEditors) expect(openInEditorRequest.safeParse({ file, editor: id }).success).toBe(true)
+    for (const { id } of codeEditors) {
+      expect(openInEditorRequest.safeParse({ file, editor: id }).success).toBe(true)
+    }
   })
 })
 
 describe("the other arguments", () => {
-  it("refuses a theme or path the window doesn't send", () => {
-    expect(themeSource.safeParse("sepia").success).toBe(false)
+  it("refuses a path the window doesn't send", () => {
     expect(shownItem.safeParse("relative/folder").success).toBe(false)
     expect(shownItem.safeParse(file).success).toBe(true)
   })
@@ -59,5 +42,13 @@ describe("the other arguments", () => {
     expect(consoleAnnouncement.safeParse({ ...pricing, ...call, line: -1 }).success).toBe(false)
     expect(consoleOrigin.safeParse("http://127.0.0.1:5173/").success).toBe(true)
     expect(consoleOrigin.safeParse("not an address").success).toBe(false)
+  })
+
+  it("takes a report linked to the Sentry event of the error a fallback caught (PAR-704)", () => {
+    const report = { message: "Layers went blank", screenshot: true, afterCrash: false }
+    const eventId = "0123456789abcdef0123456789abcdef"
+    expect(problemReport.safeParse({ ...report, eventId }).success).toBe(true)
+    expect(problemReport.safeParse({ ...report, eventId: eventId.toUpperCase() }).success).toBe(false)
+    expect(problemReport.safeParse({ ...report, eventId: "fb1" }).success).toBe(false)
   })
 })

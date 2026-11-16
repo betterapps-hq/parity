@@ -3,6 +3,7 @@ import { parentPort } from "node:worker_threads"
 import { createChannel, type Method, nodePort } from "@parity-app/channel"
 import { type CheckRequest, type CheckResult, programCache, type PropsRequest, reactFinder } from "@parity-app/code"
 import type { ComponentInfo } from "@parity-app/core"
+import { startWorkerTelemetry } from "./worker-telemetry.ts"
 
 /**
  * What's asked of the worker. `known` comes with a project's first request to a worker started again after one that
@@ -16,6 +17,8 @@ export interface CheckerMethods {
 }
 
 if (parentPort) {
+  // Its events go to the service, which sends them on (PAR-627).
+  startWorkerTelemetry(parentPort)
   // React's finder, the one renderer so far.
   const programs = programCache(reactFinder)
   createChannel<CheckerMethods, Record<never, Method>>({

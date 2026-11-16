@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import type { ProcessStatus, ProjectProcess, ServerKind, TaskKind } from "../../shared/protocol.ts"
+import type { ProcessRole, ProcessStatus, ProjectProcess } from "../../shared/protocol.ts"
 import { KindTile, Light } from "./Processes.tsx"
 
 /**
@@ -8,24 +8,24 @@ import { KindTile, Light } from "./Processes.tsx"
  * once and finish with a result. A new kind of process needs a row here.
  */
 const meta = {
-  title: "Parity/Chrome/Process icons",
+  title: "Parity/Chrome/Panels/Process icons",
   component: KindTile
 } satisfies Meta<typeof KindTile>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
-/** Each kind by name. Typed by the kinds the service reports, so a new kind can't be left out. */
-const servers: Record<ServerKind, string> = {
+/** Each kind by name. Between them they cover every role the service reports, so a new one can't be left out. */
+const servers: Record<Extract<ProcessRole, "builder" | "tool">, string> = {
   builder: "Build server",
-  storybook: "Storybook"
+  tool: "Storybook"
 }
 
-const tasks: Record<TaskKind, string> = {
+const tasks: Record<Exclude<ProcessRole, "builder" | "tool">, string> = {
   install: "Install",
   typecheck: "Type check",
   test: "Unit tests",
-  e2e: "Playwright",
   format: "Format",
   lint: "Lint",
   verify: "Verify",
@@ -50,31 +50,45 @@ const taskStatuses: { status: ProcessStatus; label: string }[] = [
   { status: "canceled", label: "Canceled" }
 ]
 
-function example(kind: ProjectProcess["kind"], shape: ProjectProcess["shape"], status: ProcessStatus): ProjectProcess {
+function example(kind: ProcessRole, lifetime: ProjectProcess["lifetime"], status: ProcessStatus): ProjectProcess {
   return {
     id: `${kind}:${status}`,
-    kind,
-    shape,
+    owner: { kind: "parity", role: kind },
+    lifetime,
     name: kind,
     projectId: "example",
     project: "example",
-    status,
+    state: status,
+    run: 1,
+    addresses: [],
     startedAt: Date.now(),
-    startedBy: "parity",
     canStop: false,
     canRestart: false
   }
 }
 
+/** A kind and its name, as a section lists it. */
+type NamedKind = [kind: ProcessRole, name: string]
+
+/** A section's kinds with their names, in the order it lists them. */
+function named(kinds: Partial<Record<ProcessRole, string>>): NamedKind[] {
+  // Every key came from `kinds`, whose keys are all process kinds.
+  const listed = (kind: string): kind is ProcessRole => kind in kinds
+
+  return Object.entries(kinds).flatMap(([kind, name]): NamedKind[] =>
+    listed(kind) && name !== undefined ? [[kind, name]] : []
+  )
+}
+
 function Section({
   title,
-  shape,
+  lifetime,
   kinds,
   statuses
 }: {
   title: string
-  shape: ProjectProcess["shape"]
-  kinds: Record<string, string>
+  lifetime: ProjectProcess["lifetime"]
+  kinds: Partial<Record<ProcessRole, string>>
   statuses: { status: ProcessStatus; label: string }[]
 }) {
   return (
@@ -90,13 +104,13 @@ function Section({
         </tr>
       </thead>
       <tbody>
-        {Object.entries(kinds).map(([kind, name]) => (
+        {named(kinds).map(([kind, name]) => (
           <tr key={kind}>
             <td className="pr-4 text-muted-foreground">{name}</td>
             {statuses.map(({ status }) => (
               <td key={status} className="text-center">
                 <span className="inline-grid">
-                  <KindTile process={example(kind as ProjectProcess["kind"], shape, status)} />
+                  <KindTile process={example(kind, lifetime, status)} />
                 </span>
               </td>
             ))}
@@ -107,7 +121,7 @@ function Section({
           {statuses.map(({ status }) => (
             <td key={status} className="text-center">
               <span className="inline-grid place-items-center">
-                <Light process={example("builder", shape, status)} size={6} />
+                <Light process={example("builder", lifetime, status)} size={6} />
               </span>
             </td>
           ))}
@@ -120,8 +134,8 @@ function Section({
 function Grid() {
   return (
     <div className="flex min-h-screen flex-col gap-6 bg-background p-8 text-xs text-foreground">
-      <Section title="Servers" shape="server" kinds={servers} statuses={serverStatuses} />
-      <Section title="Tasks" shape="task" kinds={tasks} statuses={taskStatuses} />
+      <Section title="Servers" lifetime="server" kinds={servers} statuses={serverStatuses} />
+      <Section title="Tasks" lifetime="task" kinds={tasks} statuses={taskStatuses} />
     </div>
   )
 }

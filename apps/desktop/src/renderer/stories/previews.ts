@@ -25,23 +25,23 @@ function picture(src: string, width: number, height: number): PreviewImage {
  * Real previews of the example's UI kit in Parity's dark theme, as the offscreen renderer made them (PAR-207), by the
  * name each is kept under: a component's, or a variant's, as `Button?variant=outline`.
  */
-export const kitPictures: Record<string, PreviewImage> = {
-  Button: picture(button, 164, 96),
-  "Button?variant=default": picture(button, 164, 96),
-  "Button?variant=outline": picture(buttonOutline, 164, 96),
-  "Button?variant=secondary": picture(buttonSecondary, 164, 96),
-  "Button?variant=ghost": picture(buttonGhost, 164, 96),
-  "Button?variant=destructive": picture(buttonDestructive, 164, 96),
-  "Button?variant=link": picture(buttonLink, 164, 96),
-  Card: picture(card, 93, 136),
-  Avatar: picture(avatar, 96, 96),
-  AvatarGroup: picture(avatarGroup, 215, 80),
-  Tabs: picture(tabs, 101, 80),
-  Input: picture(input, 518, 96),
-  Table: picture(table, 101, 72),
-  Empty: picture(empty, 223, 176),
-  Label: picture(label, 105, 60)
-}
+export const kitPictures = new Map([
+  ["Button", picture(button, 164, 96)],
+  ["Button?variant=default", picture(button, 164, 96)],
+  ["Button?variant=outline", picture(buttonOutline, 164, 96)],
+  ["Button?variant=secondary", picture(buttonSecondary, 164, 96)],
+  ["Button?variant=ghost", picture(buttonGhost, 164, 96)],
+  ["Button?variant=destructive", picture(buttonDestructive, 164, 96)],
+  ["Button?variant=link", picture(buttonLink, 164, 96)],
+  ["Card", picture(card, 93, 136)],
+  ["Avatar", picture(avatar, 96, 96)],
+  ["AvatarGroup", picture(avatarGroup, 215, 80)],
+  ["Tabs", picture(tabs, 101, 80)],
+  ["Input", picture(input, 518, 96)],
+  ["Table", picture(table, 101, 72)],
+  ["Empty", picture(empty, 223, 176)],
+  ["Label", picture(label, 105, 60)]
+])
 
 /** What a stand-in preview is, beyond a made picture: its error, nothing to see, or a picture for older code. */
 type Kept = { error: string } | { empty: true } | { last: PreviewImage }
@@ -51,7 +51,7 @@ type Kept = { error: string } | { empty: true } | { last: PreviewImage }
  * as the example has them or, where it has none, given to a component that stands in. Badge's code changed, so its
  * last picture shows while it waits; the rest wait their turn, and the one being made never finishes.
  */
-export const examplePreviews: Record<string, Kept> = {
+export const examplePreviews = {
   Badge: { last: picture(badge, 141, 80) },
   AvatarBadge: { empty: true },
   Separator: { empty: true },
@@ -59,7 +59,7 @@ export const examplePreviews: Record<string, Kept> = {
   AvatarImage: { error: "AvatarImage: `AvatarImage` must be used within `Avatar`" },
   CardAction: { error: "Cannot read properties of undefined (reading 'map')" },
   TableCaption: { error: "process is not defined" }
-}
+} satisfies Record<string, Kept>
 
 /** Long enough that making a preview never finishes while the story is open. */
 const forever = 24 * 60 * 60 * 1000
@@ -68,10 +68,15 @@ const forever = 24 * 60 * 60 * 1000
 export function answerPreviews(kept: Record<string, Kept> = examplePreviews): void {
   const answer = (component: string): ComponentPreview => {
     const key = `story:${component}`
-    const image = kitPictures[component]
-    if (image) return { component, key, image }
+    const image = kitPictures.get(component)
+
+    if (image) {
+      return { component, key, image }
+    }
+
     return { component, key, ...kept[component] }
   }
+
   answering({
     "previews.lookup": ({ previews }) => ({ previews: previews.map(({ component }) => answer(component)) }),
     "previews.make": () => new Promise<ComponentPreview>((resolve) => setTimeout(resolve, forever))

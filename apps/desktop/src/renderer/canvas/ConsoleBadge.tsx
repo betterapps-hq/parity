@@ -8,24 +8,31 @@ import { useProject } from "./context.ts"
 /**
  * A design's errors and warnings in the console, beside its name on the canvas (PAR-147), always shown while there
  * are any, so a failing design stands out on a busy canvas. Clicking it opens the console on the design's messages.
+ * Only the selected design's is in the tab order, as its title is, so Tab never goes on to another design (PAR-424).
  */
-export function ConsoleBadge({ design, name }: { design: string; name: string }) {
+export function ConsoleBadge({ design, name, selected }: { design: string; name: string; selected: boolean }) {
   const session = useProject()
   const { errors, warnings } = useDesignCounts(session.id, design)
-  if (errors === 0 && warnings === 0) return null
+
+  if (errors === 0 && warnings === 0) {
+    return null
+  }
+
   const said = [
     errors > 0 && `${errors} ${errors === 1 ? "error" : "errors"}`,
     warnings > 0 && `${warnings} ${warnings === 1 ? "warning" : "warnings"}`
   ].filter(Boolean)
+
   return (
     <Hint label={`${said.join(" and ")} from ${name}`} detail="Click to show them in the console">
       <button
         type="button"
+        tabIndex={selected ? 0 : -1}
         aria-label={`${said.join(" and ")} from ${name} in the console`}
         className="flex h-6 shrink-0 items-center gap-1 rounded-md border bg-background px-1.5 text-xs font-medium tabular-nums shadow-xs hover:bg-accent"
         data-canvas-control
         onPointerDown={stopEventPropagation}
-        onClick={() => showConsole(design)}
+        onClick={() => showConsole(session, design)}
       >
         {errors > 0 && (
           <>

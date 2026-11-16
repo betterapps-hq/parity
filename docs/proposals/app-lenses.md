@@ -123,8 +123,9 @@ after the API." For web apps, [web-and-backend.md](web-and-backend.md) plans the
 6. **Flags, from OpenFeature,** previewed as modes.
 7. **The rest** as projects bring the sources.
 
-The example project has no router, API or database yet. These lenses need a fuller example to be built against, and a
-project from the Buildkit scaffolder is the one you prefer, once the scaffolder is ready.
+The example project has TanStack Router and a few pages (PAR-1072), but no API or database yet. These lenses need a
+fuller example to be built against, and a project from the Buildkit scaffolder is the one you prefer, once the
+scaffolder is ready.
 
 ## Decisions needed from you
 

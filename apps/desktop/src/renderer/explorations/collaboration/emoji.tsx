@@ -1,6 +1,7 @@
 import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
 import { Apple, Clock, Hand, Heart, Leaf, Lightbulb, Search, Smile, SmilePlus } from "lucide-react"
-import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react"
+import { useStore, windowStore } from "../../store.ts"
 import {
   emojiCategories,
   type EmojiEntry,
@@ -12,27 +13,15 @@ import {
 } from "./emoji-data.ts"
 
 /** What you've picked lately, most recent first, and your skin tone: shared by every picker. */
-let prefs = { recent: ["👍", "❤️", "😂", "🎉", "👀", "🙏", "🔥", "✅"], tone: "" }
-const listeners = new Set<() => void>()
-
-function update(next: typeof prefs) {
-  prefs = next
-  for (const listener of listeners) listener()
-}
+const prefs = windowStore(() => ({ recent: ["👍", "❤️", "😂", "🎉", "👀", "🙏", "🔥", "✅"], tone: "" }))
 
 export function useEmojiPrefs() {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    () => prefs
-  )
+  return useStore(prefs)
 }
 
 /** Moves an emoji to the front of Frequently used. */
 export function rememberEmoji(emoji: string) {
-  update({ ...prefs, recent: [emoji, ...prefs.recent.filter((other) => other !== emoji)].slice(0, 16) })
+  prefs.update((now) => ({ ...now, recent: [emoji, ...now.recent.filter((other) => other !== emoji)].slice(0, 16) }))
 }
 
 /** An emoji as you'd pick it: in your skin tone when it takes one. */
@@ -40,15 +29,15 @@ function picked(entry: EmojiEntry, tone: string) {
   return withTone(entry, tone)
 }
 
-const categoryIcons: Record<string, typeof Smile> = {
-  recent: Clock,
-  smileys: Smile,
-  people: Hand,
-  nature: Leaf,
-  food: Apple,
-  objects: Lightbulb,
-  symbols: Heart
-}
+const categoryIcons = new Map([
+  ["recent", Clock],
+  ["smileys", Smile],
+  ["people", Hand],
+  ["nature", Leaf],
+  ["food", Apple],
+  ["objects", Lightbulb],
+  ["symbols", Heart]
+])
 
 const columns = 8
 
@@ -81,6 +70,7 @@ export function EmojiPicker({
         { id: "recent", title: "Frequently used", emojis: recent.map(findEmoji).filter((entry) => !!entry) },
         ...emojiCategories
       ]
+
   const flat = sections.flatMap((candidate) => candidate.emojis)
   const current = flat[Math.min(active, flat.length - 1)]
   const shown = hovered ?? current
@@ -91,43 +81,74 @@ export function EmojiPicker({
   useEffect(() => {
     const grid = gridRef.current
     const cell = grid?.querySelector<HTMLElement>(`[data-index="${active}"]`)
-    if (!grid || !cell) return
+
+    if (!grid || !cell) {
+      return
+    }
+
     const top = cell.offsetTop - 28
     const bottom = cell.offsetTop + cell.offsetHeight + 4
-    if (top < grid.scrollTop) grid.scrollTop = top
-    else if (bottom > grid.scrollTop + grid.clientHeight) grid.scrollTop = bottom - grid.clientHeight
+
+    if (top < grid.scrollTop) {
+      grid.scrollTop = top
+    } else if (bottom > grid.scrollTop + grid.clientHeight) {
+      grid.scrollTop = bottom - grid.clientHeight
+    }
   }, [active])
 
   const pick = (entry: EmojiEntry) => {
     rememberEmoji(entry.emoji)
     onPick(picked(entry, tone))
   }
+
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    const moves: Record<string, number> = { ArrowRight: 1, ArrowLeft: -1, ArrowDown: columns, ArrowUp: -columns }
-    if (event.key in moves && flat.length) {
+    const moves = new Map([
+      ["ArrowRight", 1],
+      ["ArrowLeft", -1],
+      ["ArrowDown", columns],
+      ["ArrowUp", -columns]
+    ])
+
+    const move = moves.get(event.key)
+
+    if (move !== undefined && flat.length) {
       event.preventDefault()
       setHovered(undefined)
-      setActive(Math.max(0, Math.min(flat.length - 1, active + moves[event.key]!)))
+      setActive(Math.max(0, Math.min(flat.length - 1, active + move)))
     } else if (event.key === "Enter" && current) {
       event.preventDefault()
       pick(current)
     }
   }
+
   // Sections are measured by their wrappers: a stuck heading reports where it's stuck.
   const jump = (id: string) => {
     const wrapper = gridRef.current?.querySelector<HTMLElement>(`[data-section="${id}"]`)
-    if (wrapper && gridRef.current) gridRef.current.scrollTop = wrapper.offsetTop
+
+    if (wrapper && gridRef.current) {
+      gridRef.current.scrollTop = wrapper.offsetTop
+    }
+
     setSection(id)
   }
+
   const onScroll = () => {
     const grid = gridRef.current
-    if (!grid || query.trim()) return
+
+    if (!grid || query.trim()) {
+      return
+    }
+
     const wrappers = [...grid.querySelectorAll<HTMLElement>("[data-section]")]
     const last = wrappers.findLast((wrapper) => wrapper.offsetTop <= grid.scrollTop + 4)
-    if (last) setSection(last.dataset.section!)
+
+    if (last) {
+      setSection(last.dataset.section!)
+    }
   }
 
   let offset = 0
+
   return (
     <div className={`flex w-[19.5rem] flex-col text-popover-foreground ${className}`}>
       <div className="flex items-center gap-1.5 p-2">
@@ -166,7 +187,7 @@ export function EmojiPicker({
                   title={option.name}
                   aria-pressed={tone === option.modifier}
                   onClick={() => {
-                    update({ ...prefs, tone: option.modifier })
+                    prefs.update((now) => ({ ...now, tone: option.modifier }))
                     setTones(false)
                   }}
                   className={`grid size-8 place-items-center rounded-md text-lg hover:bg-muted ${tone === option.modifier ? "bg-muted" : ""}`}
@@ -181,7 +202,8 @@ export function EmojiPicker({
       {!query.trim() && (
         <div className="flex justify-between border-b px-2 pb-1.5">
           {sections.map((candidate) => {
-            const Icon = categoryIcons[candidate.id] ?? Smile
+            const Icon = categoryIcons.get(candidate.id) ?? Smile
+
             return (
               <button
                 key={candidate.id}
@@ -202,6 +224,7 @@ export function EmojiPicker({
         {sections.map((candidate) => {
           const start = offset
           offset += candidate.emojis.length
+
           return (
             <div key={candidate.id} data-section={candidate.id}>
               <div className="sticky top-0 z-[1] bg-popover pt-2 pb-1 text-[11px] font-medium text-muted-foreground">
@@ -210,6 +233,7 @@ export function EmojiPicker({
               <div className="grid grid-cols-8">
                 {candidate.emojis.map((entry, index) => {
                   const position = start + index
+
                   return (
                     <button
                       key={`${candidate.id}:${entry.emoji}`}
@@ -265,6 +289,7 @@ export function EmojiPopover({
   side?: "top" | "bottom"
 }) {
   const [open, setOpen] = useState(false)
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger render={children} />
@@ -293,6 +318,7 @@ export function EmojiSuggest({
   className?: string
 }) {
   const { tone } = useEmojiPrefs()
+
   return (
     <div className={`w-64 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl ${className}`}>
       <div className="px-2 pt-1 pb-1 text-[11px] font-medium text-muted-foreground">Emoji</div>
@@ -315,12 +341,14 @@ export function EmojiSuggest({
 /** The emoji for a picked suggestion, in your tone, and remembered as used. */
 export function pickSuggestion(entry: EmojiEntry): string {
   rememberEmoji(entry.emoji)
-  return picked(entry, prefs.tone)
+
+  return picked(entry, prefs.get().tone)
 }
 
 /** The five you react with most, one click each, beside the reactions smiley. */
 export function QuickReactions({ onPick }: { onPick: (emoji: string) => void }) {
   const { recent, tone } = useEmojiPrefs()
+
   return (
     <>
       {recent

@@ -1,20 +1,72 @@
 name: App tests
 
 # The editor's end-to-end tests (PAR-436), which open a copy of Parity on the example and drive it. On Windows, whose
-# runners have a desktop to open its window on; Linux would need a virtual display. A workflow of its own until they
-# run reliably on the runner (PAR-438): a failing job in CI would fail CI's run, which cd-npm.yml and cd-desktop.yml
-# wait on, though `CI passes` leaves it out. Then it moves back into CI, and `CI passes` waits for it.
+# runners have a desktop to open its window on; Linux would need a virtual display. CI calls it, and `CI passes` waits
+# for it, so a pull request that breaks them can't merge (PAR-1121). The files are split across 3 runners, each with
+# its own copy of the app, since one runner takes about 11 minutes to go through them all. They're placed by how long
+# each takes, about 4 minutes a runner, rather than by count (PAR-1137).
+#
+# The job's steps are written here rather than through the pipelines' ci-verify.yml, which uploads an artifact only when
+# the command passes: this one keeps the run's local copy of its telemetry after a failure too (PAR-785).
 on:
-  pull_request:
-  push:
-    branches: [main]
+  workflow_call:
 
 permissions:
   contents: read
 
 jobs:
   app:
-    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
-    with:
-      os: '["windows-latest"]'
-      command: pnpm test:app
+    name: End-to-end tests (${{ matrix.shard }}/3)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # A newer push to the same branch or pull request cancels the run still going, as ci-verify.yml's runs do.
+    concurrency:
+      group: app-tests-${{ github.ref }}-${{ matrix.shard }}
+      cancel-in-progress: true
+    strategy:
+      # Every shard finishes, so one run names every failing file.
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: betterapps-hq/pipelines/github/actions/setup@main
+      # Electron is installed before the tests start it, with up to 3 tries, into a folder kept until the lockfile
+      # changes, since GitHub's releases time out now and then (PAR-789).
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/parity-ci/electron
+          key: app-tests-electron-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Install Electron
+        run: |
+          home=$(node -p "require('os').homedir()")
+          echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+          export electron_config_cache="$home/.cache/parity-ci/electron"
+          node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+      # The suite copies the run's telemetry here before it removes the copy's profile, as e2e/launch.ts says.
+      # The first two runners take the files listed for them, and the third every other file, so a new file runs there
+      # until it's placed. A listed file that's gone fails its runner, since vitest finds nothing to run.
+      - name: Run the tests
+        env:
+          PARITY_E2E_TELEMETRY: ${{ runner.temp }}/parity-e2e-telemetry
+          SHARD: ${{ matrix.shard }}
+        run: |
+          first="moving dropping"
+          second="keyboard reopening text frames sleeping window console"
+          case "$SHARD" in
+            1) args=$(printf '%s.e2e.ts ' $first) ;;
+            2) args=$(printf '%s.e2e.ts ' $second) ;;
+            *) args=$(printf -- '--exclude %s.e2e.ts ' $first $second) ;;
+          esac
+          pnpm test:app $args
+      # Named by the run's test_run, which every line in it carries, and kept a week, for reading a failure soon after.
+      - name: Upload the run's telemetry
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: telemetry-github-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard }}
+          path: ${{ runner.temp }}/parity-e2e-telemetry
+          retention-days: 7
+          if-no-files-found: warn

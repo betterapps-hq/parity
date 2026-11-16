@@ -1,13 +1,15 @@
 import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { House, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
-import { useEffect, useRef, useSyncExternalStore } from "react"
+import { type ReactNode, useEffect, useRef } from "react"
 import { AccountMenu } from "../account/AccountMenu.tsx"
-import type { DesignStore } from "../design-store.ts"
+import { useSaveStatus } from "../project-doc.ts"
 import { homeTab, type Tab, useActiveTabId, useHomeActive, useTabs, workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { AppMenu } from "./AppMenu.tsx"
-import { openNewTab } from "./commands.ts"
+import { PageTabIcon } from "./ExtensionPage.tsx"
 import { Hint } from "./Hint.tsx"
-import { formatKeys } from "./keys.ts"
+import { shortcutOf } from "./keymap.ts"
+import { Name } from "./Name.tsx"
 
 const mac = navigator.userAgent.includes("Mac")
 
@@ -38,22 +40,20 @@ function CloseButton({ tab, selected, unsaved }: { tab: Tab; selected: boolean; 
   )
 }
 
-/** Whether a tab's project has changes that aren't on disk; tabs still opening have none. */
-function useUnsaved(store: DesignStore | undefined): boolean {
-  const status = useSyncExternalStore(store?.subscribe ?? ignore, () => store?.getSaveState().status)
-  return status === "unsaved" || status === "failed"
-}
-
-const ignore = () => () => undefined
-
 /**
  * A project's tab. Its tooltip names the project's folder, and says when the project has unsaved changes; the close
  * button shows that as a dot. It's given the tab's id, so the strip's last props don't keep a closed tab's session.
  */
 function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
   const tab = useTabs().find((candidate) => candidate.id === id)
-  const unsaved = useUnsaved(tab?.session?.store)
-  if (!tab) return null
+  // A save that failed leaves the changes unsaved too.
+  const status = useSaveStatus(tab?.session)
+  const unsaved = status === "unsaved" || status === "failed"
+
+  if (!tab) {
+    return null
+  }
+
   return (
     <Hint
       label={tab.session?.info.root ?? tab.message ?? tab.title}
@@ -76,7 +76,8 @@ function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
       >
         {tab.status === "loading" && <LoaderCircle className="size-3.5 shrink-0 animate-spin" />}
         {tab.status === "error" && <TriangleAlert className="size-3.5 shrink-0 text-destructive" />}
-        <span className="min-w-0 flex-1 truncate">{tab.title}</span>
+        {tab.page && <PageTabIcon page={tab.page} />}
+        <Name className="min-w-0 flex-1">{tab.title}</Name>
         <CloseButton tab={tab} selected={selected} unsaved={unsaved} />
         {selected && <span className="absolute inset-x-0 -bottom-px h-px bg-background" />}
       </div>
@@ -87,11 +88,12 @@ function ProjectTab({ id, selected }: { id: string; selected: boolean }) {
 /** Home, pinned first: just its icon, and it can't be closed. */
 function HomeTab() {
   const selected = useHomeActive()
+
   return (
     <Hint
       label={
         <>
-          Home <Kbd>{formatKeys("Alt Home")}</Kbd>
+          Home <Kbd>{shortcutOf("home")}</Kbd>
         </>
       }
       side="bottom"
@@ -118,9 +120,9 @@ function HomeTab() {
 
 /**
  * The app's menus, then Home and the open tabs, and your account at the end. The strip doubles as the window's title
- * bar; the system's window buttons sit after it.
+ * bar; the system's window buttons sit after it. `account` replaces the account menu, as an exploration does.
  */
-export function TabBar() {
+export function TabBar({ account = <AccountMenu /> }: { account?: ReactNode }) {
   const tabs = useTabs()
   const active = useActiveTabId()
   const strip = useRef<HTMLDivElement>(null)
@@ -145,7 +147,9 @@ export function TabBar() {
       <div
         ref={strip}
         onWheel={(event) => {
-          if (strip.current && event.deltaX === 0) strip.current.scrollLeft += event.deltaY
+          if (strip.current && event.deltaX === 0) {
+            strip.current.scrollLeft += event.deltaY
+          }
         }}
         className="flex min-w-0 items-end gap-0.5 overflow-x-auto [scrollbar-width:none]"
       >
@@ -158,7 +162,7 @@ export function TabBar() {
           render={
             <button
               type="button"
-              onClick={openNewTab}
+              onClick={() => void actions.newTab.run("panel")}
               aria-label="New tab"
               className="mb-1 ml-1 grid size-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground [-webkit-app-region:no-drag]"
             >
@@ -167,10 +171,10 @@ export function TabBar() {
           }
         />
         <TooltipContent>
-          New tab <Kbd>{formatKeys("Ctrl T")}</Kbd>
+          New tab <Kbd>{shortcutOf("newTab")}</Kbd>
         </TooltipContent>
       </Tooltip>
-      <AccountMenu />
+      {account}
     </div>
   )
 }

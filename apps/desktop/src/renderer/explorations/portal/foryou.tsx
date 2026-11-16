@@ -24,20 +24,21 @@ const kindIcons: Record<ActivityKind, typeof AtSign> = {
 }
 
 /** What you can do about each thing from here: the main action, and a second one where there is one. */
-const actions: Record<string, { main: string; also?: string }> = {
-  "jonas-mention": { main: "Reply" },
-  "maya-change": { main: "See what changed" },
-  "cursor-question": { main: "Answer" },
-  "claude-run": { main: "See what changed" },
-  "priya-review": { main: "Review" }
-}
+const actions = new Map<string, { main: string; also?: string }>([
+  ["jonas-mention", { main: "Reply" }],
+  ["maya-change", { main: "See what changed" }],
+  ["cursor-question", { main: "Answer" }],
+  ["claude-run", { main: "See what changed" }],
+  ["priya-review", { main: "Review" }]
+])
 
 /** Something waiting on you, as one line: who did what where, what they said, and what to do about it. */
 function NeedsYouRow({ item }: { item: PortalEvent }) {
   const Icon = kindIcons[item.kind]
-  const action = actions[item.id]!
+  const action = actions.get(item.id)!
   // A board you're building links its pull request, so you can go straight to the code.
   const pr = item.id === "maya-change" ? deliverable("website", "Pricing").code?.pr : undefined
+
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/40">
       <span className="relative h-fit shrink-0">
@@ -86,6 +87,7 @@ const work = needsYou.filter((item) => item.kind !== "invite")
 /** The requests waiting on you, as one line: who's asking for what, and where to answer them. */
 function RequestsRow() {
   const newest = requests[0]!
+
   return (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-muted/40">
       <span className="flex shrink-0 -space-x-2">
@@ -170,6 +172,7 @@ export function ForYouPage() {
             </div>
             {["website", "spawnkit", "dashboard"].map((id) => {
               const shown = portalProject(id)
+
               return (
                 <div key={id} className="flex items-center gap-3">
                   <CanvasArt

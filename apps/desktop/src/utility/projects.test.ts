@@ -1,17 +1,37 @@
+import { writeFileSync } from "node:fs"
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import {
+  type AppStyles,
   type BuilderAdapter,
-  type BuilderProcessSession,
+  type CodeChange,
   type ComponentSource,
+  extensionEntities,
+  extensionRenderer,
   parseCanvasDocument
 } from "@parity-app/core"
-import { reactRenderer } from "@parity-app/renderer-react"
+import { readComponents } from "@parity-app/extension-react"
+import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
+import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
+import { importStoryScreens } from "@parity-app/extension-storybook/screens"
+import type { ProviderCall, ProviderKind } from "@parity-app/extensions"
+import type { BuilderProcessSession } from "@parity-app/processes"
+import { detectContext, projectSource } from "@parity-app/project"
+import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { WindowMethods } from "../shared/protocol.ts"
+import { traceWith } from "../shared/tracing.ts"
 import type { SavedDetection } from "./detection-cache.ts"
-import { type DetectionCache, openProjects, type ProjectAdapters, type WatchFolder } from "./projects.ts"
+import { restartProcess } from "./processes.ts"
+import {
+  type DetectionCache,
+  openProjects,
+  type ProjectAdapters,
+  type ProjectProviders,
+  type ProviderProject,
+  type WatchFolder
+} from "./projects.ts"
 import type { TypeChecker } from "./props.ts"
 
 // The project is a real folder; the builder's process, the type checker's worker and the folder's watcher stand in.
@@ -22,11 +42,12 @@ const sketch = {
   kind: "frame",
   position: { x: 40, y: 80 },
   size: { width: 400, height: 300 },
-  root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "root", children: [{ type: "text", id: "note", text: "Idea" }] }
 }
+
 const parFile = (text: string) =>
-  `${JSON.stringify({ version: 3, containers: [{ ...sketch, name: text }] }, null, 2)}\n`
+  `${JSON.stringify({ version: 4, containers: [{ ...sketch, name: text }] }, null, 2)}\n`
+
 const designs = (name: string) => parseCanvasDocument(JSON.parse(parFile(name)))
 
 let folder: string
@@ -37,41 +58,132 @@ async function write(path: string, contents: string): Promise<void> {
   await writeFile(join(root, path), contents)
 }
 
+/** The steps a test makes the fake builder fail at, and how. */
+interface Failures {
+  detection?: Error
+  start?: Error
+  /** The prepared builder fails to find the stylesheets. */
+  builderStyles?: Error
+}
+
+/** What the fake builder says the app loads: its extension's answer, and its prepared build tool's. */
+interface FakeStyles {
+  styles: AppStyles
+  builderStyles?: AppStyles
+}
+
+/** What a test runs as the fake builder starts. */
+interface BuilderHooks {
+  /** Runs as the builder starts, once detection has read the project. */
+  starting?: () => void
+  /** The builder can't serve its guest restyled (`restyledGuestUrl`), so a stylesheet's change starts it again. */
+  noRestyle?: boolean
+  /** Detection finds the builder once this settles, as loading a project's config takes a while. */
+  detecting?: Promise<void>
+}
+
 /** A builder that serves at the port it's given, and what it was asked. */
 function fakeBuilder() {
   const started: number[] = []
   const closed: string[] = []
+  const crashes: Parameters<ProjectAdapters["startBuilder"]>[1]["onCrash"][] = []
+  const codeChanges: Parameters<ProjectAdapters["startBuilder"]>[1]["onCodeChange"][] = []
+  const failures: Failures = {}
+  const hooks: BuilderHooks = {}
+  const none: AppStyles = { styles: [], packageStyles: [], from: ["src/main.tsx"] }
+  /**
+   * What it says the app loads, which a test changes as a change to the app's root would: its extension's answer, and
+   * the prepared builder's (PAR-1182), which a builder that doesn't prepare leaves unset.
+   */
+  const loads: FakeStyles = { styles: none }
+
   const builder: BuilderAdapter = {
     id: "fake",
     name: "Fake builder",
-    detect: () => Promise.resolve({ found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }),
+    watches: ["fake.config.ts"],
+    detect: async () => {
+      await hooks.detecting
+
+      if (failures.detection) {
+        throw failures.detection
+      }
+
+      return { found: true, version: "1.0.0", summary: "Fake builder 1.0.0" }
+    },
+    styles: () => Promise.resolve(loads.styles),
     start: () => Promise.reject(new Error("started in its own process"))
   }
-  const startBuilder: ProjectAdapters["startBuilder"] = (options) => {
+
+  const startBuilder: ProjectAdapters["startBuilder"] = (options, { onCrash, onCodeChange }) => {
     const port = options.port!
     started.push(port)
+    hooks.starting?.()
+    crashes.push(onCrash)
+    codeChanges.push(onCodeChange)
+
     const session: BuilderProcessSession = {
       guestUrl: `http://localhost:${port}/@parity/guest.js`,
       toolVersion: "1.0.0",
       close: () => {
         closed.push(session.guestUrl)
+
         return Promise.resolve()
       },
       setComponents: () => undefined,
-      usage: () => Promise.resolve(undefined)
+      usage: () => Promise.resolve(undefined),
+      loadedFiles: () => Promise.resolve(undefined)
     }
-    return { pid: 1, session: Promise.resolve(session) }
+
+    if (!hooks.noRestyle) {
+      session.restyledGuestUrl = (stamp) => Promise.resolve(`${session.guestUrl}?styles=${stamp}`)
+    }
+
+    // As a builder process does, it starts once the project's config is known, and its prepared build tool may say
+    // which stylesheets the app loads before then.
+    const config = Promise.resolve(options.config)
+
+    return {
+      pid: 1,
+      // One whose config never comes, as when detection fails, has its process closed.
+      session: failures.start
+        ? Promise.reject(failures.start)
+        : config.then(
+            () => session,
+            async (cause: unknown) => {
+              await session.close()
+              throw cause
+            }
+          ),
+      styles: () =>
+        failures.builderStyles ? Promise.reject(failures.builderStyles) : Promise.resolve(loads.builderStyles)
+    }
   }
-  return { builder, startBuilder, started, closed }
+
+  /** Crashes the builder started last, as its process stopping by itself does. */
+  const crash = (exitCode: number, output: string) =>
+    crashes.at(-1)?.(`Fake builder stopped by itself, with exit code ${exitCode}`, { exitCode, output })
+
+  /** Makes the builder fail from now on with this error: reading the project's config, starting, or finding stylesheets. */
+  const fail = (at: keyof Failures, error: Error) => {
+    failures[at] = error
+  }
+
+  /** Says files changed, as the builder started last does when they're saved. */
+  const changeCode = (change: CodeChange) => codeChanges.at(-1)?.(change)
+
+  return { builder, startBuilder, started, closed, crash, fail, changeCode, hooks, loads }
 }
 
 /** A watcher whose changes the test reports, as `fs.watch` reports them: names relative to the folder. */
 function fakeWatcher() {
   const watching = new Map<string, (event: string, name: string | null) => void>()
+
   const watch: WatchFolder = (watched, _options, listener) => {
     watching.set(watched, listener)
+
     return { close: () => watching.delete(watched) }
   }
+
   return { watch, change: (name: string) => watching.get(root)?.("change", name), watching }
 }
 
@@ -79,35 +191,90 @@ function fakeWatcher() {
 function memoryDetections(): DetectionCache & { kept: Map<string, SavedDetection> } {
   const kept = new Map<string, SavedDetection>()
   const fingerprintOf = (sources: Record<string, ComponentSource>) => JSON.stringify(sources)
+
   return {
     kept,
     saved: (at, _files, discovered) => {
       const fingerprint = fingerprintOf(discovered)
       const saved = kept.get(at)
+
       return Promise.resolve(saved?.fingerprint === fingerprint ? { fingerprint, saved } : { fingerprint })
     },
     save: (at, _files, _discovered, fingerprint, found) => {
       kept.set(at, { fingerprint, ...found })
+
       return Promise.resolve()
     }
   }
 }
 
-function setUp(environment: ProjectAdapters["environment"] = {}) {
+function setUp(
+  environment: ProjectAdapters["environment"] = {},
+  unsupported?: ProjectAdapters["unsupported"],
+  /** Builders listed before the fake one, as Rspack's is before Rsbuild's. */
+  earlier: BuilderAdapter[] = []
+) {
   const builder = fakeBuilder()
+  const builders = [...earlier, builder.builder]
+  const builderOf = (extension?: string) => builders.find(({ id }) => id === (extension ?? builder.builder.id))
   const watcher = fakeWatcher()
   const detections = memoryDetections()
+
   const checker = {
     inferComponents: vi.fn<TypeChecker["inferComponents"]>(() => Promise.resolve({})),
     checkComponents: vi.fn<TypeChecker["checkComponents"]>(() => Promise.resolve({ components: [], leftOut: [] })),
     closeChecker: vi.fn<TypeChecker["closeChecker"]>()
   }
+
   const fileChanged: WindowMethods["project.fileChanged"]["params"][] = []
+  const moves: WindowMethods["project.guestMoved"]["params"][] = []
+  const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
+
+  // React's renderer reads components here, and each builder says whether it serves the project and which stylesheets
+  // the app loads, as their extensions' hosts do in the app.
+  const answer = async (project: ProviderProject, call: ProviderCall, extension?: string) => {
+    switch (call.kind) {
+      case "renderer":
+        return readComponents(call.params.files)
+      case "builder": {
+        const asked = builderOf(extension)
+        const context = detectContext(project.root, project.pkg)
+
+        return call.method === "styles" ? asked?.styles?.(context) : asked?.detect(context)
+      }
+
+      case "entities":
+        return call.method === "import"
+          ? importStoryScreens(projectSource(project.root, call.params.components))
+          : undefined
+      default:
+        return undefined
+    }
+  }
+
+  const owners: Partial<Record<ProviderKind, { id: string; name: string }>> = {
+    renderer: { id: "react", name: "React" },
+    builder: { id: builder.builder.id, name: builder.builder.name },
+    entities: { id: "storybook", name: "Storybook" }
+  }
+
+  const providers: ProjectProviders = {
+    // SAFETY: each call is answered as its kind's provider answers it; the rest have no provider here.
+    call: (project, call, extension) => answer(project, call, extension) as never,
+    owner: (_project, kind, extension) => {
+      const asked = kind === "builder" ? builderOf(extension) : undefined
+
+      return asked ? { id: asked.id, name: asked.name } : owners[kind]
+    },
+    decorators: () => []
+  }
+
   const projects = openProjects({
-    renderers: [reactRenderer],
-    builders: [builder.builder],
-    styles: [],
+    renderers: [extensionRenderer(reactPackage)!],
+    entities: [extensionEntities(storybookPackage)!],
+    providers,
+    builders,
     startBuilder: builder.startBuilder,
     watch: watcher.watch,
     checker,
@@ -116,11 +283,19 @@ function setUp(environment: ProjectAdapters["environment"] = {}) {
     listeners: {
       fileChanged: (change) => fileChanged.push(change),
       componentsChanged: () => undefined,
-      guestMoved: () => Promise.resolve(true)
+      codeChanged: () => undefined,
+      guestMoved: (move) => {
+        moves.push(move)
+
+        return Promise.resolve(true)
+      },
+      detectionChanged: (change) => detectionChanged.push(change)
     },
-    environment
+    environment,
+    unsupported
   })
-  return { projects, builder, watcher, detections, checker, fileChanged }
+
+  return { projects, builder, watcher, detections, checker, fileChanged, moves, detectionChanged }
 }
 
 beforeEach(async () => {
@@ -152,7 +327,7 @@ describe("opening a project", () => {
       mainDocument: "shop.par",
       modes: { custom: false }
     })
-    expect(info.documents).toEqual([{ path: "shop.par", document: expect.objectContaining({ version: 3 }) }])
+    expect(info.documents).toEqual([{ path: "shop.par", document: expect.objectContaining({ version: 4 }) }])
     expect(Object.keys(info.sources)).toContain("Button")
     expect(projects.roots()).toEqual([root])
     // Asked again while it's open, it's the same project, served by the same builder.
@@ -171,6 +346,50 @@ describe("opening a project", () => {
     expect(checker.checkComponents).toHaveBeenCalledTimes(1)
   })
 
+  it("starts the builder whose config file is there before detection confirms it, and serves from that one", async () => {
+    await write("fake.config.ts", "export default {}")
+    const { projects, builder } = setUp()
+    const confirmed = Promise.withResolvers<void>()
+    builder.hooks.detecting = confirmed.promise
+    const opening = projects.open(root)
+    // Reading the project before the builder starts goes through its renderer's provider, which CI's Windows runners can
+    // take more than the default second over.
+    await vi.waitFor(() => expect(builder.started).toEqual([5100]), { timeout: 5_000 })
+
+    confirmed.resolve()
+    expect((await opening).guestUrl).toBe("http://localhost:5100/@parity/guest.js")
+    expect(builder.started).toEqual([5100])
+  })
+
+  it("closes a builder it started early when detection can't confirm it", async () => {
+    await write("fake.config.ts", "export default {}")
+    const { projects, builder } = setUp()
+    builder.fail("detection", new Error("The config didn't load"))
+    await expect(projects.open(root)).rejects.toThrow("The config didn't load")
+
+    expect(builder.started).toEqual([5100])
+    await vi.waitFor(() => expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"]))
+  })
+
+  it("takes the app's stylesheets from the builder it started early, without loading the config again", async () => {
+    await write("fake.config.ts", "export default {}")
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    const { projects, builder } = setUp()
+    builder.loads.builderStyles = { styles: ["src/styles/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+
+    expect((await projects.open(root)).notes).toContain("styles the builder found: src/styles/app.css")
+  })
+
+  it("asks the builder's extension for the stylesheets when the builder it started early can't say", async () => {
+    await write("fake.config.ts", "export default {}")
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    const { projects, builder } = setUp()
+    builder.loads.styles = { styles: ["src/styles/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+    builder.fail("builderStyles", new Error("Its walk failed"))
+
+    expect((await projects.open(root)).notes).toContain("styles the builder found: src/styles/app.css")
+  })
+
   it("takes its root from the project Parity was started with, read when the projects are made", () => {
     const { projects } = setUp({ PARITY_PROJECT: root })
     expect(projects.rootFor(undefined)).toBe(root)
@@ -178,7 +397,190 @@ describe("opening a project", () => {
   })
 })
 
+describe("what opening a project records", () => {
+  let sink: TestSink
+
+  beforeEach(() => {
+    sink = createTestSink()
+    traceWith(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "service", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+  })
+
+  const attributes = (name: string) => sink.named(name).map((event) => event.attributes)
+
+  it("records the project, how long each step took and what it found, and detection as a span", async () => {
+    await write("node_modules/react/package.json", JSON.stringify({ name: "react", version: "19.1.0" }))
+    await write("node_modules/typescript/package.json", JSON.stringify({ name: "typescript", version: "5.9.2" }))
+    const { projects } = setUp()
+    await projects.open(root)
+
+    expect(attributes("project.opened")).toEqual([
+      {
+        name: "shop",
+        root,
+        reopen: false,
+        cached: false,
+        framework: "react",
+        builder: "fake",
+        durationMs: expect.any(Number),
+        detectionMs: expect.any(Number),
+        builderMs: expect.any(Number),
+        tools: { react: "19.1.0", typescript: "5.9.2" },
+        components: 1,
+        designs: 1,
+        tokens: 0,
+        libraries: 0
+      }
+    ])
+    expect(attributes("project.detected")).toEqual([{ root }])
+    expect(attributes("builder.ready")).toEqual([
+      { builder: "Fake builder", durationMs: expect.any(Number), restart: false }
+    ])
+  })
+
+  it("records a reopen as Parity starts, and one that took the last detection", async () => {
+    const { projects, detections } = setUp()
+    await projects.open(root)
+    await vi.waitFor(() => expect(detections.kept.has(root)).toBe(true))
+    await projects.close(root)
+    await projects.open(root, { reopen: true })
+
+    expect(attributes("project.opened").map(({ reopen, cached }) => ({ reopen, cached }))).toEqual([
+      { reopen: false, cached: false },
+      { reopen: true, cached: true }
+    ])
+    expect(attributes("project.closed")).toEqual([{ name: "shop", root, openMs: expect.any(Number) }])
+  })
+
+  it("records a project that can't open, with the step that failed", async () => {
+    const { projects } = setUp()
+    await rm(join(root, "package.json"))
+    await expect(projects.open(root)).rejects.toThrow("There's no package.json")
+
+    expect(attributes("project.openFailed")).toEqual([
+      {
+        name: "shop",
+        root,
+        reopen: false,
+        durationMs: expect.any(Number),
+        step: "detection",
+        message: `There's no package.json in ${root}`
+      }
+    ])
+    expect(sink.named("project.opened")).toEqual([])
+  })
+
+  it.each([
+    { at: "detection", step: "detection" },
+    { at: "start", step: "builder" }
+  ] as const)("records the tools' versions when the builder fails at $at", async ({ at, step }) => {
+    await write("node_modules/react/package.json", JSON.stringify({ name: "react", version: "19.1.0" }))
+    await write("node_modules/typescript/package.json", JSON.stringify({ name: "typescript", version: "5.9.2" }))
+    const { projects, builder } = setUp()
+    builder.fail(at, new Error("The builder failed"))
+    await expect(projects.open(root)).rejects.toThrow("The builder failed")
+
+    expect(attributes("project.openFailed")).toEqual([
+      expect.objectContaining({ step, framework: "react", tools: { react: "19.1.0", typescript: "5.9.2" } })
+    ])
+  })
+
+  it("records a builder that crashed, with its exit code and output, and starting it again", async () => {
+    const { projects, builder } = setUp()
+    await projects.open(root)
+    builder.crash(1, "Starting\nError: out of memory\n")
+    await restartProcess({ id: `builder:${root}` })
+
+    expect(attributes("builder.crashed")).toEqual([
+      { builder: "Fake builder", exitCode: 1, output: "Starting\nError: out of memory" }
+    ])
+    expect(attributes("builder.restarted")).toEqual([
+      { builder: "Fake builder", durationMs: expect.any(Number), outcome: "ok" }
+    ])
+    expect(attributes("builder.ready").map(({ restart }) => restart)).toEqual([false, true])
+  })
+})
+
+describe("an open project's stylesheets", () => {
+  it("serve its guest from a new address when one changes, which the windows load and bitmaps are named by", async () => {
+    const { projects, builder, moves } = setUp()
+    const { guestUrl } = await projects.open(root)
+
+    // A component's code changing loads only its components again, from the guest the windows have.
+    builder.changeCode({ paths: ["src/Button.tsx"], stamp: 7 })
+    await new Promise((done) => setTimeout(done, 50))
+    expect(moves).toEqual([])
+
+    builder.changeCode({ paths: [], stamp: 8, styles: true })
+    const restyled = `${guestUrl}?styles=8`
+    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: restyled }]))
+    expect((await projects.open(root)).guestUrl).toBe(restyled)
+    expect(projects.codeServedAt(root, restyled)).toBeDefined()
+
+    // Started again on the same port, the builder serves the guest where the windows already draw it.
+    await restartProcess({ id: `builder:${root}` })
+    expect(builder.started).toEqual([5100, 5100])
+    expect((await projects.open(root)).guestUrl).toBe(restyled)
+    expect(moves).toHaveLength(1)
+  })
+
+  it("start a builder that can't serve its guest restyled again on a new port when one changes", async () => {
+    const { projects, builder, moves } = setUp()
+    builder.hooks.noRestyle = true
+    await projects.open(root)
+
+    builder.changeCode({ paths: [], stamp: 8, styles: true })
+    const moved = "http://localhost:5101/@parity/guest.js"
+    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: moved }]))
+    expect(builder.started).toEqual([5100, 5101])
+    expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"])
+    expect((await projects.open(root)).guestUrl).toBe(moved)
+    expect(projects.codeServedAt(root, moved)).toBeDefined()
+  })
+})
+
+describe("a project Parity doesn't support", () => {
+  function recorded() {
+    const sink = createTestSink()
+
+    const telemetry = createTelemetry({
+      events: registeredEvents,
+      context: { process: "service", installId: "install", sessionId: "session" },
+      sinks: [sink],
+      check: true
+    })
+
+    const { projects } = setUp({}, (reason, detail) => telemetry.track("project.unsupported", { reason, detail }))
+
+    return { projects, unsupported: () => sink.named("project.unsupported").map((event) => event.attributes) }
+  }
+
+  it("records that it has no package.json", async () => {
+    const { projects, unsupported } = recorded()
+    await rm(join(root, "package.json"))
+    await expect(projects.open(root)).rejects.toThrow("There's no package.json")
+    expect(unsupported()).toEqual([{ reason: "no_package", detail: `There's no package.json in ${root}` }])
+  })
+
+  it("records that no renderer supports its framework", async () => {
+    const { projects, unsupported } = recorded()
+    await write("package.json", JSON.stringify({ name: "shop", dependencies: { vue: "^3.0.0" } }))
+    await expect(projects.open(root)).rejects.toThrow("No renderer supports shop")
+    expect(unsupported()).toEqual([{ reason: "no_renderer", detail: "No renderer supports shop" }])
+  })
+})
+
 describe("an open project's files", () => {
+  // The watcher waits 400 ms after a change, then reads the project from disk, which a loaded CI runner can take most of
+  // waitFor's default second over.
+  const detected = { timeout: 5_000 }
+
   it("tell the windows about a project file changed outside the canvas, but not about the canvas's own saves", async () => {
     const { projects, watcher, fileChanged } = setUp()
     await projects.open(root)
@@ -197,6 +599,87 @@ describe("an open project's files", () => {
     expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Saved from the canvas")
   })
 
+  it("tell the windows when the builder names other stylesheets, so they open the project again", async () => {
+    const { projects, watcher, detectionChanged, builder } = setUp()
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    expect((await projects.open(root)).notes).toContain("the builder found no global stylesheets the app loads")
+
+    // A file the builder's answer didn't come from changes nothing.
+    await write("src/styles/app.css", ":root { --primary: blue; }")
+    watcher.change("src/styles/app.css")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
+
+    builder.loads.styles = { styles: ["src/styles/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+    await write("src/main.tsx", 'import "./styles/app.css"')
+    expect(await projects.detectAgain(root)).toBe(true)
+    watcher.change("src/main.tsx")
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+
+    // A moment without package.json, as while it's rewritten, isn't a change.
+    const manifest = await readFile(join(root, "package.json"), "utf8")
+    await rm(join(root, "package.json"))
+    expect(await projects.detectAgain(root)).toBe(false)
+    await write("package.json", manifest)
+
+    // Opened again, it has the stylesheets the builder names now.
+    await projects.close(root)
+    expect((await projects.open(root)).notes).toContain("styles the builder found: src/styles/app.css")
+    expect(await projects.detectAgain(root)).toBe(false)
+  })
+
+  it("tell the windows when a config file a registered builder names is added, and not one no builder names", async () => {
+    const { projects, watcher, detectionChanged } = setUp()
+    await projects.open(root)
+
+    await write("vite.config.ts", "export default {}")
+    watcher.change("vite.config.ts")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
+
+    await write("fake.config.ts", "export default {}")
+    watcher.change("fake.config.ts")
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+  })
+
+  it("tell the windows when what detection reads changed while the project opened", async () => {
+    const { projects, detectionChanged, builder } = setUp()
+
+    builder.hooks.starting = () => {
+      writeFileSync(join(root, "src/styles.css"), ":root { --primary: red; }")
+      builder.loads.styles = { styles: ["src/styles.css"], packageStyles: [], from: ["src/main.tsx"] }
+    }
+
+    await projects.open(root)
+    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+  })
+
+  it("open with the stylesheets of the builder that serves it, though one listed first watches its config too", async () => {
+    // As Rspack's extension watches rsbuild.config.ts, and is listed first, but leaves the project to Rsbuild.
+    const declines: BuilderAdapter = {
+      id: "declines",
+      name: "Declining builder",
+      watches: ["fake.config.ts"],
+      detect: () => Promise.resolve({ found: false, summary: "fake.config.ts is here, so the fake builder builds it" }),
+      start: () => Promise.reject(new Error("started in its own process"))
+    }
+
+    const { projects, builder, detectionChanged } = setUp({}, undefined, [declines])
+    await write("fake.config.ts", "export default {}")
+    await write("src/styles.css", ":root { --primary: red; }")
+    builder.loads.styles = { styles: ["src/styles.css"], packageStyles: [], from: ["src/main.tsx"] }
+
+    const info = await projects.open(root)
+    expect(info.builder.id).toBe("fake")
+    expect(info.notes).toContain("styles the builder found: src/styles.css")
+    expect(await projects.detectAgain(root)).toBe(false)
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
+  })
+
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {
     const { projects } = setUp()
     await projects.open(root)
@@ -209,6 +692,28 @@ describe("an open project's files", () => {
     )
     await projects.saveDocument({ projectId: root, path: "more.par", document })
     expect((await projects.open(root)).documents.map((entry) => entry.path)).toContain("more.par")
+  })
+
+  it("are saved in the order they were made, each known as the canvas's own once it's on disk", async () => {
+    const { projects, watcher, fileChanged } = setUp()
+    await projects.open(root)
+
+    await Promise.all(
+      ["First", "Second", "Third"].map((name) =>
+        projects.saveDocument({ projectId: root, path: "shop.par", document: designs(name) })
+      )
+    )
+    watcher.change("shop.par")
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(fileChanged).toHaveLength(0)
+    expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Third")
+
+    // shop.par is a file, so nothing can be saved inside it, and what wasn't written isn't known.
+    await expect(
+      projects.saveDocument({ projectId: root, path: "shop.par/more.par", document: designs("Lost") })
+    ).rejects.toThrow(/EEXIST|ENOTDIR/)
+    expect(projects.get(root).known.has("shop.par/more.par")).toBe(false)
   })
 })
 

@@ -1,7 +1,16 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
-import { type ContainerSpec, findNode, mapNode, type ModeSettings, shownModes } from "@parity-app/core"
-import { kindName } from "@parity-app/editor"
+import {
+  type ContainerSpec,
+  designStates,
+  findNode,
+  mapNode,
+  type ModeSettings,
+  shownModes,
+  tokenColor
+} from "@parity-app/core"
+import { kindName, type Selection } from "@parity-app/editor"
+import { containerEntry, updateContainer, updateView } from "@parity-app/multiplayer"
 import {
   ArrowUpRight,
   ChevronRight,
@@ -17,68 +26,18 @@ import {
   TriangleAlert,
   Undo2
 } from "lucide-react"
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { useEffect, useState } from "react"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, NodeIcon, nodeColor } from "../canvas/kinds.tsx"
 import { setTabOrderShown, useTabOrderShown } from "../canvas/tab-order.ts"
-import { type ContainerEntry, useContainerEntry, useHistory, useModeSettings } from "../design-store.ts"
+import { type ContainerEntry, undo, useContainerEntry, useHistory, useModeSettings } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
-import { request } from "../service.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { type Check, checksOf, findingsOf, useCheck } from "./accessibility-checks.ts"
 import { ruleWords } from "./accessibility-rules.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
+import { Name } from "./Name.tsx"
 import { PanelError } from "./PanelError.tsx"
-
-/** A check of one design, kept with what it checked so a later change shows it's out of date. */
-type Check = { container: ContainerSpec; modes: ModeSettings } &
-  /** Checking again keeps the last check's findings, to show faded until this one's arrive. */
-  (
-    | { status: "checking"; previous?: DoneCheck }
-    | { status: "done"; findings: AccessibilityFinding[]; frames: number; warnings: string[] }
-    | { status: "failed"; error: string }
-  )
-type DoneCheck = Extract<Check, { status: "done" }>
-
-const checks = new Map<string, Check>()
-const listeners = new Set<() => void>()
-const checkKey = (session: ProjectSession, design: string) => `${session.id}\n${design}`
-
-function setCheck(key: string, check: Check): void {
-  checks.set(key, check)
-  for (const listener of listeners) listener()
-}
-
-function useCheck(key: string): Check | undefined {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    () => checks.get(key)
-  )
-}
-
-/** The findings to show for a check: its own, or while it checks again, the last check's. */
-function findingsOf(check: Check | undefined): DoneCheck | undefined {
-  if (check?.status === "done") return check
-  if (check?.status === "checking") return check.previous
-  return undefined
-}
-
-/** Renders the design offscreen in every state and shown mode, and checks each frame with axe-core. */
-async function runCheck(session: ProjectSession, entry: ContainerEntry): Promise<void> {
-  const key = checkKey(session, entry.key)
-  const checked = { container: entry.container, modes: session.store.getModes() }
-  const previous = findingsOf(checks.get(key))
-  setCheck(key, { ...checked, status: "checking", ...(previous ? { previous } : {}) })
-  try {
-    const result = await request("accessibility.check", { projectId: session.id, design: entry.key })
-    setCheck(key, { ...checked, status: "done", ...result })
-  } catch (error) {
-    setCheck(key, { ...checked, status: "failed", error: error instanceof Error ? error.message : String(error) })
-  }
-}
 
 const impactOrder: AccessibilityImpact[] = ["critical", "serious", "moderate", "minor"]
 
@@ -112,11 +71,13 @@ interface RuleGroup {
 
 function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
   const groups = new Map<string, RuleGroup & { byNode: Map<string, LayerGroup> }>()
+
   for (const finding of findings) {
     let group = groups.get(finding.rule)
+
     if (!group) {
       const { rule, impact, help, helpUrl } = finding
-      const words = ruleWords[rule]
+      const words = ruleWords.get(rule)
       group = {
         rule,
         impact,
@@ -128,25 +89,40 @@ function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
       }
       groups.set(finding.rule, group)
     }
+
     // A layer's problem can differ by frame, such as its contrast in dark mode, so each problem is its own entry.
     const key = `${finding.node ?? ""}\n${finding.detail}`
     let layer = group.byNode.get(key)
+
     if (!layer) {
       const { name, detail, contrast } = finding
-      layer = { nodes: finding.node ? [finding.node] : [], name, detail, ...(contrast ? { contrast } : {}), frames: [] }
+      layer = { nodes: finding.node ? [finding.node] : [], name, detail, frames: [] }
+
+      if (contrast) {
+        layer.contrast = contrast
+      }
+
       group.byNode.set(key, layer)
     }
+
     layer.frames.push({ state: finding.state, mode: finding.mode })
   }
+
   return [...groups.values()]
     .map(({ byNode, ...group }) => {
       const alike = new Map<string, LayerGroup>()
+
       for (const layer of byNode.values()) {
         const same = JSON.stringify([layer.name, layer.detail, layer.frames])
         const existing = alike.get(same)
-        if (existing) existing.nodes.push(...layer.nodes)
-        else alike.set(same, layer)
+
+        if (existing) {
+          existing.nodes.push(...layer.nodes)
+        } else {
+          alike.set(same, layer)
+        }
       }
+
       return { ...group, layers: [...alike.values()] }
     })
     .sort((a, b) => impactOrder.indexOf(a.impact) - impactOrder.indexOf(b.impact) || b.layers.length - a.layers.length)
@@ -154,42 +130,53 @@ function groupFindings(findings: AccessibilityFinding[]): RuleGroup[] {
 
 /** The Accessibility tab: automated checks of the selected design, in every state and the modes it shows. */
 export function AccessibilityPanel() {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
+
   if (!entry) {
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-6 py-12 text-center text-sm text-muted-foreground">
+      <div className="type-empty flex min-h-0 flex-1 flex-col items-center gap-2 overflow-y-auto px-6 py-12 text-center text-muted-foreground">
         <MousePointerClick className="size-5" />
         Select a screen or component to check it.
         <span className="text-xs">Every state and mode is checked.</span>
       </div>
     )
   }
+
   return <DesignCheck entry={entry} />
 }
 
 function DesignCheck({ entry }: { entry: ContainerEntry }) {
   const session = useProject()
-  const modes = useModeSettings(session.store)
-  const key = checkKey(session, entry.key)
-  const check = useCheck(key)
+  const modes = useModeSettings(session)
+  const check = useCheck(session, entry.key)
   const { container } = entry
 
   // The first look at a design checks it; after that, checking again is the person's call.
   useEffect(() => {
-    if (!checks.has(key)) void runCheck(session, entry)
-  }, [entry, key, session])
+    const checks = checksOf(session)
+
+    if (!checks.get(entry.key)) {
+      void checks.run(entry)
+    }
+  }, [entry, session])
 
   const checking = check?.status === "checking"
   const stale = check?.status === "done" && changedSince(check, container, modes)
   // While checking again, the last check's findings show faded, like out-of-date ones.
   const shown = findingsOf(check)
   let refreshLabel = "Check again"
-  if (checking) refreshLabel = "Checking"
-  else if (stale) refreshLabel = "Check again, out of date"
+
+  if (checking) {
+    refreshLabel = "Checking"
+  } else if (stale) {
+    refreshLabel = "Check again, out of date"
+  }
+
   const faded = stale || (checking && !!shown)
-  const checkAgain = () => void runCheck(session, entry)
+  const checkAgain = () => void checksOf(session).run(entry)
+
   return (
     <>
       {/* The findings scroll above the note, which stays at the panel's foot. */}
@@ -200,7 +187,8 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
             className="size-4 shrink-0"
             style={{ color: designColor(container.kind) }}
           />
-          <span className="min-w-0 flex-1 truncate text-sm font-medium">{container.name}</span>
+          {/* The selection's title, as the Design tab shows it, so switching tabs doesn't resize it. */}
+          <Name className="min-w-0 flex-1 text-base font-semibold">{container.name}</Name>
           {shown && shown.findings.length > 0 && (
             <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
               {shown.frames === 1 ? "1 preview" : `${shown.frames} previews`}
@@ -228,7 +216,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
           </div>
         )}
         {checking && !shown && (
-          <div className="flex flex-col items-center gap-2 px-6 py-10 text-center text-sm text-muted-foreground">
+          <div className="type-empty flex flex-col items-center gap-2 px-6 py-10 text-center text-muted-foreground">
             <LoaderCircle className="size-5 animate-spin" />
             Checking every state and mode
           </div>
@@ -254,7 +242,7 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
         )}
       </div>
       {shown && (
-        <p className="flex shrink-0 items-start gap-2 border-t px-4 py-3 text-xs leading-relaxed text-muted-foreground">
+        <p className="type-description flex shrink-0 items-start gap-2 border-t px-4 py-3 text-muted-foreground">
           <Info className="mt-0.5 size-3.5 shrink-0" />
           <span>Automated checks miss some issues. Try a keyboard and a screen reader too.</span>
         </p>
@@ -270,8 +258,10 @@ function DesignCheck({ entry }: { entry: ContainerEntry }) {
 function changedSince(check: Check, container: ContainerSpec, modes: ModeSettings): boolean {
   const shown = (settings: ModeSettings, design: ContainerSpec) => {
     const { main, beside } = shownModes(settings, design)
+
     return [main, ...beside].map((mode) => mode.id).join(" ")
   }
+
   return (
     check.container.root !== container.root ||
     check.container.states !== container.states ||
@@ -283,6 +273,7 @@ function changedSince(check: Check, container: ContainerSpec, modes: ModeSetting
 /** Shows the order Tab moves through the design, numbered on the canvas. */
 function TabOrderSwitch() {
   const shown = useTabOrderShown()
+
   return (
     <div className="flex items-center gap-2 border-b px-4 py-2">
       <Keyboard className="size-3.5 shrink-0 text-muted-foreground" />
@@ -300,32 +291,51 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
   const shown = shownModes(check.modes, check.container)
   const modes = [shown.main, ...shown.beside]
   const modeName = (id: string) => modes.find((mode) => mode.id === id)?.name ?? id
-  const stateName = (id: string) => check.container.states.find((state) => state.id === id)?.name ?? id
+  const states = designStates(check.container)
+  const stateName = (id: string) => states.find((state) => state.id === id)?.name ?? id
+
   // Name only what varies: the states when there's one mode, the modes when there's one state.
   const frameName = ({ state, mode }: Frame) => {
-    if (modes.length === 1) return stateName(state)
-    if (check.container.states.length === 1) return modeName(mode)
+    if (modes.length === 1) {
+      return stateName(state)
+    }
+
+    if (states.length === 1) {
+      return modeName(mode)
+    }
+
     return `${stateName(state)} in ${modeName(mode)}`
   }
+
   let every = "Every state and mode"
-  if (modes.length === 1) every = "Every state"
-  else if (check.container.states.length === 1) every = "Every mode"
+
+  if (modes.length === 1) {
+    every = "Every state"
+  } else if (states.length === 1) {
+    every = "Every mode"
+  }
+
   const frames = check.frames === 1 ? "1 preview" : `${check.frames} previews`
+
   const toggle = (rule: string) =>
     setCollapsed((current) => {
       const next = new Set(current)
-      if (!next.delete(rule)) next.add(rule)
+
+      if (!next.delete(rule)) {
+        next.add(rule)
+      }
+
       return next
     })
 
   return (
     <div className="text-sm">
       {groups.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 px-6 py-10 text-center">
+        <div className="type-empty flex flex-col items-center gap-2 px-6 py-10 text-center text-muted-foreground">
           <span className="grid size-9 place-items-center rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
             <CircleCheck className="size-5" />
           </span>
-          <span className="font-medium">No issues found</span>
+          <span className="font-medium text-foreground">No issues found</span>
           <span className="text-xs text-muted-foreground">{frames} checked, in every state and mode.</span>
         </div>
       ) : (
@@ -345,7 +355,7 @@ function Findings({ entry, check }: { entry: ContainerEntry; check: Extract<Chec
         />
       ))}
       {check.warnings.map((warning) => (
-        <p key={warning} className="flex items-start gap-2 px-4 py-2 text-xs text-destructive">
+        <p key={warning} className="type-message flex items-start gap-2 px-4 py-2 text-destructive">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
           {warning}
         </p>
@@ -364,16 +374,18 @@ function ImpactTally({ groups }: { groups: RuleGroup[] }) {
       {impactOrder.map((impact) => {
         const count = groups.filter((group) => group.impact === impact).length
         const { icon: Icon, label, tone } = impactLooks[impact]
+
         return (
           <li
             key={impact}
             className={`flex flex-col items-center gap-0.5 py-2.5 ${count === 0 ? "text-muted-foreground/50" : tone}`}
           >
-            <span className="flex items-center gap-1 text-base leading-none font-semibold tabular-nums">
+            {/* A Figure: a number read at a glance. */}
+            <span className="flex items-center gap-1 text-base font-semibold tabular-nums">
               <Icon className="size-3.5" aria-hidden />
               {count}
             </span>
-            <span className={`text-[11px] ${count === 0 ? "" : "text-muted-foreground"}`}>{label}</span>
+            <span className={`text-2xs ${count === 0 ? "" : "text-muted-foreground"}`}>{label}</span>
           </li>
         )
       })}
@@ -404,6 +416,7 @@ function RuleSection({
 }) {
   const { icon: Icon, label, tone } = impactLooks[group.impact]
   const layers = group.layers.reduce((count, layer) => count + Math.max(layer.nodes.length, 1), 0)
+
   return (
     <section className="border-b">
       <button
@@ -413,19 +426,23 @@ function RuleSection({
         onClick={onToggle}
       >
         <ChevronRight
-          className={`mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
+          className={`size-4 shrink-0 text-muted-foreground transition-transform ${open ? "rotate-90" : ""}`}
         />
-        <Icon className={`mt-0.5 size-4 shrink-0 ${tone}`} aria-label={label} />
-        <span className="min-w-0 flex-1 pl-0.5 text-[13px] leading-snug font-medium">{group.title}</span>
+        <Icon className={`size-4 shrink-0 ${tone}`} aria-label={label} />
+        {/*
+         * Each rule is one of the panel's sections, so its title is a section title's lead tone, semibold in the text
+         * color. PanelSectionTitle can't hold the impact's icon in its fold, so its classes are matched here.
+         */}
+        <span className="min-w-0 flex-1 pl-0.5 text-xs font-semibold">{group.title}</span>
         {!open && (
-          <span className="mt-px shrink-0 text-xs text-muted-foreground tabular-nums">
+          <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
             {layers === 1 ? "1 layer" : `${layers} layers`}
           </span>
         )}
       </button>
       {open && (
         <div className="pr-4 pb-3 pl-[46px]">
-          {group.why && <p className="text-xs leading-normal text-muted-foreground">{group.why}</p>}
+          {group.why && <p className="type-description text-muted-foreground">{group.why}</p>}
           <ul className="mt-2 flex flex-col gap-0.5">
             {group.layers.map((layer) => (
               <LayerRow
@@ -474,29 +491,35 @@ function LayerRow({
   every: string
   frameName: (frame: Frame) => string
 }) {
-  const { selection, store } = useProject()
+  const { selection, doc } = useProject()
   const node = layer.nodes[0] === undefined ? undefined : findNode(container.root, layer.nodes[0])
   const name = layer.name ?? `The ${kindName(container.kind)}`
   const view = entry.container.view
-  const shownState = view?.state ?? entry.container.states[0]?.id
+  const shownState = view?.state ?? designStates(entry.container)[0]!.id
+
   const select = (frame: Frame) => {
     if (!view?.allStates && frame.state !== shownState) {
-      const state = container.states.find((candidate) => candidate.id === frame.state)?.name ?? frame.state
-      store.updateView(entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
+      const state = designStates(container).find((candidate) => candidate.id === frame.state)?.name ?? frame.state
+      updateView(doc, entry.key, `Show ${state}`, (current) => ({ ...current, state: frame.state }))
     }
-    selection.set(
-      layer.nodes.length > 0
-        ? {
-            design: entry.key,
-            node: layer.nodes[0],
-            ...(layer.nodes.length > 1 ? { nodes: layer.nodes } : {}),
-            state: frame.state,
-            mode: frame.mode
-          }
-        : { design: entry.key }
-    )
+
+    if (layer.nodes.length === 0) {
+      selection.set({ design: entry.key })
+
+      return
+    }
+
+    const picked: Selection = { design: entry.key, node: layer.nodes[0], state: frame.state, mode: frame.mode }
+
+    if (layer.nodes.length > 1) {
+      picked.nodes = layer.nodes
+    }
+
+    selection.set(picked)
   }
+
   const inEvery = layer.frames.length === allFrames && allFrames > 1
+
   return (
     <li className="relative -mx-2 rounded-md px-2 py-1.5 hover:bg-accent">
       <button
@@ -505,7 +528,7 @@ function LayerRow({
         className="absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring"
         onClick={() => select(layer.frames.find((frame) => frame.state === shownState) ?? layer.frames[0]!)}
       />
-      <div className="pointer-events-none relative flex min-w-0 items-center gap-1.5 text-[13px]">
+      <div className="pointer-events-none relative flex min-w-0 items-center gap-1.5 text-sm">
         {node ? (
           <NodeIcon node={node} className="size-3.5 shrink-0" style={{ color: nodeColor(node) }} />
         ) : (
@@ -515,7 +538,7 @@ function LayerRow({
             style={{ color: designColor(container.kind) }}
           />
         )}
-        <span className="min-w-0 flex-1 truncate">{name}</span>
+        <Name className="min-w-0 flex-1">{name}</Name>
         {layer.nodes.length > 1 && (
           <span className="shrink-0 text-xs text-muted-foreground tabular-nums">{layer.nodes.length} layers</span>
         )}
@@ -528,15 +551,13 @@ function LayerRow({
       )}
       <div className="pointer-events-none relative mt-1.5 flex flex-wrap gap-1">
         {inEvery ? (
-          <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground">
-            {every}
-          </span>
+          <span className="rounded-sm bg-foreground/[0.07] px-1.5 py-px text-2xs text-muted-foreground">{every}</span>
         ) : (
           layer.frames.map((frame) => (
             <Hint key={`${frame.state}:${frame.mode}`} label={`Select it in ${frameName(frame)}`} wait>
               <button
                 type="button"
-                className="pointer-events-auto rounded-sm bg-foreground/[0.07] px-1.5 py-px text-[11px] text-muted-foreground hover:bg-foreground/15 hover:text-foreground"
+                className="pointer-events-auto rounded-sm bg-foreground/[0.07] px-1.5 py-px text-2xs text-muted-foreground hover:bg-foreground/15 hover:text-foreground"
                 onClick={() => select(frame)}
               >
                 {frameName(frame)}
@@ -552,13 +573,10 @@ function LayerRow({
 /** What's wrong, with code in backticks set as code. */
 function Detail({ text }: { text: string }) {
   return (
-    <p className="mt-0.5 text-xs leading-normal break-words text-muted-foreground">
+    <p className="type-description mt-0.5 break-words text-muted-foreground">
       {text.split("`").map((part, index) =>
         index % 2 === 1 ? (
-          <code
-            key={index}
-            className="rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-[11px] text-foreground"
-          >
+          <code key={index} className="rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-2xs text-foreground">
             {part}
           </code>
         ) : (
@@ -572,10 +590,11 @@ function Detail({ text }: { text: string }) {
 /** The failing colours as a sample of text, with the ratio found and the ratio needed. */
 function ContrastSample({ contrast }: { contrast: ContrastDetail }) {
   const { foreground, background, ratio, required, fontSize, bold } = contrast
+
   return (
     <div className="mt-1.5 flex items-center gap-2.5">
       <span
-        className="grid h-9 w-12 shrink-0 place-items-center rounded-md border text-[15px]"
+        className="grid h-9 w-12 shrink-0 place-items-center rounded-md border text-base"
         style={{ color: foreground, background, fontWeight: bold ? 700 : 500 }}
         aria-hidden
       >
@@ -588,7 +607,7 @@ function ContrastSample({ contrast }: { contrast: ContrastDetail }) {
             needs {required}:1 for {fontSize}px{bold ? " bold" : ""} text
           </span>
         </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-1 font-mono text-[11px] text-muted-foreground">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1 font-mono text-2xs/4 text-muted-foreground">
           <Swatch color={foreground} />
           {foreground}
           <span className="px-0.5 font-sans">on</span>
@@ -616,38 +635,47 @@ function ContrastFixRow({
   fix: TokenFix | "none"
 }) {
   const session = useProject()
-  const { undoLabel } = useHistory(session.store)
+  const undoLabel = useHistory(session).undo[0]
   const [appliedHere, setAppliedHere] = useState(false)
+
   if (fix === "none") {
     return (
-      <p className="relative mt-1.5 text-xs leading-normal text-muted-foreground">
+      <p className="type-description relative mt-1.5 text-muted-foreground">
         None of the project&apos;s colors pass on this background. Try a different background.
       </p>
     )
   }
+
   const step = `Use ${fix.token}`
   // Another row's fix can take the same step name, so each row knows whether the last step was its own.
   const applied = appliedHere && undoLabel === step
+
   // A fix is only known to work once it's checked, so the design is checked again as soon as it changes.
   const checkChanged = () => {
-    const changed = session.store.getEntry(entry.key)
-    if (changed) void runCheck(session, changed)
+    const changed = containerEntry(session.doc, entry.key)
+
+    if (changed) {
+      void checksOf(session).run(changed)
+    }
   }
+
   const apply = () => {
     setAppliedHere(true)
-    session.store.updateContainer(entry.key, step, (container) => ({
+    updateContainer(session.doc, entry.key, step, (container) => ({
       ...container,
       root: nodes.reduce(
-        (root, id) => mapNode(root, id, (node) => ({ ...node, style: { ...node.style, foreground: fix.token } })),
+        (root, id) =>
+          mapNode(root, id, (node) => ({ ...node, style: { ...node.style, color: tokenColor(fix.token) } })),
         container.root
       )
     }))
     checkChanged()
   }
+
   return (
     <div className="relative mt-1.5 flex items-center gap-2.5">
       <span
-        className="grid h-7 w-12 shrink-0 place-items-center rounded-md border text-[13px]"
+        className="grid h-7 w-12 shrink-0 place-items-center rounded-md border text-sm"
         style={{ color: fix.color, background: contrast.background, fontWeight: contrast.bold ? 700 : 500 }}
         aria-hidden
       >
@@ -656,7 +684,7 @@ function ContrastFixRow({
       <div className="min-w-0 flex-1 text-xs">
         <div className="flex min-w-0 items-baseline gap-1 text-foreground">
           Use
-          <code className="truncate rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-[11px]">{fix.token}</code>
+          <code className="truncate rounded-sm bg-foreground/[0.07] px-1 py-px font-mono text-2xs">{fix.token}</code>
         </div>
         <div className="mt-0.5 text-muted-foreground tabular-nums">Reaches {fix.ratio}:1</div>
       </div>
@@ -667,7 +695,7 @@ function ContrastFixRow({
           className="pointer-events-auto"
           onClick={() => {
             setAppliedHere(false)
-            session.store.undo()
+            undo(session)
             checkChanged()
           }}
         >

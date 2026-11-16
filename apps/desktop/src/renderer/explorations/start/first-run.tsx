@@ -6,7 +6,7 @@ import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { ArrowRight, Check, FolderOpen, Layers } from "lucide-react"
 import type { ReactNode } from "react"
 import { me, people } from "../explore-data.ts"
-import { Avatar, AzureDevOpsMark, GitHubMark } from "../parts.tsx"
+import { Avatar, AzureDevOpsMark, GitHubMark, withVariables } from "../parts.tsx"
 import { stacks, type StartProject, templatesOn } from "./data.ts"
 import type { ExistingSource } from "./new-project.tsx"
 import {
@@ -57,6 +57,7 @@ export function FirstRunPage() {
   const account = useAccount()
   const firsts = stacks.flatMap((stack) => templatesOn(stack.id).slice(0, 1))
   const openSample = () => start.create?.(sample)
+
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto flex max-w-[1120px] flex-col gap-11 px-10 pt-7 pb-14">
@@ -77,7 +78,7 @@ export function FirstRunPage() {
         <div className="grid grid-cols-[minmax(0,1fr)_300px] items-start gap-12">
           <section
             className="group/sample relative grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-center gap-7"
-            style={{ ["--parity" as string]: parity }}
+            style={withVariables({ "--parity": parity })}
           >
             <div className="overflow-hidden rounded-lg ring-1 ring-white/[0.07] transition-shadow duration-150 group-hover/sample:ring-2 group-hover/sample:ring-(--parity)">
               <CanvasArt project={sample} design={sample.designs[0]!} labels live={false} />
@@ -122,6 +123,7 @@ export function FirstRunPage() {
             <SideList title="Connect your agents">
               {agentChoices.map((agent) => {
                 const on = !!start.agents?.includes(agent.name)
+
                 return (
                   <li key={agent.name} className="flex items-center gap-2.5 py-1.5 text-[13px]">
                     <Avatar person={agent} size={22} />

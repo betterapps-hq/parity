@@ -31,6 +31,7 @@ export interface LabelRoom {
 
 /** The smallest a name gets, as a share of its screen size. */
 const smallestName = 0.6
+
 /** Detail has faded out by this zoom, from `shrinkBelow`. */
 const detailGone = 0.25
 
@@ -55,22 +56,79 @@ export const smallestLabelled = 24
 export function labelLook(kind: LabelKind, zoom: number, room: LabelRoom = {}): LabelLook {
   const shrunk = Math.min(1, zoom / shrinkBelow)
   const roomy = [room.width, room.height].every((side) => side === undefined || side * zoom >= smallestLabelled)
-  if (kind === "name") return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
+
+  if (kind === "name") {
+    return { scale: Math.max(smallestName, shrunk), opacity: roomy ? 1 : 0 }
+  }
+
   const faded = Math.min(1, Math.max(0, (zoom - detailGone) / (shrinkBelow - detailGone)))
+
   return { scale: shrunk, opacity: roomy ? faded : 0 }
 }
 
 /**
  * How much height a state's label has beside its row of the every-state grid, in page pixels: from its top to where the
- * next row's label starts, past the dashed line between rows. A row's label starts at the top of its frames, `height`
- * tall, but the first row's at the top of the caption band above them. The last row gets the same, so a board's rows are
- * measured alike. A label with its count of changes is 36 pixels tall at screen size and about 22 shrunk to 60%, so one
+ * next row's label starts, past the gap between rows. Every row's label starts at the top of its frames, `height`
+ * tall, the first row's too (PAR-1119). The last row gets the same, so a board's rows are measured alike. A label with its count of changes is 36 pixels tall at screen size and about 22 shrunk to 60%, so one
  * shown with at least `smallestLabelled` of this on screen never reaches the next.
  *
  * The board's gutter is taken at 40%, the size it keeps on the canvas from there out (see `boardLayoutAt`). That's
- * exact where a label can be short of space; closer in, the line between rows alone is 73 pixels on screen.
+ * exact where a label can be short of space; closer in, the gap between rows alone is 73 pixels on screen.
  */
-export function stateLabelSpace(height: number, captioned: boolean): number {
-  const { caption, rowDivider } = boardLayoutAt(shrinkBelow)
-  return (captioned ? caption : 0) + height + rowDivider.before + rowDivider.line + rowDivider.after
+export function stateLabelSpace(height: number): number {
+  const { rowDivider } = boardLayoutAt(shrinkBelow)
+
+  return height + rowDivider.before + rowDivider.line + rowDivider.after
+}
+
+/** Where a board sits on the canvas, in page pixels. */
+export interface BoardBox {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** How tall a board's title is at screen size, with the gap below it. */
+const titleHeight = 42
+
+/**
+ * Where the top of a board's title is on the canvas at a zoom, in page pixels: `titleHeight` on screen above the board,
+ * at the size `labelLook` draws a name. Zoomed out, that's more of the canvas.
+ */
+export function titleTop(board: Pick<BoardBox, "y">, zoom: number): number {
+  return board.y - (titleHeight * labelLook("name", zoom).scale) / zoom
+}
+
+/** The screen pixels a title that reaches past its board keeps clear of the next board. */
+const titleClearance = 8
+
+/**
+ * How wide a board's title may be on the canvas, in page pixels, at a zoom, once it draws at `scale` of its screen
+ * size (see `labelLook`): to the next board to its right, short of `titleClearance` on screen, where that board or its
+ * own title is level with this title. So zoomed out, a narrow board's name runs into the free canvas beside it rather
+ * than truncating at the board's edge, and stops before it would cross another board or that board's name. It's never
+ * narrower than the board, and `undefined` with nothing level to its right, where the name can run its full length.
+ *
+ * Titles sit above their boards, `titleHeight` tall on screen, which is more of the canvas the further out it's zoomed,
+ * so what's level depends on the zoom.
+ */
+export function titleReach(
+  board: BoardBox,
+  others: readonly BoardBox[],
+  zoom: number,
+  scale: number
+): number | undefined {
+  const band = (titleHeight * scale) / zoom
+  const top = board.y - band
+
+  const next = others
+    .filter((other) => other.x > board.x && other.y - band < board.y && other.y + other.h > top)
+    .reduce((nearest, other) => Math.min(nearest, other.x), Infinity)
+
+  if (next === Infinity) {
+    return undefined
+  }
+
+  return Math.max(board.w, next - board.x - titleClearance / zoom)
 }

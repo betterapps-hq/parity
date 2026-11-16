@@ -1,9 +1,14 @@
+import { emptyDocument } from "@parity-app/core"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { ProjectContext } from "../canvas/context.ts"
+import { ComponentStore } from "../components-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { registerFrame } from "../frame.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { keepRecovery } from "../recovery.ts"
+import { SelectionStore } from "../selection.ts"
+import { ProjectSession, type SessionParts } from "../workspace.ts"
 import { AgentPresence } from "./AgentPresence.tsx"
 import { heldBoards } from "./held-boards.ts"
 import { presence } from "./presence.ts"
@@ -92,7 +97,11 @@ function Frame({ board }: { board: MockBoard }) {
   const ref = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
     const host = ref.current
-    if (!host) return undefined
+
+    if (!host) {
+      return undefined
+    }
+
     const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
     shadow.innerHTML = board.nodes
       .map(
@@ -100,9 +109,11 @@ function Frame({ board }: { board: MockBoard }) {
           `<div data-canvas-node="${node.id}" style="position:absolute;left:${node.x}px;top:${node.y}px;width:${node.w}px;height:${node.h}px;border-radius:6px;background:${node.color}"></div>`
       )
       .join("")
+
     // Agents' presence finds a board's frames from the index frames register in, as ModeView's do.
     return registerFrame(host, board.key)
   }, [board])
+
   return (
     <div
       ref={ref}
@@ -118,11 +129,27 @@ function Frame({ board }: { board: MockBoard }) {
 
 /**
  * A canvas of mock boards with agents' presence over it, playing calls as an agent would make them. Moves land on the
- * boards at once, as the design store applies them, and the boards are drawn where they're held until dragged.
+ * boards at once, as the project document applies them, and the boards are drawn where they're held until dragged.
  */
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
-  const session = useMemo(() => ({ id: tab }) as unknown as ProjectSession, [tab])
+
+  const session = useMemo(() => {
+    const designs = openTestSession([{ path: "app.par", document: emptyDocument() }])
+
+    return new ProjectSession(
+      {
+        id: tab,
+        designs,
+        selection: new SelectionStore(),
+        components: new ComponentStore(),
+        recovery: keepRecovery(designs, async () => undefined)
+      },
+      // SAFETY: AgentPresence reads the session's id, and its editor, which a story without tldraw leaves out.
+      {} as SessionParts
+    )
+  }, [tab])
+
   const [positions, setPositions] = useState(() => new Map(boards.map((board) => [board.key, board])))
   const [run, replay] = useReducer((count: number) => count + 1, 0)
   const [, redraw] = useReducer((count: number) => count + 1, 0)
@@ -131,24 +158,34 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
 
   useEffect(() => {
     let at = 0
+
     const timers = calls.map((call) => {
       at += call.after
+
       return setTimeout(() => {
         const agent = call.agent ?? claude
+
         const events = [{ kind: "start" as const }, ...call.steps, { kind: "end" as const }].map(
           (step): PresenceEvent => ({ tab, agent: agent.name, agentId: agent.id, label: call.label, ...step })
         )
+
         presence.push(events)
         setPositions((current) => {
           const next = new Map(current)
+
           for (const event of events) {
             const board = event.kind === "move" && event.design ? next.get(event.design) : undefined
-            if (board && event.to) next.set(board.key, { ...board, ...event.to })
+
+            if (board && event.to) {
+              next.set(board.key, { ...board, ...event.to })
+            }
           }
+
           return next
         })
       }, at)
     })
+
     return () => timers.forEach(clearTimeout)
   }, [calls, run, tab])
 
@@ -157,6 +194,7 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
       <div className="relative h-[600px] w-full overflow-hidden bg-[#0e0e10] font-sans text-foreground">
         {[...positions.values()].map((board) => {
           const at = heldBoards.at(tab, board.key) ?? board
+
           return (
             <div
               key={board.key}
@@ -195,6 +233,7 @@ const meta = {
 } satisfies Meta<typeof Stage>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const pricing = "demo.par#pricing"
@@ -273,6 +312,58 @@ export const TwoAgents: Story = {
   }
 }
 
+/**
+ * One session's subagents as the app names them once each says who it is (PAR-960): its own name first, then the
+ * session's, with an id under the session's, as `presenceIdentity` in `@parity-app/agent` builds them.
+ */
+const subagent = (name: string) => ({ name: `${name} (Claude Code)`, id: `Claude Code#1a2b3c4d/${name}` })
+const headerPass = subagent("Header")
+const pricingPass = subagent("Pricing")
+const signInPass = subagent("Sign in")
+
+export const ThreeSubagents: Story = {
+  args: {
+    note: "One session's three subagents, each naming itself on its calls: a cursor and a strip each.",
+    calls: [
+      {
+        after: 400,
+        label: "Tighten the heading",
+        agent: headerPass,
+        steps: [
+          { kind: "read", design: settings },
+          { kind: "write", design: settings, node: "heading" }
+        ]
+      },
+      {
+        after: 300,
+        label: "Review the plans",
+        agent: pricingPass,
+        steps: [
+          { kind: "read", design: pricing },
+          { kind: "read", design: pricing, node: "plans" },
+          { kind: "measure", design: pricing, node: "cta" }
+        ]
+      },
+      {
+        after: 300,
+        label: "Check the form",
+        agent: signInPass,
+        steps: [
+          { kind: "read", design: signIn, node: "email" },
+          { kind: "write", design: signIn, node: "submit" }
+        ]
+      },
+      // Each subagent's next call picks up on its own cursor.
+      {
+        after: 5000,
+        label: "Check the heading",
+        agent: headerPass,
+        steps: [{ kind: "screenshot", design: settings }]
+      }
+    ]
+  }
+}
+
 export const EveryKindOfLook: Story = {
   args: {
     note: "Reads, writes, measurements and screenshots all scan their target; a measurement labels its size.",
@@ -331,6 +422,7 @@ export const SixAgents: Story = {
     calls: six.map((agent, index) => {
       const targets = boards.flatMap((board) => board.nodes.map((node) => ({ design: board.key, node: node.id })))
       const pick = (offset: number) => targets[(index * 3 + offset) % targets.length]!
+
       return {
         after: index === 0 ? 400 : 350,
         label: ["Review pricing", "Check settings", "Audit sign in", "Tidy copy", "Check spacing", "Review layout"][

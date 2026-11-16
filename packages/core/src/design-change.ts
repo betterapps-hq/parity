@@ -40,7 +40,9 @@ export function describeConflicts(conflicts: readonly ChangeConflict[]): string 
       ? `the modes were ${conflict.reason}`
       : `"${conflict.name}" (${conflict.path}) was ${conflict.reason}`
   )
+
   const them = conflicts.length === 1 ? "it" : "them"
+
   return (
     `Not applied: since this call read the tab, ${named.join(", ")} in the editor, and this call changes ${them} ` +
     "too. Run the call again to work from what's there now."

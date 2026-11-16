@@ -18,6 +18,7 @@ const meta = {
 } satisfies Meta<typeof LeftPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example with the panel on one of its tabs. */
@@ -49,9 +50,14 @@ export const DesignSelected: Story = {
   play: async () => {
     const row = await waitFor(() => {
       const found = document.getElementById(`layer-${design("Pricing")}`)
-      if (!found) throw new Error("Pricing has no row yet")
+
+      if (!found) {
+        throw new Error("Pricing has no row yet")
+      }
+
       return found
     })
+
     row.scrollIntoView({ block: "center" })
   }
 }
@@ -82,8 +88,8 @@ export const ComponentsTab: Story = { loaders: [openOn("components")] }
 /** The Icons tab open. */
 export const IconsTab: Story = { loaders: [openOn("icons")] }
 
-/** The Images tab open. */
-export const ImagesTab: Story = { loaders: [openOn("images")] }
+/** The Media tab open. */
+export const MediaTab: Story = { loaders: [openOn("media")] }
 
 /** The Tokens tab open. */
 export const TokensTab: Story = { loaders: [openOn("tokens")] }

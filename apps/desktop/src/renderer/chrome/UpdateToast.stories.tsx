@@ -14,7 +14,9 @@ function UpdateNotification({ notice, onAction }: { notice: UpdateNotice; onActi
     const { kind, title, options } = updateToast(notice, onAction)
     notify.show(kind, title, { ...options, id: "storybook-update", timeout: 0 })
   }, [notice, onAction])
+
   useEffect(() => () => notify.close("storybook-update"), [])
+
   return (
     <div className="h-screen bg-background text-foreground">
       <Toaster />
@@ -23,7 +25,7 @@ function UpdateNotification({ notice, onAction }: { notice: UpdateNotice; onActi
 }
 
 const meta = {
-  title: "Parity/Chrome/Updates",
+  title: "Parity/Chrome/Notices/Updates",
   component: UpdateNotification,
   parameters: { layout: "fullscreen" },
   args: {
@@ -33,6 +35,7 @@ const meta = {
 } satisfies Meta<typeof UpdateNotification>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Progress is shown only after an explicit Check for updates; automatic downloads stay silent. */
@@ -62,7 +65,9 @@ function DownloadFlow() {
     transferred: 54_200_000,
     total: 129_000_000
   })
+
   const [onAction] = useState(() => () => notify.close("storybook-update"))
+
   return (
     <div className="relative">
       <div className="absolute top-8 left-8 z-10 flex gap-3 text-xs text-foreground">

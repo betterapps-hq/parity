@@ -13,9 +13,12 @@ interface Shown {
 const notifications = vi.hoisted(() => {
   const add = vi.fn<(kind: string, title: string, options: Shown) => string>((_kind, _title, options) => options.id)
   const close = vi.fn<(id: string) => void>(() => add.mock.lastCall?.[2].onClose())
+
   return { add, close }
 })
+
 vi.mock("../toasts.tsx", () => ({ notify: { show: notifications.add, close: notifications.close } }))
+
 vi.mock("./UpdateToast.tsx", () => ({
   updateToast: (notice: UpdateNotice, onAction: () => void) => ({
     kind: "info",
@@ -23,12 +26,18 @@ vi.mock("./UpdateToast.tsx", () => ({
     options: { notice, onAction }
   })
 }))
+
 const dialogs = vi.hoisted(() => ({ openDialog: vi.fn<() => void>() }))
+
 vi.mock("./app-dialogs.ts", () => dialogs)
 
 function latest(): Shown {
   const shown = notifications.add.mock.lastCall?.[2]
-  if (!shown) throw new Error("No update toast")
+
+  if (!shown) {
+    throw new Error("No update toast")
+  }
+
   return shown
 }
 
@@ -107,12 +116,14 @@ describe("update notifications", () => {
     const updates = await import("./updates.tsx")
     updates.receiveUpdate({ phase: "idle", beta: true })
     let finish: (() => void) | undefined
+
     const check = vi.fn<() => Promise<void>>(
       () =>
         new Promise<void>((resolve) => {
           finish = resolve
         })
     )
+
     vi.stubGlobal("window", { canvasHost: { updates: { check } } })
     updates.checkForUpdates()
     updates.checkForUpdates()
@@ -208,10 +219,13 @@ describe("update notifications", () => {
   it("reads the initial enabled state before handling a queued native menu action", async () => {
     const updates = await import("./updates.tsx")
     const check = vi.fn<() => Promise<void>>(async () => updates.receiveUpdate({ phase: "current", beta: true }))
+
     const onShow = vi.fn<(listener: () => void) => () => void>((listener) => {
       listener()
+
       return () => undefined
     })
+
     vi.stubGlobal("window", {
       canvasHost: {
         updates: {

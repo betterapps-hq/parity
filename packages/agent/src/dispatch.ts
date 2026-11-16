@@ -1,20 +1,51 @@
-import { CodedError, describeRenderStatus, renderProblem, resolveModes } from "@parity-app/core"
-import type { ChangeConflict } from "@parity-app/core"
-import { callerIdentity } from "./caller.ts"
+import {
+  CodedError,
+  describeRenderStatus,
+  designStates,
+  isBuilderChatter,
+  renderProblem,
+  resolveModes,
+  unknownReference
+} from "@parity-app/core"
+import type { ChangeConflict, ImageCredit } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/core/schema"
+import {
+  type CodeReference,
+  cantRemove,
+  type ExportSize,
+  exportFiles,
+  filterImages,
+  findImage,
+  type FoundScreen,
+  type ImageFile,
+  type PictureCrop,
+  pictureCrop,
+  projectImages
+} from "@parity-app/editor"
+import { z } from "zod"
+import { type TokenFilter } from "./arguments.ts"
+import { callerIdentity, presenceIdentity } from "./caller.ts"
 import type { AgentMethod, AgentMethods } from "./contracts.ts"
 import { isAgentMethod, readRequest, requests, rpcRequest } from "./contracts.ts"
-import type { CopyReport } from "./routing.ts"
-import { type ExecRequest, execute } from "./run.ts"
+import { activeTab, type CopyReport, matchTab } from "./routing.ts"
+import { type ExecRequest, execResult, execute, perform } from "./run.ts"
+import { sheetLayout } from "./sheet.ts"
 import type {
   AccessibilityFinding,
   AgentChangeSet,
   AgentEvent,
   AgentHooks,
+  AgentReport,
+  ComposedSheet,
   ConsoleEntry,
+  ExecResult,
   FrameRequest,
   FrameResult,
   IconNames,
+  PlaceableResult,
+  PlacedIn,
   PresenceEvent,
+  ReportSent,
   Screenshot,
   TabSnapshot,
   TabSummary
@@ -53,14 +84,72 @@ export interface AgentHost {
   supports(queries: { property: string; value: string }[]): Promise<boolean[]>
   /** What the tab's project code wrote to the console, forgotten once read when `clear` is set. */
   console(snapshot: TabSnapshot, clear: boolean): Promise<ConsoleEntry[]>
-  /** Keeps a call's screenshots as PNG files, and says where each went, in order. */
-  saveScreenshots(screenshots: Screenshot[]): Promise<string[]>
+  /**
+   * Keeps a call's screenshots or sheets as PNG files, and says where each went, in order. A name says what the picture
+   * is, for its file's name, and is already safe as one (see `fileName`).
+   */
+  saveScreenshots(pictures: { name: string; png: string }[]): Promise<string[]>
+  /** Puts a contact sheet together: its overlay, with each frame's picture over it, as a base64 PNG (PAR-895). */
+  composeSheet(sheet: ComposedSheet): Promise<string>
+  /**
+   * Sends an agent's report as a Sentry user feedback, with the window's screenshot and replay, tied to the call's trace
+   * (PAR-646).
+   */
+  report(report: AgentReport): Promise<ReportSent>
+  /**
+   * Searches for screens from real apps (Mobbin's) with the key main holds, and saves each preview as a file (PAR-829).
+   * A search that found nothing to show answers with why, rather than failing.
+   */
+  references(request: Params<"references">): Promise<Answer<"references">>
+  /**
+   * Fetches each picture and saves it as a file, as a search's previews are, for an agent to look at: the pictures of
+   * the references on the canvas (PAR-889). Undefined for one that couldn't be fetched or saved.
+   */
+  pictures(pictures: { title: string; id: string; url: string }[]): Promise<(SavedPicture | undefined)[]>
+  /** Searches stock pictures and videos the same way, from whichever connector is offered for them. */
+  media(request: Params<"media">): Promise<Answer<"media">>
+  /**
+   * Saves a picture from a link into the project's images folder, as an edit the window can undo, for a result whose
+   * link doesn't last or may only show results. Answers what layers set `src` to.
+   */
+  saveImage(projectId: string, image: { url: string; name: string }): Promise<{ src: string }>
+  /** Main's own copy of a result it found lately, which placing puts in a design. Undefined for one it didn't find. */
+  result(connector: string, id: string): Promise<PlaceableResult | undefined>
+  /**
+   * Main's own copy of a screen from a real app it found lately, from the connector named or the one that finds screens,
+   * which `PlaceReference` places beside a design (PAR-840). Undefined for one it didn't find.
+   */
+  screen(id: string, connector: string | undefined): Promise<FoundScreen | undefined>
+  /** Tells main a result went into a design, which main records, counts and tells the source of. */
+  placed(placed: PlacedIn): Promise<void>
+  /** The project's image files and the lines of its code that name them, read from its folder (PAR-834). */
+  scanImages(projectId: string): Promise<{ files: ImageFile[]; references: CodeReference[] }>
+  /** Removes an image file as an edit the window can undo. Refuses one the project's code names. */
+  removeImage(projectId: string, path: string): Promise<{ path: string; label: string }>
+  /** The project's extensions, with their commands, agent tools, node types and facts (PAR-1096). */
+  extensions(projectId: string): Promise<Answer<"extensions">["extensions"]>
+  /**
+   * Runs an extension's command, for a component when one is named, or its agent tool with `input`, for `agent`, and
+   * gives what it returned. Its changes are one undo step each, named after the agent and the extension.
+   */
+  runExtension(projectId: string, request: ExtensionRun, agent: string): Promise<JsonValue | undefined>
+}
+
+/** What an agent runs of an extension: a command, for a component when one is named, or a tool with its input. */
+export interface ExtensionRun {
+  name: string
+  target?: { type: "component"; key: string }
+  input?: { [field: string]: JsonValue }
 }
 
 /** Who's calling, when the CLI or MCP knows: its name for people, and an id that tells same-named callers apart. */
 export interface Caller {
   name: string
   id: string
+  /** The program it calls through, such as `claude-code`, which MCP clients name (PAR-630). */
+  client?: string
+  /** Its own name, when it's one of the subagents a session runs at once and says so (PAR-960). */
+  subagent?: string
 }
 
 /**
@@ -78,35 +167,62 @@ export type Answer<M extends AgentMethod> = Known<AgentMethods[M]["result"]>
 
 type Params<M extends AgentMethod> = AgentMethods[M]["params"]
 
-/** One call: the host, and the caller's presence on a tab. */
+/** A picture saved as a file for an agent, with its bytes for MCP to show. */
+export type SavedPicture = NonNullable<Answer<"placedReferences">["references"][number]["preview"]>
+
+/** One call: the host, the caller's presence on a tab, and who's calling when it says. */
 interface Call {
   host: AgentHost
   /** Sends the caller's events to a tab's canvas. */
   presence: (tab: string) => AgentHooks["presence"]
+  caller?: Caller
 }
 
-const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<Answer<M>> } = {
+/** How the app answers each method. */
+type MethodTable = { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<Answer<M>> }
+
+const methods: MethodTable = {
   tabs: (_params, { host }) => host.tabs(),
   copy: (_params, { host }) => host.copy(),
   open: (params, { host }) => host.open(params.root),
   async state(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
+
     return showing(presence(snapshot.tab.id), { kind: "board", label: "Look over the board" }, async () =>
       state(snapshot)
     )
   },
-  exec: (params, { host, presence }) => exec(host, presence, params.tab, params),
+  exec: (params, { host, presence, caller }) => exec(host, presence, params.tab, params, caller),
   async screenshot(params, call) {
-    const options = { state: params.state, mode: params.mode, scale: params.scale }
-    // The snippet is Parity's own, so a failure has nothing for the agent to retry by editId.
-    const { editId: _editId, ...result } = await exec(call.host, call.presence, params.tab, {
-      label: `Screenshot ${params.design}`,
-      code: `Print(await Screenshot(${JSON.stringify(params.design)}, ${JSON.stringify(options)}))`
-    })
-    return result
+    const { design, state, mode, scale } = params
+
+    const request: AppCall = {
+      label: `Screenshot ${design}`,
+      // Printing the count, as the answer always has.
+      calls: async (api) => api.Print(await api.Screenshot(design, { state, mode, scale }))
+    }
+
+    // The call is Parity's own, not a snippet, so a failure has nothing for the agent to retry by editId.
+    if (!params.sheet) {
+      const { editId: _editId, ...result } = await exec(call.host, call.presence, params.tab, request)
+
+      return result
+    }
+
+    const snapshot = await call.host.snapshot(params.tab)
+
+    const {
+      changes: _changes,
+      editId: _editId,
+      screenshots,
+      ...result
+    } = await runIn(call.host, call.presence, snapshot, request)
+
+    return { ...result, screenshots: [], sheets: await contactSheets(call.host, snapshot, screenshots, params.scale) }
   },
   async accessibility(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
+
     const result = await accessibility(
       host,
       snapshot,
@@ -114,11 +230,13 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
       { state: params.state ?? "all", mode: params.mode ?? "shown" },
       presence(snapshot.tab.id)
     )
+
     return { tab: tabRef(snapshot), ...result }
   },
   async problems(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
     const options = { state: params.state ?? "all", mode: params.mode ?? "shown" }
+
     const { found, ...result } = await checkDesign(
       host,
       snapshot,
@@ -127,42 +245,165 @@ const methods: { [M in AgentMethod]: (params: Params<M>, call: Call) => Promise<
       presence(snapshot.tab.id),
       (api, design) => api.Problems(design, options)
     )
+
     return { tab: tabRef(snapshot), ...result, problems: found }
   },
   async console(params, { host, presence }) {
     const snapshot = await host.snapshot(params.tab)
+
     const entries = await showing(presence(snapshot.tab.id), { kind: "console", label: "Read the console" }, () =>
       host.console(snapshot, params.clear)
     )
-    return { tab: tabRef(snapshot), entries }
+
+    // The builder's own chatter says nothing about the project (PAR-1158).
+    return {
+      tab: tabRef(snapshot),
+      entries: entries.filter((entry) => !isBuilderChatter(entry.text, snapshot.builderConsole))
+    }
   },
   async status(params, { host }) {
     const { tab, ...status } = await host.status(params)
+
     return { tab: { id: tab.id, name: tab.name }, ...status }
   },
   async modes(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
     const { settings: _settings, ...report } = readOnly(snapshot).GetModes(params.design)
+
     return { tab: tabRef(snapshot), ...report }
   },
   // Reads for a terminal, which agents do in a snippet.
   async tokens(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
-    const filter = {
-      ...(params.category === undefined ? {} : { category: params.category }),
-      ...(params.source === undefined ? {} : { source: params.source }),
-      ...(params.search === undefined ? {} : { search: params.search })
+
+    const filter: TokenFilter = {}
+
+    if (params.category !== undefined) {
+      filter.category = params.category
     }
+
+    if (params.source !== undefined) {
+      filter.source = params.source
+    }
+
+    if (params.search !== undefined) {
+      filter.search = params.search
+    }
+
+    if (params.nearest !== undefined) {
+      filter.nearest = params.nearest
+    }
+
     return readOnly(snapshot).GetTokens(filter)
   },
   async components(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
+
     return componentsReport(snapshot, readOnly(snapshot).Components())
   },
   async props(params, { host }) {
     const snapshot = await host.snapshot(params.tab)
-    return readOnly(snapshot).Props(params.component, { all: params.all }) as Answer<"props">
+
+    return readOnly(snapshot).Props(params.component, { all: params.all })
+  },
+  report: (params, { host }) => report(host, params),
+  references: (params, { host }) => host.references(params),
+  media: (params, { host }) => host.media(params),
+  place: (params, call) => place(call.host, call.presence, params),
+  async placedReferences(params, { host }) {
+    const snapshot = await host.snapshot(params.tab)
+    const placed = readOnly(snapshot).References(params.design)
+    // A picture whose link has stopped working isn't asked for, and only the first `limit` are: each is a whole screen.
+    const fresh = placed.filter((reference) => !reference.expired)
+    const asked = fresh.slice(0, params.limit)
+    const saved = await host.pictures(asked.map(({ app, id, picture }) => ({ title: app, id, url: picture })))
+    // Paired by position, since nothing stops two files' references sharing an id.
+    const previews = new Map(asked.map((reference, index) => [reference, saved[index]]))
+
+    const references = placed.map((reference) => {
+      const preview = previews.get(reference)
+
+      return preview ? { ...reference, preview } : reference
+    })
+
+    const answer: Answer<"placedReferences"> = { tab: tabRef(snapshot), references }
+
+    if (fresh.length > asked.length) {
+      answer.withoutPictures = fresh.length - asked.length
+    }
+
+    return answer
+  },
+  images: async (params, { host }) => {
+    const { images } = await imagesOf(host, params.tab)
+    const found = filterImages(images, params)
+    const shown = found.slice(0, params.limit)
+
+    return { images: shown, total: found.length, truncated: shown.length < found.length }
+  },
+  async removeImage(params, { host }) {
+    const { images, projectId } = await imagesOf(host, params.tab)
+    const image = findImage(images, params.image)
+
+    if (!image) {
+      const names = images.flatMap((each) => (each.path ? [each.path] : []))
+
+      throw unknownReference(
+        "unknown_image",
+        `No image in the project matches "${params.image}"`,
+        params.image,
+        names,
+        "image"
+      )
+    }
+
+    const why = cantRemove(images, params.image)
+
+    if (why || !image.path) {
+      const code = image.kind === "file" ? "image_in_use" : "invalid_input"
+
+      throw new CodedError(why ?? `${params.image} has no file to remove.`, { code, field: "image" })
+    }
+
+    return host.removeImage(projectId, image.path)
+  },
+  async extensions(params, { host }) {
+    const snapshot = await host.snapshot(params.tab)
+
+    return { tab: tabRef(snapshot), extensions: await host.extensions(snapshot.projectId) }
+  },
+  async runExtension(params, { host, presence, caller }) {
+    const snapshot = await host.snapshot(params.tab)
+    const request: ExtensionRun = { name: params.name }
+
+    if (params.component !== undefined) {
+      request.target = { type: "component", key: params.component }
+    }
+
+    if (params.input !== undefined) {
+      request.input = params.input
+    }
+
+    const result = await showing(presence(snapshot.tab.id), { kind: "board", label: `Run ${params.name}` }, () =>
+      host.runExtension(snapshot.projectId, request, caller?.name ?? "An agent")
+    )
+
+    const answer: Answer<"runExtension"> = { tab: tabRef(snapshot), name: params.name }
+
+    if (result !== undefined) {
+      answer.result = result
+    }
+
+    return answer
   }
+}
+
+/** The tab's images, from its designs as they are, unsaved changes included, and its folder. */
+async function imagesOf(host: AgentHost, tab: string | undefined) {
+  const snapshot = await host.snapshot(tab)
+  const { files, references } = await host.scanImages(snapshot.projectId)
+
+  return { images: projectImages({ files, references, documents: snapshot.documents }), projectId: snapshot.projectId }
 }
 
 /** Each method's params schema. `copy` takes none, as `tabs` doesn't. */
@@ -172,9 +413,20 @@ const paramSchemas = { ...requests, copy: requests.tabs }
  * Answers a `/rpc` request's body through `host` (PAR-598): checks it's a JSON object naming a method, then dispatches
  * it. A body that isn't fails with `invalid_input`, and a caller that doesn't say who it is gets no name on the canvas.
  */
-export async function answerRequest(body: string, host: AgentHost): Promise<unknown> {
-  const { method, params, agent, agentId } = readRequest(rpcRequest, body)
-  return dispatch(method, params, host, callerIdentity(agent, agentId))
+export async function answerRequest(
+  body: string,
+  host: AgentHost,
+  /** Told who's calling, when the caller says, so telemetry can tag what follows (PAR-630). */
+  called?: (caller: Caller) => void
+): Promise<Answer<AgentMethod>> {
+  const { method, params, agent, agentId, client, subagent } = readRequest(rpcRequest, body)
+  const caller = callerIdentity({ agent, agentId, client, subagent })
+
+  if (caller) {
+    called?.(caller)
+  }
+
+  return dispatch(method, params, host, caller)
 }
 
 /**
@@ -182,25 +434,40 @@ export async function answerRequest(body: string, host: AgentHost): Promise<unkn
  * defaults. A method the app doesn't have, or params its schema refuses, fail with `invalid_input` naming the field,
  * before the host is asked anything. Its caller gets its own cursor on the canvas.
  */
-export async function dispatch(method: string, params: unknown, host: AgentHost, caller?: Caller): Promise<unknown> {
+export async function dispatch(
+  method: string,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: an RPC body's params, which the method's schema reads here
+  params: unknown,
+  host: AgentHost,
+  caller?: Caller
+): Promise<Answer<AgentMethod>> {
   if (!isAgentMethod(method)) {
     throw new CodedError(`Unknown method ${method}. Methods: ${Object.keys(methods).join(", ")}`, {
       code: "invalid_input",
       field: "method"
     })
   }
+
   const request = readRequest(paramSchemas[method], params ?? {})
+
   const presence =
     (tab: string): AgentHooks["presence"] =>
     (events) =>
       host.presence(
-        events.map((event) => ({ tab, ...(caller ? { agent: caller.name, agentId: caller.id } : {}), ...event }))
+        events.map((event) => (caller ? { tab, ...presenceIdentity(caller), ...event } : { tab, ...event }))
       )
-  const run = methods[method] as (params: unknown, call: Call) => Promise<unknown>
-  return run(request, { host, presence })
+
+  // SAFETY: `request` is what `method`'s own schema read, so it's the params `methods[method]` takes; TypeScript can't
+  // tie the two to the same method through a union.
+  const run = methods[method] as (params: Params<AgentMethod>, call: Call) => Promise<Answer<AgentMethod>>
+
+  return run(request, { host, presence, caller })
 }
 
-function tabRef(snapshot: TabSnapshot): { id: string; name: string } {
+/** The tab an answer is about, by id and name. */
+type TabRef = Pick<TabSummary, "id" | "name">
+
+function tabRef(snapshot: TabSnapshot): TabRef {
   return { id: snapshot.tab.id, name: snapshot.tab.name }
 }
 
@@ -210,17 +477,21 @@ function tabRef(snapshot: TabSnapshot): { id: string; name: string } {
  */
 function componentsReport(snapshot: TabSnapshot, components: string[]): Answer<"components"> {
   const statuses = Object.entries(snapshot.renderStatus ?? {})
+
   const failing = statuses.flatMap(([id, status]) =>
     "error" in status ? [{ id, problem: renderProblem(status.error), reason: describeRenderStatus(status) }] : []
   )
+
   const main = snapshot.documents.find((entry) => entry.path === snapshot.mainDocument)?.document
   const listed = main?.detection?.include ?? []
+
   return {
     components,
     // Where the project's own are written; a library's component is named by its package instead (PAR-167).
     files: Object.fromEntries(
       components.flatMap((id) => {
         const source = snapshot.sources?.[id]
+
         return source && !source.library ? [[id, source.path]] : []
       })
     ),
@@ -245,9 +516,11 @@ async function showing<T>(
   run: () => Promise<T>
 ): Promise<T> {
   presence([{ kind: "start", label: event.label }, event])
+
   try {
     const result = await run()
     presence([{ kind: "end", label: event.label }])
+
     return result
   } catch (error) {
     presence([{ kind: "end", label: event.label, error: error instanceof Error ? error.message : String(error) }])
@@ -262,15 +535,29 @@ function workspaceSnapshot(snapshot: TabSnapshot) {
 
 /** Everything an agent needs to get its bearings in a tab, in one read. */
 function state(snapshot: TabSnapshot): Answer<"state"> {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  const api = new AgentWorkspace(workspaceSnapshot(snapshot), noop, "state").api()
+  const api = readOnly(snapshot)
   const semantic = snapshot.tokens.filter((token) => token.source === "semantic")
+  // By file and id, since two files can hold designs with the same id.
+  const references = new Map<string, number>()
+
+  for (const { design } of api.References()) {
+    if (design) {
+      const where = `${design.file}#${design.id}`
+      references.set(where, (references.get(where) ?? 0) + 1)
+    }
+  }
+
   return {
     tab: snapshot.tab,
     // Changes with every change to the tab's designs, modes or token edits; `status` says what's saved.
     revision: snapshot.revision,
     selection: api.Selection(),
-    designs: api.Designs(),
+    // Each design says how many references are for it, for the agent to look at before changing it (PAR-889).
+    designs: api.Designs().map((design) => {
+      const count = references.get(`${design.file}#${design.id}`)
+
+      return count ? { ...design, references: count } : design
+    }),
     // Boards on top of each other, to move apart.
     overlaps: api.Overlaps(),
     // resolveModes makes new objects on every call, so the first one is the primary mode by position (PAR-579).
@@ -300,38 +587,254 @@ function renderFor(host: AgentHost, snapshot: TabSnapshot): AgentHooks["render"]
   return (request) => host.render(snapshot, request)
 }
 
+/**
+ * Places a result a connector found in a design (PAR-829): the picture or video from main's own copy goes in the node
+ * as one undoable edit, and only once it's applied is main told, which records it and tells the source. So a placement
+ * is reported because Parity made it, not because an agent said so. An image node takes a picture, and a video node a
+ * video (PAR-841), each with its description and its credit; a component takes either in a prop it declares. Only what
+ * main says can be placed goes in designs: pictures and videos, not screens from real apps, which are for looking at. A
+ * picture whose link stops working, and every video, is saved into the project first, and the node shows the file.
+ */
+async function place(host: AgentHost, presence: Call["presence"], request: Params<"place">): Promise<Answer<"place">> {
+  const { connector, id, node, state } = request
+  const found = await host.result(connector, id)
+
+  if (!found) {
+    return refused(`Parity hasn't found ${connector} ${id} lately. Search again, then place one of its results.`)
+  }
+
+  if (!found.placeable) {
+    return refused(`${found.credit.at(-1)?.name ?? connector}'s ${found.kind} are for looking at, not for designs.`)
+  }
+
+  const snapshot = await host.snapshot(request.tab)
+  const checked = placeTarget(snapshot, node, found, request.prop, state)
+
+  if ("refusal" in checked) {
+    return refused(checked.refusal)
+  }
+
+  const shown = await savedIfFleeting(host, snapshot.projectId, found)
+
+  if ("refusal" in shown) {
+    return refused(shown.refusal)
+  }
+
+  const target = shown === found ? checked : placeTarget(snapshot, node, shown, request.prop, state)
+
+  if ("refusal" in target) {
+    return refused(target.refusal)
+  }
+
+  let placedIn = target.design
+  let warnings: string[] = []
+
+  // Placing what the node already shows changes nothing, and is still reported, which main counts once.
+  if (target.holds !== placedUrl(shown)) {
+    const result = await execIn(host, presence, snapshot, {
+      label: `Place ${found.title}`,
+      calls: async (api) => api.Update(node, target.change, state ? { state } : undefined)
+    })
+
+    const changed = result.changes.designs[0]
+
+    if (!result.applied || !changed) {
+      // The run's own code, such as a conflict with an edit made since, says more than "invalid".
+      const code = errorDetails.safeParse(result.details).data?.code
+
+      return refused(result.error ?? `Nothing changed at ${node}.`, code)
+    }
+
+    placedIn = { path: changed.path, id: changed.id }
+    warnings = result.warnings
+  }
+
+  await host.placed({ connector, id, project: snapshot.tab.root, file: placedIn.path, design: placedIn.id })
+
+  const answer: Answer<"place"> = { placed: true, node, credit: found.credit }
+
+  if (warnings.length > 0) {
+    answer.warnings = warnings
+  }
+
+  return answer
+}
+
+/** What placing a result puts in a design: a video's footage, or its picture. */
+function placedUrl(found: PlaceableResult): string {
+  return found.video?.url ?? found.image.url
+}
+
+/**
+ * A link that stops working would leave a broken picture in a saved design, so such a picture is saved into the
+ * project's images folder first, and the node shows the file. A video is always saved into its videos folder, as the
+ * Media tab saves one, since a stock library asks for a copy to be kept. Saving the same one again reuses its file.
+ */
+async function savedIfFleeting(
+  host: AgentHost,
+  projectId: string,
+  found: PlaceableResult
+): Promise<PlaceableResult | { refusal: string }> {
+  if (found.image.expiresAt === undefined && !found.video) {
+    return found
+  }
+
+  try {
+    const { src } = await host.saveImage(projectId, { url: placedUrl(found), name: found.title })
+
+    return found.video
+      ? { ...found, video: { ...found.video, url: src } }
+      : { ...found, image: { ...found.image, url: src } }
+  } catch (cause) {
+    const why = cause instanceof Error ? cause.message : String(cause)
+
+    return { refusal: `Parity couldn't save ${found.title} into the project: ${why}` }
+  }
+}
+
+/** What `Update` gets to place a picture or video: an image's or a video's own fields, or a component's props. */
+type PlaceChange = ImagePlace | { props: { [prop: string]: string } }
+
+/** An image's or a video's own fields, as placing a picture or video sets them. */
+interface ImagePlace {
+  src: string
+  alt: string
+  credit?: ImageCredit
+}
+
+interface PlaceTarget {
+  change: PlaceChange
+  /** The picture or video the node already shows, to tell placing again from placing anew. */
+  holds: unknown
+  /** The design the node is in, for a placement that needed no edit. */
+  design: { path: string; id: string }
+}
+
+/**
+ * What placing into `path` changes, or why it can't take what was found: a picture in an image, a video in a video, or
+ * either in a component's declared prop.
+ */
+function placeTarget(
+  snapshot: TabSnapshot,
+  path: string,
+  found: PlaceableResult,
+  prop: string | undefined,
+  state: string | undefined
+): PlaceTarget | { refusal: string } {
+  const located = reader(snapshot).locate(path)
+
+  if (!located) {
+    return { refusal: `There's no node at ${path}. Read the design with Get to find the image's path.` }
+  }
+
+  const { node, design } = located
+  const [author, source] = found.credit
+  const url = placedUrl(found)
+  const media = found.video ? "video" : "image"
+
+  if ((node.type === "image" || node.type === "video") && node.type !== media) {
+    const what = found.video ? "a video" : "a picture"
+
+    return {
+      refusal: `${path} is ${node.type === "video" ? "a video" : "an image"}, which can't show ${what}. Place it in ${
+        found.video ? "a video" : "an image"
+      } or a component.`
+    }
+  }
+
+  if (node.type === "image" || node.type === "video") {
+    if (state) {
+      const own = node.type === "video" ? "A video's footage" : "An image's picture"
+
+      return { refusal: `${own} belongs to the whole design, not one state. Place it without a state.` }
+    }
+
+    const change: ImagePlace = { src: url, alt: found.title }
+
+    if (author?.url) {
+      change.credit = { name: author.name, url: author.url, source: source?.name }
+    }
+
+    return { change, holds: node.src, design }
+  }
+
+  if (node.type !== "component") {
+    const what = found.video ? "a video" : "a picture"
+
+    return {
+      refusal: `${path} is a ${node.type}, which can't show ${what}. Place it in ${found.video ? "a video" : "an image"} or a component.`
+    }
+  }
+
+  const declared = new Set(snapshot.props[node.component]?.props.map((each) => each.name) ?? [])
+  const named = prop ?? "src"
+
+  if (!declared.has(named)) {
+    return { refusal: `${node.component} has no ${named} prop. Name the prop that takes the ${media} with prop.` }
+  }
+
+  const props = named === "src" && declared.has("alt") ? { src: url, alt: found.title } : { [named]: url }
+
+  return { change: { props }, holds: node.props?.[named], design }
+}
+
+/** The code a failed run gives, when it gives one. */
+const errorDetails = z.looseObject({ code: z.string() })
+
+function refused(message: string, code = "invalid"): Answer<"place"> {
+  return { placed: false, problem: { code, message } }
+}
+
+/**
+ * One of Parity's own calls on the agent API, run as a function with data rather than as a snippet in the vm, so it has
+ * no snippet's time limit and no editId to retry.
+ */
+interface AppCall {
+  label: string
+  calls: (api: AgentApi) => Promise<void>
+}
+
 /** Runs a snippet in a tab, applies what it changed there, and keeps its screenshots as files. */
 async function exec(
   host: AgentHost,
   presence: Call["presence"],
   tab: string | undefined,
-  request: ExecRequest
+  request: ExecRequest,
+  caller?: Caller
 ): Promise<Answer<"exec">> {
-  const snapshot = await host.snapshot(tab)
-  const tabId = snapshot.tab.id
-  const label = request.label || "Agent edit"
-  const result = await execute(
-    {
-      label,
-      ...(request.code === undefined ? {} : { code: request.code }),
-      ...(request.editId === undefined ? {} : { editId: request.editId }),
-      ...(request.edits === undefined ? {} : { edits: request.edits })
-    },
-    workspaceSnapshot(snapshot),
-    {
-      presence: presence(tabId),
-      render: renderFor(host, snapshot),
-      iconNames: (set, module) => host.iconNames(tabId, set, module),
-      apply: (changes) => host.apply(tabId, label, changes),
-      supports: (queries) => host.supports(queries)
-    }
+  // What changed is for the editor and for placing, not the agent's answer, which names just the designs it created.
+  const { changes, ...answer } = await execIn(host, presence, await host.snapshot(tab), request, caller)
+
+  return { ...answer, createdDesigns: createdDesigns(changes) }
+}
+
+/** The designs a call created, by name: those the change set adds rather than changes. */
+function createdDesigns(changes: AgentChangeSet): Record<string, string> {
+  return Object.fromEntries(
+    changes.designs.flatMap(({ base, after }) => (base === null && after ? [[after.name, after.id]] : []))
   )
-  const { changes, screenshots, ...rest } = result
-  const hasChanges = changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0
-  const paths = screenshots.length > 0 ? await host.saveScreenshots(screenshots) : []
+}
+
+/** Runs a snippet, or one of Parity's own calls, in a tab, applies what it changed, and keeps its screenshots as files. */
+async function execIn(
+  host: AgentHost,
+  presence: Call["presence"],
+  snapshot: TabSnapshot,
+  request: ExecRequest | AppCall,
+  caller?: Caller
+): Promise<Answer<"exec"> & { changes: AgentChangeSet }> {
+  const { changes, screenshots, ...rest } = await runIn(host, presence, snapshot, request, caller)
+
+  const paths =
+    screenshots.length > 0
+      ? await host.saveScreenshots(
+          screenshots.map((shot) => ({ name: fileName(`${shot.design}-${shot.state}-${shot.mode}`), png: shot.png }))
+        )
+      : []
+
   return {
     ...rest,
-    applied: result.ok && hasChanges,
+    changes,
     screenshots: screenshots.map((shot, index) => ({
       path: paths[index] ?? "",
       png: shot.png,
@@ -343,43 +846,309 @@ async function exec(
 }
 
 /**
- * Renders designs to PNGs, as the window's Export does: each design in every state, in its main mode and the modes
- * beside it, without showing agent activity on the canvas. Each picture comes with a file name that says which, when
- * there's more than one, and doesn't repeat another's, ignoring case.
+ * Runs a snippet, or one of Parity's own calls, in a tab and applies what it changed there, keeping its screenshots as
+ * pictures, not files.
+ */
+async function runIn(
+  host: AgentHost,
+  presence: Call["presence"],
+  snapshot: TabSnapshot,
+  request: ExecRequest | AppCall,
+  caller?: Caller
+): Promise<ExecResult & { applied: boolean }> {
+  const tabId = snapshot.tab.id
+  const label = request.label || "Agent edit"
+
+  const hooks: AgentHooks = {
+    presence: presence(tabId),
+    render: renderFor(host, snapshot),
+    iconNames: (set, module) => host.iconNames(tabId, set, module),
+    apply: (changes) => host.apply(tabId, label, changes),
+    supports: (queries) => host.supports(queries),
+    screen: (id, connector) => host.screen(id, connector),
+    caller: caller?.name
+  }
+
+  const result =
+    "calls" in request
+      ? execResult(await perform(workspaceSnapshot(snapshot), hooks, label, request.calls))
+      : await execute(snippet(request, label), workspaceSnapshot(snapshot), hooks)
+
+  const { changes } = result
+
+  const hasChanges =
+    changes.designs.length > 0 || !!changes.modes || changes.tokens.length > 0 || !!changes.references?.length
+
+  return { ...result, applied: result.ok && hasChanges }
+}
+
+/** An agent's snippet request with only what `execute` reads, whatever else its params held. */
+function snippet(request: ExecRequest, label: string): ExecRequest {
+  const run: ExecRequest = { label }
+
+  if (request.code !== undefined) {
+    run.code = request.code
+  }
+
+  if (request.editId !== undefined) {
+    run.editId = request.editId
+  }
+
+  if (request.edits !== undefined) {
+    run.edits = request.edits
+  }
+
+  return run
+}
+
+/**
+ * Each design's screenshots as one labeled contact sheet, kept as a file (PAR-895): states in rows, modes in columns,
+ * named as the canvas names them. `scale` is the pixel density the frames were drawn at.
+ */
+async function contactSheets(
+  host: AgentHost,
+  snapshot: TabSnapshot,
+  screenshots: readonly Screenshot[],
+  scale: number
+): Promise<NonNullable<Answer<"screenshot">["sheets"]>> {
+  const containers = new Map(
+    snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
+  )
+
+  const modes = new Map(resolveModes(snapshot.modes).map((mode) => [mode.id, mode.name]))
+  const designs = [...new Set(screenshots.map((shot) => shot.design))]
+
+  const sheets = await Promise.all(
+    designs.map(async (design) => {
+      const container = containers.get(design)
+      const shots = screenshots.filter((shot) => shot.design === design)
+
+      const layout = sheetLayout(
+        container?.name ?? design,
+        shots.map((shot) => ({
+          state: {
+            id: shot.state,
+            name: (container && designStates(container).find((state) => state.id === shot.state)?.name) ?? shot.state
+          },
+          mode: { id: shot.mode, name: modes.get(shot.mode) ?? shot.mode },
+          width: Math.round(shot.width * scale),
+          height: Math.round(shot.height * scale)
+        }))
+      )
+
+      const png = await host.composeSheet({
+        width: layout.width,
+        height: layout.height,
+        overlay: layout.overlay,
+        frames: layout.frames.map((frame) => ({ ...frame, png: shots[frame.index]!.png }))
+      })
+
+      return { design, png, layout }
+    })
+  )
+
+  const paths =
+    sheets.length > 0
+      ? await host.saveScreenshots(sheets.map(({ design, png }) => ({ name: fileName(`${design}-sheet`), png })))
+      : []
+
+  return sheets.map(({ design, png, layout }, index) => ({
+    design,
+    path: paths[index] ?? "",
+    png,
+    width: layout.width,
+    height: layout.height,
+    scale: scale * layout.fit,
+    frames: layout.frames.map(({ index: _index, ...frame }) => frame)
+  }))
+}
+
+/**
+ * One picture `exportPictures` gives back: its file's name and size, and the PNG drawn at its scale, with the crop of
+ * it that is the whole design.
+ */
+export interface ExportedPicture {
+  name: string
+  size: ExportSize
+  png: string
+  crop: PictureCrop
+}
+
+/**
+ * Renders designs for the window's File > Export all at each size asked for: each design in every state, in its main
+ * mode and the modes beside it, drawn once at each scale, without showing agent activity on the canvas. Each file is
+ * named by its design, with its state and mode when there's more than one, as `exportFiles` names layers: the size's
+ * suffix and extension, and a number from the second picture named alike on. The host turns a JPG's PNG into a JPG.
  */
 export async function exportPictures(
   host: AgentHost,
   snapshot: TabSnapshot,
   designs: string[],
-  scale: number
-): Promise<{ files: { name: string; png: string }[]; warnings: string[] }> {
-  const options = JSON.stringify({ state: "all", mode: "shown", scale })
-  const result = await execute(
-    { label: "Export", code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${options})` },
-    workspaceSnapshot(snapshot),
-    { presence: () => undefined, render: renderFor(host, snapshot) }
-  )
-  if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
+  sizes: readonly ExportSize[]
+): Promise<{ files: ExportedPicture[]; warnings: string[] }> {
+  const shots: (Screenshot & { scale: number })[] = []
+  const warnings = new Set<string>()
+
+  for (const scale of new Set(sizes.map((size) => size.scale))) {
+    const result = await screenshots(host, snapshot, "Export", async (api) => {
+      for (const design of designs) {
+        await api.Screenshot(design, { state: "all", mode: "shown", scale })
+      }
+    })
+
+    shots.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
+
+    for (const warning of result.warnings) {
+      warnings.add(warning)
+    }
+  }
+
   const containers = new Map(
     snapshot.documents.flatMap(({ document }) => document.containers.map((container) => [container.id, container]))
   )
+
   const modes = new Map(resolveModes(snapshot.modes).map((mode) => [mode.id, mode.name]))
+  const frameKey = (shot: Screenshot) => JSON.stringify([shot.design, shot.state, shot.mode])
+
+  // Each frame once, whichever scales drew it, so a design's files are named alike at every size.
+  const frames = [...new Map(shots.map((shot) => [frameKey(shot), shot])).values()]
+
   const perDesign = (design: string, field: "state" | "mode") =>
-    new Set(result.screenshots.filter((shot) => shot.design === design).map((shot) => shot[field])).size
-  const used = new Set<string>()
-  const files = result.screenshots.map((shot) => {
+    new Set(frames.flatMap((shot) => (shot.design === design ? [shot[field]] : []))).size
+
+  const labels = frames.map((shot) => {
     const container = containers.get(shot.design)
-    const state = container?.states.find((candidate) => candidate.id === shot.state)
+    const state = container && designStates(container).find((candidate) => candidate.id === shot.state)
     const parts = [container?.name ?? shot.design]
-    if (perDesign(shot.design, "state") > 1) parts.push(state?.name ?? shot.state)
-    if (perDesign(shot.design, "mode") > 1) parts.push(modes.get(shot.mode) ?? shot.mode)
-    const base = fileName(parts.join(" ")) + (scale === 1 ? "" : `@${scale}x`)
-    let name = `${base}.png`
-    for (let copy = 2; used.has(name.toLowerCase()); copy++) name = `${base} ${copy}.png`
-    used.add(name.toLowerCase())
-    return { name, png: shot.png }
+
+    if (perDesign(shot.design, "state") > 1) {
+      parts.push(state?.name ?? shot.state)
+    }
+
+    if (perDesign(shot.design, "mode") > 1) {
+      parts.push(modes.get(shot.mode) ?? shot.mode)
+    }
+
+    return parts.join(" ")
   })
-  return { files, warnings: result.warnings }
+
+  const files = exportFiles(labels, sizes).flatMap((file) => {
+    const frame = frames[file.layer]!
+
+    const shot = shots.find(
+      (candidate) => candidate.scale === file.size.scale && frameKey(candidate) === frameKey(frame)
+    )
+
+    const crop = shot && pictureCrop({ x: 0, y: 0, width: shot.width, height: shot.height }, shot)
+
+    if (!shot || !crop) {
+      // A frame that didn't draw at this scale has its warning already; one with no size gets one here.
+      if (shot) {
+        warnings.add(`${file.name}: the design has no size`)
+      }
+
+      return []
+    }
+
+    return [{ name: file.name, size: file.size, png: shot.png, crop }]
+  })
+
+  return { files, warnings: [...warnings] }
+}
+
+/**
+ * The frames `shoot` screenshots through the agent API, drawn offscreen with nothing shown on the canvas, for the
+ * window's Export and an agent's Report. A failure throws what the API threw, such as an unknown design's coded error.
+ */
+async function screenshots(
+  host: AgentHost,
+  snapshot: TabSnapshot,
+  label: string,
+  shoot: (api: AgentApi) => Promise<void>
+): Promise<{ screenshots: Screenshot[]; warnings: string[] }> {
+  const hooks = { presence: () => undefined, render: renderFor(host, snapshot) }
+  const done = await perform(workspaceSnapshot(snapshot), hooks, label, shoot)
+
+  if (!done.ok) {
+    throw done.error
+  }
+
+  return { screenshots: done.screenshots, warnings: done.warnings }
+}
+
+/**
+ * The name of the tab a report without a design is about, from the tabs' summaries, which list tabs still opening or
+ * that failed to open: the one named, else the active one, and none when no project is open.
+ */
+async function reportedTab(host: AgentHost, reference: string | undefined): Promise<string | undefined> {
+  const tabs = await host.tabs()
+
+  if (reference === undefined || reference === activeTab) {
+    return tabs.find((tab) => tab.active)?.name
+  }
+
+  const tab = matchTab(tabs, reference)
+
+  if (tab) {
+    return tab.name
+  }
+
+  const ids = tabs.map((candidate) => candidate.id)
+  throw unknownReference("unknown_tab", `No open tab matches "${reference}"`, reference, ids, "tab")
+}
+
+/** The longest a Sentry tag's value may be. */
+const tagLength = 200
+
+/**
+ * Sends a problem an agent saw (PAR-646): its message, tagged with what it's about, with the frames of the design it
+ * names in the state it names (else the one it shows), drawn offscreen without the caller's cursor. Without a design,
+ * it works with no project open, or one still opening or failed to open. A design or state that isn't there fails as
+ * a screenshot of it would, so the tags only name real ones.
+ */
+async function report(host: AgentHost, params: Params<"report">): Promise<Answer<"report">> {
+  // Only a design's frames need the tab ready, so a project that's opening or failed to open can still be reported.
+  const snapshot = params.design === undefined ? undefined : await host.snapshot(params.tab)
+  const tabName = snapshot?.tab.name ?? (await reportedTab(host, params.tab))
+  const frames: AgentReport["frames"] = []
+  let design: string | undefined
+  let state = params.state
+
+  if (snapshot && params.design !== undefined) {
+    const options = params.state === undefined ? { mode: "shown" } : { mode: "shown", state: params.state }
+
+    const shown = params.design
+
+    const result = await screenshots(host, snapshot, "Report", async (api) => {
+      await api.Screenshot(shown, options)
+    })
+
+    for (const shot of result.screenshots) {
+      design = shot.design
+      state ??= shot.state
+      frames.push({ name: fileName(`${shot.design} ${shot.state} ${shot.mode}`) + ".png", png: shot.png })
+    }
+  }
+
+  const named = {
+    tab: tabName,
+    design: design ?? params.design,
+    state,
+    node: params.node,
+    test_run: params.testRun
+  } satisfies Record<string, string | undefined>
+
+  const tags: Record<string, string> = {}
+
+  for (const [key, value] of Object.entries(named)) {
+    if (value !== undefined) {
+      tags[key] = value.slice(0, tagLength)
+    }
+  }
+
+  const sent = await host.report({ message: params.message, tags, frames })
+
+  return { ...sent, tags }
 }
 
 /**
@@ -395,19 +1164,18 @@ export async function framePictures(
 ): Promise<{ frames: (Screenshot & { scale: number })[]; warnings: string[] }> {
   const frames: (Screenshot & { scale: number })[] = []
   const warnings: string[] = []
+
   for (const scale of scales) {
-    const result = await execute(
-      {
-        label: "Export",
-        code: `for (const design of ${JSON.stringify(designs)}) await Screenshot(design, ${JSON.stringify({ scale })})`
-      },
-      workspaceSnapshot(snapshot),
-      { presence: () => undefined, render: renderFor(host, snapshot) }
-    )
-    if (!result.ok) throw new Error(result.error ?? "The designs couldn't be rendered")
+    const result = await screenshots(host, snapshot, "Export", async (api) => {
+      for (const design of designs) {
+        await api.Screenshot(design, { scale })
+      }
+    })
+
     frames.push(...result.screenshots.map((shot) => ({ ...shot, scale })))
     warnings.push(...result.warnings)
   }
+
   return { frames, warnings }
 }
 
@@ -435,6 +1203,7 @@ export async function accessibility(
     presence,
     (api, reference) => api.Accessibility(reference, options)
   )
+
   return { ...result, findings: found }
 }
 
@@ -452,36 +1221,44 @@ async function checkDesign<T>(
 ): Promise<{ design: { id: string; name: string }; found: T; frames: number; warnings: string[] }> {
   let frames = 0
   const render = renderFor(host, snapshot)
-  const workspace = new AgentWorkspace(
-    workspaceSnapshot(snapshot),
-    {
-      presence,
-      render: (request) => {
-        frames++
-        return render(request)
-      }
-    },
-    label
-  )
-  const api = workspace.api()
-  workspace.emit({ kind: "start" })
-  try {
+
+  const hooks = {
+    presence,
+    render: (request: FrameRequest) => {
+      frames++
+
+      return render(request)
+    }
+  }
+
+  const done = await perform(workspaceSnapshot(snapshot), hooks, label, async (api) => {
     const found = await check(api, design)
     const { id, name } = api.GetDesign(design)
-    workspace.emit({ kind: "end" })
-    return { design: { id, name }, found, frames, warnings: workspace.result().warnings }
-  } catch (error) {
-    workspace.emit({ kind: "end", error: error instanceof Error ? error.message : String(error) })
-    throw error
-  } finally {
-    workspace.flush()
+
+    return { design: { id, name }, found }
+  })
+
+  if (!done.ok) {
+    throw done.error
   }
+
+  return { ...done.value, frames, warnings: done.warnings }
 }
 
 /** The agent API, for calls that only read. */
 function readOnly(snapshot: TabSnapshot): AgentApi {
-  const noop = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
-  return new AgentWorkspace(workspaceSnapshot(snapshot), noop, "Read").api()
+  return reader(snapshot).api()
+}
+
+/**
+ * A working copy of a tab to read from at once, which draws nothing and shows nothing on the canvas. A call that runs
+ * goes through `perform` in run.ts, the one other place a workspace is built; a read needs the workspace itself, such
+ * as its `locate`, in step with the answer, without a call's start, end or changes to apply.
+ */
+function reader(snapshot: TabSnapshot): AgentWorkspace {
+  const hooks = { presence: () => undefined, render: () => Promise.reject(new Error("Not available")) }
+
+  return new AgentWorkspace(workspaceSnapshot(snapshot), hooks, "Read")
 }
 
 /** A name that's safe as a file name on every system: no reserved characters, no control characters. */
@@ -490,6 +1267,7 @@ export function fileName(name: string): string {
     .split("")
     .filter((character) => character >= " " && !'<>:"/\\|?*'.includes(character))
     .join("")
+
   return (
     kept
       .replaceAll(/\s+/g, " ")

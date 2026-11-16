@@ -8,12 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
+  Input
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   type ModeSettings,
@@ -23,6 +18,7 @@ import {
   uniqueId,
   type VariableOption
 } from "@parity-app/core"
+import { setModes } from "@parity-app/multiplayer"
 import {
   Copy,
   Crown,
@@ -38,9 +34,11 @@ import {
 } from "lucide-react"
 import { useMemo } from "react"
 import { useProject } from "../canvas/context.ts"
-import { useModeSettings } from "../design-store.ts"
+import { useModeSettings } from "../project-doc.ts"
 import { useTokenList } from "../tokens-store.ts"
+import { AppSelect } from "./AppSelect.tsx"
 import { Hint } from "./Hint.tsx"
+import { NameInput } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
 import { type PresetGroup, ViewportIcon, ViewportPicker, viewportPresets, withViewport } from "./viewports.tsx"
 
@@ -51,12 +49,14 @@ const kindIcons = { viewport: Monitor, theme: Palette, locale: Languages, custom
  * Chromatic mode in Storybook. The first mode is the primary frame everywhere.
  */
 export function ModesPanel() {
-  const { store, info, tokens: tokenStore } = useProject()
+  const session = useProject()
+  const { doc, info, tokens: tokenStore } = session
   const modesFile = info.modes
-  const settings = useModeSettings(store)
+  const settings = useModeSettings(session)
   const tokens = useTokenList(tokenStore)
   const presets = useMemo(() => viewportPresets(tokens, info.libraries), [tokens, info.libraries])
-  const update = (next: Partial<ModeSettings>) => store.setModes({ ...settings, ...next })
+  const update = (next: Partial<ModeSettings>) => setModes(doc, { ...settings, ...next })
+
   const replaceMode = (id: string, next: ModeSpec) =>
     update({ modes: settings.modes.map((mode) => (mode.id === id ? next : mode)) })
 
@@ -66,13 +66,19 @@ export function ModesPanel() {
     const base = added?.settings ?? settings
     const values = Object.fromEntries(base.variables.map((variable) => [variable.id, variable.options[0]!.id]))
     const variable = base.variables.find((candidate) => candidate.kind === "viewport")
-    if (added && variable) values[variable.id] = added.option
+
+    if (added && variable) {
+      values[variable.id] = added.option
+    }
+
     const name = autoName(base, values)
+
     const id = uniqueId(
       name,
       base.modes.map((mode) => mode.id)
     )
-    store.setModes({ ...base, modes: [...base.modes, { id, name, values }] }, "Add mode")
+
+    setModes(doc, { ...base, modes: [...base.modes, { id, name, values }] }, "Add mode")
   }
 
   return (
@@ -83,7 +89,7 @@ export function ModesPanel() {
           <>
             Shared by every screen and component; each picks which to show.{" "}
             {modesFile.custom ? "Saved in " : "Using the defaults; editing saves them to "}
-            <code>{store.mainPath}</code>.
+            <code>{doc.main}</code>.
           </>
         }
         action={
@@ -125,6 +131,7 @@ export function ModesPanel() {
               onMakePrimary={() => update({ modes: [mode, ...settings.modes.filter((m) => m.id !== mode.id)] })}
               onDuplicate={() => {
                 const name = `${mode.name} copy`
+
                 const copy = {
                   ...mode,
                   id: uniqueId(
@@ -133,6 +140,7 @@ export function ModesPanel() {
                   ),
                   name
                 }
+
                 update({ modes: [...settings.modes, copy] })
               }}
               onDelete={
@@ -156,20 +164,29 @@ export function ModesPanel() {
               }
               onAdd={(preset) => {
                 const added = withViewport(settings, preset)
-                if (added && added.settings !== settings) store.setModes(added.settings, `Add ${preset.name}`)
+
+                if (added && added.settings !== settings) {
+                  setModes(doc, added.settings, `Add ${preset.name}`)
+                }
               }}
               onRemove={(optionId) => {
                 // Modes that used it fall back to the first option.
                 const modes = settings.modes.map((mode) => {
-                  if (mode.values[variable.id] !== optionId) return mode
+                  if (mode.values[variable.id] !== optionId) {
+                    return mode
+                  }
+
                   const values = { ...mode.values }
                   delete values[variable.id]
+
                   return { ...mode, values }
                 })
+
                 const variables = settings.variables.map((v) =>
                   v.id === variable.id ? { ...v, options: v.options.filter((option) => option.id !== optionId) } : v
                 )
-                store.setModes({ ...settings, variables, modes }, "Remove option")
+
+                setModes(doc, { ...settings, variables, modes }, "Remove option")
               }}
             />
           ))}
@@ -191,6 +208,7 @@ interface ModeCardProps {
 
 function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicate, onDelete }: ModeCardProps) {
   const resolved = resolveMode(settings, mode)
+
   const setValue = (variableId: string, optionId: string) => {
     const values = { ...mode.values, [variableId]: optionId }
     // Keep generated names in step with the values; a name someone typed stays as it is.
@@ -201,20 +219,30 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
   return (
     <li className={`rounded-lg border p-3 ${primary ? "border-primary/40 bg-accent/30" : ""}`}>
       <div className="mb-2.5 flex items-center gap-2">
-        <Input
+        <NameInput
           key={mode.name}
           defaultValue={mode.name}
           aria-label="Mode name"
           className="h-7 flex-1 border-transparent bg-transparent px-1.5 font-medium shadow-none hover:border-input"
           onBlur={(event) => {
             const name = event.currentTarget.value.trim()
-            if (name && name !== mode.name) onChange({ ...mode, name })
+
+            if (name && name !== mode.name) {
+              onChange({ ...mode, name })
+            }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur()
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
           }}
         />
-        {primary && <Badge variant="secondary">Primary</Badge>}
+        {/* A tag on the mode's row, a Caption, as its chips are in the Design tab. */}
+        {primary && (
+          <Badge variant="secondary" className="text-2xs">
+            Primary
+          </Badge>
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -240,6 +268,7 @@ function ModeCard({ mode, settings, primary, onChange, onMakePrimary, onDuplicat
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1.5">
         {resolved.options.map(({ variable, option }) => {
           const Icon = kindIcons[variable.kind]
+
           return (
             <VariableSelect
               key={variable.id}
@@ -274,24 +303,21 @@ function VariableSelect({ icon, variable, value, onChange }: VariableSelectProps
       </>
     )
   }))
+
   return (
     <>
       <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
         {icon}
         {variable.name}
       </span>
-      <Select items={items} value={value} onValueChange={(next) => next && onChange(next)}>
-        <SelectTrigger size="sm" className="w-full min-w-0 overflow-hidden" aria-label={variable.name}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {items.map((item) => (
-            <SelectItem key={item.value} value={item.value}>
-              {item.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <AppSelect
+        variant="panel"
+        aria-label={variable.name}
+        className="w-full min-w-0 overflow-hidden"
+        items={items}
+        value={value}
+        onValueChange={(next) => next && onChange(next)}
+      />
     </>
   )
 }
@@ -307,8 +333,10 @@ interface VariableCardProps {
 
 function VariableCard({ variable, presets, onChange, onAdd, onRemove }: VariableCardProps) {
   const Icon = kindIcons[variable.kind]
+
   const setOption = (id: string, next: VariableOption) =>
     onChange({ ...variable, options: variable.options.map((option) => (option.id === id ? next : option)) })
+
   const viewport = variable.kind === "viewport"
 
   return (
@@ -347,6 +375,7 @@ function VariableCard({ variable, presets, onChange, onAdd, onRemove }: Variable
                   className="h-6 w-16 px-1.5 text-right text-xs"
                   onBlur={(event) => {
                     const width = Number(event.currentTarget.value)
+
                     if (Number.isFinite(width) && width >= 240 && width !== option.width) {
                       setOption(option.id, { ...option, width })
                     }
@@ -380,14 +409,27 @@ function VariableCard({ variable, presets, onChange, onAdd, onRemove }: Variable
 /** What an option does to a frame, as small code chips. */
 function OptionDetails({ option }: { option: VariableOption }) {
   const parts: string[] = []
-  if (option.width !== undefined) parts.push(`${option.width}px`)
-  if (option.className) parts.push(`class="${option.className}"`)
-  for (const [name, value] of Object.entries(option.attributes ?? {})) parts.push(`${name}="${value}"`)
-  if (parts.length === 0) return <span className="text-xs text-muted-foreground">No change</span>
+
+  if (option.width !== undefined) {
+    parts.push(`${option.width}px`)
+  }
+
+  if (option.className) {
+    parts.push(`class="${option.className}"`)
+  }
+
+  for (const [name, value] of Object.entries(option.attributes ?? {})) {
+    parts.push(`${name}="${value}"`)
+  }
+
+  if (parts.length === 0) {
+    return <span className="text-xs text-muted-foreground">No change</span>
+  }
+
   return (
     <>
       {parts.map((part) => (
-        <code key={part} className="rounded bg-muted px-1 text-[11px] text-muted-foreground">
+        <code key={part} className="rounded bg-muted px-1 text-2xs text-muted-foreground">
           {part}
         </code>
       ))}
@@ -400,7 +442,9 @@ function autoName(settings: ModeSettings, values: Record<string, string>): strin
   const names = settings.variables.flatMap((variable, index) => {
     const option = variable.options.find((candidate) => candidate.id === values[variable.id]) ?? variable.options[0]!
     const isDefault = option.id === variable.options[0]!.id
+
     return index < 2 || !isDefault ? [option.name] : []
   })
+
   return names.join(" ")
 }

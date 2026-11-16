@@ -15,7 +15,10 @@ export interface PortFinder {
 export async function newGuestPort(used: ReadonlySet<number>, ports: PortFinder): Promise<number> {
   for (;;) {
     const port = await ports.free()
-    if (!used.has(port)) return port
+
+    if (!used.has(port)) {
+      return port
+    }
   }
 }
 
@@ -28,7 +31,10 @@ export async function restartPort(
   used: ReadonlySet<number>,
   ports: PortFinder
 ): Promise<number> {
-  if (last !== undefined && (await ports.isFree(last))) return last
+  if (last !== undefined && (await ports.isFree(last))) {
+    return last
+  }
+
   return newGuestPort(used, ports)
 }
 
@@ -44,6 +50,7 @@ export async function followGuest(
   tell: (moved: GuestMoved) => Promise<boolean>
 ): Promise<string> {
   const moved = guestMove(projectId, drawn, now)
+
   return moved && (await tell(moved)) ? now : drawn
 }
 

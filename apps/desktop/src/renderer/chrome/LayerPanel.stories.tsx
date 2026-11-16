@@ -1,217 +1,89 @@
-import { insertNode, mapNode } from "@parity-app/core"
+import { type ImageNode, insertNode, type VideoNode } from "@parity-app/core"
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect, userEvent, within } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
-import { answering } from "../stories/host.ts"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, slowly, typing } from "./inspector-stories.tsx"
-import { Inspector } from "./Inspector.tsx"
+import { inspecting, slowly } from "./inspector-stories.tsx"
+import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /**
- * The Design tab with one layer selected: its name and kind, which state edits go to, then what it holds (text, a
- * component's props, an instance's params, an image), whether it shows, and its style.
+ * The Design tab with one layer of each kind selected, one story each, named as its header names the kind: the
+ * sections that kind gets. A layout's and a text layer's own panels are Layers › Layout and Text. Each section's own cases are in Sections, and a whole design's panel in Layers › Designs.
  */
 const meta = {
-  title: "Parity/Inspector/Layer",
+  title: "Parity/Inspector/Layers/Kinds",
   component: DesignTab,
-  render: () => <Inspector />,
-  decorators: [
-    (Story) => (
-      <InspectorStage>
-        <Story />
-      </InspectorStage>
-    )
-  ]
+  render: renderInspector,
+  decorators: [inspectorStage]
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
-/** Selects one layer of an example design, by its name or its component, as the canvas or Layers would. */
-const pick = (designName: string, layerName: string, state?: string) =>
-  inspecting("design", () =>
-    layersSelection(design(designName), [node(designName, layerName)], state ? { state } : undefined)
-  )
-
-/** A text layer, Pricing's headline: its text to edit, then visibility, and its type set large and centered. */
-export const TextLayer: Story = { loaders: [pick("Pricing", "Headline")] }
-
-/** A component layer, Plan card's call to action: its label, Button's props, a link to its stories, and its style. */
-export const ComponentLayer: Story = { loaders: [pick("Plan card", "Call to action")] }
-
-/** A component whose content is layers in its slot rather than a label: Sign in's submit button. */
-export const ComponentWithLayersInside: Story = { loaders: [pick("Sign in", "Sign in button")] }
+/**
+ * A component instance, Plan card's call to action: Button's props under its name, the attributes it passes on, its
+ * header's links, and its style.
+ */
+export const ComponentInstance: Story = { name: "Component instance", loaders: [pick("Plan card", "Call to action")] }
 
 /** An icon from Lucide: its props aren't read from source, so only the ones it sets show. */
-export const IconLayer: Story = { loaders: [pick("Plan card", "lucide/Check")] }
+export const Icon: Story = { loaders: [pick("Plan card", "lucide/Check")] }
 
-/**
- * A component whose props have no `style`, as an app's `MemberRow({ member })` hasn't, shown here as Pricing's badge:
- * the panel says the size and styles don't change it, and Wrap in layout puts a layout around it to size instead.
- */
-export const ComponentWithoutStyle: Story = {
-  loaders: [
-    async () => {
-      answering({
-        "project.components": async (_params, usual) => {
-          const components = await usual()
-          return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
-        }
-      })
-      await pick("Pricing", "Badge")()
-    }
-  ],
-  play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await panel.findByText(/doesn't take a/, undefined, slowly)
-    await userEvent.click(panel.getByRole("button", { name: /Wrap in layout/ }))
-    await panel.findByText(/layout in Pricing/, undefined, slowly)
-  }
-}
+/** Adds a picture or a clip to Pricing's hero and selects it. */
+const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "type" | "src" | "controls">) =>
+  inspecting("design", () => {
+    const key = design("Pricing")
+    updateContainer(example().doc, key, `Add ${layer.type}`, (container) => ({
+      ...container,
+      root: insertNode(
+        container.root,
+        node("Pricing", "Hero"),
+        {
+          id: "hero-media",
+          name: "Team photo",
+          alt: "Four people around a laptop, planning a launch",
+          fit: "contain",
+          credit: { name: "Brooke Cagle", url: "https://unsplash.com/@brookecagle", source: "Unsplash" },
+          style: { width: { size: "fill" }, height: { step: 60 }, borderRadius: { token: "radius-xl" } },
+          ...layer
+        },
+        { index: 3 }
+      )
+    }))
 
-/** A layout, Pricing's hero: no content section, and a Layout section first among its styles. */
-export const LayoutLayer: Story = { loaders: [pick("Pricing", "Hero")] }
+    return layersSelection(key, ["hero-media"])
+  })
 
-/** The design's outermost layer: everything a layout has, but no Make component, since it's the design itself. */
-export const OutermostLayer: Story = { loaders: [pick("Pricing", "Page")] }
+/** Finds a media layer's fields by their labels, as a screen reader names them. */
+async function mediaFields(canvasElement: HTMLElement) {
+  const panel = within(canvasElement)
+  await expect(await panel.findByRole("textbox", { name: "File" }, slowly)).toBeVisible()
+  await expect(panel.getByRole("textbox", { name: "Alt text" })).toHaveValue(
+    "Four people around a laptop, planning a launch"
+  )
+  await expect(panel.getByRole("combobox", { name: "Fit" })).toHaveTextContent("Contain, shown whole")
+  await expect(panel.getByRole("button", { name: "Hide layer" })).toBeVisible()
 
-/** A layer without a name of its own: the name field shows what Layers calls it, as a placeholder. */
-export const UnnamedLayer: Story = { loaders: [pick("Pricing", "Badge")] }
-
-/** A layer with a very long name. */
-export const LongLayerName: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Pricing")
-      const id = node("Pricing", "Billing period")
-      example().store.updateContainer(key, "Rename layer", (container) => ({
-        ...container,
-        root: mapNode(container.root, id, (current) => ({
-          ...current,
-          name: "Billing period switch with the yearly discount badge beside it"
-        }))
-      }))
-      return layersSelection(key, [id])
-    })
-  ]
-}
-
-/** An instance of a component design, Pricing's Pro plan: which state of Plan card it shows, and each of its params. */
-export const InstanceLayer: Story = { loaders: [pick("Pricing", "Pro plan")] }
-
-/** The Pro plan picked in Pricing's Yearly state, which changes its price and billing: those params can be reset. */
-export const InstanceChangedInAState: Story = { loaders: [pick("Pricing", "Pro plan", "yearly")] }
-
-/** An instance whose component design was deleted: the panel says it doesn't exist. */
-export const InstanceOfMissingComponent: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Pricing")
-      const id = node("Pricing", "Business plan")
-      example().store.updateContainer(key, "Break instance", (container) => ({
-        ...container,
-        root: mapNode(container.root, id, (current) =>
-          current.type === "instance" ? { ...current, design: "enterprise-plan-card" } : current
-        )
-      }))
-      return layersSelection(key, [id])
-    })
-  ]
+  return panel
 }
 
 /** An image layer: its file, alt text for screen readers, how it fills its box, and who took it. */
-export const ImageLayer: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Pricing")
-      example().store.updateContainer(key, "Add image", (container) => ({
-        ...container,
-        root: insertNode(
-          container.root,
-          node("Pricing", "Hero"),
-          {
-            id: "hero-photo",
-            type: "image",
-            name: "Team photo",
-            src: "/images/team-at-work.jpg",
-            alt: "Four people around a laptop, planning a launch",
-            fit: "contain",
-            credit: { name: "Brooke Cagle", url: "https://unsplash.com/@brookecagle", source: "Unsplash" },
-            style: { width: "fill", height: 60, radius: "radius-xl" }
-          },
-          { index: 3 }
-        )
-      }))
-      return layersSelection(key, ["hero-photo"])
-    })
-  ]
-}
-
-/** A layer hidden in the base design, Sign in's error alert: the Visible switch is off. */
-export const HiddenLayer: Story = { loaders: [pick("Sign in", "Sign in error")] }
-
-/**
- * A layer picked in another state, Sign in's password field in Wrong password: the editing bar turns the agent color
- * and says edits change only this state, and the props that state changes can each be reset.
- */
-export const EditingAState: Story = { loaders: [pick("Sign in", "Password input", "wrong-password")] }
-
-/**
- * A prop the base design turns on, turned off in one state (PAR-421): Sign in's button is disabled in the base, and in
- * Wrong password its `disabled` switch turns off there only. The field is marked as changed, and Reset takes the
- * state's change back, so the switch is on again.
- */
-export const TurningAPropOffInAState: Story = {
-  loaders: [
-    inspecting("design", () => {
-      const key = design("Sign in")
-      const id = node("Sign in", "Sign in button")
-      example().store.updateContainer(key, "Disable button", (container) => ({
-        ...container,
-        root: mapNode(container.root, id, (current) =>
-          current.type === "component" ? { ...current, props: { ...current.props, disabled: true } } : current
-        )
-      }))
-      return layersSelection(key, [id], { state: "wrong-password" })
-    })
-  ],
+export const Image: Story = {
+  loaders: [media({ type: "image", src: "/images/team-at-work.jpg" })],
   play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    const disabled = await panel.findByRole("switch", { name: "disabled" }, slowly)
-    await expect(disabled).toBeChecked()
-    await userEvent.click(disabled)
-    await expect(panel.getByRole("switch", { name: "disabled" })).not.toBeChecked()
-    await userEvent.click(await panel.findByRole("button", { name: "Reset disabled to the base design" }, slowly))
-    await expect(await panel.findByRole("switch", { name: "disabled" }, slowly)).toBeChecked()
-    await expect(panel.queryByRole("button", { name: "Reset disabled to the base design" })).toBeNull()
+    const panel = await mediaFields(canvasElement)
+    await expect(panel.getByRole("textbox", { name: "File" })).toHaveValue("/images/team-at-work.jpg")
   }
 }
 
-/** The state picker opened from the editing bar: every state of the design, to send edits to another. */
-export const ChoosingTheState: Story = {
-  loaders: [pick("Sign in", "Password input")],
+/** A video layer: an image's fields, and whether it shows the browser's controls. */
+export const Video: Story = {
+  loaders: [media({ type: "video", src: "/videos/team-at-work.mp4", controls: true })],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getAllByRole("combobox")[0]!)
-    await within(document.body).findByRole("listbox", undefined, slowly)
+    const panel = await mediaFields(canvasElement)
+    await expect(panel.getByRole("switch", { name: "Controls" })).toBeChecked()
   }
-}
-
-/** Make component clicked: a field for the new component's name, ready to type in. */
-export const NamingAComponent: Story = {
-  loaders: [pick("Pricing", "Billing period")],
-  play: async ({ canvasElement }) => {
-    const panel = within(canvasElement)
-    await userEvent.click(panel.getByRole("button", { name: "Make component" }))
-    await userEvent.type(
-      await panel.findByPlaceholderText("Component name", undefined, slowly),
-      "Billing switch",
-      typing
-    )
-  }
-}
-
-/** The selected layer was deleted, by an agent or another window: the panel says it no longer exists. */
-export const LayerGone: Story = {
-  loaders: [inspecting("design", () => layersSelection(design("Pricing"), ["deleted-layer"]))]
 }

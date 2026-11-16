@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from "react"
 import type { ProcessUsage } from "../../shared/protocol.ts"
+import { windowStore } from "../store.ts"
 
 /** One second of measurements. */
 export interface Sample {
@@ -20,8 +21,10 @@ export interface PerformanceStats {
 
 const historyLength = 60
 const empty: PerformanceStats = { history: [] }
-let stats = empty
-const listeners = new Set<() => void>()
+const stats = windowStore(() => empty)
+
+/** How many views show the stats; the sampler runs while any do. */
+let watchers = 0
 let stop: (() => void) | undefined
 
 /** Chromium's non-standard `performance.memory`. */
@@ -37,12 +40,14 @@ function start(): () => void {
   let last = performance.now()
   let since = last
   let processes: ProcessUsage[] = []
+
   let frame = requestAnimationFrame(function tick(now) {
     frames += 1
     longest = Math.max(longest, now - last)
     last = now
     frame = requestAnimationFrame(tick)
   })
+
   const timer = setInterval(() => {
     const now = performance.now()
     const fps = Math.round((frames * 1000) / (now - since))
@@ -50,21 +55,30 @@ function start(): () => void {
     frames = 0
     longest = 0
     since = now
+    // SAFETY: Chromium adds `performance.memory`, which the DOM types leave out; it's optional for other engines.
     const memory = (performance as Performance & { memory?: MemoryInfo }).memory
     const heap = memory ? { used: memory.usedJSHeapSize, limit: memory.jsHeapSizeLimit } : undefined
+
     const publish = () => {
-      if (!stop) return
-      stats = {
-        latest: { fps, longestFrame, processes, ...(heap ? { heap } : {}) },
-        history: [...stats.history, fps].slice(-historyLength)
+      if (!stop) {
+        return
       }
-      for (const listener of listeners) listener()
+
+      const latest: Sample = { fps, longestFrame, processes }
+
+      if (heap) {
+        latest.heap = heap
+      }
+
+      stats.update((now) => ({ latest, history: [...now.history, fps].slice(-historyLength) }))
     }
+
     window.canvasHost.metrics().then((next) => {
       processes = next
       publish()
     }, publish)
   }, 1000)
+
   return () => {
     cancelAnimationFrame(frame)
     clearInterval(timer)
@@ -72,17 +86,27 @@ function start(): () => void {
 }
 
 function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  if (!stop) stop = start()
+  const unsubscribe = stats.subscribe(listener)
+  watchers += 1
+
+  if (!stop) {
+    stop = start()
+  }
+
   return () => {
-    listeners.delete(listener)
-    if (listeners.size > 0) return
+    unsubscribe()
+    watchers -= 1
+
+    if (watchers > 0) {
+      return
+    }
+
     stop?.()
     stop = undefined
-    stats = empty
+    stats.reset()
   }
 }
 
 export function usePerformanceStats(): PerformanceStats {
-  return useSyncExternalStore(subscribe, () => stats)
+  return useSyncExternalStore(subscribe, stats.get)
 }

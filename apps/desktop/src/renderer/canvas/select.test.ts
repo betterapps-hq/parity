@@ -1,25 +1,36 @@
 import { type ContainerSpec, type DesignNode, defaultModeSettings, type NodeStyle } from "@parity-app/core"
+import { containerEntries, type ProjectDoc } from "@parity-app/multiplayer"
 import { describe, expect, it } from "vite-plus/test"
-import { DesignStore } from "../design-store.ts"
+import { openTestSession } from "../doc-fixtures.ts"
 import { adjacentDesign, designOrder, inverseSelection, matchingLayers, matchingSelection } from "./select.ts"
 
-const title: NodeStyle = { size: "lg", weight: 600 }
-const text = (id: string, style?: DesignNode["style"], tag?: "p" | "h3"): DesignNode => ({
-  type: "text",
-  id,
-  text: id,
-  ...(style ? { style } : {}),
-  ...(tag ? { tag } : {})
-})
+const title: NodeStyle = { fontSize: { token: "lg" }, fontWeight: { value: 600 } }
+
+type TextNode = Extract<DesignNode, { type: "text" }>
+
+function text(id: string, style?: DesignNode["style"], tag?: "p" | "h3"): DesignNode {
+  const node: TextNode = { type: "text", id, text: id }
+
+  if (style) {
+    node.style = style
+  }
+
+  if (tag) {
+    node.tag = tag
+  }
+
+  return node
+}
 
 /** A list of three cards, each a title and a description, with a heading above them. */
 function list(): ContainerSpec {
   const card = (n: number, titleStyle = title): DesignNode => ({
     type: "layout",
     id: `card-${n}`,
-    style: { padding: 4, background: "card" },
-    children: [text(`title-${n}`, titleStyle, "h3"), text(`about-${n}`, { size: "sm" })]
+    style: { padding: { step: 4 }, fills: [{ type: "solid", color: { token: "card" } }] },
+    children: [text(`title-${n}`, titleStyle, "h3"), text(`about-${n}`, { fontSize: { token: "sm" } })]
   })
+
   return {
     id: "list",
     name: "List",
@@ -28,10 +39,10 @@ function list(): ContainerSpec {
       type: "layout",
       id: "root",
       children: [
-        text("heading", { size: "2xl" }, "h3"),
+        text("heading", { fontSize: { token: "2xl" } }, "h3"),
         card(1),
         // Placed differently, it still matches.
-        card(2, { ...title, width: "fill" }),
+        card(2, { ...title, width: { size: "fill" } }),
         card(3),
         { type: "instance", id: "stat-a", design: "stat", args: { label: "Users" } },
         { type: "instance", id: "stat-b", design: "stat", args: { label: "Revenue" } },
@@ -42,74 +53,76 @@ function list(): ContainerSpec {
     },
     states: [
       { id: "default", name: "Default" },
-      { id: "bold", name: "Bold", overrides: { "title-3": { style: { weight: 800 } } } }
+      { id: "bold", name: "Bold", overrides: { "title-3": { style: { fontWeight: { value: 800 } } } } }
     ]
   }
 }
 
 function design(id: string, kind?: "component" | "screen"): ContainerSpec {
-  return {
+  const spec: ContainerSpec = {
     id,
     name: id,
     position: { x: 0, y: 0 },
-    ...(kind ? { kind } : {}),
-    root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] },
-    states: [{ id: "default", name: "Default" }]
+    root: { type: "layout", id: "root", children: [text("a"), text("b"), text("c")] }
   }
+
+  if (kind) {
+    spec.kind = kind
+  }
+
+  return spec
 }
 
-function store(): DesignStore {
-  return new DesignStore(
+function doc(): ProjectDoc {
+  return openTestSession(
     [
       {
         path: "app.par",
         document: {
-          version: 3,
+          version: 4,
           containers: [design("home", "screen"), design("button", "component"), list(), design("card", "component")]
         }
       }
     ],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+    { modes: defaultModeSettings, main: "app.par" }
+  ).doc
 }
 
 describe("select inverse", () => {
   it("selects the other layers beside the selected ones", () => {
-    const selected = inverseSelection(store(), { design: "app.par#home", node: "a", state: "default" })
+    const selected = inverseSelection(doc(), { design: "app.par#home", node: "a", state: "default" })
     expect(selected).toEqual({ design: "app.par#home", node: "c", nodes: ["b", "c"], state: "default" })
-    expect(inverseSelection(store(), { design: "app.par#home", node: "c", nodes: ["a", "c"] })).toEqual({
+    expect(inverseSelection(doc(), { design: "app.par#home", node: "c", nodes: ["a", "c"] })).toEqual({
       design: "app.par#home",
       node: "b"
     })
   })
 
   it("selects nothing when every layer beside them was selected", () => {
-    expect(inverseSelection(store(), { design: "app.par#home", node: "c", nodes: ["a", "b", "c"] })).toEqual({})
+    expect(inverseSelection(doc(), { design: "app.par#home", node: "c", nodes: ["a", "b", "c"] })).toEqual({})
   })
 
   it("selects the other designs, or every design when nothing is selected", () => {
-    expect(inverseSelection(store(), { design: "app.par#home" })).toEqual({
+    expect(inverseSelection(doc(), { design: "app.par#home" })).toEqual({
       design: "app.par#card",
       designs: ["app.par#button", "app.par#list", "app.par#card"]
     })
-    expect(inverseSelection(store(), { design: "app.par#list", mode: "desktop" }).designs).toEqual([
+    expect(inverseSelection(doc(), { design: "app.par#list", mode: "desktop" }).designs).toEqual([
       "app.par#home",
       "app.par#button",
       "app.par#card"
     ])
-    expect(inverseSelection(store(), {}).designs).toHaveLength(4)
+    expect(inverseSelection(doc(), {}).designs).toHaveLength(4)
   })
 
   it("leaves layers inside an instance as they are, as Select all does", () => {
     const current = { design: "app.par#list", node: "stat-a/value" }
-    expect(inverseSelection(store(), current)).toBe(current)
+    expect(inverseSelection(doc(), current)).toBe(current)
   })
 })
 
 describe("select matching layers", () => {
-  const base = list().states[0]!
+  const base = list().states![0]!
 
   it("matches a card's title to the other cards' titles, however they're placed", () => {
     expect(matchingLayers(list(), ["title-1"], base)).toEqual(["title-1", "title-2", "title-3"])
@@ -125,7 +138,7 @@ describe("select matching layers", () => {
   })
 
   it("matches layers as the state being edited shows them", () => {
-    const bold = list().states[1]!
+    const bold = list().states![1]!
     expect(matchingLayers(list(), ["title-1"], bold)).toEqual(["title-1", "title-2"])
   })
 
@@ -139,7 +152,7 @@ describe("select matching layers", () => {
   })
 
   it("keeps the layer picked last as the one shown, in the frame it was picked in", () => {
-    expect(matchingSelection(store(), { design: "app.par#list", node: "title-2", mode: "desktop" })).toEqual({
+    expect(matchingSelection(doc(), { design: "app.par#list", node: "title-2", mode: "desktop" })).toEqual({
       design: "app.par#list",
       node: "title-2",
       nodes: ["title-1", "title-3", "title-2"],
@@ -148,17 +161,17 @@ describe("select matching layers", () => {
   })
 
   it("matches designs of the same kind", () => {
-    expect(matchingSelection(store(), { design: "app.par#button" })).toEqual({
+    expect(matchingSelection(doc(), { design: "app.par#button" })).toEqual({
       design: "app.par#button",
       designs: ["app.par#card", "app.par#button"]
     })
-    expect(matchingSelection(store(), { design: "app.par#home" })?.designs).toEqual(["app.par#list", "app.par#home"])
-    expect(matchingSelection(store(), {})).toBeUndefined()
+    expect(matchingSelection(doc(), { design: "app.par#home" })?.designs).toEqual(["app.par#list", "app.par#home"])
+    expect(matchingSelection(doc(), {})).toBeUndefined()
   })
 })
 
 describe("next and previous design", () => {
-  const entries = store().getEntries()
+  const entries = containerEntries(doc())
 
   it("goes in the Layers panel's order, components first, round from the last to the first", () => {
     expect(designOrder(entries).map((entry) => entry.container.id)).toEqual(["button", "card", "home", "list"])

@@ -11,13 +11,19 @@ function ScanSample({ palette }: { palette: AgentPalette }) {
 
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas) return undefined
+
+    if (!canvas) {
+      return undefined
+    }
+
     const scanner = new Scanner(canvas)
+
     const play = () =>
       scanner.scan({
         box: () => {
           const area = canvas.getBoundingClientRect()
           const screen = screenRef.current?.getBoundingClientRect()
+
           return screen
             ? { x: screen.left - area.left, y: screen.top - area.top, w: screen.width, h: screen.height }
             : { x: 0, y: 0, w: 0, h: 0 }
@@ -27,8 +33,10 @@ function ScanSample({ palette }: { palette: AgentPalette }) {
         agent: palette.name,
         ms: scanMs
       })
+
     play()
     const timer = setInterval(play, scanMs + 700)
+
     return () => {
       clearInterval(timer)
       scanner.dispose()
@@ -65,7 +73,7 @@ function PaletteRow({ palette }: { palette: AgentPalette }) {
         />
         <div className="flex gap-2">
           {palette.stops.map((stop) => (
-            <span key={stop} className="flex items-center gap-1 text-[11px] text-muted-foreground tabular-nums">
+            <span key={stop} className="flex items-center gap-1 text-2xs text-muted-foreground tabular-nums">
               <span className="size-3 rounded-sm" style={{ background: stop }} />
               {stop}
             </span>
@@ -87,6 +95,7 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Every palette an agent can get, with its cursor, badge and scan. */
@@ -108,9 +117,14 @@ function Assignment({ names }: { names: string[] }) {
   const [claimed] = useState(() => {
     const ids = names.map((name, index) => `story-${index}-${name}`)
     const palettes = ids.map((id, index) => agentColors.claim(id, names[index]!))
-    for (const id of ids) agentColors.release(id)
+
+    for (const id of ids) {
+      agentColors.release(id)
+    }
+
     return palettes
   })
+
   return (
     <div className="flex flex-col items-start gap-4 bg-[#0e0e10] p-12">
       {names.map((name, index) => (

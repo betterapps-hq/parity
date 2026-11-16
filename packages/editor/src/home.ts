@@ -1,40 +1,42 @@
 import {
+  addDesigns,
   type CanvasDocument,
   type ComponentSource,
-  componentRole,
   type ContainerSpec,
   type DesignNode,
   type DeviceKind,
-  deviceForWidth,
   generateId,
   type ModeSettings,
-  pageRoute,
+  modeDevice,
+  rendersRoot,
   type ResolvedMode,
-  resolveModes
+  resolveModes,
+  type RouteFiles
 } from "@parity-app/core"
 
-/** A project file as the project service reads it: its designs, or why it couldn't be read. */
+/** A project file as the project service reads it, with its designs. */
 export interface OpenedFile {
   path: string
-  document?: CanvasDocument
-  error?: string
+  document: CanvasDocument
 }
 
 /**
  * The designs a project opens with: its files' own, or, when it has no project file yet, the main one holding a Home
- * screen (see `homeScreen`). A file that couldn't be read still counts, so a broken file is never written over. The Home
- * screen is opened as if the file held it, so nothing is written until the person changes something.
+ * screen (see `homeScreen`). The Home screen is opened as if the file held it, so nothing is written until the person
+ * changes something.
  */
 export function openingDesigns(
   files: readonly OpenedFile[],
   mainPath: string,
   components: Readonly<Record<string, ComponentSource>>,
-  modes: ModeSettings
+  modes: ModeSettings,
+  routes?: RouteFiles
 ): { path: string; document: CanvasDocument }[] {
   if (files.length === 0) {
-    return [{ path: mainPath, document: { version: 3, containers: [homeScreen(components, modes)] } }]
+    return [{ path: mainPath, document: addDesigns(undefined, [homeScreen(components, modes, routes)]) }]
   }
-  return files.flatMap(({ path, document }) => (document ? [{ path, document }] : []))
+
+  return [...files]
 }
 
 /**
@@ -43,16 +45,29 @@ export function openingDesigns(
  * primary mode is a phone's (see `besideMode`). An app with no such component gets a padded page with Home as its
  * heading, as New screen starts one.
  */
-export function homeScreen(components: Readonly<Record<string, ComponentSource>>, modes: ModeSettings): ContainerSpec {
+export function homeScreen(
+  components: Readonly<Record<string, ComponentSource>>,
+  modes: ModeSettings,
+  routes: RouteFiles = new Map()
+): ContainerSpec {
   const ids = new Set<string>()
   const rootId = generateId(ids)
   ids.add(rootId)
-  const component = homeComponent(components)
+  const component = homeComponent(components, routes)
+
   const content: DesignNode = component
     ? { type: "component", id: generateId(ids), component }
-    : { type: "text", id: generateId(ids), tag: "h1", text: "Home", style: { size: "text-2xl", weight: 600 } }
+    : {
+        type: "text",
+        id: generateId(ids),
+        tag: "h1",
+        text: "Home",
+        style: { fontSize: { token: "text-2xl" }, fontWeight: { value: 600 } }
+      }
+
   const beside = besideMode(modes)
-  return {
+
+  const home: ContainerSpec = {
     id: "home",
     name: "Home",
     kind: "screen",
@@ -62,36 +77,41 @@ export function homeScreen(components: Readonly<Record<string, ComponentSource>>
       id: rootId,
       name: "Page",
       style: component
-        ? { background: "background", foreground: "foreground" }
-        : { padding: [10, 12], gap: 6, background: "background", foreground: "foreground" },
+        ? { fills: [{ type: "solid", color: { token: "background" } }], color: { token: "foreground" } }
+        : {
+            padding: [{ step: 10 }, { step: 12 }],
+            gap: { step: 6 },
+            fills: [{ type: "solid", color: { token: "background" } }],
+            color: { token: "foreground" }
+          },
       children: [content]
-    },
-    states: [{ id: "default", name: "Default" }],
-    ...(beside ? { view: { modes: [beside] } } : {})
+    }
   }
+
+  if (beside) {
+    home.view = { modes: [beside] }
+  }
+
+  return home
 }
 
 /**
- * The component that renders the app at `/`, by id: its page for `/`, by its router's file names, else the `App`
- * component that Vite's and Create React App's templates mount. The nearest the root wins when there are several, and a
- * route file's default export over its others. Undefined when the app has neither.
+ * The component that renders the app at `/`, by id: the page its routes draw at `/`, else the `App` component that
+ * Vite's and Create React App's templates mount. The nearest the root wins when there are several, and a route file's
+ * default export over its others. Undefined when the app has neither.
  */
-export function homeComponent(components: Readonly<Record<string, ComponentSource>>): string | undefined {
+export function homeComponent(
+  components: Readonly<Record<string, ComponentSource>>,
+  routes: RouteFiles = new Map()
+): string | undefined {
   const own = Object.entries(components).filter(([, source]) => !source.library)
-  const pages = own.filter(([, source]) => rendersRoot(source))
-  const apps = own.filter(([, source]) => componentRole(source) !== "page" && isApp(source))
-  return (pages.length > 0 ? pages : apps).sort(nearestFirst)[0]?.[0]
-}
+  const pages = own.filter(([, source]) => rendersRoot(source, routes))
 
-/**
- * Whether a page is the one for `/`: Next's `app/page`, outside any folder but route groups, or an index in a `pages` or
- * `routes` folder. Layouts, error pages and the like for `/` are parts of a page, not the page.
- */
-function rendersRoot(source: ComponentSource): boolean {
-  if (componentRole(source) !== "page") return false
-  const route = pageRoute(source.path).replaceAll(/\/\([^/]+\)/g, "") || "/"
-  const file = baseName(source.path)
-  return route === "/" && (file === "page" || file === "index")
+  // An `App` in a file that declares the routes, as a library-mode router's root, still renders the app; one that's
+  // a page route's file is that page.
+  const apps = own.filter(([, source]) => routes.get(source.path)?.kind !== "page" && isApp(source))
+
+  return (pages.length > 0 ? pages : apps).sort(nearestFirst)[0]?.[0]
 }
 
 /** Whether a component is the app's root, by the name the templates give it. */
@@ -103,6 +123,7 @@ function isApp(source: ComponentSource): boolean {
 function nearestFirst([a, one]: [string, ComponentSource], [b, other]: [string, ComponentSource]): number {
   const isDefault = (source: ComponentSource) => (source.export === "default" ? 0 : 1)
   const depth = (source: ComponentSource) => source.path.split("/").length
+
   return (
     isDefault(one) - isDefault(other) ||
     depth(one) - depth(other) ||
@@ -117,21 +138,28 @@ function nearestFirst([a, one]: [string, ComponentSource], [b, other]: [string, 
  */
 function besideMode(settings: ModeSettings): string | undefined {
   const [primary, ...others] = resolveModes(settings)
-  if (!primary) return undefined
-  const wanted: DeviceKind[] = deviceOf(primary) === "phone" ? ["laptop", "desktop"] : ["phone"]
-  const candidates = others.filter((mode) => wanted.includes(deviceOf(mode)))
+
+  if (!primary) {
+    return undefined
+  }
+
+  const wanted: DeviceKind[] = modeDevice(primary) === "phone" ? ["laptop", "desktop"] : ["phone"]
+  const candidates = others.filter((mode) => wanted.includes(modeDevice(mode)))
+
   const matching = (mode: ResolvedMode) =>
     mode.options.filter(
       ({ variable, option }, index) => variable.kind !== "viewport" && primary.options[index]?.option.id === option.id
     ).length
-  let best: ResolvedMode | undefined
-  for (const mode of candidates) if (!best || matching(mode) > matching(best)) best = mode
-  return best?.id
-}
 
-function deviceOf(mode: ResolvedMode): DeviceKind {
-  const viewport = mode.options.find(({ variable }) => variable.kind === "viewport")?.option
-  return viewport?.device ?? deviceForWidth(mode.width)
+  let best: ResolvedMode | undefined
+
+  for (const mode of candidates) {
+    if (!best || matching(mode) > matching(best)) {
+      best = mode
+    }
+  }
+
+  return best?.id
 }
 
 function baseName(path: string): string {

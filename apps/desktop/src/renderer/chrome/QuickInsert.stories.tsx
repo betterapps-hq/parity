@@ -1,4 +1,5 @@
 import { layersSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
@@ -21,7 +22,7 @@ import { QuickInsert } from "./QuickInsert.tsx"
  * the project's and its libraries' components, and icons, searchable from the keyboard.
  */
 const meta = {
-  title: "Parity/Chrome/Quick insert",
+  title: "Parity/Chrome/Menus/Quick insert",
   component: QuickInsert,
   render: () => <AppWindow />,
   decorators: [Window],
@@ -29,6 +30,7 @@ const meta = {
 } satisfies Meta<typeof QuickInsert>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -44,7 +46,14 @@ const openWith = (query?: string) => async () => {
   await frameDesigns("Pricing")
   await userEvent.keyboard("/")
   const input = await body().findByPlaceholderText("Insert a layer, component or icon")
-  if (query) await typeInto(input as HTMLInputElement, query)
+
+  if (!(input instanceof HTMLInputElement)) {
+    throw new Error("Quick insert's search isn't a text field")
+  }
+
+  if (query) {
+    await typeInto(input, query)
+  }
 }
 
 /**
@@ -117,7 +126,7 @@ export const NothingSelected: Story = {
     await openWith("badge")()
     await userEvent.keyboard("{Enter}")
     await waitFor(async () => {
-      const made = example().store.getEntry(example().selection.get().design ?? "")?.container
+      const made = example().doc.design(example().selection.get().design ?? "")
       await expect(made).toMatchObject({
         name: "Badge",
         root: { children: [{ type: "component", component: "Badge" }] }
@@ -135,7 +144,7 @@ export const NowhereToInsertInto: Story = {
     async () => {
       await openProjects("example")
       const card = design("Plan card")
-      example().store.updateContainer(card, "Make the root a card", (container) => ({
+      updateContainer(example().doc, card, "Make the root a card", (container) => ({
         ...container,
         root: { type: "component", id: container.root.id, component: "Card" }
       }))

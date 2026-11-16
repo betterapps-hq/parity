@@ -42,6 +42,7 @@ export interface Here {
 /** Someone's avatar ringed in their color, faded while they're away. Following them adds an eye. */
 export function PresenceAvatar({ here, size = 26, following }: { here: Here; size?: number; following?: boolean }) {
   const color = paletteOf(here.person).color
+
   return (
     <span
       className="relative inline-flex rounded-full"
@@ -64,8 +65,13 @@ export function PresenceAvatar({ here, size = 26, following }: { here: Here; siz
 export function PresenceCard({ here, following }: { here: Here; following?: boolean }) {
   const palette = paletteOf(here.person)
   let role: string
-  if (here.away) role = `Away for ${here.away}`
-  else role = here.person.agent ? "Agent, connected through MCP" : "Editor"
+
+  if (here.away) {
+    role = `Away for ${here.away}`
+  } else {
+    role = here.person.agent ? "Agent, connected through MCP" : "Editor"
+  }
+
   return (
     <div className="flex w-72 flex-col gap-3 text-popover-foreground">
       <div className="flex items-center gap-3">
@@ -110,6 +116,7 @@ export function PresenceCard({ here, following }: { here: Here; following?: bool
  */
 export function Facepile({ here, following, max = 4 }: { here: Here[]; following?: Person; max?: number }) {
   const shown = here.slice(0, max)
+
   return (
     <div className="flex items-center">
       {shown.map((entry, index) => (
@@ -142,6 +149,7 @@ export function Facepile({ here, following, max = 4 }: { here: Here[]; following
 /** A person's pointer on the canvas: an agent's arrow in their palette, with their name. */
 export function PersonCursor({ person }: { person: Person }) {
   const palette = paletteOf(person)
+
   return (
     <div className="pointer-events-none">
       <AgentPointer palette={palette} />
@@ -171,6 +179,7 @@ export function AgentCursor({ agent, kind, label }: { agent: Person; kind: Prese
  */
 export function SelectionOutline({ people: selecting, children }: { people: Person[]; children: ReactNode }) {
   const first = paletteOf(selecting[0]!)
+
   return (
     <div className="relative">
       {children}
@@ -181,6 +190,7 @@ export function SelectionOutline({ people: selecting, children }: { people: Pers
       <span className="pointer-events-none absolute -top-[22px] -left-[3px] flex gap-1">
         {selecting.map((person) => {
           const palette = paletteOf(person)
+
           return (
             <span
               key={person.name}
@@ -202,6 +212,7 @@ export function SelectionOutline({ people: selecting, children }: { people: Pers
  */
 export function FollowFrame({ person, children }: { person: Person; children: ReactNode }) {
   const palette = paletteOf(person)
+
   return (
     <div className="relative h-full overflow-hidden">
       {children}
@@ -229,7 +240,8 @@ export function FollowFrame({ person, children }: { person: Person; children: Re
 /** Someone asks everyone to follow them, for a walkthrough: the invitation, and the presenter's side. */
 export function Spotlight({ presenter, following }: { presenter: Person; following?: Person[] }) {
   const palette = paletteOf(presenter)
-  if (presenter === me)
+
+  if (presenter === me) {
     return (
       <div className="flex w-fit items-center gap-3 rounded-xl border bg-popover py-2 pr-2 pl-3 text-sm shadow-xl">
         <MonitorPlay className="size-4" style={{ color: palette.color }} />
@@ -242,6 +254,8 @@ export function Spotlight({ presenter, following }: { presenter: Person; followi
         </Button>
       </div>
     )
+  }
+
   return (
     <div className="flex w-fit items-center gap-3 rounded-xl border bg-popover py-2 pr-2 pl-2.5 text-sm shadow-xl">
       <span className="rounded-full" style={{ boxShadow: `0 0 0 2px ${palette.color}` }}>

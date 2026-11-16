@@ -1,4 +1,5 @@
 import type {
+  BuilderConsole,
   CanvasDocument,
   ChangeConflict,
   ComponentInfo,
@@ -11,10 +12,11 @@ import type {
   LibraryIcons,
   ModeSettings,
   ModesChange,
-  ProjectDetection,
   ResolvedMode,
   ThemeVariable
 } from "@parity-app/core"
+import type { FoundScreen, ReferenceAdded } from "@parity-app/editor"
+import type { ProjectDetection } from "@parity-app/project"
 import type { Token } from "@parity-app/tokens"
 import type { WarningGroup } from "./warnings.ts"
 
@@ -75,6 +77,8 @@ export type TabSnapshot = Omit<AgentSnapshot, "tab"> & {
   revision: string
   projectId: string
   guestUrl: string
+  /** What the project's builder writes to the console of its own, which agents don't read. */
+  builderConsole?: BuilderConsole
   /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
   addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
   /** The app's exports the type checker left out, with why. */
@@ -264,10 +268,47 @@ export interface MeasuredNode extends FrameBox {
   /** The nearest ancestor that clips and cuts part of the node off: its box, and the node it belongs to, if any. */
   clip?: FrameBox & { node?: string }
   /**
+   * The part of the node in view, when it reaches past an ancestor that scrolls (its `overflow` is `scroll` or `auto` on
+   * that axis): its box trimmed to that ancestor's on the axes it scrolls. The rest is scrolled to, not cut off, so the
+   * layout checks judge this part (PAR-904).
+   */
+  inView?: FrameBox
+  /**
    * Where the project's code writes the element the node draws outermost, as `src/components/ui/button.tsx:44:5`, from
    * the development guest (PAR-167). None for Parity's own layers, libraries' elements and production builds.
    */
   source?: string
+  /**
+   * True when the layout around the node doesn't set its box, so reaching past its parent is intended: it's positioned
+   * absolutely, fixed or sticky, nudged, moved by a transform or a negative margin, or inline (PAR-886).
+   */
+  outOfFlow?: boolean
+  /**
+   * When the node, or an element its component draws, is drawn narrower than the width it's given, as a flex item that
+   * shrinks is (PAR-886): how wide it's drawn, how wide its width makes it, and which element, when it's one inside.
+   */
+  squeezed?: Squeeze
+}
+
+/**
+ * A node in the layout `Measure` returns: a measured node with its box under `box`, as `Problems` gives it (PAR-915), and
+ * the ancestor that clips it as `{ node, name, box }`, as a problem's `container` is.
+ */
+export interface NodeLayout extends Omit<MeasuredNode, keyof FrameBox | "clip"> {
+  /** The name it shows in the layers. */
+  name?: string
+  box: FrameBox
+  clip?: { node?: string; name?: string; box: FrameBox }
+}
+
+/** An element drawn narrower than the width it's given, in CSS pixels (PAR-886). */
+export interface Squeeze {
+  /** How wide it's drawn. */
+  width: number
+  /** How wide its `width` makes it, kept within its `min-width` and `max-width`. */
+  wants: number
+  /** The element inside the node's component, by its `data-slot` or tag, when it isn't the node's own. */
+  element?: string
 }
 
 /** How far a box reaches past each edge of the one around it, in CSS pixels. Edges it stays inside are left out. */
@@ -282,15 +323,25 @@ export interface Overflow {
 export interface Problem {
   state: string
   mode: string
-  kind: "render-error" | "unknown-component" | "content-wider" | "frame-overflow" | "clipped"
+  kind:
+    | "render-error"
+    | "unknown-component"
+    | "content-wider"
+    | "frame-overflow"
+    | "clipped"
+    | "outside-frame"
+    | "parent-overflow"
+    | "squeezed"
   /** What's wrong, in a sentence. */
   problem: string
   node?: string
   name?: string
   box?: FrameBox
-  /** What the node overflows: the node that clips it, or the frame, which has no node. */
+  /** What the node overflows: the node that clips it, the parent it spills out of, or the frame, which has no node. */
   container?: { node?: string; name?: string; box: FrameBox }
   overflow?: Overflow
+  /** For `squeezed`: how wide it's drawn and how wide its width makes it. */
+  squeezed?: Squeeze
 }
 
 export interface FrameResult {
@@ -299,6 +350,8 @@ export interface FrameResult {
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]
+  /** Content drawn outside the frame, without the project's styles, each described in a few words (PAR-881). */
+  outside?: string[]
   error?: string
   /** Base64 PNG, when captured. */
   png?: string
@@ -344,13 +397,76 @@ export interface AgentHooks {
    * is its token's kind. The agent runs without a browser; without the hook, kinds aren't checked.
    */
   supports?(queries: { property: string; value: string }[]): Promise<boolean[]>
+  /**
+   * A screen from a real app main found lately, for `PlaceReference`: from the connector named, or the one that finds
+   * screens. Without it, references can't be placed.
+   */
+  screen?(id: string, connector: string | undefined): Promise<FoundScreen | undefined>
+  /** Who's calling, when it says, as the references it places name it. */
+  caller?: string
 }
 
-/** What a call changed: each design it touched with how it found it, the modes when it set them, and token values. */
+/**
+ * A result a connector found, as placing takes it from main's own copy (PAR-829): what kind it is, its image, a video's
+ * footage, and who to credit. The agent names it by connector and id, so what goes in a design is what the source gave.
+ */
+export interface PlaceableResult {
+  kind: string
+  /** Whether it can go in a design: pictures and videos can; screens from real apps are for looking at. */
+  placeable: boolean
+  title: string
+  /** Its picture, or a video's poster, with when its link stops working for a source whose links expire. */
+  image: { url: string; expiresAt?: number }
+  /** A video's footage, which placing puts in a video layer (PAR-841). */
+  video?: { url: string }
+  credit: { name: string; url?: string }[]
+}
+
+/**
+ * Where a result was placed: the project's folder, the design's file in it and the design's id. Main turns them into a
+ * key that holds no path, so the same design is counted once and nothing about the computer leaves it.
+ */
+export interface PlacedIn {
+  connector: string
+  id: string
+  project: string
+  file: string
+  design: string
+}
+
+/**
+ * A reference on the canvas as an agent reads it (PAR-889): where it's from, why it's there, who placed it and the
+ * design it's for.
+ */
+export interface PlacedReference {
+  /** Its id on the canvas. */
+  id: string
+  app: string
+  platform?: "ios" | "web"
+  /** Its page at the source. */
+  link: string
+  /** Its picture's link, which may have stopped working; `expired` says when it has. */
+  picture: string
+  expired?: true
+  query?: string
+  note?: string
+  /** The agent that placed it. Unset when the person did. */
+  by?: string
+  /**
+   * The design it was placed for, or else the one it sits beside, with the file it's in. Unset when no design is near.
+   */
+  design?: { id: string; name: string; file: string }
+}
+
+/**
+ * What a call changed: each design it touched with how it found it, the modes when it set them, token values, and the
+ * references it placed.
+ */
 export interface AgentChangeSet {
   designs: DesignChange[]
   modes?: ModesChange
   tokens: TokenChange[]
+  references?: ReferenceAdded[]
 }
 
 export interface TokenChange {
@@ -368,6 +484,17 @@ export interface Screenshot {
   png: string
   /** Each layer's box in the frame, in its CSS pixels, to cut a layer from the picture (PAR-185). */
   nodes?: MeasuredNode[]
+}
+
+/**
+ * A contact sheet to put together (PAR-895): its size, the background, labels and borders as SVG, and each frame's
+ * picture with the box it goes in, in the sheet's pixels. A frame's picture is scaled to its box.
+ */
+export interface ComposedSheet {
+  width: number
+  height: number
+  overlay: string
+  frames: { png: string; x: number; y: number; width: number; height: number }[]
 }
 
 export interface ExecResult {
@@ -414,4 +541,23 @@ export interface DiscardedNode {
   states?: string[]
   /** Variant options, as `param=option`. */
   variants?: string[]
+}
+
+/** A problem an agent reports (PAR-646), as the app sends it on to Sentry: what's wrong, what it's about, and frames. */
+export interface AgentReport {
+  message: string
+  /** What it's about, as Sentry tags: tab, design, state, node and test_run, where known. */
+  tags: Record<string, string>
+  /** The frames of the design it names, as PNG files to attach. */
+  frames: { name: string; png: string }[]
+}
+
+/** The Sentry user feedback a report became. */
+export interface ReportSent {
+  feedbackId: string
+  link: string
+  traceId?: string
+  replayId?: string
+  /** The files that went with it, by name. */
+  attachments: string[]
 }

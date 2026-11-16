@@ -82,6 +82,8 @@ export type AuthenticateResult =
       email?: string
       /** The person's organizations, when WorkOS asks them to choose one (`organization_selection_required`). */
       organizations?: { id: string; name: string }[]
+      /** What finishes the sign-in once they've chosen, through Parity's service (PAR-1143). */
+      pendingToken?: string
     }
   | { kind: "unavailable"; status?: number; message: string }
 
@@ -91,11 +93,43 @@ function transient(status: number): boolean {
 }
 
 /** Sends a code exchange or a refresh to `/user_management/authenticate` and reads the answer. Never throws. */
-export async function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequest): Promise<AuthenticateResult> {
+export function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequest): Promise<AuthenticateResult> {
+  return post(fetch, new URL("/user_management/authenticate", workosApi).href, body)
+}
+
+/** What the app sends Parity's service to finish a sign-in: WorkOS's pending token and the organization chosen. */
+export interface OrganizationChoiceRequest {
+  pendingToken: string
+  organizationId: string
+}
+
+/** Where Parity's service finishes a sign-in once the person chose an organization (`routes.organizationChoice`). */
+export const organizationChoicePath = "/v1/sign-in/organization"
+
+/**
+ * Finishes a sign-in after the person chose one of their organizations, through Parity's service at `service` (PAR-1143):
+ * WorkOS's organization-selection grant needs the client secret, which only the service holds. The service answers with
+ * WorkOS's own answer, read as `authenticate` reads it. It's `unavailable` when the service has no key yet. Never throws.
+ */
+export function chooseOrganization(
+  fetch: Fetch,
+  service: string,
+  choice: OrganizationChoiceRequest
+): Promise<AuthenticateResult> {
+  return post(fetch, new URL(organizationChoicePath, service).href, choice)
+}
+
+/** Sends `body` to `url` and reads WorkOS's answer from it. Never throws. */
+async function post(
+  fetch: Fetch,
+  url: string,
+  body: CodeRequest | RefreshRequest | OrganizationChoiceRequest
+): Promise<AuthenticateResult> {
   let response: Response
   let json: unknown
+
   try {
-    response = await fetch(new URL("/user_management/authenticate", workosApi).href, {
+    response = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(body)
@@ -106,33 +140,44 @@ export async function authenticate(fetch: Fetch, body: CodeRequest | RefreshRequ
   }
 
   if (!response.ok) {
-    if (transient(response.status))
+    if (transient(response.status)) {
       return { kind: "unavailable", status: response.status, message: `WorkOS answered ${response.status}` }
+    }
+
     const details = workosError.safeParse(json).data
     const code = details?.code ?? details?.error
     const message = details?.message ?? details?.error_description
     const email = details?.email ?? details?.user?.email
+
     return {
       kind: "refused",
       status: response.status,
       ...(code !== undefined && { code }),
       ...(message !== undefined && { message }),
       ...(email !== undefined && { email }),
-      ...(details?.organizations !== undefined && { organizations: details.organizations })
+      ...(details?.organizations !== undefined && { organizations: details.organizations }),
+      ...(details?.pending_authentication_token !== undefined && { pendingToken: details.pending_authentication_token })
     }
   }
 
   const parsed = authenticateResponse.safeParse(json)
-  if (!parsed.success) return { kind: "unavailable", message: "WorkOS's answer didn't have a user and tokens" }
+
+  if (!parsed.success) {
+    return { kind: "unavailable", message: "WorkOS's answer didn't have a user and tokens" }
+  }
+
   const answer = parsed.data
   let token: AccessToken
+
   try {
     token = readAccessToken(answer.access_token)
   } catch (error) {
     return { kind: "unavailable", message: error instanceof Error ? error.message : String(error) }
   }
+
   const user = answer.user
   const organizationId = answer.organization_id ?? token.organizationId
+
   return {
     kind: "session",
     session: {

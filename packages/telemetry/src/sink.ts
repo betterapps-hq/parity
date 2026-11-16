@@ -9,6 +9,14 @@ export interface Sink {
   span(envelope: SpanEnvelope): void
 }
 
+/**
+ * Whether an event reports a failure: every `error.*` event, and any at the `error` or `fatal` level. The app's sink
+ * sends it as a Sentry error.
+ */
+export function isErrorEvent(envelope: Pick<Envelope, "name" | "level">): boolean {
+  return envelope.name.startsWith("error.") || envelope.level === "error" || envelope.level === "fatal"
+}
+
 /** A sink that keeps what it's given, for unit and end-to-end tests. */
 export interface TestSink extends Sink {
   readonly events: Envelope[]
@@ -21,6 +29,7 @@ export interface TestSink extends Sink {
 export function createTestSink(): TestSink {
   const events: Envelope[] = []
   const spans: SpanEnvelope[] = []
+
   return {
     events,
     spans,

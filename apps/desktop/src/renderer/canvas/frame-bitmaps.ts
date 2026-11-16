@@ -1,38 +1,60 @@
-import { type FrameGeometry, offscreenWindows, type RenderNode, type ResolvedMode, turns } from "@parity-app/core"
+import type { FrameGeometry, Guest, RenderNode, ResolvedMode } from "@parity-app/core"
+import { offscreenWindows, turns } from "@parity-app/processes"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
-import type { RenderJob } from "../../shared/protocol.ts"
+import type { RenderJob, ServiceMethods } from "../../shared/protocol.ts"
 import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts"
+import { frameDrawsDesign } from "../frame-host.ts"
 import { request } from "../service.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { BoardRest } from "./frame-sleep.ts"
+import { failedRender } from "./frames-on-screen.ts"
+
+/** How much smaller than a frame its bitmap is, so it's sharp wherever the canvas shows it (see `farZoom`). */
+export const bitmapScale = 0.25
 
 /**
- * How much smaller than a frame its bitmap is. Zoomed out until a frame is drawn no larger than that, the canvas shows
- * the bitmap in its place, which looks the same and costs a fraction of a whole screen's elements to draw.
+ * The zoom from which the canvas shows frames' bitmaps in their place, the same on every screen: 10%, about where a
+ * design's details stop showing (PAR-954). A bitmap looks the same there, and costs a fraction of a whole screen's
+ * elements to draw. At a quarter of the frame's size, it's sharp at this zoom on screens up to 2.5x.
  */
-export const bitmapScale = 0.25
+export const farZoom = 0.1
+
+/**
+ * Whether a zoom is far out, showing bitmaps. A canvas that `was` far stays so until a little past the line zooming back
+ * in, so a camera resting on it doesn't flip.
+ */
+export function isFarZoom(zoom: number, was: boolean): boolean {
+  return zoom <= (was ? farZoom * 1.15 : farZoom)
+}
 
 /** How long a frame stays the same before it's captured, so editing doesn't capture every step. */
 const settleMs = 1000
+
 /** Bitmaps kept, most recently asked for last. Each is a quarter-size PNG. */
 const kept = 400
+
 /** How long after a failed capture it's tried again, doubling each time it fails, up to eight times as long. */
 const retryMs = 2000
+
 /** What a capture that failed gives, which isn't kept, unlike a frame that didn't render. */
 export const failed = Symbol("failed")
 
 /** Bitmaps by what they show, as data URLs: nothing for a frame that didn't render. */
 const bitmaps = new Map<string, Promise<string | undefined | typeof failed>>()
+
 /** The frame's height in its own CSS pixels, for bitmaps read from disk, by what they show. */
 const heights = new Map<string, number>()
+
 /** How many frames on the canvas show each bitmap. One nothing waits for is skipped when its turn comes. */
 const wanted = new Map<string, number>()
+
 /**
  * One capture for each offscreen window at a time, so agents' renders and exports still get their turn there, and a
  * frame nothing waits for any more is skipped when its turn comes (PAR-523).
  */
 const captures = turns(offscreenWindows)
+
 /** Frames on the canvas still waiting for their first bitmap, kept or captured. */
 let waiting = 0
 
@@ -45,7 +67,7 @@ export function bitmapsWaiting(): number {
   return waiting
 }
 
-const guests = new WeakMap<object, number>()
+const guests = new WeakMap<Guest, number>()
 let nextGuest = 1
 
 /** What a frame shows, as keys, and the job that draws it offscreen. */
@@ -53,16 +75,15 @@ export interface FrameShows extends FrameKeys {
   job: RenderJob
 }
 
-const noRevision = { get: () => 0, subscribe: () => () => undefined }
-
 /**
  * What a frame shows. Worked out once for each frame, so the live frame and what stands in for it zoomed out (its
  * bitmap, its skeleton) can't disagree about when it changed. A component the guest is given from a new file, as the
- * type checker finds it, changes every frame's key, so each draws again and its bitmap is taken again; the job carries
- * those components, so the offscreen renderer draws them too.
+ * type checker finds it, or again because its code changed on disk (PAR-165), changes the key of each frame drawing it,
+ * so those draw again and their bitmaps are taken again; the job carries those components, so the offscreen renderer
+ * draws them too.
  */
 export function useFrameShows(
-  session: ProjectSession,
+  session: Pick<ProjectSession, "added" | "id" | "info" | "loaded" | "tokens">,
   tree: RenderNode[],
   mode: ResolvedMode,
   frame: FrameGeometry,
@@ -72,27 +93,27 @@ export function useFrameShows(
 ): FrameShows {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
   const { guest } = session.loaded
-  const revision = guest.revision ?? noRevision
-  const code = useSyncExternalStore(revision.subscribe, revision.get)
   const { guestUrl, theme } = session.info
   const { added } = session
   const { width, height } = frame
   const { width: viewportWidth, height: viewportHeight } = frame.viewport
+
   const job = useMemo(
     () =>
       renderJob(
-        { projectId: session.id, guestUrl, ...(added ? { components: added } : {}), theme },
+        { projectId: session.id, guestUrl, components: added, theme },
         {
           tree,
           mode,
           frame: {
             width,
-            ...(height === undefined ? {} : { height }),
+            height,
             viewport: { width: viewportWidth, height: viewportHeight }
           },
           scale: bitmapScale * scale,
           tokens: previews,
-          design: { key: drawn.key, state: drawn.state, mode: mode.id }
+          design: { key: drawn.key, state: drawn.state, mode: mode.id },
+          canvas: true
         }
       ),
     [
@@ -112,8 +133,19 @@ export function useFrameShows(
       drawn.state
     ]
   )
+
   const id = guestId(guest)
-  return useMemo(() => ({ ...frameKeys(job, { id, code }), job }), [job, id, code])
+
+  return useMemo(() => ({ ...frameKeys(job, { id }), job }), [job, id])
+}
+
+/** The bitmap `useFrameBitmap` last showed, and the frame it's of. */
+interface ShownBitmap {
+  key: string
+  src?: string
+  height?: number
+  /** It's the frame's latest kept from other code, shown until it's captured for this code (PAR-993). */
+  stale?: true
 }
 
 /** A frame's bitmap, as `useFrameBitmap` has it. */
@@ -127,6 +159,12 @@ export interface FrameBitmap {
    * captured. Not once a capture has failed, which is tried again later.
    */
   pending: boolean
+  /**
+   * `src` is the bitmap of what the frame showed before, standing in while the one of what it shows now is to come, as
+   * after a save changed a component it draws (PAR-165), or the frame's latest kept from other code, as after a branch
+   * switch (PAR-993), so the board doesn't go blank or change size meanwhile. The frame doesn't sleep on it.
+   */
+  stale?: true
 }
 
 /**
@@ -134,14 +172,16 @@ export interface FrameBitmap {
  * frame has stayed the same for a moment. `measure` gives the live frame's height as it's drawn when it's captured, which
  * is kept with the bitmap; nothing while it isn't drawn. `holding` says whether the frame is holding off drawing its
  * design for the bitmap (`useFirstDrawWaits`): then nothing is being edited, so what it first shows is captured without
- * the wait (PAR-525).
+ * the wait (PAR-525). `rank` says how near the frame is to the middle of the view, so frames in view are captured first
+ * (`useFrameView`, PAR-955).
  */
 export function useFrameBitmap(
   { key, job }: FrameShows,
   measure?: () => number | undefined,
-  holding?: () => boolean
+  holding?: () => boolean,
+  rank?: () => number
 ): FrameBitmap {
-  const [shown, setShown] = useState<{ key: string; src?: string; height?: number }>()
+  const [shown, setShown] = useState<ShownBitmap>()
   // The key whose capture failed, until a later try gives its bitmap.
   const [failedKey, setFailedKey] = useState<string>()
   // A new job for the same key draws the same, so it doesn't start the wait or the retries again: each try takes the
@@ -149,44 +189,78 @@ export function useFrameBitmap(
   const latest = useRef(job)
   const measured = useRef(measure)
   const held = useRef(holding)
+  const ranked = useRef(rank)
   // What the frame showed first, which no edit led to.
   const first = useRef(key)
   useEffect(() => {
     latest.current = job
     measured.current = measure
     held.current = holding
-  }, [job, measure, holding])
+    ranked.current = rank
+  }, [job, measure, holding, rank])
 
   useEffect(() => {
     let current = true
     let timer: ReturnType<typeof setTimeout>
     let counted = true
     waiting++
+
     const settle = () => {
-      if (counted) waiting--
+      if (counted) {
+        waiting--
+      }
+
       counted = false
     }
+
     want(key, 1)
+
     // A capture that failed, as the offscreen window's can on a busy machine, is tried again later rather than leaving
     // the frame without a bitmap for good.
     const take = (attempt: number) =>
-      void capture(key, latest.current, () => measured.current?.()).then((src) => {
-        if (!current) return
+      void capture(
+        key,
+        latest.current,
+        () => measured.current?.(),
+        () => ranked.current?.() ?? Number.POSITIVE_INFINITY
+      ).then((src) => {
+        if (!current) {
+          return
+        }
+
         settle()
+
         if (src === failed) {
           setFailedKey(key)
           timer = setTimeout(() => take(attempt + 1), retryMs * Math.min(2 ** attempt, 8))
-        } else setShown({ key, src, ...(heights.has(key) ? { height: heights.get(key) } : {}) })
+        } else {
+          const shownNow: ShownBitmap = { key, src }
+
+          if (heights.has(key)) {
+            shownNow.height = heights.get(key)
+          }
+
+          setShown(shownNow)
+        }
       })
+
     if (bitmaps.has(key)) {
       timer = setTimeout(() => take(0), 0)
     } else {
       // One kept on disk from an earlier session shows as soon as it's read, without waiting for the frame to settle or
-      // its turn to be captured (PAR-158). It's captured only once there's none, after what's left of the wait.
+      // its turn to be captured (PAR-158). It's captured only once there's none for this code, after what's left of the
+      // wait. The frame's latest, kept from other code, shows meanwhile, at its height, until the capture comes (PAR-993).
       const asked = performance.now()
       void stored(key, latest.current).then((kept) => {
-        if (!current) return
-        if (kept === undefined) {
+        if (!current) {
+          return
+        }
+
+        if (kept === undefined || kept.stale) {
+          if (kept) {
+            setShown({ key, ...kept })
+          }
+
           const settled = first.current === key && held.current?.() === true
           timer = setTimeout(() => take(0), settled ? 0 : Math.max(0, settleMs - (performance.now() - asked)))
         } else {
@@ -195,6 +269,7 @@ export function useFrameBitmap(
         }
       })
     }
+
     return () => {
       current = false
       settle()
@@ -203,8 +278,19 @@ export function useFrameBitmap(
     }
   }, [key])
 
-  if (shown?.key === key) return { ...shown, pending: false }
-  return { pending: failedKey !== key }
+  if (shown?.key === key && !shown.stale) {
+    return { ...shown, pending: false }
+  }
+
+  if (failedKey === key) {
+    return { pending: false }
+  }
+
+  if (shown?.src) {
+    return { ...keptBitmap(shown.src, shown.height), pending: true, stale: true }
+  }
+
+  return { pending: true }
 }
 
 /**
@@ -216,14 +302,23 @@ const firstRows = new Map<string, Map<string, FrameShows>>()
 /** Notes what a frame in its board's first row shows, for the project's picture, while it's on the canvas. */
 export function useFirstRowFrame(projectId: string, design: string, mode: string, shows: FrameShows, first: boolean) {
   useEffect(() => {
-    if (!first) return undefined
+    if (!first) {
+      return undefined
+    }
+
     const frames = firstRows.get(projectId) ?? new Map<string, FrameShows>()
     firstRows.set(projectId, frames)
     const id = `${design}\n${mode}`
     frames.set(id, shows)
+
     return () => {
-      if (frames.get(id) === shows) frames.delete(id)
-      if (frames.size === 0 && firstRows.get(projectId) === frames) firstRows.delete(projectId)
+      if (frames.get(id) === shows) {
+        frames.delete(id)
+      }
+
+      if (frames.size === 0 && firstRows.get(projectId) === frames) {
+        firstRows.delete(projectId)
+      }
     }
   }, [projectId, design, mode, shows, first])
 }
@@ -240,13 +335,19 @@ export function firstRowFrame(projectId: string, design: string, mode: string): 
 export async function frameBitmap({ key, job }: FrameShows): Promise<string | undefined> {
   if (!bitmaps.has(key)) {
     const kept = await stored(key, job)
-    if (kept) return kept.src
+
+    if (kept && !kept.stale) {
+      return kept.src
+    }
   }
+
   // Wanted while it's taken, so it's captured even where no frame on the canvas waits for it any more.
   want(key, 1)
+
   try {
     const src = await capture(key, job)
-    return typeof src === "string" ? src : undefined
+
+    return src === failed ? undefined : src
   } finally {
     want(key, -1)
   }
@@ -282,12 +383,19 @@ export function useFirstDrawWaits(rest: BoardRest | undefined, frame: Omit<Undra
   const [done, setDone] = useState(!rest)
   const [dormant, setDormant] = useState(() => rest?.dormant.get() ?? false)
   useEffect(() => {
-    if (done || !rest) return undefined
+    if (done || !rest) {
+      return undefined
+    }
+
     return react("frame waits to draw", () => setDormant(rest.dormant.get()))
   }, [done, rest])
   const waits = !done && holdsFirstDraw({ ...frame, dormant })
+
   // Set while rendering, as React allows for state that follows from props, so stopping waiting draws no extra time.
-  if (!done && !waits) setDone(true)
+  if (!done && !waits) {
+    setDone(true)
+  }
+
   return waits
 }
 
@@ -297,8 +405,13 @@ export function useFirstDrawWaits(rest: BoardRest | undefined, frame: Omit<Undra
  */
 export function drawnHeight(tile: HTMLElement | null, width: number): number | undefined {
   const host = tile?.querySelector<HTMLElement>("[data-frame]")
-  if (!host?.shadowRoot?.querySelector("[data-canvas-node]")) return undefined
+
+  if (!host || !frameDrawsDesign(host)) {
+    return undefined
+  }
+
   const { width: drawnWidth, height } = host.getBoundingClientRect()
+
   return drawnWidth > 0 ? Math.round(((height * width) / drawnWidth) * 100) / 100 : undefined
 }
 
@@ -306,6 +419,8 @@ export function drawnHeight(tile: HTMLElement | null, width: number): number | u
 export interface KeptBitmap {
   src: string
   height?: number
+  /** It's the frame's latest, kept from other code, which never stands for the frame's key (PAR-993). */
+  stale?: true
 }
 
 /** Reads of kept bitmaps under way, by key, so frames showing the same one share a read. */
@@ -313,38 +428,97 @@ const reading = new Map<string, Promise<KeptBitmap | undefined>>()
 
 /**
  * The bitmap kept on disk for a job, which then stands for its key as a capture would. Nothing when none was kept; when
- * the frame was captured meanwhile, that capture, without a height.
+ * the frame was captured meanwhile, that capture, without a height. When none was kept for the code it's drawn with, the
+ * frame's latest, as stale, which doesn't stand for its key.
  */
 export function stored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
   let read = reading.get(key)
+
   if (!read) {
     read = readStored(key, job).finally(() => reading.delete(key))
     reading.set(key, read)
   }
+
   return read
 }
 
-async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
-  const { src, height } = await request("frames.stored", { job }).catch((): { src?: string; height?: number } => ({}))
-  const captured = bitmaps.get(key)
-  if (captured) {
-    return captured.then((src) => {
-      if (typeof src !== "string") return undefined
-      const height = heights.get(key)
-      return { src, ...(height === undefined ? {} : { height }) }
+/** What the service answers for a job: its kept bitmap and height, or neither. */
+type StoredAnswer = ServiceMethods["frames.stored"]["result"]["kept"][number]
+
+/** Jobs asked for in this task, waiting to be sent together once it's done. */
+let asking: { job: RenderJob; answer: (kept: StoredAnswer) => void }[] = []
+
+/**
+ * Asks for a job's kept bitmap together with every other asked for in the same task, as the frames of a canvas mounting
+ * all ask at once, as JSON text, which crosses to the service as one copy rather than a copy of every job's objects
+ * (PAR-759). A failed request answers that none was kept.
+ */
+function askStored(job: RenderJob): Promise<StoredAnswer> {
+  if (asking.length === 0) {
+    queueMicrotask(() => {
+      const asked = asking
+      asking = []
+      request("frames.stored", { jobs: JSON.stringify(asked.map(({ job }) => job)) }).then(
+        ({ kept }) => asked.forEach(({ answer }, index) => answer(kept[index] ?? {})),
+        () => asked.forEach(({ answer }) => answer({}))
+      )
     })
   }
-  if (src === undefined) return undefined
+
+  return new Promise((answer) => asking.push({ job, answer }))
+}
+
+async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
+  const { src, height, stale } = await askStored(job)
+  const captured = bitmaps.get(key)
+
+  if (captured) {
+    return captured.then((src) => {
+      if (src === undefined || src === failed) {
+        return undefined
+      }
+
+      return keptBitmap(src, heights.get(key))
+    })
+  }
+
+  if (src === undefined) {
+    return undefined
+  }
+
+  if (stale) {
+    return { ...keptBitmap(src, height), stale }
+  }
+
   bitmaps.set(key, Promise.resolve(src))
-  if (height !== undefined) heights.set(key, height)
+
+  if (height !== undefined) {
+    heights.set(key, height)
+  }
+
   forgetOldest()
-  return { src, ...(height === undefined ? {} : { height }) }
+
+  return keptBitmap(src, height)
+}
+
+/** A bitmap and the height kept with it, which it leaves out when there's none. */
+function keptBitmap(src: string, height: number | undefined): KeptBitmap {
+  const kept: KeptBitmap = { src }
+
+  if (height !== undefined) {
+    kept.height = height
+  }
+
+  return kept
 }
 
 /** Lets go of the bitmaps asked for least recently, past the most kept. */
 function forgetOldest(): void {
   for (const old of bitmaps.keys()) {
-    if (bitmaps.size <= kept) break
+    if (bitmaps.size <= kept) {
+      break
+    }
+
     bitmaps.delete(old)
     heights.delete(old)
   }
@@ -353,55 +527,89 @@ function forgetOldest(): void {
 /**
  * The bitmap of a frame, taken offscreen, as many at once as there are offscreen windows. `measure` gives the live
  * frame's height just before it's taken, which is kept with it: the offscreen window lays the frame out at the bitmap's
- * small zoom, where text rounds to other heights, so its own measure can be a few pixels out.
+ * small zoom, where text rounds to other heights, so its own measure can be a few pixels out. `rank` puts it in line,
+ * lowest first, as `turns` reads it: frames nearest the middle of the view are taken first.
  */
 export function capture(
   key: string,
   job: RenderJob,
-  measure?: () => number | undefined
+  measure?: () => number | undefined,
+  rank?: () => number
 ): Promise<string | undefined | typeof failed> {
   const known = bitmaps.get(key)
+
   if (known) {
     bitmaps.delete(key)
     bitmaps.set(key, known)
+
     return known
   }
+
   const taking = captures.run(async () => {
     if (!wanted.has(key)) {
       bitmaps.delete(key)
+
       return undefined
     }
+
     const height = measure?.()
-    const taken = await request("frames.capture", { job, ...(height ? { height } : {}) })
-    if (taken.src === undefined) return undefined
+    const asked: ServiceMethods["frames.capture"]["params"] = { job }
+
+    if (height) {
+      asked.height = height
+    }
+
+    const taken = await request("frames.capture", asked)
+
+    if (taken.src === undefined) {
+      return undefined
+    }
+
     // The height kept with it: the live frame's, or the offscreen window's for a frame that hasn't drawn.
-    if (taken.height !== undefined) heights.set(key, taken.height)
+    if (taken.height !== undefined) {
+      heights.set(key, taken.height)
+    }
+
     return taken.src
-  })
-  const settled = taking.catch((): typeof failed => {
-    if (bitmaps.get(key) === settled) bitmaps.delete(key)
+  }, rank)
+
+  const settled = taking.catch((cause: unknown): typeof failed => {
+    if (bitmaps.get(key) === settled) {
+      bitmaps.delete(key)
+    }
+
+    failedRender(key, cause, job.design)
+
     return failed
   })
+
   bitmaps.set(key, settled)
   forgetOldest()
+
   return settled
 }
 
 export function want(key: string, change: 1 | -1): void {
   const count = (wanted.get(key) ?? 0) + change
-  if (count > 0) wanted.set(key, count)
-  else wanted.delete(key)
+
+  if (count > 0) {
+    wanted.set(key, count)
+  } else {
+    wanted.delete(key)
+  }
 }
 
 /**
  * The project's guest module as the page loaded it. A reopened project loads a new one, at a new address, so bitmaps
  * drawn before never stand in for its frames.
  */
-function guestId(guest: object): number {
+function guestId(guest: Guest): number {
   let id = guests.get(guest)
+
   if (id === undefined) {
     id = nextGuest++
     guests.set(guest, id)
   }
+
   return id
 }

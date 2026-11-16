@@ -1,10 +1,11 @@
-import { addVariant, type ContainerSpec, type DesignNode, editNode } from "@parity-app/core"
+import { addVariant, type ContainerSpec, type DesignNode, designStates, editNode, setSlot } from "@parity-app/core"
 import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
+import { addContainer, addNote, containerEntries, updateContainer, updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { renameAndRecord } from "./inspector-events.ts"
 import { formatKeys } from "./keys.ts"
-import { renameLayer } from "./LayerPanel.tsx"
 import { LayerTree } from "./LayerTree.tsx"
 import { LeftPanel } from "./LeftPanel.tsx"
 
@@ -31,6 +32,7 @@ const meta = {
 } satisfies Meta<typeof LayerTree>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** The Layers panel's row for a design, or for one of its layers. */
@@ -38,14 +40,67 @@ function row(designName: string, layerName?: string): HTMLElement {
   const key = design(designName)
   const id = layerName ? `layer-${key}/${node(designName, layerName)}` : `layer-${key}`
   const element = document.getElementById(id)
-  if (!element) throw new Error(`The Layers panel shows no row for ${layerName ?? designName}`)
+
+  if (!element) {
+    throw new Error(`The Layers panel shows no row for ${layerName ?? designName}`)
+  }
+
   return element
+}
+
+/** The Layers panel's row for a layer inside an instance: the instance's id, then the layer's in its component. */
+function innerRow(designName: string, instanceName: string, componentName: string, layerName: string): HTMLElement {
+  const path = `${node(designName, instanceName)}/${node(componentName, layerName)}`
+  const element = document.getElementById(`layer-${design(designName)}/${path}`)
+
+  if (!element) {
+    throw new Error(`The Layers panel shows no row for ${layerName} in ${instanceName}`)
+  }
+
+  return element
+}
+
+/**
+ * Scrolls the panel down until a row is drawn, since it draws only the rows in view, then centers it. From the bottom
+ * it starts again at the top, in case the row wasn't open yet.
+ */
+async function scrollUntil(find: () => HTMLElement): Promise<HTMLElement> {
+  const scroller = (await waitFor(() => within(document.body).getByRole("tree", { name: "Layers" }))).parentElement!
+  scroller.scrollTop = 0
+
+  for (let step = 0; step < 200; step++) {
+    try {
+      const found = find()
+      found.scrollIntoView({ block: "center" })
+
+      return found
+    } catch {
+      const before = scroller.scrollTop
+      scroller.scrollTop += 200
+
+      if (scroller.scrollTop === before) {
+        scroller.scrollTop = 0
+      }
+
+      await new Promise((resolve) => requestAnimationFrame(resolve))
+    }
+  }
+
+  return find()
+}
+
+/** Selects Value inside the Dashboard's Users card, as Ctrl-clicking it on the canvas would. */
+async function selectUsersValue(): Promise<void> {
+  await openProjects("example")
+  const path = `${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`
+  example().selection.set({ design: design("Dashboard"), node: path })
 }
 
 /** Waits for a row to show, then scrolls the panel to it, as someone would scroll to what they selected. */
 async function scrollTo(designName: string, layerName?: string): Promise<HTMLElement> {
   const found = await waitFor(() => row(designName, layerName))
   found.scrollIntoView({ block: "center" })
+
   return found
 }
 
@@ -94,7 +149,8 @@ async function rightClick(target: HTMLElement): Promise<void> {
 }
 
 /**
- * Every design closed: component designs first, then screens, those with more than one state saying how many. Each
+ * Every design closed: the screens, those with more than one state saying how many; component designs are listed in the
+ * Components panel. Each
  * heading has a + that makes a new one, always showing (PAR-546).
  */
 export const Designs: Story = { loaders: [() => openProjects("example")] }
@@ -110,7 +166,6 @@ export const EmptyProject: Story = {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await expect(within(tree).getByRole("button", { name: "New screen" })).toBeVisible()
     await expect(within(tree).getByRole("button", { name: "No screens yet. New screen" })).toBeVisible()
-    await expect(within(tree).getByRole("button", { name: "No components yet. New component" })).toBeVisible()
   }
 }
 
@@ -172,6 +227,23 @@ export const LayerSelected: Story = {
   ]
 }
 
+/**
+ * A component design's slots (PAR-83): Plan card's features are a slot, so the row has the slot's dashed icon and
+ * says features at its end.
+ */
+export const Slots: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      const key = design("Plan card")
+      updateContainer(example().doc, key, "Make slot", (container) =>
+        setSlot(container, node("Plan card", "Features"), "features")
+      )
+      example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
+    }
+  ]
+}
+
 /** Three layers of one design selected together, as Ctrl-click or Shift-click in the tree selects them. */
 export const SeveralLayersSelected: Story = {
   loaders: [
@@ -227,7 +299,7 @@ export const ShowingAState: Story = {
     async () => {
       await openProjects("example")
       const card = design("Stat card")
-      example().store.updateView(card, "Show Loading", (view) => ({ ...view, state: "loading" }))
+      updateView(example().doc, card, "Show Loading", (view) => ({ ...view, state: "loading" }))
     }
   ],
   play: async () => {
@@ -293,16 +365,11 @@ export const LongNames: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store, selection } = example()
+      const { doc, selection } = example()
       const card = design("Plan card")
       const third = node("Plan card", "Feature 3 text")
-      store.updateContainer(card, "Rename design", (container) => ({
-        ...container,
-        name: "Plan card for the enterprise tier, with annual billing and a seat-based discount"
-      }))
-      store.updateContainer(card, "Rename layer", (container) =>
-        renameLayer(container, third, "Third feature of the plan, as marketing wrote it for the launch page")
-      )
+      renameAndRecord(doc, card, "Plan card for the enterprise tier, with annual billing and a seat-based discount")
+      renameAndRecord(doc, card, "Third feature of the plan, as marketing wrote it for the launch page", third)
       selection.set({ design: card, node: third })
     }
   ]
@@ -324,7 +391,9 @@ export const LayerMenu: Story = {
     await expect(items.map((item) => item.textContent)).toEqual([
       `Rename${formatKeys("Ctrl R")}`,
       `Duplicate${formatKeys("Ctrl D")}`,
-      `Show in Default${formatKeys("Ctrl Shift H")}`,
+      `Show${formatKeys("Ctrl Shift H")}`,
+      `Lock${formatKeys("Ctrl Shift L")}`,
+      `Export…${formatKeys("Ctrl Shift E")}`,
       `Delete${formatKeys("Del")}`
     ])
   }
@@ -332,7 +401,7 @@ export const LayerMenu: Story = {
 
 /**
  * Plan card with a density variant whose Compact option hides Feature 4, shown on its board. Feature 4's menu offers
- * Show in Compact, where the change lands, rather than in the base state (PAR-497).
+ * Show, reading the layer as the board shows it with Compact, and Show puts the change in Compact (PAR-497).
  */
 export const HiddenByAVariant: Story = {
   loaders: [
@@ -340,17 +409,19 @@ export const HiddenByAVariant: Story = {
       await openProjects("example")
       const card = design("Plan card")
       const feature = node("Plan card", "Feature 4")
-      example().store.updateContainer(card, "Add density variant", (current) => {
+      updateContainer(example().doc, card, "Add density variant", (current) => {
         const added = addVariant(current, "density", ["Comfortable", "Compact"])
         const compact = added.params!.density!.options![1]!.id
+
         const hidden = editNode(
           added,
-          { state: added.states[0]!.id, variant: { param: "density", option: compact } },
+          { state: designStates(added)[0]!.id, variant: { param: "density", option: compact } },
           feature,
           {
             hidden: true
           }
         )
+
         return { ...hidden, view: { ...hidden.view, variants: { density: compact } } }
       })
     }
@@ -358,7 +429,7 @@ export const HiddenByAVariant: Story = {
   play: async () => {
     await reveal("Plan card", "Feature 4")
     await rightClick(row("Plan card", "Feature 4"))
-    await within(document.body).findByRole("menuitem", { name: "Show in Compact" })
+    await within(document.body).findByRole("menuitem", { name: /^Show/ })
   }
 }
 
@@ -511,22 +582,101 @@ export const HiddenFromItsEye: Story = {
   }
 }
 
+/**
+ * A layer selected inside an instance, as Ctrl-click selects it on the canvas: the Users card opens below its row to
+ * the Stat card's layers, drawn in the component's color, with Value highlighted (PAR-92).
+ */
+export const InsideAnInstance: Story = {
+  loaders: [selectUsersValue],
+  play: async () => {
+    const value = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Value"))
+    await expect(value).toHaveAttribute("aria-selected", "true")
+    await expect(row("Dashboard", "Users card")).toHaveAttribute("aria-expanded", "true")
+  }
+}
+
+/**
+ * A layer inside an instance hidden from its eye: only this copy hides it. It can't be dragged, renamed with a
+ * double-click, or renamed, duplicated or deleted from its menu (PAR-92).
+ */
+export const HiddenInsideAnInstance: Story = {
+  loaders: [selectUsersValue],
+  play: async () => {
+    const trend = await scrollUntil(() => innerRow("Dashboard", "Users card", "Stat card", "Trend"))
+    await expect(trend).toHaveAttribute("draggable", "false")
+    await userEvent.hover(trend)
+    await userEvent.click(await within(trend).findByRole("button", { name: "Hide" }))
+    await userEvent.unhover(trend)
+    await within(trend).findByRole("button", { name: "Show" })
+    await userEvent.dblClick(trend)
+    await expect(within(trend).queryByRole("textbox")).toBeNull()
+    await rightClick(trend)
+    const menu = await within(document.body).findByRole("menu")
+    const rename = within(menu).getByRole("menuitem", { name: /Rename/ })
+    await expect(rename).toHaveAttribute("aria-disabled", "true")
+  }
+}
+
+/**
+ * A layer locked from its lock, which shows while the row is hovered and stays once it's locked, without selecting it.
+ * The layers inside it are locked with it: hovered, theirs says what locks them, and isn't a button.
+ */
+export const LockedFromItsLock: Story = {
+  loaders: [() => openProjects("example")],
+  play: async () => {
+    await reveal("Plan card", "Feature 2")
+    await userEvent.click(row("Plan card"))
+    await userEvent.hover(row("Plan card", "Features"))
+    await userEvent.click(await within(row("Plan card", "Features")).findByRole("button", { name: "Lock" }))
+    await userEvent.unhover(row("Plan card", "Features"))
+    await within(row("Plan card", "Features")).findByRole("button", { name: "Unlock" })
+    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+    await userEvent.hover(row("Plan card", "Feature 2"))
+    await expect(within(row("Plan card", "Feature 2")).queryByRole("button", { name: /lock/i })).toBeNull()
+    await userEvent.hover(within(row("Plan card", "Feature 2")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Features")
+  }
+}
+
+/** A locked design: its row's lock stays, and its layers are locked with it. Ctrl+Shift+L or the row menu unlocks it. */
+export const LockedDesign: Story = {
+  loaders: [
+    async () => {
+      await openProjects("example")
+      updateContainer(example().doc, design("Pricing"), "Lock screen", (container) => ({ ...container, locked: true }))
+    }
+  ],
+  play: async () => {
+    await reveal("Pricing", "Headline")
+    const pricing = await scrollTo("Pricing")
+    await expect(within(pricing).getByRole("button", { name: "Unlock" })).toBeVisible()
+    await userEvent.hover(row("Pricing", "Headline"))
+    await userEvent.hover(within(row("Pricing", "Headline")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Pricing")
+    await rightClick(pricing)
+    const unlock = await within(document.body).findByRole("menuitem", { name: /^Unlock/ })
+    await waitFor(() => expect(unlock).toBeVisible())
+  }
+}
+
 /** Free text on the canvas, listed after the designs; the selected one is highlighted. */
 export const TextOnTheCanvas: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store, selection } = example()
-      store.addNote(store.mainPath, {
+      const { doc, selection } = example()
+      addNote(doc, doc.main, {
         id: "note-launch",
         text: "Launch checklist: pricing copy signed off by Friday",
         position: { x: 0, y: -1600 }
       })
-      const note = store.addNote(store.mainPath, {
+
+      const note = addNote(doc, doc.main, {
         id: "note-review",
         text: "Review the empty states with design before handoff",
         position: { x: 0, y: -1400 }
       })
+
       selection.set({ note })
     }
   ],
@@ -544,14 +694,16 @@ export const LargeProject: Story = {
   loaders: [
     async () => {
       await openProjects("example")
-      const { store, selection } = example()
+      const { doc, selection } = example()
+
       for (let index = 0; index < 100; index++) {
-        const taken = store.getEntries().map((entry) => entry.container.id)
+        const taken = containerEntries(doc).map((entry) => entry.container.id)
         const screen = newDesign("screen", taken, { x: index * 400, y: 6000 })
-        store.addContainer(store.mainPath, { ...screen, name: `Screen ${index + 1}` })
+        addContainer(doc, doc.main, { ...screen, name: `Screen ${index + 1}` })
       }
-      const taken = store.getEntries().map((entry) => entry.container.id)
-      const key = store.addContainer(store.mainPath, largeScreen(taken))
+
+      const taken = containerEntries(doc).map((entry) => entry.container.id)
+      const key = addContainer(doc, doc.main, largeScreen(taken))
       selection.set({ design: key, node: "large-40-15-title" })
     }
   ]
@@ -561,6 +713,7 @@ export const LargeProject: Story = {
 function largeScreen(taken: string[]): ContainerSpec {
   const screen = newDesign("screen", taken, { x: 0, y: 4000 })
   const text = (id: string, value: string): DesignNode => ({ type: "text", id, text: value })
+
   const sections = Array.from({ length: 50 }, (_, section): DesignNode => ({
     type: "layout",
     id: `large-${section + 1}`,
@@ -569,7 +722,7 @@ function largeScreen(taken: string[]): ContainerSpec {
       type: "layout",
       id: `large-${section + 1}-${index + 1}`,
       name: `Row ${section + 1}.${index + 1}`,
-      style: { direction: "row" },
+      style: { flexDirection: "row" },
       children: [
         text(`large-${section + 1}-${index + 1}-title`, `Title ${section + 1}.${index + 1}`),
         text(`large-${section + 1}-${index + 1}-detail`, `Detail ${section + 1}.${index + 1}`),
@@ -577,23 +730,8 @@ function largeScreen(taken: string[]): ContainerSpec {
       ]
     }))
   }))
-  const root = screen.root.type === "layout" ? { ...screen.root, children: sections } : screen.root
-  return { ...screen, name: "Large list", root }
-}
 
-/** A design file that couldn't be read, with the reason, after everything that could. */
-export const UnreadableFile: Story = {
-  loaders: [
-    async () => {
-      await openProjects("example")
-      example().errors.push({
-        path: "designs/marketing.par",
-        error: "Unexpected token '}' in JSON at position 18412 (line 640, column 3)"
-      })
-    }
-  ],
-  play: async ({ canvasElement }) => {
-    const file = await within(canvasElement).findByText("designs/marketing.par")
-    file.scrollIntoView({ block: "center" })
-  }
+  const root = screen.root.type === "layout" ? { ...screen.root, children: sections } : screen.root
+
+  return { ...screen, name: "Large list", root }
 }

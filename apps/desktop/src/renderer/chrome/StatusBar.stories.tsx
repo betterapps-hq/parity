@@ -12,10 +12,10 @@ import {
   preferring,
   projectAt
 } from "../stories/fixtures.tsx"
-import { answering, roots, running, service } from "../stories/host.ts"
+import { answering, askWindow, roots, running, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
+import { actions } from "./actions.ts"
 import { AtBottom, olderProjectAt, renameDesign, Window } from "./chrome-fixtures.tsx"
-import { save } from "./commands.ts"
 import { setLayout } from "./layout.ts"
 import { StatusBar } from "./StatusBar.tsx"
 
@@ -25,13 +25,14 @@ import { StatusBar } from "./StatusBar.tsx"
  * what it opens.
  */
 const meta = {
-  title: "Parity/Chrome/Status bar",
+  title: "Parity/Chrome/Window/Status bar",
   component: StatusBar,
   decorators: [AtBottom],
   loaders: [clearNotifications]
 } satisfies Meta<typeof StatusBar>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -56,38 +57,42 @@ export const ExampleProject: Story = {
 /**
  * Everything the status bar can hold at once: the project's renderer, builder, components, tokens and Storybook; a save
  * that failed; a light for each process, with the build server's breathing, Storybook's turning as it starts and a
- * stopped Playwright run's hollow; and the performance stats.
+ * canceled unit test run's hollow; and the performance stats.
  */
 export const Everything: Story = {
   loaders: [
     async () => {
       await openProjects("example")
       preferring({ performanceStats: true })
+
       const base = {
         projectId: roots.example,
         project: "shadcn-vite",
-        startedBy: "parity",
+        run: 1,
         canStop: true,
         canRestart: true
       } as const
+
       running.processes.push(
         {
           ...base,
           id: `storybook:${roots.example}`,
-          kind: "storybook",
-          shape: "server",
+          owner: { kind: "parity", role: "tool" },
+          addresses: [],
+          lifetime: "server",
           name: "Storybook",
-          status: "starting",
+          state: "starting",
           startedAt: Date.now() - 9000,
-          url: "http://localhost:6006"
+          endpoint: { url: "http://localhost:6006", port: 6006, protocol: "http" }
         },
         {
           ...base,
-          id: `e2e:${roots.example}`,
-          kind: "e2e",
-          shape: "task",
-          name: "Playwright",
-          status: "canceled",
+          id: `test:${roots.example}`,
+          owner: { kind: "parity", role: "test" },
+          addresses: [],
+          lifetime: "task",
+          name: "Unit tests",
+          state: "canceled",
           startedAt: Date.now() - 300_000,
           stoppedAt: Date.now() - 240_000,
           summary: "Canceled after 18 of 42 tests"
@@ -95,7 +100,7 @@ export const Everything: Story = {
       )
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
-      await save()
+      await actions.save.run("menu")
     }
   ],
   play: async () => {
@@ -130,7 +135,7 @@ export const SaveFailed: Story = {
     }
   ],
   play: async () => {
-    void save()
+    void actions.save.run("menu")
     await expect(await body().findByRole("button", { name: /Couldn't save/ })).toBeVisible()
     await holdToast("Couldn't save the project")
   }
@@ -144,7 +149,7 @@ export const RetryingAFailedSave: Story = {
       preferring({ performanceStats: false })
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
-      await save()
+      await actions.save.run("menu")
       service.saveFails = false
     }
   ],
@@ -204,7 +209,13 @@ export const SmallProjectWithoutStorybook: Story = {
     async () => {
       await openProjects()
       preferring({ performanceStats: false })
-      await openAlso({ ...projectAt("D:/projects/landing-page"), componentCount: 1, storybook: undefined })
+      const landing = projectAt("D:/projects/landing-page")
+      await openAlso({
+        ...landing,
+        componentCount: 1,
+        detection: { ...landing.detection, tools: landing.detection.tools.filter((tool) => tool.id !== "storybook") },
+        status: landing.status.filter((item) => item.adapter !== "storybook")
+      })
       workspace.activate("D:/projects/landing-page")
     }
   ]
@@ -249,7 +260,7 @@ export const ShowsComponents: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
-    await userEvent.click(statusBar().getByRole("button", { name: /components in code$/ }))
+    await userEvent.click(statusBar().getByRole("button", { name: /components$/ }))
     await expect(await body().findByRole("tab", { name: /Components/, selected: true })).toBeVisible()
   }
 }
@@ -277,7 +288,23 @@ export const OpeningStorybook: Story = {
     async () => {
       await openProjects("example")
       preferring({ performanceStats: false })
-      answering({ "storybook.open": () => never() })
+      // Its extension shows progress, and the command doesn't finish while Storybook starts.
+      answering({
+        "extensions.run": async ({ projectId }) => {
+          await askWindow({
+            projectId,
+            extension: "@parity-app/extension-storybook",
+            method: "ui.progress",
+            params: {
+              id: 1,
+              title: "Opening Storybook…",
+              detail: "If it isn't running yet, it starts first, which can take a minute."
+            }
+          })
+
+          return never()
+        }
+      })
     }
   ],
   play: async () => {
@@ -308,7 +335,7 @@ export const StorybookFailed: Story = {
       await openProjects("example")
       preferring({ performanceStats: false })
       answering({
-        "storybook.open": () => {
+        "extensions.run": () => {
           throw new Error("storybook dev exited with code 1: Port 6006 is in use by another program")
         }
       })
@@ -316,48 +343,6 @@ export const StorybookFailed: Story = {
   ],
   play: async () => {
     await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
-    await holdToast("Couldn't open Storybook")
-  }
-}
-
-/**
- * A project with three designs and a design file that couldn't be read: the status bar doesn't mention it; only the
- * Layers panel does, after every design.
- */
-export const UnreadableDesignFile: Story = {
-  ...whole,
-  loaders: [
-    async () => {
-      await openProjects()
-      preferring({ performanceStats: false })
-      const info = projectAt("D:/projects/marketing-site")
-      const main = info.documents.find((entry) => entry.path === info.mainDocument)!.document!
-      const kept = ["Pricing", "Plan card", "Sign in"]
-      await openAlso({
-        ...info,
-        documents: [
-          {
-            path: info.mainDocument,
-            document: { ...main, containers: main.containers.filter((design) => kept.includes(design.name)) }
-          },
-          { path: "designs/landing.par", error: "Unexpected token '}' in JSON at position 2817 (line 96, column 5)" }
-        ]
-      })
-      workspace.activate("D:/projects/marketing-site")
-    }
-  ],
-  play: async () => {
-    await waitFor(() => expect(workspace.getActive()?.session?.errors).toHaveLength(1))
-    const editor = await waitFor(
-      () => {
-        const mounted = workspace.getActive()?.session?.editor
-        if (!mounted) throw new Error("The canvas hasn't mounted yet")
-        return mounted
-      },
-      { timeout: 10000 }
-    )
-    // The boards size themselves as their frames render; then the canvas fits them all in.
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    editor.zoomToFit()
+    await holdToast("Open in Storybook didn't work")
   }
 }

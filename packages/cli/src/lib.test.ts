@@ -1,6 +1,6 @@
 import { covers } from "@parity-app/registry"
 import { describe, expect, it } from "vite-plus/test"
-import { keptRange, packageSpec } from "./lib.ts"
+import { keptRange, packageSpec, writtenRange } from "./lib.ts"
 
 describe("packageSpec", () => {
   it("reads a name, and a version or tag after its @", () => {
@@ -16,12 +16,18 @@ describe("keptRange", () => {
   const covering = (versions: typeof read) => covers({ package: versions }, read.version)
 
   it("keeps a file's range while it covers the version read", () => {
-    expect(keptRange({ package: { range: ">=0.400.0 <2.0.0" } }, read, covering)).toBe(">=0.400.0 <2.0.0")
+    expect(keptRange(">=0.400.0 <2.0.0", read, covering)).toBe(">=0.400.0 <2.0.0")
   })
 
   it("lets the new range stand for a version the old one doesn't cover, or a file without one", () => {
-    expect(keptRange({ package: { range: ">=0.400.0 <1.0.0" } }, read, covering)).toBeUndefined()
-    expect(keptRange({ package: { range: "^1.0.0" } }, read, covering)).toBeUndefined()
+    expect(keptRange(">=0.400.0 <1.0.0", read, covering)).toBeUndefined()
+    expect(keptRange("^1.0.0", read, covering)).toBeUndefined()
     expect(keptRange(undefined, read, covering)).toBeUndefined()
+  })
+
+  it("reads the range a file being written over has, or none from a file without one", () => {
+    expect(writtenRange.safeParse({ package: { range: "^1.0.0" } }).data?.package.range).toBe("^1.0.0")
+    expect(writtenRange.safeParse({ package: {} }).data).toBeUndefined()
+    expect(writtenRange.safeParse(undefined).data).toBeUndefined()
   })
 })

@@ -1,6 +1,7 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
 import { isBaseState } from "@parity-app/core"
-import { type Alignment, kindsName } from "@parity-app/editor"
+import { kindsName } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import {
   AlignCenterHorizontal,
   AlignCenterVertical,
@@ -17,40 +18,38 @@ import {
 } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
 import { designColor, kindColors, layerLabel } from "../canvas/kinds.tsx"
-import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
-import { alignSelection, deleteSelection, distributeSelection, duplicateSelection, wrapSelection } from "./commands.ts"
+import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
+import { actions } from "./actions.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
-import { keymap } from "./keymap.ts"
-import { formatKeys } from "./keys.ts"
+import { type Command, keymap, shortcutOf } from "./keymap.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 
-const alignments: { value: Alignment; label: string; shortcut: string; icon: typeof AlignStartVertical }[] = [
-  { value: "left", label: "Align left", shortcut: keymap.alignLeft.keys[0], icon: AlignStartVertical },
-  {
-    value: "center",
-    label: "Align horizontal centers",
-    shortcut: keymap.alignCenter.keys[0],
-    icon: AlignCenterVertical
-  },
-  { value: "right", label: "Align right", shortcut: keymap.alignRight.keys[0], icon: AlignEndVertical },
-  { value: "top", label: "Align top", shortcut: keymap.alignTop.keys[0], icon: AlignStartHorizontal },
-  {
-    value: "middle",
-    label: "Align vertical centers",
-    shortcut: keymap.alignMiddle.keys[0],
-    icon: AlignCenterHorizontal
-  },
-  { value: "bottom", label: "Align bottom", shortcut: keymap.alignBottom.keys[0], icon: AlignEndHorizontal }
+/**
+ * Each button, by its command, so it runs as its keys do and Repeat last action can run it again, and shows the
+ * command's name and keys.
+ */
+const alignments: { command: Command; icon: typeof AlignStartVertical }[] = [
+  { command: "alignLeft", icon: AlignStartVertical },
+  { command: "alignCenter", icon: AlignCenterVertical },
+  { command: "alignRight", icon: AlignEndVertical },
+  { command: "alignTop", icon: AlignStartHorizontal },
+  { command: "alignMiddle", icon: AlignCenterHorizontal },
+  { command: "alignBottom", icon: AlignEndHorizontal }
 ]
 
 function AlignButtons({ distribute }: { distribute?: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-0.5">
-      {alignments.map(({ value, label, shortcut, icon: Icon }) => (
-        <IconButton key={value} label={label} shortcut={shortcut} onClick={() => alignSelection(value)}>
+      {alignments.map(({ command, icon: Icon }) => (
+        <IconButton
+          key={command}
+          label={keymap[command].label}
+          shortcut={command}
+          onClick={() => void actions[command].run("panel")}
+        >
           <Icon />
         </IconButton>
       ))}
@@ -59,15 +58,15 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
           <span className="mx-1 h-5 w-px bg-border" />
           <IconButton
             label="Distribute horizontal spacing"
-            shortcut={keymap.distributeHorizontal.keys[0]}
-            onClick={() => distributeSelection("horizontal")}
+            shortcut="distributeHorizontal"
+            onClick={() => void actions.distributeHorizontal.run("panel")}
           >
             <AlignHorizontalSpaceAround />
           </IconButton>
           <IconButton
             label="Distribute vertical spacing"
-            shortcut={keymap.distributeVertical.keys[0]}
-            onClick={() => distributeSelection("vertical")}
+            shortcut="distributeVertical"
+            onClick={() => void actions.distributeVertical.run("panel")}
           >
             <AlignVerticalSpaceAround />
           </IconButton>
@@ -79,12 +78,13 @@ function AlignButtons({ distribute }: { distribute?: boolean }) {
 
 /** Several designs selected: line them up, space them out, copy or delete them together. */
 export function ArrangePanel({ keys }: { keys: string[] }) {
-  const { store } = useProject()
-  const entries = keys.flatMap((key) => store.getEntry(key) ?? [])
+  const { doc } = useProject()
+  const entries = keys.flatMap((key) => containerEntry(doc, key) ?? [])
+
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2 font-semibold">
+        <div className="flex items-center gap-2 text-base font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: designColor("screen") }} />
           {kindsName(entries.map((entry) => entry.container.kind))}
         </div>
@@ -96,10 +96,15 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
         <AlignButtons distribute={entries.length > 2} />
       </PanelSection>
       <div className={`flex gap-2 py-3 pl-4 ${panelEnd}`}>
-        <Button variant="outline" size="sm" className="flex-1" onClick={() => duplicateSelection()}>
+        <Button variant="outline" size="sm" className="flex-1" onClick={() => void actions.duplicate.run("panel")}>
           <Copy /> Duplicate
         </Button>
-        <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={() => deleteSelection()}>
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 text-destructive"
+          onClick={() => void actions.delete.run("panel")}
+        >
           <Trash2 /> Delete
         </Button>
       </div>
@@ -116,18 +121,25 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
  * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value.
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
-  const { store } = useProject()
-  const entries = useContainerEntries(store)
+  const session = useProject()
+  const { info } = session
+  const entries = useContainerEntries(session)
   const editor = useStyleEditor(entry, ids)
-  if (!editor) return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+
+  if (!editor) {
+    return <p className="p-4 text-sm text-muted-foreground">These layers no longer exist.</p>
+  }
+
   const { selection } = editor
   const { mixed } = selection
+  // The rows whose fields work Mixed+8 out from each layer's own value.
+  const perLayer = mixed.filter((key) => key === "width" || key === "height" || key === "padding" || key === "margin")
   const base = isBaseState(entry.container, selection.state.id)
-  const primary = selection.layers.at(-1)!.node
+
   return (
     <>
       <div className={`border-b py-3 pl-4 ${panelEnd}`}>
-        <div className="flex items-center gap-2 font-semibold">
+        <div className="flex items-center gap-2 text-base font-semibold">
           <Layers className="size-4 shrink-0" style={{ color: kindColors.layer }} />
           {selection.layers.length} layers
         </div>
@@ -139,24 +151,29 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
       <PanelSection title="Arrange">
         <div className="flex flex-col gap-2">
           <AlignButtons />
-          <Button variant="outline" size="sm" onClick={() => wrapSelection()}>
-            <Group /> {keymap.wrap.label}{" "}
-            <span className="ml-auto text-xs text-muted-foreground">{formatKeys(keymap.wrap.keys[0])}</span>
+          <Button variant="outline" size="sm" onClick={() => void actions.wrap.run("panel")}>
+            <Group /> {keymap.wrap.label} <Kbd className="ml-auto">{shortcutOf("wrap")}</Kbd>
           </Button>
         </div>
       </PanelSection>
       {mixed.length > 0 && (
-        <p className={`border-b py-2.5 pl-4 text-xs text-muted-foreground ${panelEnd}`}>
-          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value,
-          and <code className="font-mono">Mixed+8</code> adds 8 to each layer&apos;s own value.
+        <p className={`type-description border-b py-2.5 pl-4 text-muted-foreground ${panelEnd}`}>
+          Different across these layers: {mixed.map(styleLabel).join(", ")}. Setting one gives them all the same value.
+          {perLayer.length > 0 && (
+            <>
+              {" "}
+              In {perLayer.map(styleLabel).join(", ")}, <code className="font-mono">Mixed+8</code> adds 8 to each
+              layer&apos;s own value.
+            </>
+          )}
         </p>
       )}
-      <StyleSections editor={editor} node={primary} />
+      <StyleSections editor={editor} container={entry.container} />
       <ExportSection
         targets={selection.layers.map((layer) => ({
           design: entry.key,
           node: layer.id,
-          name: layerLabel(layer.node, entries, store.getComponentLibrary())
+          name: layerLabel(layer.node, entries, projectLibrary(session), info.libraries)
         }))}
         label={`Export ${selection.layers.length} layers`}
       />

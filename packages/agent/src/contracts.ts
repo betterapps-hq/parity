@@ -7,7 +7,7 @@
 
 import { CodedError } from "@parity-app/core/errors"
 import { propGroups, propKinds } from "@parity-app/core/props"
-import { checkData, jsonText, plainObject } from "@parity-app/core/schema"
+import { checkData, jsonText, jsonValue, plainObject } from "@parity-app/core/schema"
 import { z } from "zod"
 
 // Requests. Each message names its field, as the CLI has always worded them, so it reads on its own in a terminal,
@@ -19,19 +19,22 @@ import { z } from "zod"
  * fields are flat, so a bad item in a list of modes points at `mode`. A field set to `undefined` counts as left out,
  * as a terminal's missing options leave it.
  */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what an agent sent, read here
 export function readRequest<T extends z.ZodType>(schema: T, input: unknown, depth = Infinity): z.output<T> {
-  const checked = checkData(schema, withoutUnset(input))
-  if (checked.success) return checked.data
+  const sent = plainObject.safeParse(input).data
+  const given = sent ? Object.fromEntries(Object.entries(sent).filter(([, value]) => value !== undefined)) : input
+  const checked = checkData(schema, given)
+
+  if (checked.success) {
+    return checked.data
+  }
+
   const field = checked.problem.pointer
     .split("/")
     .slice(1, depth + 1)
     .join("/")
-  throw new CodedError(checked.problem.message, { code: "invalid_input", ...(field ? { field } : {}) })
-}
 
-function withoutUnset(input: unknown): unknown {
-  const fields = plainObject.safeParse(input).data
-  return fields ? Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) : input
+  throw new CodedError(checked.problem.message, field ? { code: "invalid_input", field } : { code: "invalid_input" })
 }
 
 /**
@@ -40,6 +43,7 @@ function withoutUnset(input: unknown): unknown {
  */
 export function requestJsonSchema(schema: z.ZodType) {
   const { $schema: _dialect, ...json } = z.toJSONSchema(schema, { io: "input" })
+
   return json
 }
 
@@ -56,6 +60,7 @@ function text(name: string, description: string) {
 function selector(name: string) {
   const message = `${name} must be a nonblank string or a nonempty list of nonblank strings`
   const item = nonblank(message)
+
   return z.union([item, z.array(item, message).min(1, message)], message)
 }
 
@@ -71,12 +76,16 @@ function flag(name: string, description: string) {
 /** How many items a list read returns at most: a default that keeps a reply small, and a ceiling. */
 function limit(description: string, fallback: number, most: number) {
   const message = `limit must be a whole number from 1 to ${most}`
+
   return z.int(message).min(1, message).max(most, message).default(fallback).describe(description)
 }
 
+// The fields `z.strictObject` takes, by its own parameter rather than zod's internal name for them.
+type ObjectFields = NonNullable<Parameters<typeof z.strictObject>[0]>
+
 /** An operation's input: these fields and no others, in an object. */
-function fields<Shape extends z.ZodRawShape>(shape: Shape) {
-  return z.strictObject(shape, {
+function fields<Fields extends ObjectFields>(entries: Fields) {
+  return z.strictObject(entries, {
     error: (issue) =>
       issue.code === "unrecognized_keys"
         ? `Unknown input field ${issue.keys[0] ?? ""}`
@@ -90,11 +99,37 @@ const tabDescription =
   'current folder is in, else "active".'
 
 const tab = text("tab", tabDescription).optional()
+
+/** Which source a search asks, by its connector's id. Without one, any that finds the kind. */
+const connector = z
+  .string("connector must be a connector's id, from a result")
+  .optional()
+  .describe("A connector's id, from a result. Defaults to any.")
+
+/**
+ * A filter a search names by the connector's own id for it. Main checks the value against the connector that runs the
+ * search, so a second source of the same kind with other values takes them without a change here.
+ */
+function filter(name: string, description: string) {
+  return text(name, description).optional()
+}
+
+/** Results already shown, for a source that gives more by leaving them out. Main says which way the source pages. */
+const exclude = z
+  .array(nonblank("exclude must be a list of ids"), "exclude must be a list of ids")
+  .max(100, "exclude takes up to 100 ids")
+  .optional()
+  .describe("Ids already seen, for more.")
+
+/** The page of results, for a source that gives more by page. */
+const page = z.int("page must be a whole number").min(1, "page must be 1 or more").optional().describe("Next page.")
+
 const design = text("design", "Design id or name.")
 const scaleMessage = "scale must be a finite number from 0.25 to 3"
 const scale = z.number(scaleMessage).min(0.25, scaleMessage).max(3, scaleMessage).default(1).describe("Pixel density.")
 const absoluteRoot = /^(?:\/|[A-Za-z]:[\\/]|\\\\)/
 const blankRoot = "root must be a nonblank string"
+
 /** A project folder. Being absolute already rules out blank text, so the schema publishes only that pattern. */
 const root = z
   .string(blankRoot)
@@ -102,6 +137,7 @@ const root = z
   .refine((path) => /\S/.test(path), blankRoot)
   .regex(absoluteRoot, "root must be an absolute project folder path")
   .describe("Absolute project folder path.")
+
 /** A render's frames: every state and the modes the design shows, unless the call narrows them. */
 const checks = {
   tab,
@@ -145,13 +181,19 @@ const execute = {
 
 /** A field only the other kind of request takes: a snippet with an editId, or retry edits with no editId. */
 function misplaced(keys: readonly string[]): string {
-  if (keys.includes("editId") || keys.includes("code")) return "Pass a snippet or an editId, not both"
-  if (keys.includes("edits")) return "edits requires an editId"
+  if (keys.includes("editId") || keys.includes("code")) {
+    return "Pass a snippet or an editId, not both"
+  }
+
+  if (keys.includes("edits")) {
+    return "edits requires an editId"
+  }
+
   return `Unknown input field ${keys[0] ?? ""}`
 }
 
-function executeKind<Shape extends z.ZodRawShape>(shape: Shape) {
-  return z.strictObject(shape, {
+function executeKind<Fields extends ObjectFields>(entries: Fields) {
+  return z.strictObject(entries, {
     error: (issue) => (issue.code === "unrecognized_keys" ? misplaced(issue.keys) : "Operation input must be an object")
   })
 }
@@ -184,7 +226,8 @@ export const requests = {
     mode: selector("mode")
       .transform(single)
       .optional()
-      .describe('Mode id, list of ids, "shown" or "all". Defaults to the primary mode.')
+      .describe('Mode id, list of ids, "shown" or "all". Defaults to the primary mode.'),
+    sheet: flag("sheet", "One labeled image of every frame instead of one per frame.")
   }),
   problems: fields(checks),
   accessibility: fields(checks),
@@ -198,6 +241,10 @@ export const requests = {
     category: text("category", "Token category.").optional(),
     source: text("source", "Token source, such as semantic or theme.").optional(),
     search: z.string("search must be a string").optional().describe("Token name search."),
+    nearest: text(
+      "nearest",
+      "A color or length that isn't a token, such as #2f6fed or 13px: the tokens nearest it first."
+    ).optional(),
     limit: limit("Most tokens to return.", 100, 1000)
   }),
   components: fields({ tab }),
@@ -205,6 +252,68 @@ export const requests = {
     tab,
     component: text("component", "Component id or name."),
     all: flag("all", "Include passed-through attributes.")
+  }),
+  report: fields({
+    tab,
+    message: text("message", "What you did, expected and saw."),
+    design: text("design", "Design id or name; its frames go with it.").optional(),
+    state: text("state", "State id. Defaults to the shown one.").optional(),
+    node: text("node", "Node id.").optional(),
+    testRun: text("testRun", "Test pass. Defaults to PARITY_TEST_RUN.").optional()
+  }),
+  references: fields({
+    tab,
+    query: text(
+      "query",
+      'One screen: its type, then up to three parts, as "paywall with a free trial". No platform, style words or negations. Name an app for only its screens.'
+    ),
+    connector,
+    platform: filter("platform", "ios for phone apps, or web. Defaults to web."),
+    depth: filter("depth", "deep keeps strong matches, for searches with parts; it spends the source's AI credits."),
+    limit: limit("Most screens.", 6, 20),
+    exclude,
+    page
+  }),
+  media: fields({
+    tab,
+    query: text("query", 'One subject, as "desk by a window".'),
+    connector,
+    type: filter("type", "photos (default), illustrations, vectors or videos."),
+    orientation: filter("orientation", "horizontal or vertical."),
+    color: filter("color", "One color, as blue, grayscale or transparent."),
+    limit: limit("Most results.", 6, 20),
+    exclude,
+    page
+  }),
+  place: fields({
+    tab,
+    connector: text("connector", "The result's connector, from the search."),
+    id: text("id", "The result's id, from a search."),
+    node: text("node", 'The image or video, or a component with a prop that takes it, as design/node: "home/photo".'),
+    prop: text("prop", "A component's prop that takes the picture or video. Defaults to src.").optional(),
+    state: text("state", "State id, for a component's prop in one state.").optional()
+  }),
+  placedReferences: fields({
+    tab,
+    design: text("design", "Design id or name, for only its references.").optional(),
+    limit: limit("Most pictures; each is a whole screen.", 6, 20)
+  }),
+  images: fields({
+    tab,
+    search: text("search", "Text in a name, alt text or credit.").optional(),
+    unused: flag("unused", "Only images no design or code uses."),
+    limit: limit("Most images.", 50, 500)
+  }),
+  removeImage: fields({
+    tab,
+    image: text("image", "Path, address (/images/hero.png) or file name.")
+  }),
+  extensions: fields({ tab }),
+  runExtension: fields({
+    tab,
+    name: text("name", "Command id or tool name."),
+    component: text("component", "Component a command runs for.").optional(),
+    input: z.record(z.string(), jsonValue, "input must be an object").optional().describe("A tool's input.")
   }),
   exec: z.union([
     executeKind({ tab: execute.tab, label: execute.label, code: execute.code }),
@@ -216,9 +325,11 @@ export const requests = {
 export const skillRequest = fields({ path: text("path", "Skill file to read.").default("SKILL.md") })
 
 /**
- * What the CLI posts to the app's `/rpc` endpoint, as JSON text (PAR-598): the method, its params, and who's calling
- * when the CLI or MCP knows. The app checks the params with the method's own schema in `requests`, and reads the caller
- * leniently, since it's only shown on the canvas.
+ * What the CLI posts to the app's `/rpc` endpoint, as JSON text (PAR-598): the method, its params, who's calling when
+ * the CLI or MCP knows, which of a session's subagents when it says (PAR-960), and whether it came through the CLI or
+ * MCP. The app checks the params with the method's own
+ * schema in `requests`, and reads the caller and transport leniently, since they're only shown on the canvas and
+ * recorded in telemetry (PAR-641).
  */
 export const rpcRequest = jsonText(
   z.object(
@@ -226,7 +337,10 @@ export const rpcRequest = jsonText(
       method: z.string("method must be a string"),
       params: z.unknown().optional(),
       agent: z.unknown().optional(),
-      agentId: z.unknown().optional()
+      agentId: z.unknown().optional(),
+      client: z.unknown().optional(),
+      subagent: z.unknown().optional(),
+      transport: z.unknown().optional()
     },
     "The request must be a JSON object"
   )
@@ -257,20 +371,36 @@ const tabSummary = z.looseObject({
   designs: z.int().describe("How many designs the project has.")
 })
 
-/** One design on the canvas, and where its board is. Its size is missing until its board has been drawn. */
-const designSummary = z.looseObject({
+/** What's said about every design on the canvas, and where its board is. Its size is missing until it's drawn. */
+const summaryFields = {
   id: z.string(),
   name: z.string(),
-  kind: z.string(),
   file: z.string(),
   x: number,
   y: number,
   width: number.optional(),
   height: number.optional(),
-  states: z.array(ref),
-  showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings }),
-  nodes: z.int()
-})
+  nodes: z.int(),
+  references: z
+    .int()
+    .optional()
+    .describe("How many references are on the canvas for it, which get_references shows. Missing when none.")
+}
+
+/** One design on the canvas. Only a component and a story have states, so only they list them. */
+const designSummary = z.discriminatedUnion("kind", [
+  z.looseObject({
+    ...summaryFields,
+    kind: z.enum(["screen", "frame"]),
+    showing: z.looseObject({ mode: z.string(), beside: strings })
+  }),
+  z.looseObject({
+    ...summaryFields,
+    kind: z.enum(["component", "story"]),
+    states: z.array(ref).describe("The component's states, the base first, or a story file's stories."),
+    showing: z.looseObject({ state: z.string(), mode: z.string(), beside: strings })
+  })
+])
 
 const overlap = z.looseObject({
   designs: strings,
@@ -412,7 +542,7 @@ const warningGroup = z.looseObject({
     .string()
     .describe(
       "Stable: render_failed, unknown_component, unknown_component_design, unknown_prop, invalid_option, " +
-        "not_a_token, not_a_length_token, overlap, title_clearance, canvas_overlaps, kind_changed or " +
+        "not_a_token, not_a_length_token, invalid_value, overlap, title_clearance, canvas_overlaps, kind_changed or " +
         "unnamed_layout. overlap and title_clearance cover boards this call created, changed or moved: " +
         "overlap when two boards collide, title_clearance when they're clear but one's title covers the other. " +
         "canvas_overlaps counts the rest of the canvas's; call Overlaps() to check every board."
@@ -457,6 +587,10 @@ const execReply = z.looseObject({
   details: z.unknown().optional(),
   editId: z.string().optional(),
   created: z.record(z.string(), z.string()).describe("Names of designs and nodes created, mapped to their ids."),
+  createdDesigns: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("Names of the designs created, mapped to their ids. Missing from a copy older than PAR-909."),
   discarded: z
     .array(discarded)
     .optional()
@@ -472,20 +606,57 @@ const execReply = z.looseObject({
       state: z.string(),
       mode: z.string()
     })
-  )
+  ),
+  sheets: z
+    .array(
+      z.looseObject({
+        design: z.string(),
+        path: z.string().describe("Where the PNG was saved."),
+        png: z.string(),
+        width: z.int(),
+        height: z.int(),
+        scale: z.number().describe("Sheet pixels per CSS pixel."),
+        frames: z
+          .array(
+            z.looseObject({
+              state: z.string(),
+              mode: z.string(),
+              x: z.int(),
+              y: z.int(),
+              width: z.int(),
+              height: z.int()
+            })
+          )
+          .describe("Where each frame is on the sheet, in its pixels.")
+      })
+    )
+    .optional()
+    .describe("With sheet, one per design, in place of screenshots.")
 })
 
 /** A box in a frame, in CSS pixels from its top left corner. */
 const frameBox = z.looseObject({ x: number, y: number, width: number, height: number })
 
 /**
- * One problem in one frame. Layout problems (`frame-overflow`, `clipped`) name the node, what it overflows (the node
- * that clips it, or the frame, which has none), both boxes, and how far past each edge it reaches.
+ * One problem in one frame. Layout problems (`frame-overflow`, `clipped`, `parent-overflow`) name the node, what it
+ * overflows (the node that clips it, the parent it spills out of, or the frame, which has none), both boxes, and how far
+ * past each edge it reaches. `squeezed` names a node drawn narrower than its width, and both widths.
  */
 const problem = z.looseObject({
   state: z.string(),
   mode: z.string(),
-  kind: z.enum(["render-error", "unknown-component", "content-wider", "frame-overflow", "clipped"]).optional(),
+  kind: z
+    .enum([
+      "render-error",
+      "unknown-component",
+      "content-wider",
+      "frame-overflow",
+      "clipped",
+      "outside-frame",
+      "parent-overflow",
+      "squeezed"
+    ])
+    .optional(),
   problem: z.string(),
   node: z.string().optional(),
   name: z.string().optional(),
@@ -498,7 +669,8 @@ const problem = z.looseObject({
       top: number.optional(),
       bottom: number.optional()
     })
-    .optional()
+    .optional(),
+  squeezed: z.looseObject({ width: number, wants: number, element: z.string().optional() }).optional()
 })
 
 const problemsReply = z.looseObject({
@@ -559,7 +731,11 @@ const tokenInfo = z.looseObject({
   name: z.string(),
   category: z.string(),
   source: z.string(),
-  values: z.record(z.string(), z.string()).describe("Value per theme.")
+  values: z.record(z.string(), z.string()).describe("Value per theme."),
+  distance: z
+    .number()
+    .optional()
+    .describe("Given nearest: how far it is, in pixels for a length, in OKLab for a color (under 0.02 looks the same).")
 })
 
 const componentsReply = z.looseObject({
@@ -634,10 +810,166 @@ const propsReply = z.looseObject({
   composition: composition.optional()
 })
 
+/** A problem an agent reported (PAR-646): the Sentry user feedback it became, and what went with it. */
+const reportReply = z.looseObject({
+  feedbackId: z.string().describe("The Sentry event ID of the feedback."),
+  link: z
+    .string()
+    .describe(
+      "The feedback in Sentry, beside its replay and trace. Sentry files it in Linear and links the issue there."
+    ),
+  traceId: z.string().optional().describe("The trace it's tied to: the call's, from the command on."),
+  replayId: z.string().optional().describe("The window's replay, when it records one."),
+  tags: z
+    .record(z.string(), z.string())
+    .describe("What it's about, as Sentry tags: tab, design, state, node, test_run."),
+  attachments: strings.describe("The files sent with it: the window's screenshot, the frames and the diagnostics.")
+})
+
+/** One of the project's images (PAR-834): a file, a linked image, or a path layers name with no file. */
+const projectImage = z.looseObject({
+  kind: z.enum(["file", "linked", "missing"]),
+  src: z.string().describe("What layers set src to."),
+  path: z.string().optional().describe("The file, from the project's root."),
+  name: z.string(),
+  bytes: z.int().optional(),
+  alt: z.string().optional(),
+  credit: z.looseObject({ name: z.string(), url: z.string(), source: z.string().optional() }).optional(),
+  usedBy: z
+    .array(z.looseObject({ document: z.string(), design: z.string(), designName: z.string(), node: z.string() }))
+    .describe("The layers that show it."),
+  usedInCode: z.array(z.looseObject({ path: z.string(), line: z.int() })).describe("The lines of code that name it.")
+})
+
+const imagesReply = z.looseObject({
+  images: z.array(projectImage),
+  total: z.int().describe("How many matched before the limit."),
+  truncated: z.boolean()
+})
+
+/** An image removed: its file, and the edit's label. */
+const removeImageReply = z.looseObject({ path: z.string(), label: z.string() })
+
+/** A picture saved for an agent to look at, as a file, with its bytes for MCP to show. */
+const preview = z.looseObject({
+  path: z.string().describe("Where the preview was saved."),
+  mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
+  data: z.string().optional().describe("The preview as base64, which MCP shows and --json leaves out.")
+})
+
+/**
+ * Something a connector found (PAR-829): a screen from a real app, or a stock picture or video, the same shape from
+ * every source, with its preview saved as a file for the agent to look at.
+ */
+const foundItem = z.looseObject({
+  id: z.string().describe("The source's id, which exclude takes."),
+  connector: z.string().describe("The connector that found it, which connector and place take."),
+  source: z.string().describe("Where it's from, to credit."),
+  kind: z.string().optional().describe("screens, photos or videos; only photos go in designs."),
+  title: z.string().describe("The app's name, or what a picture shows."),
+  platform: z.enum(["ios", "web"]).optional(),
+  link: z.string().describe("Its page at the source."),
+  width: z.int().optional(),
+  height: z.int().optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .describe("Who to credit, in order: the app or its author, then the source."),
+  preview: preview.optional().describe("Missing when the preview couldn't be fetched.")
+})
+
+/** What a search found, or why it found nothing to show. */
+const foundReply = z.looseObject({
+  found: z.array(foundItem),
+  allowance: z
+    .looseObject({ remaining: z.int(), limit: z.int().optional() })
+    .optional()
+    .describe("Searches the source allows before turning them away, when it says."),
+  problem: z
+    .looseObject({
+      code: z
+        .string()
+        .describe(
+          "no-key, signed-out, key-refused, no-access, rate-limited, invalid or unavailable. Only invalid is yours to fix."
+        ),
+      message: z.string(),
+      retryAfter: number.optional().describe("Seconds to wait before searching again.")
+    })
+    .optional(),
+  done: z.boolean().optional().describe("True when more of a search was asked for and there's no more.")
+})
+
+/** What placing a result did: the node it went in and who to credit, or why it wasn't placed. */
+const placeReply = z.looseObject({
+  placed: z.boolean(),
+  node: z.string().optional(),
+  warnings: z.array(z.string()).optional(),
+  credit: z
+    .array(z.looseObject({ name: z.string(), url: z.string().optional() }))
+    .optional()
+    .describe("Who to credit where the design shows it, in order: its author, then the source."),
+  problem: z.looseObject({ code: z.string(), message: z.string() }).optional()
+})
+
+/**
+ * A reference on the canvas (PAR-889): where it's from, why it's there, who placed it, the design it's for, and its
+ * picture saved for the agent to look at.
+ */
+const placedReference = z.looseObject({
+  id: z.string().describe("Its id on the canvas, not the source's."),
+  app: z.string(),
+  platform: z.enum(["ios", "web"]).optional(),
+  link: z.string().describe("Its page at the source."),
+  picture: z.string().describe("Its picture's link."),
+  expired: z.boolean().optional().describe("Set when the picture's link has stopped working."),
+  query: z.string().optional().describe("The description that found it."),
+  note: z.string().optional().describe("Why it's there."),
+  by: z.string().optional().describe("The agent that placed it. Missing when the person did."),
+  design: z
+    .looseObject({ id: z.string(), name: z.string(), file: z.string() })
+    .optional()
+    .describe("The design it's for. Missing when it was placed for none and no design is near."),
+  preview: preview.optional().describe("Missing when the picture couldn't be fetched.")
+})
+
+const placedReferencesReply = z.looseObject({
+  tab: ref,
+  references: z.array(placedReference),
+  withoutPictures: z.int().optional().describe("How many past limit have no picture. Name a design or raise limit.")
+})
+
+/** An extension found in the project (PAR-1096), with what agents can run and read of it. */
+const agentExtension = z.looseObject({
+  id: z.string(),
+  name: z.string(),
+  state: z.string().describe("waiting until its code is needed, then starting, running, stuck or crashed."),
+  reason: z.string().optional().describe("Why it's stuck or crashed."),
+  commands: z
+    .array(z.looseObject({ id: z.string(), title: z.string(), note: z.string().optional() }))
+    .describe("Commands run_extension runs by id, for a component when one is named."),
+  tools: z
+    .array(z.looseObject({ name: z.string(), description: z.string(), input: plainObject }))
+    .describe("Agent tools run_extension runs by name, with input that fits the tool's JSON Schema."),
+  nodeTypes: z.array(z.looseObject({ id: z.string(), name: z.string() })),
+  facts: z.array(
+    z.looseObject({
+      component: z.string(),
+      facts: z.array(z.looseObject({ id: z.string(), label: z.string(), value: z.string() }))
+    })
+  )
+})
+
+const extensionsReply = z.looseObject({ tab: ref, extensions: z.array(agentExtension) })
+
+const runExtensionReply = z.looseObject({
+  tab: ref,
+  name: z.string(),
+  result: jsonValue.optional().describe("What the command or tool gave back, when it gave anything.")
+})
+
 /**
  * Each method's answer by RPC method, which the CLI checks before reading it. `copy` is what a copy says about itself,
  * which calls are routed by (PAR-514): its tabs, and when its window last had focus, missing from a copy too old to
- * say. A screenshot is a snippet Parity writes, so it answers as `exec` does.
+ * say. A screenshot is a call Parity makes on the snippet API, so it answers as `exec` does.
  */
 export const replies = {
   copy: z.looseObject({ tabs: z.array(tabSummary), focusedAt: number.optional() }),
@@ -653,7 +985,16 @@ export const replies = {
   console: consoleReply,
   tokens: z.array(tokenInfo),
   components: componentsReply,
-  props: propsReply
+  props: propsReply,
+  report: reportReply,
+  references: foundReply,
+  media: foundReply,
+  place: placeReply,
+  placedReferences: placedReferencesReply,
+  images: imagesReply,
+  removeImage: removeImageReply,
+  extensions: extensionsReply,
+  runExtension: runExtensionReply
 }
 
 /**

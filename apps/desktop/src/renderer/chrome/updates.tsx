@@ -1,11 +1,10 @@
-import type { UpdateState } from "@parity-app/core"
-import { useSyncExternalStore } from "react"
+import type { UpdateState } from "@parity-app/processes"
+import { useStore, windowStore } from "../store.ts"
 import { notify } from "../toasts.tsx"
 import { type UpdateNotice, updateToast } from "./UpdateToast.tsx"
 
 const notificationId = "parity-update"
-let state: UpdateState = { phase: "disabled", beta: false }
-const listeners = new Set<() => void>()
+const state = windowStore<UpdateState>(() => ({ phase: "disabled", beta: false }))
 let hidden: string | undefined
 let closing = false
 let foreground = false
@@ -20,23 +19,47 @@ function closeNotification(): void {
 
 /** A single store serves About, Settings and the notification; progress updates replace the same toast. */
 export function receiveUpdate(next: UpdateState): void {
-  state = next
-  for (const listener of listeners) listener()
+  state.set(next)
+
   let notice: UpdateNotice | undefined
-  if (foreground && next.phase === "downloading") notice = { ...next, kind: "downloading" }
-  if (next.phase === "ready") notice = { kind: "ready", version: next.version }
-  if (next.phase === "manual") notice = { kind: "manual", version: next.version }
-  if (foreground && (next.phase === "checking" || next.phase === "current"))
+
+  if (foreground && next.phase === "downloading") {
+    notice = { ...next, kind: "downloading" }
+  }
+
+  if (next.phase === "ready") {
+    notice = { kind: "ready", version: next.version }
+  }
+
+  if (next.phase === "manual") {
+    notice = { kind: "manual", version: next.version }
+  }
+
+  if (foreground && (next.phase === "checking" || next.phase === "current")) {
     notice = { kind: next.phase, beta: next.beta }
-  if (foreground && next.phase === "error") notice = { kind: "error" }
-  if (next.phase !== "checking" && next.phase !== "downloading") foreground = false
+  }
+
+  if (foreground && next.phase === "error") {
+    notice = { kind: "error" }
+  }
+
+  if (next.phase !== "checking" && next.phase !== "downloading") {
+    foreground = false
+  }
+
   if (!notice) {
     hidden = undefined
     closeNotification()
+
     return
   }
+
   const key = "version" in notice ? `${notice.kind}:${notice.version}` : notice.kind
-  if (hidden === key) return
+
+  if (hidden === key) {
+    return
+  }
+
   // The same id replaces the notice in place, or shows it fresh when the last one is still animating out.
   const { kind, title, options } = updateToast(notice, notice.kind === "error" ? checkForUpdates : actOnUpdate)
   notify.show(kind, title, {
@@ -45,21 +68,15 @@ export function receiveUpdate(next: UpdateState): void {
     timeout: 0,
     // Closed by the person: this notice stays hidden until they check again or there's news.
     onClose: () => {
-      if (!closing) hidden = key
+      if (!closing) {
+        hidden = key
+      }
     }
   })
 }
 
 export function useUpdates(): UpdateState {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => {
-        listeners.delete(listener)
-      }
-    },
-    () => state
-  )
+  return useStore(state)
 }
 
 /** Called once by the app, not by Storybook's stand-in window. Subscribe before reading to avoid a stale initial reply. */
@@ -72,7 +89,9 @@ export function startUpdates(): void {
   void window.canvasHost.updates
     .get()
     .then((snapshot) => {
-      if (!received) receiveUpdate(snapshot)
+      if (!received) {
+        receiveUpdate(snapshot)
+      }
     })
     .catch(() => undefined)
     // The preload queues native-menu actions until this listener exists. Read the initial enabled state first.
@@ -82,16 +101,25 @@ export function startUpdates(): void {
 export function checkForUpdates(): void {
   hidden = undefined
   foreground = true
-  if (["disabled", "downloading", "ready", "manual", "installing"].includes(state.phase)) {
-    receiveUpdate(state)
+
+  const now = state.get()
+
+  if (["disabled", "downloading", "ready", "manual", "installing"].includes(now.phase)) {
+    receiveUpdate(now)
+
     return
   }
-  receiveUpdate({ phase: "checking", beta: state.beta })
-  if (pending) return
+
+  receiveUpdate({ phase: "checking", beta: now.beta })
+
+  if (pending) {
+    return
+  }
+
   pending = window.canvasHost.updates
     .check()
     .catch(() => {
-      receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't check for updates." })
+      receiveUpdate({ phase: "error", beta: state.get().beta, message: "Couldn't check for updates." })
     })
     .finally(() => {
       pending = undefined
@@ -103,7 +131,7 @@ export function actOnUpdate(): void {
   void window.canvasHost.updates
     .act()
     .catch(() => {
-      receiveUpdate({ phase: "error", beta: state.beta, message: "Couldn't open the update." })
+      receiveUpdate({ phase: "error", beta: state.get().beta, message: "Couldn't open the update." })
     })
     .finally(() => {
       foreground = false

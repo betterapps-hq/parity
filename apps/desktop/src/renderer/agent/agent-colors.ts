@@ -1,4 +1,9 @@
-/** An agent's colors: three stops its glow drifts between, the solid one its cursor wears, and text that reads on it. */
+import { fnv1a } from "../bits.ts"
+
+/**
+ * An agent's colors: three stops its glow drifts between, the solid one its cursor wears, and text that reads on it, at
+ * least 4.5:1 on the solid color and on every stop, since its badge is a gradient of them.
+ */
 export interface AgentPalette {
   name: string
   stops: [string, string, string]
@@ -14,7 +19,7 @@ export const agentPalettes: AgentPalette[] = [
   { name: "Citrus", stops: ["#F4FF7A", "#B6F25A", "#5FE08A"], color: "#B6F25A", ink: "#1F3A08" },
   { name: "Mint", stops: ["#B8FFB0", "#5EE89A", "#2FCFB5"], color: "#5EE89A", ink: "#0A3A1E" },
   { name: "Lagoon", stops: ["#7CFFE4", "#34D8D0", "#3AA8FF"], color: "#34D8D0", ink: "#053A38" },
-  { name: "Sky", stops: ["#8FF3FF", "#4CC4FF", "#6B8CFF"], color: "#4CC4FF", ink: "#04304A" },
+  { name: "Sky", stops: ["#8FF3FF", "#4CC4FF", "#6B8CFF"], color: "#4CC4FF", ink: "#03283F" },
   { name: "Aurora", stops: ["#5CE1FF", "#5B7CFF", "#9D6BFF"], color: "#6C8BFF", ink: "#0B1640" },
   { name: "Indigo", stops: ["#8FA8FF", "#7A6EFF", "#B36BFF"], color: "#7A6EFF", ink: "#120C40" },
   { name: "Orchid", stops: ["#9D8CFF", "#B57CFF", "#FF8AD8"], color: "#B57CFF", ink: "#2A0B40" },
@@ -25,6 +30,7 @@ export const agentPalettes: AgentPalette[] = [
 /** How far apart two palettes are round the wheel, in steps of 30°. */
 function apart(a: number, b: number): number {
   const steps = Math.abs(a - b) % agentPalettes.length
+
   return Math.min(steps, agentPalettes.length - steps)
 }
 
@@ -38,32 +44,34 @@ class AgentColors {
 
   claim(agentId: string, name: string): AgentPalette {
     const held = this.claimed.get(agentId)
-    if (held !== undefined) return agentPalettes[held]!
+
+    if (held !== undefined) {
+      return agentPalettes[held]!
+    }
+
     const taken = [...this.claimed.values()]
-    const preferred = hash(name) % agentPalettes.length
+    const preferred = fnv1a(name) % agentPalettes.length
     const distance = (index: number) => Math.min(Infinity, ...taken.map((other) => apart(index, other)))
-    const free = agentPalettes.map((_, index) => index).filter((index) => !taken.includes(index))
+    const free = [...agentPalettes.keys()].filter((index) => !taken.includes(index))
     let index = preferred
-    if (free.length > 0 && distance(preferred) < 3)
+
+    if (free.length > 0 && distance(preferred) < 3) {
       index = free.reduce((best, candidate) =>
         distance(candidate) > distance(best) ||
         (distance(candidate) === distance(best) && apart(candidate, preferred) < apart(best, preferred))
           ? candidate
           : best
       )
+    }
+
     this.claimed.set(agentId, index)
+
     return agentPalettes[index]!
   }
 
   release(agentId: string): void {
     this.claimed.delete(agentId)
   }
-}
-
-function hash(text: string): number {
-  let value = 2166136261
-  for (const char of text) value = Math.imul(value ^ char.codePointAt(0)!, 16777619)
-  return value >>> 0
 }
 
 export const agentColors = new AgentColors()

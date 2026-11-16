@@ -2,7 +2,7 @@
  * axe-core's rules in plain words: a short title for the list, and a sentence on who it affects and what to do. Rules
  * that aren't here use axe-core's own summary.
  */
-export const ruleWords: Record<string, { title: string; why: string }> = {
+const words = {
   "color-contrast": {
     title: "Text contrast is too low",
     why: "People with low vision can't read it easily. Text needs 4.5:1 against what's behind it, or 3:1 when it's large."
@@ -211,4 +211,7 @@ export const ruleWords: Record<string, { title: string; why: string }> = {
     title: "Video has no captions",
     why: "People who can't hear it miss what's said. Add a captions track."
   }
-}
+} satisfies Record<string, { title: string; why: string }>
+
+/** {@link words}, looked up by an axe-core rule ID, which can be one that isn't here. */
+export const ruleWords = new Map(Object.entries(words))

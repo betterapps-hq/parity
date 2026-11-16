@@ -6,7 +6,7 @@ const card = (key: string, title: string): DesignNode => ({
   type: "layout",
   id: `card-${key}`,
   children: [
-    { type: "text", id: `${key}-title`, text: title, style: { weight: 600 } },
+    { type: "text", id: `${key}-title`, text: title, style: { fontWeight: { value: 600 } } },
     { type: "text", id: `${key}-body`, text: "Details" }
   ]
 })
@@ -16,22 +16,20 @@ const projects: ContainerSpec = {
   id: "projects",
   name: "Projects",
   position: { x: 0, y: 0 },
-  root: { type: "layout", id: "page", children: [card("a", "Atlas"), card("b", "Beacon")] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "page", children: [card("a", "Atlas"), card("b", "Beacon")] }
 }
 
 const settings: ContainerSpec = {
   id: "settings",
   name: "Settings",
   position: { x: 1600, y: 0 },
-  root: { type: "layout", id: "settings-page", children: [] },
-  states: [{ id: "default", name: "Default" }]
+  root: { type: "layout", id: "settings-page", children: [] }
 }
 
 const documents = (): Map<string, CanvasDocument> =>
   new Map([
-    ["screens/projects.par", { version: 3, containers: [projects] }],
-    ["canvas.par", { version: 3, containers: [settings] }]
+    ["screens/projects.par", { version: 4, containers: [projects] }],
+    ["canvas.par", { version: 4, containers: [settings] }]
   ])
 
 const options = { name: "Project card", into: "canvas.par", position: { x: 0, y: -640 }, viewports: ["desktop"] }
@@ -40,29 +38,31 @@ describe("making a component", () => {
   it("adds the component to the project file and puts an instance in place of each occurrence", () => {
     const before = documents()
     const made = makeComponent(before, { path: "screens/projects.par", id: "projects" }, ["card-a", "card-b"], options)
-    expect(made.id).toBe("project-card")
+    expect(made.id).toMatch(/^project-card-[A-Za-z][A-Za-z0-9]{4}$/)
     const [kept, component] = made.documents.get("canvas.par")!.containers
     expect(kept).toBe(settings)
     expect(component).toMatchObject({
-      id: "project-card",
+      id: made.id,
       name: "Project card",
       kind: "component",
       position: { x: 0, y: -640 }
     })
     const design = made.documents.get("screens/projects.par")!.containers[0]!
-    expect(findNode(design.root, "card-a")).toMatchObject({ type: "instance", design: "project-card" })
-    expect(findNode(design.root, "card-b")).toMatchObject({ type: "instance", design: "project-card" })
+    expect(findNode(design.root, "card-a")).toMatchObject({ type: "instance", design: made.id })
+    expect(findNode(design.root, "card-b")).toMatchObject({ type: "instance", design: made.id })
     expect(before).toEqual(documents())
   })
 
   it("gives it an id no design has, and the params the names asked for", () => {
     const taken = documents()
-    taken.set("canvas.par", { version: 3, containers: [settings, { ...settings, id: "project-card" }] })
+    taken.set("canvas.par", { version: 4, containers: [settings, { ...settings, id: "project-card" }] })
+
     const made = makeComponent(taken, { path: "screens/projects.par", id: "projects" }, ["card-a", "card-b"], {
       ...options,
       paramNames: { text: "title" }
     })
-    expect(made.id).toBe("project-card-2")
+
+    expect(made.id).toMatch(/^project-card-[A-Za-z][A-Za-z0-9]{4}$/)
     const component = made.documents.get("canvas.par")!.containers.at(-1)!
     expect(Object.keys(component.params ?? {})).toEqual(["title"])
   })
@@ -72,9 +72,10 @@ describe("making a component", () => {
       ...options,
       into: "new.par"
     })
+
     expect(made.documents.get("new.par")).toEqual({
-      version: 3,
-      containers: [expect.objectContaining({ id: "project-card" })]
+      version: 4,
+      containers: [expect.objectContaining({ id: made.id })]
     })
   })
 
@@ -91,6 +92,7 @@ describe("making a component", () => {
 describe("finding a component's instances", () => {
   it("finds them in every design, in layouts and slots, in order", () => {
     const instance = (id: string, design = "badge"): DesignNode => ({ type: "instance", id, design })
+
     const designs = [
       {
         key: "a",
@@ -108,6 +110,7 @@ describe("finding a component's instances", () => {
         }
       }
     ] satisfies { key: string; container: ContainerSpec }[]
+
     expect(instancesOf(designs, "badge")).toEqual([
       { entry: designs[0], node: "one" },
       { entry: designs[2], node: "two" }

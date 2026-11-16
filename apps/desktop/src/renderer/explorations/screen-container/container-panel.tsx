@@ -5,48 +5,38 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Switch,
   ToggleGroup,
   ToggleGroupItem
 } from "@buildkitgg/shadcn-baseui-kit"
 import {
   boardTarget,
-  editNode,
+  designStates,
   editsDesign,
   findRepeats,
-  type NodeChange,
-  nodeOnBoard,
-  type PatchField,
   type RepeatCandidate,
-  resetOverride,
-  type StateSpec,
-  targetPatches
+  type StateSpec
 } from "@parity-app/core"
 import { editingState, type Selection, selectionKey } from "@parity-app/editor"
+import { updateContainer, updateView } from "@parity-app/multiplayer"
 import { Crown, Diamond, MousePointerClick, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { useProject } from "../../canvas/context.ts"
 import { DesignIcon, designColor, kindColors } from "../../canvas/kinds.tsx"
 import { containerModes, modeNames, withMainMode } from "../../canvas/view.ts"
+import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { extractIntoComponent } from "../../chrome/components.ts"
-import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { DesignTab } from "../../chrome/DesignPanel.tsx"
-import { FieldTarget } from "../../chrome/fields.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import { PropsSection } from "../../chrome/PropsSection.tsx"
 import { revealSelection } from "../../chrome/reveal.ts"
-import { StatesSection } from "../../chrome/StatesSection.tsx"
+import { useLayer } from "../../chrome/selected-layer.ts"
 import { useStyleEditor } from "../../chrome/style-editor.ts"
 import { StyleSections } from "../../chrome/StyleSections.tsx"
 import { ModeViewportIcon } from "../../chrome/viewports.tsx"
-import { useComponents } from "../../components-store.ts"
-import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../design-store.ts"
+import { FieldTarget } from "../../inspector/controls/field-row.tsx"
+import { AttributesSection, PropsSection } from "../../inspector/sections/PropsSection.tsx"
+import { type ContainerEntry, useContainerEntry, useModeSettings } from "../../project-doc.ts"
 import { useSelection } from "../../selection.ts"
 
 /*
@@ -62,18 +52,31 @@ import { useSelection } from "../../selection.ts"
 
 /** Whether a selection is one screen or component on its own, or its root, which is now the same thing. */
 export function selectsContainer(selected: Selection, entry: ContainerEntry | undefined): entry is ContainerEntry {
-  if (!entry || selected.note || (selected.designs?.length ?? 0) > 1) return false
-  if ((selected.nodes?.length ?? 0) > 1) return false
+  if (!entry || selected.note || (selected.designs?.length ?? 0) > 1) {
+    return false
+  }
+
+  if ((selected.nodes?.length ?? 0) > 1) {
+    return false
+  }
+
   return !selected.node || selected.node === entry.container.root.id
 }
 
 /** The Design tab: a screen or component as its container, or the shipped panel for anything else selected. */
 export function ContainerTab() {
-  const { store, selection } = useProject()
-  const selected = useSelection(selection)
-  const entry = useContainerEntry(store, selected.design)
-  if (!selected.design && !selected.note) return <NothingSelected />
-  if (!selectsContainer(selected, entry)) return <DesignTab />
+  const session = useProject()
+  const selected = useSelection(session.selection)
+  const entry = useContainerEntry(session, selected.design)
+
+  if (!selected.design && !selected.note) {
+    return <NothingSelected />
+  }
+
+  if (!selectsContainer(selected, entry)) {
+    return <DesignTab />
+  }
+
   return (
     <FieldTarget value={selectionKey(selected)}>
       <ContainerPanel key={entry.key} entry={entry} />
@@ -98,12 +101,12 @@ function NothingSelected() {
 /** A screen or component: its name and kind, its root's sections, then its own. */
 export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
   const component = entry.container.kind === "component"
+
   return (
     <>
       <ContainerHeader entry={entry} />
       <RootSections entry={entry} />
-      {component && <ParamsSection entry={entry} />}
-      <StatesSection entry={entry} />
+      {component && <PropsSection />}
       <ModesSection entry={entry} />
       {!component && <RepeatedPartsSection entry={entry} />}
     </>
@@ -111,12 +114,13 @@ export function ContainerPanel({ entry }: { entry: ContainerEntry }) {
 }
 
 function ContainerHeader({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const selected = useSelection(selection)
   const { container, key } = entry
   const kind = container.kind ?? "screen"
   const noun = kind === "component" ? "Component" : "Screen"
   const variants = Object.values(container.params ?? {}).some((param) => param.type === "variant")
+
   return (
     <div className="border-b px-4 py-3">
       <div className="flex items-center gap-2">
@@ -128,12 +132,15 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
           className="h-7 flex-1 border-transparent bg-transparent px-1.5 text-base font-semibold shadow-none hover:border-input dark:bg-transparent"
           onBlur={(event) => {
             const name = event.currentTarget.value.trim()
+
             if (name && name !== container.name) {
-              store.updateContainer(key, `Rename ${noun.toLowerCase()}`, (current) => ({ ...current, name }))
+              updateContainer(doc, key, `Rename ${noun.toLowerCase()}`, (current) => ({ ...current, name }))
             }
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter") event.currentTarget.blur()
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
           }}
         />
       </div>
@@ -145,8 +152,12 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
           value={[kind]}
           aria-label="Screen or component"
           onValueChange={([value]) => {
-            if (value !== "screen" && value !== "component") return
-            store.updateContainer(
+            if (value !== "screen" && value !== "component") {
+              return
+            }
+
+            updateContainer(
+              doc,
               key,
               value === "component" ? "Make it a component" : "Make it a screen",
               (current) => ({
@@ -170,26 +181,33 @@ function ContainerHeader({ entry }: { entry: ContainerEntry }) {
         </Hint>
       </div>
       {/* Says where the root's edits go, once there's somewhere else for them to go. */}
-      {(container.states.length > 1 || variants) && (
+      {(designStates(container).length > 1 || variants) && (
         <EditingBar entry={entry} state={editingState(container, selected.state)} />
       )}
     </div>
   )
 }
 
-/** The state, or variant, the root's edits go to, and a switch to another. LayerPanel's StateTarget, reworded. */
+/** The state, or variant, the root's edits go to, and a switch to another. LayerPanel's ComponentStateSelector, reworded. */
 function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec }) {
-  const { store, selection } = useProject()
+  const { doc, selection } = useProject()
   const selected = useSelection(selection)
   const target = boardTarget(entry.container, state.id)
   const base = editsDesign(entry.container, target)
   const chosen = target.variant
+
   const variant = chosen
     ? entry.container.params?.[chosen.param]?.options?.find((option) => option.id === chosen.option)
     : undefined
+
   let changes = "changes only this state"
-  if (base) changes = "changes every state"
-  else if (variant && state.id === entry.container.states[0]!.id) changes = `changes only the ${variant.name} variant`
+
+  if (base) {
+    changes = "changes every state"
+  } else if (variant && state.id === designStates(entry.container)[0]!.id) {
+    changes = `changes only the ${variant.name} variant`
+  }
+
   return (
     <div
       className="mt-3 flex items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs"
@@ -200,31 +218,22 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
       }
     >
       <span className="shrink-0 text-muted-foreground">Editing</span>
-      <Select
-        items={entry.container.states.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
+      <AppSelect
+        variant="panel"
+        aria-label="State to edit"
+        className="h-6 flex-1 border-none bg-transparent px-1.5 shadow-none dark:bg-transparent"
+        items={designStates(entry.container).map((candidate) => ({ value: candidate.id, label: candidate.name }))}
         value={state.id}
         onValueChange={(id) => {
-          if (!id) return
-          const name = entry.container.states.find((candidate) => candidate.id === id)?.name ?? id
-          store.updateView(entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
+          if (!id) {
+            return
+          }
+
+          const name = designStates(entry.container).find((candidate) => candidate.id === id)?.name ?? id
+          updateView(doc, entry.key, `Show ${name}`, (view) => ({ ...view, state: id }))
           selection.set({ ...selected, state: id })
         }}
-      >
-        <SelectTrigger
-          size="sm"
-          aria-label="State to edit"
-          className="h-6 flex-1 border-none bg-transparent px-1.5 text-xs shadow-none dark:bg-transparent"
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {entry.container.states.map((candidate) => (
-            <SelectItem key={candidate.id} value={candidate.id}>
-              {candidate.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      />
       <span className="shrink-0 text-muted-foreground">{changes}</span>
     </div>
   )
@@ -235,53 +244,32 @@ function EditingBar({ entry, state }: { entry: ContainerEntry; state: StateSpec 
  * that applies. A root has no parent, so there's no Position or Align self, and nothing to hide it in.
  */
 function RootSections({ entry }: { entry: ContainerEntry }) {
-  const session = useProject()
-  const { store, selection } = session
-  const selected = useSelection(selection)
-  const components = useComponents(session.components)
-  const { container, key } = entry
-  const rootId = container.root.id
-  const state = editingState(container, selected.state)
-  const target = boardTarget(container, state.id)
-  const node = nodeOnBoard(container, container.root, state)
+  const rootId = entry.container.root.id
   const editor = useStyleEditor(entry, [rootId])
-  const override = targetPatches(container, target)?.[rootId]
+  const root = useLayer(entry, rootId)
 
-  const change = (label: string, value: NodeChange, gesture?: string) =>
-    store.updateContainer(key, label, (current) => editNode(current, boardTarget(current, state.id), rootId, value), {
-      gesture
-    })
-  const reset = (field?: PatchField) =>
-    store.updateContainer(key, "Reset change", (current) =>
-      resetOverride(current, boardTarget(current, state.id), rootId, field)
-    )
   return (
     <>
-      {node.type === "component" && (
-        <PropsSection
-          node={node}
-          info={components[node.component]}
-          changed={(name) => override?.props?.[name] !== undefined}
-          onChange={(name, value, gesture) => change(`Change ${name}`, { props: { [name]: value } }, gesture)}
-          onReset={(name) => reset({ kind: "props", key: name })}
-        />
-      )}
-      {editor && <StyleSections editor={editor} node={node} />}
+      <PropsSection layer={root} />
+      <AttributesSection layer={root} />
+      {editor && <StyleSections editor={editor} container={entry.container} />}
     </>
   )
 }
 
 /** The modes a screen or component shows: DesignPanel's Modes section, with previews where it says frames. */
 function ModesSection({ entry }: { entry: ContainerEntry }) {
-  const { store, selection } = useProject()
-  const settings = useModeSettings(store)
+  const session = useProject()
+  const { doc, selection } = session
+  const settings = useModeSettings(session)
   const selected = useSelection(selection)
   const { container, key } = entry
   const { primary, all } = containerModes(settings, container)
   const shown = new Set(container.view?.modes ?? [])
   const noun = container.kind === "component" ? "component" : "screen"
+
   const setModes = (modes: string[]) =>
-    store.updateView(key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
+    updateView(doc, key, `Show ${modeNames(all, [primary.id, ...modes])}`, (view) => ({ ...view, modes }))
 
   return (
     <PanelSection
@@ -291,13 +279,14 @@ function ModesSection({ entry }: { entry: ContainerEntry }) {
       <RadioGroup
         value={primary.id}
         onValueChange={(mode) =>
-          store.updateView(key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
+          updateView(doc, key, `Show ${modeNames(all, [mode])} first`, (view) => withMainMode(view, mode, all))
         }
         className="gap-0.5"
         aria-label="Main mode"
       >
         {all.map((mode, index) => {
           const isMain = mode.id === primary.id
+
           return (
             <div
               key={mode.id}
@@ -370,6 +359,7 @@ function OptionChip({ children }: { children: ReactNode }) {
 function RepeatedPartsSection({ entry }: { entry: ContainerEntry }) {
   const [candidates, setCandidates] = useState<RepeatCandidate[]>()
   let content: ReactNode
+
   if (candidates === undefined) {
     content = (
       <Button variant="outline" size="sm" onClick={() => setCandidates(findRepeats(entry.container.root))}>
@@ -396,6 +386,7 @@ function RepeatedPartsSection({ entry }: { entry: ContainerEntry }) {
       </ul>
     )
   }
+
   return (
     <PanelSection
       title="Repeated parts"
@@ -418,6 +409,7 @@ function CandidateCard({
   const session = useProject()
   const [name, setName] = useState(candidate.name)
   const [error, setError] = useState<string>()
+
   return (
     <li className="rounded-md border p-2.5">
       <div className="mb-2 flex items-center gap-2">

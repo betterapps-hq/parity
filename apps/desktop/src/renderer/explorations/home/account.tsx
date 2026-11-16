@@ -30,6 +30,9 @@ import {
   ItemDescription,
   ItemMedia,
   ItemTitle,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   ScrollArea,
   Skeleton,
   Spinner,
@@ -38,7 +41,7 @@ import {
   TabsList,
   TabsTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { ChevronDown, ChevronsUpDown, LogOut, Mail, Plus, Search, Settings, Users, X } from "lucide-react"
+import { ChevronDown, ChevronsUpDown, Mail, Plus, Search, X } from "lucide-react"
 import {
   type FormEvent,
   type ReactNode,
@@ -50,31 +53,61 @@ import {
   useRef,
   useState
 } from "react"
+import type { SignInProvider } from "../../../shared/account.ts"
 import { OrganizationBadge } from "../../account/OrganizationBadge.tsx"
 import { NobodyAvatar, PersonAvatar } from "../../account/PersonAvatar.tsx"
+import { SignInPanel, WaitingPanel } from "../../account/SignInPanels.tsx"
 import { whenLabel } from "../../start/projects.ts"
 import { useNow } from "../../start/use-now.ts"
-import type { Member, Person, Role, SentInvitation, Team } from "./data.ts"
+import type { Account, Member, Person, Role, SentInvitation, Team } from "./data.ts"
+
+/** An email that, when it's cut short, keeps its domain: the part that tells your accounts apart. */
+function Email({ address }: { address: string }) {
+  const at = address.lastIndexOf("@")
+
+  if (at < 0) {
+    return <span className="min-w-0 truncate">{address}</span>
+  }
+
+  return (
+    <span className="flex min-w-0">
+      <span className="min-w-0 truncate">{address.slice(0, at)}</span>
+      <span className="shrink-0">{address.slice(at)}</span>
+    </span>
+  )
+}
+
+/** A leading slot as wide as an organization's badge, so every label in the menu starts at the same place. */
+function Lead({ children }: { children: ReactNode }) {
+  return (
+    <span aria-hidden className="grid size-5 shrink-0 place-items-center">
+      {children}
+    </span>
+  )
+}
 
 /**
- * You, at the top left of Home: your picture, your name and where you're working. Its menu switches between Personal
- * and your organizations with a refresh in the background, opens an organization's people, and makes a new one.
+ * Where you're working, at the top left of Home: Personal or an organization, in the account you're in. Its menu
+ * switches between them with a refresh in the background and makes a new organization; with several accounts it says
+ * whose they are. Your accounts are at the end of the title bar. Settings stay in the app's menu; an organization's
+ * people wait for organization settings.
  */
-export function AccountMenu({
-  person,
-  teams,
+export function WorkspaceMenu({
+  account,
+  several,
   current,
   switching,
   status,
   defaultOpen,
   triggerRef,
   onSwitch,
-  onPeople,
-  onNewOrganization,
-  onSignOut
+  onNewOrganization
 }: {
-  person: Person
-  teams: readonly Team[]
+  /** The account you're in. */
+  account: Account
+  /** Whether you're signed in to more than one account, so the menu says whose workspaces these are. */
+  several: boolean
+  /** The organization you're in there, or none for Personal. */
   current: Team | undefined
   /** The workspace a switch is moving to, while it does. */
   switching?: string
@@ -83,12 +116,10 @@ export function AccountMenu({
   defaultOpen?: boolean
   /** Where the keyboard goes back to when a dialog opened from the menu closes. */
   triggerRef?: RefObject<HTMLButtonElement | null>
+  /** Moves to Personal, or an organization, in the account you're in. */
   onSwitch: (id: string | undefined) => void
-  onPeople: () => void
   onNewOrganization: () => void
-  onSignOut: () => void
 }) {
-  const where = current?.name ?? "Personal"
   return (
     <>
       <DropdownMenu {...(defaultOpen ? { defaultOpen } : {})}>
@@ -97,14 +128,11 @@ export function AccountMenu({
             <button
               ref={triggerRef}
               type="button"
-              className="-ml-2 flex max-w-72 min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted/50"
+              className="-ml-2 flex max-w-80 min-w-0 items-center gap-2.5 rounded-lg px-2 py-1.5 text-left outline-none hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring aria-expanded:bg-muted/50"
             >
-              <PersonAvatar person={person} size={32} />
-              <span className="flex min-w-0 flex-col">
-                <span className="truncate text-sm leading-tight font-medium">{person.name}</span>
-                <span className="truncate text-xs leading-tight text-muted-foreground">
-                  {switching ? `Switching to ${switching}` : where}
-                </span>
+              <OrganizationBadge {...(current ? { organization: current } : {})} size={28} />
+              <span className="truncate text-sm font-medium">
+                {switching ? `Switching to ${switching}` : (current?.name ?? "Personal")}
               </span>
               {switching ? (
                 <Spinner aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
@@ -114,52 +142,34 @@ export function AccountMenu({
             </button>
           }
         />
-        <DropdownMenuContent align="start" className="w-72">
+        <DropdownMenuContent align="start" className="w-max max-w-[min(24rem,calc(100vw-2rem))] min-w-64">
           <DropdownMenuGroup>
-            <DropdownMenuLabel className="flex flex-col py-2 font-normal">
-              <span className="truncate text-sm font-medium text-foreground">{person.name}</span>
-              <span className="truncate text-xs text-muted-foreground">{person.email}</span>
-            </DropdownMenuLabel>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">Switch to</DropdownMenuLabel>
+            {several && (
+              <DropdownMenuLabel className="truncate text-xs text-muted-foreground">
+                {account.person.email}
+              </DropdownMenuLabel>
+            )}
             <DropdownMenuRadioGroup
               value={current?.id ?? "personal"}
               onValueChange={(id: string) => onSwitch(id === "personal" ? undefined : id)}
             >
               <DropdownMenuRadioItem value="personal" closeOnClick>
                 <OrganizationBadge size={20} /> Personal
-                <span className="ml-auto pl-2 text-xs text-muted-foreground">Just you</span>
               </DropdownMenuRadioItem>
-              {teams.map((team) => (
+              {account.teams.map((team) => (
                 <DropdownMenuRadioItem key={team.id} value={team.id} closeOnClick>
                   <OrganizationBadge organization={team} size={20} />
                   <span className="min-w-0 truncate">{team.name}</span>
-                  <span className="ml-auto pl-2 text-xs text-muted-foreground">{team.role}</span>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-          </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuGroup>
-            {/* Personal has nobody else in it, so People waits for an organization. */}
-            {current && (
-              <DropdownMenuItem onClick={onPeople}>
-                <Users /> People in {current.name}
-              </DropdownMenuItem>
-            )}
             <DropdownMenuItem onClick={onNewOrganization}>
-              <Plus /> New organization
+              <Lead>
+                <Plus />
+              </Lead>
+              New organization
             </DropdownMenuItem>
           </DropdownMenuGroup>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem>
-            <Settings /> Settings
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onSignOut}>
-            <LogOut /> Sign out
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <output className="sr-only">{status}</output>
@@ -167,7 +177,248 @@ export function AccountMenu({
   )
 }
 
-/** Signed out, in the account menu's place: Sign in, so nothing looks signed in. */
+/**
+ * Your accounts, from your picture at the end of the title bar where the app has it. Each account is a row with its own
+ * Sign out, so any of them can go without switching to it first. With one account that's your name, your email and
+ * Sign out. With several, each row names its account by email and says where it opens; the one you're in is shaded,
+ * and choosing another switches to it. An account whose session ended is dimmed: choosing it signs in again, and Remove
+ * forgets it. Add another account is last. Settings stay in the app's menu.
+ *
+ * It's a panel rather than a menu, since each row holds two actions. It opens with nothing chosen, so Enter can't sign
+ * you out by accident; Tab moves through the rows.
+ */
+export function AccountMenu({
+  accounts,
+  account,
+  defaultOpen = false,
+  triggerRef,
+  whereIn,
+  onSwitchAccount,
+  onSignInAgain,
+  onAddAccount,
+  onSignIn,
+  onSignOut
+}: {
+  accounts: readonly Account[]
+  /** The account you're in, or none when signed out. */
+  account: Account | undefined
+  defaultOpen?: boolean
+  /** Where the keyboard goes back to when a dialog opened from the panel closes. */
+  triggerRef?: RefObject<HTMLButtonElement | null>
+  /** The workspace an account opens in: where you are, or where you were last in it. */
+  whereIn: (each: Account) => string
+  onSwitchAccount: (email: string) => void
+  onSignInAgain: (email: string) => void
+  onAddAccount: () => void
+  onSignIn: () => void
+  /** Signs out of one account, by its email, or forgets one whose session ended. */
+  onSignOut: (email: string) => void
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const list = useRef<HTMLDivElement>(null)
+  const several = accounts.length > 1
+
+  // Each action closes the panel first, so the keyboard goes back to your picture before anything moves.
+  const then = (action: () => void) => () => {
+    setOpen(false)
+    action()
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <button
+            ref={triggerRef}
+            type="button"
+            aria-label={account ? `Your accounts, signed in as ${account.person.email}` : "Sign in"}
+            className="mb-1.5 ml-auto shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring [-webkit-app-region:no-drag]"
+          >
+            {account ? <PersonAvatar person={account.person} size={24} /> : <NobodyAvatar size={24} />}
+          </button>
+        }
+      />
+      <PopoverContent
+        align="end"
+        sideOffset={6}
+        initialFocus={list}
+        aria-label={account ? "Your accounts" : "Not signed in"}
+        className="w-[22rem] max-w-[calc(100vw-2rem)] gap-0 p-1.5"
+      >
+        <div ref={list} tabIndex={-1} className="flex flex-col gap-0.5 outline-none">
+          {account ? (
+            <>
+              <ul className="flex flex-col gap-0.5">
+                {accounts.map((each) => {
+                  const { email } = each.person
+                  const here = each === account
+                  // With one account the row is your name and email; with several, the email and where it opens.
+                  let detail = email
+
+                  if (several) {
+                    detail = each.ended ? "Session ended" : whereIn(each)
+                  }
+
+                  // The account you're in is shaded once there's another to tell it from.
+                  let shade = "hover:bg-accent/60"
+
+                  if (here) {
+                    shade = several ? "bg-accent" : ""
+                  }
+
+                  const who = (
+                    <>
+                      <span className={each.ended ? "opacity-50" : ""}>
+                        <PersonAvatar person={each.person} size={32} />
+                      </span>
+                      <span className="flex min-w-0 flex-1 flex-col">
+                        <span className="flex min-w-0 text-sm font-medium">
+                          {several ? <Email address={email} /> : <span className="truncate">{each.person.name}</span>}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">{detail}</span>
+                      </span>
+                    </>
+                  )
+
+                  return (
+                    <li
+                      key={email}
+                      aria-current={here && several ? "true" : undefined}
+                      className={`flex items-center gap-1 rounded-md pr-1.5 ${shade}`}
+                    >
+                      {here ? (
+                        <span className="flex min-w-0 flex-1 items-center gap-3 px-2 py-2">{who}</span>
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label={each.ended ? `Sign in again as ${email}` : `Switch to ${email}, ${whereIn(each)}`}
+                          onClick={then(() => (each.ended ? onSignInAgain(email) : onSwitchAccount(email)))}
+                          className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          {who}
+                        </button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`${each.ended ? "Remove" : "Sign out of"} ${email}`}
+                        onClick={then(() => onSignOut(email))}
+                        className="h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {each.ended ? "Remove" : "Sign out"}
+                      </Button>
+                    </li>
+                  )
+                })}
+              </ul>
+              <div className="my-1 h-px bg-border" />
+              <button
+                type="button"
+                onClick={then(onAddAccount)}
+                className="flex items-center gap-3 rounded-md px-2 py-2 text-left text-sm outline-none hover:bg-accent/60 focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span
+                  aria-hidden
+                  className="grid size-8 shrink-0 place-items-center rounded-full border border-dashed border-muted-foreground/50 text-muted-foreground"
+                >
+                  <Plus className="size-4" />
+                </span>
+                Add another account
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center gap-3 px-2 py-2">
+              <NobodyAvatar size={32} />
+              <span className="flex min-w-0 flex-1 flex-col">
+                <span className="text-sm font-medium">Not signed in</span>
+                <span className="truncate text-xs text-muted-foreground">Projects on this computer still work</span>
+              </span>
+              <Button size="sm" onClick={then(onSignIn)}>
+                Sign in
+              </Button>
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/** Where a sign-in sends you to authorize, as WorkOS names it. */
+const authorizeUrl = "https://api.workos.com/user_management/authorize"
+
+/**
+ * Another account, from the account menu: the ways in, as signing in has them, then the browser. The accounts you're
+ * signed in to stay signed in. Signing in again to an account whose session ended goes straight to the browser, since
+ * Parity knows how it signed in.
+ */
+export function AddAccountDialog({
+  signedIn,
+  again,
+  finalFocus,
+  onAdd,
+  onClose
+}: {
+  /** The accounts that stay signed in. */
+  signedIn: readonly Person[]
+  /** The account whose session ended and how it signed in, to sign in to it again. */
+  again?: { email: string; provider: SignInProvider } | undefined
+  finalFocus?: RefObject<HTMLElement | null>
+  /** The browser handed back a session for the account signed in with `provider`. */
+  onAdd: (provider: SignInProvider) => void
+  onClose: () => void
+}) {
+  const [waiting, setWaiting] = useState(again?.provider)
+  // The prototype's browser: it hands back an account a moment after it opens.
+  const added = useRef(onAdd)
+  useEffect(() => {
+    added.current = onAdd
+  })
+  useEffect(() => {
+    if (!waiting) {
+      return
+    }
+
+    const timer = setTimeout(() => added.current(waiting), 2500)
+
+    return () => clearTimeout(timer)
+  }, [waiting])
+  const [only] = signedIn
+
+  return (
+    // As signing in from Home does: only Cancel, Escape or the close button end it.
+    <Dialog open disablePointerDismissal onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-h-[calc(100vh-2rem)] gap-0 overflow-y-auto p-8 sm:max-w-[28rem]"
+        {...(finalFocus ? { finalFocus } : {})}
+      >
+        {waiting ? (
+          <WaitingPanel
+            dialog
+            attempt={
+              again
+                ? { at: "waiting", provider: waiting, email: again.email, url: authorizeUrl }
+                : { at: "waiting", provider: waiting, url: authorizeUrl }
+            }
+            onReopen={() => undefined}
+            onCancel={again ? onClose : () => setWaiting(undefined)}
+          />
+        ) : (
+          <SignInPanel
+            dialog
+            title="Add another account"
+            description={
+              signedIn.length === 1 && only ? `You stay signed in as ${only.email}.` : "Your accounts stay signed in."
+            }
+            onSignIn={(request) => setWaiting(request.provider)}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+/** Signed out, in the workspace menu's place on Home: Sign in, so nothing looks signed in. */
 export function SignInButton({ onSignIn }: { onSignIn: () => void }) {
   return (
     <Button variant="ghost" className="-ml-2.5 gap-2" onClick={onSignIn}>
@@ -176,17 +427,19 @@ export function SignInButton({ onSignIn }: { onSignIn: () => void }) {
   )
 }
 
-/** The account menu's shape while Parity asks main who's signed in, so the header doesn't jump. */
-export function AccountMenuLoading() {
+/** The workspace menu's shape while Parity asks main who's signed in, so the header doesn't jump. */
+export function WorkspaceMenuLoading() {
   return (
     <div className="flex items-center gap-2.5 py-1.5" aria-hidden>
-      <Skeleton className="size-8 rounded-full" />
-      <div className="flex flex-col gap-1.5">
-        <Skeleton className="h-3.5 w-28" />
-        <Skeleton className="h-3 w-16" />
-      </div>
+      <Skeleton className="size-7 rounded-md" />
+      <Skeleton className="h-3.5 w-24" />
     </div>
   )
+}
+
+/** The account menu's place in the title bar while Parity asks main who's signed in, as the app keeps it. */
+export function AccountMenuLoading() {
+  return <span className="mb-1.5 ml-auto size-6 shrink-0" />
 }
 
 export type PeopleTab = "members" | "invitations"
@@ -200,13 +453,28 @@ const looksLikeEmail = (text: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(text)
 
 /** Why the addresses can't be sent, or nothing when they can: none, one that isn't an address, or someone already in. */
 function problemWith(emails: readonly string[], team?: Team): string | undefined {
-  if (emails.length === 0) return "Enter an email address."
+  if (emails.length === 0) {
+    return "Enter an email address."
+  }
+
   const wrong = emails.find((email) => !looksLikeEmail(email))
-  if (wrong) return `“${wrong}” isn't an email address.`
+
+  if (wrong) {
+    return `“${wrong}” isn't an email address.`
+  }
+
   const member = team?.members.find((person) => emails.includes(person.email))
-  if (member && team) return `${member.name} is already in ${team.name}.`
+
+  if (member && team) {
+    return `${member.name} is already in ${team.name}.`
+  }
+
   const invited = team?.invitations.find((invitation) => emails.includes(invitation.email))
-  if (invited) return `${invited.email} is already invited.`
+
+  if (invited) {
+    return `${invited.email} is already invited.`
+  }
+
   return undefined
 }
 
@@ -236,8 +504,11 @@ function EmailsField({
   const hint = useId()
   const input = useRef<HTMLInputElement>(null)
   useEffect(() => {
-    if (focusFirst) input.current?.focus()
+    if (focusFirst) {
+      input.current?.focus()
+    }
   }, [focusFirst])
+
   return (
     <Field {...(problem ? { "data-invalid": true } : {})}>
       <FieldLabel htmlFor={field} className={showLabel ? "" : "sr-only"}>
@@ -328,74 +599,113 @@ export function PeopleDialog({
   // The row whose Undo takes the keyboard: the one just removed, left or revoked, and only then, so a search, a
   // scroll or a tab that brings a waiting row back doesn't take focus from where it is.
   const [undoFocus, setUndoFocus] = useState<string>()
+
   const pend = (set: typeof setRemoved, item: string) => {
     set((pending) => toggle(pending, item))
     setUndoFocus(item)
   }
+
   const list = useRef<HTMLUListElement>(null)
   const admin = team.role === "Admin"
   const managed = !!team.directory
   const canInvite = admin && !managed
   const searchable = team.members.length > 12
+
   // Admins as they'll be once the dialog closes, so pending removals and your own leaving can't leave it with none.
   const otherAdmins = team.members.filter(
     (member) => member.role === "Admin" && member.email !== you.email && !removed.has(member.email)
   )
+
   const onlyAdmin = admin && otherAdmins.length === 0
   const leaving = removed.has(you.email)
   // The order is set when People opens, so a role change updates its row in place rather than moving it out of
   // sight; anyone new goes at the end. It's you, the admins, then everyone else again next time.
   const [order] = useState(() => [...team.members].sort(byStanding(you)).map((member) => member.email))
+
   const ordered = useMemo(() => {
     const placed = new Set(order)
     const byEmail = new Map(team.members.map((member) => [member.email, member]))
+
     return [
       ...order.flatMap((email) => byEmail.get(email) ?? []),
       ...team.members.filter((member) => !placed.has(member.email))
     ]
   }, [order, team.members])
+
   const words = query.trim().toLowerCase()
+
   const matches = words
     ? ordered.filter((member) => member.name.toLowerCase().includes(words) || member.email.includes(words))
     : ordered
+
   const shown = matches.slice(0, limit)
+
   // The next page loads when the end of the list scrolls into view. A ref callback, since the dialog's contents mount
   // after the dialog itself.
   const watchEnd = useCallback((element: HTMLLIElement | null) => {
-    if (!element) return
+    if (!element) {
+      return
+    }
+
     const watcher = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) setLimit((loaded) => loaded + page)
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setLimit((loaded) => loaded + page)
+      }
     })
+
     watcher.observe(element)
+
     return () => watcher.disconnect()
   }, [])
+
   const toggle = (set: ReadonlySet<string>, item: string) => {
     const next = new Set(set)
-    if (!next.delete(item)) next.add(item)
+
+    if (!next.delete(item)) {
+      next.add(item)
+    }
+
     return next
   }
+
   const close = () => {
     for (const member of team.members) {
-      if (removed.has(member.email) && member.email !== you.email) onRemove(member)
+      if (removed.has(member.email) && member.email !== you.email) {
+        onRemove(member)
+      }
     }
-    for (const email of revoked) onRevoke(email)
+
+    for (const email of revoked) {
+      onRevoke(email)
+    }
+
     onClose()
-    if (removed.has(you.email)) onLeave()
+
+    if (removed.has(you.email)) {
+      onLeave()
+    }
   }
+
   const invite = (event: FormEvent) => {
     event.preventDefault()
     const emails = addresses(text)
     const wrong = problemWith(emails, team)
     setProblem(wrong)
-    if (wrong) return
+
+    if (wrong) {
+      return
+    }
+
     onInvite(emails)
     setSaid(emails.length === 1 ? `Invited ${emails[0]}` : `Invited ${emails.length} people`)
     setText("")
   }
+
   const changeRole = (member: Member, role: Role) => {
     onRole(member, role)
     setSaid(`${member.name} is ${role === "Admin" ? "an admin" : "a member"} now`)
   }
+
   const search = searchable && (
     <InputGroup className="mb-2">
       <InputGroupAddon>
@@ -413,7 +723,10 @@ export function PeopleDialog({
         }}
         // Escape clears what's typed first, as search fields do, and closes the dialog once it's empty.
         onKeyDown={(event) => {
-          if (event.key !== "Escape" || !query) return
+          if (event.key !== "Escape" || !query) {
+            return
+          }
+
           event.preventDefault()
           event.stopPropagation()
           setQuery("")
@@ -437,6 +750,7 @@ export function PeopleDialog({
       )}
     </InputGroup>
   )
+
   const rows = (
     <ul
       ref={list}
@@ -444,10 +758,11 @@ export function PeopleDialog({
       // A landing place for a screen reader when a member's People opens, not a control: the first Tab reaches their menu.
       className="flex flex-col pr-3 outline-none"
     >
-      {shown.map((member) => {
+      {shown.map((member, index) => {
         const isYou = member.email === you.email
         const gone = removed.has(member.email)
         let role: ReactNode = <StaticRole role={member.role} />
+
         if (gone) {
           role = (
             <UndoButton
@@ -478,8 +793,10 @@ export function PeopleDialog({
             />
           )
         }
+
         return (
-          <li key={member.email}>
+          // The list loads as it scrolls, so each row says where it sits among everyone who matches.
+          <li key={member.email} aria-setsize={matches.length} aria-posinset={index + 1}>
             <Item size="sm" className="px-0">
               <ItemMedia className={gone ? "opacity-50" : ""}>
                 <PersonAvatar person={member} size={32} />
@@ -510,14 +827,17 @@ export function PeopleDialog({
       )}
     </ul>
   )
+
   let description = admin
     ? "Invite people by email. They join as members."
     : "Only admins can invite people or change roles."
+
   if (managed) {
     description = `${team.directory} adds and removes ${team.name}'s ${count(team.members.length)} people. ${
       admin ? "Admins change roles here." : "Only admins can change roles."
     }`
   }
+
   return (
     <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent
@@ -627,6 +947,7 @@ function InvitationRow({
   onUndo: () => void
 }) {
   const now = useNow()
+
   return (
     <li>
       <Item size="sm" className="px-0">
@@ -688,10 +1009,14 @@ function UndoButton({
 }) {
   const button = useRef<HTMLButtonElement>(null)
   useEffect(() => {
-    if (!takeFocus) return
+    if (!takeFocus) {
+      return
+    }
+
     button.current?.focus()
     onFocused()
   }, [takeFocus, onFocused])
+
   return (
     <Button
       ref={button}
@@ -863,15 +1188,20 @@ export function NewOrganizationDialog({
   const nameField = useId()
   const nameHint = useId()
   const ready = useId()
+
   const create = (event: FormEvent) => {
     event.preventDefault()
+
     if (!name.trim()) {
       setNameProblem("Enter a name.")
+
       return
     }
+
     onCreate(name.trim())
     setStep("invite")
   }
+
   const invite = (event: FormEvent) => {
     event.preventDefault()
     const emails = addresses(text)
@@ -879,8 +1209,12 @@ export function NewOrganizationDialog({
     const made: Team = { id: "", name, role: "Admin", members: [{ ...you, role: "Admin" }], invitations: [], notes: [] }
     const wrong = problemWith(emails, made)
     setProblem(wrong)
-    if (!wrong) onInvite(emails)
+
+    if (!wrong) {
+      onInvite(emails)
+    }
   }
+
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md" {...(finalFocus ? { finalFocus } : {})}>

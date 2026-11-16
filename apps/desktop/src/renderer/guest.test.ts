@@ -12,10 +12,29 @@ const errors: string[] = []
 
 /** What the page loads: a guest stylesheet whose compiled CSS declares `--primary` in the root and dark themes. */
 const entry = `
-import { guestSheet, previewToken, showTokenOverrides } from "./guest.ts"
+import { guestSheet, previewToken, showModuleStyles, showTokenOverrides } from "./guest.ts"
 
 export const css = ":host { --primary: black; --radius: 0.5rem; } .dark { --primary: white; }"
-export { guestSheet, previewToken, showTokenOverrides }
+export { guestSheet, previewToken, showModuleStyles, showTokenOverrides }
+
+/** Stylesheets as a guest's modules import them, with what the canvas listens with. */
+export function moduleStyles() {
+  const sheets = new Map()
+  const listeners = new Set()
+
+  return {
+    set(id, css) {
+      css === undefined ? sheets.delete(id) : sheets.set(id, css)
+      listeners.forEach((listener) => listener())
+    },
+    listeners: () => listeners.size,
+    sheets: () => [...sheets.values()],
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    }
+  }
+}
 
 /** The whole stylesheet, as its rules read now. */
 export function text(sheet) {
@@ -25,6 +44,7 @@ export function text(sheet) {
 
 beforeAll(async () => {
   const renderer = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: renderer, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
@@ -34,6 +54,7 @@ beforeAll(async () => {
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage()
   page.on("pageerror", (error) => errors.push(error.message))
@@ -44,9 +65,10 @@ beforeAll(async () => {
     route.fulfill({ contentType: "text/html", body: `<script src="http://parity.test/guest.js"></script>` })
   )
   await page.goto("http://parity.test/")
-  // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof guest === "object")))
+
+  if (!(await page.evaluate(() => "guest" in window))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 })
 
 afterAll(async () => {
@@ -60,10 +82,12 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
       const { css, guestSheet, showTokenOverrides, text } = guest
       const sheet = guestSheet(css)
       const compiled = text(sheet)
+
       const a = [
         { name: "primary", theme: "default", value: "red" },
         { name: "radius", theme: "dark", value: "1rem" }
       ]
+
       showTokenOverrides(sheet, a)
       const first = text(sheet)
       showTokenOverrides(sheet, [])
@@ -71,8 +95,10 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
       showTokenOverrides(sheet, [{ name: "primary", theme: "dark", value: "pink" }])
       const other = text(sheet)
       showTokenOverrides(sheet, a)
+
       return { compiled, first, none, other, again: text(sheet) }
     })
+
     expect(sheets.first).toContain("--primary: red")
     expect(sheets.first).toContain(".dark { --radius: calc(1 * var(--canvas-rem, 1rem)); }")
     expect(sheets.none).toBe(sheets.compiled)
@@ -92,13 +118,16 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
       const cleared = text(sheet)
       // A sheet that isn't a guest's has nothing to start again from.
       let refused = ""
+
       try {
         showTokenOverrides(new CSSStyleSheet(), [{ name: "primary", theme: "default", value: "red" }])
       } catch (error) {
         refused = String(error)
       }
+
       return { compiled, cleared, refused }
     })
+
     expect(result.cleared).toBe(result.compiled)
     expect(result.refused).toContain("guestSheet")
   })
@@ -112,15 +141,19 @@ describe("token overrides on an offscreen frame's stylesheet", () => {
       showTokenOverrides(sheet, a)
       const first = text(sheet)
       let threw = false
+
       try {
         // A theme that isn't a class name makes the rule it would add unreadable.
         showTokenOverrides(sheet, [{ name: "radius", theme: "{", value: "2rem" }])
       } catch {
         threw = true
       }
+
       showTokenOverrides(sheet, a)
+
       return { first, threw, again: text(sheet) }
     })
+
     expect(result.threw).toBe(true)
     expect(result.again).toBe(result.first)
   })
@@ -135,13 +168,19 @@ function previewed(css: string, name: string, theme: string, value: string): Pro
       // @ts-expect-error The bundle's global.
       guest.previewToken(sheet, name, theme, value)
       const lines: string[] = []
+
       const collect = (list: CSSRuleList) => {
         for (const rule of list) {
-          if (rule instanceof CSSStyleRule) lines.push(rule.cssText)
-          else if ("cssRules" in rule) collect((rule as CSSGroupingRule).cssRules)
+          if (rule instanceof CSSStyleRule) {
+            lines.push(rule.cssText)
+          } else if (rule instanceof CSSGroupingRule) {
+            collect(rule.cssRules)
+          }
         }
       }
+
       collect(sheet.cssRules)
+
       return lines
     },
     { css, name, theme, value }
@@ -180,6 +219,7 @@ describe("previewToken", () => {
       "@media (prefers-color-scheme: dark) { :root { --c: #000; } }",
       "@media (prefers-color-scheme: light) { :root { --c: #eee; } }"
     ].join(" ")
+
     const css = prepareCanvasCss(source, { baseUrl: "http://parity.test" }).scoped
     const dark = ':where([data-canvas-body][data-canvas-color-scheme="dark"])'
     const light = ':where([data-canvas-body][data-canvas-color-scheme="light"])'
@@ -198,5 +238,47 @@ describe("previewToken", () => {
   it("leaves a prefers-color-scheme block alone when previewing the default", async () => {
     const css = `:host { --c: #fff; } @media (prefers-color-scheme: dark) { :host { --c: #000; } }`
     expect(await previewed(css, "c", "default", "red")).toEqual([":host { --c: red; }", ":host { --c: #000; }"])
+  })
+})
+
+describe("showModuleStyles", () => {
+  it("draws what the project's modules import in frames, and keeps fonts and registered properties in the document (PAR-1181)", async () => {
+    const shown = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { moduleStyles, showModuleStyles, text } = guest
+      const styles = moduleStyles()
+      const before = "@property --a { syntax: '*'; inherits: false; }"
+      const sheets = { scoped: new CSSStyleSheet(), global: new CSSStyleSheet(), before }
+      const read = () => ({ scoped: text(sheets.scoped), global: text(sheets.global) })
+      const stop = showModuleStyles(styles, sheets, "http://project.test")
+
+      const steps = [read()]
+      styles.set("/src/card.css", "body { color: red; } @font-face { font-family: Card; src: url(/card.woff2); }")
+      steps.push(read())
+      styles.set("/src/card.css", "body { color: blue; }")
+      styles.set("/src/theme.css.ts.vanilla.css", ":root { --brand: green; }")
+      steps.push(read())
+      styles.set("/src/card.css", undefined)
+      steps.push(read())
+      stop()
+      styles.set("/src/late.css", ".late { color: red; }")
+      steps.push(read())
+
+      return { steps, listeners: styles.listeners() }
+    })
+
+    const property = '@property --a { syntax: "*"; inherits: false; }'
+    expect(shown.steps[0]).toEqual({ scoped: "", global: property })
+    expect(shown.steps[1]!.scoped).toBe("[data-canvas-body] { color: red; }")
+    expect(shown.steps[1]!.global).toContain(property)
+    expect(shown.steps[1]!.global).toContain('src: url("http://project.test/card.woff2")')
+    expect(shown.steps[2]).toEqual({
+      scoped: "[data-canvas-body] { color: blue; }\n:host { --brand: green; }",
+      global: property
+    })
+    expect(shown.steps[3]).toEqual({ scoped: ":host { --brand: green; }", global: property })
+    // Once stopped, a stylesheet a module imports later changes nothing.
+    expect(shown.steps[4]).toEqual(shown.steps[3])
+    expect(shown.listeners).toBe(0)
   })
 })

@@ -2,7 +2,7 @@ import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
 import {
   Accessibility,
   Component,
-  ImageIcon,
+  ImagePlay,
   Layers,
   MonitorSmartphone,
   Palette,
@@ -11,10 +11,11 @@ import {
 } from "lucide-react"
 import type { ReactNode } from "react"
 import { AccessibilityPanel } from "../../chrome/AccessibilityPanel.tsx"
-import { ComponentsPanel, IconsPanel, ImagesPanel } from "../../chrome/AssetsPanel.tsx"
+import { ComponentsPanel, IconsPanel } from "../../chrome/AssetsPanel.tsx"
 import { ModesPanel } from "../../chrome/ModesPanel.tsx"
 import { SidePanel } from "../../chrome/SidePanel.tsx"
 import { TokensPanel } from "../../chrome/TokensPanel.tsx"
+import { MediaPanel } from "../../media/MediaPanel.tsx"
 import { ProjectStage } from "../../stories/fixtures.tsx"
 import { CanvasSketch } from "./canvas-sketch.tsx"
 import { ContainerLayers } from "./container-layers.tsx"
@@ -36,7 +37,7 @@ export function Workspace() {
           { value: "layers", label: "Layers", icon: Layers },
           { value: "components", label: "Components", icon: Component },
           { value: "icons", label: "Icons", icon: Smile },
-          { value: "images", label: "Images", icon: ImageIcon },
+          { value: "media", label: "Media", icon: ImagePlay },
           { value: "tokens", label: "Tokens", icon: Palette }
         ]}
       >
@@ -49,8 +50,8 @@ export function Workspace() {
         <TabsContent value="icons" className="flex min-h-0 flex-col">
           <IconsPanel />
         </TabsContent>
-        <TabsContent value="images" className="flex min-h-0 flex-col">
-          <ImagesPanel />
+        <TabsContent value="media" className="flex min-h-0 flex-col">
+          <MediaPanel />
         </TabsContent>
         <TabsContent value="tokens" className="flex min-h-0 flex-col">
           <TokensPanel />

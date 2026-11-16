@@ -1,0 +1,14 @@
+:root {
+  --color-background: #ffffff;
+  --color-foreground: #1c1c1e;
+  --color-primary: #0f766e;
+  --color-primary-foreground: #ffffff;
+  --radius: 6px;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: var(--color-background);
+  color: var(--color-foreground);
+}

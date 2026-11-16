@@ -28,6 +28,7 @@ import type {
   SignInProvider,
   SignInRequest
 } from "../../shared/account.ts"
+import { reportError } from "../report-error.ts"
 import { GitHubMark } from "../start/marks.tsx"
 import { notify } from "../toasts.tsx"
 import { GoogleMark, MicrosoftMark } from "./marks.tsx"
@@ -71,7 +72,8 @@ function Heading({ dialog, className, children }: { dialog?: boolean; className:
 }
 
 function Description({ dialog, children }: { dialog?: boolean; children: ReactNode }) {
-  const className = "text-sm text-pretty text-muted-foreground"
+  const className = "type-body text-muted-foreground"
+
   return dialog ? (
     <DialogDescription className={className}>{children}</DialogDescription>
   ) : (
@@ -82,6 +84,7 @@ function Description({ dialog, children }: { dialog?: boolean; children: ReactNo
 /** Provider buttons, then a work email for single sign-on or a code. */
 function SignInForm({ onSignIn }: { onSignIn: (request: SignInRequest) => void }) {
   const [email, setEmail] = useState("")
+
   return (
     <div className="flex flex-col gap-3">
       {providers.map(({ provider, name, mark }) => (
@@ -127,15 +130,18 @@ function SignInForm({ onSignIn }: { onSignIn: (request: SignInRequest) => void }
           Continue
         </Button>
       </form>
-      <p className="text-center text-xs leading-relaxed text-muted-foreground">
+      <p className="text-center type-description text-muted-foreground">
         If your company signs in with Okta, Entra ID or Google Workspace, your email takes you there.
       </p>
     </div>
   )
 }
 
-/** Under the ways in: signing in happens in the browser, so Parity never handles a password. Kept short (your call). */
-function Legal() {
+/**
+ * Signing in happens in the browser, so Parity never handles a password. Kept short (your call). It sits under the ways
+ * in in a dialog, and at the foot of the sign-in screen.
+ */
+export function Legal() {
   return (
     <p className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
       <ShieldCheck className="size-3.5 shrink-0" aria-hidden />
@@ -144,21 +150,34 @@ function Legal() {
   )
 }
 
-/** The sign-in screen: the mark, one line on what Parity is, and the ways in. */
-export function SignInPanel({ dialog, onSignIn }: { dialog?: boolean; onSignIn: (request: SignInRequest) => void }) {
+/**
+ * The sign-in screen: the mark, one line on what Parity is, and the ways in. Adding another account, from inside
+ * Parity, gives its own heading and line and leaves the mark out.
+ */
+export function SignInPanel({
+  dialog,
+  title,
+  description = "Design with your real components, your team and your agents.",
+  onSignIn
+}: {
+  dialog?: boolean
+  title?: string
+  description?: string
+  onSignIn: (request: SignInRequest) => void
+}) {
   return (
     <div className="flex w-full flex-col gap-7">
       <div className="flex flex-col items-center gap-4 text-center">
-        <Mark size={dialog ? 40 : 48} />
+        {!title && <Mark size={dialog ? 40 : 48} />}
         <div className="flex flex-col gap-1.5">
-          <Heading dialog={dialog} className="text-2xl leading-tight font-semibold tracking-tight">
-            Sign in to Parity
+          <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
+            {title ?? "Sign in to Parity"}
           </Heading>
-          <Description dialog={dialog}>Design with your real components, your team and your agents.</Description>
+          <Description dialog={dialog}>{description}</Description>
         </div>
       </div>
       <SignInForm onSignIn={onSignIn} />
-      <Legal />
+      {dialog && <Legal />}
     </div>
   )
 }
@@ -189,7 +208,8 @@ function MarkRing({ turning, badge }: { turning?: boolean; badge?: { icon: React
 function copy(text: string, said: string, failed: string, id: string): void {
   void navigator.clipboard.writeText(text).then(
     () => notify.done(said, { id, timeout: 2000 }),
-    () => notify.failed(failed, { id, retry: () => copy(text, said, failed, id) })
+    (cause: unknown) =>
+      reportError(cause, { operation: "clipboard.write", title: failed, id, retry: () => copy(text, said, failed, id) })
   )
 }
 
@@ -211,16 +231,20 @@ export function WaitingPanel({
   onReopen: () => void
   onCancel: () => void
 }) {
+  const as = attempt.email ? ` as ${attempt.email}` : ""
+
   const opened =
     attempt.provider === "authkit"
-      ? "We opened your browser to sign you in."
-      : `We opened ${providerName(attempt.provider)} in your browser to sign you in.`
+      ? `We opened your browser to sign you in${as}.`
+      : `We opened ${providerName(attempt.provider)} in your browser to sign you in${as}.`
+
   const copyLink = () => copy(attempt.url, "Copied the link", "Couldn't copy the link", "copied-link")
+
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing turning />
       <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-        <Heading dialog={dialog} className="text-xl font-semibold tracking-tight">
+        <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
           {slow ? "Still waiting for your browser" : "Continue in your browser"}
         </Heading>
         <Description dialog={dialog}>
@@ -245,7 +269,7 @@ export function WaitingPanel({
             Cancel
           </Button>
         )}
-        <p className="text-center text-xs text-pretty text-muted-foreground">
+        <p className="text-center type-description text-muted-foreground">
           {slow ? (
             <>
               Or <InlineAction onClick={copyLink}>copy the link</InlineAction> and paste it into the browser you use.
@@ -285,7 +309,7 @@ function Details({ text }: { text: string }) {
       </CollapsibleTrigger>
       <CollapsibleContent className="w-full">
         <div className="relative rounded-lg border bg-muted/40 p-3 pr-10 text-left">
-          <pre className="font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-muted-foreground">{text}</pre>
+          <pre className="type-code font-mono whitespace-pre-wrap text-muted-foreground">{text}</pre>
           <Button
             variant="ghost"
             size="icon-xs"
@@ -331,12 +355,15 @@ export function ProblemPanel({
 }) {
   const { provider, email, details } = attempt
   const retry = () => onSignIn(attempt.email === undefined ? { provider } : { provider, email: attempt.email })
+
   const other = (
     <Button variant="outline" onClick={onOther}>
       Choose another way
     </Button>
   )
+
   const account = email ? <span className="text-foreground">{email}</span> : "This account"
+
   const content: Record<ShownProblem, { title: string; text: ReactNode; actions: ReactNode }> = {
     canceled: {
       title: "Canceled in your browser",
@@ -387,12 +414,14 @@ export function ProblemPanel({
       )
     }
   }
+
   const shown = content[attempt.problem]
+
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing badge={badges[attempt.problem]} />
       <div className="flex max-w-sm flex-col items-center gap-2 text-center">
-        <Heading dialog={dialog} className="text-xl font-semibold tracking-tight">
+        <Heading dialog={dialog} className="text-2xl font-semibold tracking-tight">
           {shown.title}
         </Heading>
         <Description dialog={dialog}>{shown.text}</Description>
@@ -424,6 +453,7 @@ export function ChooseOrganizationPanel({
   onOther: () => void
 }) {
   const { email, organizations = [] } = attempt
+
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -470,20 +500,25 @@ export function ChooseOrganizationPanel({
 
 /**
  * WorkOS ended the session on refresh, as after an organization's session limit or an admin removing the person.
- * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost.
+ * Parity knows who it was and how they signed in, so it's one button, and nothing open is lost. With another account
+ * signed in, you're in that one meanwhile.
  */
 export function SessionEndedPanel({
   ended,
+  stillIn,
   dialog,
   onSignIn,
   onOther
 }: {
   ended: { person: AccountPerson; provider: SignInProvider }
+  /** The account you're in now, when you're signed in to another. */
+  stillIn?: string | undefined
   dialog?: boolean
   onSignIn: (request: SignInRequest) => void
   onOther: () => void
 }) {
   const { person, provider } = ended
+
   return (
     <div className="flex w-full flex-col gap-6">
       <div className="flex flex-col items-center gap-4 text-center">
@@ -493,7 +528,10 @@ export function SessionEndedPanel({
             Sign in again to keep working
           </Heading>
           <Description dialog={dialog}>
-            Your session ended, so you&apos;re signed out. Your open projects stay as they are, unsaved changes too.
+            {stillIn
+              ? `Your session ended, so you're in ${stillIn} for now.`
+              : "Your session ended, so you're signed out."}{" "}
+            Your open projects stay as they are, unsaved changes too.
           </Description>
         </div>
       </div>
@@ -506,11 +544,7 @@ export function SessionEndedPanel({
         <Lock className="size-4 text-muted-foreground" aria-hidden />
       </div>
       <div className="flex flex-col gap-3">
-        <Button
-          size="lg"
-          className="h-10 gap-2"
-          onClick={() => onSignIn(provider === "authkit" ? { provider, email: person.email } : { provider })}
-        >
+        <Button size="lg" className="h-10 gap-2" onClick={() => onSignIn({ provider, email: person.email })}>
           {providers.find((candidate) => candidate.provider === provider)?.mark ?? <KeyRound />}
           Continue with {providerName(provider)}
         </Button>

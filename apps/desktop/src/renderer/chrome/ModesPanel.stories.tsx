@@ -1,12 +1,13 @@
 import { defaultModeSettings, type ModeSettings, type ModeSpec } from "@parity-app/core"
+import { setModes } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
-import type { ProjectInfo } from "../../shared/protocol.ts"
 import { example } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import { inspecting, InspectorStage, openInspector, search, slowly, typing } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
+import { panelLimits, setLayout } from "./layout.ts"
 import { ModesPanel } from "./ModesPanel.tsx"
 
 /**
@@ -14,7 +15,7 @@ import { ModesPanel } from "./ModesPanel.tsx"
  * variable (viewport, theme, locale), and the variables themselves. The first mode is the primary frame everywhere.
  */
 const meta = {
-  title: "Parity/Inspector/Modes",
+  title: "Parity/Inspector/Panel/Modes tab",
   component: ModesPanel,
   render: () => <Inspector />,
   decorators: [
@@ -27,26 +28,40 @@ const meta = {
 } satisfies Meta<typeof ModesPanel>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Modes tab, after `change` edits its modes when given. */
 const modes = (change?: (settings: ModeSettings) => ModeSettings) =>
   inspecting("modes", () => {
-    const { store } = example()
-    if (change) store.setModes(change(store.getModes()))
+    const { doc } = example()
+
+    if (change) {
+      setModes(doc, change(doc.modes()))
+    }
   })
 
 /** A project with no modes of its own, so it uses the defaults: the blank project, as the service opens it. */
 const defaults = () =>
   openInspector("modes", ["empty"], () =>
     answerNext("project.open", async (_, real) => ({
-      ...((await real()) as ProjectInfo),
+      ...(await real()),
       modes: { settings: defaultModeSettings, custom: false }
     }))
   )
 
 /** The example's own modes, saved in its project file: four modes over viewport, theme and locale. */
 export const ExampleModes: Story = { loaders: [modes()] }
+
+/** The example's modes with the panel at its narrowest, where each mode's variable pickers have the least room. */
+export const Narrowest: Story = {
+  loaders: [
+    async () => {
+      await modes()()
+      setLayout({ rightWidth: panelLimits.right[0] })
+    }
+  ]
+}
 
 /** A project using the default modes: it says editing them saves them into its project file. */
 export const DefaultModes: Story = { loaders: [defaults] }
@@ -56,9 +71,9 @@ export const DefaultModesEdited: Story = {
   loaders: [
     async () => {
       await defaults()
-      const store = activeStore()
-      const settings = store.getModes()
-      store.setModes({
+      const doc = activeDoc()
+      const settings = doc.modes()
+      setModes(doc, {
         ...settings,
         modes: [
           ...settings.modes,
@@ -240,11 +255,15 @@ export const AddingAViewportSize: Story = {
   }
 }
 
-/** The active project's designs and modes, for a project other than the example. */
-function activeStore() {
+/** The active project's document, for a project other than the example. */
+function activeDoc() {
   const session = workspace.getActive()?.session
-  if (!session) throw new Error("No project is open")
-  return session.store
+
+  if (!session) {
+    throw new Error("No project is open")
+  }
+
+  return session.doc
 }
 
 function capital(word: string): string {

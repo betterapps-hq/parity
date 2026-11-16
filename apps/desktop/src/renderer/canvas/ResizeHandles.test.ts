@@ -37,6 +37,7 @@ export function mount() {
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -47,10 +48,13 @@ beforeAll(async () => {
     jsx: "automatic",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 800, height: 600 } })
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   // The few Tailwind classes the handles are placed with.
@@ -77,6 +81,7 @@ beforeEach(async () => {
 })
 
 const hints = () => page.locator("[data-slot=tooltip-content]").count()
+
 // @ts-expect-error The bundle's global.
 const calls = () => page.evaluate(() => handles.calls)
 
@@ -101,10 +106,18 @@ describe("a resize handle's hint", { timeout: 20_000 }, () => {
     await page.mouse.down()
     // The press closes the hint at once, but Base UI takes the popup out a frame later.
     await expect.poll(hints, { timeout: 1_000 }).toBe(0)
+
     // Over the hint itself.
-    for (const y of [195, 185]) await page.mouse.move(250, y)
+    for (const y of [195, 185]) {
+      await page.mouse.move(250, y)
+    }
+
     expect(await hints()).toBe(0)
-    for (const y of [170, 160]) await page.mouse.move(250, y)
+
+    for (const y of [170, 160]) {
+      await page.mouse.move(250, y)
+    }
+
     await page.waitForTimeout(700)
     expect(await hints()).toBe(0)
     await page.mouse.up()

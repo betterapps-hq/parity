@@ -1,9 +1,10 @@
 import type { ContainerSpec, DesignNode } from "@parity-app/core"
 import { designsSelection, layersSelection, type Selection } from "@parity-app/editor"
+import type { ContainerEntry } from "@parity-app/multiplayer"
 import { describe, expect, it } from "vite-plus/test"
-import type { ContainerEntry } from "../design-store.ts"
 import type { MenuEntry } from "./canvas-menu.ts"
-import { keymap } from "./keymap.ts"
+import { commandStates } from "./command-state.ts"
+import { keymap, shortcutOf } from "./keymap.ts"
 import { layersMenu, type LayersRow, rowSelection } from "./layers-menu.ts"
 
 const text = (id: string, extra: { hidden?: boolean } = {}): DesignNode => ({ type: "text", id, text: id, ...extra })
@@ -36,49 +37,77 @@ const other = "app.par#stat-card"
 /** Each entry as a line: an item's action and whether it's available, and a line between groups. */
 function outline(menu: MenuEntry[]): string[] {
   return menu.map((entry) => {
-    if (entry.kind !== "item") return "---"
+    if (entry.kind !== "item") {
+      return "---"
+    }
+
     return `${entry.action}${entry.enabled ? "" : " (unavailable)"}`
   })
 }
 
 function labelOf(menu: MenuEntry[], action: string): string | undefined {
   const found = menu.find((entry) => entry.kind === "item" && entry.action === action)
+
   return found?.kind === "item" ? found.label : undefined
 }
 
-/** The menu a right-click on `row` opens, with `current` selected before it. */
+/** The menu a right-click on `row` opens, with `current` selected before it, its items' states as the window has them. */
 function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
-  return layersMenu(row, rowSelection(current, row), entries)
+  const selection = rowSelection(current, row)
+
+  const states = commandStates({
+    selection,
+    entries,
+    notes: 0,
+    placedReferences: 0,
+    canvas: true,
+    history: { canUndo: false, canRedo: false },
+    references: true
+  })
+
+  return layersMenu(row, states, selection)
 }
 
 describe("the Layers row menu", () => {
-  it("lists Rename, Duplicate, Hide, Export and Delete for a layer, with the keymap's labels and keys", () => {
+  it("lists Rename, Duplicate, Hide, Lock, Export and Delete for a layer, with the keymap's labels and keys", () => {
     const menu = rightClick({ design, node: "subtitle" })
-    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "hide", "---", "exportSelection", "---", "delete"])
+    expect(outline(menu)).toEqual([
+      "rename",
+      "duplicate",
+      "---",
+      "hide",
+      "lock",
+      "---",
+      "exportSelection",
+      "---",
+      "delete"
+    ])
     const items = menu.flatMap((entry) => (entry.kind === "item" ? [entry] : []))
     expect(items.map((entry) => entry.keys)).toEqual(
-      items.map((entry) => (entry.action === "pasteHere" ? undefined : keymap[entry.action].keys[0]))
+      items.map((entry) => (entry.action === "pasteHere" ? undefined : shortcutOf(entry.action)))
     )
     expect(items.map((entry) => entry.label)).toEqual([
       keymap.rename.label,
       keymap.duplicate.label,
-      "Show in Loading",
+      "Show",
+      "Lock",
       "Export…",
       keymap.delete.label
     ])
   })
 
-  it("lists Rename, Duplicate, Export and Delete for a design", () => {
+  it("lists Rename, Duplicate, Lock, Export and Delete for a design", () => {
     const menu = rightClick({ design })
-    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "exportSelection", "---", "delete"])
+    expect(outline(menu)).toEqual(["rename", "duplicate", "---", "lock", "---", "exportSelection", "---", "delete"])
   })
 
-  it("can't duplicate, hide or delete the design's root", () => {
+  it("can't duplicate, hide, lock or delete the design's root", () => {
     expect(outline(rightClick({ design, node: "root" }))).toEqual([
       "rename",
       "duplicate (unavailable)",
       "---",
       "hide (unavailable)",
+      "lock (unavailable)",
       "---",
       "exportSelection",
       "---",
@@ -86,18 +115,37 @@ describe("the Layers row menu", () => {
     ])
   })
 
+  it("can't rename, duplicate, hide, lock or delete a layer inside an instance (PAR-92)", () => {
+    expect(outline(rightClick({ design, node: "users/value" }))).toEqual([
+      "rename (unavailable)",
+      "duplicate (unavailable)",
+      "---",
+      "hide (unavailable)",
+      "lock (unavailable)",
+      "---",
+      "exportSelection",
+      "---",
+      "delete (unavailable)"
+    ])
+  })
+
+  it("can't rename a layer inside an instance even when the selection leads with one of the design's own", () => {
+    const both = layersSelection(design, ["users/value", "title"])
+    expect(outline(rightClick({ design, node: "users/value" }, both))[0]).toBe("rename (unavailable)")
+  })
+
   it("acts on every selected layer when the row is one of them", () => {
     const both = layersSelection(design, ["title", "subtitle"], { state: "default" })
     // The title shows in Default, so the two aren't all hidden.
-    expect(labelOf(rightClick({ design, node: "subtitle" }, both), "hide")).toBe("Hide in Default")
+    expect(labelOf(rightClick({ design, node: "subtitle" }, both), "hide")).toBe("Hide")
   })
 
   it("hides in the state the selection was picked in, as the Hide command does (PAR-586)", () => {
     // The title, picked in Default's frame while the board shows Loading: Hide lands in Default, where it shows.
     const picked = layersSelection(design, ["title"], { mode: "desktop", state: "default" })
-    expect(labelOf(rightClick({ design, node: "title" }, picked), "hide")).toBe("Hide in Default")
+    expect(labelOf(rightClick({ design, node: "title" }, picked), "hide")).toBe("Hide")
     // Selected from its row, with no state picked, it's the state the board shows, which hides it.
-    expect(labelOf(rightClick({ design, node: "title" }), "hide")).toBe("Show in Loading")
+    expect(labelOf(rightClick({ design, node: "title" }), "hide")).toBe("Show")
   })
 })
 

@@ -10,6 +10,7 @@ import {
 } from "@parity-app/icons"
 import { type CSSProperties, useEffect, useMemo, useRef } from "react"
 import type { LoadedGuest } from "../guest.ts"
+import { unrecordedShadow } from "../shadow.ts"
 
 /** One icon as the panel lists it: its name, and what inserting it adds. */
 export interface IconEntry {
@@ -50,25 +51,27 @@ export function iconCatalog(loaded: LoadedGuest, library: LibraryInfo, style: st
   const aliases = loaded.guest.iconAliases?.(library.id, key)
   const listed = setEntries(loaded.guest.iconNames?.(library.id, key) ?? [], library.icons, style, aliases)
   const prefix = key ? `${library.id}/${key}/` : `${library.id}/`
+
   const entries = new Map(
-    listed.map((icon): [SetEntry, IconEntry] => [
-      icon,
-      {
-        label: icon.label,
-        item: {
-          kind: "component",
-          component: `${prefix}${icon.insert ?? icon.name}`,
-          ...(icon.props ? { props: icon.props } : {})
-        }
+    listed.map((icon): [SetEntry, IconEntry] => {
+      const item: IconEntry["item"] = { kind: "component", component: `${prefix}${icon.insert ?? icon.name}` }
+
+      if (icon.props) {
+        item.props = icon.props
       }
-    ])
+
+      return [icon, { label: icon.label, item }]
+    })
   )
+
   let index: IconIndex | undefined
+
   return {
     entries: [...entries.values()],
     search(query) {
       // Indexed on the first search, so opening the panel stays quick.
       index ??= iconIndex(listed, aliases, library.icons?.tags)
+
       return searchIcons(index, query).map((icon) => entries.get(icon)!)
     }
   }
@@ -81,6 +84,7 @@ const iconSheet = (() => {
     ":host { display: grid; place-items: center; width: var(--icon-size); height: var(--icon-size); font-size: var(--icon-size); color: inherit }\n" +
       "svg { width: var(--icon-size); height: var(--icon-size); display: block }"
   )
+
   return sheet
 })()
 
@@ -98,25 +102,35 @@ export function GuestIcon({
   size?: number
 }) {
   const hostRef = useRef<HTMLSpanElement>(null)
+
   const tree = useMemo<RenderNode[]>(
     () => [{ kind: "component", nodeId: "icon", component: item.component, props: { ...item.props }, slots: {} }],
     [item]
   )
+
   useEffect(() => {
     const host = hostRef.current!
-    const shadow = host.shadowRoot ?? host.attachShadow({ mode: "open" })
+    const shadow = unrecordedShadow(host)
     shadow.adoptedStyleSheets = [iconSheet]
     const target = document.createElement("span")
     shadow.replaceChildren(target)
     const handle = loaded.guest.mount(target, tree, { bare: true })
+
     return () => handle.unmount()
   }, [loaded, tree])
+
   return (
     <span
-      ref={hostRef}
       aria-hidden
+      // Left out of replays, as frames are: the project's own drawing (PAR-624). The shadow root is on the element
+      // inside, since Session Replay watches the shadow root of every element it records, a left-out one included, for
+      // the whole session (PAR-1169).
+      data-guest-icon=""
       className="inline-grid place-items-center"
+      // SAFETY: CSSProperties lists no custom properties, and `--icon-size` is one the guest's icon reads.
       style={{ width: size, height: size, "--icon-size": `${size}px` } as CSSProperties}
-    />
+    >
+      <span ref={hostRef} className="contents" />
+    </span>
   )
 }

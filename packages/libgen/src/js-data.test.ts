@@ -10,6 +10,7 @@ const n = [
 ];
 globalThis.ran = true;
 export { n as icons, t as IconStyle };`
+
     const data = moduleData(text)
     expect(data.get("e")).toEqual({ FINANCE: "finances", NATURE: "nature" })
     expect(data.get("n")).toEqual([

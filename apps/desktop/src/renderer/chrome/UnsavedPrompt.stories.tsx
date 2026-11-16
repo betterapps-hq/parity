@@ -20,7 +20,7 @@ import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
  * Enter saves; Escape or clicking away cancels.
  */
 const meta = {
-  title: "Parity/Chrome/Unsaved prompt",
+  title: "Parity/Chrome/Prompts/Unsaved changes",
   component: UnsavedPrompt,
   render: () => <AppWindow />,
   decorators: [Window],
@@ -28,6 +28,7 @@ const meta = {
 } satisfies Meta<typeof UnsavedPrompt>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 const body = () => within(document.body)
@@ -79,7 +80,10 @@ export const QuittingWithSeveralUnsaved: Story = {
     async () => {
       await exampleEdited()
       await openAlso(...others.slice(0, 2).map(blankProjectAt))
-      for (const root of others.slice(0, 2)) addNote(sessionAt(root), "Check the spacing on mobile")
+
+      for (const root of others.slice(0, 2)) {
+        addNote(sessionAt(root).doc, "Check the spacing on mobile")
+      }
     }
   ],
   play: async () => {
@@ -95,7 +99,7 @@ export const QuittingWithTwoUnsaved: Story = {
     async () => {
       await exampleEdited()
       await openAlso(blankProjectAt(others[3]!))
-      addNote(sessionAt(others[3]!), "Check the spacing on mobile")
+      addNote(sessionAt(others[3]!).doc, "Check the spacing on mobile")
     }
   ],
   play: async () => {
@@ -121,6 +125,6 @@ export const SavingFails: Story = {
     await closeExampleTab()
     await userEvent.click(body().getByRole("button", { name: "Save" }))
     await holdToast("Couldn't save the project")
-    await expect(workspace.getTab(roots.example)?.session?.store.hasUnsaved()).toBe(true)
+    await expect(workspace.getTab(roots.example)?.session?.saver.hasUnsaved()).toBe(true)
   }
 }

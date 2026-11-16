@@ -3,6 +3,7 @@ import {
   componentLibrary,
   defaultModeSettings,
   findNode,
+  type NodeStyle,
   parseCanvasDocument,
   resolveModes
 } from "@parity-app/core"
@@ -12,6 +13,7 @@ import {
   draggedBox,
   drawnFrame,
   fittedFrame,
+  fitsDrawn,
   frameOfText,
   framePresets,
   frameRootShown,
@@ -26,7 +28,7 @@ import {
 
 /** The file checks a design as it reads it, so a frame these make is one the project file takes. */
 function parses(design: ContainerSpec): void {
-  expect(() => parseCanvasDocument({ version: 3, containers: [design] })).not.toThrow()
+  expect(() => parseCanvasDocument({ version: 4, containers: [design] })).not.toThrow()
 }
 
 describe("drawing a frame", () => {
@@ -63,7 +65,10 @@ describe("the frame tool's sizes", () => {
     expect(new Set(names).size).toBe(names.length)
     const modes = resolveModes(defaultModeSettings)
     expect(presets.flatMap((preset) => preset.modes).sort()).toEqual(modes.map((mode) => mode.name).sort())
-    for (const preset of presets) expect(preset.height).toBeGreaterThan(0)
+
+    for (const preset of presets) {
+      expect(preset.height).toBeGreaterThan(0)
+    }
   })
 
   it("resizes a frame, which stops hugging its content", () => {
@@ -80,7 +85,7 @@ describe("text on the empty canvas", () => {
     const { design, node } = frameOfText("Plans for every team", ["plans-for-every-team"], { x: 12, y: 34 })
     expect(design).toMatchObject({ kind: "frame", name: "Plans for every team", position: { x: 12, y: 34 } })
     expect(design.id).not.toBe("plans-for-every-team")
-    expect(design.root).toMatchObject({ type: "layout", style: { padding: 2, width: "hug" } })
+    expect(design.root).toMatchObject({ type: "layout", style: { padding: { step: 2 }, width: { size: "hug" } } })
     expect(findNode(design.root, node)).toMatchObject({ type: "text", text: "Plans for every team" })
     expect(hugsContent(design)).toBe(true)
     parses(design)
@@ -102,26 +107,44 @@ describe("text on the empty canvas", () => {
     expect(fittedFrame(fitted!, 42.2)).toBeUndefined()
     expect(fittedFrame(withFrameSize(design, { width: 200 }), 42)).toBeUndefined()
   })
+
+  // A story draws in each mode's whole window, so each mode's frame hugs what it draws there.
+  it("fits a screen that hugs its content in the viewport it was drawn in, leaving the others", () => {
+    const { design: frame } = frameOfText("Hi", [], { x: 0, y: 0 })
+    const story: ContainerSpec = { ...frame, kind: "screen", frames: { mobile: { width: 40 } } }
+
+    const fitted = fittedFrame(story, 96.4, "desktop")
+
+    expect(fitted?.frames).toEqual({ mobile: { width: 40 }, desktop: { width: 96 } })
+    expect(fittedFrame(fitted!, 96, "desktop")).toBeUndefined()
+    expect(fitsDrawn(story)).toBe(true)
+    expect(fitsDrawn({ ...story, kind: "screen", root: { type: "layout", id: "root", children: [] } })).toBe(false)
+  })
 })
 
 describe("a frame's size in the inspector", () => {
   const frame = drawnFrame([], { x: 0, y: 0 }, { width: 640, height: 400 })
 
   it("shows as its root's width and height, in steps", () => {
-    expect(frameRootShown(frame, 4).root.style).toMatchObject({ width: 160, height: 100 })
+    expect(frameRootShown(frame, 4).root.style).toMatchObject({ width: { step: 160 }, height: { step: 100 } })
   })
 
   it("puts a fixed width or height back as the frame's size, and anything else as its default", () => {
-    const edit = (style: Record<string, unknown>) => {
+    const edit = (style: NodeStyle) => {
       const shown = frameRootShown(frame, 4)
+
       return frameRootStored({ ...shown, root: { ...shown.root, style: { ...shown.root.style, ...style } } }, 4)
     }
-    const wider = edit({ width: 200 })
+
+    const wider = edit({ width: { step: 200 } })
     expect(wider.size).toEqual({ width: 800, height: 400 })
     expect(wider.root.style).not.toHaveProperty("width")
-    expect(edit({ height: "hug" }).size).toEqual({ width: 640 })
-    expect(edit({ width: "fill", height: "hug" }).size).toBeUndefined()
-    expect(edit({ width: "hug" })).toMatchObject({ size: { width: 640 }, root: { style: { width: "hug" } } })
+    expect(edit({ height: { size: "hug" } }).size).toEqual({ width: 640 })
+    expect(edit({ width: { size: "fill" }, height: { size: "hug" } }).size).toBeUndefined()
+    expect(edit({ width: { size: "hug" } })).toMatchObject({
+      size: { width: 640 },
+      root: { style: { width: { size: "hug" } } }
+    })
     parses(wider)
   })
 })
@@ -137,9 +160,9 @@ describe("instances of a component that becomes a frame", () => {
       type: "layout",
       id: "badge-root",
       children: [{ type: "text", id: "badge-label", text: "New", bind: { text: "label" } }]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
+
   const home: ContainerSpec = {
     id: "home",
     name: "Home",
@@ -151,8 +174,7 @@ describe("instances of a component that becomes a frame", () => {
         { type: "instance", id: "first", design: "badge", args: { label: "Sale" } },
         { type: "layout", id: "row", children: [{ type: "instance", id: "second", design: "badge" }] }
       ]
-    },
-    states: [{ id: "default", name: "Default" }]
+    }
   }
 
   it("counts them, wherever they are", () => {
@@ -165,10 +187,17 @@ describe("instances of a component that becomes a frame", () => {
     expect(instanceCount(detached, "badge")).toBe(0)
     expect(findNode(detached.root, "first")).toMatchObject({ type: "layout" })
     const texts: string[] = []
+
     const visit = (node: ContainerSpec["root"]) => {
-      if (node.type === "text") texts.push(node.text)
-      if (node.type === "layout") node.children.forEach(visit)
+      if (node.type === "text") {
+        texts.push(node.text)
+      }
+
+      if (node.type === "layout") {
+        node.children.forEach(visit)
+      }
     }
+
     visit(detached.root)
     expect(texts).toEqual(["Sale", "New"])
   })

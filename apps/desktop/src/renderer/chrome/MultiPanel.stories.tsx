@@ -1,10 +1,10 @@
 import { findNode } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
+import { containerEntry } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { userEvent, within } from "storybook/test"
-import { design, example, findTooltip, node } from "../stories/fixtures.tsx"
+import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /**
@@ -12,7 +12,7 @@ import { Inspector } from "./Inspector.tsx"
  * whose shared look is edited at once, with the values they don't share marked as mixed.
  */
 const meta = {
-  title: "Parity/Inspector/Multiple",
+  title: "Parity/Inspector/Layers/Several layers",
   component: DesignTab,
   render: () => <Inspector />,
   decorators: [
@@ -25,6 +25,7 @@ const meta = {
 } satisfies Meta<typeof DesignTab>
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 /** Two designs selected: how many, their names, the align buttons, then duplicate and delete. */
@@ -39,15 +40,6 @@ export const ManyDesigns: Story = {
       designsSelection(["Pricing", "Dashboard", "Sign in", "Settings", "Plan card"].map(design))
     )
   ]
-}
-
-/** Hovering an align button: its tooltip names it and its shortcut. */
-export const AlignTooltip: Story = {
-  loaders: [inspecting("design", () => designsSelection([design("Pricing"), design("Dashboard")]))],
-  play: async ({ canvasElement }) => {
-    await userEvent.hover(within(canvasElement).getByRole("button", { name: "Align left" }))
-    await findTooltip(slowly)
-  }
 }
 
 /**
@@ -84,8 +76,8 @@ export const LayersInDifferentLayouts: Story = {
 export const LayersInAState: Story = {
   loaders: [
     inspecting("design", () =>
-      layersSelection(design("Sign in"), [node("Sign in", "Email input"), node("Sign in", "Password input")], {
-        state: "signing-in"
+      layersSelection(design("Stat card"), [node("Stat card", "Label"), node("Stat card", "Value")], {
+        state: "loading"
       })
     )
   ]
@@ -107,7 +99,8 @@ export const LayersGone: Story = {
 
 /** The ids of a layout's children in the example. */
 function childrenOf(designName: string, layoutName: string): string[] {
-  const entry = example().store.getEntry(design(designName))
+  const entry = containerEntry(example().doc, design(designName))
   const layout = entry && findNode(entry.container.root, node(designName, layoutName))
+
   return layout?.type === "layout" ? layout.children.map((child) => child.id) : []
 }

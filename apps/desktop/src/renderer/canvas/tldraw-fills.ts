@@ -1,4 +1,4 @@
-import { ArrowShapeUtil, DrawShapeUtil, GeoShapeUtil, type TLShapeUtilCanvasSvgDef } from "tldraw"
+import { ArrowUtil, type CanvasSvgDef, DrawUtil, GeoUtil } from "./tldraw-names.ts"
 
 /*
  * tldraw's own arrow, draw and geo shapes, which the canvas never makes, without the hatched fill each adds to the
@@ -8,20 +8,20 @@ import { ArrowShapeUtil, DrawShapeUtil, GeoShapeUtil, type TLShapeUtilCanvasSvgD
  * each time a project opened (PAR-179). A shape filled with the pattern, which only these three draw, would show no fill.
  */
 
-class Arrows extends ArrowShapeUtil {
-  override getCanvasSvgDefs(): TLShapeUtilCanvasSvgDef[] {
+class Arrows extends ArrowUtil {
+  override getCanvasSvgDefs(): CanvasSvgDef[] {
     return []
   }
 }
 
-class Drawings extends DrawShapeUtil {
-  override getCanvasSvgDefs(): TLShapeUtilCanvasSvgDef[] {
+class Drawings extends DrawUtil {
+  override getCanvasSvgDefs(): CanvasSvgDef[] {
     return []
   }
 }
 
-class Geos extends GeoShapeUtil {
-  override getCanvasSvgDefs(): TLShapeUtilCanvasSvgDef[] {
+class Geos extends GeoUtil {
+  override getCanvasSvgDefs(): CanvasSvgDef[] {
     return []
   }
 }

@@ -1,8 +1,13 @@
 import {
   collectCustomProperties,
   type EnclosingAtRule,
+  type FrameRulesOptions,
+  frameRules,
   type Guest,
+  type ModuleStyles,
   prepareCanvasCss,
+  previewRules,
+  type RenderNode,
   rewriteFrameUnits,
   rewriteSheetFrameUnits,
   type ThemeVariable
@@ -16,20 +21,37 @@ import {
   type TokenChange
 } from "@parity-app/tokens"
 
-export interface LoadedGuest {
+export interface LoadedGuest extends FrameCss {
   guest: Guest
   /** Adopted by every rendered mode's shadow root. */
   sheet: CSSStyleSheet
+  /** Adopted by every rendered mode's shadow root after `sheet`: the stylesheets the project's modules imported. */
+  moduleSheet: CSSStyleSheet
   /** The project's design tokens: its compiled CSS's variables plus its styling framework's full theme. */
   tokens: Token[]
   /** The attributes that switch on each theme the project sets by attribute, which frames in its mode get. */
   themeAttributes: Record<string, Record<string, string>>
 }
 
+/** The CSS Parity writes for a project's frames, beside the project's own. */
+export interface FrameCss {
+  /**
+   * The rules a frame draws a tree's elements from (core's `frameRules`), prepared for a frame as the project's CSS
+   * is, and in the cascade layer the project's own utility classes are in, when it has one.
+   */
+  rules(tree: readonly RenderNode[]): string
+  /** The rules that show a frame drawing `drawn` as `next`, a style edit not yet made (core's `previewRules`). */
+  previewRules(drawn: readonly RenderNode[], next: readonly RenderNode[]): string
+  /** CSS written for this project's frames, such as its styling framework's classes, prepared as its own CSS is. */
+  prepare(css: string): { scoped: string; global: string }
+}
+
 interface Loading {
   loaded: Promise<LoadedGuest>
   /** The stylesheet the document adopted for the guest's rules that can't go in a shadow root, once made. */
   global?: CSSStyleSheet
+  /** Stops showing the stylesheets the guest's modules import, once it shows them. */
+  stopModuleStyles?: () => void
   released?: boolean
 }
 
@@ -42,15 +64,20 @@ const guests = new Map<string, Loading>()
  */
 export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise<LoadedGuest> {
   let loading = guests.get(url)
+
   if (!loading) {
+    // SAFETY: `loaded`, its one required field, is set on the next line, before anything reads the entry.
     const entry = {} as Loading
     entry.loaded = load(url, theme, entry)
     entry.loaded.catch(() => {
-      if (guests.get(url) === entry) guests.delete(url)
+      if (guests.get(url) === entry) {
+        guests.delete(url)
+      }
     })
     guests.set(url, entry)
     loading = entry
   }
+
   return loading.loaded
 }
 
@@ -60,11 +87,19 @@ export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise
  */
 export function releaseGuest(url: string): void {
   const entry = guests.get(url)
-  if (!entry) return
+
+  if (!entry) {
+    return
+  }
+
   guests.delete(url)
   entry.released = true
+  entry.stopModuleStyles?.()
   const { global } = entry
-  if (global) document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== global)
+
+  if (global) {
+    document.adoptedStyleSheets = document.adoptedStyleSheets.filter((sheet) => sheet !== global)
+  }
 }
 
 async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
@@ -73,27 +108,107 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   // Packages' stylesheets draw first, as the app imports them first, and aren't tokens: see `GuestInit.packageCss`.
   const packages = prepareCanvasCss(guest.packageCss ?? "", { baseUrl: new URL(url).origin })
   const global = new CSSStyleSheet()
-  global.replaceSync(packages.global + css.global)
+  const moduleSheet = new CSSStyleSheet()
+  const sheets = { scoped: moduleSheet, global, before: packages.global + css.global }
+
+  if (guest.moduleStyles) {
+    const stop = showModuleStyles(guest.moduleStyles, sheets, new URL(url).origin)
+
+    if (entry.released) {
+      stop()
+    } else {
+      entry.stopModuleStyles = stop
+    }
+  } else {
+    global.replaceSync(sheets.before)
+  }
+
   if (!entry.released) {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
     entry.global = global
   }
+
   // The theme's own values measure the frame as the project's CSS does, though they never went through preparing.
   const fallbacks = rewriteSheetFrameUnits(themeFallbackCss(css.scoped, theme))
   const sheet = guestSheet(fallbacks + packages.scoped + css.scoped)
+
   // Tokens keep the values the project wrote, `0.25rem` rather than what a frame draws it with, and its
-  // `prefers-color-scheme` blocks, which frames draw as rules for their colour scheme.
-  const written = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin, units: false, colorSchemes: false })
+  // `prefers-color-scheme` blocks, which frames draw as rules for their colour scheme, and a qualified root as written.
+  const written = prepareCanvasCss(guest.css, {
+    baseUrl: new URL(url).origin,
+    units: false,
+    colorSchemes: false,
+    qualifiedRoots: false
+  })
+
   return {
     guest,
     sheet,
+    moduleSheet,
     tokens: extractTokens(written.scoped, theme, guest.tokenCategories),
-    themeAttributes: themeAttributes(collectCustomProperties(written.scoped))
+    themeAttributes: themeAttributes(collectCustomProperties(written.scoped)),
+    ...frameCss(guest.css, new URL(url).origin)
   }
+}
+
+/**
+ * Shows the stylesheets a guest's modules import (PAR-1181), as they come: their rules for frames in `scoped`, and in
+ * `global`, the document's, after `before`, the rules only the document can hold, `@font-face` and `@property`, as the
+ * project's global stylesheets' are. Each stylesheet is prepared once while it stays the same. Gives back what stops it.
+ */
+export function showModuleStyles(
+  styles: ModuleStyles,
+  sheets: { scoped: CSSStyleSheet; global: CSSStyleSheet; before: string },
+  origin: string
+): () => void {
+  let prepared = new Map<string, ReturnType<typeof prepareCanvasCss>>()
+
+  const show = () => {
+    const next = new Map<string, ReturnType<typeof prepareCanvasCss>>()
+
+    for (const css of styles.sheets()) {
+      next.set(css, next.get(css) ?? prepared.get(css) ?? prepareCanvasCss(css, { baseUrl: origin }))
+    }
+
+    prepared = next
+    const all = [...next.values()]
+    sheets.scoped.replaceSync(all.map(({ scoped }) => scoped).join("\n"))
+    sheets.global.replaceSync([sheets.before, ...all.map(({ global }) => global)].join("\n"))
+  }
+
+  show()
+
+  return styles.subscribe(show)
+}
+
+/**
+ * What writes the CSS for the frames of a project whose compiled styles are `css`, served from `origin`: each is
+ * prepared as the project's own CSS is, so its lengths measure the frame and its `url()`s are the project's.
+ */
+export function frameCss(css: string, origin: string): FrameCss {
+  const prepare = (text: string) => prepareCanvasCss(text, { baseUrl: origin })
+  const layer = rulesLayer(css)
+
+  return {
+    rules: (tree) => prepare(frameRules(tree, layer)).scoped,
+    previewRules: (drawn, next) => prepare(previewRules(drawn, next, layer)).scoped,
+    prepare
+  }
+}
+
+/**
+ * Where a project's frames put the rules they draw layers from. A project whose CSS has a `utilities` cascade layer,
+ * as Tailwind's does, takes them there, where the classes its code would have go: over its base styles, and ranked
+ * with a component's own classes. Any other project's CSS isn't layered, and a layered rule would lose to all of it,
+ * a reset's `* { padding: 0 }` included, so its rules aren't either.
+ */
+function rulesLayer(css: string): FrameRulesOptions {
+  return /@layer\s[^{;]*\butilities\b/.test(css) ? { layer: "utilities" } : {}
 }
 
 /** Each guest stylesheet's CSS as compiled, which a frame drawn offscreen starts from. */
 const compiled = new WeakMap<CSSStyleSheet, string>()
+
 /** The token overrides each guest stylesheet shows now, as `showTokenOverrides` last laid them over it. */
 const shown = new WeakMap<CSSStyleSheet, string>()
 
@@ -103,6 +218,7 @@ export function guestSheet(css: string): CSSStyleSheet {
   sheet.replaceSync(css)
   compiled.set(sheet, css)
   shown.set(sheet, "[]")
+
   return sheet
 }
 
@@ -114,13 +230,25 @@ export function guestSheet(css: string): CSSStyleSheet {
  */
 export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly TokenChange[]): void {
   const key = JSON.stringify(overrides.map(({ name, theme, value }) => [name, theme, value]))
-  if (shown.get(sheet) === key) return
+
+  if (shown.get(sheet) === key) {
+    return
+  }
+
   const css = compiled.get(sheet)
-  if (css === undefined) throw new Error("Token overrides go on a guest's stylesheet, made by guestSheet")
+
+  if (css === undefined) {
+    throw new Error("Token overrides go on a guest's stylesheet, made by guestSheet")
+  }
+
   // Until every value is laid over it, the sheet shows no known set, so a value that throws can't leave one claimed.
   shown.delete(sheet)
   sheet.replaceSync(css)
-  for (const { name, theme, value } of overrides) previewToken(sheet, name, theme, value)
+
+  for (const { name, theme, value } of overrides) {
+    previewToken(sheet, name, theme, value)
+  }
+
   shown.set(sheet, key)
 }
 
@@ -133,23 +261,31 @@ export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly Tok
 export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, value: string): void {
   const property = `--${name}`
   const rules: CSSStyleRule[] = []
+
   const collect = (list: CSSRuleList, atRules: EnclosingAtRule[]) => {
     for (const rule of list) {
       if (rule instanceof CSSStyleRule) {
-        if (themeOfSelector(rule.selectorText, atRules) === theme) rules.push(rule)
-      } else if ("cssRules" in rule) {
+        if (themeOfSelector(rule.selectorText, atRules) === theme) {
+          rules.push(rule)
+        }
+      } else if ("cssRules" in rule && rule.cssRules instanceof CSSRuleList) {
         const atRule = /^@([\w-]+)\s*([^{]*)/.exec(rule.cssText)
         const inner = atRule ? [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }] : atRules
-        collect((rule as CSSGroupingRule).cssRules, inner)
+        collect(rule.cssRules, inner)
       }
     }
   }
+
   collect(sheet.cssRules, [])
   // Lengths in the value measure the frame, as the compiled CSS's do: `0.5rem` the project's root font.
   const drawn = rewriteFrameUnits(value)
   const declaring = rules.filter((rule) => rule.style.getPropertyValue(property) !== "")
-  if (declaring.length > 0) for (const rule of declaring) rule.style.setProperty(property, drawn)
-  else {
+
+  if (declaring.length > 0) {
+    for (const rule of declaring) {
+      rule.style.setProperty(property, drawn)
+    }
+  } else {
     // A rule of its own, with the selector the theme already uses, so `[data-theme="dark"]` stays an attribute.
     const selector = rules[0]?.selectorText ?? (theme === "default" ? ":host" : `.${theme}`)
     sheet.insertRule(`${selector} { ${property}: ${drawn}; }`, sheet.cssRules.length)
@@ -159,15 +295,19 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
 // A builder may still be preparing dependencies on the first request, and a failed module import is cached by URL.
 async function importWithRetry(url: string, attempts = 3): Promise<Guest> {
   let lastError: unknown
+
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const target = attempt === 0 ? url : `${url}?attempt=${attempt}`
+      // SAFETY: the guest module is the entry Parity's builder generates, whose default export is the guest.
       const module = (await import(/* @vite-ignore */ target)) as { default: Guest }
+
       return module.default
     } catch (error) {
       lastError = error
       await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)))
     }
   }
+
   throw lastError
 }

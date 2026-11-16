@@ -13,17 +13,28 @@ import icon from "../../../../../brand/parity-icon.svg?url"
 import type { BuildInfo } from "../../shared/protocol.ts"
 import { notify } from "../toasts.tsx"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
+import { telemetryLevelNames, useTelemetry } from "./telemetry-setting.ts"
 import { actOnUpdate, checkForUpdates, useUpdates } from "./updates.tsx"
 
 /** The parts of Parity a bug report needs: its version, and the Electron and Chromium it runs on. */
 function buildDetails(build: BuildInfo, userAgent = navigator.userAgent): { label: string; value: string }[] {
   const version = (name: string) => new RegExp(`${name}/([\\d.]+)`).exec(userAgent)?.[1] ?? "unknown"
   let system = "Linux"
-  if (/Mac/.test(userAgent)) system = "macOS"
-  else if (/Windows/.test(userAgent)) system = "Windows"
+
+  if (/Mac/.test(userAgent)) {
+    system = "macOS"
+  } else if (/Windows/.test(userAgent)) {
+    system = "Windows"
+  }
+
   let versionLabel = build.version
-  if (build.channel === "beta") versionLabel += " (Beta)"
-  else if (build.channel === "development") versionLabel += " (development build)"
+
+  if (build.channel === "beta") {
+    versionLabel += " (Beta)"
+  } else if (build.channel === "development") {
+    versionLabel += " (development build)"
+  }
+
   return [
     {
       label: "Version",
@@ -38,27 +49,37 @@ function buildDetails(build: BuildInfo, userAgent = navigator.userAgent): { labe
 /** Help > About Parity: which Parity this is, and how it gets updates. */
 export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
   const open = useOpenDialog() === "about"
+
   const [installed, setInstalled] = useState<BuildInfo>({
     version: window.canvasHost.appVersion,
     channel: import.meta.env.DEV ? "development" : "unknown"
   })
+
   useEffect(() => {
-    if (!open || preview) return
+    if (!open || preview) {
+      return
+    }
+
     let active = true
     void window.canvasHost
       .getBuildInfo()
       .then((info) => {
-        if (active) setInstalled(info)
+        if (active) {
+          setInstalled(info)
+        }
       })
       .catch(() => undefined)
+
     return () => {
       active = false
     }
   }, [open, preview])
+  const telemetry = useTelemetry(open)
   const build = preview ?? installed
   const details = buildDetails(build)
   const update = useUpdates()
   const busy = ["checking", "downloading", "installing"].includes(update.phase)
+
   const descriptions = {
     disabled: "Updates are available in installed builds. Linux updates need the AppImage.",
     idle: "Check for a newer release of Parity.",
@@ -70,17 +91,40 @@ export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
     installing: "Restarting to install the update…",
     error: "Couldn't check or download the update. Check your connection and try again."
   }
+
   let action = "Check for updates"
-  if (update.phase === "ready") action = "Restart to update"
-  else if (update.phase === "manual") action = "Download update"
-  else if (update.phase === "error") action = "Try again"
+
+  if (update.phase === "ready") {
+    action = "Restart to update"
+  } else if (update.phase === "manual") {
+    action = "Download update"
+  } else if (update.phase === "error") {
+    action = "Try again"
+  }
+
   details.push({ label: "Update channel", value: update.beta ? "Beta and stable" : "Stable releases" })
-  if ("version" in update) details.push({ label: "Available", value: update.version })
+
+  if ("version" in update) {
+    details.push({ label: "Available", value: update.version })
+  }
+
+  // What a bug report needs to find this computer's reports in Sentry (PAR-626).
+  if (telemetry) {
+    let level = telemetryLevelNames[telemetry.level]
+
+    if (telemetry.overriddenBy) {
+      level += ` (set by ${telemetry.overriddenBy})`
+    }
+
+    details.push({ label: "Diagnostics", value: level }, { label: "Install ID", value: telemetry.installId })
+  }
+
   const copy = () => {
     void navigator.clipboard
       .writeText(details.map(({ label, value }) => `${label}: ${value}`).join("\n"))
       .then(() => notify.done("Copied the version details", { timeout: 2000 }))
   }
+
   return (
     <Dialog open={open} onOpenChange={(next) => !next && closeDialog()}>
       <DialogContent className="sm:max-w-sm">
@@ -93,7 +137,7 @@ export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
           {details.map(({ label, value }) => (
             <div key={label} className="contents">
               <dt className="text-muted-foreground">{label}</dt>
-              <dd className="tabular-nums">{value}</dd>
+              <dd className="tabular-nums break-all">{value}</dd>
             </div>
           ))}
         </dl>

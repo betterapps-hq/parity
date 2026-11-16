@@ -33,12 +33,17 @@
     "rules:import": "rulesync import"
   },
   "devDependencies": {
+    "@buildkitgg/oxlint-config": "catalog:",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/telemetry": "workspace:*",
+    "@sentry/cli": "catalog:",
     "@types/node": "^24.12.0",
     "beachball": "catalog:",
     "knip": "catalog:",
     "typescript": "7.0.2",
     "vite-plus": "catalog:",
     "vitest": "catalog:",
+    "zod": "catalog:",
     "@betterapps/playbook": "github:betterapps-hq/playbook",
     "rulesync": "43.5.0",
     "skills": "1.7.6"

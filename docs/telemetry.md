@@ -6,12 +6,11 @@
 
 Parity sends what happens inside it to Sentry, so a bug that a tester or an agent hits arrives with its context: the
 error, the trace from click to file write, the replay of the window and the events before it. This page says what's
-sent, how to turn it down and what's kept out, and lists every event Parity records.
+sent, how code records it, how to turn it down and what's kept out, and lists every event Parity records.
 
-The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md), and the direction is in
-[decisions.md](decisions.md#paritys-own-telemetry-goes-to-sentry-on-by-default). It's being built in the Product
-telemetry stream in Linear, and each issue in it updates this page as it lands. This is about Parity itself: the
-Telemetry lens, which reads OpenTelemetry from the app a person builds, shares nothing with it.
+The plan is [proposals/product-telemetry.md](proposals/product-telemetry.md). It's being built in the Product telemetry
+stream in Linear, and each issue in it updates this page as it lands. This is about Parity itself: the Telemetry lens,
+which reads OpenTelemetry from the app a person builds, shares nothing with it.
 
 ## What goes to Sentry
 
@@ -21,26 +20,275 @@ Telemetry lens, which reads OpenTelemetry from the app a person builds, shares n
 - **Replays** of the editor window, unmasked.
 
 The app sends to the `parity-desktop` project and the CLI to `parity-cli`; [sentry.md](sentry.md) says how Sentry is set
-up. Main also writes every event to rotating log files, a local copy that's kept even with telemetry off.
+up.
+
+A hang is sent as it starts and again when it ends (PAR-804). A window's start is `window.hang_started`. Main can't send
+while it's stuck, so a watchdog thread sends "Main stopped answering" to Sentry after 2 seconds without main's
+heartbeat. A hang still open when the app exits, as in a force-quit, is kept in `<userData>/hangs` and reported by the
+next run as `window.hung` or `main.blocked` with `ended: "exited"`.
+
+The watchdog also says where main was stuck (PAR-805). It pauses main through the inspector, from inside the process
+with no port opened, and takes its stack. Its Sentry event carries the stack, which Sentry maps to the source by the
+bundles' debug IDs, and `main.blocked` and the open-hang file carry `where`, the innermost of Parity's own frames.
+
+Main can pause only while it runs JavaScript (PAR-890). Stuck in native code, or idle while Chromium's own work holds
+its thread, it pauses once JavaScript runs again, so the stack is where it resumed, not where it was stuck. The watchdog
+tells them apart by how long the pause took: running JavaScript, main pauses within a few milliseconds. The event's
+`stuck_in` tag says `javascript` or `native` and `pausedAfterMs` how long the pause took. A hang outside JavaScript is
+titled "Main stopped answering outside JavaScript, then resumed in …" and gives `main.blocked` no `where`. Main still
+stuck after 2 more seconds sends no stack.
+
+A crash or fatal error carries the local copy's last 5 minutes as `logs.jsonl`, at most 2,000 events, scrubbed
+(PAR-805). That's any `fatal` event, such as a native crash, an abnormal exit or an uncaught error in main, and any
+error nothing caught. Main keeps those minutes in memory as events arrive. A native crash found as the app starts
+carries the crashed run's last minutes, read from the files.
+
+## Who's driving
+
+Every error, span, log and replay is tagged so a test pass can be found and filtered in Sentry:
+
+- **`environment`:** `development` for `pnpm dev` and agent drives, `ci` wherever `CI` is set, `preview` for a pull
+  request's installer or a pkg.pr.new CLI, `beta` for the published app and CLI before promotion (PAR-778, PAR-950), and
+  `production` for a published app or CLI that's been promoted to everyone, from the start after it learns so (PAR-779,
+  PAR-799).
+- **`release`:** the published version, or the commit any other build was made from.
+- **`test_run`:** from `PARITY_TEST_RUN`, when it's set. The end-to-end suite sets it to `github-<run>-<attempt>` in
+  GitHub Actions, and `pnpm perf` to `perf-<time>` unless it's already set. An agent that starts a copy to drive with
+  `drive.ts` sets it on that copy.
+- **`driver`:** `person`, or `agent` from an agent's call until the person presses a key in the window or no call has
+  come for 10 seconds. An agent's events add `agent`, its caller name, and `agent_client`, the MCP client's name (such
+  as `claude-code`), when it calls through MCP.
+- **Sentry's user:** the install ID, named by `PARITY_TESTER` when it's set, or else by the agent's session while one is
+  driving.
+
+Main holds these on its Sentry scope, which the windows' and the service's events join. The rules are `runTags`,
+`driverTags`, `telemetryUser` and `createDriverTracker` in `@parity-app/telemetry`.
+
+## How events get there
+
+Each process records events with `createTelemetry` and the Sentry sink, `createSentrySink` in `@parity-app/telemetry`,
+which the CLI shares:
+
+- **In the process that records it,** an event or span becomes a breadcrumb, so an error there carries the events before
+  it (Sentry keeps the last 100). An `error.*` event, or one at the `error` or `fatal` level, becomes a Sentry error,
+  linked to its trace. Sentry's SDK adds its own breadcrumbs beside them, such as console calls, but in the windows only
+  Parity's: a call with the project's code in its stack, loaded from its builder, is left out (PAR-814).
+- **Then it goes to main:** a window's over IPC from its preload, a render window's from a preload that gives the page
+  only that, the service's over its channel to main, and the props worker's through the service, which adds them to its
+  own breadcrumbs and errors.
+- **Main sends it to Sentry** as a structured log, its message the event's name and its attributes searchable as they
+  are, with the envelope's fields beside them under `parity.`. A span goes as a Sentry span with Parity's own trace and
+  span IDs, so spans from every process join one trace. Main's hooks decide what leaves, by the level below.
+- **Main also writes it to the local copy,** `<userData>/logs/parity-<date>.jsonl`, one envelope per line, at every
+  level, Off included. A file continues in `parity-<date>.2.jsonl` and on once it reaches 5 MB, and the newest 10 are
+  kept. Lines are written each second, and at once for a `fatal` event.
 
 Every event carries the same envelope besides its own attributes: its `name`, `time` and `level`; the `process` it came
 from (`main`, `renderer`, `render`, `service`, `worker`, `builder` or `cli`); the `installId`, the `sessionId` of this
 run and, where there is one, the `windowId` and `project`. An event inside a trace adds its `traceId` and `spanId`, and
 a span adds its `parentSpanId`, `durationMs` and `outcome` (`ok`, `error` or `cancelled`).
 
-## Turning it down or off
+## Traces
 
-Telemetry is on by default, at its fullest level, everywhere Parity runs, development and CI included, each tagged with
-its environment. Unit tests leave it off.
+One action is one trace in Sentry, across every process that works on it (PAR-629):
 
-| Level             | Sent                                                                     |
-| ----------------- | ------------------------------------------------------------------------ |
-| **All** (default) | Errors, crashes, traces, events, replays and failure bitmaps             |
-| **Errors**        | Errors and crashes, with their breadcrumbs, traces and the replay buffer |
-| **Off**           | Nothing; the local copy is still written                                 |
+- **The window starts a trace** for each action, as `command.ran` with its ID from `chrome/actions.ts`, and each canvas
+  drag, as `gesture.ran` with its kind from `canvas/gesture.ts`. The service's requests made while it runs carry it.
+- **Requests carry the trace** as `sentry-trace` and `baggage`, in the channel message's `trace` field. The service and
+  main answer each in a `request.handled` span, with the error code when it fails.
+- **What a window asks main over IPC carries it too,** such as signing in, sending a report, checking for updates or
+  picking a file. The preload sends the window's trace after each request's params, and main runs each handler in a
+  `request.handled` span named by its method in `shared/host-methods.ts`, such as `pickFolder` (PAR-810).
+- **Queued work keeps its trace:** an offscreen frame or preview is a `frame.rendered` span with how long it waited for
+  a window, and a builder's start is `builder.started`.
+- **An agent's call starts its trace in the CLI.** A `parity` command's calls carry its `cli.ran` span, and each MCP
+  call starts a trace of its own. The agent server's `agent.called` span continues it, so the call and the frame it drew
+  are one trace.
 
-Choose the level in Settings > Telemetry, or set `PARITY_TELEMETRY` to `all`, `errors` or `off`. The CLI reads the same
-setting and variable.
+To find one, open a span's trace in Sentry, or search spans by `trace` from an error.
+
+## Checking it in the end-to-end tests
+
+The end-to-end suite reads back what the app recorded and checks the main workflows' events (PAR-648), in
+`apps/desktop/e2e/telemetry.e2e.ts`. Like the rest of the suite it runs only in CI, through `.github/workflows/app.yml`.
+
+- **It reads the local copy,** from the copy's own profile, since main writes every event and span from every process
+  there at every level. That's the same thing Sentry gets, without asking Sentry for it. `e2e/events.ts` reads it and
+  finds events by name, envelope field and attribute. Main writes each second, so a test waits for an event with
+  `expect.poll`.
+- **What it checks:** opening the project, from `project.opening` to `project.opened`, `project.loaded` and
+  `project.drawn`; a layer drag, as `gesture.ran` and `gesture.ended`; Duplicate and Save from the keyboard, as
+  `command.ran` from `key`; the file write as `document.saved`; and an agent's `parity state`, as `cli.ran` in the CLI's
+  log and `agent.called` in the app's.
+- **It checks the traces across processes:** the service's `project.opened` and its answers are in the trace of
+  `project.opening`, with `project.loaded` and `project.drawn`. The service's answer to `document.save` is in the trace
+  of Save. `agent.called` continues the command's `cli.ran` span. The drag and Duplicate each start a trace of their
+  own; with autosave off, as it is by default, neither asks the service for anything. `gesture.ended` is under the
+  drag's `gesture.ran` span and the window's `document.saved` under Save's `command.ran`, though each is recorded after
+  that span ends (PAR-752).
+- **CI's runs send only their errors and reports to Sentry** (PAR-777), as `environment: ci` with `test_run` set to
+  `github-<run>-<attempt>`, each error with its breadcrumbs. Spans and logs stay in the local copy, which is written in
+  full, and every line of it carries that `testRun`, which the suite checks. The editor window keeps only a buffer of
+  Session Replay, which a failed test sends (below). The `parity` command it runs sends the same, with the same tags,
+  and writes its log and outbox inside the copy's profile.
+- **A failed test sends a replay of the editor window** (PAR-1043), of what CI's buffer holds as it fails, tagged
+  `e2e_test` with the test's full name and `test_run` with the run. The job's log says where to watch it, in a line
+  starting `Replay of "<test>":` after the failure. `e2e/failed-replay.ts` asks for it once the test's `afterEach` has
+  run, so a reset that fails is in it too. Passing tests send none.
+- **A CI run's spans and logs are kept as an artifact of its run** (PAR-785), one for each of its 3 shards, named
+  `telemetry-github-<run>-<attempt>-<shard>` after its `test_run` and kept for 7 days, whether the tests passed or not.
+  Before the suite removes the copy's profile, `e2e/launch.ts` copies the app's `logs/`, the `parity` commands'
+  `cli-logs/` and the app's output, `app.log`, to the folder `PARITY_E2E_TELEMETRY` names, which `app.yml` uploads.
+  Download it from the run's summary page or with `gh run download <run> -n telemetry-github-<run>-<attempt>-<shard>`,
+  and read it with `PARITY_USER_DATA=<folder> parity logs --session all`, which takes the same filters as the app's own
+  copy. The CLI's files are JSON lines too, read directly.
+
+## Agents and the CLI
+
+Agents' calls are recorded where they're answered, once for every operation, whichever way they came (PAR-641):
+
+- **The agent server records each call as `agent.called`:** the operation, `cli` or `mcp`, the caller's declared name
+  and MCP client, the params as JSON, the answer's size, and how it ended. A failure adds its code, `retryable` and how
+  many alternatives it offered; a snippet or screenshot that failed without throwing counts as failed too. The answer's
+  warning groups are listed by category. An `exec` call's snippet goes on the span by itself, so a failed snippet reads
+  beside its error. `agentCallStart`, `agentCallAnswered` and `agentCallFailed` in `@parity-app/telemetry` read these
+  from the body and the answer, scrubbing the open projects' `.env` values before the params are serialized or cut,
+  since an escaped or shortened secret wouldn't match later. A search's params leave out what it searched for and the
+  ids it left out, and `place`'s leave out which result went in which node, as `connectors.*` never send them. When the
+  server can't start, the service records `agent.serverFailed`.
+- **The CLI records its own runs** through `@parity-app/telemetry`: `cli.ran` for each command, with the flags' names
+  but not their values; `cli.connectFailed` when no copy of the app is registered (`not_running`) or none answers
+  (`not_answering`); `cli.versionMismatch` when the app is newer than the CLI reads, or its answer doesn't check; and
+  `mcp.session` with each MCP client's name and version. They're written to `~/.parity/logs/parity-cli-<date>.jsonl`,
+  the newest 10 days kept, at every level.
+- **The CLI sends to Sentry's `parity-cli` project** (PAR-642), with the same tags as the app: `environment`, `release`,
+  `test_run`, and `driver` with `agent` and `agent_client`, since every CLI call is an agent's as the app counts them.
+  Its events go as logs and breadcrumbs, `cli.ran` as a span, and an error the CLI throws that isn't one of Parity's
+  coded failures, or one nothing caught, as a Sentry error in the command's trace. A command's `cli.ran` span is the
+  root of the trace its calls carry, so the app's `agent.called` span in `parity-desktop` joins it.
+- **A command never waits for Sentry.** Loading `@sentry/node` takes about 300 ms, so a command keeps what it would
+  send, writes it to `~/.parity/outbox` as it exits (`PARITY_CLI_OUTBOX` names another folder), and starts a detached
+  `parity` process that sends it and exits. That costs a command about 20 ms. `parity mcp` hands over what's waiting
+  every 10 seconds as well, and as soon as its client closes stdin or stops it with a signal (PAR-806). One sender runs
+  at a time, and a batch a day old is dropped.
+- **The CLI's release** is `parity-cli@<version>` when `npm publish` built it, and otherwise the commit it was built
+  from or runs from: a pkg.pr.new preview, a checkout's own `dist`, or source (PAR-719). Published to npm, it reports as
+  `beta` while its version is on `next`, and `production` once it's been `latest` (PAR-799): the sender asks npm's
+  registry after it sends and keeps the answer in `~/.parity/installed-cli.json`, which the next command reads, so no
+  command waits on npm. From a pkg.pr.new preview URL it reports as `preview`; from a checkout, as `development`.
+- **Agents report what they find** with `parity report "<what's wrong>"` or MCP's `report_problem` (PAR-646), above all
+  when nothing threw: a test pass that sees a wrong result. The service draws the frames of the design it names, asks
+  the window to flush its replay, and passes both to main, which sends a Sentry user feedback from `parity-desktop` as
+  Help > Report a problem does: the window's screenshot, the frames, the last hour of the local copy, versions and
+  projects, with the replay beside it. It's tied to the call's trace, so it sits under the command's `cli.ran` span, and
+  tagged `report: agent` with `tab`, `design`, `state`, `node` and the CLI's `test_run`. The answer is the feedback's ID
+  and link (`https://sentry.io/organizations/better-apps/projects/parity-desktop/events/<id>/`, which finds its issue);
+  Sentry's alert files it in Linear. Unlike the person's own report, it isn't sent while Telemetry is off.
+
+## Frames, previews and the bitmap cache
+
+Every frame and component preview drawn offscreen is recorded, so a slow or broken frame can be found and read
+(PAR-638):
+
+- **`frame.rendered`** is the span of each one, under the action, agent call or capture that asked for it: the design,
+  state and mode, the queue it waited in and for how long, how long the guest took to draw it (`renderMs`) and how long
+  settling and capturing took after (`captureMs`), its size and how many layers were measured. A frame that failed ends
+  as `error` with why.
+- **`frame.failed`** records a frame whose guest failed, with its error message, its stack and why: `module not found`,
+  `render threw`, or `timed out` when it's still drawing 30 seconds after its turn came, which is left to finish. A
+  failure the render page throws while the frame is settled, checked or measured is recorded the same way, with the
+  page's own message and stack rather than Electron's "Script failed to execute". It's a warning, a log rather than a
+  Sentry issue, since a project's own component failing isn't Parity's bug. Main keeps a picture of what the window
+  showed, and the Sentry errors about that frame in the 10 minutes after carry it as `failed-frame.png`, until another
+  frame fails: those from the offscreen window, or in the trace that asked for the frame. Other errors don't (PAR-812).
+- **`preview.made` and `preview.failed`** come from the service: each preview's component, size and time, or why it
+  couldn't be made.
+- **`bitmapCache.used`** gives the session's hits and misses for frame bitmaps and component previews kept on disk, each
+  minute there were lookups. A preview kept as failing or as drawing nothing counts as a hit, since it isn't drawn
+  again.
+- **`canvas.restedFar`** comes from the editor window each time the camera rests zoomed out far enough for frames to
+  show their bitmaps (PAR-949): how many frames in view show their bitmap, their skeleton, a placeholder or their live
+  design, as it came to rest and at the end, and how long until every one showed its bitmap. It ends once they all do,
+  after 10 seconds, or when the camera moves, and says which. The selected board's frames, which stay live, are left
+  out, and nothing is recorded while interacting or with no frames in view. `frame.rendered` says how fast the offscreen
+  windows capture; this says whether the canvas got the bitmaps.
+
+None of them is sampled. Opening `examples/shadcn-vite` on an empty cache drew about 640 frames and made 520 previews in
+two minutes, once; opening it again drew none.
+
+## Turning it off
+
+Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
+either sent or not: errors, crashes, traces, events, replays and failure bitmaps all go, or nothing does. CI is the one
+exception: wherever `CI` is set, only errors, reports and a failed end-to-end test's replay go, whatever the level,
+since its end-to-end runs sent nine in ten of `parity-desktop`'s spans (PAR-777, PAR-1043). `resolveTelemetry` in
+`@parity-app/telemetry` decides this with the level, as `errorsOnly`. The local copy is written either way. Unit tests
+leave it off.
+
+- **Settings > Diagnostics > Share diagnostics** turns it off or on again, at once, with no restart. It's kept with the
+  install ID in `<userData>/settings.json`, under `diagnostics` and `installId`, which the CLI reads too, as each
+  command starts (`desktopDataFolder` in `@parity-app/telemetry` finds the folder). Before the app has run, the CLI
+  sends, as install `none`.
+- **`PARITY_TELEMETRY=all` or `off`** decides a run whatever the setting says, and **`DO_NOT_TRACK=1`** turns it off.
+  Settings then shows the variable and leaves the switch disabled. Any other `PARITY_TELEMETRY` value stops the app, and
+  fails a `parity` command.
+- **The CLI says so once.** The first time it runs with diagnostics on, it prints one line to stderr saying they're
+  shared and how to stop it, and keeps `~/.parity/telemetry-notice` so it doesn't again.
+- **The install ID** is a random UUID made on the first run and sent as Sentry's user. Turning sharing off makes a new
+  one, so what's sent after turning it on again isn't linked to what came before. About shows it beside the versions.
+
+## Replays and frame bitmaps
+
+Sentry's Session Replay records the editor window, so a bug's event links to what happened before it: the panels, the
+canvas, selections, menus and dialogs, as they looked, with what was clicked and typed. Only secrets are hidden, as in
+every other event (see "Secrets are scrubbed" below). The offscreen render windows aren't recorded, and neither are
+Storybook or the CLI.
+
+- **While diagnostics are on, every session is recorded.** The share is `replaySessionRate` in
+  `apps/desktop/src/renderer/replay.ts`, 1 for now; lower it when replay volume or Sentry's quota says so. Replay is
+  started by hand, `followTelemetry` in the same file, so Sentry's own sample rates are 0.
+- **CI keeps a buffer instead** (PAR-1043), in memory, sent only when `sendReplay` asks, as the end-to-end suite does
+  for a failed test, or as a report does. That sends the buffer as a replay of its own and starts a fresh buffer, so CI
+  never goes on to record whole sessions. An error doesn't send it. The buffer holds a minute at most, and starts again
+  each time recording resumes after a hold below, so a test's replay starts where its zoom settled: for a drag test, the
+  drag and the reset after it. An end-to-end test that counts the window's DOM nodes holds recording while it counts
+  (`App.holdRecording`, PAR-1047), since the attributes Replay reads are nodes too.
+- **While they're off, nothing is recorded,** and the recorder isn't loaded. Turning them off in Settings stops it at
+  once, and turning them on starts it.
+- **The window's own canvases are recorded,** such as the selection overlay, as pictures twice a second while they
+  change. Sentry's canvas recorder is added before Replay, since Replay looks for it only as it's added itself; added
+  after, no canvas was recorded and Sentry showed each one as an empty box.
+- **While a project's canvas mounts, the page isn't recorded,** from the tab being ready until its first frame shows, or
+  5 seconds at most. The replay keeps the page as it was before, then a snapshot of the canvas once the frame shows, in
+  the same replay. Clicks and requests are still recorded meanwhile.
+- **While the canvas zooms, the page isn't recorded either,** from the zoom moving until a second after it settles and
+  the window is idle, or a minute at most. Each frame of a zoom restyles every board's gutters, captions and labels, and
+  recording those was the largest share of the window's JavaScript while zooming. The replay jumps from the canvas
+  before the zoom to a snapshot after it. Panning is still recorded, as are clicks and requests during a zoom.
+- **Recording keeps the window's memory level over a session.** Over 13 rounds of zooming, waking boards and editing,
+  the JS heap stayed between 134 and 149 MB with Replay on, as with it off. The page counts about 21,000 more DOM nodes
+  while recording: one for each attribute of each element the recorder reads, which go with their elements. Before
+  PAR-1169 it grew without end, to 867,000 nodes, 799 MB of heap and 2.3 GB for the window after an hour, for two
+  reasons: the recorder kept every frame it saw (see below), and each time it stopped and started again, as a hold does,
+  it kept its last snapshot of the page, about 2.3 MB here. `@sentry/electron` 8.4.0 brings Sentry 11.10, which lets go
+  of it. `pnpm perf --soak <minutes>` measures it again.
+
+A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
+shadow roots: it keeps every one it sees for the whole session, and with a frame's its whole drawing. It sees one as
+it's attached, which `shadow.ts` hides, and on every element it records, a left-out one included, so each shadow host
+sits inside an element left out (`[data-frame-box]`, and the icon's own) and is never recorded itself
+(`replay-block.ts`). The offscreen windows that draw their bitmaps aren't recorded either, so failures carry the frames
+themselves:
+
+- **Every error from the editor window** has `frames.json` attached, listing the frames on the canvas: the project,
+  design, state and mode of each, its size and whether it has a bitmap.
+- **A frame whose offscreen capture fails** is reported as an error tagged `render: failed`, with the WebP bitmap the
+  frame last showed attached as `frame.webp`, from before the edit whose render failed. A capture tried again until it
+  works is reported once.
+
+The frames are noted in `apps/desktop/src/renderer/canvas/frames-on-screen.ts`.
+
+The window asks main whether diagnostics are on as it starts, so the recorder starts a moment after the page.
 
 ## Secrets are scrubbed
 
@@ -49,8 +297,10 @@ replaced with `[redacted]` in every string and stack frame, in every process, be
 server-side scrubbing stays on as a second net.
 
 `createScrubber()` in `@parity-app/telemetry` does it. `createTelemetry` runs one on every event's attributes before its
-sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`) runs one
-in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`. It replaces:
+sinks, and each process's Sentry setup (`main/telemetry.ts`, `renderer/telemetry.ts`, `utility/telemetry.ts`, and the
+CLI's `send.ts`) starts Sentry with `sentryScrubbing()`, which runs one in `beforeSend`, `beforeSendTransaction`,
+`beforeSendSpan`, `beforeSendLog` and `beforeBreadcrumb`. It sends spans inside their transaction
+(`traceLifecycle: 'static'`), since a span Sentry streams on its own skips `beforeSendTransaction`. It replaces:
 
 - keys and tokens with a known shape: `sk-…`, Stripe, GitHub, Slack, AWS access key IDs, Google, npm and Sentry tokens,
   JWTs and private key blocks
@@ -60,20 +310,151 @@ in `beforeSend`, `beforeSendTransaction`, `beforeSendLog` and `beforeBreadcrumb`
 - long random strings, though not hex (hashes, commit SHAs, UUIDs, trace IDs), file names or `data:` URLs
 - values it's given, such as a project's `.env` values read with `envSecrets()`
 
-What was chosen and why is in [decisions.md](decisions.md), "Secrets are scrubbed before any event leaves a process".
+The values it's given are the open projects' `.env`, `.env.local` and other `.env.*` values. The service reads them with
+`envSecrets()` whenever a project opens or closes and sends them to main, and its own telemetry gets them through
+`setSecrets()`. No window gets them, since a project's code runs in the editor window's and the render windows' pages
+and could read another project's values there (PAR-983). Windows scrub everything else themselves, and main scrubs the
+values from what they send as it passes through:
+
+- **Errors and transactions** reach Sentry through main, since Sentry Electron's renderer SDK sends them over its
+  `sentry-ipc://` protocol and main captures them again, so main's `beforeSend` and `beforeSendTransaction` scrub them.
+- **Events and spans a window records** go to main through `record`, which scrubs their attributes before the local copy
+  and Sentry's logs and spans get them (`scrubRecorded` in `apps/desktop/src/main/window-scrubbing.ts`).
+- **Replays** go from main straight to Sentry's transport without `beforeSend`, so main scrubs them in the client's
+  `beforeEnvelope` hook (`scrubReplays`). The replay's event is always scrubbed. Its recording, compressed or not, is
+  read only when it holds one of the values, and one main can't read is left out.
+
+The CLI's sender (`packages/cli/src/send.ts`) reads its own: the `.env` values of the projects the app has open, from
+`open-projects.json` in the app's data folder, and of the project each command ran in, from the folder it ran in up to
+the nearest `package.json`. Values it has read stay scrubbed for the rest of its run.
+
+Replays are scrubbed in the editor window as they're recorded, by the window's own scrubber, so they lose the same
+secrets, apart from the `.env` values main scrubs (`replayPrivacy` in `apps/desktop/src/renderer/replay.ts`):
+
+- **Text on screen** passes through the scrubber, node by node, as the recorder reads it and each time it changes.
+  Styles and scripts don't.
+- **What's typed into a field is recorded as written,** since Replay can only show a field's value or stars. A password
+  field, and a field in a row whose name says it's secret, such as an `apiKey` prop in the inspector, show as stars
+  (`Field` in `apps/desktop/src/renderer/chrome/fields.tsx`). Anything else marked `data-sentry-mask` does too.
+- **Replay's own clicks, requests and spans** are scrubbed as they're added, since they don't pass `beforeBreadcrumb`.
+- **Titles, placeholders and accessible names** show as stars, as Replay masks them by default.
+
+## Editing
+
+Editing on the canvas and in the inspector is recorded once per thing done, never per pointer move or per frame
+(PAR-640):
+
+- **`gesture.ended` comes from `canvas/gesture.ts`.** `followPress` records each pointer drag as it ends, `GestureRun`
+  each run of arrow presses or of Up and Down in a field, `CameraGestures` each pan or zoom once the camera has been
+  still for 300 ms, and `InsertDrag` each item dragged in from the Assets panel. Boards and notes moved by tldraw are
+  recorded where `CanvasEditor.tsx` ends their gesture. `undoStep` is whether the design store's gesture made a step,
+  and `fps` counts the animation frames drawn while it lasted.
+- **`edit.undone` and `edit.redone` come from the design store,** whichever button, key or toast undid the step.
+- **`inspector.changed` comes from wherever the inspector writes** (PAR-640, PAR-713), once per change made: previews,
+  such as a number prop being scrubbed, record nothing, and nor does a change that leaves the value as it was. Values
+  are JSON; a style row whose layers differ was `mixed`. Its `field` is one of:
+  - a style row, `style.*`, from `chrome/style-editor.ts`, and a layer's `text`, `hidden` and props, `props.*`, from
+    `chrome/LayerPanel.tsx`, as each is set or reset;
+  - `name`, a layer's or, with no layers, the design's, wherever it's renamed: the inspector, a Layers row or a board's
+    title on the canvas, through `renameAndRecord` (PAR-728);
+  - an image's `image.src`, `image.alt` and `image.fit`, and an instance's `instance.design`, the component it was
+    swapped to;
+  - `overrides`, what a state, variant or copy changes about a layer, when they're reset all at once, from Reset or
+    Reset all;
+  - `bind.text`, the prop a component's text layer uses (`chrome/text-prop.tsx`);
+  - `slot`, the slot a component's layout is, and `slots.*`, the layers, by id, an instance fills a slot with
+    (`chrome/slot-props.tsx`, `chrome/instance-slots.tsx`);
+  - `params.*`, a component's prop or variant, a variant's options by id and name (`chrome/ComponentsSection.tsx`,
+    `chrome/slot-props.tsx`). These have no layers;
+  - `token.*`, a token's values by theme, from the Tokens panel, with no design or layers.
+
+  `updateAndRecord` in `chrome/inspector-events.ts` makes a change through the design store and reads the field back
+  from the store before and after, so a change the store refuses records nothing. Buttons that act on a whole layer
+  aren't fields, so they aren't `inspector.changed`.
+
+- **`component.changed` comes from Detach, Push to main and Make component** (PAR-728), once each changes the designs:
+  `detach` from the instance section's Detach and Object > Detach instance, `push` from Push to main on an instance or
+  on a layer inside a copy, and `extract` from Make component in the inspector, the menu or Components' suggestions.
+  `chrome/component-events.ts` makes each change through the design store and records the design, the layers and the
+  component by id. As key presses and menus, Detach instance and Make component are `command.ran` too.
+
+- **`insert.done` comes from `canvas/insert.ts`, `canvas/drop-files.ts` and `canvas/clipboard.ts`,** so an item from the
+  Assets panel or Quick insert, files dropped and a paste are each one. A paste is `clipboard.pasted` too, and a paste
+  that pastes nothing is `clipboard.failed` with why.
+- **`text.edited` comes from the text editor on the canvas** as it closes.
+
+## Signing in
+
+Main records the `account.*` events from `main/account.ts` and `main/session-store.ts` (PAR-807). They describe an
+account by its provider alone and count the accounts. None carries a token, an email or WorkOS's message, which can name
+the account: WorkOS's answer goes as its status and code.
+
+- **Signing in** is `account.signedIn`, or `account.signInProblem` with why it ended without a session, the browser not
+  opening included. `account.organizationChoiceFailed` says Parity's service couldn't finish a sign-in after the person
+  chose an organization, so Parity signed in again.
+- **Each refresh** is `account.refreshed`, or `account.refreshFailed` with why: WorkOS didn't answer, turned it down, or
+  another copy of Parity refreshed with the same token first. Switching organizations is a refresh, with `organization`.
+- **A session that ends** without the person signing out is `account.sessionEnded`, and signing out, here or in another
+  copy, is `account.signedOut`.
+- **The file that keeps accounts** going unreadable is `account.storeFailed`, with the step that failed and the error's
+  name, never its message, which can quote what was decrypted. The file stays for other copies; only this one starts
+  signed out.
+- **A window that can't find out who's signed in** records `account.stateFailed`, with where main's answer didn't match
+  but not the answer itself.
+
+Main records `connectors.searched` from `main/connectors.ts` (PAR-829) for each search: its connector, who asked, every
+filter it ran with, and how many it found or why it found nothing, never what was searched for. A result placed in a
+design for the first time is `connectors.placed`, with its connector, kind and who placed it, never which result or
+where. Keys are scrubbed from what main sends, and never reach a window or the service.
 
 ## Levels and sampling
 
 Each event has a level, lowest first: `debug`, `info`, `warn`, `error` and `fatal`. `error` and `fatal` events also
-become Sentry errors. **Kept** is the share of an event that's recorded: all of them unless the event says otherwise.
-Sampling is decided when an event is tracked or a span starts.
+become Sentry errors, as every `error.*` event does. **Kept** is the share of an event that's recorded: all of them
+unless the event says otherwise. Sampling is decided when an event is tracked or a span starts.
+
+## Recording events and errors
+
+Code records through its process's helpers, not through Sentry. Each records nothing until its process's telemetry has
+started, as in unit tests and stories, and logs a mistake the development build's checks catch rather than throwing it,
+so recording never stops the work it describes.
+
+- **An error the person sees goes through `reportError`** in `renderer/report-error.ts`:
+  `reportError(error, { operation, title, context, ...toast })` shows the error notification and records `error.caught`
+  with the error's code, what failed and what it acted on. Lint refuses `toast.error` anywhere else (PAR-644). A failure
+  that isn't shown is recorded as its work's own event, such as `document.saveFailed` or `export.failed`, or as a span
+  that ends as `error`.
+- **In the editor window,** `track` from `renderer/report-error.ts` records an event, under a span when given. Every
+  action in `chrome/actions.ts` runs in its own `command.ran` trace through `tracedCommand`, and a canvas drag starts a
+  `gesture.ran` trace with `startTrace`, both in `renderer/tracing.ts`. Work that runs later, such as a save an edit
+  scheduled, keeps the trace with `keepTrace`. An event recorded after its trace has moved on passes the span it belongs
+  to as `track`'s `span`: `gesture.ended` its drag's, from the trace's `context`, and `document.saved` the one its write
+  was asked in, from `currentTraceContext()` before it waits on the service (PAR-752). Tabs, panels, dialogs, the mode,
+  settings and the start page are recorded by the store that owns them, through `recordInterface`, not at each control.
+- **In main and the service,** `track` and `inSpan` from `shared/tracing.ts` record under the span the process is
+  working in, followed across `await`s. A request to another process carries it with `currentTraceHeaders()`, and queued
+  work keeps it with `currentTrace()`. A channel's handlers each run in a `request.handled` span through `handleInSpan`.
+  What a window asks main is answered by `answerWindows` in `main/host-methods.ts`, which runs each handler in one the
+  same way. Only `record`, where each span would record another, skips it, on a channel and over IPC alike. The window
+  gives its preload its trace with `traceFrom`, as `renderer/main.tsx` does.
+- **In the CLI,** `recordCli` records an event under the running command, and `inCliRun` runs a command in its `cli.ran`
+  span. `runTraceHeaders()` gives the headers that carry that span to the app.
+
+Some failures are recorded for you, so code doesn't record them again:
+
+- **A failed request from the window to the service** is recorded as `ipc.failed` by `request` in `renderer/service.ts`.
+- **A failed request from the window to main** ends main's `request.handled` span as `error`, with the error's code.
+- **A failed check of data Parity didn't make,** through `checkData`, `parseData` or `parseInput` in `@parity-app/core`,
+  is recorded as `data.invalid` in every process.
+- **Uncaught errors and crashes** reach Sentry through each app process's Sentry setup, and what a React render throws
+  through `reactErrorHandlers` in `renderer/telemetry.ts`.
 
 ## Adding an event
 
 1. Define it with `defineEvent` in `@parity-app/telemetry`. Give it a dotted name, area first (`project.opened`), and a
    `z.object` schema with a `.describe()` on every attribute saying what it means. Say its `level`, which processes send
    it (`sentBy`) and when (`when`, a sentence). Add `sample` to keep only a share.
-2. Add it to `registeredEvents` in `packages/telemetry/src/registry.ts`, and to the events the sending process passes to
+2. Add it to `registeredEvents` in `packages/telemetry/src/registry.ts`, which every process passes to
    `createTelemetry`.
 3. Run `pnpm exec vp test run packages/telemetry -u` to rewrite [Events](#events), then review the diff and commit it
    with the event.
@@ -84,6 +465,1111 @@ Sampling is decided when an event is tracked or a span starts.
 
 <!-- Generated from the event registry: see “Adding an event”. -->
 
-No events are registered yet.
+| Event                              | Level | Kept | Sent by                                 | When                                                                                                                                                                       |
+| ---------------------------------- | ----- | ---- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `account.organizationChoiceFailed` | warn  | all  | main                                    | Parity's service can't finish a sign-in after choosing an organization, so Parity signs in again (PAR-1143).                                                               |
+| `account.refreshFailed`            | warn  | all  | main                                    | A refresh fails. Parity tries again unless WorkOS turned it down.                                                                                                          |
+| `account.refreshed`                | info  | all  | main                                    | An account's session is refreshed.                                                                                                                                         |
+| `account.sessionEnded`             | warn  | all  | main                                    | An account's session ends without the person signing out.                                                                                                                  |
+| `account.signInProblem`            | warn  | all  | main                                    | A sign-in ends without a session, or its browser doesn't open.                                                                                                             |
+| `account.signedIn`                 | info  | all  | main                                    | Someone signs in to an account.                                                                                                                                            |
+| `account.signedOut`                | info  | all  | main                                    | An account is signed out of, or removed after its session ended.                                                                                                           |
+| `account.stateFailed`              | warn  | all  | renderer                                | A window can't find out who's signed in.                                                                                                                                   |
+| `account.storeFailed`              | warn  | all  | main                                    | The file that keeps accounts between launches can't be read or written.                                                                                                    |
+| `agent.called`                     | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                                                                                        |
+| `agent.serverFailed`               | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                                                                                             |
+| `app.first_project`                | info  | all  | main                                    | The first project opened since the app started has its tab ready to draw. Not sent when the screen was locked, the computer slept or the window was minimized before then. |
+| `app.quit`                         | info  | all  | main                                    | The app quits.                                                                                                                                                             |
+| `app.started`                      | info  | all  | main                                    | The first window has painted and the project service is running. Not sent when the screen was locked, the computer slept or the window was minimized before then.          |
+| `bitmapCache.used`                 | info  | all  | service                                 | Each minute in which bitmaps or previews were looked up, with this session's totals so far.                                                                                |
+| `builder.crashed`                  | warn  | all  | service                                 | A project's builder stops by itself while the project is open.                                                                                                             |
+| `builder.ready`                    | info  | all  | service                                 | A project's builder answers and serves the project.                                                                                                                        |
+| `builder.restarted`                | info  | all  | service                                 | A project's builder is started again from the processes list.                                                                                                              |
+| `builder.started`                  | info  | all  | service                                 | The service starts a project's builder, until it's spawned.                                                                                                                |
+| `canvas.restedFar`                 | info  | all  | renderer                                | The camera rests zoomed out far enough for frames to show bitmaps, once every frame in view shows one, 10 seconds pass, or the camera moves.                               |
+| `cli.connectFailed`                | warn  | all  | cli                                     | The CLI can't reach a running copy of the app for a call.                                                                                                                  |
+| `cli.ran`                          | info  | all  | cli                                     | A `parity` command runs, until it's done.                                                                                                                                  |
+| `cli.versionMismatch`              | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                                                                                            |
+| `clipboard.failed`                 | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                                                                                      |
+| `clipboard.pasted`                 | info  | all  | renderer                                | A paste puts something on the canvas.                                                                                                                                      |
+| `command.ran`                      | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                                                                             |
+| `component.changed`                | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                                                                              |
+| `connectors.placed`                | info  | all  | main                                    | A connector's result goes into a design for the first time, before the source is told, if it asks to be.                                                                   |
+| `connectors.searched`              | info  | all  | main                                    | A connector's search ends, with what it found or why it found nothing.                                                                                                     |
+| `data.invalid`                     | warn  | all  | main, renderer, render, service, worker | A check of a file, input, setting or response Parity didn't make fails.                                                                                                    |
+| `dialog.opened`                    | info  | all  | renderer                                | One of the app's own dialogs opens.                                                                                                                                        |
+| `document.conflicted`              | warn  | all  | renderer                                | A design file changes on disk while it has unsaved changes here, which are kept until the person chooses.                                                                  |
+| `document.loadedFromDisk`          | info  | all  | renderer                                | The person chooses Load from disk after a conflict, putting away their unsaved changes.                                                                                    |
+| `document.saveFailed`              | warn  | all  | renderer                                | A design file couldn't be saved.                                                                                                                                           |
+| `document.saved`                   | info  | all  | renderer                                | A design file is saved.                                                                                                                                                    |
+| `edit.redone`                      | info  | all  | renderer                                | A step undone is redone.                                                                                                                                                   |
+| `edit.undone`                      | info  | all  | renderer                                | A step is undone.                                                                                                                                                          |
+| `error.caught`                     | error | all  | renderer                                | A failure is shown as an error notification.                                                                                                                               |
+| `export.done`                      | info  | all  | renderer                                | An export finishes, with or without warnings.                                                                                                                              |
+| `export.failed`                    | warn  | all  | renderer                                | An export fails.                                                                                                                                                           |
+| `frame.failed`                     | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                                                                              |
+| `frame.rendered`                   | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it.                                                               |
+| `gesture.ended`                    | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                                                                                       |
+| `gesture.ran`                      | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                                                                                 |
+| `insert.done`                      | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                                                                                     |
+| `inspector.changed`                | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                                                                                             |
+| `installId.unsaved`                | warn  | all  | main                                    | A new install ID can't be saved to `settings.json` yet, so a start before it's saved makes another.                                                                        |
+| `ipc.failed`                       | warn  | all  | renderer                                | A request to the project service fails.                                                                                                                                    |
+| `library.added`                    | info  | all  | renderer                                | A catalog library is installed into the project.                                                                                                                           |
+| `library.failed`                   | warn  | all  | renderer                                | A catalog library couldn't be installed.                                                                                                                                   |
+| `main.blocked`                     | warn  | all  | main                                    | Main's event loop runs again after being blocked for over 2 seconds, or the app exits while it's blocked.                                                                  |
+| `mcp.session`                      | info  | all  | cli                                     | An MCP client starts a session with `parity mcp`.                                                                                                                          |
+| `mode.switched`                    | info  | all  | renderer                                | The canvas switches between designing and Interact, where designs take the pointer.                                                                                        |
+| `panel.shown`                      | info  | all  | renderer                                | A side panel or the console opens, or a side panel shows another tab.                                                                                                      |
+| `preview.failed`                   | warn  | all  | service                                 | A component's preview can't be made.                                                                                                                                       |
+| `preview.made`                     | info  | all  | service                                 | A component's preview is drawn and kept.                                                                                                                                   |
+| `process.memory`                   | info  | all  | main                                    | Every 5 minutes, and when a window stops answering.                                                                                                                        |
+| `processes.adopted`                | info  | all  | service                                 | An extension adopts a running server.                                                                                                                                      |
+| `processes.crashed`                | warn  | all  | service                                 | A running server stops by itself.                                                                                                                                          |
+| `processes.failed`                 | warn  | all  | service                                 | A run fails before it's ready.                                                                                                                                             |
+| `processes.found`                  | info  | 10%  | service                                 | An extension's `find` returns.                                                                                                                                             |
+| `processes.lost`                   | warn  | all  | service                                 | An adopted server goes away.                                                                                                                                               |
+| `processes.providerFailed`         | warn  | all  | service                                 | A provider call throws, runs out of time, or answers what Parity refuses.                                                                                                  |
+| `processes.providerSlow`           | info  | all  | service                                 | A provider call takes over half its time limit, but answers.                                                                                                               |
+| `processes.reattached`             | info  | all  | service                                 | An extension's host that started again gets back the processes it owns.                                                                                                    |
+| `processes.refused`                | warn  | all  | service                                 | `start` or `adopt` is refused, before anything runs.                                                                                                                       |
+| `processes.restarted`              | info  | all  | service                                 | A process starts its next run.                                                                                                                                             |
+| `processes.started`                | info  | all  | service                                 | A process Parity started is ready: a server passes its ready check, a task has spawned.                                                                                    |
+| `processes.stopped`                | info  | all  | service                                 | A process is stopped on purpose.                                                                                                                                           |
+| `processes.taskFinished`           | info  | all  | service                                 | A task ends, and its owner has summarized it or 5 seconds have passed.                                                                                                     |
+| `project.closed`                   | info  | all  | service                                 | An open project is closed.                                                                                                                                                 |
+| `project.detected`                 | debug | all  | service                                 | The service reads a project's package, tools, files and components as it opens, until it's done.                                                                           |
+| `project.drawn`                    | info  | all  | renderer                                | A newly opened project's canvas first draws a frame, in the trace of `project.opening`.                                                                                    |
+| `project.loaded`                   | info  | all  | renderer                                | A project's tab has its components loaded and is ready to draw.                                                                                                            |
+| `project.openFailed`               | warn  | all  | service                                 | A project can't be opened.                                                                                                                                                 |
+| `project.opened`                   | info  | all  | service                                 | A project opens, with its builder serving it.                                                                                                                              |
+| `project.opening`                  | info  | all  | renderer                                | A tab asks the service to open a project, until the tab is ready or the open fails.                                                                                        |
+| `project.unsupported`              | warn  | all  | service                                 | A project is opened that Parity doesn't support.                                                                                                                           |
+| `projectDoc.closed`                | info  | all  | renderer                                | A project closes, with a summary of its document's session.                                                                                                                |
+| `projectDoc.openFailed`            | error | all  | renderer                                | Loading a project's designs into the document fails.                                                                                                                       |
+| `projectDoc.opened`                | info  | all  | renderer                                | A project's designs are loaded into the document.                                                                                                                          |
+| `projectDoc.refused`               | warn  | all  | renderer                                | A transaction is refused, or a gesture ends that had some refused, so nothing in them was applied.                                                                         |
+| `projectEdit.applied`              | info  | all  | renderer                                | Parity changes the project's files and says so, with Undo.                                                                                                                 |
+| `projectEdit.undone`               | info  | all  | renderer                                | Undo puts back a project edit's files, or fails to.                                                                                                                        |
+| `renderer.long_task`               | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                                                                          |
+| `report.sent`                      | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                                                                                   |
+| `request.handled`                  | debug | all  | service, main                           | The service or main answers another process's request.                                                                                                                     |
+| `service.degraded`                 | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it.                                                          |
+| `service.exited`                   | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.                                                                 |
+| `service.lag`                      | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                                                                                   |
+| `setting.changed`                  | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                                                                                            |
+| `start.action`                     | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                                                                                       |
+| `styles.imported`                  | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                                                                                             |
+| `tab.closed`                       | info  | all  | renderer                                | A tab closes.                                                                                                                                                              |
+| `tab.opened`                       | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                                                                                                |
+| `tab.switched`                     | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                                                                                                  |
+| `text.edited`                      | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                                                                                                          |
+| `tokens.saved`                     | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                                                                                |
+| `update.checked`                   | info  | all  | main                                    | A check for an update finds one or finds none.                                                                                                                             |
+| `update.downloaded`                | info  | all  | main                                    | An update finishes downloading.                                                                                                                                            |
+| `update.failed`                    | warn  | all  | main                                    | Checking for, downloading or installing an update fails.                                                                                                                   |
+| `update.installed`                 | info  | all  | main                                    | The app quits to install a downloaded update.                                                                                                                              |
+| `window.gone`                      | error | all  | main                                    | A window's renderer crashes or exits abnormally. The editor's makes the next start offer a crash report (PAR-956).                                                         |
+| `window.hang_started`              | warn  | all  | main                                    | A window stops answering, which Electron reports once it has been stuck for a few seconds (PAR-804).                                                                       |
+| `window.hung`                      | warn  | all  | main                                    | A window that stopped answering answers again, is closed, or the app quits or exits while it's stuck.                                                                      |
+
+### `account.organizationChoiceFailed`
+
+| Attribute | Type                         | Meaning                                                                               |
+| --------- | ---------------------------- | ------------------------------------------------------------------------------------- |
+| `reason`  | `"unavailable" \| "refused"` | Why: Parity's service didn't answer or can't finish one yet, or WorkOS turned it down |
+| `status`  | `integer`, optional          | The HTTP status WorkOS answered with, when it answered                                |
+| `code`    | `string`, optional           | WorkOS's or the browser's error code, when it gave one                                |
+
+### `account.refreshFailed`
+
+| Attribute      | Type                                         | Meaning                                                                                                         |
+| -------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `reason`       | `"unavailable" \| "refused" \| "superseded"` | Why: WorkOS didn't answer, WorkOS turned it down, or another copy of Parity refreshed with the same token first |
+| `organization` | `boolean`                                    | Whether it moved the account to another organization                                                            |
+| `failures`     | `integer`                                    | The refreshes in a row that failed, this one included                                                           |
+| `status`       | `integer`, optional                          | The HTTP status WorkOS answered with, when it answered                                                          |
+| `code`         | `string`, optional                           | WorkOS's or the browser's error code, when it gave one                                                          |
+
+### `account.refreshed`
+
+| Attribute      | Type      | Meaning                                              |
+| -------------- | --------- | ---------------------------------------------------- |
+| `organization` | `boolean` | Whether it moved the account to another organization |
+| `retries`      | `integer` | The tries that failed before this one                |
+
+### `account.sessionEnded`
+
+| Attribute | Type                       | Meaning                                                       |
+| --------- | -------------------------- | ------------------------------------------------------------- |
+| `reason`  | `"refused" \| "elsewhere"` | Why: WorkOS turned down its refresh, or another copy ended it |
+| `current` | `boolean`                  | Whether it was the account the person was in                  |
+
+### `account.signInProblem`
+
+| Attribute  | Type                                                                                            | Meaning                                                                                                                                          |
+| ---------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `provider` | `"GoogleOAuth" \| "GitHubOAuth" \| "MicrosoftOAuth" \| "authkit"`                               | How they signed in                                                                                                                               |
+| `problem`  | `"canceled" \| "failed" \| "refused" \| "single-sign-on" \| "choose-organization" \| "browser"` | Why: canceled in the browser, failed, turned down by WorkOS, sent to single sign-on, asked to choose an organization, or the browser didn't open |
+| `status`   | `integer`, optional                                                                             | The HTTP status WorkOS answered with, when it answered                                                                                           |
+| `code`     | `string`, optional                                                                              | WorkOS's or the browser's error code, when it gave one                                                                                           |
+
+### `account.signedIn`
+
+| Attribute  | Type                                                              | Meaning                                                                       |
+| ---------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `provider` | `"GoogleOAuth" \| "GitHubOAuth" \| "MicrosoftOAuth" \| "authkit"` | How they signed in                                                            |
+| `again`    | `boolean`                                                         | Whether it signed in to an account already listed, as after its session ended |
+| `kept`     | `boolean`                                                         | Whether it's kept between launches, false where the system has no keyring     |
+| `accounts` | `integer`                                                         | The accounts signed in or listed afterwards                                   |
+
+### `account.signedOut`
+
+| Attribute  | Type                      | Meaning                                                                      |
+| ---------- | ------------------------- | ---------------------------------------------------------------------------- |
+| `reason`   | `"person" \| "elsewhere"` | Who signed out: the person here, or another copy of Parity                   |
+| `current`  | `boolean`                 | Whether it was the account the person was in                                 |
+| `ended`    | `boolean`                 | Whether its session had already ended, so this only removed it from the list |
+| `accounts` | `integer`                 | The accounts signed in or listed afterwards                                  |
+
+### `account.stateFailed`
+
+| Attribute | Type               | Meaning                                                           |
+| --------- | ------------------ | ----------------------------------------------------------------- |
+| `stage`   | `"ask" \| "check"` | Whether asking main failed, or its answer didn't match the schema |
+| `message` | `string`           | What went wrong, without the answer itself                        |
+| `pointer` | `string`, optional | Where the answer didn't match, as a JSON pointer                  |
+
+### `account.storeFailed`
+
+| Attribute | Type                                                                 | Meaning                                                                                                                                                |
+| --------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `action`  | `"read" \| "write"`                                                  | Whether Parity was reading the kept accounts or writing them                                                                                           |
+| `stage`   | `"file" \| "decrypt" \| "json" \| "schema" \| "reencrypt"`, optional | Where reading failed: decrypting, parsing, checking, or writing it again with the keychain's new key. The file stays; only this copy starts signed out |
+| `error`   | `string`                                                             | The error's name, never its message, which can hold what was decrypted                                                                                 |
+| `code`    | `string`, optional                                                   | The system error code, as `EPERM`, when there is one                                                                                                   |
+
+### `agent.called`
+
+| Attribute      | Type                | Meaning                                                                                                |
+| -------------- | ------------------- | ------------------------------------------------------------------------------------------------------ |
+| `method`       | `string`            | The operation called, such as `exec` or `screenshot`, or `unreadable`                                  |
+| `transport`    | `"cli" \| "mcp"`    | How the agent called: `cli` for the parity command, `mcp` for MCP                                      |
+| `agent`        | `string`, optional  | The caller's declared name, as PAR-450 has it                                                          |
+| `client`       | `string`, optional  | The MCP client's program, such as `claude-code`                                                        |
+| `input`        | `string`, optional  | The call's params as JSON, without an exec call's snippet, cut at 2,000 characters                     |
+| `snippet`      | `string`, optional  | An exec call's snippet, cut at 10,000 characters                                                       |
+| `resultBytes`  | `integer`, optional | How long the answer was, as JSON, in characters                                                        |
+| `code`         | `string`, optional  | The error code, when it failed                                                                         |
+| `retryable`    | `boolean`, optional | Whether the failure says sending it again unchanged can succeed                                        |
+| `alternatives` | `integer`, optional | How many alternatives the failure offered instead of what was asked for                                |
+| `warnings`     | `string`, optional  | The answer's warning groups by category, with how many places each, such as `overlap:2 unknown_prop:1` |
+
+### `agent.serverFailed`
+
+| Attribute | Type               | Meaning                                   |
+| --------- | ------------------ | ----------------------------------------- |
+| `message` | `string`           | Why it couldn't start                     |
+| `code`    | `string`, optional | The error's code, such as Node's `EACCES` |
+
+### `app.first_project`
+
+| Attribute        | Type      | Meaning                                                                                             |
+| ---------------- | --------- | --------------------------------------------------------------------------------------------------- |
+| `firstProjectMs` | `integer` | From the process starting to the first project's tab being ready to draw                            |
+| `restored`       | `boolean` | Whether the window opened it as it started, as last time's tabs, rather than the person choosing it |
+
+### `app.quit`
+
+| Attribute   | Type                                     | Meaning                                                                                   |
+| ----------- | ---------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`    | `"window closed" \| "update" \| "other"` | How it quit: the last window closed, to install an update, or otherwise, as from the menu |
+| `sessionMs` | `integer`                                | How long this run lasted                                                                  |
+
+### `app.started`
+
+| Attribute        | Type      | Meaning                                                               |
+| ---------------- | --------- | --------------------------------------------------------------------- |
+| `mainReadyMs`    | `integer` | From the process starting to Electron being ready                     |
+| `windowShownMs`  | `integer` | From the process starting to the first window being created and shown |
+| `firstPaintMs`   | `integer` | From the process starting to the first window's first paint           |
+| `serviceReadyMs` | `integer` | From the process starting to the project service starting to run      |
+
+### `bitmapCache.used`
+
+| Attribute        | Type      | Meaning                                                                                 |
+| ---------------- | --------- | --------------------------------------------------------------------------------------- |
+| `frameHits`      | `integer` | Frame bitmaps found kept on disk for the code they draw, this session                   |
+| `frameMisses`    | `integer` | Frame bitmaps looked for on disk and not kept for the code they draw, this session      |
+| `frameHitRate`   | `number`  | The share of frame bitmap lookups found this session, from 0 to 1                       |
+| `previewHits`    | `integer` | Component previews found kept on disk for the code they draw, this session              |
+| `previewMisses`  | `integer` | Component previews looked for on disk and not kept for the code they draw, this session |
+| `previewHitRate` | `number`  | The share of component preview lookups found this session, from 0 to 1                  |
+
+### `builder.crashed`
+
+| Attribute  | Type                | Meaning                                                  |
+| ---------- | ------------------- | -------------------------------------------------------- |
+| `builder`  | `string`            | The builder's name, as Vite                              |
+| `exitCode` | `integer`, optional | The builder process's exit code, when it exited with one |
+| `signal`   | `string`, optional  | The signal that ended it, when one did                   |
+| `output`   | `string`            | The last of what it printed, up to 50 lines              |
+
+### `builder.ready`
+
+| Attribute    | Type      | Meaning                                        |
+| ------------ | --------- | ---------------------------------------------- |
+| `builder`    | `string`  | The builder's name, as Vite                    |
+| `durationMs` | `number`  | How long it took, in milliseconds              |
+| `restart`    | `boolean` | Whether it was started again, as after a crash |
+
+### `builder.restarted`
+
+| Attribute    | Type               | Meaning                                         |
+| ------------ | ------------------ | ----------------------------------------------- |
+| `builder`    | `string`           | The builder's name, as Vite                     |
+| `durationMs` | `number`           | How long it took, in milliseconds               |
+| `outcome`    | `"ok" \| "error"`  | Whether it answered again                       |
+| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `builder.started`
+
+| Attribute | Type     | Meaning            |
+| --------- | -------- | ------------------ |
+| `builder` | `string` | The builder's name |
+
+### `canvas.restedFar`
+
+| Attribute            | Type                               | Meaning                                                                                   |
+| -------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------- |
+| `zoom`               | `number`                           | The canvas's zoom, where 1 is 100%                                                        |
+| `pixelRatio`         | `number`                           | The screen's device pixel ratio                                                           |
+| `frames`             | `integer`                          | Frames in view, leaving out the selected board's, which stay live                         |
+| `bitmaps`            | `integer`                          | Frames in view showing their bitmap                                                       |
+| `skeletons`          | `integer`                          | Frames in view showing their skeleton, measured from the frame, until its bitmap comes    |
+| `placeholders`       | `integer`                          | Frames in view showing a plain placeholder, having never drawn, until their bitmap comes  |
+| `live`               | `integer`                          | Frames in view drawing their design, having neither a bitmap nor a skeleton yet           |
+| `bitmapsAtRest`      | `integer`                          | Frames in view showing their bitmap as the camera came to rest                            |
+| `skeletonsAtRest`    | `integer`                          | Frames in view showing their skeleton as the camera came to rest                          |
+| `placeholdersAtRest` | `integer`                          | Frames in view showing a placeholder as the camera came to rest                           |
+| `liveAtRest`         | `integer`                          | Frames in view drawing their design as the camera came to rest                            |
+| `untilBitmapsMs`     | `integer`, optional                | From coming to rest until every frame in view showed its bitmap, when they all did        |
+| `ended`              | `"bitmaps" \| "waited" \| "moved"` | Every frame in view showed its bitmap, 10 seconds passed first, or the camera moved first |
+
+### `cli.connectFailed`
+
+| Attribute | Type                               | Meaning                                                                                            |
+| --------- | ---------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `code`    | `"not_running" \| "not_answering"` | `not_running` when no copy of the app is registered, `not_answering` when none registered answered |
+| `copies`  | `integer`                          | How many copies of the app were registered                                                         |
+
+### `cli.ran`
+
+| Attribute  | Type                | Meaning                                                                |
+| ---------- | ------------------- | ---------------------------------------------------------------------- |
+| `command`  | `string`            | The command, such as `exec` or `mcp`, or `help` with none              |
+| `flags`    | `string[]`          | The flags given, by name, without their values                         |
+| `exitCode` | `integer`, optional | What the command exited with: 0, or 1 when it failed or found problems |
+| `code`     | `string`, optional  | The error code, when it failed                                         |
+
+### `cli.versionMismatch`
+
+| Attribute     | Type                                 | Meaning                                                                                               |
+| ------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `cause`       | `"app_newer" \| "unreadable_answer"` | `app_newer` when the app's registry entry is newer, `unreadable_answer` when its answer doesn't check |
+| `cliRegistry` | `integer`                            | The registry version this CLI reads                                                                   |
+| `appRegistry` | `integer`, optional                  | The registry version the app wrote, for `app_newer`                                                   |
+| `method`      | `string`, optional                   | The method whose answer couldn't be read, for `unreadable_answer`                                     |
+
+### `clipboard.failed`
+
+| Attribute | Type                                                                                                   | Meaning                                                                                                                                                                          |
+| --------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                             | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                                                                        |
+| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "video" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, a copied video file, text, nothing, or a copy that can't be read                             |
+| `reason`  | `"empty" \| "unreadable" \| "wrongKind" \| "noTarget" \| "instance" \| "imageFailed"`                  | Why nothing was pasted: nothing to paste, a copy that can't be read, content that can't go there, no layout there, layers inside an instance, or an image that couldn't be saved |
+| `code`    | `string`, optional                                                                                     | The error code, when saving an image failed                                                                                                                                      |
+
+### `clipboard.pasted`
+
+| Attribute | Type                                                                                                   | Meaning                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `how`     | `"paste" \| "over" \| "replace" \| "here"`                                                             | Which paste: Paste, Paste over selection, Paste to replace, or Paste here                                                                            |
+| `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "video" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, a copied video file, text, nothing, or a copy that can't be read |
+| `count`   | `integer`                                                                                              | How many layers, designs or notes were pasted                                                                                                        |
+
+### `command.ran`
+
+| Attribute | Type                                                                                                 | Meaning                                                                                                                                                                   |
+| --------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `action`  | `string`                                                                                             | The action's ID in the keymap, as `chrome/actions.ts` names it                                                                                                            |
+| `from`    | `"key" \| "menu" \| "canvasMenu" \| "layersMenu" \| "search" \| "toolbar" \| "panel" \| "extension"` | What ran it: a key, the menubar, the canvas's or a Layers row's menu, Search actions, the toolbar, a button in a panel or page, or an extension's parity.commands.execute |
+| `enabled` | `boolean`                                                                                            | Whether it applied then. One that didn't is recorded as cancelled, without running                                                                                        |
+| `layers`  | `integer`                                                                                            | How many layers were selected                                                                                                                                             |
+| `designs` | `integer`                                                                                            | How many designs were selected, with no layer inside one                                                                                                                  |
+| `code`    | `string`, optional                                                                                   | The error code, when it failed                                                                                                                                            |
+
+### `component.changed`
+
+| Attribute   | Type                              | Meaning                                                                                                                       |
+| ----------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `action`    | `"detach" \| "push" \| "extract"` | What was done: an instance detached into plain layers, a copy's overrides pushed to its component, or layers made a component |
+| `design`    | `string`                          | The design whose layers it changed, by key                                                                                    |
+| `layers`    | `string[]`                        | The layers: the instance detached or pushed, a layer inside one by path, or the layers made a component                       |
+| `component` | `string`                          | The component, by id: the one the copy follows, or the one made                                                               |
+
+### `connectors.placed`
+
+| Attribute   | Type                  | Meaning                                                     |
+| ----------- | --------------------- | ----------------------------------------------------------- |
+| `connector` | `string`              | The connector the result came from, such as `unsplash`      |
+| `kind`      | `string`              | What was placed: `screens`, `flows`, `sections` or `photos` |
+| `from`      | `"window" \| "agent"` | Who placed it: the person in the window, or an agent        |
+
+### `connectors.searched`
+
+| Attribute   | Type                  | Meaning                                                                                                    |
+| ----------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `connector` | `string`              | The connector searched, such as `mobbin`                                                                   |
+| `from`      | `"window" \| "agent"` | Who asked: the person in the window, or an agent through the service                                       |
+| `kind`      | `string`              | What it searched for: `screens`, `flows`, `sections` or `photos`                                           |
+| `filters`   | `object`, optional    | Every filter's value it ran with, as `{ platform: ios }`: the connector's own values, never what was typed |
+| `found`     | `integer`, optional   | How many results came back, when the search worked                                                         |
+| `problem`   | `string`, optional    | Why it found nothing to show, such as `rate-limited` or `no-key`, when it didn't work                      |
+| `ms`        | `number`              | How long the search took, in milliseconds                                                                  |
+
+### `data.invalid`
+
+| Attribute | Type       | Meaning                                                       |
+| --------- | ---------- | ------------------------------------------------------------- |
+| `schema`  | `string`   | The schema's name, or the function that checked with it       |
+| `pointer` | `string`   | Where the first problem is, as a JSON pointer                 |
+| `message` | `string`   | What was expected there                                       |
+| `issues`  | `string[]` | Every problem zod found, as `/pointer: message`, the first 20 |
+| `data`    | `string`   | The data that failed, as JSON, cut to 2,000 characters        |
+
+### `dialog.opened`
+
+| Attribute | Type     | Meaning                                                     |
+| --------- | -------- | ----------------------------------------------------------- |
+| `dialog`  | `string` | Which dialog: settings, shortcuts, about, actions or report |
+
+### `document.conflicted`
+
+| Attribute | Type     | Meaning                              |
+| --------- | -------- | ------------------------------------ |
+| `file`    | `string` | The design file that changed on disk |
+
+### `document.loadedFromDisk`
+
+| Attribute | Type     | Meaning                      |
+| --------- | -------- | ---------------------------- |
+| `file`    | `string` | The design file loaded again |
+
+### `document.saveFailed`
+
+| Attribute    | Type               | Meaning                                         |
+| ------------ | ------------------ | ----------------------------------------------- |
+| `file`       | `string`           | The file written                                |
+| `durationMs` | `number`           | How long it took                                |
+| `bytes`      | `integer`          | The document's size as JSON                     |
+| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `document.saved`
+
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `file`       | `string`           | The file written                                                      |
+| `durationMs` | `number`           | How long it took                                                      |
+| `bytes`      | `integer`          | The document's size as JSON                                           |
+| `exportMs`   | `number`, optional | Time to produce the file's content from the document, in milliseconds |
+
+### `edit.redone`
+
+| Attribute | Type       | Meaning                                                                   |
+| --------- | ---------- | ------------------------------------------------------------------------- |
+| `step`    | `string`   | The step's label, as Edit > Undo names it: `Move frame`, `Change padding` |
+| `designs` | `string[]` | The designs it changed, by key                                            |
+| `files`   | `string[]` | The files it changed, which are written again                             |
+| `modes`   | `boolean`  | Whether it changed the project's modes                                    |
+| `tokens`  | `boolean`  | Whether it changed token values                                           |
+
+### `edit.undone`
+
+| Attribute | Type       | Meaning                                                                   |
+| --------- | ---------- | ------------------------------------------------------------------------- |
+| `step`    | `string`   | The step's label, as Edit > Undo names it: `Move frame`, `Change padding` |
+| `designs` | `string[]` | The designs it changed, by key                                            |
+| `files`   | `string[]` | The files it changed, which are written again                             |
+| `modes`   | `boolean`  | Whether it changed the project's modes                                    |
+| `tokens`  | `boolean`  | Whether it changed token values                                           |
+
+### `error.caught`
+
+| Attribute | Type               | Meaning                                            |
+| --------- | ------------------ | -------------------------------------------------- |
+| `action`  | `string`           | What failed, as `document.save` or `export.layers` |
+| `title`   | `string`           | The notification's title                           |
+| `message` | `string`           | The error's message                                |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one    |
+| `context` | `object`, optional | What it was acting on                              |
+
+### `export.done`
+
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `files`      | `integer`               | The files written                                                                              |
+| `warnings`   | `integer`               | The layers that couldn't be drawn, or the previews that had problems, which a warning lists    |
+
+### `export.failed`
+
+| Attribute    | Type                    | Meaning                                                                                        |
+| ------------ | ----------------------- | ---------------------------------------------------------------------------------------------- |
+| `kind`       | `"layers" \| "designs"` | Layers at the Export section's sizes, or whole designs as images                               |
+| `formats`    | `("png" \| "jpg")[]`    | The formats written                                                                            |
+| `scales`     | `number[]`              | The scales written                                                                             |
+| `designs`    | `integer`               | The designs and layers exported                                                                |
+| `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
+| `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
+| `code`       | `string`, optional      | The `CodedError` code, when the failure has one                                                |
+
+### `frame.failed`
+
+| Attribute  | Type                                                               | Meaning                                                                                                               |
+| ---------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| `design`   | `string`, optional                                                 | The design's key, as the document names it. None for a component preview                                              |
+| `state`    | `string`, optional                                                 | The design's state, when it draws one                                                                                 |
+| `mode`     | `string`, optional                                                 | The mode it draws in, by ID                                                                                           |
+| `priority` | `string`                                                           | The queue it waited in: render, visible or idle                                                                       |
+| `failure`  | `"module not found" \| "render threw" \| "timed out" \| "crashed"` | Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed |
+| `message`  | `string`                                                           | The guest's error message, or what happened to its window                                                             |
+| `stack`    | `string`, optional                                                 | The guest's stack, when it threw an error that has one                                                                |
+
+### `frame.rendered`
+
+| Attribute   | Type                                                                         | Meaning                                                                                                               |
+| ----------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `design`    | `string`, optional                                                           | The design's key, as the document names it. None for a component preview                                              |
+| `state`     | `string`, optional                                                           | The design's state, when it draws one                                                                                 |
+| `mode`      | `string`, optional                                                           | The mode it draws in, by ID                                                                                           |
+| `priority`  | `string`                                                                     | The queue it waited in: render, visible or idle                                                                       |
+| `queuedMs`  | `integer`                                                                    | How long it waited for an offscreen window                                                                            |
+| `whole`     | `boolean`                                                                    | Whether it was drawn whole, to capture or check it                                                                    |
+| `renderMs`  | `integer`, optional                                                          | How long the guest took to draw and measure it                                                                        |
+| `captureMs` | `integer`, optional                                                          | How long settling, checking and capturing it took after that, when it was drawn whole                                 |
+| `width`     | `number`, optional                                                           | Its width in CSS pixels                                                                                               |
+| `height`    | `number`, optional                                                           | Its height in CSS pixels                                                                                              |
+| `nodes`     | `integer`, optional                                                          | How many layers were measured                                                                                         |
+| `failure`   | `"module not found" \| "render threw" \| "timed out" \| "crashed"`, optional | Why: its module didn't load, its code threw while drawing, it didn't finish in time, or its window's renderer crashed |
+
+### `gesture.ended`
+
+| Attribute      | Type                                                                                                                                                             | Meaning                                                                |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| `kind`         | `"move" \| "resize" \| "layerDrag" \| "absoluteDrag" \| "titleDrag" \| "boxSelect" \| "frameDraw" \| "nudge" \| "fieldNudge" \| "insertDrag" \| "pan" \| "zoom"` | The gesture, as `canvas/gesture.ts` names it                           |
+| `how`          | `"release" \| "escape" \| "interrupted" \| "cancelled" \| "settled" \| "selection" \| "ended"`                                                                   | How it ended                                                           |
+| `kept`         | `boolean`                                                                                                                                                        | Whether what it did stands, rather than being taken back or called off |
+| `durationMs`   | `number`                                                                                                                                                         | From when it began to when it ended, in milliseconds                   |
+| `designs`      | `string[]`, optional                                                                                                                                             | The designs it moved or changed, by key                                |
+| `layers`       | `string[]`, optional                                                                                                                                             | The layers it moved                                                    |
+| `fps`          | `number`, optional                                                                                                                                               | Frames the window drew per second during it                            |
+| `presses`      | `integer`, optional                                                                                                                                              | How many presses a run took                                            |
+| `undoStep`     | `boolean`                                                                                                                                                        | Whether it became an undo step                                         |
+| `transactions` | `integer`, optional                                                                                                                                              | Transactions the gesture applied                                       |
+| `transactMs`   | `number`, optional                                                                                                                                               | Time spent checking and applying them, in milliseconds                 |
+
+### `gesture.ran`
+
+| Attribute | Type               | Meaning                                             |
+| --------- | ------------------ | --------------------------------------------------- |
+| `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
+| `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
+### `insert.done`
+
+| Attribute   | Type                                                                                            | Meaning                                                                                       |
+| ----------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `source`    | `"components" \| "icons" \| "images" \| "paste" \| "drop"`                                      | Where it came from: the Assets panel's Components, Icons or Images, a paste, or files dropped |
+| `via`       | `"click" \| "drag" \| "quickInsert" \| "clipboard" \| "files"`                                  | How: clicked or dragged from the panel, Quick insert, the clipboard, or files dropped         |
+| `kind`      | `"component" \| "instance" \| "image" \| "video" \| "layers" \| "designs" \| "notes" \| "text"` | What it inserted                                                                              |
+| `item`      | `string`, optional                                                                              | Which: the component, the design an instance places, or the image's or video's file           |
+| `count`     | `integer`                                                                                       | How many layers, designs or notes went in                                                     |
+| `design`    | `string`, optional                                                                              | The design it went into, by key                                                               |
+| `newDesign` | `boolean`                                                                                       | Whether it made a design of its own, with nothing to go into                                  |
+
+### `inspector.changed`
+
+| Attribute | Type               | Meaning                                                                                                                                                                         |
+| --------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `field`   | `string`           | What it changed: a style row (`style.padding`), a prop (`props.variant`), `name`, a param (`params.size`), a token (`token.primary`) or another field the Editing section lists |
+| `design`  | `string`, optional | The design, by key; none for a token, which the whole project shares                                                                                                            |
+| `layers`  | `string[]`         | The layers it changed; none for the design's own name, states and params, or a token                                                                                            |
+| `state`   | `string`, optional | The state the edit went to, by id                                                                                                                                               |
+| `from`    | `string`           | The value before, as JSON; `mixed` when the layers differed                                                                                                                     |
+| `to`      | `string`           | The value after, as JSON                                                                                                                                                        |
+| `gesture` | `boolean`          | Whether it's part of a run of Up and Down presses                                                                                                                               |
+
+### `installId.unsaved`
+
+| Attribute | Type               | Meaning                                                                      |
+| --------- | ------------------ | ---------------------------------------------------------------------------- |
+| `code`    | `string`, optional | The file system's error code, such as `EACCES` or `ENOSPC`, when it gave one |
+| `message` | `string`           | What went wrong                                                              |
+
+### `ipc.failed`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `method`  | `string`           | The service method asked                        |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `library.added`
+
+| Attribute | Type               | Meaning                                        |
+| --------- | ------------------ | ---------------------------------------------- |
+| `package` | `string`           | The library, by its catalog ID or package name |
+| `version` | `string`, optional | The version installed, when known              |
+
+### `library.failed`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `package` | `string`           | The library, by its catalog ID or package name  |
+| `version` | `string`, optional | The version installed, when known               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `main.blocked`
+
+| Attribute | Type                     | Meaning                                                                                                                                                                                                  |
+| --------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `stuckMs` | `integer`                | How long main's event loop was blocked                                                                                                                                                                   |
+| `ended`   | `"answered" \| "exited"` | How the hang ended: main's loop `answered` again, or the app `exited` while it was blocked, such as a force-quit, which the next run reports                                                             |
+| `where`   | `string`, optional       | Where main was stuck: the innermost of Parity's own functions on its stack, with its file, line and column, when main was stuck running JavaScript and the watchdog paused it to look (PAR-805, PAR-890) |
+
+### `mcp.session`
+
+| Attribute         | Type               | Meaning                                                        |
+| ----------------- | ------------------ | -------------------------------------------------------------- |
+| `client`          | `string`, optional | The MCP client's name from `initialize`, such as `claude-code` |
+| `clientVersion`   | `string`, optional | The MCP client's version from `initialize`                     |
+| `protocolVersion` | `string`, optional | The MCP protocol version the client asked for                  |
+
+### `mode.switched`
+
+| Attribute | Type                     | Meaning                       |
+| --------- | ------------------------ | ----------------------------- |
+| `mode`    | `"design" \| "interact"` | The mode the canvas is in now |
+
+### `panel.shown`
+
+| Attribute | Type                             | Meaning                                                |
+| --------- | -------------------------------- | ------------------------------------------------------ |
+| `panel`   | `"left" \| "right" \| "console"` | The side panel, or the console under the canvas        |
+| `tab`     | `string`, optional               | The tab the side panel shows, such as layers or design |
+
+### `preview.failed`
+
+| Attribute    | Type                                                 | Meaning                                                                                                         |
+| ------------ | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `component`  | `string`                                             | The component it pictures, by ID                                                                                |
+| `reason`     | `"render threw" \| "drew nothing" \| "not finished"` | Why: its component failed to draw, it drew nothing to see, or the draw didn't finish, as when its window closed |
+| `message`    | `string`, optional                                   | What went wrong, when there's an error                                                                          |
+| `durationMs` | `integer`                                            | From asking for it to giving up                                                                                 |
+
+### `preview.made`
+
+| Attribute    | Type      | Meaning                                                                    |
+| ------------ | --------- | -------------------------------------------------------------------------- |
+| `component`  | `string`  | The component it pictures, by ID                                           |
+| `durationMs` | `integer` | From asking for it to keeping it, waiting for an offscreen window included |
+| `width`      | `number`  | The large picture's width in pixels                                        |
+| `height`     | `number`  | The large picture's height in pixels                                       |
+| `bytes`      | `integer` | The size of both pictures kept, in bytes                                   |
+
+### `process.memory`
+
+| Attribute      | Type                   | Meaning                                                                                   |
+| -------------- | ---------------------- | ----------------------------------------------------------------------------------------- |
+| `reason`       | `"interval" \| "hang"` | Whether it's the regular reading or one taken as a window hung                            |
+| `mainBytes`    | `integer`              | The app's main process's private memory in bytes                                          |
+| `serviceBytes` | `integer`              | The project service's private memory in bytes, or 0 while none runs                       |
+| `editorBytes`  | `integer`              | Every editor window's private memory together, in bytes                                   |
+| `renderBytes`  | `integer`              | The offscreen renderers' private memory together, in bytes                                |
+| `totalBytes`   | `integer`              | Every process's private memory together, in bytes, counting builders, the GPU and helpers |
+| `processes`    | `object[]`             | Each process's role and private memory in bytes, as the system's monitor counts it        |
+
+### `processes.adopted`
+
+| Attribute  | Type                                 | Meaning                                                         |
+| ---------- | ------------------------------------ | --------------------------------------------------------------- |
+| `name`     | `string`                             | Its name, as the processes list shows it                        |
+| `owner`    | `string`                             | `parity`, or the id of the extension that started or adopted it |
+| `foundBy`  | `"port" \| "provider" \| "endpoint"` | How it was found: a port check, a provider, or given            |
+| `provider` | `string`, optional                   | The discovery provider's extension, when one found it           |
+
+### `processes.crashed`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `uptimeMs`   | `number`                                            | How long it had been running, in milliseconds                                     |
+| `exitCode`   | `integer`, optional                                 | Its exit code, when it exited with one                                            |
+| `signal`     | `string`, optional                                  | The signal that ended it, when one did                                            |
+| `restarting` | `boolean`                                           | Whether it's started again, as its spec asks                                      |
+| `output`     | `string`                                            | The last of what it printed, up to 50 lines, with secrets replaced                |
+
+### `processes.failed`
+
+| Attribute    | Type                                                | Meaning                                                                             |
+| ------------ | --------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                         |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                            |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                     |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty   |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                      |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments     |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                   |
+| `reason`     | `"exited" \| "timeout" \| "spawn"`                  | Whether it exited before it was ready, wasn't ready in time, or couldn't be spawned |
+| `exitCode`   | `integer`, optional                                 | Its exit code, when it exited with one                                              |
+| `signal`     | `string`, optional                                  | The signal that ended it, when one did                                              |
+| `output`     | `string`                                            | The last of what it printed, up to 50 lines, with secrets replaced                  |
+
+### `processes.found`
+
+| Attribute    | Type      | Meaning                                                         |
+| ------------ | --------- | --------------------------------------------------------------- |
+| `owner`      | `string`  | `parity`, or the id of the extension that started or adopted it |
+| `ports`      | `integer` | How many ports it asked about                                   |
+| `candidates` | `integer` | How many servers it found                                       |
+| `providers`  | `integer` | How many discovery providers were asked                         |
+| `cached`     | `integer` | How many providers answered from their last answer              |
+| `durationMs` | `number`  | How long it took, in milliseconds                               |
+
+### `processes.lost`
+
+| Attribute      | Type                 | Meaning                                                         |
+| -------------- | -------------------- | --------------------------------------------------------------- |
+| `name`         | `string`             | Its name, as the processes list shows it                        |
+| `owner`        | `string`             | `parity`, or the id of the extension that started or adopted it |
+| `adoptedForMs` | `number`             | How long it was adopted, in milliseconds                        |
+| `checkedBy`    | `"pid" \| "connect"` | Whether its process id or a connection said it was gone         |
+
+### `processes.providerFailed`
+
+| Attribute    | Type                                                        | Meaning                                                                                                  |
+| ------------ | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `provider`   | `string`                                                    | The extension's id                                                                                       |
+| `kind`       | `"addresses" \| "discovery" \| "environment" \| "launcher"` | The kind of provider                                                                                     |
+| `reason`     | `"error" \| "timeout" \| "invalid" \| "refused"`            | It threw, ran out of time, answered what its schema refuses, or gave an address or server Parity refuses |
+| `durationMs` | `number`                                                    | How long it took, in milliseconds                                                                        |
+| `message`    | `string`, optional                                          | What went wrong, scrubbed                                                                                |
+
+### `processes.providerSlow`
+
+| Attribute    | Type                                                        | Meaning                           |
+| ------------ | ----------------------------------------------------------- | --------------------------------- |
+| `provider`   | `string`                                                    | The extension's id                |
+| `kind`       | `"addresses" \| "discovery" \| "environment" \| "launcher"` | The kind of provider              |
+| `durationMs` | `number`                                                    | How long it took, in milliseconds |
+
+### `processes.reattached`
+
+| Attribute     | Type                             | Meaning                                                                   |
+| ------------- | -------------------------------- | ------------------------------------------------------------------------- |
+| `owner`       | `string`                         | `parity`, or the id of the extension that started or adopted it           |
+| `processes`   | `integer`                        | How many of its processes it got back                                     |
+| `hostStopped` | `"crash" \| "stuck" \| "reload"` | Why its host stopped: it crashed, it wasn't answering, or it was reloaded |
+
+### `processes.refused`
+
+| Attribute  | Type                                                                                                                                                                                                                         | Meaning                                                                         |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `owner`    | `string`                                                                                                                                                                                                                     | `parity`, or the id of the extension that started or adopted it                 |
+| `runKind`  | `"bin" \| "script" \| "exec" \| "node" \| "parity"`, optional                                                                                                                                                                | What kind of command it runs; `parity` for one of Parity's own                  |
+| `command`  | `string`, optional                                                                                                                                                                                                           | The package, script, executable or module it runs, as `storybook`; no arguments |
+| `code`     | `"process_spec_invalid" \| "process_not_permitted" \| "process_not_found" \| "process_unsupported" \| "process_spec_differs" \| "process_adopted" \| "process_provider_failed" \| "process_id_taken" \| "process_not_local"` | Why it was refused                                                              |
+| `provider` | `string`, optional                                                                                                                                                                                                           | The extension whose environment or launcher failed, when one did                |
+
+### `processes.restarted`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                 |
+| `by`         | `"person" \| "extension" \| "crash"`                | Who started it again: the person, its extension, or a crash                       |
+| `outcome`    | `"ok" \| "error"`                                   | Whether its next run was ready                                                    |
+
+### `processes.started`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                 |
+| `ready`      | `"http" \| "tcp" \| "output" \| "none"`             | How Parity knew it was ready                                                      |
+| `portMoved`  | `boolean`                                           | Whether the port it asked for was taken, so it got another                        |
+| `run`        | `integer`                                           | Which run this is: 1, then one more each time it starts again                     |
+
+### `processes.stopped`
+
+| Attribute  | Type                                                                             | Meaning                                                                                                                                                      |
+| ---------- | -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lifetime` | `"server" \| "task"`                                                             | Whether it runs until it's stopped, or once                                                                                                                  |
+| `name`     | `string`                                                                         | Its name, as the processes list shows it                                                                                                                     |
+| `owner`    | `string`                                                                         | `parity`, or the id of the extension that started or adopted it                                                                                              |
+| `role`     | `string`                                                                         | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty                                                                            |
+| `runKind`  | `"bin" \| "script" \| "exec" \| "node" \| "parity"`                              | What kind of command it runs; `parity` for one of Parity's own                                                                                               |
+| `command`  | `string`                                                                         | The package, script, executable or module it runs, as `storybook`; no arguments                                                                              |
+| `uptimeMs` | `number`                                                                         | How long it had been running, in milliseconds                                                                                                                |
+| `by`       | `"person" \| "extension" \| "project" \| "undetected" \| "service" \| "removed"` | Who stopped it: the person from the list, its extension, the project's closing, its tool no longer detected, the service exiting, or its extension's removal |
+
+### `processes.taskFinished`
+
+| Attribute    | Type                                                | Meaning                                                                           |
+| ------------ | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| `lifetime`   | `"server" \| "task"`                                | Whether it runs until it's stopped, or once                                       |
+| `name`       | `string`                                            | Its name, as the processes list shows it                                          |
+| `owner`      | `string`                                            | `parity`, or the id of the extension that started or adopted it                   |
+| `role`       | `string`                                            | For Parity's own, what it does, as `tool`; else the role its spec gives, or empty |
+| `runKind`    | `"bin" \| "script" \| "exec" \| "node" \| "parity"` | What kind of command it runs; `parity` for one of Parity's own                    |
+| `command`    | `string`                                            | The package, script, executable or module it runs, as `storybook`; no arguments   |
+| `durationMs` | `number`                                            | How long it took, in milliseconds                                                 |
+| `outcome`    | `"passed" \| "failed" \| "canceled"`                | How it ended                                                                      |
+| `how`        | `"exited" \| "timeout" \| "stopped"`                | Whether it exited, ran out of time, or was stopped                                |
+| `exitCode`   | `integer`, optional                                 | Its exit code, when it exited with one                                            |
+| `reported`   | `boolean`                                           | Whether its owner set progress or a summary by the time this was sent             |
+
+### `project.closed`
+
+| Attribute | Type     | Meaning                                                 |
+| --------- | -------- | ------------------------------------------------------- |
+| `name`    | `string` | The project's name, from its package.json or its folder |
+| `root`    | `string` | The project's folder                                    |
+| `openMs`  | `number` | How long it was open, in milliseconds                   |
+
+### `project.detected`
+
+| Attribute | Type     | Meaning              |
+| --------- | -------- | -------------------- |
+| `root`    | `string` | The project's folder |
+
+### `project.drawn`
+
+| Attribute    | Type                 | Meaning                                                                     |
+| ------------ | -------------------- | --------------------------------------------------------------------------- |
+| `name`       | `string`             | The project's name, from its package.json or its folder                     |
+| `root`       | `string`             | The project's folder                                                        |
+| `durationMs` | `number`             | From asking to open it until its canvas first drew a frame, in milliseconds |
+| `from`       | `"live" \| "bitmap"` | Whether the frame drew its design, or showed a bitmap kept of it            |
+
+### `project.loaded`
+
+| Attribute      | Type                | Meaning                                                                                            |
+| -------------- | ------------------- | -------------------------------------------------------------------------------------------------- |
+| `name`         | `string`            | The project's name, from its package.json or its folder                                            |
+| `root`         | `string`            | The project's folder                                                                               |
+| `durationMs`   | `number`            | From asking to open it until its tab is ready, in milliseconds                                     |
+| `componentsMs` | `number`            | How long its guest and components took to load in the window                                       |
+| `components`   | `integer`           | The components it has                                                                              |
+| `restored`     | `boolean`, optional | Whether the window opened it as it started, as last time's tabs, rather than the person opening it |
+
+### `project.openFailed`
+
+| Attribute     | Type                       | Meaning                                                                                                        |
+| ------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string`                   | The project's name, from its package.json or its folder                                                        |
+| `root`        | `string`                   | The project's folder                                                                                           |
+| `reopen`      | `boolean`                  | Whether it was reopened as Parity started, because it was open last time (PAR-179)                             |
+| `durationMs`  | `number`                   | How long it took, in milliseconds                                                                              |
+| `detectionMs` | `number`, optional         | How long detection took, when it finished                                                                      |
+| `builderMs`   | `number`, optional         | How long the builder took to answer, when it did                                                               |
+| `framework`   | `string`, optional         | The renderer's ID, as `react`, once one was found                                                              |
+| `builder`     | `string`, optional         | The builder's ID, as `vite`, once one was found                                                                |
+| `tools`       | `object`, optional         | The version of each tool detection found, by its ID, as `{ vite: '8.0.3' }`, with TypeScript's as `typescript` |
+| `step`        | `"detection" \| "builder"` | The step that failed                                                                                           |
+| `message`     | `string`                   | Why, as the tab says it                                                                                        |
+| `code`        | `string`, optional         | The `CodedError` code, when the failure has one                                                                |
+
+### `project.opened`
+
+| Attribute     | Type               | Meaning                                                                                                        |
+| ------------- | ------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string`           | The project's name, from its package.json or its folder                                                        |
+| `root`        | `string`           | The project's folder                                                                                           |
+| `reopen`      | `boolean`          | Whether it was reopened as Parity started, because it was open last time (PAR-179)                             |
+| `durationMs`  | `number`           | How long it took, in milliseconds                                                                              |
+| `detectionMs` | `number`, optional | How long detection took, when it finished                                                                      |
+| `builderMs`   | `number`, optional | How long the builder took to answer, when it did                                                               |
+| `framework`   | `string`, optional | The renderer's ID, as `react`, once one was found                                                              |
+| `builder`     | `string`, optional | The builder's ID, as `vite`, once one was found                                                                |
+| `tools`       | `object`, optional | The version of each tool detection found, by its ID, as `{ vite: '8.0.3' }`, with TypeScript's as `typescript` |
+| `cached`      | `boolean`          | Whether its components and props came from the last detection, as nothing changed                              |
+| `components`  | `integer`          | The components it has                                                                                          |
+| `designs`     | `integer`          | The designs in its project files                                                                               |
+| `tokens`      | `integer`          | The theme variables its styles have                                                                            |
+| `libraries`   | `integer`          | The component libraries it depends on                                                                          |
+
+### `project.opening`
+
+| Attribute | Type               | Meaning                                                                        |
+| --------- | ------------------ | ------------------------------------------------------------------------------ |
+| `reload`  | `boolean`          | Whether the tab's project was opened again in place, as after adding a library |
+| `root`    | `string`, optional | The project's folder                                                           |
+| `name`    | `string`, optional | The project's name, from its package.json or its folder                        |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one                                |
+
+### `project.unsupported`
+
+| Attribute | Type                                            | Meaning                                                                            |
+| --------- | ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `reason`  | `"no_package" \| "no_renderer" \| "no_builder"` | Why: no package.json, no renderer for its framework, or no builder for its bundler |
+| `detail`  | `string`                                        | What Parity found, as shown to the person opening it                               |
+
+### `projectDoc.closed`
+
+| Attribute      | Type                | Meaning                                                        |
+| -------------- | ------------------- | -------------------------------------------------------------- |
+| `provider`     | `string`            | The document's provider: `loro` or `local`                     |
+| `durationMs`   | `number`            | How long the document was open, in milliseconds                |
+| `transactions` | `integer`           | Transactions applied                                           |
+| `operations`   | `integer`           | Operations in them                                             |
+| `undos`        | `integer`           | Steps undone                                                   |
+| `redos`        | `integer`           | Steps redone                                                   |
+| `refused`      | `integer`           | Transactions refused                                           |
+| `layers`       | `integer`           | Layers when it closed                                          |
+| `peakBytes`    | `integer`, optional | The provider's largest state, in bytes, when it can say        |
+| `transactMs`   | `number`            | Time spent checking and applying transactions, in milliseconds |
+
+### `projectDoc.openFailed`
+
+| Attribute  | Type               | Meaning                                     |
+| ---------- | ------------------ | ------------------------------------------- |
+| `provider` | `string`           | The document's provider: `loro` or `local`  |
+| `files`    | `string[]`         | The project files in the document, by path  |
+| `file`     | `string`, optional | The file it failed on, when one is to blame |
+| `message`  | `string`           | Why, as the provider said it                |
+
+### `projectDoc.opened`
+
+| Attribute    | Type                | Meaning                                                                                   |
+| ------------ | ------------------- | ----------------------------------------------------------------------------------------- |
+| `provider`   | `string`            | The document's provider: `loro` or `local`                                                |
+| `files`      | `string[]`          | The project files in the document, by path                                                |
+| `designs`    | `integer`           | Designs in the document                                                                   |
+| `layers`     | `integer`           | Layers in the document                                                                    |
+| `durationMs` | `number`            | From reading the files to the document being ready, in milliseconds                       |
+| `wasmMs`     | `number`, optional  | Time to download and compile the provider's WebAssembly, in milliseconds, when it has any |
+| `bytes`      | `integer`, optional | The provider's state, in bytes, when it can say                                           |
+
+### `projectDoc.refused`
+
+| Attribute  | Type                                                                                                         | Meaning                                                     |
+| ---------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------- |
+| `provider` | `string`                                                                                                     | The document's provider: `loro` or `local`                  |
+| `label`    | `string`                                                                                                     | The transaction's label: `Move layer`                       |
+| `origin`   | `"edit" \| "agent" \| "extension" \| "file" \| "view" \| "code" \| "remote"`                                 | Who made it                                                 |
+| `problem`  | `"unknownDesign" \| "unknownNode" \| "takenId" \| "intoItself" \| "notSibling" \| "fixedField" \| "invalid"` | Why the first was refused                                   |
+| `op`       | `string`                                                                                                     | The kind of operation refused: `move`                       |
+| `count`    | `integer`                                                                                                    | Transactions refused in the run: one, or all of a gesture's |
+
+### `projectEdit.applied`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `files`   | `string[]`         | The files it changed, by path                   |
+| `outcome` | `"ok" \| "error"`  | Whether it worked                               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `projectEdit.undone`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `files`   | `string[]`         | The files it changed, by path                   |
+| `outcome` | `"ok" \| "error"`  | Whether it worked                               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `renderer.long_task`
+
+| Attribute    | Type               | Meaning                                                               |
+| ------------ | ------------------ | --------------------------------------------------------------------- |
+| `durationMs` | `integer`          | How long the task ran                                                 |
+| `action`     | `string`, optional | The input that started it, such as `pointerdown` or `keydown`, if any |
+
+### `report.sent`
+
+| Attribute    | Type                  | Meaning                                                         |
+| ------------ | --------------------- | --------------------------------------------------------------- |
+| `feedbackId` | `string`              | The Sentry event ID of the user feedback the report became      |
+| `screenshot` | `boolean`             | Whether a screenshot of the window went with it                 |
+| `afterCrash` | `boolean`             | Whether it was offered on start after the last run crashed      |
+| `by`         | `"person" \| "agent"` | Who sent it: a person from Help, or an agent with parity report |
+
+### `request.handled`
+
+| Attribute | Type               | Meaning                        |
+| --------- | ------------------ | ------------------------------ |
+| `method`  | `string`           | The method asked for           |
+| `code`    | `string`, optional | The error code, when it failed |
+
+### `service.degraded`
+
+| Attribute | Type                                                                                                                                                                                                                                                        | Meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `feature` | `"watch" \| "config_watch" \| "design_reload" \| "component_reread" \| "config_reread" \| "type_check" \| "prop_inference" \| "bitmap_cache" \| "frame_bitmap" \| "component_preview" \| "preview_index" \| "reopening" \| "recovery" \| "extension_state"` | `watch`: A project's files aren't watched, so outside edits don't show until it's opened again. `config_watch`: A project's config isn't followed, so a changed tsconfig, package.json or lockfile isn't noticed. `design_reload`: A project file changed on disk but can't be read, so the canvas keeps the version it had. `component_reread`: Changed component files can't be read again, so the component list keeps what it had. `config_reread`: Props can't be read again after the config changed. `type_check`: The type checker can't read the components, so their props aren't known. `prop_inference`: Component props can't be inferred, so panels fall back to free-form props. `bitmap_cache`: sharp can't load, so no frame bitmaps or component previews are kept. `frame_bitmap`: A frame's bitmap can't be kept. `component_preview`: A component preview can't be kept. `preview_index`: The component preview index can't be kept. `reopening`: The open projects can't be kept, so they don't reopen next time. `recovery`: A project's unsaved changes can't be kept, so a crash or forced quit would lose them. `extension_state`: Extensions' state can't be kept, so what they saved and their status items' values are lost. |
+| `message` | `string`                                                                                                                                                                                                                                                    | Why, as the error said it                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `code`    | `string`, optional                                                                                                                                                                                                                                          | The `CodedError` code, when the failure has one                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| `root`    | `string`, optional                                                                                                                                                                                                                                          | The project's folder, when it's one project's                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+
+### `service.exited`
+
+| Attribute   | Type      | Meaning                                                                                                  |
+| ----------- | --------- | -------------------------------------------------------------------------------------------------------- |
+| `exitCode`  | `integer` | The code the project service exited with                                                                 |
+| `ranMs`     | `integer` | How long it ran before it exited                                                                         |
+| `restarted` | `boolean` | Whether a fresh service takes its place: one replaced it, or a crash starts one, with back-off (PAR-788) |
+
+### `service.lag`
+
+| Attribute | Type      | Meaning                                                                        |
+| --------- | --------- | ------------------------------------------------------------------------------ |
+| `lateMs`  | `integer` | How late the service's timer ran, which is how long its event loop was blocked |
+
+### `setting.changed`
+
+| Attribute | Type                          | Meaning                                                  |
+| --------- | ----------------------------- | -------------------------------------------------------- |
+| `setting` | `string`                      | The setting's name, such as theme, snapping or telemetry |
+| `value`   | `string \| number \| boolean` | Its new value; a list, such as the export sizes, as JSON |
+
+### `start.action`
+
+| Attribute | Type                                                                                                  | Meaning                                                                                                  |
+| --------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or a new tab                                                          |
+| `action`  | `"new-project" \| "open-folder" \| "open-file" \| "recent-project" \| "search" \| "star" \| "forget"` | What was done: start a project, open a folder or file, open a listed project, search, star or forget one |
+
+### `styles.imported`
+
+| Attribute | Type               | Meaning                                        |
+| --------- | ------------------ | ---------------------------------------------- |
+| `package` | `string`           | The library, by its catalog ID or package name |
+| `version` | `string`, optional | The version installed, when known              |
+| `files`   | `string[]`         | The files it changed, by path                  |
+
+### `tab.closed`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.opened`
+
+| Attribute | Type                           | Meaning                                            |
+| --------- | ------------------------------ | -------------------------------------------------- |
+| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
+| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
+
+### `tab.switched`
+
+| Attribute | Type                           | Meaning                  |
+| --------- | ------------------------------ | ------------------------ |
+| `from`    | `"home" \| "project" \| "new"` | What was in front before |
+| `to`      | `"home" \| "project" \| "new"` | What is in front now     |
+
+### `text.edited`
+
+| Attribute    | Type                                        | Meaning                                                                                       |
+| ------------ | ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `design`     | `string`                                    | The design, by key                                                                            |
+| `layer`      | `string`                                    | The text layer, by id                                                                         |
+| `outcome`    | `"committed" \| "unchanged" \| "cancelled"` | Whether the text was changed, left as it was, or the editor closed before it could be written |
+| `how`        | `"enter" \| "escape" \| "blur"`, optional   | What closed it: Enter, Escape, or clicking away                                               |
+| `durationMs` | `number`                                    | How long it was open, in milliseconds                                                         |
+| `length`     | `integer`                                   | How many characters the text has after it                                                     |
+
+### `tokens.saved`
+
+| Attribute | Type               | Meaning                                         |
+| --------- | ------------------ | ----------------------------------------------- |
+| `changes` | `integer`          | The tokens written                              |
+| `files`   | `string[]`         | The files it changed, by path                   |
+| `outcome` | `"ok" \| "error"`  | Whether it worked                               |
+| `code`    | `string`, optional | The `CodedError` code, when the failure has one |
+
+### `update.checked`
+
+| Attribute   | Type                 | Meaning                                   |
+| ----------- | -------------------- | ----------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes     |
+| `version`   | `string`             | The version running now                   |
+| `available` | `string`, optional   | The newer version found, if there was one |
+
+### `update.downloaded`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version downloaded                |
+
+### `update.failed`
+
+| Attribute | Type                                 | Meaning                                                                   |
+| --------- | ------------------------------------ | ------------------------------------------------------------------------- |
+| `channel` | `"stable" \| "beta"`                 | The update channel this install takes                                     |
+| `version` | `string`                             | The version running now                                                   |
+| `stage`   | `"check" \| "download" \| "install"` | What was under way when it failed                                         |
+| `message` | `string`                             | What went wrong, its first line                                           |
+| `code`    | `string`, optional                   | electron-updater's error code, such as ERR_UPDATER_CHANNEL_FILE_NOT_FOUND |
+
+### `update.installed`
+
+| Attribute   | Type                 | Meaning                               |
+| ----------- | -------------------- | ------------------------------------- |
+| `channel`   | `"stable" \| "beta"` | The update channel this install takes |
+| `version`   | `string`             | The version running now               |
+| `available` | `string`             | The version being installed           |
+
+### `window.gone`
+
+| Attribute | Type                                                                              | Meaning                                                                                                  |
+| --------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"`                                                          | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames                  |
+| `reason`  | `"crashed" \| "oom" \| "abnormal-exit" \| "launch-failed" \| "integrity-failure"` | Why, as Electron says it: it `crashed`, ran out of memory (`oom`), exited abnormally, or failed to start |
+
+### `window.hang_started`
+
+| Attribute | Type                     | Meaning                                                                                 |
+| --------- | ------------------------ | --------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"` | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames |
+
+### `window.hung`
+
+| Attribute | Type                                           | Meaning                                                                                                                                                                   |
+| --------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `window`  | `"renderer" \| "render"`                       | Which window: `renderer` for the editor's, `render` for an offscreen one drawing frames                                                                                   |
+| `stuckMs` | `integer`                                      | How long the window didn't answer                                                                                                                                         |
+| `ended`   | `"answered" \| "closed" \| "quit" \| "exited"` | How the hang ended: the window `answered` again, was `closed`, the app was `quit`, or the app `exited` without quitting, such as a force-quit, which the next run reports |
 
 <!-- End of the generated events. -->

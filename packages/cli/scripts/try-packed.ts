@@ -7,6 +7,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync }
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pathToFileURL } from "node:url"
+import { stdout } from "../src/output.ts"
 
 const cli = join(import.meta.dirname, "..")
 const work = mkdtempSync(join(tmpdir(), "parity-cli-"))
@@ -17,8 +18,11 @@ function run(command: string, cwd: string): string {
 }
 
 function check(passed: boolean, what: string): void {
-  if (!passed) throw new Error(`The packed CLI failed: ${what}`)
-  console.log(`ok: ${what}`)
+  if (!passed) {
+    throw new Error(`The packed CLI failed: ${what}`)
+  }
+
+  stdout(`ok: ${what}`)
 }
 
 try {
@@ -35,13 +39,17 @@ try {
   const registry = join(cli, "..", "registry")
   const shipped = readdirSync(join(registry, "libraries")).every((file) => existsSync(join(dist, "libraries", file)))
   check(shipped && existsSync(join(dist, "in-app.json")), "it ships every file in the registry and its in-app floors")
+
   const chunk = readdirSync(dist).find(
     (file) => file.endsWith(".mjs") && readFileSync(join(dist, file), "utf8").includes("function registryEntries(")
   )
-  const module: Record<string, unknown> = chunk ? await import(pathToFileURL(join(dist, chunk)).href) : {}
+
+  const module: object = chunk ? await import(pathToFileURL(join(dist, chunk)).href) : {}
+
   const registryEntries = Object.values(module).find(
-    (value): value is () => Promise<unknown[]> => typeof value === "function" && value.name === "registryEntries"
+    (value): value is () => Promise<unknown[]> => value instanceof Function && value.name === "registryEntries"
   )
+
   const entries = registryEntries ? await registryEntries() : []
   check(entries.length > 0, `the registry reads the ${entries.length} library files it ships`)
 } finally {

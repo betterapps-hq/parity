@@ -4,6 +4,7 @@ import { followGuest, type GuestMoved, guestMove, newGuestPort, restartPort } fr
 /** Hands out the given ports in turn, and calls free the ones not in `taken`. */
 function finder(handed: number[], taken: number[] = []) {
   const queue = [...handed]
+
   return {
     free: () => Promise.resolve(queue.shift()!),
     isFree: (port: number) => Promise.resolve(!taken.includes(port))
@@ -50,10 +51,12 @@ describe("followGuest", () => {
   /** A window that loads a moved guest or doesn't, as `answers` says in turn, and what it was told. */
   function editorWindow(...answers: boolean[]) {
     const told: GuestMoved[] = []
+
     return {
       told,
       tell: (moved: GuestMoved) => {
         told.push(moved)
+
         return Promise.resolve(answers.shift()!)
       }
     }

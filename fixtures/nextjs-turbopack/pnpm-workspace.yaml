@@ -1,0 +1,11 @@
+# A workspace of its own, so pnpm doesn't treat this project as part of the Parity repo around it.
+packages:
+  - .
+# Packages in node_modules itself, not linked from node_modules/.pnpm: CI caches node_modules, and on Windows the
+# junctions pnpm links with otherwise come back from the cache broken, so Next and Tailwind can't find their packages.
+nodeLinker: hoisted
+allowBuilds:
+  # Storybook's Vite bundles with it; its binary comes from its platform package, which the script only checks.
+  esbuild: true
+  # Next.js's image optimizer; its prebuilt binary comes from its platform package.
+  sharp: false

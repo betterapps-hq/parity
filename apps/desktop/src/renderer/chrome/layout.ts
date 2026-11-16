@@ -1,8 +1,11 @@
-import { finiteNumber, jsonText } from "@parity-app/core"
-import { useSyncExternalStore } from "react"
+import { finiteNumber } from "@parity-app/core"
+import type { JsonValue } from "@parity-app/settings"
 import { z } from "zod"
+import { recordInterface } from "../interface-events.ts"
+import { saved, saveState } from "../saved.ts"
+import { useStore, windowStore } from "../store.ts"
+import type { Attributes } from "./event-attributes.ts"
 
-const storageKey = "parity.layout"
 export const panelLimits = { left: [232, 480], right: [260, 520], console: [120, 640] } as const
 
 /** A panel's saved width, or the console's height, kept to its limits. */
@@ -22,57 +25,68 @@ const savedLayout = z.object({
   leftTab: z.string().optional().catch(undefined),
   rightTab: z.string().optional().catch(undefined),
   console: z.boolean().catch(false),
-  consoleHeight: width("console", 240)
+  consoleHeight: width("console", 240),
+  /** The bottom panel's tab: the console, or an extension's log by the extension's id (PAR-1089). */
+  bottomTab: z.string().catch("console")
 })
 
 export type PanelLayout = z.infer<typeof savedLayout>
 
-/** The panel layout saved as `text`, each value that's missing or doesn't read at its default. */
-export function readLayout(text: string | null): PanelLayout {
-  return jsonText(savedLayout)
-    .catch(() => savedLayout.parse({}))
-    .parse(text ?? "{}")
+/** The panel layout as saved, each value that's missing or doesn't read at its default. */
+export function readLayout(value: JsonValue | undefined): PanelLayout {
+  return savedLayout.catch(() => savedLayout.parse({})).parse(value ?? {})
 }
 
-let layout = load()
-const listeners = new Set<() => void>()
+/** The layout as it was saved; `resetWindowStores` puts back the defaults, as a first run has them. */
+const layout = windowStore(() => readLayout(undefined))
 
-function load(): PanelLayout {
-  try {
-    return readLayout(localStorage.getItem(storageKey))
-  } catch {
-    // Storage can be unavailable; the defaults then apply.
-    return readLayout(null)
-  }
-}
+// Shared by every copy in `state.json`: a window starts with the layout last saved.
+layout.set(readLayout(saved().values.layout))
 
 export function setLayout(change: Partial<PanelLayout>): void {
-  layout = { ...layout, ...change }
-  try {
-    localStorage.setItem(storageKey, JSON.stringify(layout))
-  } catch {
-    // Storage can be unavailable; the layout then just isn't remembered.
+  const before = layout.get()
+  const after = { ...before, ...change }
+  recordShownPanels(before, after)
+
+  saveState("layout", { ...after })
+  layout.set(after)
+}
+
+/** Records each side panel, or the console, that opens or shows another tab (PAR-634). */
+function recordShownPanels(before: PanelLayout, after: PanelLayout): void {
+  for (const side of ["left", "right"] as const) {
+    const tab = after[side === "left" ? "leftTab" : "rightTab"]
+    const opened = after[side] && !before[side]
+    const switched = after[side] && tab !== before[side === "left" ? "leftTab" : "rightTab"]
+
+    if (opened || switched) {
+      const shown: Attributes<"panel.shown"> = { panel: side }
+
+      if (tab) {
+        shown.tab = tab
+      }
+
+      recordInterface("panel.shown", shown)
+    }
   }
-  for (const listener of listeners) listener()
+
+  if (after.console && !before.console) {
+    recordInterface("panel.shown", { panel: "console" })
+  }
 }
 
 /** Opens the console under the canvas, or closes it. */
 export function toggleConsole(): void {
-  setLayout({ console: !layout.console })
+  setLayout({ console: !layout.get().console })
 }
 
 /** Hides both panels, or shows them again, like Figma's Ctrl+\. */
 export function togglePanels(): void {
-  const open = layout.left || layout.right
+  const { left, right } = layout.get()
+  const open = left || right
   setLayout({ left: !open, right: !open })
 }
 
 export function useLayout(): PanelLayout {
-  return useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener)
-      return () => listeners.delete(listener)
-    },
-    () => layout
-  )
+  return useStore(layout)
 }

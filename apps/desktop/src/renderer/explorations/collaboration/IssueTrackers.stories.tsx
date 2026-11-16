@@ -17,10 +17,12 @@ const meta = {
 } satisfies Meta
 
 export default meta
+
 type Story = StoryObj<typeof meta>
 
 function FromAThreadDemo() {
   const [added, setAdded] = useState(orgTrackers)
+
   return (
     <Stage className="flex items-start gap-10">
       <OrgTrackers added={added} onChange={setAdded} />
@@ -44,6 +46,7 @@ export const FromAThread: Story = {
 
 function DialogDemo({ tracker, mode }: { tracker: "github" | "linear" | "azure"; mode: "create" | "link" }) {
   const [open, setOpen] = useState(true)
+
   return (
     <Stage>
       <button type="button" className="text-sm text-muted-foreground underline" onClick={() => setOpen(true)}>

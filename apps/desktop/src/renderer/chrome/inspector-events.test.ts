@@ -1,0 +1,402 @@
+import {
+  addVariant,
+  type ContainerSpec,
+  type DesignNode,
+  type LayoutNode,
+  editNode,
+  findNode,
+  nodeOnBoard,
+  resetOverride,
+  setSlot
+} from "@parity-app/core"
+import { styleSelection } from "@parity-app/editor"
+import { updateContainer } from "@parity-app/multiplayer"
+import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
+import type { Token } from "@parity-app/tokens"
+import { afterEach, describe, expect, it } from "vite-plus/test"
+import { z } from "zod"
+import { ChangePreview } from "../canvas/change-preview.ts"
+import { openTestSession } from "../doc-fixtures.ts"
+import { setWindowTelemetry } from "../report-error.ts"
+import {
+  applyToken,
+  changedFields,
+  fieldValue,
+  type LayerChange,
+  mixed,
+  PreviewedProp,
+  paramValue,
+  recordInspectorChange,
+  recordLayerChange,
+  renameAndRecord,
+  rowChanged,
+  updateAndRecord
+} from "./inspector-events.ts"
+
+const sink = createTestSink()
+
+afterEach(() => {
+  setWindowTelemetry(undefined)
+  sink.clear()
+})
+
+describe("changedFields", () => {
+  it("lists each field a change sets, with what the layer showed there before", () => {
+    const node: DesignNode = {
+      type: "component",
+      id: "badge",
+      component: "Badge",
+      props: { variant: "outline" },
+      style: { padding: [{ step: 2 }, { step: 2 }] }
+    }
+
+    expect(
+      changedFields(node, {
+        props: { variant: "solid", size: "sm" },
+        style: { padding: [{ step: 3 }, { step: 3 }] },
+        hidden: true
+      })
+    ).toEqual([
+      { field: "hidden", from: false, to: true },
+      { field: "props.variant", from: "outline", to: "solid" },
+      { field: "props.size", from: undefined, to: "sm" },
+      { field: "style.padding", from: [{ step: 2 }, { step: 2 }], to: [{ step: 3 }, { step: 3 }] }
+    ])
+  })
+})
+
+describe("changedFields of an instance", () => {
+  it("reads a prop from the instance's arguments, where a change to it goes", () => {
+    const node: DesignNode = { type: "instance", id: "card", design: "card", args: { title: "Hello" } }
+
+    expect(changedFields(node, { props: { title: "Bye" } })).toEqual([
+      { field: "props.title", from: "Hello", to: "Bye" }
+    ])
+  })
+})
+
+describe("rowChanged", () => {
+  const layer = (id: string, gap?: number) => {
+    const node: LayoutNode = { type: "layout", id, children: [] }
+
+    if (gap !== undefined) {
+      node.style = { gap: { step: gap } }
+    }
+
+    return node
+  }
+
+  // The selection the Style panel would make of these layers, from a design that holds just them.
+  const selection = (...layers: LayoutNode[]) => {
+    const container: ContainerSpec = {
+      id: "home",
+      name: "home",
+      position: { x: 0, y: 0 },
+      root: { type: "layout", id: "root", children: layers }
+    }
+
+    return styleSelection(
+      container,
+      layers.map((node) => node.id),
+      undefined
+    )!
+  }
+
+  it("counts a change to layers whose values differ, and not setting the value a field already had", () => {
+    expect(rowChanged(selection(layer("a", 1), layer("b", 2)), selection(layer("a", 2), layer("b", 3)), "gap")).toBe(
+      true
+    )
+    expect(rowChanged(selection(layer("a", 2)), selection(layer("a", 2)), "gap")).toBe(false)
+  })
+})
+
+describe("recordInspectorChange", () => {
+  it("records the field, the layers and the values as JSON, and nothing for a change that changed nothing", () => {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+    const change = { field: "style.gap", design: "app.par#home", layers: ["row"], state: "default" }
+    recordInspectorChange({ ...change, from: { gap: 2 }, to: { gap: 3 }, gesture: "g1" })
+    recordInspectorChange({ ...change, from: { gap: 3 }, to: { gap: 3 } })
+    expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([
+      { ...change, from: '{"gap":2}', to: '{"gap":3}', gesture: true }
+    ])
+  })
+
+  it("records an edit to layers whose values differ, which read as mixed before and after", () => {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+    const change = { field: "style.padding", design: "app.par#home", layers: ["a", "b"], from: mixed, to: mixed }
+    recordInspectorChange({ ...change, changed: true })
+    recordInspectorChange({ ...change, changed: false })
+    expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([
+      { field: "style.padding", design: "app.par#home", layers: ["a", "b"], from: "mixed", to: "mixed", gesture: false }
+    ])
+  })
+})
+
+describe("a component prop previewed by being made", () => {
+  const key = "app.par#home"
+
+  /** A design holding an icon whose size is 16, changed as the Layers panel changes it, with each render's layer. */
+  function setup() {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+
+    const home: ContainerSpec = {
+      id: "home",
+      name: "home",
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: "root",
+        children: [{ type: "component", id: "icon", component: "lucide/Hexagon", props: { size: 16 } }]
+      }
+    }
+
+    const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [home] } }])
+
+    // The layer as the panel shows it now: a preview shows by being made, so it shows the previewed size.
+    const node = () => findNode(doc.design(key)!.root, "icon")!
+
+    const change: LayerChange = (label, value, gesture, shown = node()) => {
+      updateContainer(doc, key, label, (current) => editNode(current, "default", "icon", value), { gesture })
+
+      if (shown) {
+        recordLayerChange(key, ["icon"], "default", shown, value, gesture)
+      }
+    }
+
+    const prop = new PreviewedProp(new ChangePreview(doc, key))
+    const size = (to: number) => ({ props: { size: to } })
+
+    const recorded = () =>
+      sink.named("inspector.changed").map(({ attributes }) => ({ from: attributes.from, to: attributes.to }))
+
+    return { node, change, prop, size, recorded }
+  }
+
+  it("records nothing as it's previewed, and the change once, from the size before the first preview", () => {
+    const { node, change, prop, size, recorded } = setup()
+
+    for (const to of [20, 24, 28]) {
+      prop.show(node(), change, "Change size", size(to))
+    }
+
+    expect(recorded()).toEqual([])
+    prop.commit(node(), change, "Change size", size(28))
+    expect(recorded()).toEqual([{ from: "16", to: "28" }])
+  })
+
+  it("records nothing when the preview is taken back, as Escape does", () => {
+    const { node, change, prop, size, recorded } = setup()
+    prop.show(node(), change, "Change size", size(20))
+    prop.cancel()
+    expect(recorded()).toEqual([])
+    // The next change starts from the size the layer has again.
+    prop.commit(node(), change, "Change size", size(18))
+    expect(recorded()).toEqual([{ from: "16", to: "18" }])
+  })
+})
+
+describe("a change to a design, recorded as the document makes it (PAR-713)", () => {
+  const key = "app.par#card"
+
+  /** A component design, Card, with a title, a layout that can be a slot, and a state that hides the title. */
+  function setup() {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+
+    const card: ContainerSpec = {
+      id: "card",
+      name: "Card",
+      kind: "component",
+      position: { x: 0, y: 0 },
+      root: {
+        type: "layout",
+        id: "root",
+        children: [
+          { type: "text", id: "title", text: "Hello" },
+          { type: "layout", id: "body", children: [] }
+        ]
+      },
+      states: [
+        { id: "default", name: "Default" },
+        { id: "closed", name: "Closed", overrides: { title: { hidden: true } } }
+      ]
+    }
+
+    const { doc } = openTestSession([{ path: "app.par", document: { version: 4, containers: [card] } }])
+
+    const recorded = () => sink.named("inspector.changed").map((event) => event.attributes)
+
+    return { doc, recorded }
+  }
+
+  it("records a rename with the name before and after, and nothing for one that keeps the name", () => {
+    const { doc, recorded } = setup()
+    renameAndRecord(doc, key, "Profile card")
+    renameAndRecord(doc, key, "Profile card")
+    expect(doc.history().undo[0]).toBe("Rename component")
+    expect(recorded()).toEqual([
+      { field: "name", design: key, layers: [], from: '"Card"', to: '"Profile card"', gesture: false }
+    ])
+  })
+
+  it("records a layer's new name against the layer, and the name taken back off it", () => {
+    const { doc, recorded } = setup()
+    renameAndRecord(doc, key, "Heading", "title")
+    renameAndRecord(doc, key, undefined, "title")
+    expect(recorded()).toEqual([
+      { field: "name", design: key, layers: ["title"], from: "null", to: '"Heading"', gesture: false },
+      { field: "name", design: key, layers: ["title"], from: '"Heading"', to: "null", gesture: false }
+    ])
+  })
+
+  it("leaves a design given no name as it was", () => {
+    const { doc, recorded } = setup()
+    renameAndRecord(doc, key, undefined)
+    expect(doc.design(key)?.name).toBe("Card")
+    expect(recorded()).toEqual([])
+  })
+
+  it("records nothing for a change the design refuses", () => {
+    const { doc, recorded } = setup()
+    expect(() =>
+      updateAndRecord(doc, key, "Add size variant", (current) => addVariant(current, "size", []), {
+        field: "params.size",
+        read: (current) => paramValue(current, "size")
+      })
+    ).toThrow("A variant needs at least one option")
+    expect(recorded()).toEqual([])
+  })
+
+  it("records a variant's options by id and name, not what each changes", () => {
+    const { doc, recorded } = setup()
+    updateAndRecord(doc, key, "Add size variant", (current) => addVariant(current, "size", ["Small", "Large"]), {
+      field: "params.size",
+      read: (current) => paramValue(current, "size")
+    })
+    const [event] = recorded()
+    expect(event).toMatchObject({ field: "params.size", design: key, layers: [], from: "null" })
+    expect(JSON.parse(z.string().parse(event!.to))).toMatchObject({
+      type: "variant",
+      options: [
+        { id: expect.any(String), name: "Small" },
+        { id: expect.any(String), name: "Large" }
+      ]
+    })
+  })
+
+  it("records a layout made a slot, with its name", () => {
+    const { doc, recorded } = setup()
+    updateAndRecord(doc, key, "Make slot", (current) => setSlot(current, "body", "content"), {
+      field: "slot",
+      layers: ["body"],
+      read: (current) => {
+        const node = findNode(current.root, "body")
+
+        return node?.type === "layout" ? node.slot : undefined
+      }
+    })
+    expect(recorded()).toEqual([
+      { field: "slot", design: key, layers: ["body"], from: "null", to: '"content"', gesture: false }
+    ])
+  })
+
+  it("records a state's change reset, from what the state showed to what the design does", () => {
+    const { doc, recorded } = setup()
+    const field = { kind: "hidden" } as const
+
+    const shown = (current: ContainerSpec) =>
+      nodeOnBoard(
+        current,
+        findNode(current.root, "title")!,
+        current.states!.find((state) => state.id === "closed")!
+      )
+
+    updateAndRecord(doc, key, "Reset change", (current) => resetOverride(current, "closed", "title", field), {
+      field: "hidden",
+      layers: ["title"],
+      state: "closed",
+      read: (current) => fieldValue(shown(current), field)
+    })
+    expect(recorded()).toEqual([
+      { field: "hidden", design: key, layers: ["title"], state: "closed", from: "true", to: "false", gesture: false }
+    ])
+  })
+})
+
+describe("fieldValue", () => {
+  it("reads an instance's prop from its arguments, and a layer's visibility as shown when it has none", () => {
+    const instance: DesignNode = { type: "instance", id: "card", design: "card", args: { title: "Hello" } }
+
+    expect(fieldValue(instance, { kind: "props", key: "title" })).toBe("Hello")
+    expect(fieldValue(instance, { kind: "hidden" })).toBe(false)
+  })
+})
+
+describe("applyToken", () => {
+  it("records the themes it sets, with the token's values before and after, and nothing for setting them again", () => {
+    setWindowTelemetry(
+      createTelemetry({
+        events: registeredEvents,
+        context: { process: "renderer", installId: "install", sessionId: "session" },
+        sinks: [sink],
+        check: true
+      })
+    )
+
+    let token: Token = {
+      name: "primary",
+      category: "color",
+      source: "semantic",
+      values: { default: "#000", dark: "#fff" }
+    }
+
+    const store = {
+      get: () => [token],
+      set: (changes: { theme: string; value: string }[]) => {
+        token = {
+          ...token,
+          values: { ...token.values, ...Object.fromEntries(changes.map(({ theme, value }) => [theme, value])) }
+        }
+      }
+    }
+
+    applyToken(store, "primary", { default: "#111", dark: "#fff" })
+    applyToken(store, "primary", { default: "#111" })
+    expect(sink.named("inspector.changed").map((event) => event.attributes)).toEqual([
+      {
+        field: "token.primary",
+        layers: [],
+        from: '{"default":"#000","dark":"#fff"}',
+        to: '{"default":"#111","dark":"#fff"}',
+        gesture: false
+      }
+    ])
+  })
+})

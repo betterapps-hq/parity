@@ -62,9 +62,9 @@ reads from the project add to it.
      export const decorators = [...(storybook.decorators ?? []), withCanvasOnlyProviders]
      ```
 
-   - **It's separate from `parity.config.ts`.** The config, at the project root, holds adapters, plugins and settings,
-     and runs in Node in the project service. Decorators render in the frames, so they stay in the preview file, as
-     Storybook keeps `main.ts` and `preview.tsx` apart for the same reason.
+   - **It's separate from the project's extensions and settings,** which live in its `.par` file
+     ([developer-api.md](developer-api.md)). Decorators are code that renders in the frames, so they stay in the preview
+     file.
 3. **Libraries, as data.** A `.lib.par` lists decorators that need no code, outermost first, as they nest in JSX. That's
    the reverse of a Storybook list, so Parity reverses it before a project's decorators join (see
    [storybook.md](../storybook.md)). Each is one of:

@@ -5,6 +5,7 @@ import type { AccountPerson } from "../../shared/account.ts"
 /** Someone's initials, from their name, or their email when WorkOS has no name for them. */
 export function initialsOf(person: Pick<AccountPerson, "name" | "email">): string {
   const words = (person.name ?? person.email.split("@")[0] ?? "").split(/[\s._-]+/).filter(Boolean)
+
   return (
     words
       .slice(0, 2)
@@ -17,13 +18,18 @@ export function initialsOf(person: Pick<AccountPerson, "name" | "email">): strin
 /** A steady hue for a person, from their email, so their avatar keeps its color. */
 function hueOf(email: string): number {
   let hash = 0
-  for (const char of email) hash = (hash * 31 + char.charCodeAt(0)) % 360
+
+  for (const char of email) {
+    hash = (hash * 31 + char.charCodeAt(0)) % 360
+  }
+
   return hash
 }
 
 /** The person's picture from their provider, or their initials in a color of their own. */
 export function PersonAvatar({ person, size }: { person: AccountPerson; size: number }) {
   const [broken, setBroken] = useState(false)
+
   if (person.pictureUrl && !broken) {
     return (
       <img
@@ -38,6 +44,7 @@ export function PersonAvatar({ person, size }: { person: AccountPerson; size: nu
       />
     )
   }
+
   return (
     <span
       aria-hidden

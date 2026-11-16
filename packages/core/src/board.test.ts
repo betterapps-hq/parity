@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { boardLayoutAt, boardSize, companionScale } from "./board.ts"
+import { besideScale, boardLayoutAt, boardSize, companionScale } from "./board.ts"
 import type { ContainerSpec } from "./document.ts"
 import { defaultModeSettings, resolveModes } from "./modes.ts"
 
@@ -11,7 +11,6 @@ function design(extra: Partial<ContainerSpec> = {}): ContainerSpec {
     name: "Page",
     position: { x: 0, y: 0 },
     root: { type: "layout", id: "root", children: [] },
-    states: [{ id: "default", name: "Default" }],
     ...extra
   }
 }
@@ -26,6 +25,7 @@ describe("companionScale", () => {
 /** A board's layout as it shows on screen at a zoom, in screen pixels. */
 function onScreen(zoom: number) {
   const { side, caption, between, divider, rowDivider, radius } = boardLayoutAt(zoom)
+
   return {
     side: side * zoom,
     caption: caption * zoom,
@@ -46,7 +46,11 @@ describe("boardLayoutAt", () => {
       rowDivider: [36, 1, 36],
       radius: 10
     }
-    for (const zoom of [4, 2, 1, 0.5, 0.4]) expect(onScreen(zoom)).toEqual(screen)
+
+    for (const zoom of [4, 2, 1, 0.5, 0.4]) {
+      expect(onScreen(zoom)).toEqual(screen)
+    }
+
     // At 400% it's a quarter of that on the canvas.
     expect(boardLayoutAt(4)).toMatchObject({ side: 3, caption: 9, between: 6 })
   })
@@ -54,7 +58,11 @@ describe("boardLayoutAt", () => {
   it("shrinks it with the canvas past 40%, keeping the size it has on the canvas there", () => {
     const far = boardLayoutAt(0.4)
     expect(far).toMatchObject({ side: 30, caption: 90, between: 60 })
-    for (const zoom of [0.25, 0.05, 0.01]) expect(boardLayoutAt(zoom)).toEqual(far)
+
+    for (const zoom of [0.25, 0.05, 0.01]) {
+      expect(boardLayoutAt(zoom)).toEqual(far)
+    }
+
     expect(onScreen(0.25)).toMatchObject({ side: 7.5, caption: 22.5, between: 15 })
     expect(onScreen(0.05)).toMatchObject({ side: 1.5, caption: 4.5, between: 3 })
   })
@@ -93,6 +101,14 @@ describe("boardSize", () => {
     })
   })
 
+  it("draws a companion at the scale its view sets for its mode, and others shrunk to fit", () => {
+    const scaled = design({ view: { modes: [desktopDark!.id], scales: { [desktopDark!.id]: 0.25 } } })
+
+    expect(besideScale(scaled, desktopDark!)).toBe(0.25)
+    expect(besideScale(scaled, desktop!)).toBe(0.5)
+    expect(boardSize(scaled, [mobile!, desktopDark!]).width).toBe(Math.ceil(390 + 320 + 62.5 + 60))
+  })
+
   it("has a row per state when every state shows, with a divider between rows", () => {
     const states = design({
       states: [
@@ -101,6 +117,7 @@ describe("boardSize", () => {
       ],
       view: { allStates: true }
     })
+
     expect(boardSize(states, [desktop!]).height).toBe(Math.ceil(90 + 2 * 800 + (90 + 2.5 + 90) + 30))
   })
 
@@ -112,7 +129,9 @@ describe("boardSize", () => {
       ],
       view: { allStates: true }
     })
+
     const size = boardSize(states, [desktop!, mobile!])
+
     for (const zoom of [4, 1, 0.4, 0.05]) {
       const { side, caption, divider, rowDivider } = boardLayoutAt(zoom)
       const width = 1280 + 390 + divider.before + divider.line + divider.after + 2 * side

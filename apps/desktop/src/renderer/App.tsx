@@ -1,20 +1,30 @@
 import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
-import { useEffect } from "react"
+import { type ReactNode, useEffect } from "react"
 import { accountActions, startAccount, useAccount } from "./account/account.ts"
 import { SignInDialog, SignInScreen, UntilQuitDialog } from "./account/SignIn.tsx"
 import { serveAgents } from "./agent/handlers.ts"
 import { useAppShortcuts } from "./canvas/shortcuts.ts"
 import { AboutDialog } from "./chrome/AboutDialog.tsx"
 import { ActionsSearch } from "./chrome/ActionsSearch.tsx"
-import { ConvertToFrameDialog } from "./chrome/ConvertToFrameDialog.tsx"
-import { QuickInsert } from "./chrome/QuickInsert.tsx"
-import { SettingsDialog } from "./chrome/SettingsDialog.tsx"
+import { closeDialog } from "./chrome/app-dialogs.ts"
+import { ConvertToFrameDialog, stopAskingToConvert } from "./chrome/ConvertToFrameDialog.tsx"
+import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
+import { ExtensionPageView } from "./chrome/ExtensionPage.tsx"
+import { ExtensionQuestion } from "./chrome/ExtensionQuestion.tsx"
+import { closeQuickInsert, QuickInsert } from "./chrome/QuickInsert.tsx"
+import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
+import { restoreAsked } from "./chrome/restore.ts"
+import { RestorePrompt } from "./chrome/RestorePrompt.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
 import { TabBar } from "./chrome/TabBar.tsx"
+import { cancelUnsaved } from "./chrome/unsaved.ts"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
 import { startConsole } from "./console-feed.ts"
+import { closeLibraryBrowser } from "./library/library-browser.ts"
+import { LibraryBrowserHost } from "./library/LibraryBrowser.tsx"
 import { ProjectView } from "./ProjectView.tsx"
+import { SettingsBridge } from "./settings-project.ts"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
 import { useActiveTabId, useHomeActive, useTabs, workspace } from "./workspace.ts"
@@ -23,19 +33,44 @@ let started = false
 
 export function App() {
   useEffect(() => {
-    if (started) return
+    if (started) {
+      return
+    }
+
     started = true
     serveAgents()
-    workspace.restore()
+    void workspace.restore()
     // Closing the window first asks about unsaved changes, and can be cancelled.
     window.canvasHost.onClosing(() => workspace.confirmQuit())
     window.canvasHost.onReconnect(() => void workspace.reconnect())
     startUpdates()
     startConsole()
     startAccount()
+    offerLastCrashReport()
   }, [])
 
-  return <AppWindow />
+  return (
+    <WindowBoundary>
+      <AppWindow />
+    </WindowBoundary>
+  )
+}
+
+/** The last resort: anything the boundaries closer in don't catch (PAR-667). */
+export function WindowBoundary({ children }: { children: ReactNode }) {
+  return (
+    <ErrorBoundary name="window" label="Parity" kind="window" onReopen={reloadWindow} reopenLabel="Reload window">
+      {children}
+    </ErrorBoundary>
+  )
+}
+
+/** Saves every project's changes, then loads the window afresh. If saving fails, the window stays as it is. */
+function reloadWindow(): void {
+  void workspace.flush().then(
+    () => location.reload(),
+    (cause: unknown) => console.error("[window] couldn't save before reloading:", cause)
+  )
 }
 
 /**
@@ -49,34 +84,100 @@ export function AppWindow() {
   const account = useAccount()
   const signInScreen = account.place === "screen"
   useAppShortcuts()
-  useEffect(() => {
-    if (signInScreen && tabs.length > 0) accountActions.leaveScreen()
-  }, [signInScreen, tabs.length])
 
   return (
     <TooltipProvider>
       <div className="flex h-full flex-col bg-background text-foreground">
-        <TabBar />
-        {signInScreen && tabs.length === 0 && <SignInScreen state={account.state} />}
-        <HomePage active={home && !(signInScreen && tabs.length === 0)} />
-        {tabs.map((tab) =>
-          tab.blank ? (
-            <NewTabPage key={tab.id} active={tab.id === active} />
-          ) : (
-            <ProjectView key={tab.id} id={tab.id} active={tab.id === active} />
-          )
+        <ErrorBoundary
+          name="tab-bar"
+          label="Tabs"
+          kind="strip"
+          className="h-10 shrink-0 border-b bg-neutral-100 pr-[150px] [-webkit-app-region:drag] *:[-webkit-app-region:no-drag] dark:bg-[#0a0a0a]"
+        >
+          <TabBar />
+        </ErrorBoundary>
+        {/* Over everything while this copy needs someone signed in: what's open stays as it is underneath. */}
+        {signInScreen && (
+          <ErrorBoundary name="sign-in" label="Sign in" kind="page">
+            <SignInScreen state={account.state} />
+          </ErrorBoundary>
         )}
+        <ErrorBoundary name="home" label="Home" kind="page" hidden={!home || signInScreen}>
+          <HomePage active={home && !signInScreen} />
+        </ErrorBoundary>
+        {tabs.map((tab) => {
+          if (tab.page) {
+            return (
+              <ErrorBoundary
+                key={tab.id}
+                name="extension-page"
+                label={tab.title}
+                kind="page"
+                hidden={tab.id !== active || signInScreen}
+              >
+                <ExtensionPageView page={tab.page} active={tab.id === active && !signInScreen} />
+              </ErrorBoundary>
+            )
+          }
+
+          return tab.blank ? (
+            <ErrorBoundary
+              key={tab.id}
+              name="new-tab"
+              label="New tab"
+              kind="page"
+              hidden={tab.id !== active || signInScreen}
+            >
+              <NewTabPage active={tab.id === active && !signInScreen} />
+            </ErrorBoundary>
+          ) : (
+            <ProjectView key={tab.id} id={tab.id} active={tab.id === active && !signInScreen} />
+          )
+        })}
       </div>
       <Toaster />
-      <QuickInsert />
-      <ActionsSearch />
-      <SettingsDialog />
-      <ConvertToFrameDialog />
-      <ShortcutsDialog />
-      <AboutDialog />
-      <UnsavedPrompt />
-      <SignInDialog />
-      <UntilQuitDialog />
+      {/* Each dialog fails on its own, and closing what it shows closes it (PAR-667). */}
+      <ErrorBoundary name="quick-insert" label="Insert" kind="dialog" onClose={closeQuickInsert}>
+        <QuickInsert />
+      </ErrorBoundary>
+      <ErrorBoundary name="library-browser" label="Library" kind="dialog" onClose={closeLibraryBrowser}>
+        <LibraryBrowserHost />
+      </ErrorBoundary>
+      <ErrorBoundary name="search" label="Search" kind="dialog" onClose={closeDialog}>
+        <ActionsSearch />
+      </ErrorBoundary>
+      {/* Settings is main's own view over the window, which this keeps up to date with the project (PAR-1090). */}
+      <SettingsBridge />
+      <ErrorBoundary name="convert-to-frame" label="Convert to frame" kind="dialog" onClose={stopAskingToConvert}>
+        <ConvertToFrameDialog />
+        <ExtensionQuestion />
+      </ErrorBoundary>
+      <ErrorBoundary name="shortcuts" label="Keyboard shortcuts" kind="dialog" onClose={closeDialog}>
+        <ShortcutsDialog />
+      </ErrorBoundary>
+      <ErrorBoundary name="about" label="About Parity" kind="dialog" onClose={closeDialog}>
+        <AboutDialog />
+      </ErrorBoundary>
+      <ErrorBoundary name="report" label="Report a problem" kind="dialog" onClose={closeDialog}>
+        <ReportProblemDialog />
+      </ErrorBoundary>
+      <ErrorBoundary name="unsaved" label="Save changes" kind="dialog" onClose={cancelUnsaved}>
+        <UnsavedPrompt />
+      </ErrorBoundary>
+      <ErrorBoundary name="restore" label="Restore unsaved changes" kind="dialog" onClose={restoreAsked}>
+        <RestorePrompt />
+      </ErrorBoundary>
+      <ErrorBoundary name="sign-in-dialog" label="Sign in" kind="dialog" onClose={accountActions.close}>
+        <SignInDialog />
+      </ErrorBoundary>
+      <ErrorBoundary
+        name="until-quit"
+        label="Signed in until Parity quits"
+        kind="dialog"
+        onClose={() => accountActions.explainUntilQuit(false)}
+      >
+        <UntilQuitDialog />
+      </ErrorBoundary>
     </TooltipProvider>
   )
 }

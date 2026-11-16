@@ -8,25 +8,61 @@ import type {
 import type { ConsoleEntry, PresenceEvent, TabSnapshot, TabSummary } from "@parity-app/agent"
 import type { AgentMethods } from "@parity-app/agent/contracts"
 import type { CopyReport } from "@parity-app/agent/routing"
+import type { FrameChange } from "@parity-app/change-detection"
+import type { RecentSearch, SearchAnswer } from "@parity-app/connectors"
 import type {
   CanvasDocument,
   ChangeConflict,
+  CodeChange,
   ComponentInfo,
   ComponentSource,
   DesignChange,
-  DetectionCorrections,
-  FrameViewport,
   LeftOutExport,
   ModesChange,
-  ThemeVariable,
-  UpdateState
+  WrittenClasses
 } from "@parity-app/core"
-import type { EditStatus, ExportSize } from "@parity-app/editor"
+import type {
+  CodeReference,
+  DesignOperation,
+  EditStatus,
+  ImageFile,
+  RecoveryCopy,
+  ReferenceAdded
+} from "@parity-app/editor"
+import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension-api"
+import type { ExtensionStatus, HostServiceMethods, InstalledStatus, LogLine, WindowAsk } from "@parity-app/extensions"
+import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
-import type { TokenChange, TokenWrite } from "@parity-app/tokens"
+import type {
+  AppState,
+  JsonValue,
+  KeybindingsState,
+  Projects,
+  ProjectsChange,
+  Replacement,
+  SavedTabs,
+  ExtensionSettingsChange,
+  SettingsChange,
+  StateKey
+} from "@parity-app/settings"
+import type { ResolvedTelemetry, TelemetryLevel, TraceHeaders } from "@parity-app/telemetry"
+import type { TokenChange } from "@parity-app/tokens"
 import type { z } from "zod"
 import type { SignInRequest } from "./account.ts"
-import type { openInEditorRequest, saveDialogOptions, ThemeSource } from "./ipc-checks.ts"
+import type { ConnectorPlaced, ConnectorSearch, ConnectorState } from "./connectors.ts"
+import type { openInEditorRequest, saveDialogOptions } from "./ipc-checks.ts"
+import type { ProjectPicture, ServiceParams } from "./service-params.ts"
+import type { SettingsOpening, SettingsProject, SettingsProjectChange } from "./settings-view.ts"
+import type { SettingsState } from "./settings.ts"
+
+/**
+ * What a project's styling framework wrote for the declarations its frames draw layers with (PAR-942): each one's
+ * classes, and the CSS of those and of the classes the frames already had.
+ */
+export interface FrameClassesWritten extends WrittenClasses {
+  /** Whether the project has a styling framework that writes classes. Without one, its frames draw from rules alone. */
+  supported: boolean
+}
 
 /**
  * An edit the service made to a project's files: what it was for, each file's change as a unified diff (or a binary
@@ -41,18 +77,23 @@ export interface ProjectEditResult {
 /** Requests a canvas window sends to the project service, by method name. */
 export interface ServiceMethods {
   /** Opens a project, or returns it if it's already open. Without a root, opens the default project. */
-  "project.open": { params: { root?: string }; result: ProjectInfo }
-  "project.close": { params: { projectId: string }; result: undefined }
+  "project.open": { params: ServiceParams["project.open"]; result: ProjectInfo }
+  "project.close": { params: ServiceParams["project.close"]; result: undefined }
+  /**
+   * Whether what detection reads of an open project (its stylesheets, dependencies, Vite config)
+   * changed since it opened, so only opening it again takes that in (PAR-820).
+   */
+  "project.detectAgain": { params: ServiceParams["project.detectAgain"]; result: boolean }
   /** The project's components and their props, once inferred from source. */
-  "project.components": { params: { projectId: string }; result: Record<string, ComponentInfo> }
+  "project.components": { params: ServiceParams["project.components"]; result: Record<string, ComponentInfo> }
   /**
    * The person's corrections to which exports are components, whenever the main project file's change: the component
    * list follows them, though they're saved only when the file is.
    */
-  "project.correctComponents": { params: { projectId: string; corrections?: DetectionCorrections }; result: undefined }
+  "project.correctComponents": { params: ServiceParams["project.correctComponents"]; result: undefined }
   /** Libraries that can be added, and the ones the project has. */
   "library.catalog": {
-    params: { projectId: string }
+    params: ServiceParams["library.catalog"]
     result: {
       id: string
       name: string
@@ -66,35 +107,80 @@ export interface ServiceMethods {
    * Installs a library with the project's package manager and imports its styles. The tab then reopens to pick up its
    * components.
    */
-  "library.add": { params: { projectId: string; library: string }; result: { log: string; edit?: ProjectEditResult } }
+  "library.add": { params: ServiceParams["library.add"]; result: { log: string; edit?: ProjectEditResult } }
   /** Imports an installed library's styles into the project's stylesheet; nothing to do when it imports them already. */
-  "library.importStyles": { params: { projectId: string; library: string }; result: ProjectEditResult | undefined }
-  "document.save": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
+  "library.importStyles": { params: ServiceParams["library.importStyles"]; result: ProjectEditResult | undefined }
+  "document.save": { params: ServiceParams["document.save"]; result: undefined }
+  /** Writes the screens the project's tools describe, as edited, back to the tools' files, as a story's args. */
+  "entities.save": { params: ServiceParams["entities.save"]; result: undefined }
+  /**
+   * Keeps a recovery copy of the project's unsaved changes in Parity's app data, or removes it when there's none, so a
+   * crash or a forced quit doesn't lose them (PAR-905).
+   */
+  "recovery.keep": { params: ServiceParams["recovery.keep"]; result: undefined }
+  /** The recovery copy kept for the project when Parity last closed with its changes unsaved, if there is one. */
+  "recovery.read": { params: ServiceParams["recovery.read"]; result: RecoveryCopy | undefined }
   /**
    * Saves an image pasted onto the canvas into the project's public folder, where the dev server serves it. `data` is
    * the file, base64 encoded; `type` its media type. No edit when the same image was saved before.
    */
   "images.import": {
-    params: { projectId: string; name: string; type: string; data: string }
+    params: ServiceParams["images.import"]
     result: { src: string; path: string; edit?: ProjectEditResult }
   }
+  /**
+   * The project's image files under `public/images/`, and the lines of its code that name them (PAR-834). The window
+   * and agents put them together with their designs through `projectImages`.
+   */
+  "images.scan": { params: ServiceParams["images.scan"]; result: { files: ImageFile[]; references: CodeReference[] } }
+  /**
+   * Saves a picture from a stock library's link into `public/images/`, as adding one from the library browser does
+   * (PAR-839), named after what it shows. Refuses a link that isn't https, or that doesn't give a picture Parity takes.
+   */
+  "images.saveFrom": { params: ServiceParams["images.saveFrom"]; result: { src: string; path: string } }
+  /**
+   * Removes an image file from `public/images/` as an edit, so undoing it puts the file back. Refuses a file the
+   * project's code names; the caller checks its designs first.
+   */
+  "images.remove": { params: ServiceParams["images.remove"]; result: { path: string; edit: ProjectEditResult } }
   /**
    * Takes back an edit the service made to the project's files, unless a file has changed since. Only the project's
    * latest 50 edits can be undone.
    */
-  "project.undoEdit": { params: { projectId: string; id: string }; result: ProjectEditResult }
+  "project.undoEdit": { params: ServiceParams["project.undoEdit"]; result: ProjectEditResult }
+  /** The project's extensions, drawn from their manifests with their hosts' state, and each one's log. */
+  "extensions.list": {
+    params: ServiceParams["extensions.list"]
+    result: { extensions: ExtensionStatus[]; logs: Record<string, LogLine[]> }
+  }
+  /** Every installed extension, from its manifest, whether or not it runs in a project, which Settings lists. */
+  "extensions.installed": { params: ServiceParams["extensions.installed"]; result: InstalledStatus[] }
+  /** Runs an extension's command, starting its host first when it isn't running. */
+  "extensions.run": { params: ServiceParams["extensions.run"]; result: undefined }
+  /** Ends an extension's host and starts it again, as after it crashed or got stuck. */
+  "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
+  /** The person cancelled an extension's task shown with `parity.ui.progress`. */
+  "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
+  /** One of an extension's tabs or pages opened, which starts an extension that activates on it. */
+  "extensions.viewOpened": { params: ServiceParams["extensions.viewOpened"]; result: undefined }
+  /** The person changed a field of an extension's form. */
+  "extensions.viewChanged": { params: ServiceParams["extensions.viewChanged"]; result: undefined }
+  /** What's selected in the project's tab changed, by `NodeRef`, which its extensions' `parity.selection` gives. */
+  "extensions.selectionChanged": { params: ServiceParams["extensions.selectionChanged"]; result: undefined }
+  "extensions.routeMarksChanged": { params: ServiceParams["extensions.routeMarksChanged"]; result: undefined }
   /**
-   * Opens a component's docs or first story in the project's Storybook, starting it if needed. Returns the address
-   * to open; without a component, Storybook's home.
+   * The project's settings for its extensions, from its main `.par`'s `extensions` field, sent each time they change,
+   * before they're saved, so extensions see them at once (PAR-1090).
    */
-  "storybook.open": { params: { projectId: string; component?: string }; result: { url: string } }
+  "extensions.projectSettings": { params: ServiceParams["extensions.projectSettings"]; result: undefined }
   /** Writes a copy of the project's designs to a `.par` file anywhere, chosen by the person. */
-  "document.saveCopy": { params: { path: string; document: CanvasDocument }; result: undefined }
+  "document.saveCopy": { params: ServiceParams["document.saveCopy"]; result: undefined }
   /**
-   * Renders designs to PNG files in a folder: each design in every state, in its main mode and the modes beside it.
+   * Renders designs to files in a folder at each of `sizes`, a PNG or JPG at its scale: each design in every state, in
+   * its main mode and the modes beside it, named as `exportPictures` names them.
    */
   "designs.export": {
-    params: { projectId: string; folder: string; designs: string[]; scale: number }
+    params: ServiceParams["designs.export"]
     result: { files: string[]; warnings: string[] }
   }
   /**
@@ -103,12 +189,7 @@ export interface ServiceMethods {
    * design; each file names the layer it's of by its index there.
    */
   "layers.export": {
-    params: {
-      projectId: string
-      folder: string
-      layers: { design: string; node?: string }[]
-      files: { layer: number; name: string; size: ExportSize }[]
-    }
+    params: ServiceParams["layers.export"]
     result: { files: string[]; warnings: string[] }
   }
   /**
@@ -117,10 +198,7 @@ export interface ServiceMethods {
    * the design sits on the canvas, and `name` names the layer in a warning. No PNG when nothing could be drawn.
    */
   "layers.picture": {
-    params: {
-      projectId: string
-      layers: { design: string; node?: string; name: string; at: { x: number; y: number } }[]
-    }
+    params: ServiceParams["layers.picture"]
     result: { png?: string; warnings: string[] }
   }
   /**
@@ -129,125 +207,109 @@ export interface ServiceMethods {
    * kept with the bitmap; without one, the offscreen frame's is kept, which can be a few pixels out (PAR-179).
    */
   /** The bitmap as a data URL, a lossless WebP as it's kept (PAR-535), and the frame's height kept with it. */
-  "frames.capture": { params: { job: RenderJob; height?: number }; result: { src?: string; height?: number } }
+  "frames.capture": { params: ServiceParams["frames.capture"]; result: { src?: string; height?: number } }
   /**
-   * The bitmap of a frame kept on disk from an earlier capture of the same job with the same code, if there is one
-   * (PAR-158). It's asked for before anything is captured, so a project opened again shows its frames zoomed out at once.
-   * `height` is the frame's height as it was captured, in its own CSS pixels, which a frame that hasn't drawn yet takes
-   * while it shows the bitmap (PAR-179).
+   * The bitmaps of frames kept on disk from earlier captures of the same jobs with the same code, where there are any
+   * (PAR-158), in the jobs' order. They're asked for before anything is captured, so a project opened again shows its
+   * frames zoomed out at once. The frames a canvas mounts ask together, with their jobs as JSON text (`RenderJob[]`),
+   * since text crosses the preload bridge and the port as one copy, where the jobs' trees as objects took about 0.14 s of
+   * the window's thread (PAR-759). `height` is the frame's height as it was captured, in its own CSS pixels, which a
+   * frame that hasn't drawn yet takes while it shows the bitmap (PAR-179).
    */
-  "frames.stored": { params: { job: RenderJob }; result: { src?: string; height?: number } }
+  /** Each job's kept bitmap and its frame's height, `stale` when it's the frame's latest from other code (PAR-993). */
+  "frames.stored": {
+    params: ServiceParams["frames.stored"]
+    result: { kept: { src?: string; height?: number; stale?: true }[] }
+  }
+  /**
+   * Whether each frame, and each node in it, changed since it was first looked at while its project's open (PAR-997):
+   * the frames as JSON text, each by its id and the job it's drawn with, and their changes in the same order.
+   */
+  "frames.changes": { params: ServiceParams["frames.changes"]; result: { changes: FrameChange[] } }
   /** Removes every frame bitmap and component preview kept on disk, for View > Clear bitmap cache. */
-  "frames.clearStored": { params: undefined; result: undefined }
+  "frames.clearStored": { params: ServiceParams["frames.clearStored"]; result: undefined }
   /**
    * Keeps a project's picture for the start page (PAR-607), in place of the one before. Each frame is cut to the top of
    * its window and given back as it's kept.
    */
-  "pictures.store": { params: { root: string; picture: ProjectPicture }; result: ProjectPicture }
+  "pictures.store": { params: ServiceParams["pictures.store"]; result: ProjectPicture }
   /** The pictures kept for these projects, by root. A project with none kept isn't in it. */
-  "pictures.read": { params: { roots: string[] }; result: Record<string, ProjectPicture> }
+  "pictures.read": { params: ServiceParams["pictures.read"]; result: Record<string, ProjectPicture> }
   /** Lets go of the pictures of every project but these, the ones the start page still lists. */
-  "pictures.keepOnly": { params: { roots: string[] }; result: undefined }
+  "pictures.keepOnly": { params: ServiceParams["pictures.keepOnly"]; result: undefined }
   /**
    * What the start page needs from this computer (PAR-188): which of these projects' folders aren't there any more, and
    * the example project's folder, when this copy of Parity has it.
    */
-  "start.check": { params: { roots: string[] }; result: { missing: string[]; example?: string } }
+  "start.check": { params: ServiceParams["start.check"]; result: { missing: string[]; example?: string } }
   /**
    * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
    * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
    */
-  "previews.lookup": { params: { previews: PreviewJob[] }; result: { previews: ComponentPreview[] } }
+  "previews.lookup": { params: ServiceParams["previews.lookup"]; result: { previews: ComponentPreview[] } }
   /**
    * Makes a component's preview in the offscreen window, behind canvas bitmaps and agents' renders, and keeps it on
    * disk. One already made for its key is given back without drawing.
    */
-  "previews.make": { params: { preview: PreviewJob; priority: "visible" | "idle" }; result: ComponentPreview }
-  /** A file of the project as text, to show an element's lines (PAR-167). `path` is from the project's root. */
-  "code.read": { params: { projectId: string; path: string }; result: { text: string } }
+  "previews.make": { params: ServiceParams["previews.make"]; result: ComponentPreview }
   /**
    * Checks a design with axe-core in every state, in the modes it shows, offscreen. Automated checks find only some
    * issues, so none found isn't a pass.
    */
   "accessibility.check": {
-    params: { projectId: string; design: string }
+    params: ServiceParams["accessibility.check"]
     result: { findings: AccessibilityFinding[]; frames: number; warnings: string[] }
   }
   /** Writes token values back to the project's stylesheets, taking out those without a value. */
-  "tokens.save": { params: { projectId: string; changes: TokenWrite[] }; result: ProjectEditResult }
+  "tokens.save": { params: ServiceParams["tokens.save"]; result: ProjectEditResult }
+  /**
+   * The classes the project's styling framework writes for each declaration, by its own compiler, for frames to draw
+   * layers with (PAR-942). `written` are the classes the window's frames already have, compiled again with the new
+   * ones, so the window's stylesheet of classes is whole whether or not the service was started again since.
+   */
+  "styles.classes": {
+    params: ServiceParams["styles.classes"]
+    result: FrameClassesWritten
+  }
   /**
    * What Parity runs for the open projects: each one's build server and the Storybook it started, the tasks running,
    * and each task's last result.
    */
-  "processes.list": { params: Record<string, never>; result: ProjectProcess[] }
+  "processes.list": { params: ServiceParams["processes.list"]; result: ProjectProcess[] }
   /** Stops a server Parity started, or cancels a task. */
-  "processes.stop": { params: { id: string }; result: undefined }
+  "processes.stop": { params: ServiceParams["processes.stop"]; result: undefined }
   /** Starts a server again, or runs a task again. */
-  "processes.restart": { params: { id: string }; result: undefined }
+  "processes.restart": { params: ServiceParams["processes.restart"]; result: undefined }
   /** Forgets a process that stopped or a task that finished, so it leaves the list. */
-  "processes.dismiss": { params: { id: string }; result: undefined }
+  "processes.dismiss": { params: ServiceParams["processes.dismiss"]; result: undefined }
 }
 
 /**
  * Where a process is in its life. A server starts, runs until it's stopped, and has failed if it exits by itself. A task
  * runs once, then passes or fails, or is canceled.
  */
-export type ProcessStatus = "starting" | "running" | "stopping" | "stopped" | "failed" | "passed" | "canceled"
-
-/** What a server is: a project's build server, which the canvas renders through, or its Storybook. */
-export type ServerKind = "builder" | "storybook"
+export type ProcessStatus = ProcessState
 
 /**
- * What a task does: installs packages, checks types, runs unit tests or Playwright, formats, lints, verifies the whole
- * project, builds it, exports designs, or checks a design's accessibility.
+ * What one of Parity's own processes does: a project's build server, which the canvas renders through, a tool's
+ * server an adapter started, or a task that installs packages, checks types, runs unit tests, formats, lints, verifies
+ * the whole project, builds it, exports designs, or checks a design's accessibility.
  */
-export type TaskKind =
-  | "install"
-  | "typecheck"
-  | "test"
-  | "e2e"
-  | "format"
-  | "lint"
-  | "verify"
-  | "build"
-  | "export"
-  | "accessibility"
+export type ProcessRole = ParityRole
 
-/** A process Parity runs for an open project, as the status bar lists it: a server, or a task. */
-export interface ProjectProcess {
-  id: string
-  kind: ServerKind | TaskKind
-  /** A server runs until it's stopped; a task runs once and finishes with a result. */
-  shape: "server" | "task"
-  name: string
+/**
+ * A process Parity runs for an open project, as the status bar lists it: a server, or a task. It's what extensions see
+ * of a process (`ProcessInfo`), with the project it runs for and what the list can do to it.
+ */
+export interface ProjectProcess extends ProcessInfo {
   /** The open project it runs for. */
   projectId: string
   /** That project's name. */
   project: string
-  status: ProcessStatus
-  /** When it started, in milliseconds since 1970. */
-  startedAt: number
-  /** When it stopped or finished, once it has. */
-  stoppedAt?: number
-  pid?: number
-  /** A server's local address, as `http://localhost:6006`. */
-  url?: string
-  /** A server's Portless address, as `https://storybook.shop.localhost`, when Portless routes to it. */
-  domain?: string
-  /** Parity started it, or it was already running when Parity needed it, as a Storybook on its usual port. */
-  startedBy: "parity" | "elsewhere"
   /** Whether it can be stopped: a server stopped, or a task canceled. */
   canStop: boolean
   /** Whether it can start again: a server restarted, or a task run again. */
   canRestart: boolean
-  /** What a running task is doing, as "Checking 34 component files". */
-  detail?: string
-  /** How far a running task has got, when it knows. */
-  progress?: { done: number; total: number }
-  /** What a finished task found, as "3 errors in 2 files". */
-  summary?: string
-  /** Why it failed: a server that exited by itself, or a task's error in full. */
-  error?: string
 }
 
 /**
@@ -273,6 +335,8 @@ export interface WindowMethods {
   "agent.iconNames": { params: { tab: string; set: string; module?: string }; result: IconNames }
   /** Whether the browser takes each value for its CSS property, for checking an agent's `SetTokens` (PAR-584). */
   "agent.supports": { params: { property: string; value: string }[]; result: boolean[] }
+  /** The window's replay, sent so far, and trace, which an agent's report is tied to (PAR-646). */
+  "agent.reportIds": { params: undefined; result: { replayId?: string; traceId?: string } }
   /** A project file changed on disk, not by this window. */
   "project.fileChanged": { params: { projectId: string; path: string; document: CanvasDocument }; result: undefined }
   /**
@@ -291,7 +355,53 @@ export interface WindowMethods {
   }
   /** A project's builder, started again, couldn't have its port back, so the project's guest is at a new address. */
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
+  /** Component files whose code changed on disk, which the tab's guest loads again (PAR-165). */
+  "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
+  /** What detection reads of the project changed since it opened, so its tab opens it again (PAR-820). */
+  "project.detectionChanged": { params: { projectId: string }; result: undefined }
+  /**
+   * The project's git repository moved its last commit or changed what's staged, as a commit or a checkout does, so the
+   * canvas asks again what changed since the commit (PAR-1074).
+   */
+  "project.committed": { params: { projectId: string }; result: undefined }
+  /** A project's extensions changed: one started, stopped, crashed, or set a status item or context key. */
+  "extensions.changed": { params: { projectId: string; extensions: ExtensionStatus[] }; result: undefined }
+  /** An extension wrote a line to its log. */
+  "extensions.logged": { params: { projectId: string; extension: string; line: LogLine }; result: undefined }
+  /**
+   * An extension asks the person something through `parity.ui`, or shows them something, or selects, navigates or runs
+   * one of Parity's commands through `parity.selection`, `parity.navigate` and `parity.commands.execute`.
+   */
+  "extensions.ui": { params: ExtensionUiRequest; result: ExtensionUiAnswer }
+  /**
+   * An extension changes designs (PAR-1093): applied as an agent's call is, as one undo step under `label`, which names
+   * the extension. Fails, changing nothing, when an operation can't apply.
+   */
+  "extensions.transact": {
+    params: { projectId: string; label: string; operations: DesignOperation[] }
+    result: undefined
+  }
+  /** An extension changed the project's files, shown with Undo. */
+  "extensions.edited": { params: { projectId: string; edit: ProjectEditResult }; result: undefined }
+  /**
+   * An extension sets one of its `project` settings with `parity.settings.update`, which the window makes one undo step
+   * on the project's main file, or puts back to its default without `value` (PAR-1090).
+   */
+  "extensions.setting": {
+    params: { projectId: string; extension: string; key: string; value?: SettingValue }
+    result: undefined
+  }
+  /** An extension asks to open the tab or page that holds one of its views. */
+  "extensions.reveal": { params: { projectId: string; extension: string; view: string }; result: undefined }
 }
+
+/** What an extension asks of the window, by method, with what the host sent. */
+export type ExtensionUiRequest = {
+  [M in WindowAsk]: { projectId: string; extension: string; method: M; params: HostServiceMethods[M]["params"] }
+}[WindowAsk]
+
+/** The window's answer to any of the methods an extension asks of it. */
+export type ExtensionUiAnswer = HostServiceMethods[WindowAsk]["result"]
 
 /**
  * An answer as data, across the bridge between the page and the preload script: a failure thrown across it keeps only
@@ -303,9 +413,14 @@ export type Answer<Result> = { result: Result } | { error: string; details?: unk
 export type ServeAnswer = Answer<unknown>
 
 export type ServiceMethod = keyof ServiceMethods
+
 export type WindowMethod = keyof WindowMethods
 
+/** What the service sends with any of the window's methods. */
+export type WindowParams = WindowMethods[WindowMethod]["params"]
+
 /** The window's methods by name, for the preload script, which answers each through the page's one handler. */
+// SAFETY: `satisfies` checks the object has exactly one key for each window method, so its keys are those methods.
 export const windowMethods = Object.keys({
   "agent.tabs": true,
   "agent.copy": true,
@@ -316,12 +431,27 @@ export const windowMethods = Object.keys({
   "agent.open": true,
   "agent.iconNames": true,
   "agent.supports": true,
+  "agent.reportIds": true,
   "project.fileChanged": true,
   "project.componentsChanged": true,
-  "project.guestMoved": true
+  "project.guestMoved": true,
+  "project.codeChanged": true,
+  "project.detectionChanged": true,
+  "project.committed": true,
+  "extensions.changed": true,
+  "extensions.logged": true,
+  "extensions.ui": true,
+  "extensions.transact": true,
+  "extensions.edited": true,
+  "extensions.setting": true,
+  "extensions.reveal": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }
+
+export type { ExtensionStatus, LogLine }
+
+export type { PictureFrame, PictureScreen, PreviewJob, ProjectPicture, RenderJob } from "./service-params.ts"
 
 /**
  * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:
@@ -341,6 +471,8 @@ export interface AgentChanges {
   designs: DesignChange[]
   modes?: ModesChange
   tokens?: TokenChange[]
+  /** The references the call placed (PAR-840), which are only ever added. */
+  references?: ReferenceAdded[]
 }
 
 /** Installed release identity, independent of the user's update channel preference. */
@@ -349,10 +481,66 @@ export interface BuildInfo {
   channel: "beta" | "stable" | "development" | "unknown"
 }
 
+/**
+ * What Parity sends Sentry this run, the level saved in Settings, the variable overriding it if one is set, and the
+ * install ID Sentry groups this computer's reports by (PAR-626).
+ */
+export interface TelemetryState extends ResolvedTelemetry {
+  installId: string
+}
+
+/** The last run's crash, which the window offers to report as it starts (PAR-635). */
+export interface ReportCrash {
+  /** When it stopped, as near as the local copy says, in ISO 8601. */
+  time: string
+}
+
+/** What Help > Report a problem sends main: what happened, and the IDs that tie it to the replay and trace. */
+export interface ProblemReportRequest {
+  message: string
+  screenshot: boolean
+  afterCrash: boolean
+  replayId?: string
+  traceId?: string
+  /** The Sentry event of the error a part of the window caught, when the report is sent from its fallback (PAR-704). */
+  eventId?: string
+}
+
 /** Exposed on `window.canvasHost` by the preload script. */
+/** A file copied in Explorer or Finder, with its bytes unless it's too large for any type Parity takes. */
+/** Where Help > Install the Parity CLI put it (PAR-906). */
+export interface CliInstall {
+  folder: string
+  /** Whether a terminal finds the folder on PATH; on Linux, `~/.local/bin` is only there when the person's shell adds it. */
+  onPath: boolean
+  /** Whether the folder just joined PATH, which terminals already open don't see. */
+  newTerminal: boolean
+}
+
+export interface CopiedFile {
+  name: string
+  /** In bytes. */
+  size: number
+  data?: Uint8Array
+}
+
 export interface CanvasHost {
   appVersion: string
   getBuildInfo: () => Promise<BuildInfo>
+  /** The Telemetry setting and install ID, which main keeps and applies (PAR-626). */
+  telemetry: {
+    get: () => Promise<TelemetryState>
+    setLevel: (level: TelemetryLevel) => Promise<TelemetryState>
+  }
+  /** Help > Report a problem, which main sends to Sentry (PAR-635). */
+  report: {
+    /** Takes the window's screenshot, as a PNG data URL, before the dialog shows. */
+    prepare: () => Promise<{ screenshot?: string }>
+    /** Sends the report and gives its feedback ID. */
+    send: (report: ProblemReportRequest) => Promise<string>
+    /** The last run's crash, once, if it crashed. */
+    lastCrash: () => Promise<ReportCrash | undefined>
+  }
   updates: {
     get: () => Promise<UpdateState>
     check: () => Promise<void>
@@ -366,29 +554,57 @@ export interface CanvasHost {
    * `accountState` in `shared/account.ts` as it arrives.
    */
   account: {
+    // oxlint-disable-next-line anti-slop/no-unknown-returns -- account state as main sends it, which the window checks as it arrives
     get: () => Promise<unknown>
+    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- account state as main sends it, which the window checks as it arrives
     subscribe: (listener: (state: unknown) => void) => () => void
     signIn: (request: SignInRequest) => Promise<void>
     /** Opens the waiting sign-in's page in the browser again. */
     reopen: () => Promise<void>
     /** Stops waiting, and puts away what went wrong or the session that ended. */
     cancel: () => Promise<void>
-    signOut: () => Promise<void>
-    /** Moves the session to another organization the person is in, refreshing in the background. */
+    /** Signs out of one account, by its email, or forgets one whose session ended. */
+    signOut: (email: string) => Promise<void>
+    /** Moves the account you're in to another organization the person is in, refreshing in the background. */
     switchOrganization: (organizationId: string) => Promise<void>
+    /** Switches to another account signed in, by its email, at once: each keeps its own session. */
+    use: (email: string) => Promise<void>
+  }
+  /**
+   * Connectors to outside services, such as Mobbin (PAR-829). Main holds their keys, which the app's owner arranges,
+   * and runs every search; the window sees whether this copy can search each one, never a key.
+   */
+  connectors: {
+    get: () => Promise<ConnectorState[]>
+    /** Never fails: a failure is a problem in the answer. A search that works joins the person's recent searches. */
+    search: (search: ConnectorSearch) => Promise<SearchAnswer>
+    /** The person's recent searches, newest first. */
+    recent: () => Promise<RecentSearch[]>
+    /**
+     * Says the person placed a result in a design. Main records it the first time it goes into that design, counts it
+     * as the source's usage, and tells the source if its terms ask. Call it whenever one is placed; it never fails.
+     */
+    placed: (placed: ConnectorPlaced) => Promise<void>
   }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
   /**
+   * Whether this copy needs someone signed in before anything else (PAR-1008). Main always says so; Storybook's host
+   * doesn't, so stories show what they're given.
+   */
+  signInRequired?: boolean
+  /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
-   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again.
+   * `request` in `renderer/service.ts`, which throws it as a `CodedError` again. `trace` is the action or gesture it's
+   * asked in, as `sentry-trace` and `baggage` (PAR-629).
    */
   ask<M extends ServiceMethod>(
     method: M,
-    params: ServiceMethods[M]["params"]
+    params: ServiceMethods[M]["params"],
+    trace?: TraceHeaders
   ): Promise<Answer<ServiceMethods[M]["result"]>>
   /** Answers the service's requests. One handler per window. */
-  serve(handler: (method: WindowMethod, params: unknown) => Promise<ServeAnswer>): void
+  serve(handler: (method: WindowMethod, params: WindowParams) => Promise<ServeAnswer>): void
   /**
    * Runs when the window is connected to a fresh project service, after the old one was restarted: its projects need
    * opening again. Requests the old service hadn't answered fail.
@@ -400,13 +616,58 @@ export interface CanvasHost {
   saveFile(options: SaveDialogOptions): Promise<string | undefined>
   /** Shows a file in the system's file manager. */
   showItem(path: string): Promise<void>
+  /** The file copied in Explorer or Finder, for pasting it; none when no file is copied. */
+  copiedFiles(): Promise<CopiedFile[]>
   /** Opens a file in the person's editor, at its export's line when one is named, and says which opened it. */
   openInEditor(request: OpenInEditorRequest): Promise<{ opened: string }>
+  /** Puts a `parity` command on PATH that runs the CLI shipped with the app, and says where. */
+  installCli(): Promise<CliInstall>
   quit(): Promise<void>
   /** Opens the window's developer tools, or closes them. */
   toggleDevTools(): Promise<void>
-  /** The app's theme, so the window's title bar buttons and system dialogs match it. */
-  setTheme(theme: ThemeSource): Promise<void>
+  /** `settings.json`, the app's settings every copy shares, which main keeps. */
+  settings: {
+    /** The settings now, from main's memory; the preload waits for them, so the first frame has them. */
+    now: () => SettingsState
+    /** Makes one change, setting each key given or putting it back to its default with `null`. */
+    change: (change: SettingsChange) => Promise<SettingsState>
+    subscribe: (listener: (state: SettingsState) => void) => () => void
+  }
+  /**
+   * What `state.json` keeps for the window, such as the layout, and `projects.json`, from main's memory. The preload
+   * waits for them, so the first frame has them.
+   */
+  saved: () => { values: AppState["values"]; projects: Projects }
+  /** `projects.json`, the recent and starred projects every copy shares, which main keeps. */
+  projects: {
+    change: (change: ProjectsChange) => Promise<Projects>
+    subscribe: (listener: (projects: Projects) => void) => () => void
+  }
+  /** `state.json`, what the app remembers for itself, which main keeps. Other copies don't apply it. */
+  state: {
+    /** Saves one value, for the next window to start with. */
+    set: (key: StateKey, value: JsonValue) => void
+    /** The tabs to open with: this window's own after a reload, or those of the newest copy that's gone. */
+    claimTabs: () => Promise<SavedTabs>
+    /** The window's tabs now. Kept only once it has claimed some. */
+    saveTabs: (tabs: SavedTabs) => void
+  }
+  /**
+   * Settings, its own web contents over the editor window, which loads no project code (PAR-1090). The editor window
+   * opens it and sends what it shows of the open project; Settings changes extensions' app settings and the project.
+   */
+  settingsView: SettingsViewHost
+  /** Opens a dev server's page or a web page in a window of Parity's own, as "Open stories in" can choose. */
+  openInParity(url: string): Promise<void>
+  /** `keybindings.json`, the shortcuts the person changed, which main keeps (PAR-1085). */
+  keybindings: {
+    get: () => Promise<KeybindingsState>
+    /** Replaces commands' entries in the file, for what it holds after. Fails when it can't be read or written. */
+    replace: (replacements: Replacement[]) => Promise<KeybindingsState>
+    /** Opens the file in the system's app for it, making it first when there's none. */
+    open: () => Promise<void>
+    subscribe: (listener: (state: KeybindingsState) => void) => () => void
+  }
   /**
    * Runs when the window is asked to close, which waits for it: true closes it, false keeps it open, as when the
    * person cancels on being asked about unsaved changes.
@@ -416,6 +677,28 @@ export interface CanvasHost {
   metrics(): Promise<ProcessUsage[]>
   /** The log of what projects' code writes to the console, which agents read with `parity console` (PAR-147). */
   console: ConsoleHost
+}
+
+/** Settings as its own web contents (PAR-1090): what the editor window asks of it, and what Settings asks of main. */
+export interface SettingsViewHost {
+  /** Whether this page is Settings, rather than the editor window. */
+  readonly isSettings: boolean
+  /** Opens Settings over the editor window, on a page and with a setting on it marked when asked. */
+  open(opening: SettingsOpening): Promise<void>
+  /** Sends what Settings shows of the editor window's open project, each time it changes. */
+  publish(project: SettingsProject): void
+  /** In the editor window: hears each change Settings makes to the open project, to make it an undo step. */
+  onProjectChange(listener: (change: SettingsProjectChange) => void): () => void
+  /** In Settings: hears where to open, at once with the last when there's been one. */
+  onOpening(listener: (opening: SettingsOpening) => void): () => void
+  /** In Settings: hears what the window sent of its open project, at once with the last when there's been one. */
+  onProject(listener: (project: SettingsProject) => void): () => void
+  /** In Settings: changes the open project, as one undo step in its window. */
+  changeProject(change: SettingsProjectChange): Promise<void>
+  /** In Settings: changes extensions' app settings in `settings.json`. */
+  changeExtensions(change: ExtensionSettingsChange): Promise<SettingsState>
+  /** In Settings: closes it. */
+  close(): Promise<void>
 }
 
 /**
@@ -462,58 +745,6 @@ export type OpenInEditorRequest = z.infer<typeof openInEditorRequest>
 
 export type SaveDialogOptions = z.infer<typeof saveDialogOptions>
 
-/** A frame the offscreen render window draws, to measure it or capture it. */
-export interface RenderJob {
-  /** The project drawn, so the render window lets go of its last guest when the project's moves to a new address. */
-  projectId: string
-  guestUrl: string
-  /** Components the guest adds before drawing, since the type checker found them after it loaded. */
-  components?: Record<string, Pick<ComponentSource, "path" | "export">>
-  theme: ThemeVariable[]
-  tree: unknown
-  /**
-   * The frame and the window it stands for, as core's `frameGeometry` gives them, so the offscreen frame matches the
-   * live one. `height` is the frame's own fixed height, which clips it; without one the frame is as tall as its content.
-   * `viewport` is the browser window, which viewport units and the project's window size checks measure, and which
-   * keeps its height when the frame grows past it.
-   */
-  mode: {
-    width: number
-    height?: number
-    viewport: FrameViewport
-    classNames: string[]
-    attributes: Record<string, string>
-    /** The mode's options by variable, for decorators. */
-    globals?: Record<string, string>
-  }
-  scale: number
-  /** Also check the frame with axe-core. */
-  audit?: boolean
-  /** When auditing, the color tokens to read the values of in the frame, for contrast fixes. */
-  colorTokens?: string[]
-  /**
-   * Draw what the frame's components portal out of it (a dialog, a popover's popup, a menu) inside it, in the flow after
-   * the rest, as a component preview does (PAR-517).
-   */
-  inlinePortals?: true
-  /**
-   * Every token value that differs from the project's compiled CSS, such as unsaved edits: the complete set, not
-   * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
-   */
-  previews?: TokenChange[]
-  /**
-   * The design it draws, by key, with the state and mode, so what the frame writes to the console is kept as that
-   * design's (PAR-147). None for a component preview. No stored name has it.
-   */
-  design?: { key: string; state?: string; mode?: string }
-}
-
-/** A component's preview to look up or make: the job that draws it, as inserting it would place it. */
-export interface PreviewJob {
-  component: string
-  job: RenderJob
-}
-
 /** A preview's pictures, which the window shows as plain images from `parity-preview:` addresses. */
 export interface PreviewImage {
   /** At most 240 by 152 pixels, for list rows, grid tiles and the picker. */
@@ -523,34 +754,6 @@ export interface PreviewImage {
   /** The large picture's size, in pixels; the thumbnail has its shape. */
   width: number
   height: number
-}
-
-/** One frame in a project's picture: its bitmap, and its mode as the board's caption names it. */
-export interface PictureFrame {
-  /** The bitmap as a data URL: a WebP, or a PNG where the service couldn't encode one. */
-  src: string
-  /** The mode's name, such as Mobile. */
-  mode: string
-  /** The frame's width and its window's height, in its own CSS pixels: the picture shows the top of the frame. */
-  width: number
-  height: number
-}
-
-/** A screen in a project's picture: its main frame, and the phone frame beside it where its board shows one. */
-export interface PictureScreen {
-  name: string
-  main: PictureFrame
-  phone?: PictureFrame
-}
-
-/**
- * A project's picture for the start page (PAR-607): its first few screens as the canvas last drew them once saved, so a
- * card can show the first and flip through the rest.
- */
-export interface ProjectPicture {
-  /** When it was taken, in milliseconds since 1970. */
-  taken: number
-  screens: PictureScreen[]
 }
 
 /** What's kept of a component's preview for its code as it's drawn now. */
@@ -581,7 +784,15 @@ export interface RenderedFrame {
   nodes: MeasuredNode[]
   overflowsX: boolean
   unknownComponents: string[]
+  /**
+   * Content drawn outside the frame, in Parity's page, where the project's styles don't reach, each described in a few
+   * words: what a component portaled to the page's body without React, which the guest can't take into the frame
+   * (PAR-881).
+   */
+  outside?: string[]
   error?: string
+  /** The stack of the first error `error` gives, when it had one, for telemetry (PAR-638). */
+  errorStack?: string
   issues?: AccessibilityIssue[]
   contrast?: FrameContrast
 }

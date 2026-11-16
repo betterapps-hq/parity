@@ -18,6 +18,12 @@ export const viewportHeightProperty = "--canvas-vh"
 export const remProperty = "--canvas-rem"
 export const rootFontSizeProperty = "--canvas-root-font-size"
 
+/**
+ * The cascade layer a qualified root's rule (`:root.dark`) is drawn on the frame's body in. A frame declares it before
+ * the project's layers, so every rule of the project's beats it, as a page's body rules beat what the body inherits.
+ */
+export const qualifiedRootLayer = "canvas-qualified-root"
+
 /** A browser's default font size, `medium`, which a page's root font size is relative to. */
 const mediumFontSize = 16
 
@@ -30,20 +36,27 @@ const mediumFontSize = 16
  */
 export function resetCustomProperties(names: Iterable<string>): string {
   const declarations: string[] = []
+
   for (const name of names) {
-    if (!name.startsWith("--") || name.length === 2) continue
+    if (!name.startsWith("--") || name.length === 2) {
+      continue
+    }
+
     declarations.push(`--${escapeIdentifier(name.slice(2))}: initial;`)
   }
+
   return declarations.join(" ")
 }
 
 /** Escapes what can't stand as it is in the rest of an identifier: a character other than a letter, digit, `-` or `_`. */
 function escapeIdentifier(text: string): string {
   let escaped = ""
+
   for (const char of text) {
     const code = char.codePointAt(0)!
     escaped += /[\w-]/.test(char) || code >= 0x80 ? char : `\\${code.toString(16)} `
   }
+
   return escaped
 }
 
@@ -67,6 +80,12 @@ export interface PrepareCssOptions {
    * `colorSchemeAttribute`). Tokens are read with `false`, so the blocks stay as the project wrote them.
    */
   colorSchemes?: boolean
+  /**
+   * Whether a root with a class, attribute or `:not()` on it (`:root.dark`) is drawn as the frame's host and body with
+   * it, as it is for drawing (see `splitQualifiedRoots`). Tokens are read with `false`, so it stays one root selector
+   * that names its theme.
+   */
+  qualifiedRoots?: boolean
 }
 
 /** A colour scheme a `prefers-color-scheme` query asks for. */
@@ -86,6 +105,7 @@ export const colorSchemeAttribute = "data-canvas-color-scheme"
  */
 export function colorSchemeQuery(query: string): ColorScheme | undefined {
   const scheme = /^\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)$/i.exec(query.trim())?.[1]?.toLowerCase()
+
   return scheme === "dark" || scheme === "light" ? scheme : undefined
 }
 
@@ -106,6 +126,7 @@ export function colorSchemeQuery(query: string): ColorScheme | undefined {
 export function prepareCanvasCss(css: string, options: PrepareCssOptions): CanvasCss {
   const globals: string[] = []
   const scoped = serialize(parse(css), options, globals)
+
   return { scoped, global: globals.join("\n") }
 }
 
@@ -133,14 +154,18 @@ export interface CustomPropertyDeclaration {
 /** Every custom property declaration in a stylesheet, in source order. */
 export function collectCustomProperties(css: string): CustomPropertyDeclaration[] {
   const declarations: CustomPropertyDeclaration[] = []
+
   const visit = (nodes: CssNode[], selector: string | undefined, atRules: EnclosingAtRule[]) => {
     for (const node of nodes) {
       if (node.kind === "block") {
         const prelude = node.prelude.trim()
         const atRule = /^@([\w-]+)\s*([\s\S]*)$/.exec(prelude)
-        if (atRule)
+
+        if (atRule) {
           visit(node.children, selector, [...atRules, { name: atRule[1]!.toLowerCase(), prelude: atRule[2]!.trim() }])
-        else visit(node.children, prelude, atRules)
+        } else {
+          visit(node.children, prelude, atRules)
+        }
       } else if (selector !== undefined || atRules.length > 0) {
         for (const match of node.text.matchAll(/--([\w-]+)\s*:\s*([^;]+)/g)) {
           declarations.push({ selector: selector ?? "", atRules, name: match[1]!, value: match[2]!.trim() })
@@ -148,7 +173,9 @@ export function collectCustomProperties(css: string): CustomPropertyDeclaration[
       }
     }
   }
+
   visit(parse(css), undefined, [])
+
   return declarations
 }
 
@@ -165,63 +192,96 @@ function parse(css: string): CssNode[] {
 
     while (index < css.length) {
       const char = css[index]!
+
       if (char === "/" && css[index + 1] === "*") {
         const end = css.indexOf("*/", index + 2)
         index = end === -1 ? css.length : end + 2
         continue
       }
+
       // Escaped characters are literal, e.g. Tailwind's `.\[\&_svg\:not\(\[class\*\=\'size-\'\]\)\]`.
       if (char === "\\") {
         buffer += css.slice(index, index + 2)
         index += 2
         continue
       }
+
       if (char === '"' || char === "'") {
         const end = findStringEnd(css, index)
         buffer += css.slice(index, end)
         index = end
         continue
       }
+
       index++
-      if (char === "(") parens++
-      if (char === ")") parens = Math.max(0, parens - 1)
+
+      if (char === "(") {
+        parens++
+      }
+
+      if (char === ")") {
+        parens = Math.max(0, parens - 1)
+      }
+
       if (parens > 0) {
         buffer += char
         continue
       }
+
       if (char === ";") {
         buffer += char
         afterLastSemicolon = buffer.length
       } else if (char === "{") {
         const text = buffer.slice(0, afterLastSemicolon)
-        if (text) nodes.push({ kind: "text", text })
+
+        if (text) {
+          nodes.push({ kind: "text", text })
+        }
+
         nodes.push({ kind: "block", prelude: buffer.slice(afterLastSemicolon), children: parseLevel() })
         buffer = ""
         afterLastSemicolon = 0
       } else if (char === "}") {
-        if (buffer) nodes.push({ kind: "text", text: buffer })
+        if (buffer) {
+          nodes.push({ kind: "text", text: buffer })
+        }
+
         return nodes
       } else {
         buffer += char
       }
     }
-    if (buffer) nodes.push({ kind: "text", text: buffer })
+
+    if (buffer) {
+      nodes.push({ kind: "text", text: buffer })
+    }
+
     return nodes
   }
 
   const nodes: CssNode[] = []
-  while (index < css.length) nodes.push(...parseLevel())
+
+  while (index < css.length) {
+    nodes.push(...parseLevel())
+  }
+
   return nodes
 }
 
 function findStringEnd(css: string, start: number): number {
   const quote = css[start]
   let index = start + 1
+
   while (index < css.length) {
-    if (css[index] === "\\") index += 2
-    else if (css[index] === quote) return index + 1
-    else index++
+    if (css[index] === "\\") {
+      index += 2
+    } else if (css[index] === quote) {
+      return index + 1
+    } else {
+      index++
+    }
   }
+
   return css.length
 }
 
@@ -233,6 +293,12 @@ interface SerializeContext {
   inRule?: boolean
   /** Inside a `prefers-color-scheme` block that isn't in a style rule, so its rules apply in frames of this scheme. */
   scheme?: ColorScheme
+  /**
+   * The declarations are a qualified root's, drawn on the frame's body (see `splitQualifiedRoots`): they lose their
+   * importance, which a value the body inherits wouldn't keep, and each font size is also what `rem` measures inside the
+   * body, whatever the body's own is, under the same conditions.
+   */
+  bodyRoot?: boolean
 }
 
 /** Serializes rules for a frame. */
@@ -243,64 +309,169 @@ function serialize(
   context: SerializeContext = {}
 ): string {
   let output = ""
+
   for (const node of nodes) {
     if (node.kind === "text") {
       const text = rewriteUrls(node.text, options.baseUrl)
-      if (options.units === false) output += text
-      else output += rewriteFrameUnits(context.root ? rewriteRootFontSize(text) : text)
+
+      if (options.units === false) {
+        output += text
+      } else {
+        const rooted = context.root ? rewriteRootFontSize(text) : text
+        output += rewriteFrameUnits(context.bodyRoot ? asBodyRoot(rooted) : rooted)
+      }
+
       continue
     }
+
     const prelude = node.prelude.trim()
     const leading = node.prelude.slice(0, node.prelude.length - node.prelude.trimStart().length)
+
     if (prelude.startsWith("@")) {
       const scheme = schemeOfBlock(node, options)
+
       if (scheme && context.inRule) {
         // Nested in a rule, as Tailwind's `dark:` utilities are: the rule's elements in a frame of that scheme.
-        const body = serialize(node.children, options, globals, { root: context.root, inRule: true })
+        const body = serialize(node.children, options, globals, {
+          root: context.root,
+          bodyRoot: context.bodyRoot,
+          inRule: true
+        })
+
         output += `${leading}${inColorScheme(scheme)} & {${body}}`
-      } else if (scheme) output += leading + serialize(node.children, options, globals, { ...context, scheme })
-      else {
+      } else if (scheme) {
+        output += leading + serialize(node.children, options, globals, { ...context, scheme })
+      } else {
         const body = serialize(node.children, options, globals, context)
-        if (/^@(property|font-face)\b/i.test(prelude)) globals.push(`${prelude} {${body}}`)
-        else output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
+
+        if (/^@(property|font-face)\b/i.test(prelude)) {
+          globals.push(`${prelude} {${body}}`)
+        } else {
+          output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
+        }
       }
+
       continue
     }
-    const selector = rewriteSelector(prelude)
+
+    const selector = rewriteSelector(prelude, options.qualifiedRoots !== false && !context.scheme)
     const selectors = splitSelectorList(selector)
     const roots = selectors.filter((part) => rootSelector.test(part))
     const scope = (list: string) => (context.scheme ? scopeToColorScheme(list, context.scheme) : list)
+
     // A colour-scheme block in the root's own rule can't reach the frame's body as a nested rule, so it follows the rule.
     const hoisted =
       roots.length === selectors.length ? node.children.filter((child) => schemeOfBlock(child, options)) : []
+
     const children = node.children.filter((child) => !hoisted.includes(child))
+
     if (roots.length === 0) {
       output += `${leading}${scope(selector)} {${serialize(children, options, globals, { inRule: true })}}`
       continue
     }
+
     const rootBody = serialize(children, options, globals, { root: true, inRule: true })
     const others = selectors.filter((part) => !rootSelector.test(part))
     const otherBody = others.length > 0 ? serialize(children, options, globals, { inRule: true }) : rootBody
-    // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes, so
-    // only the root's does.
-    if (rootBody === otherBody) output += `${leading}${scope(selector)} {${rootBody}}`
-    else output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
+
+    const bodyRoots = roots.filter((part) => part.startsWith(bodyRootPrefix))
+    const hostRoots = roots.filter((part) => !part.startsWith(bodyRootPrefix))
+
+    if (bodyRoots.length > 0) {
+      // A qualified root's own declarations, drawn on the body, go in a layer below the project's, so the body's own
+      // rules beat them, as they beat what a page's body inherits from its root. Its nested rules are for elements
+      // inside, which inherit nothing, so they stay in the project's layer, with the specificity they were written with.
+      // Each is serialized again into a list of its own, so what the root's rule moves to the document isn't moved twice.
+      const nested = children.filter((child) => child.kind === "block" && !child.prelude.trim().startsWith("@"))
+      const own = children.filter((child) => !nested.includes(child))
+      const bodyRootBody = serialize(own, options, [], { root: true, inRule: true, bodyRoot: true })
+      const nestedBody = nested.length > 0 ? serialize(nested, options, [], { root: true, inRule: true }) : ""
+      const qualifiedBodies = bodyRoots.map((part) => `[${bodyAttribute}]${part.slice(bodyRootPrefix.length)}`)
+
+      const parts = [
+        hostRoots.length > 0 ? `${scope(hostRoots.join(", "))} {${rootBody}}` : "",
+        `@layer ${qualifiedRootLayer} { ${scope(bodyRoots.join(", "))} {${bodyRootBody}} }`,
+        nestedBody ? `${scope(qualifiedBodies.join(", "))} {${nestedBody}}` : "",
+        others.length > 0 ? `${scope(others.join(", "))} {${otherBody}}` : ""
+      ]
+
+      output += leading + parts.filter(Boolean).join(" ")
+    } else if (rootBody === otherBody) {
+      // A rule for the root and other elements at once, as `html, body`, is split when the root's font size changes,
+      // so only the root's does.
+      output += `${leading}${scope(selector)} {${rootBody}}`
+    } else {
+      output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
+    }
+
     for (const block of hoisted) {
-      if (block.kind !== "block") continue
+      if (block.kind !== "block") {
+        continue
+      }
+
+      const scheme = schemeOfBlock(block, options)!
       const body = serialize(block.children, options, globals, { root: true, inRule: true })
-      output += ` ${scopeToColorScheme(selector, schemeOfBlock(block, options)!)} {${body}}`
+      const plain = selectors.filter((part) => !part.startsWith(bodyRootPrefix) && !part.startsWith(":host("))
+      const qualified = selectors.filter((part) => part.startsWith(bodyRootPrefix))
+
+      if (plain.length > 0) {
+        output += ` ${scopeToColorScheme(plain.join(", "), scheme)} {${body}}`
+      }
+
+      // A qualified root's block is for the body in that scheme with the qualifier on it. The host can't be in a scheme,
+      // which only the body says, so its side is left out.
+      if (qualified.length > 0) {
+        const inScheme = qualified.map(
+          (part) =>
+            `:where([${bodyAttribute}][${colorSchemeAttribute}="${scheme}"])${part.slice(bodyRootPrefix.length)}`
+        )
+
+        const bodyRootBody = serialize(block.children, options, [], { root: true, inRule: true, bodyRoot: true })
+        output += ` @layer ${qualifiedRootLayer} { ${inScheme.join(", ")} {${bodyRootBody}} }`
+      }
     }
   }
+
   return output
 }
 
-/** A selector for the frame's root alone, as `:root` and `html` become: `:host`, or `:host(.dark)`. */
-const rootSelector = /^:host(?:\([^()]*\))?$/
+/**
+ * A selector for the frame's root alone, as `:root` and `html` become: `:host`, `:host(.dark)`, or the body standing in
+ * for a qualified root, `:where([data-canvas-body]).dark` (see `splitQualifiedRoots`).
+ */
+const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\]\)[\s\S]+)$`)
+
+/** The body standing in for a qualified root, whose font size is the frame's `rem` as the host's is otherwise. */
+const bodyRootPrefix = `:where([${bodyAttribute}])`
+
+/** A declaration's `!important`, which a value the body inherits from its root doesn't keep. */
+const importance = /\s*!\s*important\b/gi
+
+/** A `font-size` declaration, with its value up to the end of the declaration. */
+const fontSizeWithValue = /(^|[;\s])(font-size\s*:)([^;]*)/gi
+
+/**
+ * A qualified root's declarations as the frame's body takes them: without importance, and with each font size, by then
+ * absolute (see `rewriteRootFontSize`), also set as the length `rem` measures inside the body.
+ */
+function asBodyRoot(text: string): string {
+  return text
+    .replace(importance, "")
+    .replace(
+      fontSizeWithValue,
+      (_match, before: string, property: string, value: string) =>
+        `${before}${property}${value}; ${rootFontSizeProperty}: ${value.trim()}; ${remProperty}: var(${rootFontSizeProperty})`
+    )
+}
 
 /** The colour scheme a `prefers-color-scheme` block asks for, unless it's left alone. */
 function schemeOfBlock(node: CssNode, options: PrepareCssOptions): ColorScheme | undefined {
-  if (node.kind !== "block" || options.colorSchemes === false) return undefined
+  if (node.kind !== "block" || options.colorSchemes === false) {
+    return undefined
+  }
+
   const media = /^@media\s+([\s\S]*)$/i.exec(node.prelude.trim())
+
   return media ? colorSchemeQuery(media[1]!) : undefined
 }
 
@@ -317,10 +488,17 @@ function inColorScheme(scheme: ColorScheme): string {
  */
 function scopeToColorScheme(list: string, scheme: ColorScheme): string {
   const body = `[${bodyAttribute}]`
+
   return splitSelectorList(list)
     .map((part) => {
-      if (/^:host(?![\w(-])/.test(part)) return inColorScheme(scheme) + part.slice(":host".length)
-      if (part.startsWith(body)) return `${body}:where([${colorSchemeAttribute}="${scheme}"])${part.slice(body.length)}`
+      if (/^:host(?![\w(-])/.test(part)) {
+        return inColorScheme(scheme) + part.slice(":host".length)
+      }
+
+      if (part.startsWith(body)) {
+        return `${body}:where([${colorSchemeAttribute}="${scheme}"])${part.slice(body.length)}`
+      }
+
       return `${inColorScheme(scheme)} ${part}`
     })
     .join(", ")
@@ -331,23 +509,32 @@ function splitSelectorList(list: string): string[] {
   const selectors: string[] = []
   let depth = 0
   let start = 0
+
   for (let index = 0; index < list.length; index++) {
     const char = list[index]!
-    if (char === "\\") index++
-    else if (char === '"' || char === "'") index = findStringEnd(list, index) - 1
-    else if (char === "(" || char === "[") depth++
-    else if (char === ")" || char === "]") depth = Math.max(0, depth - 1)
-    else if (char === "," && depth === 0) {
+
+    if (char === "\\") {
+      index++
+    } else if (char === '"' || char === "'") {
+      index = findStringEnd(list, index) - 1
+    } else if (char === "(" || char === "[") {
+      depth++
+    } else if (char === ")" || char === "]") {
+      depth = Math.max(0, depth - 1)
+    } else if (char === "," && depth === 0) {
       selectors.push(list.slice(start, index).trim())
       start = index + 1
     }
   }
+
   selectors.push(list.slice(start).trim())
+
   return selectors
 }
 
 /** A `font-size` declaration's value, not a custom property's whose name ends in `font-size`. */
 const fontSizeDeclaration = /(^|[;\s])(font-size\s*:)([^;]*)/gi
+
 /** A percentage, or a length in `em` or `rem`, not inside a word or another number. */
 const relativeFontLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)(%|r?em)(?![\w-])/g
 
@@ -363,6 +550,7 @@ function rewriteRootFontSize(text: string): string {
         ? `${start}calc(${number} / 100 * ${mediumFontSize}px)`
         : `${start}calc(${number} * ${mediumFontSize}px)`
     )
+
     return `${before}${property}${absolute}`
   })
 }
@@ -374,29 +562,78 @@ const widthFeature =
 export function rewriteMedia(prelude: string): string {
   let query = prelude.replace(/^@media\s+/i, "").trim()
   let negate = false
+
   if (/^not\s+all\s+and\s+/i.test(query)) {
     negate = true
     query = query.replace(/^not\s+all\s+and\s+/i, "")
   }
+
   query = query.replace(/^(?:only\s+)?(?:screen|all)\s+and\s+/i, "")
   const conditions = query.split(/\s+and\s+/i).map((part) => part.trim())
-  if (conditions.length === 0 || !conditions.every((part) => widthFeature.test(part))) return prelude
+
+  if (conditions.length === 0 || !conditions.every((part) => widthFeature.test(part))) {
+    return prelude
+  }
+
   const condition = conditions.join(" and ")
-  if (!negate) return `@container ${viewportContainerName} ${condition}`
+
+  if (!negate) {
+    return `@container ${viewportContainerName} ${condition}`
+  }
+
   return `@container ${viewportContainerName} not ${conditions.length > 1 ? `(${condition})` : condition}`
 }
 
-function rewriteSelector(selector: string): string {
-  return selector
+/** The root with classes, attributes or `:not()`s on it, as `:host` after `:root` and `html` become it, then the rest. */
+const qualifiedRoot = /^:host((?:\.[\w-]+|\[[^\]]*\]|:not\([^()]*\))+)([\s\S]*)$/
+
+/**
+ * Draws a selector for the root with something on it (`:root.dark`, `html[data-theme=dark]`, `:root:not(.dark)`) as two:
+ * the frame's host with it, as `:host(.dark)`, since the host matches nothing written after `:host` but only inside
+ * `:host()`, and the frame's body with it, where a mode's class and a theme's attributes go. A decorator that sets an
+ * attribute on the host, as a decorator might set, matches the first; a mode's class matches the second. A root with a
+ * `:not()` on it is drawn as the body alone.
+ */
+function splitQualifiedRoots(selector: string): string {
+  return splitSelectorList(selector)
+    .map((part) => {
+      const qualified = qualifiedRoot.exec(part)
+
+      if (!qualified) {
+        return part
+      }
+
+      const [, qualifiers, rest] = qualified
+      // The root's own rule adds the body nothing but what's on the root, so one qualified root still beats another as
+      // in a page (`.dark.contrast` over `.dark`); its layer puts the body's own rules above it (see `serialize`).
+      // Below the root, the selector keeps the specificity it was written with.
+      const body = rest ? `[${bodyAttribute}]${qualifiers}${rest}` : `:where([${bodyAttribute}])${qualifiers}`
+
+      // The host never has the mode's class, so what's not on it would hold in every mode.
+      return qualifiers!.includes(":not(") ? body : `:host(${qualifiers})${rest}, ${body}`
+    })
+    .join(", ")
+}
+
+/**
+ * `:root` and `html` as the frame's host and `body` as its body, with qualified roots split when asked. In a
+ * colour-scheme block they aren't, as the root becomes the frame's body in that scheme and what's on it stays on it.
+ */
+function rewriteSelector(selector: string, splitRoots: boolean): string {
+  const rewritten = selector
     .replace(/:root(?![\w-])/g, ":host")
     .replace(/(^|[\s,>+~(])html(?![\w-])/g, "$1:host")
     .replace(/(^|[\s,>+~(])body(?![\w-])/g, `$1[${bodyAttribute}]`)
+
+  return splitRoots && rewritten.includes(":host") ? splitQualifiedRoots(rewritten) : rewritten
 }
 
 /** A number with a viewport unit or `rem`, not inside a word (`img-100vw`) or another number. */
 const frameLength = /(^|[^\w.-])(-?(?:\d+\.?\d*|\.\d+)(?:e-?\d+)?)(?:([sld]?)(vw|vh|vi|vb|vmin|vmax)|rem)(?![\w-])/g
+
 /** Text without this has no viewport length or `rem` in it, as most of what styles are set to doesn't. */
 const maybeFrameLength = /\d(?:[sld]?v|rem)/
+
 /** Strings, urls and lengths already rewritten, whose contents aren't lengths to rewrite. */
 const literal = new RegExp(
   String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|url\([^)]*\)|var\((?:${viewportWidthProperty}|${viewportHeightProperty}|${remProperty}),[^)]*\)`,
@@ -411,13 +648,18 @@ const literal = new RegExp(
  * changes nothing.
  */
 export function rewriteFrameUnits(text: string): string {
-  if (!maybeFrameLength.test(text)) return text
+  if (!maybeFrameLength.test(text)) {
+    return text
+  }
+
   let output = ""
   let last = 0
+
   for (const match of text.matchAll(literal)) {
     output += rewriteLengths(text.slice(last, match.index)) + match[0]
     last = match.index + match[0].length
   }
+
   return output + rewriteLengths(text.slice(last))
 }
 
@@ -431,28 +673,45 @@ const sheetToken = /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\/\*[\s\S]*?\*\/|url\([^
  * parsed as its stylesheets are.
  */
 export function rewriteSheetFrameUnits(css: string): string {
-  if (!maybeFrameLength.test(css)) return css
+  if (!maybeFrameLength.test(css)) {
+    return css
+  }
+
   let output = ""
   let start = 0
+
   for (const { 0: token, index } of css.matchAll(sheetToken)) {
-    if (token !== "{" && token !== "}" && token !== ";") continue
+    if (token !== "{" && token !== "}" && token !== ";") {
+      continue
+    }
+
     const text = css.slice(start, index)
     output += (token === "{" ? text : rewriteFrameUnits(text)) + token
     start = index + 1
   }
+
   return output + rewriteFrameUnits(css.slice(start))
 }
 
 function rewriteLengths(text: string): string {
   return text.replace(frameLength, (_match, before: string, number: string, kind?: string, unit?: string) => {
     // Without a viewport unit, the length is in rem.
-    if (kind === undefined || unit === undefined) return `${before}calc(${number} * var(${remProperty}, 1rem))`
+    if (kind === undefined || unit === undefined) {
+      return `${before}calc(${number} * var(${remProperty}, 1rem))`
+    }
+
     const width = `var(${viewportWidthProperty}, 1${kind}vw)`
     const height = `var(${viewportHeightProperty}, 1${kind}vh)`
     let one: string
-    if (unit === "vw" || unit === "vi") one = width
-    else if (unit === "vh" || unit === "vb") one = height
-    else one = `${unit === "vmin" ? "min" : "max"}(${width}, ${height})`
+
+    if (unit === "vw" || unit === "vi") {
+      one = width
+    } else if (unit === "vh" || unit === "vb") {
+      one = height
+    } else {
+      one = `${unit === "vmin" ? "min" : "max"}(${width}, ${height})`
+    }
+
     return `${before}calc(${number} * ${one})`
   })
 }

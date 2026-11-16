@@ -1,5 +1,11 @@
 import { type AgentHooks, type AgentSnapshot, execute } from "@parity-app/agent"
-import { type ComponentSource, type ContainerSpec, defaultModeSettings, type DesignNode } from "@parity-app/core"
+import {
+  type ComponentSource,
+  type ContainerSpec,
+  defaultModeSettings,
+  type DesignNode,
+  type ReferenceSpec
+} from "@parity-app/core"
 import { effectiveFixture } from "@parity-app/core/fixtures"
 import { describe, expect, it } from "vite-plus/test"
 import { readSkill, skillFiles } from "./skills.ts"
@@ -8,35 +14,44 @@ import { readSkill, skillFiles } from "./skills.ts"
 function snippets(markdown: string): { line: number; code: string }[] {
   const found: { line: number; code: string }[] = []
   const lines = markdown.split(/\r?\n/)
+
   for (let index = 0; index < lines.length; index++) {
-    if (lines[index] !== "```js") continue
+    if (lines[index] !== "```js") {
+      continue
+    }
+
     const end = lines.indexOf("```", index + 1)
     found.push({ line: index + 1, code: lines.slice(index + 1, end).join("\n") })
     index = end
   }
+
   return found
 }
 
 const text = (id: string, words: string): DesignNode => ({ type: "text", id, name: id, text: words })
-const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): DesignNode => ({
-  type: "layout",
-  id: name.toLowerCase().replaceAll(" ", "-"),
-  name,
-  ...(hidden ? { hidden } : {}),
-  children
-})
+
+const layout = (name: string, children: DesignNode[] = [], hidden?: boolean): DesignNode => {
+  const node: DesignNode = { type: "layout", id: name.toLowerCase().replaceAll(" ", "-"), name, children }
+
+  if (hidden) {
+    node.hidden = hidden
+  }
+
+  return node
+}
+
 const row = (id: string, name: string, email: string): DesignNode => ({
   type: "layout",
   id,
-  style: { direction: "row", gap: 4 },
+  style: { flexDirection: "row", gap: { step: 4 } },
   children: [text(`${id}-name`, name), text(`${id}-email`, email)]
 })
+
 const screen = (id: string, name: string, x: number, root: DesignNode): ContainerSpec => ({
   id,
   name,
   position: { x, y: 2000 },
-  root,
-  states: [{ id: "default", name: "Default" }]
+  root
 })
 
 /** The example project the skill's snippets are written against: every design and node they name. */
@@ -76,13 +91,37 @@ const designs: ContainerSpec[] = [
       layout("Empty state", [text("empty", "No members yet")], true)
     ])
   ),
-  // Replace's example puts back a title's patches in its loading state.
+  // Replace's example puts back a title's patches in its loading state, so it's a component, as only one has states.
   {
     ...screen("signup", "Signup", 4800, layout("Page", [{ ...text("title", "Sign up"), name: "Title" }])),
+    kind: "component",
     states: [
       { id: "default", name: "Default" },
       { id: "loading", name: "Loading" }
     ]
+  },
+  // How a design fits together: a header component whose desktop menu opens.
+  { ...screen("header", "Header", 6400, layout("Header", [layout("Menu")])), kind: "component" },
+  // The states examples: a table component with rows, skeletons and an empty state.
+  {
+    ...screen(
+      "members-table",
+      "Members table",
+      8000,
+      layout("Table", [
+        {
+          type: "component",
+          id: "seats",
+          name: "seats",
+          component: "Badge",
+          props: { children: "3 of 10 seats used" }
+        },
+        layout("Rows", [row("ada", "Ada Lovelace", "ada@example.com")]),
+        layout("Skeleton", [{ type: "component", id: "row-skeleton", component: "Skeleton" }], true),
+        layout("Empty state", [text("empty", "No members yet")], true)
+      ])
+    ),
+    kind: "component"
   }
 ]
 
@@ -90,6 +129,7 @@ const nova = (name: string, fields: Partial<ComponentSource> = {}): [string, Com
   `nova/${name}`,
   { path: "@buildkitgg/shadcn-baseui-nova", export: name, library: "nova", ...fields }
 ]
+
 const novaSidebar: Record<string, ComponentSource> = Object.fromEntries([
   nova("SidebarProvider", { visual: false, sample: { children: [{ component: "nova/Sidebar" }] } }),
   nova("Sidebar", { parents: ["nova/SidebarProvider"], sample: { children: [{ component: "nova/SidebarContent" }] } }),
@@ -119,17 +159,29 @@ function project(tab: string): AgentSnapshot {
     // Nova's sidebar parts as discovery lists them, with the parents and samples `Props().composition` reads.
     sources: novaSidebar,
     iconSets: [{ id: "lucide", name: "Lucide", package: "lucide-react", version: "0.500.0" }],
+    // Written as shadcn's theme writes them, so GetTokens({ nearest }) can measure them.
     tokens: [
-      { name: "background", category: "color", source: "semantic", values: { default: "white", dark: "black" } },
-      { name: "foreground", category: "color", source: "semantic", values: { default: "black", dark: "white" } },
-      { name: "primary", category: "color", source: "semantic", values: { default: "blue" } },
-      { name: "accent", category: "color", source: "semantic", values: { default: "lightblue" } },
+      {
+        name: "background",
+        category: "color",
+        source: "semantic",
+        values: { default: "oklch(1 0 0)", dark: "oklch(0.145 0 0)" }
+      },
+      {
+        name: "foreground",
+        category: "color",
+        source: "semantic",
+        values: { default: "oklch(0.145 0 0)", dark: "oklch(0.985 0 0)" }
+      },
+      { name: "primary", category: "color", source: "semantic", values: { default: "oklch(0.546 0.245 262.881)" } },
+      { name: "accent", category: "color", source: "semantic", values: { default: "oklch(0.97 0 0)" } },
+      { name: "text-sm", category: "font-size", source: "theme", values: { default: "0.875rem" } },
       { name: "text-2xl", category: "font-size", source: "theme", values: { default: "1.5rem" } },
       { name: "radius-full", category: "radius", source: "theme", values: { default: "9999px" } }
     ],
     theme: [],
     modes: defaultModeSettings,
-    documents: [{ path: "app.par", document: { version: 3, containers: structuredClone(designs) } }],
+    documents: [{ path: "app.par", document: { version: 4, containers: structuredClone(designs), references } }],
     libraryDesigns: [],
     tokenOverrides: [],
     mainDocument: "app.par",
@@ -139,20 +191,44 @@ function project(tab: string): AgentSnapshot {
   }
 }
 
+/** A screen placed beside Dashboard as a reference, with a note, for `References` to read. */
+const references: ReferenceSpec[] = [
+  {
+    id: "stats-reference",
+    connector: "mobbin",
+    sourceId: "1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed",
+    app: "Ledgerly",
+    platform: "web",
+    link: "https://mobbin.com/screens/1b9d6bcd",
+    image: { url: "https://images.example/ledgerly.png", width: 768, height: 480 },
+    position: { x: 1500, y: 2000 },
+    note: "Revenue and users sit first, each with the change since last week.",
+    by: "Claude",
+    design: "dashboard"
+  }
+]
+
 const hooks: AgentHooks = {
   presence: () => undefined,
-  render: async ({ mode, capture }) => ({
-    width: mode.width,
-    height: 600,
-    nodes: [],
-    overflowsX: false,
-    unknownComponents: [],
-    ...(capture ? { png: "iVBOR" } : {})
-  }),
-  iconNames: async () => ({ names: ["Bell", "Heart", "Settings"], aliases: { Settings: ["Cog"] } })
+  render: async ({ mode, capture }) => {
+    const rendered = { width: mode.width, height: 600, nodes: [], overflowsX: false, unknownComponents: [] }
+
+    return capture ? { ...rendered, png: "iVBOR" } : rendered
+  },
+  iconNames: async () => ({ names: ["Bell", "Heart", "Settings"], aliases: { Settings: ["Cog"] } }),
+  // Any screen the examples name, as main would give one it found lately.
+  screen: async (id) => ({
+    connector: "mobbin",
+    id,
+    title: "Ledgerly",
+    platform: "web",
+    link: `https://mobbin.com/screens/${id}`,
+    image: { url: `https://images.example/${id}.png`, width: 768, height: 480 }
+  })
 }
 
 const files = await skillFiles()
+
 const examples = (
   await Promise.all(files.map(async (file) => snippets(await readSkill(file)).map((snippet) => ({ file, ...snippet }))))
 ).flat()
@@ -171,11 +247,14 @@ describe("the skill's examples", () => {
     "runs every example in %s against the example project",
     async (file) => {
       const tab = `skill-${file}`
+
       for (const { line, code } of examples.filter((example) => example.file === file)) {
         const result = await execute({ label: "Example", code }, project(tab), hooks)
+
         const warnings = result.warnings.filter(
           (_, index) => !boardCategories.has(result.warningGroups?.[index]?.category ?? "")
         )
+
         expect({ at: `${file}:${line}`, error: result.error, warnings }).toEqual({
           at: `${file}:${line}`,
           error: undefined,

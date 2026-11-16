@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { checkModel } from "./check.ts"
+import { modelParser } from "./check.ts"
 import { uniqueIds } from "./unique.ts"
 
 // Scenarios: a name, its data and the design state it fills, such as "Empty", "Very long" or "Server error". Designs
@@ -31,9 +31,9 @@ export const Scenarios = z
   .superRefine((model, context) => uniqueIds(model.scenarios, ["scenarios"], context))
 
 export type ScenarioResponse = z.infer<typeof ScenarioResponse>
+
 export type Scenario = z.infer<typeof Scenario>
+
 export type Scenarios = z.infer<typeof Scenarios>
 
-export function parseScenarios(value: unknown): Scenarios {
-  return checkModel(Scenarios, value)
-}
+export const parseScenarios = modelParser(Scenarios)

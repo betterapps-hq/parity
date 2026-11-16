@@ -2,18 +2,31 @@ name: CD npm
 
 # Releases the CLI to npm on its own, apart from the desktop app that cd-desktop.yml delivers (PAR-10). Once CI passes
 # on main, the shared cd-npm-release template runs Beachball scoped to leave the app out: it bumps the CLI's version and
-# changelog from its change files, publishes it to npm through trusted publishing, then commits, tags and pushes to main
-# with the npm environment's RELEASE_DEPLOY_KEY, the one actor main's ruleset lets skip a pull request. The template
-# checks CI passed on a push to main and that the commit is still main's head, so a newer commit's run releases that.
+# changelog from its change files, publishes it to npm's `next` tag through trusted publishing, then commits, tags and
+# pushes to main with the npm environment's RELEASE_DEPLOY_KEY, the one actor main's ruleset lets skip a pull request.
+# The template checks CI passed on a push to main and that the commit is still main's head, so a newer commit's run
+# releases that.
+#
+# Publishing queues the promotion, which waits for approval in the production environment, apart from the desktop app's,
+# then moves npm's `latest` tag to that version without rebuilding or republishing it (PAR-799). Running this workflow by
+# hand promotes a version already on npm, as for one whose approval expired. The CLI reports as `production` once its
+# version has been `latest`.
 #
 # npm's trusted publishing, with provenance and no token, trusts this file by name, so it must stay
-# .github/workflows/cd-npm.yml: @parity-app/cli's trusted publisher on npmjs.com names it, with the npm environment,
-# which infra/github keeps to main.
+# .github/workflows/cd-npm.yml. @parity-app/cli has two trusted publishers on npmjs.com that name it: one with the npm
+# environment, allowed to publish, and one with the production environment, allowed only `npm dist-tag`. infra/github
+# keeps both environments to main.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The version of @parity-app/cli on npm to make latest, without v.
+        type: string
+        required: true
 
 permissions:
   contents: read
@@ -28,5 +41,74 @@ jobs:
     with:
       scope: "!apps/desktop"
       build-command: pnpm --filter @parity-app/cli build
+      tag: next
     secrets:
       RELEASE_DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+
+  # The release builds the CLI without Sentry's token, so this builds the published version again from its tag and
+  # uploads its bundles and source maps to parity-cli, as the release the installed CLI reports (PAR-719). Each bundle's
+  # debug ID comes from its contents, so these maps match the bundles npm has.
+  cli-version:
+    name: CLI version
+    needs: release
+    if: needs.release.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - id: version
+        env:
+          PACKAGES: ${{ needs.release.outputs.packages }}
+        run:
+          echo "version=$(jq -r '.[] | select(.name == "@parity-app/cli") | .to' <<< "$PACKAGES")" >> "$GITHUB_OUTPUT"
+
+  sourcemaps:
+    name: Source maps
+    needs: cli-version
+    if: needs.cli-version.outputs.version != ''
+    uses: ./.github/workflows/upload-sourcemaps.yml
+    with:
+      ref: "@parity-app/cli_v${{ needs.cli-version.outputs.version }}"
+      build-command: pnpm --filter @parity-app/cli build
+      package: packages/cli
+      project: parity-cli
+      published: true
+    secrets:
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+
+  promote:
+    name: Production
+    needs: cli-version
+    # always() lets a run by hand promote although the release it would follow is skipped.
+    if: >-
+      always() && ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+      needs.cli-version.outputs.version != '')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: production
+      url: https://www.npmjs.com/package/@parity-app/cli?activeTab=versions
+    permissions:
+      contents: read
+      # npm's trusted publishing lets the production environment's publisher change dist-tags through OIDC.
+      id-token: write
+    steps:
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - name: Make the published version latest
+        env:
+          VERSION: ${{ inputs.version || needs.cli-version.outputs.version }}
+        run: |
+          set -euo pipefail
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "Invalid version: $VERSION"; exit 1; }
+          # Only a version npm already has, which this doesn't rebuild or republish.
+          npm view "@parity-app/cli@$VERSION" version > /dev/null
+          if [ "$(npm view @parity-app/cli dist-tags.latest)" = "$VERSION" ]; then
+            echo "@parity-app/cli $VERSION is already latest." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # OIDC dist-tag changes need npm 11.21.0 or later.
+          npx --yes npm@^11.21.0 dist-tag add "@parity-app/cli@$VERSION" latest
+          echo "@parity-app/cli $VERSION is now latest." >> "$GITHUB_STEP_SUMMARY"

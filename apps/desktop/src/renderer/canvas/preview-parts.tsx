@@ -1,0 +1,658 @@
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import {
+  besideScales,
+  type ContainerSpec,
+  type ContainerViewSettings,
+  frameGeometry,
+  type ModeVariable,
+  previewKey,
+  previewOf,
+  previewScale,
+  previewSettingsOf,
+  type PreviewSettings,
+  type PreviewValue,
+  previewValues,
+  type ResolvedMode,
+  unsavedPreviewValues,
+  withPreviewValues,
+  withSavedPreviewValues
+} from "@parity-app/core"
+import { pickPreviews } from "@parity-app/editor"
+import { updateView } from "@parity-app/multiplayer"
+import { RotateCcw, Search, SlidersHorizontal } from "lucide-react"
+import { useCallback, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
+import { stopEventPropagation } from "tldraw"
+import { AppSelect } from "../chrome/AppSelect.tsx"
+import { Hint } from "../chrome/Hint.tsx"
+import { Name } from "../chrome/Name.tsx"
+import { PanelSectionTitle } from "../chrome/PanelSection.tsx"
+import { readFromCode } from "../chrome/read-from-code.ts"
+import { ModeViewportIcon } from "../chrome/viewports.tsx"
+import { PixelField } from "../inspector/controls/controls.tsx"
+import { ChangeMark, Changed } from "../inspector/controls/field-parts.tsx"
+import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
+import { PercentField } from "../inspector/controls/number-field.tsx"
+import { savedViewOf } from "../project-doc.ts"
+import { useCarry } from "./board-carry.tsx"
+import { useProject } from "./context.ts"
+import { kindColors } from "./kinds.tsx"
+
+/*
+ * The settings of a design's previews, set on the canvas above what they change (PAR-1071): the zoom of the previews
+ * selected in the header of the last one picked, and a button that opens their width and each of their modes' variables
+ * other than the viewport, as many as the project registers, each a select so a long list fits. A preview that sets
+ * anything over its mode has the button in its own header. A value changed since the last save has the change mark and a
+ * reset, which puts it back as saved: saving makes what's set the baseline. Values the previews selected don't share
+ * show Mixed, and setting one sets each.
+ */
+
+/** A preview whose settings these change: its key, its state's and mode's, and whether it's in the first mode shown. */
+export interface PreviewTarget {
+  key: string
+  mode: ResolvedMode
+  /** In the first mode shown, drawn at full size, where the rest fit beside it. */
+  first: boolean
+}
+
+/** What the settings work from for one preview: its own values, as they are and as saved, and what it's drawn at now. */
+interface Selected extends PreviewTarget {
+  own: PreviewSettings | undefined
+  saved: PreviewSettings | undefined
+  /** Its values changed since the last save. */
+  unsaved: PreviewValue[]
+  scale: number
+  width: number
+  /** Its option for each variable, its own or its mode's, by variable id. */
+  options: Record<string, string>
+}
+
+/** How the settings change a design's view: one undoable step, named. */
+export type ChangeView = (label: string, update: (view: ContainerViewSettings) => ContainerViewSettings) => void
+
+/**
+ * How a design was shown when last saved, as the saver has it, so a preview's change mark and reset follow what's
+ * saved; the same object until a save or a change to it.
+ */
+export function useSavedView(designKey: string, path: string): ContainerViewSettings | undefined {
+  const session = useProject()
+
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      const stops = [session.doc.subscribe(() => listener()), session.saver.subscribe(listener)]
+
+      return () => {
+        for (const stop of stops) {
+          stop()
+        }
+      }
+    },
+    [session]
+  )
+
+  return useSyncExternalStore(subscribe, () => savedViewOf(session, designKey, readFromCode(path)))
+}
+
+function selectedOf(
+  design: ContainerSpec,
+  saved: ContainerViewSettings | undefined,
+  targets: readonly PreviewTarget[]
+): Selected[] {
+  return targets.map((target) => {
+    const at = previewOf(target.key)
+    const own = previewSettingsOf(design, at.state, at.mode)
+    const savedOwn = saved?.previews?.[target.key]
+    const options = Object.fromEntries(target.mode.options.map(({ variable, option }) => [variable.id, option.id]))
+
+    return {
+      ...target,
+      own,
+      saved: savedOwn,
+      unsaved: unsavedPreviewValues(own, savedOwn),
+      scale: previewScale(design, target.mode, target.first, own),
+      width: own?.width ?? frameGeometry(design, target.mode, at.state).width,
+      options: { ...options, ...own?.options }
+    }
+  })
+}
+
+/** What every one of `list` shares, or `undefined` where they differ. */
+function shared<T>(list: readonly T[]): T | undefined {
+  return list.every((each) => each === list[0]) ? list[0] : undefined
+}
+
+/**
+ * The previews' zoom, as the inspector's percentages take one: its glyph scrubs it, typed it goes from 10% to 400%, and
+ * its chevron offers Fit beside the first mode, for a preview beside it, and 100, 75, 50 and 25%. It shows Mixed where
+ * they differ, and the change mark while any has changed it since the last save.
+ */
+export function ZoomField({
+  design,
+  saved,
+  targets,
+  onChange
+}: {
+  design: ContainerSpec
+  saved: ContainerViewSettings | undefined
+  targets: readonly PreviewTarget[]
+  onChange: ChangeView
+}) {
+  const previews = selectedOf(design, saved, targets)
+  const percentOf = (each: Selected) => Math.round(each.scale * 100)
+  const fitOf = (each: Selected) => Math.round(previewScale(design, each.mode, each.first, undefined) * 100)
+  const percent = shared(previews.map(percentOf))
+  const fitted = previews.every((each) => each.own?.scale === undefined && !each.first)
+  const fixed = previews.every((each) => each.own?.scale !== undefined || each.first)
+  const mixed = !fitted && !(fixed && percent !== undefined)
+  const besides = previews.some((each) => !each.first)
+  const fit = shared(previews.filter((each) => !each.first).map(fitOf))
+
+  // Each to `next`, or to Fit with `undefined`. A first mode's preview is at full size unset, so 100 unsets it.
+  const setPercent = (next: number | undefined) =>
+    onChange(next === undefined ? "Fit previews" : `Show previews at ${next}%`, (view) =>
+      previews.reduce(
+        (each, preview) =>
+          withPreviewValues(each, preview.key, {
+            scale: next === undefined || (preview.first && next === 100) ? undefined : next / 100
+          }),
+        view
+      )
+    )
+
+  return (
+    <Changed when={previews.some((each) => each.unsaved.includes("scale"))}>
+      <PercentField
+        label="Zoom"
+        // A plain magnifier, not zoom in: it goes either way. Typing or scrubbing goes past 100%; the options stop there.
+        inner={<Search aria-hidden className="size-3.5" />}
+        min={10}
+        max={400}
+        places={0}
+        // Fitted, it shows what Fit comes to, faintly, as unset does.
+        placeholder={String(fitted && percent !== undefined ? percent : 100)}
+        unsetIs={percentOf(previews.at(-1)!)}
+        mixed={mixed}
+        rowClassName="w-24 shrink-0"
+        value={fitted || mixed ? undefined : percent}
+        options={{
+          name: "Presets",
+          heading: "Zoom",
+          rows: [
+            ...(besides
+              ? [
+                  {
+                    key: "fit",
+                    name: "Fit",
+                    detail: fit === undefined ? "" : `${fit}%`,
+                    current: fitted,
+                    onPick: () => setPercent(undefined)
+                  }
+                ]
+              : []),
+            ...besideScales.toReversed().map((scale) => ({
+              key: String(scale),
+              name: `${scale * 100}%`,
+              detail: "",
+              current: fixed && percent === scale * 100,
+              onPick: () => setPercent(scale * 100)
+            }))
+          ]
+        }}
+        onChange={setPercent}
+      />
+    </Changed>
+  )
+}
+
+/**
+ * The button that opens the settings of the previews given: every one selected, in the header of the last picked, or a
+ * preview's own, in its header where it sets anything over its mode. It has the change mark while any has changed
+ * anything other than a zoom its header has a field for since the last save. The settings open above it, clear of what
+ * they change.
+ */
+export function SettingsMenu({
+  design,
+  saved,
+  targets,
+  variables,
+  changed,
+  tabbable,
+  narrowest,
+  onChange
+}: {
+  design: ContainerSpec
+  saved: ContainerViewSettings | undefined
+  targets: readonly PreviewTarget[]
+  variables: readonly ModeVariable[]
+  changed: boolean
+  tabbable: boolean
+  /** The narrowest width a preview can be tried at: a page's, or a story's or component's. */
+  narrowest: number
+  onChange: ChangeView
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Hint label="Preview settings" hidden={open}>
+            <button
+              type="button"
+              aria-label="Preview settings"
+              tabIndex={tabbable ? 0 : -1}
+              data-canvas-control
+              onPointerDown={stopEventPropagation}
+              className="pointer-events-auto relative flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/50 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 aria-expanded:bg-accent aria-expanded:text-foreground dark:bg-input/40"
+            >
+              <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
+              {changed && <ChangeMark />}
+            </button>
+          </Hint>
+        }
+      />
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-56 gap-0 p-3"
+        data-canvas-control
+        onPointerDown={stopEventPropagation}
+      >
+        <PreviewSettingsPanel
+          design={design}
+          saved={saved}
+          targets={targets}
+          variables={variables}
+          narrowest={narrowest}
+          onChange={onChange}
+        />
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+/**
+ * The previews' settings: their width with the px field, and a select for each of their modes' variables other than
+ * the viewport. A value changed since the last save has the reset arrow back to it as saved, which is the mode's where
+ * nothing was saved, and the title's reset puts every value of each back, its zoom too.
+ */
+function PreviewSettingsPanel({
+  design,
+  saved,
+  targets,
+  variables,
+  narrowest,
+  onChange
+}: {
+  design: ContainerSpec
+  saved: ContainerViewSettings | undefined
+  targets: readonly PreviewTarget[]
+  variables: readonly ModeVariable[]
+  narrowest: number
+  onChange: ChangeView
+}) {
+  const previews = selectedOf(design, saved, targets)
+  const width = shared(previews.map((each) => each.width))
+  const anyUnsaved = previews.some((each) => each.unsaved.length > 0)
+
+  // What a value's reset goes back to, which its arrow names: as saved, where the previews that changed it share it.
+  const resetTo = (value: PreviewValue, describe: (each: Selected) => string) => {
+    const changed = previews.filter((each) => each.unsaved.includes(value))
+
+    return changed.length === 0 ? undefined : (shared(changed.map(describe)) ?? "saved values")
+  }
+
+  const resetValue = (value: PreviewValue, label: string) =>
+    onChange(label, (view) =>
+      previews.reduce((each, preview) => withSavedPreviewValues(each, preview.key, preview.saved, [value]), view)
+    )
+
+  const optionOfMode = (each: Selected, variable: string) =>
+    each.mode.options.find((option) => option.variable.id === variable)?.option
+
+  return (
+    <>
+      <PanelSectionTitle
+        title="Preview settings"
+        // As tall as its reset, so the reset showing doesn't move the fields.
+        spacing="mb-3 min-h-7"
+        action={
+          anyUnsaved && (
+            <Hint label={resetHint(previews)}>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Reset preview settings"
+                onClick={() =>
+                  onChange("Reset preview settings", (view) =>
+                    previews.reduce((each, preview) => withSavedPreviewValues(each, preview.key, preview.saved), view)
+                  )
+                }
+              >
+                <RotateCcw />
+              </Button>
+            </Hint>
+          )
+        }
+      />
+      <FieldGrid>
+        <Field
+          label="Width"
+          overrides={resetTo("width", (each) => `${each.saved?.width ?? frameGeometry(design, each.mode).width}px`)}
+          onReset={() => resetValue("width", "Reset preview width")}
+        >
+          <PixelField
+            label="Width"
+            inner="W"
+            min={narrowest}
+            mixed={width === undefined}
+            value={width}
+            onChange={(next) =>
+              onChange(next === undefined ? "Reset preview width" : `Try previews at ${next}px`, (view) =>
+                previews.reduce((each, preview) => {
+                  const base = frameGeometry(design, preview.mode).width
+
+                  return withPreviewValues(each, preview.key, {
+                    width: next === undefined || next === base ? undefined : next
+                  })
+                }, view)
+              )
+            }
+          />
+        </Field>
+        {variables
+          .filter((variable) => variable.kind !== "viewport")
+          .map((variable) => {
+            const value: PreviewValue = `option:${variable.id}`
+            const chosen = shared(previews.map((each) => each.options[variable.id]))
+
+            return (
+              <Field
+                key={variable.id}
+                label={variable.name}
+                overrides={resetTo(
+                  value,
+                  (each) =>
+                    variable.options.find((option) => option.id === each.saved?.options?.[variable.id])?.name ??
+                    optionOfMode(each, variable.id)?.name ??
+                    ""
+                )}
+                onReset={() => resetValue(value, `Reset preview ${variable.name.toLowerCase()}`)}
+              >
+                <AppSelect
+                  variant="panel"
+                  className="w-full"
+                  aria-label={variable.name}
+                  items={variable.options.map((each) => ({ value: each.id, label: each.name }))}
+                  value={chosen ?? null}
+                  placeholder="Mixed"
+                  onValueChange={(next) => {
+                    if (next === null) {
+                      return
+                    }
+
+                    const name = variable.options.find((each) => each.id === next)?.name ?? next
+
+                    onChange(`Show previews in ${name}`, (view) =>
+                      previews.reduce(
+                        (each, preview) =>
+                          withPreviewValues(each, preview.key, {
+                            options: {
+                              [variable.id]: optionOfMode(preview, variable.id)?.id === next ? undefined : next
+                            }
+                          }),
+                        view
+                      )
+                    )
+                  }}
+                />
+              </Field>
+            )
+          })}
+      </FieldGrid>
+    </>
+  )
+}
+
+/**
+ * What a reset of these previews says it goes back to: their saved values, where any were saved, or else the mode of
+ * one preview, or of each.
+ */
+function resetHint(previews: readonly Selected[]): string {
+  if (previews.some((each) => previewValues(each.saved).length > 0)) {
+    return "Reset to saved values"
+  }
+
+  return previews.length === 1 ? `Reset to ${previews[0]!.mode.name}` : "Reset to their modes"
+}
+
+/** A preview's reset in its header, which puts what it changed since the last save back, or several previews'. */
+function PreviewReset({ hint, tabbable, onReset }: { hint: string; tabbable: boolean; onReset: () => void }) {
+  return (
+    <Hint label={hint}>
+      <button
+        type="button"
+        aria-label="Reset preview settings"
+        tabIndex={tabbable ? 0 : -1}
+        data-canvas-control
+        onPointerDown={stopEventPropagation}
+        onClick={onReset}
+        className="pointer-events-auto grid size-5 shrink-0 place-items-center rounded text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        <RotateCcw className="size-3" />
+      </button>
+    </Hint>
+  )
+}
+
+/**
+ * A preview's header, in the band above it (PAR-1071): its mode's name, which selects the preview on its own, or with
+ * Shift adds it to the previews selected or takes it away, then what it holds. The header of the last preview picked
+ * holds the settings of every one selected: their zoom as a field, the settings button, and a reset while any has
+ * changed since the last save. Another preview that sets anything over its mode has the settings button for its own,
+ * and a reset while it's changed. What
+ * follows the name goes beside it where it fits over the preview, and otherwise on a line under it, which its row makes
+ * room for (see `onStack`), so nothing is cut off.
+ */
+export function PreviewHeader({
+  design,
+  saved,
+  designKey,
+  state,
+  mode,
+  first,
+  targets,
+  selected,
+  named,
+  tabbable,
+  variables,
+  narrowest,
+  stacked,
+  onStack,
+  column,
+  color,
+  onMoveColumn
+}: {
+  design: ContainerSpec
+  /** How the design was shown when last saved (`useSavedView`). */
+  saved: ContainerViewSettings | undefined
+  designKey: string
+  state: { id: string; name: string }
+  mode: ResolvedMode
+  first: boolean
+  /** The previews whose settings it holds, as the last of them picked, or none. */
+  targets: readonly PreviewTarget[] | undefined
+  selected: boolean
+  /** Its design names its rows, so its accessible name names its state too, as `Popular in Desktop Light`. */
+  named: boolean
+  tabbable: boolean
+  variables: readonly ModeVariable[]
+  narrowest: number
+  /** What follows its name is on a line under it. */
+  stacked: boolean
+  /** Says whether what follows its name fits beside it over the preview, by the preview's key. */
+  onStack: (key: string, stacked: boolean) => void
+  /** Its mode's place among the columns shown. */
+  column: number
+  /** Its design's color, for the marker where its column would land. */
+  color: string
+  /** Moves its mode's column from one place among those shown to another. */
+  onMoveColumn: (from: number, to: number) => void
+}) {
+  const { doc, selection } = useProject()
+  const key = previewKey(state.id, mode.id)
+  const own = previewSettingsOf(design, state.id, mode.id)
+  const set = previewValues(own)
+  const name = named ? `${state.name} in ${mode.name}` : mode.name
+  const row = useRef<HTMLDivElement>(null)
+  const nameButton = useRef<HTMLButtonElement>(null)
+  const rest = useRef<HTMLDivElement>(null)
+  const holds = targets !== undefined
+
+  // Its header carries its column along its line of the row, among the previews on that line.
+  const carry = useCarry({
+    axis: "x",
+    items: () => lineTiles(nameButton.current),
+    from: () => lineTiles(nameButton.current).findIndex((tile) => tile.contains(nameButton.current)),
+    color,
+    // Its mode's previews in every row, which move with it.
+    carried: () => [
+      ...(nameButton.current
+        ?.closest(".container-view")
+        ?.querySelectorAll<HTMLElement>(`.mode-tile[data-mode="${CSS.escape(mode.id)}"]`) ?? [])
+    ],
+    // Carried, it's the preview selected, unless it's one of them already.
+    onStart: () => {
+      if (!selected) {
+        selection.set(pickPreviews(selection.get(), designKey, [key], false))
+      }
+    },
+    onDrop: (to) => onMoveColumn(column, Number(lineTiles(nameButton.current)[0]?.dataset.column ?? 0) + to)
+  })
+
+  const onChange: ChangeView = (label, update) => updateView(doc, designKey, label, update)
+
+  // Holding the selected previews' settings, it resets every one of them; otherwise its own.
+  const resets = selectedOf(design, saved, targets ?? [{ key, mode, first }])
+  const resettable = resets.some((each) => each.unsaved.length > 0)
+
+  // Whether what follows its name fits beside it, measured at the size it reads, however it's laid out now.
+  useLayoutEffect(() => {
+    const element = row.current
+    const label = nameButton.current
+    const after = rest.current
+
+    if (!element || !label) {
+      return undefined
+    }
+
+    const report = () =>
+      onStack(key, after !== null && label.offsetWidth + after.offsetWidth + 8 > element.parentElement!.clientWidth)
+
+    report()
+    const observer = new ResizeObserver(report)
+    observer.observe(element.parentElement!)
+    observer.observe(label)
+
+    if (after) {
+      observer.observe(after)
+    }
+
+    return () => observer.disconnect()
+  }, [key, onStack, holds, set.length, resettable])
+
+  const reset = resettable && (
+    <PreviewReset
+      hint={resetHint(resets)}
+      tabbable={tabbable}
+      onReset={() =>
+        onChange(`Reset ${name}`, (view) =>
+          resets.reduce((each, preview) => withSavedPreviewValues(each, preview.key, preview.saved), view)
+        )
+      }
+    />
+  )
+
+  let after = null
+
+  if (targets) {
+    after = (
+      <div ref={rest} className="flex w-max shrink-0 items-center gap-1.5">
+        <ZoomField design={design} saved={saved} targets={targets} onChange={onChange} />
+        <SettingsMenu
+          design={design}
+          saved={saved}
+          targets={targets}
+          variables={variables}
+          // The zoom has its own field and mark here.
+          changed={resets.some((each) => each.unsaved.some((value) => value !== "scale"))}
+          tabbable={tabbable}
+          narrowest={narrowest}
+          onChange={onChange}
+        />
+        {reset}
+      </div>
+    )
+  } else if (set.length > 0 || resettable) {
+    after = (
+      <div ref={rest} className="flex w-max shrink-0 items-center gap-1.5">
+        <SettingsMenu
+          design={design}
+          saved={saved}
+          targets={[{ key, mode, first }]}
+          variables={variables}
+          changed={resettable}
+          tabbable={tabbable}
+          narrowest={narrowest}
+          onChange={onChange}
+        />
+        {reset}
+      </div>
+    )
+  }
+
+  return (
+    <div
+      ref={row}
+      className={`flex gap-1.5 whitespace-nowrap ${stacked ? "flex-col items-start" : "h-7 items-center"}`}
+      data-canvas-control
+    >
+      <Hint label={`Select ${mode.name}`} detail="Drag to reorder" wait>
+        <button
+          ref={nameButton}
+          type="button"
+          tabIndex={tabbable ? 0 : -1}
+          aria-label={named ? name : undefined}
+          aria-pressed={selected}
+          aria-keyshortcuts="ArrowLeft ArrowRight"
+          onPointerDown={carry.onPointerDown}
+          onPointerUp={stopEventPropagation}
+          onKeyDown={(event) => {
+            if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+              event.preventDefault()
+              event.stopPropagation()
+              onMoveColumn(column, column + (event.key === "ArrowLeft" ? -1 : 1))
+            }
+          }}
+          onClick={(event) => {
+            if (!carry.carried()) {
+              selection.set(pickPreviews(selection.get(), designKey, [key], event.shiftKey))
+            }
+          }}
+          // As wide as it reads, so what follows it goes under it rather than cutting it off.
+          className={`pointer-events-auto flex h-7 w-max shrink-0 items-center gap-1.5 rounded px-0.5 font-medium outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 ${carry.carrying ? "cursor-grabbing" : "cursor-default"} ${selected ? "" : "text-foreground/80"}`}
+          style={selected ? { color: kindColors.mode } : undefined}
+        >
+          <ModeViewportIcon of={mode} className="size-3.5 shrink-0 opacity-80" aria-hidden />
+          <Name>{mode.name}</Name>
+        </button>
+      </Hint>
+      {after}
+      {carry.marker}
+    </div>
+  )
+}
+
+/** The previews on the same line of a row as this element's, in order (see `useCarry`). */
+function lineTiles(element: Element | null): HTMLElement[] {
+  return [...(element?.closest(".row-line")?.querySelectorAll<HTMLElement>(":scope > .mode-tile") ?? [])]
+}

@@ -1,31 +1,40 @@
 import { plainReason } from "@parity-app/core"
 import type { DesignNode } from "@parity-app/core"
 import {
-  designOfImages,
+  countMedia,
+  designOfMedia,
+  type DroppedFile,
   dropLabel,
+  type FileMedium,
   fileBaseName,
   type HereLayout,
   layersSelection,
+  mediaWords,
   pasteHere,
   type Point,
   type Slot,
   skippedMessage,
-  sortDrop
+  sortDrop,
+  type TakenFile
 } from "@parity-app/editor"
+import { addContainer, containerEntries, editFrame, updateContainer } from "@parity-app/multiplayer"
+import type { Attributes } from "../chrome/event-attributes.ts"
+import { track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { lines, notify } from "../toasts.tsx"
-import type { ProjectSession } from "../workspace.ts"
-import { importImage } from "./clipboard.ts"
+import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { type Hit, pickedIn } from "./hit.ts"
+import { importMedia } from "./import-media.ts"
 import { emptyCanvasAt } from "./new-screen.ts"
 import { placeAtPoint } from "./paste-here.ts"
 
 /**
- * Image files dragged onto the canvas from Explorer or Finder (PAR-24). Over a layout inside a design they go into the
- * slot under the pointer, as a dragged layer lands, or at the pointer in an absolutely placed layout, as Paste here puts
- * layers; on the empty canvas they make a new frame there, as a paste with nothing to paste into does. Each file is
- * saved under `public/images/` through `images.import` at once, as a paste saves it, and placing them is one undo step,
- * which leaves the files, as undoing a paste does. Which files are taken, and what's said about the rest, are
- * `@parity-app/editor`'s rules.
+ * Image and video files dragged onto the canvas from Explorer or Finder (PAR-24, PAR-841). Over a layout inside a design
+ * they go into the slot under the pointer, as a dragged layer lands, or at the pointer in an absolutely placed layout,
+ * as Paste here puts layers; on the empty canvas they make a new frame there, as a paste with nothing to paste into
+ * does. Each file is saved under `public/images/` or `public/videos/` through `images.import` at once, as a paste saves
+ * it, and placing them is one undo step, which leaves the files, as undoing a paste does. Which files are taken, and
+ * what's said about the rest, are `@parity-app/editor`'s rules.
  */
 
 /** Where files dropped at a point land. */
@@ -47,12 +56,109 @@ export type FileDrop =
  * the frame there; the empty canvas; or nothing, over a design's frame with no layout under the pointer or over its
  * board around the frames.
  */
-export function fileDropAt(session: ProjectSession, area: ParentNode, point: Point): FileDrop {
+export function fileDropAt(
+  session: Pick<ProjectSession, "editor" | "doc" | "tokens">,
+  area: ParentNode,
+  point: Point
+): FileDrop {
   const place = placeAtPoint(session, area, point)
-  if (place.kind === "layout") return { kind: "layout", hit: place.hit, here: place.here, line: place.slot.line }
-  if (place.kind === "none") return { kind: "none" }
+
+  if (place.kind === "layout") {
+    return { kind: "layout", hit: place.hit, here: place.here, line: place.slot.line }
+  }
+
+  if (place.kind === "none") {
+    return { kind: "none" }
+  }
+
   const at = emptyCanvasAt(session, area, point)
+
   return at ? { kind: "canvas", at } : { kind: "none" }
+}
+
+/** An image or video file saved into the project: the layer that shows it, and the file's name as it came. */
+export interface SavedImage {
+  node: DesignNode
+  name: string
+}
+
+/**
+ * The files among `files` that Parity takes, in the order they came. The rest, which aren't images or videos or are too
+ * large, are named in a message with why.
+ */
+function takenFrom(files: readonly DroppedFile[]): TakenFile[] {
+  const { taken, skipped } = sortDrop(files)
+  const message = skippedMessage(skipped)
+
+  if (message) {
+    notify.warning(message.title, { description: message.description })
+  }
+
+  return taken
+}
+
+/**
+ * Saves image and video files into the project, saying so while it does. One at a time, in the order given: each is
+ * read whole before it's sent, so a folder of large photos isn't all in memory at once, and the same file given twice
+ * reuses the one the first saved. Any that fail to save are named in a message, and the rest are returned.
+ */
+async function saveImages(
+  projectId: string,
+  files: readonly File[],
+  taken: readonly TakenFile[]
+): Promise<SavedImage[]> {
+  const words = mediaWords(countMedia(taken.map(({ medium }) => medium)))
+  const added: SavedImage[] = []
+  const failed: { name: string; medium: FileMedium; error: unknown }[] = []
+
+  await serviceCall({
+    progress: `Adding ${words}…`,
+    async run() {
+      for (const { index, type, medium } of taken) {
+        const file = files[index]!
+
+        try {
+          added.push({ node: await importMedia(projectId, file, fileBaseName(file.name), type), name: file.name })
+        } catch (error) {
+          failed.push({ name: file.name, medium, error })
+        }
+      }
+    },
+    done() {
+      if (failed.length === 0) {
+        return "dismiss"
+      }
+
+      const first = failed[0]!
+      const one = first.medium === "video" ? "a video" : "an image"
+
+      return {
+        failure: first.error,
+        operation: "images.import",
+        title: `Couldn't add ${failed.length === 1 ? one : mediaWords(countMedia(failed.map(({ medium }) => medium)))}`,
+        context: { images: failed.length },
+        description: lines(failed.map((file) => `${file.name}: ${plainReason(file.error) ?? "It couldn't be saved."}`))
+      }
+    }
+  })
+
+  return added
+}
+
+/**
+ * Adds image and video files to the project without placing them, as dropping them on the Media tab does (PAR-838):
+ * each is saved under `public/images/` or `public/videos/`, and what was saved comes back. Files that aren't taken, or
+ * fail to save, are named. `described` says what each file is when that isn't the file itself, as for a copied file too
+ * large to read.
+ */
+export async function addImageFiles(
+  projectId: string,
+  files: readonly File[],
+  described: readonly DroppedFile[] = files
+): Promise<SavedImage[]> {
+  const taken = takenFrom(described)
+
+  return taken.length === 0 ? [] : saveImages(projectId, files, taken)
 }
 
 /**
@@ -60,65 +166,98 @@ export function fileDropAt(session: ProjectSession, area: ParentNode, point: Poi
  * as one undo step and selected. Files that aren't images Parity takes, or are too large, are skipped with a message
  * naming them, and so are any that fail to save.
  */
-export async function dropFiles(session: ProjectSession, target: FileDrop, files: readonly File[]): Promise<void> {
-  const { store, selection } = session
-  const { images, skipped } = sortDrop(files)
-  const message = skippedMessage(skipped)
-  if (message) notify.warning(message.title, { description: message.description })
-  if (images.length === 0) return
+export async function dropFiles(
+  session: ProjectDesigns & Pick<ProjectSession, "id">,
+  target: FileDrop,
+  files: readonly File[]
+): Promise<void> {
+  const { doc, selection } = session
+  const taken = takenFrom(files)
+
+  if (taken.length === 0) {
+    return
+  }
+
   if (target.kind === "none") {
     notify.info("Can't drop here", { description: "Drop onto a layout or the empty canvas." })
+
     return
   }
-  const progress = notify.progress(images.length === 1 ? "Adding the image…" : `Adding ${images.length} images…`)
-  const added: { node: DesignNode; name: string }[] = []
-  const failed: { name: string; error: unknown }[] = []
-  // One at a time, in the order dropped: each is read whole before it's sent, so a folder of large photos isn't all in
-  // memory at once, and the same image dropped twice reuses the file the first one saved.
-  for (const { index, type } of images) {
-    const file = files[index]!
-    try {
-      added.push({ node: await importImage(session, file, fileBaseName(file.name), type), name: file.name })
-    } catch (error) {
-      failed.push({ name: file.name, error })
-    }
+
+  const added = await saveImages(session.id, files, taken)
+
+  if (added.length === 0) {
+    return
   }
-  if (failed.length > 0) {
-    notify.failed(failed.length === 1 ? "Couldn't add an image" : `Couldn't add ${failed.length} images`, {
-      id: progress,
-      description: lines(failed.map((file) => `${file.name}: ${plainReason(file.error) ?? "It couldn't be saved."}`))
-    })
-  } else notify.close(progress)
-  if (added.length === 0) return
+
   const nodes = added.map((image) => image.node)
-  const label = dropLabel(nodes.length)
+  const label = dropLabel(countMedia(nodes.map(mediumOfNode)))
+
   if (target.kind === "canvas") {
-    const design = designOfImages(
+    const design = designOfMedia(
       nodes,
       added.map((image) => image.name),
-      store.getEntries().map((entry) => entry.container.id),
+      containerEntries(doc).map((entry) => entry.container.id),
       target.at
     )
-    selection.set({ design: store.addContainer(store.mainPath, design, label) })
+
+    const key = addContainer(doc, doc.main, design, label)
+    selection.set({ design: key })
+    recordDrop(added, key, true)
+
     return
   }
+
   const { hit, here } = target
   // In the frame they were dropped on, as the design is now that the files are saved.
-  const frame = store.editFrame(pickedIn(hit))
+  const frame = editFrame(doc, pickedIn(hit))
   let copies: string[] = []
+
   if (frame) {
-    store.updateContainer(frame.design, label, (container) => {
+    updateContainer(doc, frame.design, label, (container) => {
       const placed = pasteHere(container, nodes, here, frame.state, frame.viewport)
       copies = placed.copies
+
       return placed.container
     })
   }
+
   // The layout went while the files were saved, by an undo or an agent.
   if (copies.length === 0) {
-    notify.warning("Images weren't placed", { description: "The layout they were dropped on was deleted." })
+    const one = nodes.length === 1
+    const placed = `${mediaWords(countMedia(nodes.map(mediumOfNode)))} ${one ? "wasn't" : "weren't"} placed`
+    notify.warning(placed.charAt(0).toUpperCase() + placed.slice(1), {
+      description: `The layout ${one ? "it was" : "they were"} dropped on was deleted.`
+    })
+
     return
   }
+
   selection.set(layersSelection(hit.entry.key, copies, hit))
+  recordDrop(added, hit.entry.key, false)
+}
+
+/** Whether a saved file's layer shows a picture or a video. */
+export function mediumOfNode(node: DesignNode): FileMedium {
+  return node.type === "video" ? "video" : "image"
+}
+
+/** Records files dropped from outside the app as `insert.done` (PAR-640), as videos when they all are. */
+function recordDrop(added: readonly SavedImage[], design: string, newDesign: boolean): void {
+  const done: Attributes<"insert.done"> = {
+    source: "drop",
+    via: "files",
+    kind: added.every(({ node }) => node.type === "video") ? "video" : "image",
+    count: added.length,
+    design,
+    newDesign
+  }
+
+  if (added.length === 1) {
+    done.item = added[0]!.name
+  }
+
+  track("insert.done", done)
 }
 
 /** Whether a drag carries files from outside the app, such as from Explorer or Finder. */
@@ -137,6 +276,7 @@ export function draggedTypes(event: DragEvent): string[] {
 /** Whether a drag is over a file field, which takes a dropped file by itself, as one in a design in Interact does. */
 export function overFileField(event: DragEvent): boolean {
   const at = event.composedPath()[0]
+
   return at instanceof HTMLInputElement && at.type === "file"
 }
 
@@ -146,16 +286,28 @@ export function overFileField(event: DragEvent): boolean {
  */
 export function keepFilesFromOpening(target: Window): () => void {
   const ours = (event: DragEvent) => carriesFiles(event) && !overFileField(event)
+
   const onDragOver = (event: DragEvent) => {
-    if (event.defaultPrevented || !ours(event)) return
+    if (event.defaultPrevented || !ours(event)) {
+      return
+    }
+
     event.preventDefault()
-    if (event.dataTransfer) event.dataTransfer.dropEffect = "none"
+
+    if (event.dataTransfer) {
+      event.dataTransfer.dropEffect = "none"
+    }
   }
+
   const onDrop = (event: DragEvent) => {
-    if (ours(event)) event.preventDefault()
+    if (ours(event)) {
+      event.preventDefault()
+    }
   }
+
   target.addEventListener("dragover", onDragOver)
   target.addEventListener("drop", onDrop)
+
   return () => {
     target.removeEventListener("dragover", onDragOver)
     target.removeEventListener("drop", onDrop)

@@ -1,13 +1,9 @@
 import { useSyncExternalStore } from "react"
 import { type Editor, useEditor } from "tldraw"
+import { signal } from "../store.ts"
 
 const hosts = new WeakMap<Editor, HTMLElement>()
-const listeners = new Set<() => void>()
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
+const mounted = signal()
 
 /**
  * Where design titles draw: a layer in the canvas's page space, above every board. Each board is a layer of its
@@ -15,12 +11,17 @@ function subscribe(listener: () => void): () => void {
  */
 export function TitleLayer() {
   const editor = useEditor()
+
   return (
     <div
       ref={(element) => {
-        if (element) hosts.set(editor, element)
-        else hosts.delete(editor)
-        for (const listener of listeners) listener()
+        if (element) {
+          hosts.set(editor, element)
+        } else {
+          hosts.delete(editor)
+        }
+
+        mounted.notify()
       }}
       className="pointer-events-none absolute top-0 left-0 z-[1000000]"
     />
@@ -29,5 +30,5 @@ export function TitleLayer() {
 
 /** A canvas's title layer, once it's mounted. */
 export function useTitleLayer(editor: Editor): HTMLElement | undefined {
-  return useSyncExternalStore(subscribe, () => hosts.get(editor))
+  return useSyncExternalStore(mounted.subscribe, () => hosts.get(editor))
 }

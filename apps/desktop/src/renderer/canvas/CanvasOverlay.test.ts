@@ -16,9 +16,11 @@ import { flushSync } from "react-dom"
 import { createRoot } from "react-dom/client"
 import { atom, react } from "tldraw"
 import { boardRoot, defaultModeSettings, frameViewport, resolveDesign, resolveModes } from "@parity-app/core"
-import { createGuest } from "@parity-app/renderer-react/guest"
+import { createGuest } from "@parity-app/extension-react/guest"
 import { ModeView } from "../ModeView.tsx"
-import { DesignStore } from "../design-store.ts"
+import { frameCss } from "../guest.ts"
+import { openTestSession } from "../doc-fixtures.ts"
+import { libraryOf } from "../project-doc.ts"
 import { SelectionStore } from "../selection.ts"
 import { CanvasOverlay } from "./CanvasOverlay.tsx"
 import { ProjectContext } from "./context.ts"
@@ -35,7 +37,13 @@ function Checkbox() {
 
 const sheet = new CSSStyleSheet()
 sheet.replaceSync(":host { --spacing: 4px }")
-const loaded = { guest: createGuest({ components: { Checkbox }, css: "" }), sheet, tokens: [] }
+const loaded = {
+  guest: createGuest({ components: { Checkbox }, css: "" }),
+  sheet,
+  moduleSheet: new CSSStyleSheet(),
+  tokens: [],
+  ...frameCss("", "http://parity.test")
+}
 const mode = resolveModes(defaultModeSettings)[0]
 let root
 
@@ -45,14 +53,16 @@ let root
  * camera, standing in for tldraw's; the camera is \`window.camera\`.
  */
 export function mount(containers, { camera } = {}) {
-  const store = new DesignStore(
-    [{ path: "app.par", document: { version: 3, containers } }],
-    defaultModeSettings,
-    "app.par",
-    { saveDocument: async () => undefined, autosave: () => false }
-  )
+  const designs = openTestSession([{ path: "app.par", document: { version: 4, containers } }], {
+    modes: defaultModeSettings
+  })
   const selection = new SelectionStore()
-  const session = { id: "app", store, selection, loaded, tokens: { get: () => [] }, errors: [] }
+  // As the session's parts never change here, useProject is given the same ones each time it asks.
+  const parts = {}
+  const session = {
+    id: "app", ...designs, selection, loaded, tokens: { get: () => [] }, errors: [], info: { libraries: [] },
+    subscribe: () => () => undefined, getParts: () => parts
+  }
   window.session = session
   window.stopCamera?.()
   window.stopCamera = undefined
@@ -69,15 +79,15 @@ export function mount(containers, { camera } = {}) {
     }
   }
   const draw = () => {
-    const entry = store.getEntry("app.par#dash")
-    const frames = entry.container.states.map((state) =>
+    const container = designs.doc.design("app.par#dash")
+    const frames = container.states.map((state) =>
       h(ModeView, {
         key: state.id,
         loaded,
-        tree: resolveDesign(boardRoot(entry.container), state, mode.viewport, store.getLibrary(entry.key)),
+        tree: resolveDesign(boardRoot(container), state, mode.viewport, libraryOf(designs, "app.par#dash")),
         mode,
         frame: { width: 400, viewport: frameViewport({ width: 400 }, mode) },
-        design: entry.key,
+        design: "app.par#dash",
         state: state.id,
         primary: state.id === "default"
       })
@@ -102,13 +112,14 @@ export function mount(containers, { camera } = {}) {
       const { x, y, z } = window.camera.get()
       layer.style.transform = \`scale(\${z}) translate(\${x}px, \${y}px)\`
     })
-  store.subscribe(draw)
+  designs.doc.subscribe(() => draw())
   return mode.id
 }
 `
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "tsx", sourcefile: "entry.tsx" },
     bundle: true,
@@ -125,11 +136,14 @@ beforeAll(async () => {
       "import.meta.env": "{}"
     }
   })
+
   const script = bundle.outputFiles.find((file) => file.path.endsWith(".js"))!.text
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1100, height: 800 } })
   page.on("console", (message) => {
-    if (message.type() === "error") errors.push(message.text())
+    if (message.type() === "error") {
+      errors.push(message.text())
+    }
   })
   page.on("pageerror", (error) => errors.push(error.message))
   await page.route("http://parity.test/app.js", (route) =>
@@ -143,9 +157,11 @@ beforeAll(async () => {
     })
   )
   await page.goto("http://parity.test/")
+
   // @ts-expect-error The bundle's global.
-  if (!(await page.evaluate(() => typeof app === "object")))
+  if (!(await page.evaluate(() => globalThis.app !== undefined))) {
     throw new Error(`The page didn't load: ${errors.join(",")}`)
+  }
 }, 60_000)
 
 afterAll(async () => {
@@ -154,21 +170,34 @@ afterAll(async () => {
 
 const text = (id: string, value: string) => ({ type: "text", id, text: value })
 const stat = (id: string) => ({ type: "instance", id, design: "stat" })
+
+// A component, since only a component or a story has states.
 const dashboard = {
   id: "dash",
   name: "Dashboard",
+  kind: "component",
   position: { x: 0, y: 0 },
   root: {
     type: "layout",
     id: "app",
-    style: { padding: 6, gap: 6 },
+    style: { padding: { step: 6 }, gap: { step: 6 } },
     children: [
-      { type: "layout", id: "header", style: { direction: "row", gap: 2 }, children: [text("title", "Dashboard")] },
-      { type: "layout", id: "stats", style: { direction: "row", gap: 4 }, children: [stat("revenue"), stat("users")] },
+      {
+        type: "layout",
+        id: "header",
+        style: { flexDirection: "row", gap: { step: 2 } },
+        children: [text("title", "Dashboard")]
+      },
+      {
+        type: "layout",
+        id: "stats",
+        style: { flexDirection: "row", gap: { step: 4 } },
+        children: [stat("revenue"), stat("users")]
+      },
       {
         type: "layout",
         id: "chart",
-        style: { height: 20, padding: 2 },
+        style: { height: { step: 20 }, padding: { step: 2 } },
         children: [text("chart-title", "Revenue"), { type: "component", id: "remember", component: "Checkbox" }]
       }
     ]
@@ -178,6 +207,7 @@ const dashboard = {
     { id: "loading", name: "Loading" }
   ]
 }
+
 const statCard = {
   id: "stat",
   name: "Stat card",
@@ -186,11 +216,11 @@ const statCard = {
   root: {
     type: "layout",
     id: "card",
-    style: { padding: 4, gap: 1, width: 30 },
+    style: { padding: { step: 4 }, gap: { step: 1 }, width: { step: 30 } },
     children: [text("label", "Revenue"), text("value", "$45,231")]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
+
 const design = "app.par#dash"
 let mode = ""
 
@@ -212,6 +242,7 @@ async function at(node: string, state = "default", corner = false) {
       const host = document.querySelector(`[data-frame][data-state="${state}"]`)!
       const element = host.shadowRoot!.querySelector(`[data-canvas-node="${node}"]`)!
       const rect = element.getBoundingClientRect()
+
       return corner
         ? { x: rect.left + 4, y: rect.top + 4 }
         : { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 }
@@ -237,7 +268,7 @@ function reachedTldraw() {
 
 function order() {
   // @ts-expect-error The page's session.
-  return page.evaluate(() => window.session.store.getEntry("app.par#dash").container.root.children.map((n) => n.id))
+  return page.evaluate(() => window.session.doc.design("app.par#dash").root.children.map((n) => n.id))
 }
 
 describe("finding a design's frames", () => {
@@ -289,12 +320,16 @@ describe("a click inside a board", () => {
 
   it("isn't thrown by a checkbox's hidden input, which would stretch the checkbox over the background", async () => {
     const background = await at("app", "default", true)
+
     const boxes = await page.evaluate((point) => {
       const host = document.querySelector('[data-frame][data-state="default"]')!
+
       const holds = (rect: DOMRect | undefined) =>
         !!rect && point.x >= rect.left && point.x <= rect.right && point.y >= rect.top && point.y <= rect.bottom
+
       // @ts-expect-error The bundle's global.
       const elements: HTMLElement[] = app.findNodeElements(host, "remember")
+
       return {
         elements: elements.map((element) => element.localName),
         // Every element's box, as the canvas measured them before: the input's pixel counts as drawn.
@@ -304,6 +339,7 @@ describe("a click inside a board", () => {
         box: holds(app.nodeBox(host, "remember"))
       }
     }, background)
+
     expect(boxes).toEqual({ elements: ["span", "input"], raw: true, box: false })
     await page.mouse.move(background.x, background.y)
     expect(await hovered()).toBeUndefined()
@@ -445,26 +481,35 @@ describe("following the camera", () => {
     )
     // Once the selection has been drawn and measuring has settled.
     await page.waitForTimeout(800)
+
     const cameras = [
       { x: -30, y: 10, z: 1.5 },
       { x: 20, y: -15, z: 0.75 },
       { x: 0, y: 0, z: 1 }
     ]
+
     const frames = await page.evaluate(async (cameras) => {
       const host = document.querySelector('[data-frame][data-state="default"]')!
+
       // How far the outline is from the layer, at its farthest edge. The page has no stylesheet, so the outline is read
       // from where the overlay puts it, in the canvas area's pixels; the area is at the page's top left.
       const off = () => {
         // @ts-expect-error The bundle's global.
         const layer: DOMRect = app.nodeBox(host, "revenue")
-        const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")]
-          .filter((element) => element.style.outline !== "")
-          .map(({ style }) => ({
-            left: parseFloat(style.left),
-            top: parseFloat(style.top),
-            width: parseFloat(style.width),
-            height: parseFloat(style.height)
-          }))
+
+        const outlines = [...document.querySelectorAll<HTMLElement>(".z-\\[300\\] > div")].flatMap(({ style }) =>
+          style.outline === ""
+            ? []
+            : [
+                {
+                  left: parseFloat(style.left),
+                  top: parseFloat(style.top),
+                  width: parseFloat(style.width),
+                  height: parseFloat(style.height)
+                }
+              ]
+        )
+
         const distance = (rect: { left: number; top: number; width: number; height: number }) =>
           Math.max(
             Math.abs(rect.left - layer.left),
@@ -472,9 +517,12 @@ describe("following the camera", () => {
             Math.abs(rect.width - layer.width),
             Math.abs(rect.height - layer.height)
           )
+
         return Math.round(Math.min(Infinity, ...outlines.map(distance)))
       }
+
       const found: number[] = []
+
       for (const camera of cameras) {
         // The camera moves in an animation frame, as tldraw's does, and the frame is checked as it's about to be
         // painted: a ResizeObserver's first callback comes after the animation frame's callbacks and its layout.
@@ -484,20 +532,92 @@ describe("following the camera", () => {
               // @ts-expect-error The page's camera.
               window.camera.set(camera)
               const ticker = document.body.appendChild(document.createElement("div"))
+
               const observer = new ResizeObserver(() => {
                 observer.disconnect()
                 ticker.remove()
                 resolve(off())
               })
+
               observer.observe(ticker)
             })
           })
         )
       }
+
       return found
     }, cameras)
+
     // Pixels between the outline and the layer, in each frame.
     expect(frames).toEqual([0, 0, 0])
+    expect(errors).toEqual([])
+  })
+
+  // The text editor follows the camera with the other overlays (PAR-986), not in an animation frame of its own: where
+  // it's drawn as each frame is about to be painted is where it settles once the camera rests.
+  it("keeps the text editor on its text in each frame the camera moves", async () => {
+    await page.evaluate(
+      // @ts-expect-error The bundle's global.
+      (containers) => app.mount(containers, { camera: true }),
+      [dashboard, statCard]
+    )
+    await page.evaluate(
+      ({ design, mode }) => {
+        const picked = { design, node: "chart-title", mode, state: "default" }
+        // @ts-expect-error The page's session.
+        window.session.selection.set(picked)
+        // @ts-expect-error The page's session.
+        window.session.selection.setEditing(picked)
+      },
+      { design, mode }
+    )
+    await page.waitForTimeout(800)
+
+    const cameras = [
+      { x: -30, y: 10, z: 1.5 },
+      { x: 20, y: -15, z: 0.75 },
+      { x: 0, y: 0, z: 1 }
+    ]
+
+    const frames = await page.evaluate(async (cameras) => {
+      const editor = () => {
+        const { style } = document.querySelector<HTMLTextAreaElement>("textarea[aria-label='Edit text']")!
+
+        return [style.left, style.top, style.width, style.minWidth, style.minHeight, style.fontSize].join(" ")
+      }
+
+      const found: { painted: string; settled: string }[] = []
+
+      for (const camera of cameras) {
+        const painted = await new Promise<string>((resolve) => {
+          requestAnimationFrame(() => {
+            // @ts-expect-error The page's camera.
+            window.camera.set(camera)
+            const ticker = document.body.appendChild(document.createElement("div"))
+
+            const observer = new ResizeObserver(() => {
+              observer.disconnect()
+              ticker.remove()
+              resolve(editor())
+            })
+
+            observer.observe(ticker)
+          })
+        })
+
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        found.push({ painted, settled: editor() })
+      }
+
+      return found
+    }, cameras)
+
+    for (const { painted, settled } of frames) {
+      expect(painted).toBe(settled)
+    }
+
+    // It moved with the camera.
+    expect(new Set(frames.map(({ settled }) => settled)).size).toBe(3)
     expect(errors).toEqual([])
   })
 })

@@ -2,20 +2,17 @@ import { useEffect, useRef, useState } from "react"
 import { findFrames } from "../frame.ts"
 import { useSelection } from "../selection.ts"
 import { useProject } from "./context.ts"
+import { areaSpace, type Box } from "./frame-geometry.ts"
+import { scheduleOverlay } from "./overlay-scheduler.ts"
 import { tabOrder, useTabOrderShown } from "./tab-order.ts"
 
-interface Stop {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
 /** Each frame's tab stops, in the canvas area's coordinates. */
-type Trails = { key: string; stops: Stop[] }[]
+type Trails = { key: string; stops: Box[] }[]
 
 /** At most this many stops are drawn per frame; a frame with more is still numbered up to here. */
 const maxStops = 200
+
+/** The trail's orange, which is light, so its numbers are near-black on it, 6.5:1, as a canvas chip's text must be. */
 const color = "#f97316"
 
 /**
@@ -24,40 +21,37 @@ const color = "#f97316"
  */
 export function TabOrderOverlay() {
   const shown = useTabOrderShown()
-  const { selection } = useProject()
-  const design = useSelection(selection).design
+  const session = useProject()
+  const design = useSelection(session.selection).design
   const rootRef = useRef<HTMLDivElement>(null)
   const [measured, setMeasured] = useState<Trails>([])
   const trails = shown && design ? measured : []
 
-  // Stops follow the camera, layout changes and animations, so they're measured every frame.
+  // Stops follow the camera, layout changes and animations, measured with the canvas's other overlays (PAR-986, see
+  // `overlay-scheduler.ts`).
   useEffect(() => {
-    if (!shown || !design) return undefined
-    let frame = 0
-    let last = ""
-    const tick = () => {
-      frame = requestAnimationFrame(tick)
-      const area = rootRef.current?.parentElement
-      if (!area || area.closest("[hidden]")) return
-      const origin = area.getBoundingClientRect()
-      const next = findFrames(area, design).map((host) => ({
-        key: `${host.dataset.mode}:${host.dataset.state}`,
-        stops: tabOrder(host)
-          .slice(0, maxStops)
-          .map((element) => {
-            const rect = element.getBoundingClientRect()
-            return { x: rect.left - origin.left, y: rect.top - origin.top, width: rect.width, height: rect.height }
-          })
-      }))
-      const serialized = JSON.stringify(next)
-      if (serialized !== last) {
-        last = serialized
-        setMeasured(next)
-      }
+    const area = rootRef.current?.parentElement
+
+    if (!shown || !design || !area) {
+      return undefined
     }
-    frame = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frame)
-  }, [design, shown])
+
+    return scheduleOverlay(area, session, {
+      showing: () => true,
+      designs: () => new Set([design]),
+      measure: () => {
+        const space = areaSpace(area)
+
+        return findFrames(area, design).map((host) => ({
+          key: `${host.dataset.mode}:${host.dataset.state}`,
+          stops: tabOrder(host)
+            .slice(0, maxStops)
+            .map((element) => space.box(element.getBoundingClientRect()))
+        }))
+      },
+      draw: setMeasured
+    })
+  }, [design, shown, session])
 
   return (
     <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[305] overflow-hidden" aria-hidden>
@@ -66,7 +60,7 @@ export function TabOrderOverlay() {
           {trails.map(({ key, stops }) => (
             <g key={key}>
               <polyline
-                points={stops.map((stop) => `${stop.x + stop.width / 2},${stop.y + stop.height / 2}`).join(" ")}
+                points={stops.map((stop) => `${stop.x + stop.w / 2},${stop.y + stop.h / 2}`).join(" ")}
                 fill="none"
                 stroke={color}
                 strokeWidth={1.5}
@@ -78,8 +72,8 @@ export function TabOrderOverlay() {
                   key={index}
                   x={stop.x}
                   y={stop.y}
-                  width={stop.width}
-                  height={stop.height}
+                  width={stop.w}
+                  height={stop.h}
                   rx={3}
                   fill="none"
                   stroke={color}
@@ -94,8 +88,8 @@ export function TabOrderOverlay() {
         stops.map((stop, index) => (
           <span
             key={`${key}:${index}`}
-            className="absolute grid h-[18px] min-w-[18px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full px-1 text-[10px] leading-none font-semibold text-white tabular-nums shadow-sm"
-            style={{ left: stop.x, top: stop.y, background: color }}
+            className="absolute grid h-[18px] min-w-[18px] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full px-1 text-2xs leading-none font-medium tabular-nums shadow-sm"
+            style={{ left: stop.x, top: stop.y, background: color, color: "var(--canvas-chip-ink)" }}
           >
             {index + 1}
           </span>

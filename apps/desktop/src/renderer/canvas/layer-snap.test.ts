@@ -4,11 +4,12 @@ import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 
 // What a layer snaps to is measured in a real frame (`LayerSnapping.measure`), so this lays one out in Chrome: Node
-// has no layout. It needs Chrome installed.
+// has no layout. It needs Chrome installed. The same from plain boxes is in layer-measure.test.ts.
 let browser: Browser
 let page: Page
 
-const entry = `export { LayerSnapping } from "./layer-snap.ts"
+const entry = `export { frameGeometry } from "./frame-geometry.ts"
+export { LayerSnapping } from "./layer-snap.ts"
 export { snapLayer } from "@parity-app/editor"`
 
 /**
@@ -22,11 +23,17 @@ const badgeIn = (card: string) => ({
   component: "Card",
   slots: {
     children: [
-      { type: "text", id: `${card}-badge`, text: "New", style: { position: "absolute", top: 2, left: 2 } },
+      {
+        type: "text",
+        id: `${card}-badge`,
+        text: "New",
+        style: { position: "absolute", top: { step: 2 }, left: { step: 2 } }
+      },
       { type: "text", id: `${card}-title`, text: "Title" }
     ]
   }
 })
+
 const container = {
   id: "day",
   name: "Day",
@@ -38,27 +45,37 @@ const container = {
       {
         type: "layout",
         id: "events",
-        style: { position: "absolute", top: 50, left: 4 },
-        children: [{ type: "text", id: "review", text: "Review", style: { position: "absolute", top: 10, left: 0 } }]
+        style: { position: "absolute", top: { step: 50 }, left: { step: 4 } },
+        children: [
+          {
+            type: "text",
+            id: "review",
+            text: "Review",
+            style: { position: "absolute", top: { step: 10 }, left: { step: 0 } }
+          }
+        ]
       },
       badgeIn("panel"),
       badgeIn("plain")
     ]
-  },
-  states: [{ id: "default", name: "Default" }]
+  }
 }
 
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
+
   const bundle = await build({
     stdin: { contents: entry, resolveDir: canvas, loader: "ts", sourcefile: "entry.ts" },
     bundle: true,
+    // frame.ts reads scrollbars.css as text, as Vite's `?raw` gives it.
+    loader: { ".css": "text" },
     write: false,
     format: "iife",
     globalName: "snapping",
     platform: "browser",
     define: { "process.env.NODE_ENV": '"development"' }
   })
+
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1000, height: 800 } })
   await page.setContent(
@@ -69,6 +86,7 @@ beforeAll(async () => {
   // A frame like the canvas's, drawn at half size: the layers in a shadow root, each marked with its id.
   await page.evaluate(() => {
     const host = document.querySelector<HTMLElement>("#host")!
+
     const card = (id: string, look: string) => `<div data-canvas-node="${id}" style="margin: 40px 0 0 100px;
         width: 400px; height: 200px; border: 4px solid; ${look}">
         <div style="padding: 20px">
@@ -77,6 +95,7 @@ beforeAll(async () => {
           <span data-canvas-node="${id}-title" style="display: block; width: 100px; height: 20px"></span>
         </div>
       </div>`
+
     host.attachShadow({ mode: "open" }).innerHTML = `<div data-canvas-node="root" style="position: relative;
       padding-top: 520px">
       <div data-canvas-node="events" style="position: absolute; top: 200px; left: 16px; width: 400px; height: 300px;
@@ -99,10 +118,11 @@ function moved(layer: string, by: number) {
     ({ container, layer, by }) => {
       const host = document.querySelector<HTMLElement>("#host")!
       // @ts-expect-error The bundle's global.
-      const measured = snapping.LayerSnapping.measure(undefined, host, container, layer, 0.5)
+      const measured = snapping.LayerSnapping.measure(undefined, snapping.frameGeometry(host), container, layer)
       const from = measured.box
       // @ts-expect-error The bundle's global.
       const snapped = snapping.snapLayer({ ...from, x: from.x + by }, measured.scene, 0.5)
+
       return { from: from.x, x: snapped.box.x, locked: snapped.locked.x }
     },
     { container, layer, by }

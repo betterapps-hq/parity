@@ -18,15 +18,22 @@ const order: Handoff[] = ["In review", "Ready to build", "Building", "Changed si
 
 /** A project's or team's boards, counted by where they stand. */
 function statuses(projects: string[]) {
-  const all = Object.entries(handoff).filter(([key]) => projects.includes(key.split("/")[0]!))
-  return order
-    .map((status) => ({ status, count: all.filter(([, value]) => value === status).length }))
-    .filter((entry) => entry.count)
+  const all = [...handoff].filter(([key]) => projects.includes(key.split("/")[0]!))
+
+  return order.flatMap((status) => {
+    const count = all.filter(([, value]) => value === status).length
+
+    return count ? [{ status, count }] : []
+  })
 }
 
 function Counts({ projects }: { projects: string[] }) {
   const counts = statuses(projects)
-  if (!counts.length) return <span className="text-xs text-muted-foreground">No boards handed off yet</span>
+
+  if (!counts.length) {
+    return <span className="text-xs text-muted-foreground">No boards handed off yet</span>
+  }
+
   return (
     <span className="flex flex-wrap gap-x-3 gap-y-1 text-xs">
       {counts.map(({ status, count }) => (
@@ -74,6 +81,7 @@ export function AllProjectsPage() {
         {Object.values(teams).map((team) => {
           const projects = orgProjects.filter((shown) => team.projects.includes(shown.id))
           const approved = approvedThisWeek(team.projects)
+
           return (
             <section key={team.org.id} className="-mt-2 flex flex-col gap-1">
               <div className="flex items-center gap-3 px-2 py-2">
@@ -88,7 +96,8 @@ export function AllProjectsPage() {
                 </span>
               </div>
               {projects.map((shown) => {
-                const owner = owners[shown.id]!
+                const owner = owners.get(shown.id)!
+
                 return (
                   <div key={shown.id} className={`${columns} rounded-lg px-2 py-2 hover:bg-muted/30`}>
                     <span className="flex min-w-0 items-center gap-3">

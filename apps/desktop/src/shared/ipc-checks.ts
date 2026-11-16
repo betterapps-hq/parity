@@ -1,21 +1,17 @@
 import { isAbsolute } from "node:path"
-import type { CodeEditorChoice } from "@parity-app/core"
-import { nonBlankString, parseData } from "@parity-app/core"
+import { nonBlankString } from "@parity-app/core"
+import type { CodeEditorChoice } from "@parity-app/processes"
 import { z } from "zod"
 
 /**
- * What the window sends main over `ipcMain.handle` (PAR-592). The project's own code runs in the window's page beside
- * `window.canvasHost`, so it can invoke any of these with anything: each argument is checked before its handler runs,
- * and a bad one is refused with `TypeError` and the field at fault. Only main imports this at run time; the window's
- * types come from it.
+ * The schemas of what the window sends main over IPC (PAR-592), which `hostMethods` gives each method. The project's own
+ * code runs in the window's page beside `window.canvasHost`, so it can send any of these with anything: main's
+ * registration checks each argument before its handler runs, and refuses a bad one with `TypeError` and the field at
+ * fault. Only main imports this at run time; the window's types come from it.
  */
 
 /** An absolute path, which is never read as a command's option, as `-x` would be. */
 const absolutePath = nonBlankString.refine((path) => isAbsolute(path), "expected an absolute path")
-
-export const themeSource = z.enum(["light", "dark", "system"])
-
-export type ThemeSource = z.infer<typeof themeSource>
 
 const codeEditorChoice = z.enum([
   "auto",
@@ -52,6 +48,9 @@ export const shownItem = absolutePath
 
 export const betaSetting = z.boolean("The beta setting must be true or false.")
 
+/** The level chosen in Settings > Telemetry (PAR-626). */
+export const telemetrySetting = z.enum(["all", "off"], "The telemetry level must be all or off.")
+
 /** Which frame the console message about to be written comes from, at what level (PAR-147). */
 export const consoleAnnouncement = z.strictObject({
   level: z.enum(["info", "warning", "error", "debug"]),
@@ -65,10 +64,33 @@ export const consoleAnnouncement = z.strictObject({
 /** A project's builder, by its address, whose console messages to read or forget. */
 export const consoleOrigin = z.url()
 
-/** `handler` with its argument checked by `schema` first, so a bad one never reaches it. */
-export function checked<Event, Schema extends z.ZodType, Result>(
-  schema: Schema,
-  handler: (event: Event, argument: z.output<Schema>) => Result
-): (event: Event, argument: unknown) => Result {
-  return (event, argument) => handler(event, parseData(schema, argument))
-}
+/** A Sentry ID: a replay's, a trace's or an event's, 32 lowercase hex digits. */
+const sentryId = z.string().regex(/^[0-9a-f]{32}$/)
+
+/**
+ * A report from Help > Report a problem (PAR-635): what happened, and the IDs that tie it to the window's replay and
+ * trace, and to the error a part of the window caught when it's sent from that part's fallback (PAR-704).
+ */
+export const problemReport = z.strictObject({
+  message: nonBlankString,
+  screenshot: z.boolean(),
+  afterCrash: z.boolean(),
+  replayId: sentryId.optional(),
+  traceId: sentryId.optional(),
+  eventId: sentryId.optional()
+})
+
+export type ProblemReport = z.infer<typeof problemReport>
+
+/**
+ * Commands' keys to write in `keybindings.json` (PAR-1085): each command's entry replaced by these keys, or removed
+ * with `null`. Main doesn't know the commands; the window works out what to write from the keymap.
+ */
+export const keybindingReplacements = z
+  .array(
+    z.strictObject({
+      command: nonBlankString.max(100),
+      keys: z.array(z.string().max(100)).max(20).nullable()
+    })
+  )
+  .max(200)

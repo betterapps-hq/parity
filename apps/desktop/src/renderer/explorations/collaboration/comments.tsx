@@ -72,8 +72,15 @@ export function CommentText({ text }: { text: string }) {
     <p className="text-[13px] leading-relaxed whitespace-pre-wrap text-foreground/90">
       {text.split(parts).map((part, index) => {
         const person = everyone.find((candidate) => `@${candidate.name}` === part)
-        if (person) return <Mention key={index} person={person} />
-        if (part.startsWith("{") && part.endsWith("}")) return <LayerLink key={index} name={part.slice(1, -1)} />
+
+        if (person) {
+          return <Mention key={index} person={person} />
+        }
+
+        if (part.startsWith("{") && part.endsWith("}")) {
+          return <LayerLink key={index} name={part.slice(1, -1)} />
+        }
+
         return part
       })}
     </p>
@@ -109,11 +116,18 @@ export function LayerLink({ name }: { name: string }) {
 /** Adds your reaction, or takes it back. */
 export function toggleReaction(reactions: Reaction[] = [], emoji: string): Reaction[] {
   const existing = reactions.find((reaction) => reaction.emoji === emoji)
-  if (!existing) return [...reactions, { emoji, by: [me] }]
+
+  if (!existing) {
+    return [...reactions, { emoji, by: [me] }]
+  }
+
   const by = existing.by.includes(me) ? existing.by.filter((person) => person !== me) : [...existing.by, me]
-  return reactions
-    .map((reaction) => (reaction === existing ? { ...reaction, by } : reaction))
-    .filter((reaction) => reaction.by.length > 0)
+
+  return reactions.flatMap((reaction) => {
+    const next = reaction === existing ? { ...reaction, by } : reaction
+
+    return next.by.length > 0 ? [next] : []
+  })
 }
 
 /** Emoji reactions under a comment, with who reacted on hover. Yours are tinted; the smiley after them adds one. */
@@ -122,6 +136,7 @@ export function Reactions({ reactions, onToggle }: { reactions: Reaction[]; onTo
     <div className="flex flex-wrap gap-1">
       {reactions.map((reaction) => {
         const mine = reaction.by.includes(me)
+
         return (
           <button
             key={reaction.emoji}
@@ -194,10 +209,12 @@ export function Comment({
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view")
   // Leaving the menu for the edit box or the delete check keeps focus there, not on the menu's button.
   const leaving = useRef(false)
+
   const leaveFor = (next: "edit" | "delete") => {
     leaving.current = true
     setMode(next)
   }
+
   return (
     <div
       className={`group/comment relative flex gap-2.5 rounded-lg px-2 py-2 ${mode === "view" ? "hover:bg-muted/30" : "bg-muted/30"}`}
@@ -275,6 +292,7 @@ export function Comment({
               finalFocus={() => {
                 const returns = !leaving.current
                 leaving.current = false
+
                 return returns
               }}
             >
@@ -309,11 +327,16 @@ export function Comment({
 function ConfirmDelete({ first, onCancel, onDelete }: { first?: boolean; onCancel: () => void; onDelete: () => void }) {
   const cancel = useRef<HTMLButtonElement>(null)
   useEffect(() => cancel.current?.focus(), [])
+
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key !== "Escape") return
+    if (event.key !== "Escape") {
+      return
+    }
+
     event.preventDefault()
     onCancel()
   }
+
   return (
     <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-2.5 text-xs">
       <span>
@@ -337,8 +360,10 @@ function ConfirmDelete({ first, onCancel, onDelete }: { first?: boolean; onCance
 /** Who a mention could be, for what's been typed after the @. */
 export function mentionOptions(query: string) {
   const typed = query.toLowerCase()
+
   return mentionable.filter(({ person }) => {
     const name = person.name.toLowerCase()
+
     return name.startsWith(typed) || name.split(" ").some((word) => word.startsWith(typed))
   })
 }
@@ -359,12 +384,16 @@ export function MentionMenu({
   className?: string
 }) {
   const options = mentionOptions(query)
+
   return (
     <div className={`w-72 rounded-lg border bg-popover p-1 text-popover-foreground shadow-xl ${className}`}>
       {options.map((option, index) => {
         let heading: string | undefined
-        if (index === 0 || options[index - 1]!.person.agent !== option.person.agent)
+
+        if (index === 0 || options[index - 1]!.person.agent !== option.person.agent) {
           heading = option.person.agent ? "Agents" : "People"
+        }
+
         return (
           <Fragment key={option.person.name}>
             {heading && <div className="px-2 pt-1.5 pb-1 text-[11px] font-medium text-muted-foreground">{heading}</div>}
@@ -459,14 +488,17 @@ export function Composer({
     setText(next)
     setActive(0)
   }
+
   const pick = (person: Person) => {
     change(`${text.slice(0, text.length - query!.length - 1)}@${person.name} `)
     area.current?.focus()
   }
+
   const pickEmoji = (index: number) => {
     change(`${text.slice(0, text.length - emojiQuery!.length - 1)}${pickSuggestion(emoji[index]!)}`)
     area.current?.focus()
   }
+
   /** Puts an emoji from the picker where the caret was, and the caret after it. */
   const insert = (value: string) => {
     const field = area.current
@@ -478,32 +510,53 @@ export function Composer({
       field?.setSelectionRange(start + value.length, start + value.length)
     })
   }
+
   const attach = (list: ArrayLike<File>) => {
-    if (list.length) setAttachments((current) => [...current, ...fromFiles(list)])
+    if (list.length) {
+      setAttachments((current) => [...current, ...fromFiles(list)])
+    }
   }
+
   const remove = (id: string) => setAttachments((current) => current.filter((attachment) => attachment.id !== id))
+
   const send = () => {
-    if (!canSend) return
+    if (!canSend) {
+      return
+    }
+
     onSend?.({ text: text.trim(), snapshot, attachments: ready })
-    if (onCancel) return
+
+    if (onCancel) {
+      return
+    }
+
     change("")
     setSnapshot(false)
     setAttachments([])
   }
+
   useEffect(() => {
-    if (!focusOnMount) return
+    if (!focusOnMount) {
+      return
+    }
+
     const field = area.current
     field?.focus()
     field?.setSelectionRange(field.value.length, field.value.length)
   }, [focusOnMount])
+
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     if (open && (event.key === "ArrowDown" || event.key === "ArrowUp")) {
       event.preventDefault()
       setActive((index + (event.key === "ArrowDown" ? 1 : count - 1)) % count)
     } else if (open && (event.key === "Enter" || event.key === "Tab")) {
       event.preventDefault()
-      if (options.length) pick(options[index]!.person)
-      else pickEmoji(index)
+
+      if (options.length) {
+        pick(options[index]!.person)
+      } else {
+        pickEmoji(index)
+      }
     } else if (open && event.key === "Escape") {
       event.preventDefault()
       setDismissed(text)
@@ -520,12 +573,19 @@ export function Composer({
     <div
       className={`relative rounded-xl border bg-background focus-within:border-ring ${className}`}
       onDragOver={(event) => {
-        if (!event.dataTransfer.types.includes("Files")) return
+        if (!event.dataTransfer.types.includes("Files")) {
+          return
+        }
+
         event.preventDefault()
         setDragging(true)
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false)
+        const into = event.relatedTarget instanceof Node ? event.relatedTarget : null
+
+        if (!event.currentTarget.contains(into)) {
+          setDragging(false)
+        }
       }}
       onDrop={(event) => {
         event.preventDefault()
@@ -563,7 +623,10 @@ export function Composer({
         onChange={(event) => change(event.target.value)}
         onKeyDown={onKeyDown}
         onPaste={(event) => {
-          if (!event.clipboardData.files.length) return
+          if (!event.clipboardData.files.length) {
+            return
+          }
+
           event.preventDefault()
           attach(event.clipboardData.files)
         }}
@@ -665,6 +728,7 @@ export function Composer({
 /** An agent a thread mentioned, at work on what it asks: who, what, and a way to watch it on the canvas. */
 export function AgentWorking({ agent, label }: { agent: Person; label: string }) {
   const palette = agentPalettes[7]!
+
   return (
     <div
       className="flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-xs"
@@ -693,6 +757,13 @@ export function AgentWorking({ agent, label }: { agent: Person; label: string })
   )
 }
 
+/** What a place note says: its icon, why the thread moved, and the action that goes back. */
+interface PlaceNotice {
+  icon: LucideIcon
+  text: ReactNode
+  action: string
+}
+
 /**
  * Why a thread isn't where it was left, and the way back: move the pin of a thread whose layer was deleted, go to the
  * design a layer moved to, switch to the frame a comment was left in, or open the component it's on.
@@ -700,11 +771,12 @@ export function AgentWorking({ agent, label }: { agent: Person; label: string })
 export function PlaceNote({ place, layer }: { place: Place; layer?: string }) {
   const name = <span className="font-medium text-foreground">{layer ?? "Its layer"}</span>
   const strong = (text: string | number) => <span className="font-medium text-foreground">{text}</span>
+
   const {
     icon: Icon,
     text,
     action
-  } = ((): { icon: LucideIcon; text: ReactNode; action: string } => {
+  } = ((): PlaceNotice => {
     switch (place.kind) {
       case "deleted":
         return {
@@ -744,7 +816,9 @@ export function PlaceNote({ place, layer }: { place: Place; layer?: string }) {
         }
     }
   })()
+
   const deleted = place.kind === "deleted"
+
   return (
     <div
       className={`flex items-start gap-2 border-b py-2 pr-1.5 pl-3 text-xs text-muted-foreground ${deleted ? "bg-[oklch(0.8_0.14_75/0.1)]" : "bg-muted/40"}`}
@@ -782,10 +856,12 @@ function ThreadMenu({
 }) {
   // A dialog opened from the menu keeps focus; handing it back to the menu's button would close the dialog again.
   const leaving = useRef(false)
+
   const openIssue = (tracker: TrackerId | undefined, mode: "create" | "link") => {
     leaving.current = true
     onIssue(tracker, mode)
   }
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -801,6 +877,7 @@ function ThreadMenu({
         finalFocus={() => {
           const returns = !leaving.current
           leaving.current = false
+
           return returns
         }}
       >
@@ -887,10 +964,13 @@ export function Thread({
   const [muted, setMuted] = useState(false)
   const [issueDialog, setIssueDialog] = useState<{ tracker: TrackerId; mode: "create" | "link"; opened: number }>()
   const thread = onChange ? given : own
+
   const update = (change: (current: ThreadData) => ThreadData) =>
     onChange ? onChange(change(thread)) : setOwn((current) => change(current))
+
   const resolve = () =>
     update((current) => ({ ...current, resolved: current.resolved ? undefined : { by: me, when: "Just now" } }))
+
   const react = (id: string, emoji: string) =>
     update((current) => ({
       ...current,
@@ -898,6 +978,7 @@ export function Thread({
         comment.id === id ? { ...comment, reactions: toggleReaction(comment.reactions, emoji) } : comment
       )
     }))
+
   const reply = ({ text, snapshot, attachments }: Draft) =>
     update((current) => ({
       ...current,
@@ -913,6 +994,7 @@ export function Thread({
         }
       ]
     }))
+
   const edit = (id: string, { text, attachments }: Draft) =>
     update((current) => ({
       ...current,
@@ -922,11 +1004,16 @@ export function Thread({
           : comment
       )
     }))
+
   /** Approving a proposal sets whoever proposed it to work on it; declining tells them, with why when you said. */
   const decide = (id: string, status: "approved" | "declined", reason?: string) =>
     update((current) => {
       const proposing = current.comments.find((comment) => comment.id === id)
-      if (!proposing?.proposal) return current
+
+      if (!proposing?.proposal) {
+        return current
+      }
+
       return {
         ...current,
         working:
@@ -938,13 +1025,18 @@ export function Thread({
         )
       }
     })
+
   /** Deleting the first comment deletes the thread. */
   const remove = (id: string) => {
-    if (thread.comments[0]?.id !== id)
+    if (thread.comments[0]?.id !== id) {
       update((current) => ({ ...current, comments: current.comments.filter((comment) => comment.id !== id) }))
-    else if (onDelete) onDelete()
-    else update((current) => ({ ...current, comments: [], resolved: undefined }))
+    } else if (onDelete) {
+      onDelete()
+    } else {
+      update((current) => ({ ...current, comments: [], resolved: undefined }))
+    }
   }
+
   const folded = !expanded && thread.comments.length > 4 ? thread.comments.length - 3 : 0
   const shown = folded ? [thread.comments[0]!, ...thread.comments.slice(-2)] : thread.comments
 
@@ -1075,6 +1167,7 @@ export function ThreadRow({ thread, selected }: { thread: ThreadData; selected?:
   const first = thread.comments[0]!
   const replies = thread.comments.length - 1
   const attached = thread.comments.reduce((count, comment) => count + (comment.attachments?.length ?? 0), 0)
+
   return (
     <button
       type="button"
@@ -1138,6 +1231,7 @@ export function CommentsPanel({ threads, selected }: { threads: ThreadData[]; se
   const [filter, setFilter] = useState<Filter>("open")
   const shown = threads.filter(filters.find((candidate) => candidate.id === filter)!.matches)
   const designs = [...new Set(shown.map((thread) => thread.design))]
+
   return (
     <aside className="flex h-full w-80 flex-col border-l bg-background text-foreground">
       <div className="flex items-center gap-1 border-b py-1.5 pr-1.5 pl-3">

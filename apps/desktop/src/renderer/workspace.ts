@@ -1,37 +1,201 @@
-import { finiteNumber, guestChanges, jsonText, parseData, plainReason } from "@parity-app/core"
-import { openingDesigns } from "@parity-app/editor"
+import {
+  type CanvasDocument,
+  codeChangeVersions,
+  findNode,
+  type GuestComponentSource,
+  guestChanges,
+  type LayerFailure,
+  markedRoutes,
+  plainReason,
+  routeFiles,
+  versionedSources,
+  withProjectPreferences
+} from "@parity-app/core"
+import {
+  boardComponentNode,
+  boardGroups,
+  type BoardParents,
+  nextBoardParents,
+  noBoardParents,
+  openingDesigns,
+  type RecoveryCopy,
+  redrawnBoards,
+  prunedDocument,
+  sameValue
+} from "@parity-app/editor"
+import { applyDocuments, changeSnapshot, containerEntries, type ProjectDoc, restoreCopy } from "@parity-app/multiplayer"
+import {
+  changeProjectsData,
+  type ProjectNote,
+  type Projects,
+  type ProjectsChange,
+  type SavedTabs
+} from "@parity-app/settings"
+import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
 import type { Editor } from "tldraw"
-import { z } from "zod"
-import type { ProjectInfo, TabSummary } from "../shared/protocol.ts"
+import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
+import { keepCodeDesigns, openCodeDesigns, withCodeDesigns } from "./canvas/code-designs.ts"
+import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
+import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
+import { routePages, routePagesFile, routeParams } from "./canvas/route-pages.ts"
+import { storyScreensDocument, storyScreensFile } from "./canvas/story-screens.ts"
+import type { Attributes } from "./chrome/event-attributes.ts"
 import { getPreferences } from "./chrome/preferences.ts"
+import { askToRestore } from "./chrome/restore.ts"
 import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
-import { DesignStore } from "./design-store.ts"
+import { designFailuresNow, onDesignFailures } from "./failures-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
+import type { LiveRoom } from "./live-room.ts"
+import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
+import { closeDocSession, type DocSession, openDocSession } from "./project-doc.ts"
+import { keepProjectPicture } from "./project-picture.ts"
+import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
+import { holdRecording } from "./replay.ts"
+import { errorCode, reportError, track } from "./report-error.ts"
+import { saved } from "./saved.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
-import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
+import { type KnownProject, knownProjects } from "./start/projects.ts"
+import { signal, type Store, createStore } from "./store.ts"
 import { notify } from "./toasts.tsx"
 import { TokenStore } from "./tokens-store.ts"
+import { currentTraceContext, keepTrace } from "./tracing.ts"
 
-/** Everything one open project needs: its info from the service, its components and styles, and its stores. */
-export interface ProjectSession {
-  id: string
+/** What can change in an open project while its tab is open, each part replaced whole. */
+export interface SessionParts {
   info: ProjectInfo
   loaded: LoadedGuest
-  store: DesignStore
-  selection: SelectionStore
   tokens: TokenStore
-  /** Components and their props, inferred from source after the tab opens. */
-  components: ComponentStore
-  /** Components the type checker found after the guest loaded, which offscreen renders add to theirs. */
-  added?: ProjectInfo["sources"]
-  /** Design files that couldn't be read. */
-  errors: { path: string; error: string }[]
+  /**
+   * Components the type checker found after the guest loaded, and ones whose code changed since (with a `version`),
+   * which offscreen renders add to theirs.
+   */
+  added?: Record<string, GuestComponentSource & ProjectInfo["sources"][string]> | undefined
+  /** When each component's code last changed on disk, by its builder's stamp, while the tab is open (PAR-165). */
+  versions?: Record<string, number> | undefined
   /** The tab's canvas, once mounted. */
-  editor?: Editor
+  editor?: Editor | undefined
 }
+
+/**
+ * Everything one open project needs: its info from the service, its components and styles, and its stores. It's one
+ * object from its tab becoming ready to the tab closing or reopening, so what's kept for it lasts as long (PAR-1004).
+ * Its stores never change; the parts that can, such as its info or its guest, are read through it and change through
+ * `update`, which tells whoever subscribed.
+ */
+export class ProjectSession implements DocSession {
+  readonly id: string
+  readonly doc: DocSession["doc"]
+  readonly saver: DocSession["saver"]
+  readonly libraryDesigns: DocSession["libraryDesigns"]
+  readonly epoch: string
+  readonly room: DocSession["room"]
+  readonly autosave: () => boolean
+  readonly selection: SelectionStore
+  /** Components and their props, inferred from source after the tab opens. */
+  readonly components: ComponentStore
+  /** Keeps a copy of its unsaved changes outside the project, in case Parity closes before they're saved (PAR-905). */
+  readonly recovery: RecoveryKeeper
+  /**
+   * Watches for the first frame its canvas draws on screen, live or from a bitmap, recorded with how long opening took
+   * (PAR-711). Gone once one has. Nothing draws from it, so it changes without telling anyone.
+   */
+  firstFrame?: FirstFrameWatch | undefined
+  private readonly parts: Store<SessionParts>
+  private readonly stops: (() => void)[] = []
+  private closed = false
+
+  constructor(
+    fixed: Pick<ProjectSession, "id" | "selection" | "components" | "recovery"> & { designs: DocSession },
+    parts: SessionParts
+  ) {
+    this.id = fixed.id
+    this.doc = fixed.designs.doc
+    this.saver = fixed.designs.saver
+    this.libraryDesigns = fixed.designs.libraryDesigns
+    this.epoch = fixed.designs.epoch
+    this.room = fixed.designs.room
+    const { autosave } = fixed.designs
+    this.autosave = () => autosave()
+    this.selection = fixed.selection
+    this.components = fixed.components
+    this.recovery = fixed.recovery
+    this.parts = createStore(() => parts)
+  }
+
+  get info(): ProjectInfo {
+    return this.parts.get().info
+  }
+
+  get loaded(): LoadedGuest {
+    return this.parts.get().loaded
+  }
+
+  get tokens(): TokenStore {
+    return this.parts.get().tokens
+  }
+
+  get added(): SessionParts["added"] {
+    return this.parts.get().added
+  }
+
+  get versions(): SessionParts["versions"] {
+    return this.parts.get().versions
+  }
+
+  get editor(): Editor | undefined {
+    return this.parts.get().editor
+  }
+
+  subscribe = (listener: () => void): (() => void) => this.parts.subscribe(listener)
+
+  /** The parts as they are now, a new object each time one changes. */
+  getParts = (): SessionParts => this.parts.get()
+
+  /** Replaces the parts given, and tells whoever subscribed. */
+  update(change: Partial<SessionParts>): void {
+    this.parts.update((now) => ({ ...now, ...change }))
+  }
+
+  /**
+   * Runs `stop` when the session ends, as its tab closes or reopens, or straight away if it has: a component can still
+   * draw a closed session, and what it starts then mustn't run on.
+   */
+  untilClosed(stop: () => void): void {
+    if (this.closed) {
+      stop()
+    } else {
+      this.stops.push(stop)
+    }
+  }
+
+  /**
+   * Ends the session: stops what was kept for it and lets go of its canvas. React keeps the tabs a component last read
+   * until it renders again, so the session can outlive its tab; without its editor it holds no canvas (PAR-624).
+   */
+  close(): void {
+    if (this.closed) {
+      return
+    }
+
+    this.closed = true
+
+    for (const stop of this.stops.splice(0)) {
+      stop()
+    }
+
+    this.update({ editor: undefined })
+    closeDocSession(this)
+  }
+}
+
+/**
+ * A project's designs and what's selected in them, which most edits read and change. A function that reads these takes
+ * them, with a `Pick` of any other part it reads, rather than the whole session, so its tests build only that (PAR-1006).
+ */
+export type ProjectDesigns = DocSession & Pick<ProjectSession, "selection">
 
 export interface Tab {
   /** The project's root once known; a placeholder while it opens. */
@@ -44,12 +208,26 @@ export interface Tab {
   session?: ProjectSession
   /** A new tab, which shows the start page until a project opens in it. */
   blank?: boolean
+  /** A page an extension opened for an open project (PAR-1094), which closes with the project's tab. */
+  page?: ExtensionPage
+}
+
+/** An extension's page, in a tab at the top: the project it's for, the extension, and the page's id. */
+export interface ExtensionPage {
+  projectId: string
+  extension: string
+  page: string
+}
+
+/** The id of the tab at the top that shows an extension's page in a project. */
+export function pageTabId(projectId: string, page: string): string {
+  return `page:${projectId}:${page}`
 }
 
 /** The Home tab's id. It's pinned first in the tab strip and can't be closed, so it's never in the list of tabs. */
 export const homeTab = "home"
 
-/** One open or reopen of a tab's project, which closing the tab abandons. */
+/** One open, reopen or reconnect of a tab's project, which closing the tab abandons. */
 interface Attempt {
   abandoned: boolean
   /** The project the service opened for it, once it says. */
@@ -61,30 +239,28 @@ export function isPlaceholder(id: string): boolean {
   return id.startsWith("opening-")
 }
 
-const storageKey = "parity.workspace"
-const recentKey = "parity.recent"
-const notesKey = "parity.projects"
-const recentLimit = 10
-
 /**
  * The open tabs. Each is one project with its own builder, guest and canvas, or a new tab waiting for one. Home sits
  * before them all: it shows when `activeId` is `homeTab`, or when no tab has it.
  */
 export class Workspace {
   private tabs: readonly Tab[] = []
-  private recent: readonly string[] = loadRecent()
+  /** The recent projects, from `projects.json`, which every copy shares. */
+  private recent: readonly string[] = saved().projects.recent
   /** When each project last opened and whether it's starred, by folder. */
-  private notes: Readonly<Record<string, ProjectNote>> = loadNotes()
+  private notes: Readonly<Record<string, ProjectNote>> = saved().projects.notes
   /** Listed projects whose folders weren't there when last checked (PAR-188). */
   private missing: ReadonlySet<string> = new Set()
   /** The example project's folder, when this copy of Parity has it. */
   private example: string | undefined
   private projects: readonly KnownProject[] = knownProjects(this.recent, this.notes)
+  /** Whether this window keeps its tabs for next time: it claimed some, rather than opening for one project. */
+  private keepsTabs = false
   private activeId: string | undefined
   private nextPlaceholder = 1
   private nextBlank = 1
   /**
-   * Opens and reopens in flight, by the id of the tab they load into. Closing that tab marks its open abandoned, so
+   * Opens, reopens and reconnects in flight, by the id of the tab they load into. Closing that tab marks its open abandoned, so
    * that open, and only that one, closes its project once the service has it.
    */
   private readonly attempts = new Map<string, Attempt>()
@@ -94,11 +270,17 @@ export class Workspace {
   private readonly moves = new Map<string, string>()
   /** The address each project's guest last moved to while one loads, so a move a later one overtook is let go. */
   private readonly latestMoves = new Map<string, string>()
-  private readonly listeners = new Set<() => void>()
+  /** Projects whose detection changed while their tab was loading, to check again once it's ready (PAR-820). */
+  private readonly detections = new Set<string>()
+  private readonly changes = signal()
 
-  subscribe = (listener: () => void) => {
-    this.listeners.add(listener)
-    return () => this.listeners.delete(listener)
+  subscribe = this.changes.subscribe
+
+  constructor() {
+    // Another copy opening or starring a project changes the start page here too.
+    if (typeof window !== "undefined") {
+      window.canvasHost?.projects?.subscribe((projects) => this.takeProjects(projects))
+    }
   }
 
   getTabs = () => this.tabs
@@ -118,22 +300,37 @@ export class Workspace {
    * Reopens the tabs from last time, or the dev runner's requested project, on Home if that's where the window was. A
    * fresh install shows Home.
    */
-  restore(): void {
-    let saved: SavedTabs = { roots: [] }
-    try {
-      saved = readSavedTabs(localStorage.getItem(storageKey))
-    } catch {
-      // Storage can be unavailable, which means starting fresh.
-    }
-    const roots = saved.roots
+  async restore(): Promise<void> {
     void this.checkFolders()
+    const { initialProject } = window.canvasHost
+
+    // A copy started for one project opens it and keeps no tabs of its own (`docs/proposals/settings.md`).
+    if (initialProject) {
+      void this.open(initialProject, true, true)
+
+      return
+    }
+
+    let tabs: SavedTabs = { roots: [] }
+
+    try {
+      tabs = await window.canvasHost.state.claimTabs()
+      this.keepsTabs = true
+    } catch {
+      // Main couldn't give any, which means starting fresh.
+    }
+
     // Set first, so the projects reopening behind it don't take its place.
-    if (saved.active === homeTab) this.activeId = homeTab
-    if (roots.length === 0) {
-      if (window.canvasHost.initialProject) void this.open(window.canvasHost.initialProject)
-    } else {
-      for (const root of roots) void this.open(root, root === saved.active)
-      if (saved.active !== homeTab && !roots.includes(saved.active ?? "")) this.activate(this.tabs[0]?.id)
+    if (tabs.active === homeTab) {
+      this.activeId = homeTab
+    }
+
+    for (const root of tabs.roots) {
+      void this.open(root, root === tabs.active, true)
+    }
+
+    if (tabs.roots.length > 0 && tabs.active !== homeTab && !tabs.roots.includes(tabs.active ?? "")) {
+      this.activate(this.tabs[0]?.id)
     }
   }
 
@@ -146,70 +343,142 @@ export class Workspace {
   }
 
   /**
-   * Opens a project in a new tab, or switches to its tab when it's already open. Opened from a new tab, it opens in
-   * that tab instead; one that's already open elsewhere closes the new tab it was picked from.
+   * Opens an extension's page in a tab after its project's tab and the project's other pages, or switches to it when
+   * it's open already. A page for a project that isn't open opens nothing.
    */
-  async open(root: string | undefined, activate = true): Promise<Tab> {
+  openPage({ title, ...page }: ExtensionPage & { title: string }): void {
+    const id = pageTabId(page.projectId, page.page)
+
+    if (this.getTab(id)) {
+      this.activate(id)
+
+      return
+    }
+
+    const owner = this.tabs.findIndex((tab) => tab.session?.id === page.projectId)
+
+    if (owner === -1) {
+      return
+    }
+
+    let at = owner + 1
+
+    while (this.tabs[at]?.page?.projectId === page.projectId) {
+      at++
+    }
+
+    const tab: Tab = { id, title, status: "ready", page }
+    this.update([...this.tabs.slice(0, at), tab, ...this.tabs.slice(at)])
+    this.activate(id)
+  }
+
+  /**
+   * Opens a project in a new tab, or switches to its tab when it's already open. Opened from a new tab, it opens in
+   * that tab instead; one that's already open elsewhere closes the new tab it was picked from. `restored` when the
+   * window opens it as it starts, rather than the person choosing it.
+   */
+  async open(root: string | undefined, activate = true, restored = false): Promise<Tab> {
     const active = this.getActive()
     const into = activate && active?.blank ? active.id : undefined
     const existing = root ? this.getTab(root) : undefined
+
     if (existing) {
-      if (into) this.closeNow(into)
-      if (activate) this.activate(existing.id)
+      if (into) {
+        this.closeNow(into)
+      }
+
+      if (activate) {
+        this.activate(existing.id)
+      }
+
       return existing
     }
+
     const placeholder = root ?? `opening-${this.nextPlaceholder++}`
     const opening: Tab = { id: placeholder, title: root ? basename(root) : "Opening…", status: "loading" }
+
     if (into) {
       this.update(this.tabs.map((tab) => (tab.id === into ? opening : tab)))
       this.activeId = placeholder
     } else {
       this.update([...this.tabs, opening])
     }
+
     const attempt = this.startAttempt(placeholder)
-    if (activate || !this.activeId) this.activate(placeholder)
+
+    if (activate || !this.activeId) {
+      this.activate(placeholder)
+    }
+
     this.setProgress(placeholder, ["Starting the project's builder", "Loading its components"], 0)
 
     let current = placeholder
     let opened: string | undefined
+    const asked = startOpening(root, false)
+
     try {
-      const info = await request("project.open", { root })
+      const info = await asked.ask(() => request("project.open", { root }))
       opened = info.id
       attempt.projectId = info.id
+
       if (attempt.abandoned) {
+        asked.dropped()
         this.dropAbandoned(info.id)
+
         return opening
       }
+
       const duplicate = info.id !== placeholder ? this.getTab(info.id) : undefined
+
       if (duplicate) {
+        asked.dropped()
         this.endAttempt(attempt, placeholder)
         this.remove(placeholder)
-        if (activate) this.activate(duplicate.id)
+
+        if (activate) {
+          this.activate(duplicate.id)
+        }
+
         return duplicate
       }
+
       this.replace(placeholder, { id: info.id, title: info.name, status: "loading" })
       this.moveAttempt(attempt, placeholder, info.id)
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const session = await createSession(info)
+      const { session, recordLoaded } = await createSession(info, asked, restored)
+
       if (attempt.abandoned) {
+        asked.dropped()
         this.dropAbandoned(info.id, info.guestUrl)
+
         return opening
       }
+
       this.endAttempt(attempt, info.id)
+      firstFrameOf(session, asked.ready(info))
       this.replace(info.id, { id: info.id, title: info.name, status: "ready", session })
+      keepPictureOf(session)
+      recordLoaded()
       this.settleMove(info.id)
+      this.settleDetection(info.id)
       this.remember(info.root)
+      void this.offerRecovery(session)
+
       return this.getTab(info.id)!
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      this.endAttempt(attempt, current)
-      if (attempt.abandoned) {
-        if (opened) this.dropAbandoned(opened)
+
+      if (this.failAttempt(attempt, current, opened)) {
+        asked.dropped()
+
         return { ...opening, status: "error", message }
       }
+
+      asked.failed(error)
       this.replace(current, { ...this.getTab(current)!, status: "error", message })
+
       return this.getTab(current)!
     }
   }
@@ -217,50 +486,133 @@ export class Workspace {
   /** Closes a tab, first asking whether to save when it has unsaved changes. Resolves false if that was cancelled. */
   async close(id: string): Promise<boolean> {
     const tab = this.getTab(id)
-    if (!tab) return true
-    if (tab.session?.store.hasUnsaved()) {
-      const choice = await askAboutUnsaved([tab.title], "close")
-      if (choice === "cancel") return false
-      if (choice === "save" && !(await saveOrSay(tab.session))) return false
+
+    if (!tab) {
+      return true
     }
+
+    if (tab.session?.saver.hasUnsaved()) {
+      const choice = await askAboutUnsaved([tab.title], "close")
+
+      if (choice === "cancel") {
+        return false
+      }
+
+      if (choice === "save" && !(await saveOrSay(tab.session))) {
+        return false
+      }
+    }
+
     this.closeNow(id)
+
     return true
   }
 
-  /** Whether the window can close: asks about every project with unsaved changes at once, and saves if told to. */
+  /**
+   * Whether the window can close: asks about every project with unsaved changes at once, and saves if told to. Once it
+   * can, each project's recovery copy is brought up to date, or removed when its changes were discarded, so a clean
+   * quit leaves nothing to offer back (PAR-905).
+   */
   async confirmQuit(): Promise<boolean> {
-    const unsaved = this.tabs.filter((tab) => tab.session?.store.hasUnsaved())
-    if (unsaved.length === 0) return true
+    const sessions = this.tabs.flatMap((tab) => (tab.session ? [tab.session] : []))
+    const unsaved = sessions.filter((session) => session.saver.hasUnsaved())
+
+    const settle = (discarded: boolean) =>
+      Promise.all(sessions.map((session) => (discarded ? session.recovery.drop() : session.recovery.settle())))
+
+    if (unsaved.length === 0) {
+      await settle(false)
+
+      return true
+    }
+
     const choice = await askAboutUnsaved(
-      unsaved.map((tab) => tab.title),
+      unsaved.map((session) => session.info.name),
       "quit"
     )
-    if (choice === "cancel") return false
-    if (choice === "discard") return true
-    const saved = await Promise.all(unsaved.map((tab) => saveOrSay(tab.session!)))
+
+    if (choice === "cancel") {
+      return false
+    }
+
+    if (choice === "discard") {
+      await settle(true)
+
+      return true
+    }
+
+    const saved = await Promise.all(unsaved.map((session) => saveOrSay(session)))
+    await settle(false)
+
     return saved.every(Boolean)
+  }
+
+  /**
+   * Offers back the unsaved changes kept when Parity last closed with the project open (PAR-905), then keeps its own.
+   * Restoring puts them back over whatever its files hold now, unsaved, since an agent often changes a file in between.
+   */
+  private async offerRecovery(session: ProjectSession): Promise<void> {
+    const copy = await request("recovery.read", { projectId: session.id }).catch(() => undefined)
+
+    if (copy) {
+      const choice = await askToRestore({ keptAt: new Date(copy.keptAt).toISOString() })
+
+      // A tab closed or reopened while it was asked keeps its copy for the next open: it has no session, or a new one.
+      if (this.getTab(session.id)?.session !== session) {
+        return
+      }
+
+      if (choice === "restore") {
+        restoreCopy(session.doc, copy)
+      } else {
+        await request("recovery.keep", { projectId: session.id }).catch(() => undefined)
+      }
+    }
+
+    session.recovery.start()
   }
 
   private closeNow(id: string): void {
     const index = this.tabs.findIndex((tab) => tab.id === id)
-    if (index === -1) return
+
+    if (index === -1) {
+      return
+    }
+
     const tab = this.tabs[index]!
     this.update(this.tabs.filter((candidate) => candidate !== tab))
-    if (this.activeId === id) this.activeId = (this.tabs[index] ?? this.tabs[index - 1])?.id
+    // Closed after its changes were saved or discarded, so there's nothing left to recover.
+    void tab.session?.recovery.drop()
+
+    if (this.activeId === id) {
+      this.activeId = (this.tabs[index] ?? this.tabs[index - 1])?.id
+    }
+
     // A tab closed while its project opens has nothing to show it in, so its open closes the project once the service
     // has it, and its builder stops with it.
     this.moves.delete(id)
     this.latestMoves.delete(id)
     const attempt = this.attempts.get(id)
+
     if (attempt) {
       attempt.abandoned = true
       this.attempts.delete(id)
       this.settleDrops()
     }
+
     if (tab.session) {
-      void request("project.close", { projectId: tab.session.id })
+      const projectId = tab.session.id
+      tab.session.close()
+      void request("project.close", { projectId })
       releaseGuest(tab.session.info.guestUrl)
+      // Its extensions' pages go with it.
+      this.update(this.tabs.filter((candidate) => candidate.page?.projectId !== projectId))
+
+      if (this.activeId !== undefined && !this.getTab(this.activeId)) {
+        this.activeId = this.tabs[Math.min(index, this.tabs.length - 1)]?.id
+      }
     }
+
     this.save()
     this.notify()
   }
@@ -272,14 +624,27 @@ export class Workspace {
    */
   async reload(id: string, step = "Reopening the project"): Promise<void> {
     const before = this.getTab(id)
+
     // A tab already opening or reopening gets its project from that, which closing the tab can still cancel.
-    if (!before || this.attempts.has(id)) return
-    if (before.session?.store.hasUnsaved() && !(await saveOrSay(before.session))) return
+    if (!before || this.attempts.has(id)) {
+      return
+    }
+
+    if (before.session?.saver.hasUnsaved() && !(await saveOrSay(before.session))) {
+      return
+    }
+
     // The tab as it is after saving, which can have changed meanwhile, as when its guest moved. One closed and opened
     // again while saving has a session of its own, which this reload mustn't replace.
     const tab = this.getTab(id)
-    if (!tab || this.attempts.has(id) || tab.session?.store !== before.session?.store) return
+
+    if (!tab || this.attempts.has(id) || tab.session !== before.session) {
+      return
+    }
+
     this.replace(id, { id, title: tab.title, status: "loading" })
+    // It opens again as a new session, so what was kept for this one stops.
+    tab.session?.close()
     // The project opens again with a builder of its own, so where the last one moved to no longer matters.
     this.moves.delete(id)
     this.latestMoves.delete(id)
@@ -288,27 +653,57 @@ export class Workspace {
     attempt.projectId = id
     this.setProgress(id, [step, "Loading its components"], 0)
     await request("project.close", { projectId: id }).catch(() => undefined)
+
     // Its stylesheets are made anew, without the last session's token previews; its modules come back as they were
     // when the project's code hasn't changed.
-    if (tab.session) releaseGuest(tab.session.info.guestUrl)
-    if (attempt.abandoned) return
+    if (tab.session) {
+      releaseGuest(tab.session.info.guestUrl)
+    }
+
+    if (attempt.abandoned) {
+      return
+    }
+
     let opened: string | undefined
+    const asked = startOpening(id, true)
+
     try {
-      const info = await request("project.open", { root: id })
+      const info = await asked.ask(() => request("project.open", { root: id }))
       opened = info.id
-      if (attempt.abandoned) return this.dropAbandoned(info.id)
-      this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const session = await createSession(info)
-      if (attempt.abandoned) return this.dropAbandoned(info.id, info.guestUrl)
-      this.endAttempt(attempt, id)
-      this.replace(id, { id, title: info.name, status: "ready", session })
-      this.settleMove(id)
-    } catch (error) {
-      this.endAttempt(attempt, id)
+
       if (attempt.abandoned) {
-        if (opened) this.dropAbandoned(opened)
+        asked.dropped()
+
+        return this.dropAbandoned(info.id)
+      }
+
+      this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
+      const { session, recordLoaded } = await createSession(info, asked)
+
+      if (attempt.abandoned) {
+        asked.dropped()
+
+        return this.dropAbandoned(info.id, info.guestUrl)
+      }
+
+      this.endAttempt(attempt, id)
+      firstFrameOf(session, asked.ready(info))
+      this.replace(id, { id, title: info.name, status: "ready", session })
+      keepPictureOf(session)
+      // Its changes were saved before it reopened, so the last session's copy goes and this one keeps its own.
+      void tab.session?.recovery.drop()
+      session.recovery.start()
+      recordLoaded()
+      this.settleMove(id)
+      this.settleDetection(id)
+    } catch (error) {
+      if (this.failAttempt(attempt, id, opened)) {
+        asked.dropped()
+
         return
       }
+
+      asked.failed(error)
       this.replace(id, {
         id,
         title: tab.title,
@@ -319,28 +714,96 @@ export class Workspace {
   }
 
   /**
+   * Opens a tab's project again when what detection reads of it changed since it opened (PAR-820), as `parity open`
+   * on an open project asks: a stylesheet created, a dependency added. Resolves once it's open again, or at once when
+   * nothing changed.
+   */
+  async detectAgain(id: string): Promise<void> {
+    const tab = this.getTab(id)
+
+    if (!tab?.session || this.attempts.has(id) || !(await request("project.detectAgain", { projectId: id }))) {
+      return
+    }
+
+    await this.reload(id, "Detecting the project again")
+  }
+
+  /**
+   * Opens a project's tab again because what detection reads of it changed (`project.detectionChanged`). A tab still
+   * loading checks again once it's ready, since what it loads may have been read before the change.
+   */
+  detectionChanged(projectId: string): void {
+    const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
+
+    if (tab) {
+      void this.reload(tab.id, "Detecting the project again")
+    } else {
+      this.detections.add(projectId)
+    }
+  }
+
+  /** Checks a tab that has just loaded against what detection reads now, if that changed while it loaded. */
+  private settleDetection(id: string): void {
+    if (this.detections.delete(id)) {
+      void this.detectAgain(id)
+    }
+  }
+
+  /**
    * Opens every tab's project again in a restarted project service. Each tab keeps its designs, unsaved changes,
    * selection and canvas; what the service provides (the builder and its guest, tokens, inferred props) is new.
    */
   async reconnect(): Promise<void> {
     await Promise.all(
       this.tabs.map(async ({ id, session }) => {
-        if (!session) return
+        // A tab still opening or reopening has no session yet, and gets its project from that.
+        if (!session) {
+          return
+        }
+
+        // Closing the tab abandons it like an open, so what the service reopens for it is closed again. A reconnect
+        // still in flight from an earlier restart is overtaken by this one.
+        const earlier = this.attempts.get(id)
+
+        if (earlier) {
+          earlier.abandoned = true
+        }
+
+        const attempt = this.startAttempt(id)
+        attempt.projectId = id
+        let opened: string | undefined
+
         try {
           const info = await request("project.open", { root: id })
+          opened = info.id
+
+          if (attempt.abandoned) {
+            return this.dropAbandoned(info.id)
+          }
+
           const loaded = await loadGuest(info.guestUrl, info.theme)
+
+          if (attempt.abandoned) {
+            return this.dropAbandoned(info.id, info.guestUrl)
+          }
+
+          this.endAttempt(attempt, id)
           inferComponents(info, session.components)
-          const current = this.getTab(id)
-          if (!current?.session) return
-          const before = current.session.info.guestUrl
-          this.replace(id, {
-            ...current,
-            session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
-          })
-          current.session.tokens.dispose()
-          if (before !== info.guestUrl) releaseGuest(before)
+          const current = this.getTab(id)!
+          const before = session.info.guestUrl
+          this.drawFrom(current, session, info, loaded)
+
+          if (before !== info.guestUrl) {
+            releaseGuest(before)
+          }
         } catch (error) {
-          notify.failed("Couldn't reopen the project", {
+          if (this.failAttempt(attempt, id, opened)) {
+            return
+          }
+
+          reportError(error, {
+            operation: "project.reopen",
+            title: "Couldn't reopen the project",
             description: `${session.info.name}: ${plainReason(error) ?? "It didn't answer."}`,
             retry: () => void this.reconnect()
           })
@@ -356,53 +819,97 @@ export class Workspace {
    */
   async moveGuest(projectId: string, guestUrl: string): Promise<boolean> {
     const tab = this.tabs.find((candidate) => candidate.session?.id === projectId)
+
     if (!tab?.session) {
       const loading = this.getTab(projectId)?.status === "loading"
-      if (loading) this.moves.set(projectId, guestUrl)
+
+      if (loading) {
+        this.moves.set(projectId, guestUrl)
+      }
+
       return !loading
     }
+
     const before = tab.session.info.guestUrl
-    if (before === guestUrl) return true
+
+    if (before === guestUrl) {
+      return true
+    }
+
     this.latestMoves.set(projectId, guestUrl)
+
     // Whether no move came after this one, nor a reopen or close, which forget the last move; it's settled either way.
     const latest = () => {
       const last = this.latestMoves.get(projectId) === guestUrl
-      if (last) this.latestMoves.delete(projectId)
+
+      if (last) {
+        this.latestMoves.delete(projectId)
+      }
+
       return last
     }
+
     try {
       const loaded = await loadGuest(guestUrl, tab.session.info.theme)
       const current = this.getTab(tab.id)
       const now = current?.session?.info.guestUrl
+
       // A tab closed or reopened meanwhile draws what it has now, and one that moved again draws from there once that
       // guest loads, so the guest loaded here is no one's.
       if (!latest() || !current?.session || now !== before) {
-        if (now !== guestUrl) releaseGuest(guestUrl)
+        if (now !== guestUrl) {
+          releaseGuest(guestUrl)
+        }
+
         return !current?.session || now === guestUrl
       }
+
       // From the session as it is now, since its sources can change while the guest loads.
-      const info = { ...current.session.info, guestUrl }
-      this.replace(tab.id, {
-        ...current,
-        session: { ...current.session, info, loaded, tokens: tokenStore(info, loaded, current.session.store) }
-      })
-      current.session.tokens.dispose()
+      this.drawFrom(current, current.session, { ...current.session.info, guestUrl }, loaded)
       releaseGuest(before)
+
       return true
     } catch (error) {
-      if (!latest()) return false
-      notify.failed("Couldn't reload the project", {
+      if (!latest()) {
+        return false
+      }
+
+      reportError(error, {
+        operation: "project.reload",
+        title: "Couldn't reload the project",
         description: `${tab.session.info.name}: ${plainReason(error) ?? "Its preview stopped responding."}`,
         retry: () => void this.moveGuest(projectId, guestUrl)
       })
+
       return false
     }
+  }
+
+  /**
+   * Gives a tab's session new parts. The session stays the same object, so what's kept for it stays; the tab is copied
+   * so that what reads it from the list of tabs draws again.
+   */
+  private updateSession(tab: Tab, session: ProjectSession, change: Partial<SessionParts>): void {
+    session.update(change)
+    this.replace(tab.id, { ...tab })
+  }
+
+  /** Draws a tab's session from a guest loaded anew, with tokens of its own, letting go of the last guest's tokens. */
+  private drawFrom(tab: Tab, session: ProjectSession, info: ProjectInfo, loaded: LoadedGuest): void {
+    const { tokens } = session
+    drawImported(info, loaded)
+    this.updateSession(tab, session, { info, loaded, tokens: tokenStore(info, loaded, session) })
+    tokens.dispose()
   }
 
   /** Draws a tab that has just loaded from where its guest moved meanwhile, if it did. */
   private settleMove(id: string): void {
     const guestUrl = this.moves.get(id)
-    if (!guestUrl) return
+
+    if (!guestUrl) {
+      return
+    }
+
     this.moves.delete(id)
     void this.moveGuest(id, guestUrl)
   }
@@ -410,33 +917,39 @@ export class Workspace {
   /** Saves every open project's unsaved changes. */
   async flush(): Promise<void> {
     const results = await Promise.allSettled(
-      this.tabs.flatMap((tab) => (tab.session ? [tab.session.store.flush()] : []))
+      this.tabs.flatMap((tab) => (tab.session ? [tab.session.saver.flush()] : []))
     )
+
     const failed = results.find((result) => result.status === "rejected")
-    if (failed) throw failed.reason
+
+    if (failed) {
+      throw failed.reason
+    }
   }
 
   /** Takes a project off the recent list, or every project when none is given. Starred ones stay starred. */
   forgetRecent(root?: string): void {
-    this.recent = root ? this.recent.filter((candidate) => candidate !== root) : []
-    this.saveRecent()
+    this.changeProjects(root === undefined ? { kind: "forgot" } : { kind: "forgot", root })
   }
 
   /** Stars a project, so the start page keeps it under Starred, or unstars it. */
   star(root: string, starred: boolean): void {
-    const { opened } = this.notes[root] ?? {}
-    const note: ProjectNote = { ...(opened === undefined ? {} : { opened }), ...(starred ? { starred } : {}) }
-    this.notes = { ...this.notes, [root]: note }
-    this.saveNotes()
+    this.changeProjects({ kind: "starred", root, starred })
   }
 
   activate(id: string | undefined): void {
-    if (id === this.activeId) return
+    if (id === this.activeId) {
+      return
+    }
+
     this.activeId = id
     this.save()
     this.notify()
+
     // A folder may have gone, or come back, since Home last showed.
-    if (this.isHomeActive()) void this.checkFolders()
+    if (this.isHomeActive()) {
+      void this.checkFolders()
+    }
   }
 
   /**
@@ -446,13 +959,22 @@ export class Workspace {
   async checkFolders(): Promise<void> {
     const roots = this.projects.map(({ root }) => root)
     const checked = await request("start.check", { roots }).catch(() => undefined)
-    if (!checked) return
+
+    if (!checked) {
+      return
+    }
+
     const missing = new Set(checked.missing)
+
     const same =
       checked.example === this.example &&
       missing.size === this.missing.size &&
       [...missing].every((root) => this.missing.has(root))
-    if (same) return
+
+    if (same) {
+      return
+    }
+
     this.missing = missing
     this.example = checked.example
     this.projects = knownProjects(this.recent, this.notes, this.missing)
@@ -466,66 +988,149 @@ export class Workspace {
    */
   setSources(id: string, sources: ProjectInfo["sources"], leftOut?: ProjectInfo["leftOut"]): void {
     const tab = this.getTab(id)
-    if (!tab?.session) return
-    const { add, drop } = guestChanges(tab.session.info.sources, sources)
+
+    if (!tab?.session) {
+      return
+    }
+
+    const versions = tab.session.versions ?? {}
+
+    const { add, drop } = guestChanges(
+      versionedSources(tab.session.info.sources, versions),
+      versionedSources(sources, versions)
+    )
+
     const { guest } = tab.session.loaded
     guest.addComponents?.(add)
+
     // The guest takes back the ones it was given, as the offscreen renderer does once a job no longer carries them.
-    if (drop.length > 0) guest.removeComponents?.(drop)
-    const added = { ...tab.session.added, ...add }
-    for (const name of drop) delete added[name]
-    const info = {
-      ...tab.session.info,
-      sources,
-      componentCount: Object.keys(sources).length,
-      ...(leftOut ? { leftOut } : {})
+    if (drop.length > 0) {
+      guest.removeComponents?.(drop)
     }
-    this.replace(id, { ...tab, session: { ...tab.session, info, added } })
+
+    const added = { ...tab.session.added, ...add }
+
+    for (const name of drop) {
+      delete added[name]
+    }
+
+    const info: ProjectInfo = { ...tab.session.info, sources, componentCount: Object.keys(sources).length }
+
+    if (leftOut) {
+      info.leftOut = leftOut
+    }
+
+    this.updateSession(tab, tab.session, { info, added })
+  }
+
+  /**
+   * Component files whose code changed on disk, or that import a file that did, at `stamp` (PAR-165). Their components
+   * load again from a new address, so frames and bitmaps draw the code as it is now, within a moment of a save.
+   */
+  codeChanged(id: string, paths: readonly string[], stamp: number): void {
+    const tab = this.getTab(id)
+
+    if (!tab?.session) {
+      return
+    }
+
+    const { sources } = tab.session.info
+    const before = tab.session.versions ?? {}
+    const versions = codeChangeVersions(sources, paths, stamp, before)
+    const { add } = guestChanges(versionedSources(sources, before), versionedSources(sources, versions))
+
+    if (Object.keys(add).length === 0) {
+      return
+    }
+
+    tab.session.loaded.guest.addComponents?.(add)
+    const added = { ...tab.session.added, ...add }
+    this.updateSession(tab, tab.session, { versions, added })
   }
 
   setEditor(id: string, editor: Editor | undefined): void {
     const tab = this.getTab(id)
-    if (!tab?.session || tab.session.editor === editor) return
-    this.replace(id, { ...tab, session: { ...tab.session, editor } })
+
+    if (!tab?.session || tab.session.editor === editor) {
+      return
+    }
+
+    this.updateSession(tab, tab.session, { editor })
+    tab.session.room?.attachEditor(editor, id)
   }
 
   /** The tabs with a project in them, as agents see them. */
   summaries(): TabSummary[] {
     return this.tabs
-      .filter((tab) => !tab.blank)
-      .map((tab) => ({
-        id: tab.id,
-        name: tab.title,
-        root: tab.session?.info.root ?? tab.id,
-        active: tab.id === this.activeId,
-        status: tab.status,
-        ...(tab.message && tab.status === "error" ? { error: tab.message } : {}),
-        designs: tab.session?.store.getEntries().length ?? 0
-      }))
+      .filter((tab) => !tab.blank && !tab.page)
+      .map((tab) => {
+        const summary: TabSummary = {
+          id: tab.id,
+          name: tab.title,
+          root: tab.session?.info.root ?? tab.id,
+          active: tab.id === this.activeId,
+          status: tab.status,
+          designs: tab.session ? containerEntries(tab.session.doc).length : 0
+        }
+
+        if (tab.message && tab.status === "error") {
+          summary.error = tab.message
+        }
+
+        return summary
+      })
   }
 
   /** Moves a loading tab on to one of its steps. Its message says that step, for the tab's tooltip. */
   private setProgress(id: string, steps: string[], current: number): void {
     const tab = this.getTab(id)
-    if (tab) this.replace(id, { ...tab, progress: { steps, current }, message: `${steps[current]}…` })
+
+    if (tab) {
+      this.replace(id, { ...tab, progress: { steps, current }, message: `${steps[current]}…` })
+    }
   }
 
   private startAttempt(id: string): Attempt {
     const attempt: Attempt = { abandoned: false }
     this.attempts.set(id, attempt)
+
     return attempt
   }
 
   /** Follows an open's tab from its placeholder to the project's id. */
   private moveAttempt(attempt: Attempt, from: string, to: string): void {
-    if (this.attempts.get(from) === attempt) this.attempts.delete(from)
+    if (this.attempts.get(from) === attempt) {
+      this.attempts.delete(from)
+    }
+
     this.attempts.set(to, attempt)
     this.settleDrops()
   }
 
   private endAttempt(attempt: Attempt, id: string): void {
-    if (this.attempts.get(id) === attempt) this.attempts.delete(id)
+    if (this.attempts.get(id) === attempt) {
+      this.attempts.delete(id)
+    }
+
     this.settleDrops()
+  }
+
+  /**
+   * Ends an open, reopen or reconnect that failed. Says whether its tab closed meanwhile, in which case the project the
+   * service opened for it, if it got that far, is closed and the failure is no one's to show.
+   */
+  private failAttempt(attempt: Attempt, id: string, opened: string | undefined): boolean {
+    this.endAttempt(attempt, id)
+
+    if (!attempt.abandoned) {
+      return false
+    }
+
+    if (opened) {
+      this.dropAbandoned(opened)
+    }
+
+    return true
   }
 
   /** Closes the project an abandoned open got, and lets go of its guest, once nothing else could still want it. */
@@ -540,24 +1145,39 @@ export class Workspace {
    * opening the default project or a `.par` file hasn't, the close waits, since it may be the same one.
    */
   private settleDrops(): void {
-    if (this.drops.size === 0) return
+    if (this.drops.size === 0) {
+      return
+    }
+
     const inFlight = [...this.attempts.values()]
     const undecided = inFlight.some((attempt) => attempt.projectId === undefined)
+
     for (const [projectId, guestUrl] of this.drops) {
       if (this.getTab(projectId) || inFlight.some((attempt) => attempt.projectId === projectId)) {
         this.drops.delete(projectId)
         continue
       }
-      if (undecided) continue
+
+      if (undecided) {
+        continue
+      }
+
       this.drops.delete(projectId)
       void request("project.close", { projectId })
-      if (guestUrl) releaseGuest(guestUrl)
+
+      if (guestUrl) {
+        releaseGuest(guestUrl)
+      }
     }
   }
 
   private replace(id: string, tab: Tab): void {
     this.update(this.tabs.map((candidate) => (candidate.id === id ? tab : candidate)))
-    if (this.activeId === id) this.activeId = tab.id
+
+    if (this.activeId === id) {
+      this.activeId = tab.id
+    }
+
     this.save()
   }
 
@@ -570,44 +1190,33 @@ export class Workspace {
     this.notify()
   }
 
+  /** Tells main the tabs, which keeps them in `state.json` for the next window, once this one has claimed some. */
   private save(): void {
-    const roots = this.tabs.filter((tab) => tab.session || tab.status === "loading").map((tab) => tab.id)
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({ roots: roots.filter((root) => !isPlaceholder(root)), active: this.activeId })
-      )
-    } catch {
-      // Storage can be unavailable; tabs then just don't come back next time.
+    if (!this.keepsTabs) {
+      return
     }
+
+    const roots = this.tabs
+      .filter((tab) => (tab.session || tab.status === "loading") && !isPlaceholder(tab.id))
+      .map((tab) => tab.id)
+
+    window.canvasHost.state.saveTabs(this.activeId === undefined ? { roots } : { roots, active: this.activeId })
   }
 
   private remember(root: string): void {
-    this.recent = [root, ...this.recent.filter((candidate) => candidate !== root)].slice(0, recentLimit)
-    this.notes = { ...this.notes, [root]: { ...this.notes[root], opened: Date.now() } }
-    this.saveRecent()
+    this.changeProjects({ kind: "opened", root })
   }
 
-  /** Saves the recent list, and the notes on what's still listed. */
-  private saveRecent(): void {
-    try {
-      localStorage.setItem(recentKey, JSON.stringify(this.recent))
-    } catch {
-      // Storage can be unavailable; the list then just isn't remembered.
-    }
-    this.saveNotes()
+  /** Changes the recent and starred projects here at once, and in `projects.json` for every copy. */
+  private changeProjects(change: ProjectsChange): void {
+    this.takeProjects(changeProjectsData({ recent: [...this.recent], notes: { ...this.notes } }, change, Date.now()))
+    void window.canvasHost?.projects?.change(change).catch(() => undefined)
   }
 
-  /** Saves the notes on projects the start page still lists, so ones it forgot don't pile up. */
-  private saveNotes(): void {
-    this.notes = Object.fromEntries(
-      Object.entries(this.notes).filter(([root, note]) => note.starred || this.recent.includes(root))
-    )
-    try {
-      localStorage.setItem(notesKey, JSON.stringify(this.notes))
-    } catch {
-      // Storage can be unavailable; the notes then just aren't remembered.
-    }
+  /** Lists the projects as main or this window has them, letting go of pictures of projects no longer listed. */
+  private takeProjects({ recent, notes }: Projects): void {
+    this.recent = recent
+    this.notes = notes
     this.projects = knownProjects(this.recent, this.notes, this.missing)
     // A project's picture goes with it (PAR-607).
     void request("pictures.keepOnly", { roots: this.projects.map(({ root }) => root) }).catch(() => undefined)
@@ -615,71 +1224,24 @@ export class Workspace {
   }
 
   private notify(): void {
-    for (const listener of this.listeners) listener()
-  }
-}
-
-const savedNotes = jsonText(
-  z.record(z.string(), z.object({ opened: finiteNumber.optional(), starred: z.literal(true).optional() }))
-)
-
-/** What the window keeps about each project. Notes it can't read are dropped, as a corrupt recent list is. */
-function loadNotes(): Record<string, ProjectNote> {
-  try {
-    return parseData(savedNotes, localStorage.getItem(notesKey) ?? "{}")
-  } catch {
-    return {}
-  }
-}
-
-/** A list of project roots as saved, without any that aren't one. */
-const savedRoots = z
-  .array(z.string().catch(""))
-  .catch([])
-  .transform((roots) => roots.filter(Boolean))
-
-const savedTabs = z.object({
-  /** The projects open in tabs, in the strip's order. */
-  roots: savedRoots,
-  /** The root of the tab that was showing, or Home. */
-  active: z.string().optional().catch(undefined)
-})
-
-type SavedTabs = z.infer<typeof savedTabs>
-
-/** The tabs saved as `text`. A corrupt entry reads as none, and one bad value as its default. */
-function readSavedTabs(text: string | null): SavedTabs {
-  return jsonText(savedTabs)
-    .catch({ roots: [] })
-    .parse(text ?? "{}")
-}
-
-/** The recent projects saved as `text`, without any entry that isn't a project's root. */
-function readRecent(text: string | null): string[] {
-  return jsonText(savedRoots)
-    .catch([])
-    .parse(text ?? "[]")
-}
-
-function loadRecent(): string[] {
-  try {
-    return readRecent(localStorage.getItem(recentKey))
-  } catch {
-    return []
+    this.changes.notify()
   }
 }
 
 /** Saves a project, or says why it couldn't. Resolves whether it saved. */
 async function saveOrSay(session: ProjectSession): Promise<boolean> {
   try {
-    await session.store.flush()
+    await session.saver.flush()
+
     return true
   } catch (error) {
-    notify.failed("Couldn't save the project", {
+    reportError(error, {
+      operation: "project.save",
+      title: "Couldn't save the project",
       id: saveFailureToast(session.id),
-      error,
       retry: () => void saveOrSay(session)
     })
+
     return false
   }
 }
@@ -694,48 +1256,184 @@ export function saveFailureToast(projectId: string): string {
  * quiet, with the status bar still showing it, until one succeeds.
  */
 function sayWhenSavesFail(session: ProjectSession): void {
-  const { store } = session
+  const { saver } = session
   const id = saveFailureToast(session.id)
   let said = false
-  store.subscribe(() => {
-    const state = store.getSaveState()
+  saver.subscribe(() => {
+    const state = saver.state()
+
     if (state.status === "saved" || state.status === "unsaved") {
-      if (said) notify.close(id)
+      if (said) {
+        notify.close(id)
+      }
+
       said = false
     }
-    if (state.status !== "failed" || said) return
+
+    if (state.status !== "failed" || said) {
+      return
+    }
+
     said = true
-    notify.failed("Couldn't save the project", { id, error: state.error, retry: () => void saveOrSay(session) })
+    reportError(state.error, {
+      operation: "project.autosave",
+      title: "Couldn't save the project",
+      id,
+      retry: () => void saveOrSay(session)
+    })
   })
 }
 
-async function createSession(info: ProjectInfo): Promise<ProjectSession> {
+/**
+ * Loads an opened project's guest and components into a session. `recordLoaded` records how long that and the whole
+ * open took (PAR-637), in the open's trace (PAR-711), and whether the window `restored` it as it started (PAR-694);
+ * it's for once the tab has the session, so an open its tab abandoned isn't counted as ready.
+ */
+async function createSession(
+  info: ProjectInfo,
+  asked: Opening,
+  restored = false
+): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
+  const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme)
-  const store = new DesignStore(
-    openingDesigns(info.documents, info.mainDocument, info.sources, info.modes.settings),
-    info.modes.settings,
-    info.mainDocument,
-    {
-      saveDocument: (path, document) => request("document.save", { projectId: info.id, path, document }),
-      autosave: () => getPreferences().autosave
-    },
-    info.libraries.flatMap((library) => library.designs ?? [])
+  const drawn = drawImported(info, loaded)
+
+  const modes = info.modes.settings
+  const marks = info.documents.find(({ path }) => path === info.mainDocument)?.document.routeKinds
+  const routes = markedRoutes(info.routes, marks)
+  const fromCode = [...routePages({ ...info, routes }), ...componentBoardsDocument(info), ...storyScreensDocument(info)]
+
+  // What's stale goes as the project opens: views naming modes, states or params that are gone, and what was kept for
+  // designs drawn from code that no longer are. The file loses it at its next save.
+  const opening = openingDesigns(info.documents, info.mainDocument, info.sources, modes, routeFiles(info.routes)).map(
+    ({ path, document }) => ({
+      path,
+      document: prunedDocument(document, modes)
+    })
   )
+
+  const main = opening.find(({ path }) => path === info.mainDocument)
+
+  const code = openCodeDesigns(fromCode, main?.document.codeDesigns, (path, design) => ({
+    modes,
+    params: path === routePagesFile ? routeParams(info, design.id) : undefined
+  }))
+
+  if (main && !sameValue(code.saved, main.document.codeDesigns)) {
+    main.document = { ...main.document, codeDesigns: code.saved }
+
+    if (!code.saved) {
+      delete main.document.codeDesigns
+    }
+  }
+
+  const room = await liveRoom(info.root)
+
+  const designs: DocSession = openDocSession({
+    room,
+    files: opening,
+    drawn: code.designs,
+    modes,
+    main: info.mainDocument,
+    persistence: {
+      // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
+      // stories are written back to their own files, through the adapter that read them.
+      saveDocument: (path, document, { exportMs }) => {
+        if (path === storyScreensFile) {
+          return request("entities.save", { projectId: info.id, document })
+        }
+
+        return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document, exportMs)
+      },
+      // The service writes files and has no way to delete one, so a file taken out of the project stays on disk.
+      deleteDocument: () => Promise.resolve(),
+      // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
+      autosave: (): boolean => withProjectPreferences(getPreferences(), designs.doc.file(designs.doc.main)).autosave,
+      keepTrace
+    },
+    libraryDesigns: info.libraries.flatMap((library) => library.designs ?? [])
+  })
+
+  const learnDrawn = keepCodeDesigns(designs.doc, fromCode)
   const components = new ComponentStore()
   inferComponents(info, components)
-  const session: ProjectSession = {
-    id: info.id,
-    info,
-    loaded,
-    store,
-    components,
-    selection: new SelectionStore(),
-    tokens: tokenStore(info, loaded, store),
-    errors: info.documents.flatMap(({ path, error }) => (error ? [{ path, error }] : []))
-  }
+  sampleBoards(info, designs.doc, components)
+
+  const session = new ProjectSession(
+    {
+      id: info.id,
+      designs,
+      components,
+      selection: new SelectionStore(),
+      recovery: keepRecovery(designs, (copy) => {
+        const kept = copy && ownWork(copy)
+
+        return request("recovery.keep", kept ? { projectId: info.id, copy: kept } : { projectId: info.id })
+      })
+    },
+    { info, loaded, tokens: tokenStore(info, loaded, designs), added: drawn }
+  )
+
   sayWhenSavesFail(session)
   followCorrections(session)
-  return session
+  followRouteMarks(session, marks, learnDrawn)
+  const now = performance.now()
+
+  const recordLoaded = () =>
+    asked.loaded({
+      name: info.name,
+      root: info.root,
+      durationMs: Math.round(now - asked.began),
+      componentsMs: Math.round(now - loading),
+      components: info.componentCount,
+      restored
+    })
+
+  return { session, recordLoaded }
+}
+
+/**
+ * The project's live room, in development with `PARITY_ROOM=1` (live-room.ts), or nothing. A room that can't be joined
+ * leaves the project to open as it would without one.
+ */
+async function liveRoom(root: string): Promise<LiveRoom | undefined> {
+  // Set by `pnpm dev` with `PARITY_ROOM=1`. The room's code, and Loro with it, loads only then.
+  const url = import.meta.env.DEV ? import.meta.env.VITE_PARITY_ROOM : undefined
+
+  if (!url) {
+    return undefined
+  }
+
+  try {
+    const { joinLiveRoom } = await import("./live-room.ts")
+
+    return await joinLiveRoom(url, root)
+  } catch (error) {
+    reportError(error, { operation: "liveRoom.join", title: "Couldn't join the live room" })
+
+    return undefined
+  }
+}
+
+/**
+ * Keeps the start page's picture of the project for as long as its session lasts (PAR-607), so a code change or a
+ * reconnect doesn't take it again.
+ */
+function keepPictureOf(session: ProjectSession): void {
+  session.untilClosed(keepProjectPicture(session))
+}
+
+/**
+ * Gives the session what records its canvas's first frame, which it lets go of once it has. Session Replay waits for it
+ * too, so recording the canvas as it mounts doesn't hold the frame up (PAR-758).
+ */
+function firstFrameOf(session: ProjectSession, record: (from: FirstFrame) => void): void {
+  const release = holdRecording()
+  session.firstFrame = watchFirstFrame((from) => {
+    session.firstFrame = undefined
+    record(from)
+    release()
+  })
 }
 
 /**
@@ -743,33 +1441,277 @@ async function createSession(info: ProjectInfo): Promise<ProjectSession> {
  * file changing on disk, so the list follows them before they're saved.
  */
 function followCorrections(session: ProjectSession): void {
-  const { store } = session
-  const corrections = () => store.getDocuments().find((entry) => entry.path === store.mainPath)?.document.detection
+  const { doc } = session
+  const corrections = () => doc.file(doc.main)?.detection
   let sent = corrections()
-  store.subscribe(() => {
+  doc.subscribe(() => {
     const next = corrections()
-    if (next === sent) return
+
+    if (next === sent) {
+      return
+    }
+
     sent = next
-    request("project.correctComponents", { projectId: session.id, ...(next ? { corrections: next } : {}) }).catch(
-      (error: unknown) => console.warn("The component list couldn't take the correction", error)
+    const params: ServiceMethods["project.correctComponents"]["params"] = { projectId: session.id }
+
+    if (next) {
+      params.corrections = next
+    }
+
+    request("project.correctComponents", params).catch((cause: unknown) =>
+      console.warn("The component list couldn't take the correction", cause)
     )
   })
+}
+
+/**
+ * Draws the app's pages again when the person's marks on its routes change, by an edit, an undo or the file changing on
+ * disk (PAR-1175, PAR-1176): a page marked as an API route leaves the canvas, and an API route marked as a page joins it.
+ */
+function followRouteMarks(
+  session: ProjectSession,
+  opened: CanvasDocument["routeKinds"],
+  learnDrawn: (drawn: readonly { path: string; document: CanvasDocument }[]) => void
+): void {
+  const { doc, info } = session
+  let drawn = opened
+
+  doc.subscribe(() => {
+    const marks = doc.file(doc.main)?.routeKinds
+
+    if (sameValue(marks, drawn)) {
+      return
+    }
+
+    drawn = marks
+
+    const pages = withCodeDesigns(
+      routePages({ ...info, routes: markedRoutes(info.routes, marks) }),
+      doc.file(doc.main)?.codeDesigns
+    )
+
+    learnDrawn(pages)
+    applyDocuments(doc, "Draw the pages again", pages, { origin: "code" })
+  })
+}
+
+/**
+ * What of a recovery copy is the person's own work: the pages, component boards and stories are drawn from the
+ * project's code each time it opens, so moving one leaves nothing to restore. Undefined when nothing's left.
+ */
+/** The design files drawn from the project's code each time it opens, which are never saved. */
+const generatedFiles = new Set([routePagesFile, componentBoardsFile, storyScreensFile])
+
+function ownWork(copy: RecoveryCopy): RecoveryCopy | undefined {
+  const documents = copy.documents.filter(({ path }) => !generatedFiles.has(path))
+
+  return documents.length > 0 || copy.modes || copy.tokens.length > 0 ? { ...copy, documents } : undefined
+}
+
+/**
+ * Redraws the component boards with a sample for each prop once the service has said what each takes, and each inside
+ * the parents it's found to need, as a change that's neither undone nor saved. Only a board drawn differently changes
+ * (`redrawnBoards`): the rest keep what's been read inside them and their size, so nothing they show draws again.
+ */
+function sampleBoards(info: ProjectInfo, doc: ProjectDoc, components: ComponentStore): void {
+  const parents = new Map<string, BoardParents>()
+
+  const designs = (drawn: ReturnType<typeof componentBoardsDocument>) =>
+    new Map((drawn[0]?.document.containers ?? []).map((board) => [board.id, board]))
+
+  // What was drawn last, as the document began with.
+  let before = designs(componentBoardsDocument(info))
+
+  const draw = () => {
+    const chains = Object.fromEntries([...parents].map(([component, state]) => [component, state.chain]))
+    const drawn = componentBoardsDocument(info, components.get(), chains)
+    const [boards] = drawn
+
+    if (!boards) {
+      return
+    }
+
+    const current = new Map(
+      boards.document.containers.flatMap((board) => {
+        const now = doc.design(`${boards.path}#${board.id}`)
+
+        return now ? [[board.id, now] as const] : []
+      })
+    )
+
+    const containers = redrawnBoards(boards.document.containers, before, current)
+    before = designs(drawn)
+
+    if (containers.every((board) => board === current.get(board.id))) {
+      return
+    }
+
+    changeSnapshot(
+      doc,
+      "Draw components",
+      (snapshot) => ({
+        ...snapshot,
+        documents: new Map(snapshot.documents).set(boards.path, { ...boards.document, containers })
+      }),
+      { origin: "code" }
+    )
+  }
+
+  components.subscribe(draw)
+  searchBoardParents(info, doc, parents, draw)
+}
+
+/**
+ * Finds what each of the project's own parts needs around it to draw (`nextBoardParents`): each time a board's part
+ * fails for want of a parent, its board is drawn again inside the next parents to try, until it draws or nothing's left.
+ * A report about layers the board no longer has, from before it was drawn again, is left alone.
+ */
+function searchBoardParents(
+  info: ProjectInfo,
+  doc: ProjectDoc,
+  parents: Map<string, BoardParents>,
+  draw: () => void
+): void {
+  const groups = new Map(
+    boardGroups(info.sources, routeFiles(info.routes)).flatMap(({ ids }) => ids.map((id) => [id, ids]))
+  )
+
+  const prefix = `${componentBoardsFile}#`
+
+  const step = (design: string, failures: readonly LayerFailure[]) => {
+    const board = design.startsWith(prefix) ? doc.design(design) : undefined
+    const part = board && boardComponentNode(board)
+    const group = part && groups.get(part.component)
+
+    if (!board || !part || !group) {
+      return
+    }
+
+    const state = parents.get(part.component) ?? noBoardParents
+    const [first] = failures
+
+    if (state.done || (first && !findNode(board.root, first.nodeId))) {
+      return
+    }
+
+    // Nothing failing isn't enough: a parent can hide what's in it, as an inactive TabsContent does.
+    const failure = first ? { component: first.component, error: first.error } : drawsPart(part.id) || "nothing"
+    const next = nextBoardParents(part.component, group, state, failure === true ? undefined : failure)
+    parents.set(part.component, next)
+
+    if (next.chain.join() === state.chain.join()) {
+      return
+    }
+
+    draw()
+
+    // The canvas tells only when what fails changes, so a chain that draws as the last one did is looked at once drawn.
+    // A board far from view is a picture, with nothing of it on the page, so it's left until it's drawn live.
+    setTimeout(() => {
+      const outer = doc.design(design)?.root
+      const drawn = outer?.type === "layout" && outer.children[0] && drawsPart(outer.children[0].id)
+
+      if (parents.get(part.component) === next && drawn) {
+        step(design, designFailuresNow(info.id, design))
+      }
+    }, recheckAfter)
+  }
+
+  onDesignFailures(info.id, step)
+}
+
+/** How long a board's drawn again before what it draws is looked at, if the canvas hasn't said. */
+const recheckAfter = 1500
+
+/** Whether a layer is drawn on the canvas, in any frame. */
+function drawsPart(nodeId: string): boolean {
+  const selector = `[data-canvas-node="${CSS.escape(nodeId)}"]`
+
+  return [...document.querySelectorAll("[data-frame]")].some(
+    (frame) => (frame.shadowRoot ?? frame).querySelector(selector) !== null
+  )
 }
 
 /** Fills in each component's props once the service has inferred them, after the tab opens. */
 function inferComponents(info: ProjectInfo, components: ComponentStore): void {
   request("project.components", { projectId: info.id })
     .then((inferred) => components.set(inferred))
-    .catch((error: unknown) => console.warn("Component props couldn't be inferred", error))
+    .catch((cause: unknown) => console.warn("Component props couldn't be inferred", cause))
 }
 
-/** A project's tokens, edited through its design store's history and written to its stylesheet when it's saved. */
-function tokenStore(info: ProjectInfo, loaded: LoadedGuest, store: DesignStore): TokenStore {
+/** Writes a design file, recording how long it took and how big it was. */
+async function saveDocument(
+  projectId: string,
+  path: string,
+  document: CanvasDocument,
+  exportMs: number
+): Promise<void> {
+  const start = performance.now()
+  const bytes = JSON.stringify(document).length
+  const measured = () => ({ file: path, durationMs: Math.round(performance.now() - start), bytes })
+  // In the trace the write was asked in, the edit's or Save's, which has moved on by the time the service answers.
+  const inTrace = { span: currentTraceContext() }
+
+  try {
+    await request("document.save", { projectId, path, document })
+    track("document.saved", { ...measured(), exportMs }, inTrace)
+  } catch (error) {
+    const failed: Attributes<"document.saveFailed"> = measured()
+    const code = errorCode(error)
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("document.saveFailed", failed, inTrace)
+    throw error
+  }
+}
+
+/** Writes token changes to the project's stylesheet, recording what it changed. */
+async function saveTokens(projectId: string, changes: TokenWrite[]): Promise<ProjectEditResult> {
+  try {
+    const edit = await request("tokens.save", { projectId, changes })
+    track("tokens.saved", { changes: changes.length, files: edit.files.map((file) => file.path), outcome: "ok" })
+
+    return edit
+  } catch (error) {
+    const failed: Attributes<"tokens.saved"> = { changes: changes.length, files: [], outcome: "error" }
+    const code = errorCode(error)
+
+    if (code) {
+      failed.code = code
+    }
+
+    track("tokens.saved", failed)
+    throw error
+  }
+}
+
+/**
+ * Gives the guest the code the project's imported screens draw that isn't one of its components, as a story's `render`
+ * function, and gives it back for offscreen renders to add to theirs.
+ */
+function drawImported(info: ProjectInfo, loaded: LoadedGuest): Record<string, GuestComponentSource> | undefined {
+  const sources = info.entities.sources
+
+  if (!sources || Object.keys(sources).length === 0) {
+    return undefined
+  }
+
+  loaded.guest.addComponents?.(sources)
+
+  return sources
+}
+
+function tokenStore(info: ProjectInfo, loaded: LoadedGuest, designs: DocSession): TokenStore {
   return new TokenStore(
     loaded.tokens,
     loaded.sheet,
-    (changes) => request("tokens.save", { projectId: info.id, changes }),
-    store,
+    async (changes) => {
+      await saveTokens(info.id, changes)
+    },
+    designs,
     info.styles?.stylesheet,
     info.describedTokens
   )

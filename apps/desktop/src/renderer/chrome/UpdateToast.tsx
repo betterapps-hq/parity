@@ -15,6 +15,7 @@ export interface UpdateToastOptions {
 }
 
 const megabytes = new Intl.NumberFormat("en", { maximumFractionDigits: 1 })
+
 const titles = {
   ready: "Update ready",
   manual: "Update available",
@@ -22,6 +23,7 @@ const titles = {
   current: "Parity is up to date",
   error: "Couldn't check for updates"
 }
+
 const types = {
   downloading: "loading",
   ready: "success",
@@ -37,9 +39,15 @@ const types = {
  */
 export function updateToast(notice: UpdateNotice, onAction: () => void): UpdateToastOptions {
   let action: string | undefined
-  if (notice.kind === "ready") action = "Restart"
-  else if (notice.kind === "manual") action = "Download"
-  else if (notice.kind === "error") action = "Try again"
+
+  if (notice.kind === "ready") {
+    action = "Restart"
+  } else if (notice.kind === "manual") {
+    action = "Download"
+  } else if (notice.kind === "error") {
+    action = "Try again"
+  }
+
   return {
     kind: types[notice.kind],
     title: notice.kind === "downloading" ? `Downloading Parity ${notice.version}` : titles[notice.kind],
@@ -52,11 +60,22 @@ export function updateToast(notice: UpdateNotice, onAction: () => void): UpdateT
 }
 
 function description(notice: Exclude<UpdateNotice, { kind: "downloading" }>): string | undefined {
-  if (notice.kind === "ready") return `Restart to install Parity ${notice.version}.`
-  if (notice.kind === "manual") return `Parity ${notice.version} is ready to download.`
-  if (notice.kind === "checking") return undefined
-  if (notice.kind === "current")
+  if (notice.kind === "ready") {
+    return `Restart to install Parity ${notice.version}.`
+  }
+
+  if (notice.kind === "manual") {
+    return `Parity ${notice.version} is ready to download.`
+  }
+
+  if (notice.kind === "checking") {
+    return undefined
+  }
+
+  if (notice.kind === "current") {
     return notice.beta ? "You have the latest beta or stable release." : "You have the latest stable release."
+  }
+
   return "Parity couldn't reach the update server."
 }
 
@@ -65,6 +84,7 @@ export function UpdateProgress({ notice }: { notice: Extract<UpdateNotice, { kin
   const percent = Number.isFinite(notice.percent) ? Math.min(100, Math.max(0, notice.percent)) : 0
   const knownSize = Number.isFinite(notice.total) && notice.total > 0
   const transferred = Number.isFinite(notice.transferred) ? Math.max(0, notice.transferred) : 0
+
   return (
     <span className="flex flex-col gap-2">
       <progress
