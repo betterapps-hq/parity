@@ -13,7 +13,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronDown, Columns2, Menu, UserRound, X } from "lucide-react"
 import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { columns, type Item, items, lenses, missingLens, storyFiles } from "./data.ts"
