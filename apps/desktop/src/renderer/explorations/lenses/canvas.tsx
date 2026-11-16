@@ -175,12 +175,27 @@ interface LensCanvasProps {
   onCamera: (camera: Camera) => void
 }
 
+/** How much an element is drawn scaled on screen, as a window on one of the story's displays is. */
+function screenScale(element: HTMLElement): number {
+  return element.getBoundingClientRect().width / element.offsetWidth || 1
+}
+
+/**
+ * A lens's canvas, or what's missing for a lens with nothing to read. Leaving the missing lens mounts a fresh canvas,
+ * so its size and wheel listeners attach to the element it draws.
+ */
+export function LensCanvas(props: LensCanvasProps) {
+  const info = lenses[props.lens]
+
+  return info.missing ? <MissingLens info={info} /> : <DrawnCanvas {...props} />
+}
+
 /**
  * A lens's canvas: what it draws, at its own camera, which stays when the lens moves to another canvas or window. The
  * wheel pans and Ctrl with the wheel zooms, as the app's canvas does; the middle button or Space drags it; and the
  * app's zoom keys work while it has focus.
  */
-export function LensCanvas({ lens, selected, peek, onSelect, camera, onCamera }: LensCanvasProps) {
+function DrawnCanvas({ lens, selected, peek, onSelect, camera, onCamera }: LensCanvasProps) {
   const view = useRef<HTMLDivElement>(null)
   const latest = useRef({ camera, onCamera })
   const [size, setSize] = useState({ width: 0, height: 0 })
@@ -237,8 +252,10 @@ export function LensCanvas({ lens, selected, peek, onSelect, camera, onCamera }:
       event.preventDefault()
 
       if (event.ctrlKey || event.metaKey) {
+        // The pointer in the canvas's own pixels, which the camera counts in, however much its window is scaled.
         const box = element.getBoundingClientRect()
-        const at = { x: event.clientX - box.left, y: event.clientY - box.top }
+        const scale = screenScale(element)
+        const at = { x: (event.clientX - box.left) / scale, y: (event.clientY - box.top) / scale }
         set(zoomAbout(now, now.z * Math.exp(-event.deltaY * 0.01), at))
 
         return
@@ -289,10 +306,15 @@ export function LensCanvas({ lens, selected, peek, onSelect, camera, onCamera }:
     event.preventDefault()
     const target = event.currentTarget
     target.setPointerCapture(event.pointerId)
-    const start = { x: event.clientX - camera.x, y: event.clientY - camera.y }
+    const scale = screenScale(target)
+    const start = { x: event.clientX / scale - camera.x, y: event.clientY / scale - camera.y }
 
     const move = (moved: PointerEvent) =>
-      latest.current.onCamera({ ...latest.current.camera!, x: moved.clientX - start.x, y: moved.clientY - start.y })
+      latest.current.onCamera({
+        ...latest.current.camera!,
+        x: moved.clientX / scale - start.x,
+        y: moved.clientY / scale - start.y
+      })
 
     const end = () => {
       target.removeEventListener("pointermove", move)
@@ -301,10 +323,6 @@ export function LensCanvas({ lens, selected, peek, onSelect, camera, onCamera }:
 
     target.addEventListener("pointermove", move)
     target.addEventListener("pointerup", end)
-  }
-
-  if (info.missing) {
-    return <MissingLens info={info} />
   }
 
   const keys = new Map<string, () => void>([
