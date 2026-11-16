@@ -167,6 +167,9 @@ export function pressLayers(
         return
       }
 
+      // A picture still flying from the last drag lands first, so layers it kept hidden until then are drawn again
+      // before they're pictured: grabbed again on their way back, they'd otherwise be carried unseen.
+      carriedPicture.finish()
       layouts.measure(host, entry.container.root)
       // The picture is taken before the layers are hidden.
       const picture = layerPicture(host, elements, scale)

@@ -67,9 +67,10 @@ const bleed = 32
  * root is laid out as the frame is, its size and the custom properties its host sets, so the project's media queries,
  * which ask the frame's size, still match; the frame's body is copied without its children, for the classes and
  * attributes the design's rules ask for; and each copy takes what its layer inherits from its parent. Each sits where
- * its layer is, at its size, so one that fills its layout keeps its size. The copies aren't layers: hit testing and
- * outlines never find them. What can't be copied this way, such as a canvas element's drawing or a scroll position, is
- * left out.
+ * its layer is, at its size, so one that fills its layout keeps its size. The copies keep their `data-canvas-node`,
+ * which the frame's own rules are written against (`nodeSelector`), yet aren't layers: hit testing and outlines look
+ * for layers in a frame's shadow root, never in the picture's. What can't be copied this way, such as a canvas
+ * element's drawing or a scroll position, is left out.
  *
  * Nothing when the host isn't a frame or no layer is drawn.
  */
@@ -137,10 +138,6 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
 
     // SAFETY: a deep clone of an element is an element of the same kind, and an HTML or SVG element has a style.
     const copy = layer.cloneNode(true) as HTMLElement
-
-    for (const element of [copy, ...copy.querySelectorAll("[data-canvas-node]")]) {
-      element.removeAttribute("data-canvas-node")
-    }
 
     const place = {
       position: "absolute",
