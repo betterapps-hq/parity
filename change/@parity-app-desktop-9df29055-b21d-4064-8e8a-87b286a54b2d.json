@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Next.js projects on Turbopack load components found after the start, and reload changed code, without restarting the builder",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
