@@ -1391,8 +1391,10 @@ already renders around the app, and never writes it unasked.
   script extension, and the element its `render` or `hydrateRoot` call draws. The app's own components are followed into
   their files, up to six files deep. A component whose name ends in `Provider` or `Providers` is taken, from a package
   or the app; `StrictMode`, `Suspense`, `Profiler` and fragments are looked inside; routers are passed over, since a
-  router's extension draws frames inside one. Reading stops at anything else, or where an element has several children
-  and not exactly one of them is a provider, since sibling providers wrap different parts of the app.
+  router's extension draws frames inside one. A fragment's children, shorthand `<>` or `Fragment`, count as its
+  parent's, so a fragment between two providers reaches the inner one (PAR-1218). Reading stops at anything else, or
+  where an element has several children and not exactly one of them is a provider, since sibling providers wrap
+  different parts of the app.
 - **What's written.** One decorator nesting the providers, outermost first, around `<Story />`. Props are carried as the
   app writes them; what they import is imported from `.parity/`, and what the file declares at its top level, such as
   `const queryClient = new QueryClient()`, is copied with its own `const`, `let` or `var`. A value its file exports,
@@ -1416,10 +1418,11 @@ Code: `offerPreviewFile` in `packages/project/src/app-providers.ts`; `previewOff
 `closedPreviewOffer` in `packages/settings/src/projects-file.ts`.
 
 Tests: "a preview file offered from the app's providers" in `packages/project/src/app-providers.test.ts`, including app
-F's own files; "the preview file offered from the app's providers" in `apps/desktop/src/utility/preview-offer.test.ts`;
-"changes once the project has a preview file" in `packages/project/src/detection-inputs.test.ts`; "remembers a closed
-preview file offer" in `packages/settings/src/projects-file.test.ts`; the Parity/Chrome/Prompts/Preview file stories.
-App F's offer wasn't tried in the running app, since its fixture isn't installed locally.
+F's own files and fragments between providers; "the preview file offered from the app's providers" in
+`apps/desktop/src/utility/preview-offer.test.ts`; "changes once the project has a preview file" in
+`packages/project/src/detection-inputs.test.ts`; "remembers a closed preview file offer" in
+`packages/settings/src/projects-file.test.ts`; the Parity/Chrome/Prompts/Preview file stories. App F's offer wasn't
+tried in the running app, since its fixture isn't installed locally.
 
 ### Pages are the routes' files (PAR-1163)
 
