@@ -513,7 +513,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         options: { root, renderer, rendererGuestPath: guestPath(renderer), allowedOrigins }
       })
 
-      // A builder that doesn't prepare, or can't say, leaves it to its extension, as one not started early does.
+      // A builder that doesn't prepare, or can't say, leaves it to its extension, as one not started early does. Its config
+      // file being there doesn't make it the project's: Rspack's extension watches rsbuild.config.ts too, and leaves the
+      // project to Rsbuild's. Then the builder that serves it is asked, as an open project's builder is asked again later,
+      // so the answers match.
+      const servingStyles = async () => {
+        const confirmed = await detectOnce(likely).then(
+          ({ found }) => found,
+          () => false
+        )
+
+        return appStyles(asking, confirmed ? likely.id : await servingBuilder(adapters.builders, detectOnce))
+      }
+
       styles.resolve(
         (prepared ?? Promise.resolve(undefined))
           .catch((cause: unknown) => {
@@ -521,7 +533,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
             return undefined
           })
-          .then((found) => found ?? appStyles(asking, likely.id))
+          .then((found) => found ?? servingStyles())
       )
     }
 
