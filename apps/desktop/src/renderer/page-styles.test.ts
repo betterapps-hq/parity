@@ -514,6 +514,18 @@ describe("callerOrigin", () => {
     expect(callerOrigin(stack("http://localhost:5391/src/main.tsx:4:2"), "http://localhost:5391")).toBeUndefined()
     expect(callerOrigin(stack("eval (<anonymous>)"), "http://localhost:5391")).toBeUndefined()
   })
+
+  it("looks past frames with an opaque origin, as webpack-internal code has", () => {
+    expect(
+      callerOrigin(
+        stack("insertStyle (webpack-internal:///./src/theme.js:12:5)", "http://localhost:3000/_next/main.js:40:1"),
+        "http://localhost:5391"
+      )
+    ).toBe("http://localhost:3000")
+    expect(
+      callerOrigin(stack("insertStyle (webpack-internal:///./src/theme.js:12:5)"), "http://localhost:5391")
+    ).toBeUndefined()
+  })
 })
 
 describe("withImports", () => {
@@ -561,6 +573,25 @@ describe("withImports", () => {
 
     expect(asked).toEqual([fonts])
     expect(css).toBe("@font-face { src: url(https://fonts.test/s/roboto.woff2); } .a {}")
+  })
+
+  it("leaves an @import in a comment alone", async () => {
+    const asked: string[] = []
+
+    const read = async (address: string) => {
+      asked.push(address)
+
+      return { text: ".b {}", from: address }
+    }
+
+    const css = await withImports(
+      '/* @import "old.css"; */ @import "new.css"; .a {}',
+      "http://project.test/app.css",
+      read
+    )
+
+    expect(asked).toEqual(["http://project.test/new.css"])
+    expect(css).toBe('/* @import "old.css"; */ .b {} .a {}')
   })
 })
 

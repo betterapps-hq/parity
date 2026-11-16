@@ -119,6 +119,11 @@ export function callerOrigin(stack: string, pageOrigin: string): string | undefi
 
     const origin = new URL(address).origin
 
+    // An opaque origin, as `webpack-internal://` code has, says nothing about whose code it is: look further out.
+    if (origin === "null") {
+      continue
+    }
+
     return origin === pageOrigin ? undefined : origin
   }
 
@@ -182,7 +187,7 @@ const imported = new Map<string, string>()
  * frame's stylesheet ignores; reading them starts here, and tells the origin's listeners once they're in.
  */
 function styleWithImports(css: string, origin: string): string {
-  if (!importPattern().test(css)) {
+  if (importsIn(css).length === 0) {
     return css
   }
 
@@ -216,6 +221,19 @@ function importAddress(match: readonly (string | undefined)[]): string {
   return match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? ""
 }
 
+/** `css`'s `@import` statements outside comments: where each starts and ends, its address and its conditions. */
+function importsIn(css: string): { start: number; end: number; address: string; conditions: string }[] {
+  // Comments are blanked out, same length, so what's found lines up with the text as it was.
+  const uncommented = css.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, (comment) => " ".repeat(comment.length))
+
+  return [...uncommented.matchAll(importPattern())].map((match) => ({
+    start: match.index,
+    end: match.index + match[0].length,
+    address: importAddress(match),
+    conditions: match[6] ?? ""
+  }))
+}
+
 /** A stylesheet's text by its address, and where it came from in the end, after any redirect. */
 async function fetchStylesheet(address: string): Promise<{ text: string; from: string } | undefined> {
   try {
@@ -238,7 +256,7 @@ export async function withImports(
   readSheet: (address: string) => Promise<{ text: string; from: string } | undefined> = fetchStylesheet,
   depth = 0
 ): Promise<string> {
-  const statements = [...css.matchAll(importPattern())]
+  const statements = importsIn(css)
 
   if (statements.length === 0 || depth > 5) {
     return css
@@ -246,15 +264,23 @@ export async function withImports(
 
   const contents = await Promise.all(
     statements.map(async (statement) => {
-      const answer = await readSheet(new URL(importAddress(statement), address).href)
+      const answer = await readSheet(new URL(statement.address, address).href)
 
       return answer ? withImports(relativeUrlsFrom(answer.text, answer.from), answer.from, readSheet, depth + 1) : ""
     })
   )
 
-  let index = 0
+  let from = 0
 
-  return css.replace(importPattern(), () => importConditions(contents[index] ?? "", statements[index++]?.[6] ?? ""))
+  const parts = statements.map((statement, index) => {
+    const before = css.slice(from, statement.start)
+
+    from = statement.end
+
+    return before + importConditions(contents[index] ?? "", statement.conditions)
+  })
+
+  return parts.join("") + css.slice(from)
 }
 
 /** Imported CSS wrapped in the layer, supports condition and media its `@import` names, in that order outward. */
