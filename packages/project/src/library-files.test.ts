@@ -140,3 +140,85 @@ describe("library files", () => {
     )
   })
 })
+
+describe("components shadcn-sync generates", () => {
+  /** `@buildkitgg/shadcn` as sync writes it into an app, with the settings it records in `manifest.json`. */
+  async function synced(settings: Record<string, string>, declarations: string) {
+    await write("node_modules/@buildkitgg/shadcn/package.json", {
+      name: "@buildkitgg/shadcn",
+      version: "0.1.4",
+      types: "index.d.ts"
+    })
+    await write("node_modules/@buildkitgg/shadcn/manifest.json", { generatorVersion: "0.1.4", settings })
+    await write("node_modules/@buildkitgg/shadcn/index.d.ts", declarations)
+  }
+
+  it("are read with their kit's file, imported from the package the app has, and checked against what it exports", async () => {
+    await synced(
+      { base: "base", icons: "lucide", style: "nova", theme: "neutral", css: "tailwind" },
+      "export function Button(): unknown\nexport function Attachment(): unknown"
+    )
+    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+      version: 4,
+      id: "nova",
+      name: "Shadcn Nova",
+      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      styles: "tailwind.css",
+      decorators: [{ wrap: { import: "@buildkitgg/shadcn-baseui-nova", component: "TooltipProvider" } }],
+      components: { list: { Button: component(), Sonner: component() } }
+    })
+
+    const found = await findLibraries(
+      root,
+      { dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } },
+      ["src/index.css"],
+      renderer,
+      [],
+      join(root, "registry")
+    )
+
+    expect(found.libraries).toMatchObject([
+      {
+        id: "nova",
+        name: "Shadcn Nova",
+        package: "@buildkitgg/shadcn",
+        tailwindEntry: "tailwind.css",
+        stylesImported: false,
+        decorators: [{ wrap: { import: "@buildkitgg/shadcn", component: "TooltipProvider" } }]
+      }
+    ])
+    // The kit's Sonner isn't generated any more, and Attachment is newer than the kit's file.
+    expect(Object.keys(found.components).sort()).toEqual(["nova/Attachment", "nova/Button"])
+    expect(found.components["nova/Button"]?.path).toBe("@buildkitgg/shadcn")
+    // sync's version says nothing about the kit's, so there's no file to update.
+    expect(found.notes).toEqual([])
+  })
+
+  it("on a base with no kit, are listed from their declarations, with their own CSS when compiled", async () => {
+    await synced(
+      { base: "aria", icons: "lucide", style: "lyra", theme: "neutral", css: "compiled" },
+      "export function Button(): unknown"
+    )
+
+    const found = await findLibraries(
+      root,
+      { dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } },
+      [],
+      renderer,
+      [],
+      join(root, "registry")
+    )
+
+    expect(found.libraries).toMatchObject([
+      {
+        id: "lyra",
+        name: "Shadcn Lyra",
+        description: "Every shadcn component on React Aria, in the lyra style.",
+        package: "@buildkitgg/shadcn",
+        stylesImported: true
+      }
+    ])
+    expect(found.libraries[0]?.tailwindEntry).toBeUndefined()
+    expect(Object.keys(found.components)).toEqual(["lyra/Button"])
+  })
+})
