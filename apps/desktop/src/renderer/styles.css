@@ -579,6 +579,13 @@ textarea,
   user-select: text;
 }
 
+/* Someone else's caret in a live room blinks as a text field's does (canvas/RoomTyping.tsx). */
+@keyframes room-caret-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
 /* An idle agent's cursor breathes, with a soft pulse around it, while it waits for the agent's next call. */
 @keyframes agent-breathe {
   0%,

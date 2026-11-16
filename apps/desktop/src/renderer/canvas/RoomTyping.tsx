@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react"
 import { agentPalettes } from "../agent/agent-colors.ts"
 import type { Typist } from "../live-room.ts"
-import { hairline, type Member } from "../multiplayer/member.ts"
+import type { Member } from "../multiplayer/member.ts"
 import { Outlined } from "../multiplayer/Outlined.tsx"
 import { useProject } from "./context.ts"
 import { areaSpace, type Box } from "./frame-geometry.ts"
@@ -10,6 +10,9 @@ import { scheduleOverlay } from "./overlay-scheduler.ts"
 import { caretLine, drawnText } from "./text-caret.ts"
 
 const nobody: readonly Typist[] = []
+
+/** How much of the letters' box a caret leaves out, at the top and at the bottom, so it's as tall as a text field's. */
+const caretTrim = 0.1
 const never = () => () => undefined
 
 /**
@@ -85,15 +88,17 @@ function TypistMarks({ typist }: { typist: Typist }) {
             </Outlined>
           </div>
           {caret && (
+            // A caret as a text field draws one: thin, a little shorter than the letters' box, blinking once it rests.
+            // Keyed by where it is, so it shows steadily again each time it moves.
             <span
+              key={`${typist.typing.anchor}:${focus}`}
               aria-hidden
-              className="absolute w-0.5 rounded-full"
+              className="absolute w-[1.5px] animate-[room-caret-blink_1.06s_step-end_0.5s_infinite] motion-reduce:animate-none"
               style={{
-                left: caret.x - 1,
-                top: caret.y,
-                height: caret.h,
-                background: member.palette.color,
-                boxShadow: hairline(member.palette.ink)
+                left: caret.x - 0.75,
+                top: caret.y + caret.h * caretTrim,
+                height: caret.h * (1 - 2 * caretTrim),
+                background: member.palette.color
               }}
             />
           )}

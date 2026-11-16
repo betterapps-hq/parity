@@ -5475,7 +5475,8 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
 - **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
   it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
   person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
-  draw their caret, a 2px line in that color, before the character it's at, in every frame drawing the text. It goes
+  draw their caret before the character it's at, in every frame drawing the text: a 1.5px line in that color, a little
+  shorter than the letters, blinking once it rests, as a text field's caret does (steady with reduced motion). It goes
   when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
 - **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
   used to draw a thick 2px outline over it.
