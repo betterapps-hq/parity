@@ -1376,6 +1376,47 @@ changes" in `utility/frame-traces.test.ts`; "are made again for every component 
 imports changes" in `utility/previews.test.ts`. App F's file wasn't tried in the running app, since its fixture isn't
 installed locally.
 
+### A preview file offered from the app's providers (PAR-104)
+
+Most projects never write `.parity/preview.tsx` by hand, so Parity offers to write it from the providers the app's entry
+already renders around the app, and never writes it unasked.
+
+- **When it's offered.** As a project opens with no preview file, if its entry renders providers. A toast, "Wrap frames
+  in your providers?", names them and the file they're in, and stays until it's closed. Review opens "Write a preview
+  file?" with the file as it would be written: where it goes, its text and a copy button. Write file writes it. Closing
+  the toast or cancelling the review writes nothing, and the project isn't offered it again (`previewOfferClosed` in its
+  `projects.json` note).
+- **What's read.** The entry is the module script `index.html` loads, else `src/main`, `src/index` or `index` with a
+  script extension, and the element its `render` or `hydrateRoot` call draws. The app's own components are followed into
+  their files, up to six files deep. A component whose name ends in `Provider` or `Providers` is taken, from a package
+  or the app; `StrictMode`, `Suspense`, `Profiler` and fragments are looked inside; routers are passed over, since a
+  router's extension draws frames inside one. Reading stops at anything else, or where an element has several children
+  that aren't providers.
+- **What's written.** One decorator nesting the providers, outermost first, around `<Story />`. Props are carried as the
+  app writes them; what they import is imported from `.parity/`, and what the file declares at its top level, such as
+  `const queryClient = new QueryClient()`, is copied. A prop choosing a dark or light value, as
+  `isDark ? darkTheme : lightTheme` does, chooses by the frame's `theme` global, and the file declares that global with
+  `light` as its default. A JavaScript app gets `preview.jsx`, a TypeScript one `preview.tsx`, in the entry's quotes.
+- **Left out, with why.** A provider whose props need something only the running app has, such as its state or spread
+  props, isn't written; the review lists it with what it needs. With none left to write, nothing is offered.
+- **Picked up at once.** The preview file is one of detection's inputs, so a project that gets one while it's open, from
+  the offer or by hand, opens again with it and its frames draw inside the providers. The write reads the app again and
+  never replaces a preview file that's there.
+- **App F** (`fixtures/webpack-react-router`) is offered, from `src/App.jsx`, the file it already has: its
+  styled-components `ThemeProvider` with `lightTheme` or `darkTheme` from `src/theme.js`, picked by the `theme` global.
+
+Code: `offerPreviewFile` in `packages/project/src/app-providers.ts`; `previewOffer` and `writePreviewFile` in
+`apps/desktop/src/utility/preview-offer.ts`, answering `preview.offer` and `preview.write`; the preview file's names in
+`detectionInputs` (`packages/project/src/detection-inputs.ts`); `offerPreviewFile` on the workspace
+(`renderer/workspace.ts`); `offerPreviewFile` and `PreviewOfferDialog` in `renderer/chrome/PreviewOffer.tsx`;
+`closedPreviewOffer` in `packages/settings/src/projects-file.ts`.
+
+Tests: "a preview file offered from the app's providers" in `packages/project/src/app-providers.test.ts`, including app
+F's own files; "the preview file offered from the app's providers" in `apps/desktop/src/utility/preview-offer.test.ts`;
+"changes once the project has a preview file" in `packages/project/src/detection-inputs.test.ts`; "remembers a closed
+preview file offer" in `packages/settings/src/projects-file.test.ts`; the Parity/Chrome/Prompts/Preview file stories.
+App F's offer wasn't tried in the running app, since its fixture isn't installed locally.
+
 ### Pages are the routes' files (PAR-1163)
 
 Which components are pages comes from the router extension's routes, not from file names in core: a component is a page

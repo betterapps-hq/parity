@@ -45,6 +45,7 @@ import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
 import { freePort, portFree } from "./ports.ts"
+import { previewOffer, writePreviewFile } from "./preview-offer.ts"
 import { componentPreviews } from "./previews.ts"
 import { dismissProcess, listProcesses, restartProcess, stopProcess } from "./processes.ts"
 import { openProjects, saveDocumentCopy } from "./projects.ts"
@@ -334,6 +335,8 @@ const handlers: Handlers<ServiceMethods> = {
   "pictures.read": ({ roots }) => readPictures(roots),
   "pictures.keepOnly": ({ roots }) => keepOnlyPictures(roots),
   "start.check": ({ roots }) => checkStartFolders(roots),
+  "preview.offer": ({ projectId }) => previewOffer(projects.get(projectId).info.root),
+  "preview.write": ({ projectId }) => writePreviewFile(projects.get(projectId).info.root),
   "previews.lookup": async (params) => ({ previews: await previews.lookupPreviews(params.previews) }),
   "previews.make": ({ preview, priority }) => previews.makePreview(preview, priority),
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),

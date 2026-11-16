@@ -38,7 +38,7 @@ import type {
   WindowAsk
 } from "@parity-app/extension-host"
 import type { UpdateState } from "@parity-app/processes"
-import type { ProjectInfo } from "@parity-app/project"
+import type { PreviewOffer, ProjectInfo } from "@parity-app/project"
 import type {
   AppState,
   JsonValue,
@@ -248,6 +248,13 @@ export interface ServiceMethods {
    * the example project's folder, when this copy of Parity has it.
    */
   "start.check": { params: ServiceParams["start.check"]; result: { missing: string[]; example?: string } }
+  /**
+   * The preview file Parity offers to write from the providers the app's entry renders (PAR-104), unless the project
+   * has a preview file already or its entry renders none.
+   */
+  "preview.offer": { params: ServiceParams["preview.offer"]; result: PreviewOffer | undefined }
+  /** Writes the offered preview file, read afresh, and never over one that's there; gives where it went. */
+  "preview.write": { params: ServiceParams["preview.write"]; result: { file: string } }
   /**
    * What's kept of components' previews for the code their jobs draw (PAR-207): each one's key and, when it's made
    * for that key, its pictures; else the latest one made before, to show while it's made again. Nothing is drawn.
