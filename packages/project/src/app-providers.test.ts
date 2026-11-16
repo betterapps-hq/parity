@@ -392,6 +392,23 @@ createRoot(document.getElementById("root")).render(
     expect(offer?.text).toContain(`<SessionProvider value={context}>`)
   })
 
+  it("leaves out a provider whose prop imports a module by a relative path as it runs", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { LocaleProvider } from "./locale-provider"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <LocaleProvider load={() => import("./locale.js")}><App /></LocaleProvider>
+)
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

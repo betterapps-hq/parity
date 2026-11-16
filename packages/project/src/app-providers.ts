@@ -559,6 +559,11 @@ function carryProps(
       continue
     }
 
+    // A path relative to the app's file would point elsewhere from `.parity/`, as in copied declarations.
+    if (refersRelatively(expression)) {
+      return { needs: name }
+    }
+
     const theme = themeChoice(expression)
     const parts = theme ? [theme.dark, theme.light] : [expression]
 
@@ -802,7 +807,7 @@ function namesOnly(node: ts.Identifier): boolean {
   )
 }
 
-/** Whether a declaration uses `import.meta` or imports a module by a relative path as it runs. */
+/** Whether a declaration or prop uses `import.meta` or imports a module by a relative path as it runs. */
 function refersRelatively(declaration: ts.Node): boolean {
   let found = false
 
