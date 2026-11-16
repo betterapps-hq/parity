@@ -786,9 +786,14 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
   }
 }
 
-/** A window module from what its file exports: its `activateWindow`, and its `deactivateWindow` if it has one. */
+/**
+ * A window module from what its file exports, as `export default defineWindowModule(…)` or as named exports: its
+ * `activateWindow`, and its `deactivateWindow` if it has one.
+ */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- a module can export anything; this is where it's checked
-function moduleOf(exports: unknown): WindowModule {
+function moduleOf(loaded: unknown): WindowModule {
+  const exports = isObject(loaded) && "default" in loaded && isObject(loaded.default) ? loaded.default : loaded
+
   if (!isObject(exports) || !("activateWindow" in exports) || !(exports.activateWindow instanceof Function)) {
     throw new Error("Its window module doesn't export activateWindow")
   }

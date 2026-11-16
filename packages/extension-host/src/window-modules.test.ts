@@ -515,13 +515,16 @@ describe("an internal extension's two halves (the window test extension, in the 
     const runtime = windowModules({
       tab: "tab-1",
       project: { root: "/shop", name: "Shop" },
+      // As the window's chunk loads it: `export default defineWindowModule(…)`.
       load: () =>
         Promise.resolve({
-          activateWindow(parity: WindowParity) {
-            parities.set(parity.extension.id, parity)
+          default: defineWindowModule({
+            activateWindow(parity: WindowParity) {
+              parities.set(parity.extension.id, parity)
 
-            return windowTestModule.activateWindow(parity)
-          }
+              return windowTestModule.activateWindow(parity)
+            }
+          })
         }),
       editor: {
         selection: {
