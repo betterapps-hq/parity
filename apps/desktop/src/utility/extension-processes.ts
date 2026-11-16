@@ -1,6 +1,5 @@
 import { constants } from "node:fs"
 import { access, readFile, stat } from "node:fs/promises"
-import { createRequire } from "node:module"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
 import type { Candidate, ProcessSpec, Run } from "@parity-app/extension-api"
 import type { ExtensionProcesses, ProcessCaller, ProcessListener } from "@parity-app/extensions"
@@ -21,7 +20,7 @@ import {
   withUsualFolders,
   withUsualPath
 } from "@parity-app/processes"
-import { detectPackageManager } from "@parity-app/project"
+import { detectPackageManager, findPackage, pnpNodeOptions } from "@parity-app/project"
 import { z } from "zod"
 import { logNote } from "../shared/log.ts"
 import { managedId } from "../shared/process-ids.ts"
@@ -353,6 +352,13 @@ function managedSpec(caller: ProcessCaller, project: ProcessProject, spec: Proce
       }
 
       const env = withUsualPath(runEnvironment(spec.run, process.env, added), process.platform)
+      // A package's command line from a Plug'n'Play project runs with Yarn's runtime, as `yarn exec` runs it.
+      const pnpOptions = "bin" in spec.run ? pnpNodeOptions(project.root, env.NODE_OPTIONS) : undefined
+
+      if (pnpOptions) {
+        env.NODE_OPTIONS = pnpOptions
+      }
+
       const command = await commandFor(caller, project.root, spec.run, fillPort(spec.args ?? [], port), env)
       const launch: Launch = { ...command, cwd, env }
 
@@ -424,23 +430,13 @@ async function commandFor(
 
 /** A package's command line, from the copy installed in the project: the script its package.json's `bin` names. */
 async function binScript(root: string, bin: string, name: string): Promise<string> {
-  const notFound = () => new ProcessError("process_not_found", `${name} isn't installed in the project`)
-  const require = createRequire(join(root, "package.json"))
-  // Its folder, looked for as Node looks for it, without its exports, which may not list package.json.
-  const folders = (require.resolve.paths(name) ?? []).map((folder) => join(folder, name))
-  let folder: string | undefined
+  const installed = await findPackage(root, name).catch(() => undefined)
 
-  for (const candidate of folders) {
-    if (await isFile(join(candidate, "package.json"))) {
-      folder = candidate
-      break
-    }
+  if (!installed) {
+    throw new ProcessError("process_not_found", `${name} isn't installed in the project`)
   }
 
-  if (!folder) {
-    throw notFound()
-  }
-
+  const folder = installed.dir
   const manifest = binManifest.safeParse(JSON.parse(await readFile(join(folder, "package.json"), "utf8")))
   const declared = manifest.success ? manifest.data.bin : undefined
   let script: string | undefined

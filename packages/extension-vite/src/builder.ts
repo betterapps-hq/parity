@@ -23,13 +23,22 @@ import {
   scriptConfigExtensions
 } from "@parity-app/core"
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
-import { commandOption, gatherChanges, type GuestModule, guestModule, scriptRunning } from "@parity-app/project"
+import {
+  commandOption,
+  findPackage,
+  gatherChanges,
+  type GuestModule,
+  guestModule,
+  importFromPnp,
+  scriptRunning
+} from "@parity-app/project"
 import type * as Vite from "vite"
 import { appPageModes } from "./app-page.ts"
 import { serverAppStyles, viteAppStyles } from "./app-styles.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
+import { importsOutsidePnp } from "./pnp-imports.ts"
 import { warmGuestGraph } from "./warmup.ts"
 
 /** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */
@@ -116,6 +125,7 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
       ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
     },
     plugins: [
+      importsOutsidePnp(options.root, options.renderer.runtimePackages),
       guestPlugin(options.renderer, () => served, vite.normalizePath(options.rendererGuestPath)),
       elementSources(vite.normalizePath(options.root)),
       dependencySourceMaps(),
@@ -594,37 +604,24 @@ export async function scriptedConfig(root: string): Promise<string | undefined> 
 }
 
 /**
- * The project's own Vite, from `node_modules` in its folder or one above, the way Node finds packages. Not through
- * `require.resolve`, which also looks in `NODE_PATH`: package manager scripts set it, and it would find Parity's Vite.
+ * The project's own Vite, from `node_modules` in its folder or one above, the way Node finds packages, or from Yarn's
+ * map in a Plug'n'Play project, whose loader is registered first so Vite's modules import from Yarn's archives. Not
+ * through `require.resolve`, which also looks in `NODE_PATH`: package manager scripts set it, and it would find
+ * Parity's Vite.
  */
 export async function loadProjectVite(root: string): Promise<typeof Vite> {
-  let folder: string | undefined
+  const installed = await findPackage(root, "vite")
 
-  for (let candidate = resolve(root); ; candidate = dirname(candidate)) {
-    if (await isFile(join(candidate, "node_modules", "vite", "package.json"))) {
-      folder = await realpath(join(candidate, "node_modules", "vite"))
-      break
-    }
-
-    if (dirname(candidate) === candidate) {
-      throw new Error(`Vite is not installed in ${root}`)
-    }
+  if (!installed) {
+    throw new Error(`Vite is not installed in ${root}`)
   }
 
-  const file = join(folder, "package.json")
-  const { exports } = parseManifest(await readFile(file, "utf8"), file)
-
+  importFromPnp(root)
+  const { exports } = installed.manifest
   const entry = resolveImportCondition(isComposite(exports) && !Array.isArray(exports) ? exports["."] : undefined)
 
   // SAFETY: the file is the ESM entry Vite's own package.json names, so its exports are Vite's API.
-  return (await import(pathToFileURL(join(folder, entry)).href)) as typeof Vite
-}
-
-async function isFile(path: string): Promise<boolean> {
-  return stat(path).then(
-    (stats) => stats.isFile(),
-    () => false
-  )
+  return (await import(pathToFileURL(join(installed.dir, entry)).href)) as typeof Vite
 }
 
 function resolveImportCondition(target: ExportsTarget | undefined): string {
