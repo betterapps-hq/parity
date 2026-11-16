@@ -50,7 +50,7 @@ const names = (plugins: BundlerConfig["plugins"]) =>
   (plugins ?? []).map((one) => (one instanceof Object ? one.constructor.name : String(one)))
 
 describe("guestConfig", () => {
-  it("builds the guest's entry and the global stylesheets in place of the app, to the builder's own folder", () => {
+  it("builds the guest's entry and the global stylesheets beside the app's own, to the builder's own folder", () => {
     const config = guestConfig(
       { entry: "./src/main.tsx", output: { path: "/app/dist", filename: "app.js" } },
       bundler,
@@ -60,7 +60,8 @@ describe("guestConfig", () => {
     expect(config.entry).toEqual({
       main: { import: [options.entry], library: { type: "window", name: "parity_guest_4000" } },
       styles: { import: ["/app/src/index.css"] },
-      "package-styles": { import: ["fake-ui/styles.css"] }
+      "package-styles": { import: ["fake-ui/styles.css"] },
+      "app-main": { import: ["./src/main.tsx"] }
     })
     expect(config.output).toMatchObject({
       path: options.output,
@@ -97,6 +98,30 @@ describe("guestConfig", () => {
       { test: /^\/parity\/renderer\/guest\.js$/, enforce: "pre", loader: options.renderer.loader },
       { test: /\.svg$/, type: "asset" }
     ])
+  })
+
+  it("makes the app's page with the project's HTML plugin, from the app's entries", () => {
+    class HtmlRspackPlugin {
+      options: { template?: string; chunks?: string[]; filename?: string }
+
+      constructor(options: HtmlRspackPlugin["options"]) {
+        this.options = options
+      }
+
+      apply() {
+        return undefined
+      }
+    }
+
+    const own = new HtmlRspackPlugin({ template: "./index.html" })
+    const config = guestConfig({ entry: { index: "./src/index.tsx" }, plugins: [own] }, bundler, options)
+    const pages = (config.plugins ?? []).filter((one) => one instanceof HtmlRspackPlugin)
+
+    expect(pages).toHaveLength(1)
+    expect(pages[0]).not.toBe(own)
+    expect(pages[0]).toMatchObject({
+      options: { template: "./index.html", chunks: ["app-index"], filename: "app-page.html" }
+    })
   })
 
   it("puts its own CSS extractor in place of the project's, and leaves out Rsbuild's HTML plugin", () => {

@@ -2,10 +2,12 @@ import { readFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { extname, isAbsolute, relative, resolve } from "node:path"
+import { pageEventsPath } from "./app-pages.ts"
 
 /*
- * Serves the guest's build to the canvas: the modules the builder writes for the page, and the files the bundler wrote,
- * on 127.0.0.1 only. Nothing else: no dev server of the tool's, no file system in memory.
+ * Serves the guest's build to the canvas: the modules the builder writes for the page, the files the bundler wrote, and
+ * the app's page at its routes' paths, on 127.0.0.1 only. Nothing else: no dev server of the tool's, no file system in
+ * memory.
  */
 
 const loopback = "127.0.0.1"
@@ -44,6 +46,16 @@ export interface GuestServerOptions {
   /** Settles once the build is done, so nothing half-written is served. */
   ready(): Promise<void>
   module: ServedModule
+  /** The app's page, served at a path that names no file, as a route's is (PAR-1076). */
+  page?: AppPage
+}
+
+/** The app's page, and what tells it to reload. */
+export interface AppPage {
+  /** The page as the canvas gets it, or nothing when the app has none. */
+  html(): Promise<string | undefined>
+  /** Calls `reload` after each build that changes something, until the function it gives back is called. */
+  listen(reload: () => void): () => void
 }
 
 /** Starts the server. Its origin is `http://127.0.0.1:<port>`. */
@@ -98,8 +110,16 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
     return
   }
 
-  await options.ready()
   const url = new URL(request.url ?? "/", `http://${loopback}`)
+
+  // Opened before the build is done, so a page loaded during the first build hears about the next.
+  if (options.page && url.pathname === pageEventsPath) {
+    listenForReloads(options.page, request, response)
+
+    return
+  }
+
+  await options.ready()
   const source = await options.module(url)
 
   if (source !== undefined) {
@@ -122,6 +142,17 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
     }
   }
 
+  // A route's path names no file: the app's page draws it, its router reading the path.
+  const page = !body && extname(url.pathname) === "" ? await options.page?.html() : undefined
+
+  if (page !== undefined) {
+    response.setHeader("Content-Type", "text/html; charset=utf-8")
+    response.setHeader("Cache-Control", "no-store")
+    response.end(page)
+
+    return
+  }
+
   if (!body) {
     response.statusCode = 404
     response.end()
@@ -132,6 +163,18 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
   response.setHeader("Content-Type", types.get(extname(file!).toLowerCase()) ?? "application/octet-stream")
   response.setHeader("Cache-Control", "no-store")
   response.end(body)
+}
+
+/** Keeps a page's event stream open, sending a message each time a build changes something, until the page goes. */
+function listenForReloads(page: AppPage, request: IncomingMessage, response: ServerResponse): void {
+  response.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-store",
+    Connection: "keep-alive"
+  })
+  response.write(": listening\n\n")
+  const stop = page.listen(() => response.write("data: reload\n\n"))
+  request.once("close", stop)
 }
 
 /** The output file a request's path names, or nothing for one outside the output folder. */
