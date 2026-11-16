@@ -12,10 +12,29 @@ const errors: string[] = []
 
 /** What the page loads: a guest stylesheet whose compiled CSS declares `--primary` in the root and dark themes. */
 const entry = `
-import { guestSheet, previewToken, showTokenOverrides } from "./guest.ts"
+import { guestSheet, previewToken, showModuleStyles, showTokenOverrides } from "./guest.ts"
 
 export const css = ":host { --primary: black; --radius: 0.5rem; } .dark { --primary: white; }"
-export { guestSheet, previewToken, showTokenOverrides }
+export { guestSheet, previewToken, showModuleStyles, showTokenOverrides }
+
+/** Stylesheets as a guest's modules import them, with what the canvas listens with. */
+export function moduleStyles() {
+  const sheets = new Map()
+  const listeners = new Set()
+
+  return {
+    set(id, css) {
+      css === undefined ? sheets.delete(id) : sheets.set(id, css)
+      listeners.forEach((listener) => listener())
+    },
+    listeners: () => listeners.size,
+    sheets: () => [...sheets.values()],
+    subscribe(listener) {
+      listeners.add(listener)
+      return () => listeners.delete(listener)
+    }
+  }
+}
 
 /** The whole stylesheet, as its rules read now. */
 export function text(sheet) {
@@ -219,5 +238,47 @@ describe("previewToken", () => {
   it("leaves a prefers-color-scheme block alone when previewing the default", async () => {
     const css = `:host { --c: #fff; } @media (prefers-color-scheme: dark) { :host { --c: #000; } }`
     expect(await previewed(css, "c", "default", "red")).toEqual([":host { --c: red; }", ":host { --c: #000; }"])
+  })
+})
+
+describe("showModuleStyles", () => {
+  it("draws what the project's modules import in frames, and keeps fonts and registered properties in the document (PAR-1181)", async () => {
+    const shown = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { moduleStyles, showModuleStyles, text } = guest
+      const styles = moduleStyles()
+      const before = "@property --a { syntax: '*'; inherits: false; }"
+      const sheets = { scoped: new CSSStyleSheet(), global: new CSSStyleSheet(), before }
+      const read = () => ({ scoped: text(sheets.scoped), global: text(sheets.global) })
+      const stop = showModuleStyles(styles, sheets, "http://project.test")
+
+      const steps = [read()]
+      styles.set("/src/card.css", "body { color: red; } @font-face { font-family: Card; src: url(/card.woff2); }")
+      steps.push(read())
+      styles.set("/src/card.css", "body { color: blue; }")
+      styles.set("/src/theme.css.ts.vanilla.css", ":root { --brand: green; }")
+      steps.push(read())
+      styles.set("/src/card.css", undefined)
+      steps.push(read())
+      stop()
+      styles.set("/src/late.css", ".late { color: red; }")
+      steps.push(read())
+
+      return { steps, listeners: styles.listeners() }
+    })
+
+    const property = '@property --a { syntax: "*"; inherits: false; }'
+    expect(shown.steps[0]).toEqual({ scoped: "", global: property })
+    expect(shown.steps[1]!.scoped).toBe("[data-canvas-body] { color: red; }")
+    expect(shown.steps[1]!.global).toContain(property)
+    expect(shown.steps[1]!.global).toContain('src: url("http://project.test/card.woff2")')
+    expect(shown.steps[2]).toEqual({
+      scoped: "[data-canvas-body] { color: blue; }\n:host { --brand: green; }",
+      global: property
+    })
+    expect(shown.steps[3]).toEqual({ scoped: ":host { --brand: green; }", global: property })
+    // Once stopped, a stylesheet a module imports later changes nothing.
+    expect(shown.steps[4]).toEqual(shown.steps[3])
+    expect(shown.listeners).toBe(0)
   })
 })

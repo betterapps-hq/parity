@@ -47,6 +47,7 @@ describe("guestModuleSource", () => {
 
     const modules = new Map<string, object>([
       ["virtual:canvas/renderer", { createGuest: <Init>(init: Init) => init }],
+      ["virtual:canvas/module-styles", { moduleStyles: {} }],
       ["/src/fine.tsx", { Fine: "fine" }]
     ])
 

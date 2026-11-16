@@ -537,10 +537,23 @@ export interface GuestInit {
    * read for tokens: a library's tokens come from its `.lib.par`, and the rest are its components' own variables.
    */
   packageCss?: string
+  /**
+   * Stylesheets the project's modules import as they load, such as a component's own CSS or CSS modules, which a dev
+   * server would otherwise add to the page's head, where they'd restyle Parity's own window.
+   */
+  moduleStyles?: ModuleStyles
   /** Libraries' decorators, outermost first, with the modules they import by specifier. */
   decorators?: GuestDecorators
   /** Categories for custom properties libraries describe, by name without `--`. */
   tokenCategories?: Record<string, TokenCategory>
+}
+
+/** The stylesheets a guest's modules imported, which frames draw with after the project's global stylesheets. */
+export interface ModuleStyles {
+  /** Each one's CSS as compiled, in the order they were first imported. */
+  sheets(): string[]
+  /** Calls `listener` when one is added, changed or taken away, and gives back what stops that. */
+  subscribe(listener: () => void): () => void
 }
 
 /** One icon package, and how its icons are drawn. */
@@ -610,6 +623,7 @@ export interface Guest {
   iconAliases?(library: string, style?: string): Record<string, string[]>
   css: string
   packageCss?: string
+  moduleStyles?: ModuleStyles
   tokenCategories?: Record<string, TokenCategory>
   /** Renders a resolved design. Components the guest doesn't know render as a visible placeholder. */
   mount(target: HTMLElement, tree: RenderNode[], options?: MountOptions): MountHandle

@@ -11,7 +11,7 @@ import type { LoadedGuest } from "./guest.ts"
 
 /** What a frame mounts: the project's guest and styles, the mode, and what the guest reports back. */
 export interface FrameMount {
-  loaded: Pick<LoadedGuest, "guest" | "sheet" | "themeAttributes" | "rules">
+  loaded: Pick<LoadedGuest, "guest" | "sheet" | "moduleSheet" | "themeAttributes" | "rules">
   mode: FrameMode
   /** Stylesheets after the project's own, such as the classes Parity writes for its layers. */
   sheets?: readonly CSSStyleSheet[]
@@ -51,7 +51,8 @@ const current = new WeakMap<Element, MountedFrame>()
  */
 export function mountFrame(host: HTMLElement, mount: FrameMount): MountedFrame {
   const { loaded } = mount
-  const { environment, options } = frameSetup(mount.mode, loaded.themeAttributes, mount.sheets)
+  const sheets = [loaded.moduleSheet, ...(mount.sheets ?? [])]
+  const { environment, options } = frameSetup(mount.mode, loaded.themeAttributes, sheets)
   const target = prepareFrame(host, loaded.sheet, environment)
   flushWatchers(host)
   const tree = mount.tree ?? []

@@ -4,6 +4,7 @@ import {
   type FrameRulesOptions,
   frameRules,
   type Guest,
+  type ModuleStyles,
   prepareCanvasCss,
   previewRules,
   type RenderNode,
@@ -24,6 +25,8 @@ export interface LoadedGuest extends FrameCss {
   guest: Guest
   /** Adopted by every rendered mode's shadow root. */
   sheet: CSSStyleSheet
+  /** Adopted by every rendered mode's shadow root after `sheet`: the stylesheets the project's modules imported. */
+  moduleSheet: CSSStyleSheet
   /** The project's design tokens: its compiled CSS's variables plus its styling framework's full theme. */
   tokens: Token[]
   /** The attributes that switch on each theme the project sets by attribute, which frames in its mode get. */
@@ -47,6 +50,8 @@ interface Loading {
   loaded: Promise<LoadedGuest>
   /** The stylesheet the document adopted for the guest's rules that can't go in a shadow root, once made. */
   global?: CSSStyleSheet
+  /** Stops showing the stylesheets the guest's modules import, once it shows them. */
+  stopModuleStyles?: () => void
   released?: boolean
 }
 
@@ -89,6 +94,7 @@ export function releaseGuest(url: string): void {
 
   guests.delete(url)
   entry.released = true
+  entry.stopModuleStyles?.()
   const { global } = entry
 
   if (global) {
@@ -102,7 +108,20 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   // Packages' stylesheets draw first, as the app imports them first, and aren't tokens: see `GuestInit.packageCss`.
   const packages = prepareCanvasCss(guest.packageCss ?? "", { baseUrl: new URL(url).origin })
   const global = new CSSStyleSheet()
-  global.replaceSync(packages.global + css.global)
+  const moduleSheet = new CSSStyleSheet()
+  const sheets = { scoped: moduleSheet, global, before: packages.global + css.global }
+
+  if (guest.moduleStyles) {
+    const stop = showModuleStyles(guest.moduleStyles, sheets, new URL(url).origin)
+
+    if (entry.released) {
+      stop()
+    } else {
+      entry.stopModuleStyles = stop
+    }
+  } else {
+    global.replaceSync(sheets.before)
+  }
 
   if (!entry.released) {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, global]
@@ -125,10 +144,41 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   return {
     guest,
     sheet,
+    moduleSheet,
     tokens: extractTokens(written.scoped, theme, guest.tokenCategories),
     themeAttributes: themeAttributes(collectCustomProperties(written.scoped)),
     ...frameCss(guest.css, new URL(url).origin)
   }
+}
+
+/**
+ * Shows the stylesheets a guest's modules import (PAR-1181), as they come: their rules for frames in `scoped`, and in
+ * `global`, the document's, after `before`, the rules only the document can hold, `@font-face` and `@property`, as the
+ * project's global stylesheets' are. Each stylesheet is prepared once while it stays the same. Gives back what stops it.
+ */
+export function showModuleStyles(
+  styles: ModuleStyles,
+  sheets: { scoped: CSSStyleSheet; global: CSSStyleSheet; before: string },
+  origin: string
+): () => void {
+  let prepared = new Map<string, ReturnType<typeof prepareCanvasCss>>()
+
+  const show = () => {
+    const next = new Map<string, ReturnType<typeof prepareCanvasCss>>()
+
+    for (const css of styles.sheets()) {
+      next.set(css, next.get(css) ?? prepared.get(css) ?? prepareCanvasCss(css, { baseUrl: origin }))
+    }
+
+    prepared = next
+    const all = [...next.values()]
+    sheets.scoped.replaceSync(all.map(({ scoped }) => scoped).join("\n"))
+    sheets.global.replaceSync([sheets.before, ...all.map(({ global }) => global)].join("\n"))
+  }
+
+  show()
+
+  return styles.subscribe(show)
 }
 
 /**
