@@ -122,6 +122,8 @@ export {
   splitSpecifier
 } from "./packages.ts"
 
+export { importFromPnp, type PnpProject, pnpNodeOptions, pnpProject } from "./pnp.ts"
+
 export { readStylesheet } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"

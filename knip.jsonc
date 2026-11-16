@@ -60,6 +60,11 @@
       // scripts/try-packed.ts tries the packed CLI.
       "entry": ["src/**/*.test.ts", "scripts/*.ts", "src/send.ts"]
     },
+    "packages/fixtures": {
+      // snapshot.ts is the script detection.test.ts runs in a Node process of its own for a Plug'n'Play project.
+      "entry": ["src/snapshot.ts", "src/**/*.test.ts"],
+      "project": ["src/**/*.ts"]
+    },
     "packages/libgen": {
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"],

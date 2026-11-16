@@ -1,0 +1,166 @@
+{
+  "opens": true,
+  "renderer": "react",
+  "builder": {
+    "id": "vite",
+    "found": true,
+    "version": "7.3.8",
+    "config": "vite.config.ts",
+    "summary": "Vite 7.3.8, config vite.config.ts"
+  },
+  "packageManager": {
+    "id": "yarn",
+    "name": "Yarn Berry",
+    "agent": "yarn@berry",
+    "from": "yarn.lock",
+    "lockfile": "yarn.lock",
+    "summary": "Yarn Berry from yarn.lock"
+  },
+  "tools": [
+    {
+      "id": "react",
+      "name": "React",
+      "version": "19.3.1",
+      "from": ".pnp.cjs",
+      "status": "supported",
+      "summary": "React 19.3.1 from .pnp.cjs"
+    },
+    {
+      "id": "vite",
+      "name": "Vite",
+      "version": "7.3.8",
+      "from": ".pnp.cjs",
+      "config": "vite.config.ts",
+      "status": "supported",
+      "summary": "Vite 7.3.8 from .pnp.cjs, config vite.config.ts"
+    },
+    {
+      "id": "storybook",
+      "name": "Storybook",
+      "version": "10.6.7",
+      "from": ".pnp.cjs",
+      "config": ".storybook/main.ts",
+      "status": "supported",
+      "summary": "Storybook 10.6.7 from .pnp.cjs, config .storybook/main.ts"
+    },
+    {
+      "id": "tanstack-router",
+      "name": "TanStack Router",
+      "version": "1.170.46",
+      "from": ".pnp.cjs",
+      "status": "supported",
+      "summary": "TanStack Router 1.170.46 from .pnp.cjs"
+    }
+  ],
+  "styles": {
+    "stylesheets": [
+      "src/index.css"
+    ],
+    "missing": []
+  },
+  "tokens": {
+    "count": 0,
+    "categories": {},
+    "semantic": {}
+  },
+  "themes": [],
+  "breakpoints": {},
+  "components": {
+    "AppShell": {
+      "path": "src/components/AppShell.tsx",
+      "export": "AppShell",
+      "as": "function",
+      "lazy": true
+    },
+    "EmptyState": {
+      "path": "src/components/EmptyState.tsx",
+      "export": "default",
+      "as": "function",
+      "lazy": true
+    },
+    "Home": {
+      "path": "src/routes/Home.tsx",
+      "export": "Home",
+      "as": "function",
+      "lazy": true
+    },
+    "NotFound": {
+      "path": "src/routes/NotFound.tsx",
+      "export": "NotFound",
+      "as": "function",
+      "lazy": true
+    },
+    "PriorityBadge": {
+      "path": "src/components/PriorityBadge.tsx",
+      "export": "PriorityBadge",
+      "as": "function",
+      "lazy": true
+    },
+    "Settings": {
+      "path": "src/routes/Settings.tsx",
+      "export": "Settings",
+      "as": "function",
+      "lazy": true
+    },
+    "SettingsSection": {
+      "path": "src/components/SettingsSection.tsx",
+      "export": "SettingsSection",
+      "as": "function",
+      "lazy": true
+    },
+    "StatCard": {
+      "path": "src/components/StatCard.tsx",
+      "export": "StatCard",
+      "as": "function",
+      "lazy": true
+    },
+    "TicketList": {
+      "path": "src/routes/TicketList.tsx",
+      "export": "TicketList",
+      "as": "function",
+      "lazy": true
+    },
+    "TicketPage": {
+      "path": "src/routes/TicketPage.tsx",
+      "export": "TicketPage",
+      "as": "function",
+      "lazy": true
+    },
+    "TicketRow": {
+      "path": "src/components/TicketRow.tsx",
+      "export": "TicketRow",
+      "as": "function",
+      "lazy": true
+    },
+    "TicketsLayout": {
+      "path": "src/routes/TicketsLayout.tsx",
+      "export": "TicketsLayout",
+      "as": "function",
+      "lazy": true
+    }
+  },
+  "libraries": [
+    {
+      "id": "fluent",
+      "package": "@fluentui/react-components",
+      "version": "9.75.2",
+      "stylesImported": true,
+      "components": 256
+    }
+  ],
+  "icons": [
+    {
+      "id": "fluent-icons",
+      "package": "@fluentui/react-icons",
+      "version": "2.0.346"
+    }
+  ],
+  "notes": [
+    "styles the builder found: src/index.css",
+    "12 components in 15 files from tsconfig.app.json",
+    "not read, since they mount the app: src/main.tsx",
+    "256 components from Fluent UI (@fluentui/react-components)",
+    "0 components from Fluent icons (@fluentui/react-icons)",
+    "no .par project file yet"
+  ]
+}
