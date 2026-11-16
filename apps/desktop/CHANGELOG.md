@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 17:18:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 18:04:00 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.97.1
+
+Mon, 16 Nov 2026 18:04:00 GMT
+
+### Patches
+
+- Stop opening a Vite 7 project sometimes hanging at "Starting the project's builder" (ajcraswell@gmail.com)
 
 ## 0.97.0
 

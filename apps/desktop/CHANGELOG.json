@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 18:04:00 GMT",
+      "version": "0.97.1",
+      "tag": "@parity-app/desktop_v0.97.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7e8a6256aa40ec85604ebe6bcc50cef8b3a5c799",
+            "comment": "Stop opening a Vite 7 project sometimes hanging at \"Starting the project's builder\""
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 17:18:05 GMT",
       "version": "0.97.0",
       "tag": "@parity-app/desktop_v0.97.0",
