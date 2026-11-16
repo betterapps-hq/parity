@@ -168,8 +168,8 @@ catalogs:
       specifier: 0.1.0
       version: 0.1.0
     '@buildkitgg/shadcn-sync':
-      specifier: 0.1.2
-      version: 0.1.2
+      specifier: 0.1.4
+      version: 0.1.4
     '@buildkitgg/storybook-config':
       specifier: 0.2.0
       version: 0.2.0
@@ -330,7 +330,7 @@ importers:
     devDependencies:
       '@buildkitgg/shadcn-sync':
         specifier: 'catalog:'
-        version: 0.1.2(@date-fns/tz@1.5.0)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(redux@5.0.1)(supports-color@7.2.0)
+        version: 0.1.4(@date-fns/tz@1.5.0)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(redux@5.0.1)(supports-color@7.2.0)
       '@buildkitgg/storybook-config':
         specifier: 'catalog:'
         version: 0.2.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vitest/browser@5.0.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@6.0.3)(vitest@5.0.5)(yaml@2.9.1))(@voidzero-dev/vite-plus-core@1.4.0(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(typescript@6.0.3)(yaml@2.9.1))(prettier@3.9.10)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(supports-color@7.2.0)(typescript@6.0.3)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(terser@5.51.2)(typescript@6.0.3)(yaml@2.9.1))(vitest@5.0.5)
@@ -1603,8 +1603,8 @@ packages:
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@buildkitgg/shadcn-sync@0.1.2':
-    resolution: {integrity: sha512-LvmI0/JemjCmHTcvjXpbMS9rb3TKLt907VkeoLl/an0X402WgNcVdiyR/VzByzfWSALOK3n/ImpW5jjhTxRm8Q==}
+  '@buildkitgg/shadcn-sync@0.1.4':
+    resolution: {integrity: sha512-yCLWO+sUtlfLZsNugIEELTltix1eXa609IUjWWwPGx6Vjnl1w9RCgzpDSfUAfv80oWFli3yrpsdImEpYBroAiA==}
     engines: {node: '>=24'}
     hasBin: true
     peerDependencies:
@@ -10192,7 +10192,7 @@ snapshots:
       - '@types/react'
       - date-fns
 
-  '@buildkitgg/shadcn-sync@0.1.2(@date-fns/tz@1.5.0)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(redux@5.0.1)(supports-color@7.2.0)':
+  '@buildkitgg/shadcn-sync@0.1.4(@date-fns/tz@1.5.0)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(redux@5.0.1)(supports-color@7.2.0)':
     dependencies:
       '@base-ui/react': 1.9.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@clack/prompts': 1.8.1
