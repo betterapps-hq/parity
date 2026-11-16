@@ -130,6 +130,8 @@ export interface AdapterIcon {
   path: string
   /** How overlapping parts fill: `evenodd` cuts one out of another, as the S out of Storybook's book. */
   fillRule?: "nonzero" | "evenodd"
+  /** The brand's colour for each theme, as six-digit hexes, which the logo takes when its status bar item is hovered. */
+  color?: { light: string; dark: string }
 }
 
 /**
