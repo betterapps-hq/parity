@@ -1,4 +1,5 @@
 import {
+  bodyAttribute,
   collectCustomProperties,
   type EnclosingAtRule,
   type FrameRulesOptions,
@@ -260,6 +261,9 @@ export function showTokenOverrides(sheet: CSSStyleSheet, overrides: readonly Tok
   shown.set(sheet, key)
 }
 
+/** The rule core's `prepareCanvasCss` declares a root's custom properties on the frame's body with. */
+const bodyRootCopy = `:where([${bodyAttribute}])`
+
 /**
  * Changes a token's value in every frame at once by editing the shared stylesheet, so edits show before the
  * project's builder recompiles. `theme` is `default` or a theme as `extractTokens` names it, such as `dark`: the rules
@@ -273,7 +277,10 @@ export function previewToken(sheet: CSSStyleSheet, name: string, theme: string, 
   const collect = (list: CSSRuleList, atRules: EnclosingAtRule[]) => {
     for (const rule of list) {
       if (rule instanceof CSSStyleRule) {
-        if (themeOfSelector(rule.selectorText, atRules) === theme) {
+        // The root's custom properties declared on the frame's body too (core's `prepareCanvasCss`) are the root's.
+        const selector = rule.selectorText === bodyRootCopy ? ":host" : rule.selectorText
+
+        if (themeOfSelector(selector, atRules) === theme) {
           rules.push(rule)
         }
       } else if ("cssRules" in rule && rule.cssRules instanceof CSSRuleList) {

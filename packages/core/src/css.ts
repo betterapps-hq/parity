@@ -404,10 +404,15 @@ function serialize(
       output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
     }
 
-    if (hostRoots.includes(":host") && !context.scheme && options.qualifiedRoots !== false) {
+    if (
+      hostRoots.includes(":host") &&
+      !others.includes(`[${bodyAttribute}]`) &&
+      !context.scheme &&
+      options.qualifiedRoots !== false
+    ) {
       const declarations = children.filter((child) => child.kind === "text")
 
-      const referencing = referencingCustomProperties(
+      const referencing = rootCustomProperties(
         declarations.map((child) => (child.kind === "text" ? child.text : "")).join(""),
         serialize(declarations, options, [], { root: true, inRule: true })
       )
@@ -456,23 +461,23 @@ function serialize(
 const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\]\)[\s\S]+)$`)
 
 /**
- * The custom properties among a root rule's declarations whose values use other custom properties
- * (`--palette: var(--gray-solid)`), for the frame's body as well as its host. A page's root has the page's theme on it,
- * so a custom property it defines from another takes that theme's value. A frame's root is its host, and the mode's
- * class and theme attributes are on its body (see `splitQualifiedRoots`), so the host would work it out with the default
- * theme's value and the body would inherit that. Declared on the body as well, without specificity and where the root's
- * rule is, it's worked out where the theme is, and whatever the project sets on the body still wins.
+ * A root rule's custom properties, for the frame's body as well as its host. A page's root has the page's theme on it,
+ * so a custom property it defines from another (`--palette: var(--gray-solid)`) takes that theme's value. A frame's root
+ * is its host, and the mode's class and theme attributes are on its body (see `splitQualifiedRoots`), so the host would
+ * work it out with the default theme's value and the body would inherit that. Every one is declared on the body, not
+ * only those made from others, so a later root rule's value still wins over an earlier one's there, as on the host,
+ * from whichever stylesheet. Without importance and specificity, and in the qualified roots' layer, so a theme's root and
+ * whatever the project sets on the body still win, as they win over what a page's body inherits.
  */
-function referencingCustomProperties(written: string, drawn: string): string {
-  const names = new Set(
-    declarationsIn(written)
-      .filter((declaration) => /(?<![\w-])var\(/.test(declaration))
-      .map(customPropertyName)
-      .filter((name) => name !== undefined)
-  )
+function rootCustomProperties(written: string, drawn: string): string {
+  const names = new Set(declarationsIn(written).map(customPropertyName))
 
-  // As they're drawn, lengths and all, picked by what the project wrote: Parity's own `var()`s don't count.
-  const found = declarationsIn(drawn).filter((declaration) => names.has(customPropertyName(declaration) ?? ""))
+  // As they're drawn, lengths and all, but only those the project wrote: Parity's own stay on the host.
+  const found = declarationsIn(drawn)
+    .filter(
+      (declaration) => customPropertyName(declaration) !== undefined && names.has(customPropertyName(declaration))
+    )
+    .map((declaration) => declaration.replace(importance, ""))
 
   return found.length > 0 ? ` ${found.join("; ")}; ` : ""
 }

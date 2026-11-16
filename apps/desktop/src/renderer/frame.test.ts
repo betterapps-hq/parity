@@ -667,7 +667,9 @@ describe("styles written while the project runs", () => {
       `:root { --gray-solid: rgb(0, 0, 0); --palette-solid: var(--gray-solid); --palette-fg: var(--gray-solid) }
         [data-theme="dark"] { --gray-solid: rgb(255, 255, 255) }
         :root[data-theme="dark"] { --palette-fg: rgb(1, 2, 3) }
-        .solid { background-color: var(--palette-solid); color: var(--palette-fg) }`,
+        :root { --late: var(--gray-solid) }
+        :root { --late: rgb(7, 8, 9) }
+        .solid { background-color: var(--palette-solid); color: var(--palette-fg); border-top-color: var(--late) }`,
       '<div class="solid"></div>',
       "",
       { "data-theme": "dark" }
@@ -676,11 +678,11 @@ describe("styles written while the project runs", () => {
     const drawn = await page.evaluate(() => {
       const style = getComputedStyle(document.querySelector("#host")!.shadowRoot!.querySelector(".solid")!)
 
-      return [style.backgroundColor, style.color]
+      return [style.backgroundColor, style.color, style.borderTopColor]
     })
 
-    // The theme's root still overrides the copy on the body.
-    expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)"])
+    // The theme's root, and a later root rule, still override the copy on the body.
+    expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)", "rgb(7, 8, 9)"])
   })
 
   it("follow rules the project's code deletes and text it replaces", async () => {
