@@ -27,6 +27,9 @@ import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
 import { moduleStyles, moduleStylesId } from "./module-styles.ts"
+
+export { moduleStylesId, moduleStylesSource } from "./module-styles.ts"
+
 import { warmGuestGraph } from "./warmup.ts"
 
 /** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */

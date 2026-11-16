@@ -1,6 +1,6 @@
 import { createRequire } from "node:module"
 import { componentLibrary, type ContainerSpec, type ProjectConfig, resolveDesign } from "@parity-app/core"
-import { guestModuleSource } from "@parity-app/extension-vite/builder"
+import { guestModuleSource, moduleStylesId, moduleStylesSource } from "@parity-app/extension-vite/builder"
 import { build } from "esbuild"
 import { chromium } from "playwright-core"
 import { expect, it } from "vite-plus/test"
@@ -41,6 +41,7 @@ it("renders a library design whose factory modules appear in no sample or decora
 
   const modules = new Map([
     ["fixture", guestModuleSource(config)],
+    [moduleStylesId, moduleStylesSource([])],
     [
       "kit",
       'import {createElement} from "react"; export function Label({value}) { return createElement("span", {"data-design-value": ""}, value) }'
@@ -67,10 +68,13 @@ it("renders a library design whose factory modules appear in no sample or decora
           builder.onResolve({ filter: /^virtual:canvas\/renderer$/ }, () => ({
             path: require.resolve("@parity-app/extension-react/guest")
           }))
-          builder.onResolve({ filter: /^(fixture|kit|design-values|nested-values)$/ }, ({ path }) => ({
-            path,
-            namespace: "fixture"
-          }))
+          builder.onResolve(
+            { filter: /^(fixture|kit|design-values|nested-values|virtual:canvas\/module-styles)$/ },
+            ({ path }) => ({
+              path,
+              namespace: "fixture"
+            })
+          )
           builder.onLoad({ filter: /.*/, namespace: "fixture" }, ({ path }) => ({
             contents: modules.get(path),
             resolveDir: import.meta.dirname
