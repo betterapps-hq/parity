@@ -20,6 +20,14 @@ describe("peerVersions", () => {
     ).toEqual({ packages: ["storybook", "@storybook/react"], range: "^9.0.0 || ^10.0.0", scope: "@storybook/" })
   })
 
+  it("keeps another peer's range where it differs from the main one's", () => {
+    expect(peerVersions({ webpack: "^5.90.0", next: "^15.0.0 || ^16.0.0" })).toEqual({
+      packages: ["webpack", "next"],
+      range: "^5.90.0",
+      ranges: { next: "^15.0.0 || ^16.0.0" }
+    })
+  })
+
   it("gives nothing without peer dependencies", () => {
     expect(peerVersions(undefined)).toBeUndefined()
     expect(peerVersions({})).toBeUndefined()
