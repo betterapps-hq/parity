@@ -1,5 +1,6 @@
 import type { ResolvedTelemetry } from "@parity-app/telemetry"
 import * as Sentry from "@sentry/electron/renderer"
+import { replayBlock } from "./replay-block.ts"
 import { scrubber } from "./telemetry.ts"
 
 /**
@@ -224,14 +225,15 @@ export function followTelemetry({ level, errorsOnly }: Pick<ResolvedTelemetry, "
   if (!added) {
     added = true
     // Names, values and pictures are what make a bug findable, as in every other event, so only secrets are hidden. A
-    // project's frames and icons are left out, as boxes their size, and their shadow roots are attached where the
-    // recorder can't see them (shadow.ts): it kept every shadow root it saw, and with a frame's the closed project's
-    // whole canvas. The project's page is the project's, not Parity's; failures carry the frames instead
+    // project's frames and icons are left out (`replayBlock`). The recorder watches every shadow root it sees, and
+    // keeps what it watched for the whole session, a frame's whole drawing included: it sees one as it's attached,
+    // which shadow.ts hides, and on every element it records, which a shadow host inside a left-out element never is
+    // (PAR-1169). The project's page is the project's, not Parity's; failures carry the frames instead
     // (canvas/frames-on-screen.ts).
     // The window's own <canvas> elements, such as the selection overlay, which Replay otherwise leaves out. Added first:
     // Replay looks for the canvas recorder once, as it's added itself, and records no canvas if it isn't there (PAR-964).
     Sentry.addIntegration(Sentry.replayCanvasIntegration())
-    Sentry.addIntegration(Sentry.replayIntegration({ ...replayPrivacy, block: ["[data-frame]", "[data-guest-icon]"] }))
+    Sentry.addIntegration(Sentry.replayIntegration({ ...replayPrivacy, block: replayBlock }))
   }
 
   const replay = Sentry.getReplay()

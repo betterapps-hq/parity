@@ -8042,9 +8042,13 @@ opened again.
   `useSyncExternalStore`, until it renders again, and through the editor that kept the canvas: the tldraw one the test
   allowed for, and all of it when frames were still awake as the project closed. The example now ends about 170 nodes
   after closing, where it was about 3,300.
-- **Frames' and project icons' shadow roots are attached unseen by Session Replay** (`renderer/shadow.ts`, PAR-624). The
-  recorder keeps every shadow root it watches until it starts over, so a frame mounted while it recorded kept the closed
-  project's whole canvas, about 13,000 nodes, in some runs.
+- **Frames' and project icons' shadow roots stay unseen by Session Replay.** The recorder keeps every shadow root it
+  watches for the whole session, and a frame's whole drawing with it. It sees one as it's attached, which
+  `renderer/shadow.ts` hides (PAR-624), and on every element it records, even one it leaves out. So each shadow host
+  sits inside an element replays leave out, `[data-frame-box]` in `ModeView.tsx` and the icon's own span, and is never
+  recorded (`renderer/replay-block.ts`, PAR-1169). Before that, each round of zooming, waking boards and editing kept
+  about 11,000 more nodes, 867,000 after an hour. `ModeView.test.ts` "a frame and Session Replay" checks that the
+  frame's host sits inside an element replays leave out.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
   still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
   loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't

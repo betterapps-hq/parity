@@ -121,13 +121,16 @@ export function GuestIcon({
 
   return (
     <span
-      ref={hostRef}
       aria-hidden
-      // Left out of replays, as frames are: the project's own drawing (PAR-624).
+      // Left out of replays, as frames are: the project's own drawing (PAR-624). The shadow root is on the element
+      // inside, since Session Replay watches the shadow root of every element it records, a left-out one included, for
+      // the whole session (PAR-1169).
       data-guest-icon=""
       className="inline-grid place-items-center"
       // SAFETY: CSSProperties lists no custom properties, and `--icon-size` is one the guest's icon reads.
       style={{ width: size, height: size, "--icon-size": `${size}px` } as CSSProperties}
-    />
+    >
+      <span ref={hostRef} className="contents" />
+    </span>
   )
 }
