@@ -106,14 +106,13 @@ export interface GuestLoader {
   styles: string[]
   /** Packages' global stylesheets, compiled. */
   packageStyles: string[]
-  /** What the guest app's stylesheets start with: a stylesheet the runtime links that starts so is the guest's. */
-  stylesheetBase: string
 }
 
 /**
- * The guest module's source. It loads the runtime once per page and session, makes the guest from what the guest
- * module's `guestParts()` imports, and passes on, as packages' CSS, the stylesheets the runtime linked into the page for
- * those modules (CSS modules, fonts), which it mutes in the page, so they don't style the page itself.
+ * The guest module's source. It loads the runtime once per page and session, and makes the guest from what the guest
+ * module's `guestParts()` imports, with the app's global stylesheets. What the runtime links into the page for those
+ * modules (CSS modules, fonts) reaches frames as everything a project's code adds to the page does, without styling
+ * the page.
  */
 export function guestLoaderSource(loader: GuestLoader): string {
   const json = (value: string | readonly string[]) => JSON.stringify(value)
@@ -151,33 +150,15 @@ sessions[${json(loader.session)}] ??= (async () => {
 })()
 const guestModule = await sessions[${json(loader.session)}]
 const { init, libraryCss, createGuest } = await guestModule.guestParts()
-const ours = (link) => link.href.startsWith(${json(loader.stylesheetBase)})
-// Kept in the page, as the runtime waits for them to load before a module that imports one runs, but styling nothing.
-const mute = (link) => link.setAttribute("media", "not all")
-const linked = [...document.querySelectorAll('link[rel="stylesheet"]')].filter(ours)
-linked.forEach(mute)
-
-// What modules loaded later link, as a lazy component's CSS module does, is muted too.
-new MutationObserver((records) => {
-  for (const node of records.flatMap((record) => [...record.addedNodes])) {
-    if (node instanceof HTMLLinkElement && node.rel === "stylesheet" && ours(node)) {
-      mute(node)
-    }
-  }
-}).observe(document.head, { childList: true })
 const text = (url) => fetch(url).then((response) => (response.ok ? response.text() : ""), () => "")
 const joined = (urls) => Promise.all(urls.map(text)).then((texts) => texts.filter(Boolean).join("\\n"))
-const [css, packageCss, componentCss] = await Promise.all([
-  joined(${json(loader.styles)}),
-  joined(${json(loader.packageStyles)}),
-  joined(linked.map((link) => link.href))
-])
+const [css, packageCss] = await Promise.all([joined(${json(loader.styles)}), joined(${json(loader.packageStyles)})])
 
 export default createGuest({
   ...init,
   // Tokens libraries only create at run time come first, so the project's own declarations still win.
   css: [libraryCss, css].filter(Boolean).join("\\n"),
-  packageCss: [packageCss, componentCss].filter(Boolean).join("\\n")
+  packageCss
 })
 `
 }
@@ -200,7 +181,7 @@ export interface ModuleLoader {
 
 /**
  * The module's source: it loads the module's chunks into the guest's runtime, at addresses stamped with the change when
- * it's loaded again, links its stylesheets (which the guest mutes, as it does the other modules'), and gives what the
+ * it's loaded again, links its stylesheets (which the page leaves off, as it does the other modules'), and gives what the
  * project's module exports.
  */
 export function moduleLoaderSource(loader: ModuleLoader): string {

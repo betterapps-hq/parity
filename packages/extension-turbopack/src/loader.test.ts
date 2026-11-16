@@ -60,8 +60,7 @@ describe("the guest module", () => {
       chunks: ["http://127.0.0.1:4000/_next/static/chunks/a.js"],
       id: "[project]/.next/parity/app/guest.tsx [app-client] (ecmascript)",
       styles: ["http://127.0.0.1:4000/_next/static/chunks/globals.css"],
-      packageStyles: [],
-      stylesheetBase: "http://127.0.0.1:4000/_next/"
+      packageStyles: []
     })
 
     expect(source).toContain('sessions["s1"] ??=')
@@ -78,8 +77,7 @@ const guestLoader = {
   chunks: [],
   id: "[project]/.next/parity/app/guest.tsx [app-client] (ecmascript)",
   styles: [],
-  packageStyles: [],
-  stylesheetBase: "http://127.0.0.1:4000/_next/"
+  packageStyles: []
 }
 
 /** A module as the runtime keeps it, its factory or its instance, here by its id alone. */

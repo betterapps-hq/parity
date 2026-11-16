@@ -225,7 +225,7 @@ function frameWith(
       const sheet = new CSSStyleSheet()
       sheet.replaceSync(frame.prepareCanvasCss(projectCss, { baseUrl: "http://project.test" }).scoped)
 
-      const target = frame.prepareFrame(host, sheet, {
+      const target = frame.prepareFrame(host, [sheet], {
         classNames: [],
         attributes,
         viewport: { width: 390, height: 844 },
@@ -643,7 +643,7 @@ describe("a frame's window", () => {
         host.id = id
         host.style.width = `${viewport.width}px`
         document.querySelector("#frames")!.append(host)
-        const target = frame.prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
+        const target = frame.prepareFrame(host, [new CSSStyleSheet()], { classNames: [], attributes: {}, viewport })
         mounted[id] = guest.mount(
           target,
           [{ kind: "component", component: "Probe", nodeId: id, props: {}, slots: {} }],
@@ -777,7 +777,7 @@ describe("a frame's portals (PAR-881)", () => {
         frame.prepareCanvasCss(".popup { color: rgb(0, 128, 0) }", { baseUrl: "http://project.test" }).scoped
       )
       const viewport = { width: 390, height: 844 }
-      const target = frame.prepareFrame(host, sheet, { classNames: [], attributes: {}, viewport })
+      const target = frame.prepareFrame(host, [sheet], { classNames: [], attributes: {}, viewport })
 
       const handle = guest.mount(
         target,
