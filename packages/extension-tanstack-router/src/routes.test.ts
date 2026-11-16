@@ -411,7 +411,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
     expect(routes.find((route) => route.id === "/$")?.segments).toEqual([{ type: "catchAll", name: "_splat" }])
   })
 
-  it("leaves out server routes declared in code, keeping a lazy one and one with pages inside (PAR-1173)", () => {
+  it("leaves out server routes declared in code, keeping a lazy one, one with spread options, and one with pages inside (PAR-1173)", () => {
     const routes = readRoutes(
       recordReader({
         "src/main.tsx": `
@@ -421,6 +421,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
           const teamRoute = createRoute({ getParentRoute: () => rootRoute, path: "team", server: { handlers } }).lazy(
             () => import("./team.lazy").then((d) => d.Route)
           )
+          const reportRoute = createRoute({ ...pageOptions, getParentRoute: () => rootRoute, path: "report", server: { handlers } })
           const apiRoute = createRoute({ getParentRoute: () => rootRoute, path: "api", server: { handlers } })
           const docsRoute = createRoute({ getParentRoute: () => apiRoute, path: "docs", component: Docs })
         `
@@ -431,6 +432,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
       ["__root__", "root"],
       ["/", "page"],
       ["/team", "page"],
+      ["/report", "page"],
       ["/api", "layout"],
       ["/api/docs", "page"]
     ])

@@ -102,14 +102,16 @@ function propertyName(name: ts.PropertyName): string | undefined {
 
 /**
  * Whether a route only answers requests on the server, as a TanStack Start server route does (PAR-1173): its options
- * have `server` and no `component`, and it has no lazy part that could draw one.
+ * have `server` and no `component`, and neither spread options nor a lazy part could give it one.
  */
 export function serverOnly(options: ts.ObjectLiteralExpression | undefined, lazy: boolean): boolean {
   return (
     !lazy &&
     options !== undefined &&
     propertyValue(options, "server") !== undefined &&
-    propertyValue(options, "component") === undefined
+    propertyValue(options, "component") === undefined &&
+    // Options spread in, as `{ ...pageOptions, server }`, may give the component.
+    !options.properties.some((property) => ts.isSpreadAssignment(property))
   )
 }
 
