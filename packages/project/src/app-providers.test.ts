@@ -133,6 +133,79 @@ export default function App() {
     expect(offer?.leftOut).toEqual([{ name: "SessionProvider", file: "src/App.jsx", needs: "user" }])
   })
 
+  it("leaves out a provider whose prop calls a function its component defines", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { ThemeProvider } from "styled-components"
+import App from "./App"
+
+function Root() {
+  function getTheme() {
+    return { color: "red" }
+  }
+
+  return <ThemeProvider theme={getTheme()}><App /></ThemeProvider>
+}
+
+createRoot(document.getElementById("root")).render(<Root />)
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
+  it("leaves out a provider whose prop is the component's own binding, even when the file imports that name", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(<App />)
+`,
+        "src/App.jsx": `import { useState } from "react"
+import { ThemeProvider } from "styled-components"
+import { theme } from "./theme"
+
+export default function App() {
+  const [theme] = useState({ color: "blue" })
+  return <ThemeProvider theme={theme}><Home /></ThemeProvider>
+}
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
+  it("leaves out a provider whose file declares a name another provider's file declares differently", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { IntlProvider } from "react-intl"
+import App from "./App"
+
+const config = { locale: "en" }
+
+createRoot(document.getElementById("root")).render(<IntlProvider locale={config.locale}><App /></IntlProvider>)
+`,
+        "src/App.jsx": `import { ThemeProvider } from "styled-components"
+
+const config = { theme: { color: "red" } }
+
+export default function App() {
+  return <ThemeProvider theme={config.theme}><Home /></ThemeProvider>
+}
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider"])
+    expect(offer?.leftOut).toEqual([{ name: "ThemeProvider", file: "src/App.jsx", needs: "config" }])
+    expect(offer?.text.match(/const config/g)).toHaveLength(1)
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

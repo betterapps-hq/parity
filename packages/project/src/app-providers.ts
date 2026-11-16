@@ -420,7 +420,10 @@ function fromPreviewFolder(path: string): string {
 /** What the preview file needs from a file to carry a provider's props. */
 interface Carried {
   imports: { local: string; from: Imported }[]
-  declarations: string[]
+  /** Top-level declarations copied from the provider's file, by the name each declares. */
+  declarations: { name: string; text: string }[]
+  /** The names the provider's own component declares, which shadow the file's and only the running app has. */
+  locals: ReadonlySet<string>
 }
 
 /** The text of the preview file, with the providers it can carry and the ones it leaves out. */
@@ -429,21 +432,30 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
   const leftOut: LeftOutProvider[] = []
   const openings: string[] = []
   const imports = new Map<string, Imported>()
-  const declarations: string[] = []
+  const declarations = new Map<string, string>()
   let themed = false
   const text = entry.source.text
   const quote = (text.match(/'/g)?.length ?? 0) > (text.match(/"/g)?.length ?? 0) ? "'" : '"'
 
   for (const { name, scope, element } of found) {
-    const carried: Carried = { imports: [], declarations: [] }
+    const carried: Carried = { imports: [], declarations: [], locals: localNames(element) }
     const tag = carryName(firstPart(name), scope, carried)
     const props = carryProps(element.openingElement.attributes, scope, carried, quote)
 
-    const clash = carried.imports.find(({ local, from }) => {
-      const known = imports.get(local)
+    // Two providers' files can give one name different values; the second is left out rather than clash.
+    const clash =
+      carried.imports.find(({ local, from }) => {
+        const known = imports.get(local)
 
-      return known && (known.specifier !== from.specifier || known.imported !== from.imported)
-    })
+        return (
+          declarations.has(local) || (known && (known.specifier !== from.specifier || known.imported !== from.imported))
+        )
+      })?.local ??
+      carried.declarations.find(({ name: declared, text: copied }) => {
+        const known = declarations.get(declared)
+
+        return imports.has(declared) || (known !== undefined && known !== copied)
+      })?.name
 
     if ("needs" in props || tag) {
       leftOut.push({ name, file: scope.path, needs: "needs" in props ? props.needs : (tag ?? "") })
@@ -451,7 +463,7 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
     }
 
     if (clash) {
-      leftOut.push({ name, file: scope.path, needs: clash.local })
+      leftOut.push({ name, file: scope.path, needs: clash })
       continue
     }
 
@@ -459,10 +471,8 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
       imports.set(local, from)
     }
 
-    for (const declaration of carried.declarations) {
-      if (!declarations.includes(declaration)) {
-        declarations.push(declaration)
-      }
+    for (const { name: declared, text: copied } of carried.declarations) {
+      declarations.set(declared, copied)
     }
 
     themed ||= props.themed
@@ -570,7 +580,18 @@ function themeChoice(expression: ts.Expression): { dark: ts.Expression; light: t
  * Brings a name a provider uses into the preview file: an import, or a top-level declaration with what it uses in turn.
  * Gives the name back when it's something only the running app has, such as the component's state.
  */
-function carryName(name: string, scope: Scope, carried: Carried, seen = new Set<string>()): string | undefined {
+function carryName(
+  name: string,
+  scope: Scope,
+  carried: Carried,
+  seen = new Set<string>(),
+  inDeclaration = false
+): string | undefined {
+  // The component's own names come first, as the provider's element sees them.
+  if (!inDeclaration && carried.locals.has(name)) {
+    return name
+  }
+
   if (seen.has(name)) {
     return undefined
   }
@@ -592,7 +613,7 @@ function carryName(name: string, scope: Scope, carried: Carried, seen = new Set<
 
   if (declared) {
     for (const used of freeNames(declared)) {
-      const needs = carryName(used, scope, carried, seen)
+      const needs = carryName(used, scope, carried, seen, true)
 
       if (needs) {
         return name
@@ -603,12 +624,44 @@ function carryName(name: string, scope: Scope, carried: Carried, seen = new Set<
       ? declared.getText().replace(/^export\s+(default\s+)?/, "")
       : `const ${declared.getText()}`
 
-    carried.declarations.push(text)
+    carried.declarations.push({ name, text })
 
     return undefined
   }
 
   return declaredAnywhere(name, scope.source) && !pageGlobals.has(name) ? name : undefined
+}
+
+/**
+ * The names declared inside the functions around an element, as a component's state, its parameters and the functions
+ * it defines are, which shadow the file's own and which the preview file can't have.
+ */
+function localNames(element: ts.Node): Set<string> {
+  const names = new Set<string>()
+
+  const collect = (node: ts.Node) => {
+    if (
+      (ts.isVariableDeclaration(node) ||
+        ts.isParameter(node) ||
+        ts.isBindingElement(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isClassDeclaration(node)) &&
+      node.name &&
+      ts.isIdentifier(node.name)
+    ) {
+      names.add(node.name.text)
+    }
+
+    ts.forEachChild(node, collect)
+  }
+
+  for (let around = element.parent; !ts.isSourceFile(around); around = around.parent) {
+    if (ts.isFunctionLike(around)) {
+      ts.forEachChild(around, collect)
+    }
+  }
+
+  return names
 }
 
 /** Whether a name is declared somewhere in a file, as a component's state or a parameter is. */
@@ -621,7 +674,12 @@ function declaredAnywhere(name: string, source: ts.SourceFile): boolean {
     }
 
     if (
-      (ts.isVariableDeclaration(node) || ts.isParameter(node) || ts.isBindingElement(node)) &&
+      (ts.isVariableDeclaration(node) ||
+        ts.isParameter(node) ||
+        ts.isBindingElement(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isClassDeclaration(node)) &&
+      node.name &&
       ts.isIdentifier(node.name) &&
       node.name.text === name
     ) {
@@ -727,7 +785,7 @@ function previewText({
   providers: OfferedProvider[]
   openings: string[]
   imports: Map<string, Imported>
-  declarations: string[]
+  declarations: Map<string, string>
   themed: boolean
   typescript: boolean
   quote: string
@@ -741,7 +799,7 @@ function previewText({
   lines.push(...importLines(imports, quote))
   lines.push("")
 
-  for (const declaration of declarations) {
+  for (const declaration of declarations.values()) {
     lines.push(declaration, "")
   }
 
