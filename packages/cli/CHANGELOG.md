@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 16 Nov 2026 04:20:39 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 07:28:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.72.3
+
+Mon, 16 Nov 2026 07:28:34 GMT
+
+### Patches
+
+- Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into
+  the browser (ajcraswell@gmail.com)
+- Keep the stylesheets a project's modules import out of Parity's own window, and draw them in its frames instead
+  (PAR-1181) (ajcraswell@gmail.com)
 
 ## 0.72.2
 

@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 07:28:34 GMT",
+      "version": "0.72.3",
+      "tag": "@parity-app/cli_v0.72.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "373fabbad0162d5900865db3b33374bb04b9c9b5",
+            "comment": "Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into the browser"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c88ca6acfa9647db7ce129d1c64b73794367c1e8",
+            "comment": "Keep the stylesheets a project's modules import out of Parity's own window, and draw them in its frames instead (PAR-1181)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 04:20:39 GMT",
       "version": "0.72.2",
       "tag": "@parity-app/cli_v0.72.2",
