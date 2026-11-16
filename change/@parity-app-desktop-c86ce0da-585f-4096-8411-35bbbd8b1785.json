@@ -1,7 +1,7 @@
 {
-  "type": "none",
-  "comment": "Design multiplayer presence in Storybook: avatar stack, person card, follow mode, pointers, selections, drag previews, marquee, shared colors with a palette generator, and a room with everyone together",
+  "type": "minor",
+  "comment": "Things dragged on the canvas lift as they're picked up, follow the pointer, settle where they're dropped, and fly back when Escape calls a drag off",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
+  "dependentChangeType": "patch"
 }
