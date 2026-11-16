@@ -455,10 +455,20 @@ async function namesOf(file: string, read: Map<string, Set<string>>): Promise<Se
     }
   }
 
+  // `export * as Dialog from "@radix-ui/react-dialog"` exports the namespace, wherever it comes from.
+  for (const match of source.matchAll(/export\s+\*\s+as\s+([\w$]+)\s+from/g)) {
+    found.add(match[1]!)
+  }
+
   for (const reexport of reexportsOf(source)) {
     const target = resolveRelative(file, reexport.from)
 
+    // From another package, which isn't followed, a named re-export still says what it exports.
     if (!target) {
+      for (const [, as] of reexport.names ?? []) {
+        found.add(as)
+      }
+
       continue
     }
 
