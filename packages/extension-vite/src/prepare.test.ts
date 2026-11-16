@@ -30,7 +30,10 @@ beforeEach(async () => {
     "vite.config.mjs": `export default { plugins: [{ name: "fixture:server", configureServer(server) { globalThis.parityPrepareTestServer = server } }] }`,
     "guest.js": "export function createGuest(init) { return init }\n",
     "index.html": '<script type="module" src="/src/main.ts"></script>',
-    "src/main.ts": 'import { greeting } from "fake-ui"\nimport "./index.css"\nexport default greeting',
+    "src/main.ts":
+      'import { greeting } from "fake-ui"\nimport "./index.css"\nimport "./app.ts"\nexport default greeting',
+    // Past the stylesheets' module, so only Vite's background compiles reach it while they're found.
+    "src/app.ts": 'import { greeting } from "fake-ui"\nexport const app = greeting',
     "src/index.css": ":root { --primary: red; }",
     "node_modules/fake-ui/package.json": JSON.stringify({ name: "fake-ui", type: "module", main: "index.js" }),
     "node_modules/fake-ui/index.js": 'export const greeting = "hello"\n'
@@ -75,6 +78,8 @@ describe("a prepared Vite builder", () => {
     const registered = vi.spyOn(optimizer!, "registerMissingImport")
 
     expect(await prepared.styles()).toMatchObject({ styles: ["src/index.css"] })
+    // Nor does anything those modules start compiling in the background, once they're done (PAR-1223).
+    await globalThis.parityPrepareTestServer?.environments.client?.waitForRequestsIdle()
     expect(registered).not.toHaveBeenCalled()
 
     session = await prepared.start({ styles: ["src/index.css"], components: {}, documents: [], libraries: [] })

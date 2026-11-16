@@ -175,24 +175,41 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
  * then finds the config changed, deletes that bundle and bundles again, on every open, and the guest's warm-up could
  * wait on the bundle deleted under it. Vite 8 waits for the optimizer to start. With discovery off, which Vite reads on
  * each import, the packages are served as their own files; those modules are compiled again once the optimizer runs.
+ *
+ * Vite also compiles each compiled module's static imports in the background, which `work` doesn't wait for, so those
+ * are off too (PAR-1223). Left on, they outlived `work` and went on through the app's graph with discovery back on,
+ * bundling React before the optimizer had started. That bundle resolved the batch the optimizer's start then gave its
+ * own dependencies, which stayed listed as still bundling, and the guest's warm-up waited on them forever.
  */
 async function beforeOptimizer<T>(
-  server: { environments: { client?: { depsOptimizer?: { options: { noDiscovery?: boolean } } } } },
+  server: {
+    environments: {
+      client?: {
+        config: { dev: { preTransformRequests?: boolean } }
+        depsOptimizer?: { options: { noDiscovery?: boolean } }
+      }
+    }
+  },
   work: () => Promise<T>
 ): Promise<T> {
-  const options = server.environments.client?.depsOptimizer?.options
+  const client = server.environments.client
+  const options = client?.depsOptimizer?.options
 
-  if (!options || options.noDiscovery) {
+  if (!client || !options || options.noDiscovery) {
     return work()
   }
 
-  const noDiscovery = options.noDiscovery
+  const { dev } = client.config
+  const { noDiscovery } = options
+  const { preTransformRequests } = dev
   options.noDiscovery = true
+  dev.preTransformRequests = false
 
   try {
     return await work()
   } finally {
     options.noDiscovery = noDiscovery
+    dev.preTransformRequests = preTransformRequests
   }
 }
 
