@@ -113,6 +113,20 @@ module.exports = {
     expect((await findPackage(cache, "tailwind-node"))?.manifest.version).toBe("4.2.0")
   })
 
+  it("forgets a project whose runtime is gone, still finding packages through the others", async () => {
+    write("gone/package.json", JSON.stringify({ name: "gone" }))
+    write(
+      "gone/.pnp.cjs",
+      "module.exports = { setup() {}, findPackageLocator: () => null, resolveToUnqualified() {} }\n"
+    )
+
+    expect(pnpProject(at("gone"))).toBeUndefined()
+
+    rmSync(at("gone"), { recursive: true })
+
+    expect((await findPackage(at("cache", "tailwind-vite"), "tailwind-node"))?.manifest.version).toBe("4.2.0")
+  })
+
   it("gives Node the runtime, and the loader when Yarn wrote one, after the options it had", () => {
     const runtime = `--require "${at("app", ".pnp.cjs").replaceAll("\\", "/")}"`
 

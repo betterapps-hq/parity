@@ -53,6 +53,12 @@ export function pnpProject(from: string): PnpProject | undefined {
   }
 
   for (const known of loaded.keys()) {
+    // A project opened earlier may since have been deleted, moved or installed with `node_modules`.
+    if (!existsSync(known)) {
+      loaded.delete(known)
+      continue
+    }
+
     const api = loadPnp(known)
 
     if (api.findPackageLocator(location)) {
