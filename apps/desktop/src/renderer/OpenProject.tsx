@@ -17,7 +17,7 @@ import { LeftPanel } from "./chrome/LeftPanel.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
-import { followSelection } from "./extension-editor.ts"
+import { sendRouteMarks, followSelection } from "./extension-editor.ts"
 import { useTool } from "./selection.ts"
 import { type ProjectSession, type Tab, workspace } from "./workspace.ts"
 
@@ -38,6 +38,8 @@ export function OpenProject({
 }) {
   // The project's extensions read what's selected through `parity.selection` (PAR-1092).
   useEffect(() => followSelection(session), [session])
+  // And the person's marks on its routes through `parity.routes` (PAR-1175, PAR-1176).
+  useEffect(() => sendRouteMarks(session), [session])
 
   return (
     <ProjectContext value={session}>

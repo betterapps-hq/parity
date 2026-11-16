@@ -9,7 +9,7 @@ import { useMemo, useSyncExternalStore } from "react"
  */
 
 /** The marks the project's main file keeps, by route id. */
-function marksOf(doc: ProjectDoc): CanvasDocument["routeKinds"] {
+export function marksOf(doc: ProjectDoc): CanvasDocument["routeKinds"] {
   return doc.file(doc.main)?.routeKinds
 }
 

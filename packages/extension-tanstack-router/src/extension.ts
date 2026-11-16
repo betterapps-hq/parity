@@ -13,18 +13,26 @@ export function activate(parity: Parity): void {
   const count = parity.status.item("tanstack-router.routes")
   parity.subscriptions.push(count)
 
+  // What it read last, counted again as the person marks routes (PAR-1175, PAR-1176).
+  let read: Route[] = []
+
+  const show = () => {
+    const pages = parity.routes.marked(read).filter(isPage)
+
+    count.set({
+      value: `${pages.length.toLocaleString()} ${pages.length === 1 ? "route" : "routes"}`,
+      tooltip: "Click to show them"
+    })
+  }
+
   parity.subscriptions.push(
+    parity.routes.onChange(show),
     parity.providers.register("router", {
       async routes() {
-        const routes = await projectRoutes((path) => parity.files.read(path))
+        read = await projectRoutes((path) => parity.files.read(path))
+        show()
 
-        const pages = routes.filter(isPage)
-        count.set({
-          value: `${pages.length.toLocaleString()} ${pages.length === 1 ? "route" : "routes"}`,
-          tooltip: "Click to show them"
-        })
-
-        return routes
+        return read
       }
     })
   )

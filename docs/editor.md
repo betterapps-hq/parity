@@ -1429,10 +1429,11 @@ leaving it out. TanStack Start's server routes, React Router's resource routes, 
 - **Drawing again.** The app's pages are drawn from its routes as the project opens, with its marks. When the marks
   change, by a mark, an undo or the file changing on disk, the pages are drawn again (`followRouteMarks` in
   `workspace.ts`), keeping what each page shows.
+- **Extensions.** A router extension's status bar count follows the marks. The window sends them to the project's
+  extensions as they change (`sendRouteMarks` in `extension-editor.ts`), and each router counts its pages through
+  `parity.routes.marked`, again on `parity.routes.onChange`.
 
-The route count in the status bar is each router extension's own reading, without the marks.
-
-Code: `packages/core/src/routes.ts`, `apps/desktop/src/renderer/route-marks.ts`,
+Code: `packages/core/src/routes.ts`, `apps/desktop/src/renderer/route-marks.ts`, `Routes` in `packages/extension-api`,
 `apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left panel/API routes).
 
 ### Next's router on canvas (PAR-1160)

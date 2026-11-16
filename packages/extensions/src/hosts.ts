@@ -1,4 +1,5 @@
 import { type Channel, createChannel, type Port } from "@parity-app/channel"
+import type { RouteMark } from "@parity-app/core"
 import type {
   Candidate,
   CommandTarget,
@@ -363,6 +364,8 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   installed(): InstalledStatus[]
   /** What's selected in the window with the project open changed, which every running host is told. */
   selectionChanged(projectId: string, refs: NodeRef[]): void
+  /** The person's marks on the project's routes changed, by route id, which every running host is told. */
+  routeMarksChanged(projectId: string, marks: Record<string, RouteMark>): void
   /** The person's `app` settings for every extension, from settings.json, as they are now. */
   setAppSettings(settings: StoredSettings): void
   /** A project's settings for its extensions, from its main `.par`'s `extensions` field, saved or not. */
@@ -421,6 +424,8 @@ interface OpenProject<Project> {
   hosts: Map<string, Host<Project>>
   /** What's selected in its window, which hosts start with. */
   selection: NodeRef[]
+  /** The person's marks on its routes, by route id, which hosts start with. */
+  routeMarks: Record<string, RouteMark>
   /** The project's settings for its extensions, from its main `.par`. */
   settings: StoredSettings
 }
@@ -902,6 +907,7 @@ export function extensionHosts<Project extends OpenedProject>(
       views: declaredViews(found.manifest.contributes),
       state: { app: stored.app, project: stored.project },
       selection: open.selection,
+      routeMarks: open.routeMarks,
       processes: { list: [], output: {}, ready: {} },
       settings: {
         values: { ...host.settings.values },
@@ -936,6 +942,7 @@ export function extensionHosts<Project extends OpenedProject>(
 
       // What's selected now, and its processes, which may have changed while the extensions it builds on started.
       params.selection = open.selection
+      params.routeMarks = open.routeMarks
       params.processes = options.processes.snapshot(caller)
 
       const { api } = await withTimeout(
@@ -1239,7 +1246,7 @@ export function extensionHosts<Project extends OpenedProject>(
   return {
     open(project, settings = {}) {
       const known = projects.get(project.id)
-      const open: OpenProject<Project> = known ?? { project, hosts: new Map(), selection: [], settings }
+      const open: OpenProject<Project> = known ?? { project, hosts: new Map(), selection: [], routeMarks: {}, settings }
 
       if (known) {
         known.project = project
@@ -1419,6 +1426,19 @@ export function extensionHosts<Project extends OpenedProject>(
       // A host still activating is sent it too: it has the selection it started with until then.
       for (const host of open.hosts.values()) {
         void host.running?.channel.request("selection.changed", { refs }).catch(() => undefined)
+      }
+    },
+    routeMarksChanged(projectId, marks) {
+      const open = projects.get(projectId)
+
+      if (!open) {
+        return
+      }
+
+      open.routeMarks = marks
+
+      for (const host of open.hosts.values()) {
+        void host.running?.channel.request("routes.changed", { marks }).catch(() => undefined)
       }
     },
     setAppSettings(settings) {

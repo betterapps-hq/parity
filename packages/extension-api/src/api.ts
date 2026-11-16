@@ -29,6 +29,7 @@ export interface Parity {
   readonly subscriptions: Disposable[]
   readonly commands: Commands
   readonly selection: Selection
+  readonly routes: Routes
   readonly navigate: Navigate
   readonly context: Context
   readonly facts: Facts
@@ -128,6 +129,18 @@ export interface Selection {
   highlight(refs: NodeRef[]): Promise<void>
   /** Told what's selected each time it changes. */
   onChange(listener: (refs: NodeRef[]) => void): Disposable
+}
+
+/**
+ * The person's marks on the app's routes (PAR-1175, PAR-1176): a page Parity read as a page marked as an API route, or
+ * an API route marked as a page, kept with the project by route id. A router extension applies them to what it read
+ * before counting its pages.
+ */
+export interface Routes {
+  /** `routes` with the kinds the person marked them as. A mark changes only a page or an API route. */
+  marked(routes: readonly Route[]): Route[]
+  /** Told each time the person marks a route or takes a mark away, so what was counted can be counted again. */
+  onChange(listener: () => void): Disposable
 }
 
 /** A tab of a panel: Parity's own (`layers`, `components`, `icons`, `media`, `tokens`, `design`), or an extension's. */

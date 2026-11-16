@@ -183,6 +183,9 @@ export const serviceParams = {
   "extensions.selectionChanged": project.extend({
     refs: z.array(z.strictObject({ owner: z.string(), type: z.string(), key: z.string() })).max(10_000)
   }),
+  "extensions.routeMarksChanged": project.extend({
+    marks: z.record(z.string().min(1), z.enum(["api", "page"]))
+  }),
   "extensions.projectSettings": project.extend({
     settings: z.record(z.string(), z.record(z.string(), z.json()))
   }),

@@ -809,6 +809,7 @@ describe("extension hosts", () => {
         "files.changed": () => undefined,
         cancel: () => undefined,
         "selection.changed": () => undefined,
+        "routes.changed": () => undefined,
         stop: () => undefined
       })
       channel.connect(host)
@@ -1112,6 +1113,47 @@ describe("selection, navigation and commands (PAR-1092)", () => {
 
     expect(given?.selection.get()).toEqual([route])
     expect(seen.at(-1)).toEqual([route])
+  })
+
+  it("applies the person's marks on the routes, from the start and as they change", async () => {
+    let given: Parity | undefined
+    let told = 0
+
+    const { hosts } = setUp({
+      "@parity-app/extension-storybook": {
+        activate(parity) {
+          given = parity
+          parity.routes.onChange(() => told++)
+        }
+      }
+    })
+
+    const read = (id: string, kind: Route["kind"]): Route => ({
+      id,
+      kind,
+      segments: [],
+      path: id,
+      parent: "__root__",
+      file: `src/routes${id}.tsx`,
+      index: false,
+      loads: false,
+      guards: false
+    })
+
+    const routes = [read("/health", "page"), read("/webhooks", "api"), read("/blog", "layout")]
+
+    hosts.open(project)
+    hosts.routeMarksChanged("shop", { "/health": "api" })
+    await settle()
+
+    expect(given?.routes.marked(routes).map((each) => each.kind)).toEqual(["api", "api", "layout"])
+
+    const before = told
+    hosts.routeMarksChanged("shop", { "/webhooks": "page", "/blog": "api" })
+    await settle()
+
+    expect(given?.routes.marked(routes).map((each) => each.kind)).toEqual(["page", "page", "layout"])
+    expect(told).toBe(before + 1)
   })
 
   it("asks the window to select, highlight and navigate, and gives a route's page URL", async () => {

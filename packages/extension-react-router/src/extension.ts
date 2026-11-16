@@ -20,13 +20,18 @@ export function activate(parity: Parity): void {
     list: (folder) => parity.files.list(folder).catch(() => [])
   }
 
+  // What it read last, counted again as the person marks routes (PAR-1175, PAR-1176).
+  let read: ReadRoutes | undefined
+  const show = () => read && count.set(statusOf({ ...read, routes: parity.routes.marked(read.routes) }))
+
   parity.subscriptions.push(
+    parity.routes.onChange(show),
     parity.providers.register("router", {
       async routes() {
-        const found = await readRoutes(files)
-        count.set(statusOf(found))
+        read = await readRoutes(files)
+        show()
 
-        return found.routes
+        return read.routes
       }
     })
   )

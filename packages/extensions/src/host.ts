@@ -9,6 +9,7 @@ import type {
   NodeRef,
   Parity,
   PickItem,
+  Route,
   ProviderHandle,
   ProviderKinds,
   RemoteApi,
@@ -90,6 +91,12 @@ interface Selected {
   listeners: Set<(refs: NodeRef[]) => void>
 }
 
+/** The person's marks on the app's routes, as the host keeps them for `parity.routes`, and who's told when they change. */
+interface Marks {
+  marks: Record<string, "api" | "page">
+  listeners: Set<() => void>
+}
+
 /** The extension's settings as the host keeps them, and who listens for each to change. */
 interface HostSettings {
   values: Map<string, SettingValue>
@@ -115,6 +122,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const channel = createChannel<HostMethods, HostServiceMethods>()
   const progress = new Map<number, AbortController>()
   const selected: Selected = { refs: [], listeners: new Set() }
+  const marks: Marks = { marks: {}, listeners: new Set() }
   const settings: HostSettings = { values: new Map(), listeners: new Map() }
   const processes = hostProcesses()
   const files = hostFiles()
@@ -139,10 +147,11 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       }
 
       selected.refs = params.selection
+      marks.marks = params.routeMarks
       settings.values = new Map(Object.entries(params.settings.values))
       processes.begin(params.extension.id, params.processes)
       activated = calls.run(params.call, () =>
-        activate(params, channel, progress, selected, settings, side, calls, { processes, files })
+        activate(params, channel, progress, selected, settings, side, calls, { processes, files, marks })
       )
       const { api } = await activated
 
@@ -264,6 +273,17 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         }
       }
     },
+    "routes.changed"({ marks: changed }) {
+      marks.marks = changed
+
+      for (const listener of marks.listeners) {
+        try {
+          listener()
+        } catch (error) {
+          log("error", `A routes listener failed: ${message(error)}`, stackOf(error))
+        }
+      }
+    },
     "processes.changed": ({ processes: changed }) => processes.changed(changed),
     "processes.lines": ({ id, run, lines }) => processes.lines(id, lines, run),
     "processes.ended": ({ id, end }) => processes.ended(id, end),
@@ -303,7 +323,7 @@ async function activate(
   settings: HostSettings,
   side: HostSide,
   calls: CallContext,
-  { processes, files }: { processes: HostProcesses; files: HostFiles }
+  { processes, files, marks }: { processes: HostProcesses; files: HostFiles; marks: Marks }
 ): Promise<Activated> {
   const exports = await side.load(params.main)
 
@@ -412,6 +432,14 @@ async function activate(
         selected.listeners.add(listener)
 
         return once(() => selected.listeners.delete(listener))
+      }
+    },
+    routes: {
+      marked: (routes) => routes.map((route) => markedRoute(route, marks.marks[route.id])),
+      onChange(listener) {
+        marks.listeners.add(listener)
+
+        return once(() => marks.listeners.delete(listener))
       }
     },
     navigate: {
@@ -765,4 +793,11 @@ function message(error: unknown): string {
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- JavaScript can throw anything
 function stackOf(error: unknown): string | undefined {
   return error instanceof Error ? error.stack : undefined
+}
+
+/** A route as the person marked it: a page as an API route, or an API route as a page. Other marks change nothing. */
+function markedRoute(route: Route, mark: "api" | "page" | undefined): Route {
+  return mark !== undefined && route.kind !== mark && (route.kind === "page" || route.kind === "api")
+    ? { ...route, kind: mark }
+    : route
 }
