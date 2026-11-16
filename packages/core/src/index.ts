@@ -293,7 +293,8 @@ export {
   type LeftOutExport,
   rendersRoot,
   type RouteFiles,
-  routeFiles
+  routeFiles,
+  withRouteFiles
 } from "./grouping.ts"
 
 export {

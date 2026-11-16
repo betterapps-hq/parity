@@ -36,7 +36,8 @@ import {
   type RendererAdapter,
   type RendererDescription,
   type ThemeVariable,
-  withLibraryCanvas
+  withLibraryCanvas,
+  withRouteFiles
 } from "@parity-app/core"
 import { batched, type ProviderCall, type ProviderKind, type ProviderResult } from "@parity-app/extension-host"
 import {
@@ -859,9 +860,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       await closeEarly()
     }
 
-    early?.config.resolve(startOptions.config)
+    // With the files the routes are made of, so the builder bundles what only pages import before a page loads (PAR-1203).
+    const served = routing.then((routed) => withRouteFiles(startOptions.config, routed?.routes ?? []))
+    early?.config.resolve(served)
 
-    const serving = early?.serving ?? serve(builder, name, startOptions)
+    const serving = early?.serving ?? serve(builder, name, { ...startOptions, config: served })
     serving.then(
       () => (opening.builderMs = since(builderStarted)),
       () => undefined
@@ -914,7 +917,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       list: opened.list,
       session,
       builder,
-      startOptions,
+      startOptions: { ...startOptions, config: withRouteFiles(startOptions.config, routed?.routes ?? []) },
       drawnGuestUrl: session.guestUrl,
       fingerprints: new Map([[session.guestUrl, servedCode(root, startOptions)]]),
       stylesheets: config.styles,

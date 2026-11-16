@@ -1,5 +1,5 @@
 import type { ComponentEvidence } from "./library.ts"
-import type { ComponentSource } from "./project.ts"
+import type { ComponentSource, ProjectConfig } from "./project.ts"
 import { drawnRoute, type ProjectRoute } from "./routes.ts"
 
 /** An export of the app's that isn't listed as a component, and why, so a person or agent looking for it learns why. */
@@ -65,6 +65,14 @@ export function routeFiles(routes: readonly ProjectRoute[]): RouteFiles {
   }
 
   return files
+}
+
+/**
+ * The project's config with the files its routes are made of, for its builder to bundle what only pages import before
+ * any page loads (PAR-1203). Unchanged without routes.
+ */
+export function withRouteFiles(config: ProjectConfig, routes: readonly ProjectRoute[]): ProjectConfig {
+  return routes.length ? { ...config, routeFiles: [...routeFiles(routes).keys()] } : config
 }
 
 /**
