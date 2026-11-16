@@ -442,13 +442,13 @@ function LensTab({ api, params }: IDockviewPanelHeaderProps<{ lens: LensId }>) {
   const { label, icon: Icon } = lenses[params.lens]
 
   return (
-    <div className="group/tab flex h-full min-w-0 items-center gap-2 pr-1.5 pl-3">
+    <div className="group/tab flex h-full min-w-0 items-center gap-2 px-3">
       <Icon className="size-4 shrink-0" />
-      <span className="truncate">{label}</span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
       <button
         type="button"
         aria-label={`Close ${label}`}
-        className="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground opacity-0 group-hover/tab:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 [.dv-active-tab_&]:opacity-100"
+        className="grid size-5 shrink-0 place-items-center rounded opacity-0 group-hover/tab:opacity-100 hover:bg-accent focus-visible:opacity-100 [.dv-active-tab_&]:opacity-100"
         onPointerDown={(event) => event.stopPropagation()}
         onClick={(event) => {
           event.stopPropagation()

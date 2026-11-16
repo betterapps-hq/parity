@@ -73,13 +73,13 @@ restore. The project service still could hold more than one project; the window 
 | In that window, the same button                               | Back into the main window                                   |
 | Right-click a lens                                            | Split right, Move to new window, Close                      |
 
-**Each lens opens as a tab** with its name and a close button, VS Code's tabs in the app's colors: the strip lines up
-with the side panels' tab rows, the tab in front takes its canvas's color, and the tab in front in the group in focus
-has the selection's blue along its top. A group holds as many lens tabs as you like, and each lens is open once, so
-showing it elsewhere moves it. Dragging a tab works as in VS Code and a browser: onto tabs to join them, onto a canvas's
-side to split, and off the window to open it in a window of its own where it's let go, so dropping it on another monitor
-puts it there. The button at the end of each group's tabs does that in one click; the window is then moved like any
-other.
+**Each lens opens as a tab** with its name and a close button, in the shape today's project tabs have: rounded at the
+top, on the title bar's color. The strip lines up with the side panels' tab rows, the tab in front takes its canvas's
+color and joins it, and the tab in front in the group in focus has the selection's blue along its top. A group holds as
+many lens tabs as you like, and each lens is open once, so showing it elsewhere moves it. Dragging a tab works as in VS
+Code and a browser: onto tabs to join them, onto a canvas's side to split, and off the window to open it in a window of
+its own where it's let go, so dropping it on another monitor puts it there. The button at the end of each group's tabs
+does that in one click; the window is then moved like any other.
 
 **A lens's own window holds its tabs, not the panels.** The lens bar, the left panel and the inspector stay in the main
 window and follow the tab in focus, in any window, as VS Code's side bars follow its editors in their own windows.

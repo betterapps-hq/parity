@@ -1,16 +1,17 @@
 /*
- * Dockview in the app's colors (PAR-1237). Tabs are VS Code's: a strip on the panels' background, lined up with the
- * side panels' tab rows, where the open tab takes the canvas's color and joins the canvas below it, and the open tab of
- * the group in focus has the selection's blue along its top. Everything else follows the app's tokens.
+ * Dockview in the app's colors (PAR-1237). A group's tabs are the app's project tabs: rounded at the top, on the title
+ * bar's color, with the open one in the canvas's color, joined to the canvas below it. The open tab of the group in
+ * focus has the selection's blue along its top. The strip is as tall as the side panels' tab rows, so they line up.
  */
 .dockview-theme-parity {
   --lens-canvas: rgb(249, 250, 251);
+  --lens-strip: oklch(0.97 0 0);
 
   color-scheme: inherit;
-  --dv-tabs-and-actions-container-font-size: 13px;
-  --dv-tabs-and-actions-container-height: 48px;
-  --dv-tab-font-size: 13px;
-  --dv-tabs-and-actions-container-background-color: var(--background);
+  --dv-tabs-and-actions-container-font-size: 14px;
+  --dv-tabs-and-actions-container-height: 36px;
+  --dv-tab-font-size: 14px;
+  --dv-tabs-and-actions-container-background-color: var(--lens-strip);
   --dv-group-view-background-color: var(--lens-canvas);
   --dv-activegroup-visiblepanel-tab-background-color: var(--lens-canvas);
   --dv-inactivegroup-visiblepanel-tab-background-color: var(--lens-canvas);
@@ -20,7 +21,7 @@
   --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
   --dv-inactivegroup-visiblepanel-tab-color: color-mix(in oklch, var(--foreground) 80%, transparent);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
-  --dv-tab-divider-color: var(--border);
+  --dv-tab-divider-color: transparent;
   --dv-separator-border: var(--border);
   --dv-paneview-header-border-color: var(--border);
   --dv-icon-hover-background-color: var(--accent);
@@ -41,6 +42,7 @@
 
 .dark .dockview-theme-parity {
   --lens-canvas: rgb(16, 16, 17);
+  --lens-strip: #0a0a0a;
 }
 
 /* The strip's bottom edge, which the open tab covers so it runs on into its canvas. */
@@ -48,13 +50,42 @@
   box-shadow: inset 0 -1px var(--border);
 }
 
+.dockview-theme-parity .dv-tabs-container {
+  align-items: flex-end;
+  gap: 2px;
+  padding-inline: 6px;
+}
+
+/* The project tab's size: as wide as it can be up to 224px, down to 96px before the strip scrolls. */
 .dockview-theme-parity .dv-tab {
-  position: relative;
-  border-right: 1px solid var(--border);
+  display: flex;
+  flex-shrink: 1;
+  width: 224px;
+  min-width: 96px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.dockview-theme-parity .dv-tab > * {
+  flex: 1;
+  min-width: 0;
 }
 
 .dockview-theme-parity .dv-tab.dv-active-tab {
+  border-color: var(--border);
   box-shadow: none;
+}
+
+.dockview-theme-parity
+  .dv-groupview
+  > .dv-tabs-and-actions-container
+  .dv-tabs-container
+  > .dv-tab.dv-inactive-tab:hover {
+  background-color: color-mix(in oklch, var(--muted) 40%, transparent);
+  color: var(--foreground);
 }
 
 .dockview-theme-parity .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
