@@ -1,18 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { CanvasBoard, DashboardDesign, type Marker, PricingDesign, Themes, scrolls } from "../stories/canvas-kit.tsx"
 import { FaceStack } from "./FaceStack.tsx"
 import { Marquee } from "./Marquee.tsx"
 import { Outlined } from "./Outlined.tsx"
 import { RemotePointer } from "./RemotePointer.tsx"
-import {
-  CanvasBoard,
-  DashboardDesign,
-  type Marker,
-  members,
-  presences,
-  PricingDesign,
-  Themes,
-  scrolls
-} from "./story-kit.tsx"
+import { members, presences } from "./story-kit.tsx"
 
 /**
  * One room, all together, to judge the system as a whole: three people and two agents on the canvas. Mia has a stat

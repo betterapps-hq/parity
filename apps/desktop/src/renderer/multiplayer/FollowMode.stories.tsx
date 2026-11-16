@@ -1,20 +1,19 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { useResolvedTheme } from "../theme.ts"
-import { FaceStack } from "./FaceStack.tsx"
-import { FollowLayer } from "./FollowLayer.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
 import {
   CanvasBoard,
   CanvasPane,
   DashboardDesign,
   type Theme,
   Themes,
-  members,
-  presences,
   useClock,
   scrolls
-} from "./story-kit.tsx"
+} from "../stories/canvas-kit.tsx"
+import { useResolvedTheme } from "../theme.ts"
+import { FaceStack } from "./FaceStack.tsx"
+import { FollowLayer } from "./FollowLayer.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
+import { members, presences } from "./story-kit.tsx"
 import { type FollowState, useFollow } from "./useFollow.ts"
 
 /**

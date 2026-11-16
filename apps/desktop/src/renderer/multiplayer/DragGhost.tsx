@@ -1,15 +1,19 @@
 import type { ReactNode } from "react"
+import { DragLift } from "../canvas/DragLift.tsx"
 import type { Member } from "./member.ts"
 import { Outlined } from "./Outlined.tsx"
 
 /**
- * A layer someone is dragging out of a layout, as everyone else sees it. Its picture follows their pointer, lifted
- * and outlined in their color; a dimmed copy sits where it would land (`LandingCopy`), and the original is hidden.
+ * What someone else is carrying, as everyone else sees it: lifted as the canvas lifts anything picked up (`DragLift`),
+ * with the dragger's outline and name added. Out of a layout it's a picture following their pointer, while a
+ * `LandingSpot` in their color shows where it would land.
  */
-export function DragGhost({ member, children }: { member: Member; children: ReactNode }) {
+export function DragGhost({ member, radius, children }: { member: Member; radius?: number; children: ReactNode }) {
   return (
-    <div className="pointer-events-none rotate-[1.5deg] opacity-90 drop-shadow-xl">
-      <Outlined by={[member]}>{children}</Outlined>
-    </div>
+    <DragLift up className="pointer-events-none">
+      <Outlined by={[member]} radius={radius}>
+        {children}
+      </Outlined>
+    </DragLift>
   )
 }

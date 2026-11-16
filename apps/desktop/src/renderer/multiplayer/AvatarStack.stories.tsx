@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
+import { CanvasBoard, DashboardDesign, Themes, scrolls } from "../stories/canvas-kit.tsx"
 import { FaceStack } from "./FaceStack.tsx"
 import type { Presence } from "./member.ts"
-import { CanvasBoard, DashboardDesign, members, presences, Themes, scrolls } from "./story-kit.tsx"
+import { members, presences } from "./story-kit.tsx"
 
 /**
  * Who's here, on the canvas's top-right edge: up to four faces, then a count of the rest. A person's face is round, a

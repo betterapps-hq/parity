@@ -1,8 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { CanvasBoard, DashboardDesign, type Marker, Themes, scrolls } from "../stories/canvas-kit.tsx"
 import type { Member } from "./member.ts"
 import { Outlined } from "./Outlined.tsx"
 import { RemotePointer } from "./RemotePointer.tsx"
-import { CanvasBoard, DashboardDesign, type Marker, members, Themes, scrolls } from "./story-kit.tsx"
+import { members } from "./story-kit.tsx"
 
 /**
  * Other people's selections: the layer outlined in their color, with their name on a tag at its top-left corner. When

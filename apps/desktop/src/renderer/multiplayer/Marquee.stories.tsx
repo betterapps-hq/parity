@@ -1,9 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
+import { CanvasBoard, DashboardDesign, Themes, scrolls } from "../stories/canvas-kit.tsx"
 import { Marquee } from "./Marquee.tsx"
 import { hairline, type Member } from "./member.ts"
 import { RemotePointer } from "./RemotePointer.tsx"
-import { CanvasBoard, DashboardDesign, members, Themes, scrolls } from "./story-kit.tsx"
+import { members } from "./story-kit.tsx"
 
 /**
  * Someone dragging out a marquee: the area tinted in their color, edged in it, and their pointer at the corner they're

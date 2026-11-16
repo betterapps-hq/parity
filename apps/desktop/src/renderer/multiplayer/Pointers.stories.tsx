@@ -1,8 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
+import {
+  CanvasBoard,
+  CanvasPane,
+  DashboardDesign,
+  Playback,
+  Themes,
+  useClock,
+  scrolls
+} from "../stories/canvas-kit.tsx"
 import { useResolvedTheme } from "../theme.ts"
 import { RemotePointer } from "./RemotePointer.tsx"
-import { CanvasBoard, CanvasPane, DashboardDesign, members, Playback, Themes, useClock, scrolls } from "./story-kit.tsx"
+import { members } from "./story-kit.tsx"
 
 /**
  * Other people's pointers: the agents' arrow and pill, in the person's flat color, with their first name and, when

@@ -1,13 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import { DragGhost } from "./DragGhost.tsx"
-import { LandingCopy } from "./LandingCopy.tsx"
-import { Outlined } from "./Outlined.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
+import { LandingSpot } from "../canvas/LandingSpot.tsx"
 import {
   CanvasBoard,
   DashboardDesign,
-  members,
   Playback,
   PricingDesign,
   type Stat,
@@ -16,12 +12,17 @@ import {
   Themes,
   useClock,
   scrolls
-} from "./story-kit.tsx"
+} from "../stories/canvas-kit.tsx"
+import { DragGhost } from "./DragGhost.tsx"
+import { Outlined } from "./Outlined.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
+import { members } from "./story-kit.tsx"
 
 /**
- * What everyone else sees while someone drags. Dragged things move for them too, not just an outline, and each carries
- * the dragger's outline and name, with their pointer pressed. Nothing here writes: a preview moves what's drawn until
- * the dragger's drop arrives through the document.
+ * What everyone else sees while someone drags. Dragged things move for them too, not just an outline, and the same
+ * way they move for the dragger (see Canvas, Dragging): lifted, a picture carried out of a layout with a landing spot
+ * where it would go. Each also carries the dragger's outline and name, in their color, with their pointer pressed.
+ * Nothing here writes: a preview moves what's drawn until the dragger's drop arrives through the document.
  */
 const meta = {
   title: "Parity/Multiplayer/Drag previews",
@@ -139,13 +140,13 @@ export const LayerInALayout: Story = {
                 <DashboardDesign
                   order={order}
                   mark={(id, element) =>
-                    id === "stat-churn" ? <LandingCopy member={priya}>{element}</LandingCopy> : element
+                    id === "stat-churn" ? <LandingSpot color={priya.palette.color}>{element}</LandingSpot> : element
                   }
                   overlay={
                     <div className="absolute" style={{ left: ghost.x, top: ghost.y }}>
-                      <div className="h-[46px] w-[87px]">
+                      <div className="h-[51px] w-[87px]">
                         <DragGhost member={priya}>
-                          <div className="h-[46px] w-[87px]">
+                          <div className="h-[51px] w-[87px]">
                             <StatCard id="churn" />
                           </div>
                         </DragGhost>
@@ -182,10 +183,12 @@ export const AbsoluteLayer: Story = {
                   sticker={sticker}
                   mark={(id, element) =>
                     id === "sticker" ? (
-                      <Outlined by={[mia]} radius={10}>
-                        {element}
+                      <span className="relative block">
+                        <DragGhost member={mia} radius={10}>
+                          {element}
+                        </DragGhost>
                         <RemotePointer member={mia} at={{ x: 30, y: 12 }} pressed badge={false} />
-                      </Outlined>
+                      </span>
                     ) : (
                       element
                     )

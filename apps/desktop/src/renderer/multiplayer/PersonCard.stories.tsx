@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
+import { CanvasBoard, CanvasPane, DashboardDesign, Themes, scrolls } from "../stories/canvas-kit.tsx"
 import { useResolvedTheme } from "../theme.ts"
 import { FaceStack } from "./FaceStack.tsx"
 import type { Presence } from "./member.ts"
 import { PersonCard } from "./PersonCard.tsx"
-import { CanvasBoard, CanvasPane, DashboardDesign, members, presences, Themes, scrolls } from "./story-kit.tsx"
+import { members, presences } from "./story-kit.tsx"
 
 /**
  * Someone's card, opened from their face in the avatar stack: their name, where they are and what they're looking at,
