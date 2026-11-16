@@ -1,5 +1,5 @@
+import type { CameraPort } from "@parity-app/editor"
 import { type Editor, react } from "tldraw"
-import type { CameraPort } from "./camera.ts"
 
 /** The camera service's view of a tldraw editor: its camera, its viewport and the canvas's zoom limits. */
 export function tldrawCameraPort(editor: Editor): CameraPort {

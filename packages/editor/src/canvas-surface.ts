@@ -1,14 +1,12 @@
+import type { Point } from "./drop-slot.ts"
+
 /**
  * The shapes the canvas surface speaks in (PAR-1233, PAR-1236), as docs/proposals/extensions-in-the-window.md sets them
- * out. Page coordinates are tldraw's; screen coordinates are pixels from the canvas area's top-left corner.
+ * out. Page coordinates are tldraw's; screen coordinates are pixels from the canvas area's top-left corner. The
+ * window draws through them in `apps/desktop/src/renderer/canvas/surface/`; the policy is here, over ports.
  */
 
-export interface Point {
-  x: number
-  y: number
-}
-
-export interface Rect extends Point {
+export interface PageRect extends Point {
   width: number
   height: number
 }
@@ -19,7 +17,7 @@ export interface Disposable {
 }
 
 /** What the canvas shows: the part of the page in view. Windows differ in size, so it's a rect, not a zoom. */
-export type CameraView = Rect
+export type CameraView = PageRect
 
 /** Why following ended. */
 export type FollowEnd = "escape" | "panned" | "zoomed" | "navigated" | "replaced" | "disposed"
@@ -59,16 +57,16 @@ export interface BoxOptions {
 }
 
 /** Something drawn: its box on the page, its corner radius in page units, and its laid-out size in design pixels. */
-export interface Drawn {
-  box: Rect
+export interface DrawnAt {
+  box: PageRect
   radius: number
   size: { width: number; height: number }
 }
 
 export type BoxResult =
-  | ({ kind: "drawn" } & Drawn)
+  | ({ kind: "drawn" } & DrawnAt)
   /** Its frame is asleep, or its board culled: the frame's box (the board's, when culled) so something can point at it. */
-  | { kind: "asleep"; frame: Rect }
+  | { kind: "asleep"; frame: PageRect }
   /** Not on the canvas. */
   | { kind: "missing" }
 

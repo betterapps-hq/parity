@@ -1,10 +1,8 @@
+import { type Camera, createCamera, createMeasure, type Measure } from "@parity-app/editor"
 import type { Editor } from "tldraw"
 import { track } from "../../report-error.ts"
 import { tldrawCameraPort } from "./camera-tldraw.ts"
-import { createCamera } from "./camera.ts"
 import { domMeasurePort } from "./measure-dom.ts"
-import { createMeasure } from "./measure.ts"
-import type { Camera, Measure } from "./types.ts"
 
 /**
  * A project tab's canvas surface (PAR-1236): its camera, following, and where things are on the page. Core services

@@ -25,7 +25,7 @@ export interface Colors {
   palette(n: number): Palette
   /** How many palettes are hand-tuned. */
   readonly tuned: number
-  /** How many keys hold a color now. */
+  /** How many keys hold a color now: claimed, or assigned by the room. */
   readonly size: number
   /** How many claims `owner` holds. */
   claims(owner: ColorOwner): number
@@ -74,10 +74,21 @@ export function createColors({ palette, tuned, onGenerated }: ColorsOptions): Co
     return n
   }
 
+  /** Keys holding a color: claimed here, or assigned by the room and not yet claimed. */
+  const holders = () => {
+    let count = held.size
+
+    for (const key of assigned.keys()) {
+      count += held.has(key) ? 0 : 1
+    }
+
+    return count
+  }
+
   const note = (n: number) => {
     if (n >= tuned && !generated.has(n)) {
       generated.add(n)
-      onGenerated?.(n, held.size)
+      onGenerated?.(n, holders())
     }
   }
 
@@ -145,7 +156,7 @@ export function createColors({ palette, tuned, onGenerated }: ColorsOptions): Co
     palette,
     tuned,
     get size() {
-      return held.size
+      return holders()
     },
     claims(owner) {
       let count = 0

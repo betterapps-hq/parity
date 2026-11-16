@@ -6156,22 +6156,23 @@ land (PAR-1233). Each project tab's canvas starts its own as it mounts (`surface
   `hit` gives the design under a page point and the deepest node there, and `pageToScreen` and `screenToPage` convert
   between the page and the canvas area's pixels.
 
-Code: `createColors` in `packages/presence-colors/src/colors.ts`; `apps/desktop/src/renderer/canvas/surface/`:
-`colors.ts`, `camera.ts` (over `camera-tldraw.ts`), `measure.ts` (over `measure-dom.ts`, which reads frames through
-`frame-geometry.ts`) and `index.ts`; `agent/agent-colors.ts`.
+Code: `createColors` in `packages/presence-colors/src/colors.ts`; the camera, following and measuring policy in
+`packages/editor/src/`: `canvas-surface.ts` (the shapes), `canvas-camera.ts` and `canvas-measure.ts`, each over a port;
+and the window's side in `apps/desktop/src/renderer/canvas/surface/`: `colors.ts`, `camera-tldraw.ts`, `measure-dom.ts`
+(which reads frames through `frame-geometry.ts`) and `index.ts`; `agent/agent-colors.ts`.
 
 Tests:
 
-- `packages/presence-colors/src/colors.test.ts` (5): the lowest free number, kept while claimed; forty agents without
+- `packages/presence-colors/src/colors.test.ts` (6): the lowest free number, kept while claimed; forty agents without
   running out, `colors.generated` once per number; claims kept while any owner holds them and given back together; the
-  room's numbers winning; a number that isn't a palette's refused.
+  room's numbers winning; keys the room assigned counted as holding a color; a number that isn't a palette's refused.
 - `apps/desktop/src/renderer/agent/agent-colors.test.ts` (2): an agent keeps its palette; agents at once never share
   one, the hand-tuned ones first, and never run out.
-- `apps/desktop/src/renderer/canvas/surface/camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling
-  a zoom from a pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the
-  person's pan or zoom; each other ending; fitting again on resize.
-- `apps/desktop/src/renderer/canvas/surface/measure.test.ts` (6): the frame fallback; boards, frames and nodes; a
-  sleeping frame and a culled board; changes told once a frame until disposed; hits on the deepest node.
+- `packages/editor/src/canvas-camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling a zoom from a
+  pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the person's pan
+  or zoom; each other ending; fitting again on resize.
+- `packages/editor/src/canvas-measure.test.ts` (6): the frame fallback; boards, frames and nodes; a sleeping frame and a
+  culled board; changes told once a frame until disposed; hits on the deepest node.
 
 ## Tokens
 

@@ -1,9 +1,8 @@
+import type { DrawnAt, MeasuredFrame, MeasurePort, PageRect, Point } from "@parity-app/editor"
 import type { Editor } from "tldraw"
 import { findFrames, findNodeElement, nodesAt } from "../../frame.ts"
 import { frameGeometry } from "../frame-geometry.ts"
 import { createCanvasId } from "../tldraw-names.ts"
-import type { MeasuredFrame, MeasurePort } from "./measure.ts"
-import type { Drawn, Point, Rect } from "./types.ts"
 
 /** A box the browser gives, as `getBoundingClientRect` does. */
 interface ClientBox {
@@ -20,7 +19,7 @@ interface ClientBox {
 export function domMeasurePort(editor: Editor): MeasurePort {
   const area = () => editor.getContainer()
 
-  const toPage = (box: ClientBox): Rect => {
+  const toPage = (box: ClientBox): PageRect => {
     const from = editor.screenToPage({ x: box.left, y: box.top })
     const to = editor.screenToPage({ x: box.right, y: box.bottom })
 
@@ -39,7 +38,7 @@ export function domMeasurePort(editor: Editor): MeasurePort {
       : 0
 
   /** Something drawn at `scale` screen pixels to a design pixel. */
-  const drawnAt = (box: ClientBox, scale: number, element: Element | undefined): Drawn => ({
+  const drawnAt = (box: ClientBox, scale: number, element: Element | undefined): DrawnAt => ({
     box: toPage(box),
     radius: radiusOf(element, scale),
     size: { width: (box.right - box.left) / scale, height: (box.bottom - box.top) / scale }

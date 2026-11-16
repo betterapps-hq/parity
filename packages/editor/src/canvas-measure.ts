@@ -1,4 +1,5 @@
-import type { BoxOptions, BoxResult, CanvasRef, Disposable, Drawn, Measure, Point, Rect } from "./types.ts"
+import type { BoxOptions, BoxResult, CanvasRef, Disposable, DrawnAt, Measure, PageRect } from "./canvas-surface.ts"
+import type { Point } from "./drop-slot.ts"
 
 /** A frame a design draws, as the measuring service reads it. Each part is read when it's asked for. */
 export interface MeasuredFrame {
@@ -7,9 +8,9 @@ export interface MeasuredFrame {
   readonly primary: boolean
   readonly asleep: boolean
   /** The frame itself. */
-  measure(): Drawn
+  measure(): DrawnAt
   /** A node it draws, or nothing when it draws none. */
-  node(id: string): Drawn | undefined
+  node(id: string): DrawnAt | undefined
   /** Whether a page point is inside it. */
   contains(at: Point): boolean
   /** The nodes it draws under a page point, outermost first. */
@@ -19,7 +20,7 @@ export interface MeasuredFrame {
 /** What the measuring service needs from the canvas, so it runs the same over the window (`measure-dom.ts`) and in tests. */
 export interface MeasurePort {
   /** A design's board, wherever it is on the page, even culled; nothing when it isn't on the canvas. */
-  board(design: string): Drawn | undefined
+  board(design: string): DrawnAt | undefined
   /** Whether the board is drawn now, rather than culled out of view. */
   boardDrawn(design: string): boolean
   /** The frames drawn for a design, in the page's order. */
@@ -54,7 +55,7 @@ export function pickFrame<Frame extends Pick<MeasuredFrame, "mode" | "state" | "
 
 const near = (a: number, b: number) => Math.abs(a - b) < 0.01
 
-const sameRect = (a: Rect, b: Rect) =>
+const sameRect = (a: PageRect, b: PageRect) =>
   near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height)
 
 /** Whether two results say the same thing, within a hundredth of a unit. */
@@ -76,7 +77,7 @@ export function sameBox(a: BoxResult, b: BoxResult): boolean {
 }
 
 const missing: BoxResult = { kind: "missing" }
-const drawn = (each: Drawn): BoxResult => ({ kind: "drawn", ...each })
+const drawn = (each: DrawnAt): BoxResult => ({ kind: "drawn", ...each })
 
 /** Where things are on the canvas, read through `port`, and what stops it. */
 export function createMeasure(port: MeasurePort): Measure & Disposable {

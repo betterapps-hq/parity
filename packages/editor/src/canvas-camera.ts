@@ -1,4 +1,4 @@
-import type { Camera, CameraView, Disposable, FollowEnd, Following } from "./types.ts"
+import type { Camera, CameraView, Disposable, FollowEnd, Following } from "./canvas-surface.ts"
 
 /** tldraw's camera: a page point `p` is drawn at `(p + {x, y}) * z` in the canvas area. */
 export interface CameraState {
@@ -142,11 +142,10 @@ export function createCamera(port: CameraPort, { onFollowEnded }: CameraOptions 
     private ended = false
     private target: CameraView
     private viewport: Size
+    private readonly owner: string
 
-    constructor(
-      view: CameraView,
-      private readonly owner: string
-    ) {
+    constructor(view: CameraView, owner: string) {
+      this.owner = owner
       this.target = view
       this.viewport = port.viewport()
       // Where the camera is now counts as following's own, so a move before its first glide frame still ends it.

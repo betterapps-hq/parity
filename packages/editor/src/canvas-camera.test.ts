@@ -9,8 +9,8 @@ import {
   moveEnd,
   sameCamera,
   viewOf
-} from "./camera.ts"
-import type { FollowEnd } from "./types.ts"
+} from "./canvas-camera.ts"
+import type { FollowEnd } from "./canvas-surface.ts"
 
 /** A canvas in memory: a camera, a viewport, and frames run by hand. */
 function fakeCanvas() {

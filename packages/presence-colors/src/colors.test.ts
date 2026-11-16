@@ -55,6 +55,20 @@ describe("colors by key", () => {
     expect(colors.claim("other").n).toBe(0)
   })
 
+  it("counts keys the room assigned but nobody here claims as holding a color", () => {
+    const generated: [number, number][] = []
+    const colors = agents((n, keys) => generated.push([n, keys]))
+    colors.assign("mia", 20)
+    expect(colors.size).toBe(1)
+    expect(generated).toEqual([[20, 1]])
+    colors.claim("mia")
+    expect(colors.size).toBe(1)
+    colors.release("mia")
+    expect(colors.size).toBe(1)
+    colors.unassign("mia")
+    expect(colors.size).toBe(0)
+  })
+
   it("refuses a number that isn't a palette's", () => {
     expect(() => agents().assign("mia", -1)).toThrow(RangeError)
   })

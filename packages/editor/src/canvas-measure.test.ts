@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vite-plus/test"
-import { createMeasure, type MeasuredFrame, type MeasurePort, pickFrame, sameBox } from "./measure.ts"
-import type { Drawn } from "./types.ts"
+import { createMeasure, type MeasuredFrame, type MeasurePort, pickFrame, sameBox } from "./canvas-measure.ts"
+import type { DrawnAt } from "./canvas-surface.ts"
 
-const at = (x: number, y: number, width = 100, height = 100): Drawn => ({
+const at = (x: number, y: number, width = 100, height = 100): DrawnAt => ({
   box: { x, y, width, height },
   radius: 8,
   size: { width: width * 2, height: height * 2 }
 })
 
-function frame(options: Partial<MeasuredFrame> & { box: Drawn; nodes?: Record<string, Drawn> }): MeasuredFrame {
+function frame(options: Partial<MeasuredFrame> & { box: DrawnAt; nodes?: Record<string, DrawnAt> }): MeasuredFrame {
   const { box, nodes = {} } = options
 
   return {
