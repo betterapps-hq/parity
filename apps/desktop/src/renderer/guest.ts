@@ -20,7 +20,6 @@ import {
   type TokenChange
 } from "@parity-app/tokens"
 import { guardPage, type PageStyles, pageStyles } from "./page-styles.ts"
-import { guardWindow } from "./page-window.ts"
 
 export interface LoadedGuest extends FrameCss {
   guest: Guest
@@ -107,10 +106,8 @@ export function releaseGuest(url: string): void {
 }
 
 async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
-  // What the project's code adds to the page from here on, its guest module's imports included, stays out of it, and
-  // it can't reload the window or change its root.
+  // What the project's code adds to the page from here on, its guest module's imports included, stays out of it.
   guardPage()
-  guardWindow()
   const { origin } = new URL(url)
   const guest = await importWithRetry(url)
   const added = pageStyles(origin)
