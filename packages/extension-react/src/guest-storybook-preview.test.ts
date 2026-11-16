@@ -202,6 +202,32 @@ describe("the project's Storybook preview, composed with its portable stories AP
     other.remove()
   })
 
+  it("runs the effects of Storybook's own hooks once the frame has drawn, and cleans them up as it goes", async () => {
+    const events: string[] = []
+
+    // What `useEffect` from `storybook/preview-api` does in a decorator: it queues an effect on the story's hooks.
+    const withEffect = (Inner: Story, context: { hooks: { currentEffects: object[] } }) => {
+      context.hooks.currentEffects.push({
+        create: () => {
+          events.push(`ran: ${document.body.contains(target.querySelector("p"))}`)
+
+          return () => events.push("cleaned")
+        }
+      })
+
+      return createElement(Inner)
+    }
+
+    const { handle } = mount({ decorators: [withEffect] })
+
+    await vi.waitFor(() => expect(events).toEqual(["ran: true"]))
+
+    handle.unmount()
+    mounted.splice(0)
+
+    expect(events).toEqual(["ran: true", "cleaned"])
+  })
+
   it("says why when the preview's loaders fail, and the frame stays empty", async () => {
     const onError = vi.fn<NonNullable<MountOptions["onError"]>>()
     mount({ loaders: [() => Promise.reject(new Error("no messages"))] }, { onError })

@@ -1488,13 +1488,36 @@ interface ComposedStory {
 const frameStories = new WeakMap<object, Frame>()
 
 /**
+ * Storybook's own hooks (`useEffect` and the rest from `storybook/preview-api`), as a frame's last draw left them: they
+ * run their effects once the story has drawn, as Storybook tells them with `renderListener`, and `clean` undoes them.
+ */
+interface PreviewHooks {
+  renderListener: (storyId: string) => void
+  clean: () => void
+}
+
+/** Each frame story's Storybook hooks and story id, from its last draw, so the frame runs their effects once it's drawn. */
+const frameHooks = new WeakMap<object, { hooks: PreviewHooks; id: string }>()
+
+/**
  * Gives Storybook's decorators the frame's stand-in body as `canvasElement`, which a story drawn with the function
- * `composeStory` returns otherwise leaves unset. It's outermost, so every decorator of the project's sees it.
+ * `composeStory` returns otherwise leaves unset, and keeps the draw's Storybook hooks for the frame. It's outermost, so
+ * every decorator of the project's sees it.
  */
 function withFrameCanvas(Story: (update?: StoryValues) => ReactNode, context: StoryValues): ReactNode {
-  const frame = isComposite(context.moduleExport) ? frameStories.get(context.moduleExport) : undefined
+  const story = isComposite(context.moduleExport) ? context.moduleExport : undefined
+  const frame = story && frameStories.get(story)
+
+  if (story && isPreviewHooks(context.hooks) && isText(context.id)) {
+    frameHooks.set(story, { hooks: context.hooks, id: context.id })
+  }
 
   return Story(frame ? { canvasElement: frame.body } : {})
+}
+
+/** Whether a story context's `hooks` are Storybook's, with the two calls the frame makes of them. */
+function isPreviewHooks(value: unknown): value is PreviewHooks {
+  return isStoryValues(value) && value.renderListener instanceof Function && value.clean instanceof Function
 }
 
 /**
@@ -1541,9 +1564,20 @@ function composedPreview(
     const composed = api.composeStory(story, { title: "Parity" })
 
     // Called as a component, as `render(<Story />)` draws a portable story, so its decorators can use hooks. Memoized,
-    // so the frame drawing again leaves it be: what's inside reads the frame's latest content itself.
+    // so the frame drawing again leaves it be: what's inside reads the frame's latest content itself. Once it's drawn,
+    // Storybook's own hooks run their effects, as Storybook runs them when a story has rendered, and are cleaned up as
+    // it draws again or goes.
     const Composed = memo(function ComposedFrame() {
-      return createElement(Fragment, null, composed())
+      const element = composed()
+      const drawn = frameHooks.get(story)
+
+      useEffect(() => {
+        drawn?.hooks.renderListener(drawn.id)
+
+        return () => drawn?.hooks.clean()
+      }, [drawn])
+
+      return createElement(Fragment, null, element)
     })
 
     const load = composed.load().catch((error) => {

@@ -1393,7 +1393,9 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
   frame's content, with the frame's mode values as its globals. So the preview's decorators, loaders, `beforeEach`,
   parameters and global types' defaults apply as in Storybook, with Storybook's own context, hooks and renderer
   annotations. The composed story draws as a component, as `render(<Story />)` draws one, so decorators can use React's
-  hooks, and it doesn't draw again when the frame's content changes, so what's inside keeps its state.
+  hooks, and it doesn't draw again when the frame's content changes, so what's inside keeps its state. Effects of
+  Storybook's own hooks (`useEffect` from `storybook/preview-api`) run once the frame has drawn, as Storybook runs them
+  when a story has rendered, and are cleaned up when the frame goes.
 - **Inside the libraries' decorators,** as Parity's file is. Decorators get `canvasElement`, the frame's stand-in body.
 - **Loaders and `beforeEach` run before the frame draws,** and the guest's `loaded()` waits for them. Loaders that fail
   say why and the frame stays empty. Storybook keeps one list of `beforeEach` cleanups for every composed story, so a
@@ -1424,9 +1426,9 @@ preview Storybook's extension names" in `apps/desktop/src/utility/projects.test.
 `packages/project/src/code-fingerprint.test.ts`; "imports the package that composes a tool's preview beside it" in
 `packages/project/src/guest-module.test.ts`; "the project's Storybook preview, composed with its portable stories API"
 in `packages/extension-react/src/guest-storybook-preview.test.ts`, against Storybook's own `@storybook/react`: the
-nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next, and what
-didn't load. `examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through
-it.
+nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next,
+Storybook's own hooks' effects, each frame composed with its own project's preview, and what didn't load.
+`examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through it.
 
 ### A preview file offered from the app's providers (PAR-104)
 
