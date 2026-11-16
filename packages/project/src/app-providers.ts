@@ -504,13 +504,20 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
     // A copy is a new value: one the file also uses elsewhere, as a context its components read or an instance it sets
     // up in later statements, would differ from the app's, so the provider is left out instead.
     const copies = carried.declarations.map((declaration) => declaration.node)
+    const allowed = [element.openingElement, element.closingElement, ...copies]
 
-    const entangled = carried.declarations.find((declaration) =>
-      usedElsewhere(declaration.name, scope.source, [element.openingElement, ...copies])
+    const entangled = carried.declarations.find((declaration) => usedElsewhere(declaration.name, scope.source, allowed))
+
+    // The same holds for what a prop imports: the file may set it up as it runs, as `client.configure(options)` does,
+    // which the preview file wouldn't. The provider's own component is only drawn, so it's fine wherever it's used.
+    const tagName = firstPart(name)
+
+    const setUp = carried.imports.find(
+      ({ local }) => local !== tagName && local !== "React" && usedElsewhere(local, scope.source, allowed)
     )
 
-    if (entangled) {
-      leftOut.push({ name, file: scope.path, needs: entangled.name })
+    if (entangled ?? setUp) {
+      leftOut.push({ name, file: scope.path, needs: entangled?.name ?? setUp?.local ?? "" })
       continue
     }
 
@@ -824,6 +831,11 @@ function namesOnly(node: ts.Identifier): boolean {
     return parent.name === node
   }
 
+  // An import only names what it brings in.
+  if (ts.isImportSpecifier(parent) || ts.isNamespaceImport(parent)) {
+    return true
+  }
+
   return (
     (ts.isVariableDeclaration(parent) ||
       ts.isFunctionDeclaration(parent) ||
@@ -885,14 +897,19 @@ function freeNames(node: ts.Node): string[] {
 
   const visit = (each: ts.Node, bound: ReadonlySet<string>): void => {
     if (ts.isFunctionLike(each)) {
-      const inner = new Set([...bound, ...declaredIn(each)])
+      const declared = declaredIn(each)
+      // A parameter's default sees the parameters but not what the body declares, as JavaScript reads it.
+      const forParameters = new Set([...bound, ...declared.parameters])
+      const inner = new Set([...forParameters, ...declared.body])
 
       ts.forEachChild(each, (child) => {
         // A function's or method's own name isn't something it uses, but a computed one's key is, from around it.
-        if (child !== each.name) {
-          visit(child, inner)
-        } else if (ts.isComputedPropertyName(child)) {
-          visit(child.expression, bound)
+        if (child === each.name) {
+          if (ts.isComputedPropertyName(child)) {
+            visit(child.expression, bound)
+          }
+        } else {
+          visit(child, ts.isParameter(child) ? forParameters : inner)
         }
       })
 
@@ -907,6 +924,11 @@ function freeNames(node: ts.Node): string[] {
 
       if (!ts.isIdentifier(each.name)) {
         visit(each.name, bound)
+      }
+
+      // A computed key, as in `({ [locale]: greeting })`, is something it uses.
+      if (ts.isBindingElement(each) && each.propertyName && ts.isComputedPropertyName(each.propertyName)) {
+        visit(each.propertyName.expression, bound)
       }
 
       return
@@ -970,28 +992,35 @@ function freeNames(node: ts.Node): string[] {
   return [...names]
 }
 
+/** What a function declares: by its parameters, and in its body. */
+interface Declared {
+  parameters: string[]
+  body: string[]
+}
+
 /**
- * The names a function declares for all of its body: its parameters, and the variables, functions and classes its body
- * declares at its top. What a block inside declares counts only there, so it isn't taken here; a name it hides is then
- * read as used, which at worst leaves a provider out.
+ * The names a function declares: its parameters, and the variables, functions and classes its body declares at its top.
+ * What a block inside declares counts only there, so it isn't taken here; a name it hides is then read as used, which
+ * at worst leaves a provider out.
  */
-function declaredIn(fn: ts.SignatureDeclaration): string[] {
+function declaredIn(fn: ts.SignatureDeclaration): Declared {
+  const parameters: string[] = []
   const names: string[] = []
 
-  const bind = (name: ts.BindingName) => {
+  const bind = (name: ts.BindingName, into: string[]) => {
     if (ts.isIdentifier(name)) {
-      names.push(name.text)
+      into.push(name.text)
     } else {
       for (const element of name.elements) {
         if (ts.isBindingElement(element)) {
-          bind(element.name)
+          bind(element.name, into)
         }
       }
     }
   }
 
   for (const parameter of fn.parameters) {
-    bind(parameter.name)
+    bind(parameter.name, parameters)
   }
 
   const body = ts.isFunctionLike(fn) && "body" in fn ? fn.body : undefined
@@ -1000,7 +1029,7 @@ function declaredIn(fn: ts.SignatureDeclaration): string[] {
     for (const statement of body.statements) {
       if (ts.isVariableStatement(statement)) {
         for (const declaration of statement.declarationList.declarations) {
-          bind(declaration.name)
+          bind(declaration.name, names)
         }
       } else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name) {
         names.push(statement.name.text)
@@ -1008,7 +1037,7 @@ function declaredIn(fn: ts.SignatureDeclaration): string[] {
     }
   }
 
-  return names
+  return { parameters, body: names }
 }
 
 /** The preview file: its imports, what it copies from the app, one decorator nesting the providers, and its globals. */

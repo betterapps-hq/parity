@@ -483,6 +483,60 @@ createRoot(document.getElementById("root")!).render(<IntlProvider locale={Locale
     expect(offer).toBeUndefined()
   })
 
+  it("leaves out a provider whose imported value the file sets up as it runs", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { ClientProvider } from "./client-provider"
+import { client } from "./client"
+import App from "./App"
+
+client.configure({ retries: 0 })
+
+createRoot(document.getElementById("root")).render(<ClientProvider value={client}><App /></ClientProvider>)
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
+  it("imports a name a computed destructuring key uses", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { GreetingProvider } from "./greeting"
+import { locale } from "./locale"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <GreetingProvider value={({ [locale]: greeting }) => greeting}><App /></GreetingProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import { locale } from "../src/locale"`)
+  })
+
+  it("imports a name a parameter's default uses even where the body declares the same name", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { SessionProvider } from "./session"
+import { user } from "./fixtures"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <SessionProvider value={(x = user) => { const user = null; return x }}><App /></SessionProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import { user } from "../src/fixtures"`)
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({
