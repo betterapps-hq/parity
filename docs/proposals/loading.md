@@ -110,7 +110,7 @@ files kept on disk.
 
 ## The proposal
 
-Ranked by how much of the wait each change removes.
+Ranked by how much of the wait each change removes. Change 6 has since been moved up, ahead of 1.
 
 ### 1. Page frames from kept bitmaps, live only near the view (PAR-1200)
 
@@ -161,11 +161,11 @@ Previews already persist across launches. Rank the ones still to make by what's 
 panel, and make them without blocking input (`nextPreview` in `packages/processes/src/preview-order.ts`). This removes
 little from opening; it shortens how long previews keep the window re-rendering afterwards.
 
-### 6. Later: pages drawn by the one guest
+### 6. Pages drawn by the project's one instance (PAR-1204)
 
-With page frames lazy, the remaining cost of a page is booting the app in an iframe. Drawing pages from the window's own
-guest, with an in-memory router per frame, would take that to zero, but loaders, redirects and app-wide state would then
-share one instance. Worth deciding after 1, from what pages cost then.
+Moved up on 2026-11-16, and set out in [shared-app-instance.md](shared-app-instance.md): each page drawn as a frame by
+the guest, with the app's real route tree in a memory router at its URL, so pages need no boot of their own and get
+sleep and bitmaps as frames do. Change 1 then covers only the pages that keep an iframe.
 
 ## Not measured
 
