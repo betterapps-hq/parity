@@ -2,17 +2,7 @@ import type { LucideIcon } from "lucide-react"
 import { Face } from "./Face.tsx"
 import type { Member } from "./member.ts"
 
-/**
- * A row in the Layers panel with who else has that layer selected: their faces at the row's end, small and just apart
- * rather than overlapping, since the row's own fill changes under them. Past three, a count.
- */
-export function LayersPanelRow({
-  name,
-  icon: Icon,
-  depth = 0,
-  selectedBy = [],
-  selected
-}: {
+interface LayersPanelRowProps {
   name: string
   /** What kind of layer it is. */
   icon: LucideIcon
@@ -20,7 +10,13 @@ export function LayersPanelRow({
   selectedBy?: Member[]
   /** Whether you have it selected yourself. */
   selected?: boolean
-}) {
+}
+
+/**
+ * A row in the Layers panel with who else has that layer selected: their faces at the row's end, small and just apart
+ * rather than overlapping, since the row's own fill changes under them. Past three, a count.
+ */
+export function LayersPanelRow({ name, icon: Icon, depth = 0, selectedBy = [], selected }: LayersPanelRowProps) {
   const shown = selectedBy.slice(0, 3)
   const more = selectedBy.length - shown.length
 

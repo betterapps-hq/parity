@@ -5,11 +5,17 @@ import { CanvasFrame } from "./CanvasFrame.tsx"
 import { Face } from "./Face.tsx"
 import { type Member, shortName } from "./member.ts"
 
+interface FollowFrameProps {
+  leader: Member
+  on?: string
+  onStop?: () => void
+}
+
 /**
  * Following someone: the canvas framed in their color, and a banner at the top with their face, whose view this is,
  * which board it's on, and Stop, which names its key so a mouse and a keyboard both see how.
  */
-export function FollowFrame({ leader, on, onStop }: { leader: Member; on?: string; onStop?: () => void }) {
+export function FollowFrame({ leader, on, onStop }: FollowFrameProps) {
   return (
     <>
       <CanvasFrame palette={leader.palette} />

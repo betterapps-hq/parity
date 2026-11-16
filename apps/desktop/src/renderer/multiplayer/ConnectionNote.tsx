@@ -9,23 +9,20 @@ function listed(names: string[]): string | undefined {
   return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]
 }
 
-/**
- * When the connection to the room drops, on the canvas's banner: work carries on and is kept on this computer, and
- * everyone else's pointers and selections are hidden until it's back. Offline, it tries again by itself, and Try now
- * doesn't wait. Reconnecting, it says how many changes it's catching up on, and whose.
- */
-export function ConnectionNote({
-  state,
-  catchingUp = [],
-  changes = 0,
-  onRetry
-}: {
+interface ConnectionNoteProps {
   state: "offline" | "reconnecting"
   /** Whose changes are on their way in, while reconnecting. */
   catchingUp?: Member[]
   changes?: number
   onRetry?: () => void
-}) {
+}
+
+/**
+ * When the connection to the room drops, on the canvas's banner: work carries on and is kept on this computer, and
+ * everyone else's pointers and selections are hidden until it's back. Offline, it tries again by itself, and Try now
+ * doesn't wait. Reconnecting, it says how many changes it's catching up on, and whose.
+ */
+export function ConnectionNote({ state, catchingUp = [], changes = 0, onRetry }: ConnectionNoteProps) {
   if (state === "offline") {
     return (
       <CanvasBanner

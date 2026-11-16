@@ -12,23 +12,20 @@ function initials(member: Member, size: number): string {
     .toUpperCase()
 }
 
+interface FaceProps {
+  member: Member
+  size?: number
+  away?: boolean
+  following?: boolean
+}
+
 /**
  * Someone's face, round for everyone: a person's picture, or their initials on their gradient; an agent's sparkle on
  * its gradient. Either matches their pointer, and the gradient's style says which they are. It's cut out of whatever
  * it sits on by a ring of `--face-cutout` (the background, unless its surface sets it), so overlapping faces stay
  * apart. Faded while they're away; ringed in their color while you follow them.
  */
-export function Face({
-  member,
-  size = 28,
-  away,
-  following
-}: {
-  member: Member
-  size?: number
-  away?: boolean
-  following?: boolean
-}) {
+export function Face({ member, size = 28, away, following }: FaceProps) {
   const { palette } = member
   const cutout = "0 0 0 2px var(--face-cutout, var(--background))"
   const edge = `color-mix(in oklch, ${palette.ink} 30%, transparent)`

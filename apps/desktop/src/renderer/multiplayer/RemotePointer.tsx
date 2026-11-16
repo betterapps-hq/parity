@@ -10,6 +10,19 @@ function glideFor(distance: number): number {
   return Math.round(Math.min(Math.max(distance * 1.8, 280), 720))
 }
 
+interface RemotePointerProps {
+  member: Member
+  at: { x: number; y: number }
+  detail?: string
+  kind?: PresenceEvent["kind"]
+  offCanvas?: boolean
+  pressed?: boolean
+  /** Whether to show their badge; not while they drag, when what they move carries their name. */
+  badge?: boolean
+  /** How far apart positions arrive, which is how long each step takes. */
+  stepMs?: number
+}
+
 /**
  * Someone else's pointer, placed on the canvas. Positions arrive a few dozen milliseconds apart, so it moves to each in
  * a straight line in that time. When they leave the canvas it stays where they left it, faded and with only their
@@ -24,18 +37,7 @@ export function RemotePointer({
   pressed,
   badge = true,
   stepMs = 80
-}: {
-  member: Member
-  at: { x: number; y: number }
-  detail?: string
-  kind?: PresenceEvent["kind"]
-  offCanvas?: boolean
-  pressed?: boolean
-  /** Whether to show their badge; not while they drag, when what they move carries their name. */
-  badge?: boolean
-  /** How far apart positions arrive, which is how long each step takes. */
-  stepMs?: number
-}) {
+}: RemotePointerProps) {
   const node = useRef<HTMLDivElement>(null)
   const last = useRef<{ x: number; y: number } | undefined>(undefined)
   const wasOff = useRef(offCanvas)

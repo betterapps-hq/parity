@@ -52,20 +52,16 @@ const overlap =
 const faceButton =
   "relative flex rounded-full outline-offset-2 transition-transform duration-150 hover:z-10 hover:-translate-y-0.5 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:hover:translate-y-0"
 
-/** A face in the stack: hover for who and what, click or Enter for their card. */
-function StackFace({
-  presence,
-  size,
-  following,
-  stale,
-  defaultOpen
-}: {
+interface StackFaceProps {
   presence: Presence
   size: number
   following: boolean
   stale: boolean
   defaultOpen: boolean
-}) {
+}
+
+/** A face in the stack: hover for who and what, click or Enter for their card. */
+function StackFace({ presence, size, following, stale, defaultOpen }: StackFaceProps) {
   const { member } = presence
 
   return (
@@ -94,8 +90,13 @@ function StackFace({
   )
 }
 
+interface EveryoneRowProps {
+  presence: Presence
+  following: boolean
+}
+
 /** One of everyone, in the list the count opens: their face, name and where they are, and Follow on hover. */
-function EveryoneRow({ presence, following }: { presence: Presence; following: boolean }) {
+function EveryoneRow({ presence, following }: EveryoneRowProps) {
   const { member, away } = presence
   const owner = whoseAgent(member)
 
@@ -124,8 +125,13 @@ function EveryoneRow({ presence, following }: { presence: Presence; following: b
   )
 }
 
+interface EveryoneGroupProps {
+  label: string
+  children: ReactNode
+}
+
 /** A group in the list of everyone: People, then Agents. */
-function EveryoneGroup({ label, children }: { label: string; children: ReactNode }) {
+function EveryoneGroup({ label, children }: EveryoneGroupProps) {
   return (
     <li className="flex flex-col">
       <GroupLabel className="px-2 pt-2 pb-1">{label}</GroupLabel>
@@ -134,18 +140,15 @@ function EveryoneGroup({ label, children }: { label: string; children: ReactNode
   )
 }
 
-/** The count of faces past the first few: it opens everyone here, people and agents apart. */
-function Count({
-  everyone,
-  more,
-  size,
-  following
-}: {
+interface CountProps {
   everyone: Presence[]
   more: number
   size: number
   following?: Member
-}) {
+}
+
+/** The count of faces past the first few: it opens everyone here, people and agents apart. */
+function Count({ everyone, more, size, following }: CountProps) {
   const people = everyone.filter((presence) => !presence.member.agent)
   const agents = everyone.filter((presence) => presence.member.agent)
 
@@ -184,20 +187,7 @@ function Count({
   )
 }
 
-/**
- * Who's here, on a bar of its own at the canvas's top-right, built as the toolbar and zoom are: up to `max` faces, then
- * a count of the rest that opens everyone, and, past an etched line, your own face. The faces overlap and spread apart
- * under the pointer; each shows who and what on hover and opens their card on click. Your face opens your own card.
- */
-export function FaceStack({
-  here,
-  you,
-  following,
-  max = 4,
-  size = 28,
-  stale = false,
-  defaultOpen
-}: {
+interface FaceStackProps {
   here: Presence[]
   /** You, at the end, past a line. */
   you?: Member
@@ -208,7 +198,14 @@ export function FaceStack({
   stale?: boolean
   /** The face whose card starts open, for a story. */
   defaultOpen?: Member
-}) {
+}
+
+/**
+ * Who's here, on a bar of its own at the canvas's top-right, built as the toolbar and zoom are: up to `max` faces, then
+ * a count of the rest that opens everyone, and, past an etched line, your own face. The faces overlap and spread apart
+ * under the pointer; each shows who and what on hover and opens their card on click. Your face opens your own card.
+ */
+export function FaceStack({ here, you, following, max = 4, size = 28, stale = false, defaultOpen }: FaceStackProps) {
   const everyone = arrange(here, following)
   const shown = everyone.slice(0, everyone.length > max ? max - 1 : max)
   const more = everyone.length - shown.length

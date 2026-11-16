@@ -4,20 +4,18 @@ import { useId } from "react"
 import type { Member } from "./member.ts"
 import { CardHeader } from "./PersonCard.tsx"
 
-/**
- * Your own card, from your face at the end of the stack: you as everyone else sees you, in your color, a way to ask
- * everyone to follow you, and whether to show their pointers to you.
- */
-export function YouCard({
-  you,
-  others = 0,
-  onPresent
-}: {
+interface YouCardProps {
   you: Member
   /** How many others are here, who'd be asked to follow. */
   others?: number
   onPresent?: () => void
-}) {
+}
+
+/**
+ * Your own card, from your face at the end of the stack: you as everyone else sees you, in your color, a way to ask
+ * everyone to follow you, and whether to show their pointers to you.
+ */
+export function YouCard({ you, others = 0, onPresent }: YouCardProps) {
   const pointers = useId()
 
   return (

@@ -2,11 +2,16 @@ import type { Palette } from "@parity-app/presence-colors"
 import { useId } from "react"
 import { pointerPath } from "../agent/AgentPointer.tsx"
 
+interface PersonPointerProps {
+  palette: Palette
+  pressed?: boolean
+}
+
 /**
  * A person's arrow: the agents' arrowhead and gradient, rimmed in white, with an ordinary shadow. It doesn't glow or
  * breathe; only an agent's does. It presses in while they drag.
  */
-export function PersonPointer({ palette, pressed }: { palette: Palette; pressed?: boolean }) {
+export function PersonPointer({ palette, pressed }: PersonPointerProps) {
   const fill = `person-pointer-${useId().replaceAll(/[^\w-]/g, "")}`
   const [from, through, to] = palette.stops
 

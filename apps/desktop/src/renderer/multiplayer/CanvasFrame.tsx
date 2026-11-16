@@ -1,10 +1,14 @@
 import type { Palette } from "@parity-app/presence-colors"
 
+interface CanvasFrameProps {
+  palette: Palette
+}
+
 /**
  * The canvas framed in someone's color, while you follow them or while you present: a line around its edge with a
  * hairline of their ink inside it, so a light color still holds an edge, and a soft glow of the color falling inward.
  */
-export function CanvasFrame({ palette }: { palette: Palette }) {
+export function CanvasFrame({ palette }: CanvasFrameProps) {
   const { color, ink } = palette
 
   return (

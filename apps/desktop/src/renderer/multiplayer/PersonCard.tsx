@@ -3,11 +3,17 @@ import { Clock, Eye, EyeOff, LocateFixed, Sparkles } from "lucide-react"
 import { Face } from "./Face.tsx"
 import { type Member, type Presence, whereabouts, whoseAgent } from "./member.ts"
 
+interface CardHeaderProps {
+  member: Member
+  away?: boolean
+  line: string
+}
+
 /**
  * The top of a card: a wash of their color behind their face, so whose card it is reads before the name does. It's
  * lighter on the dark theme, where a soft color mixed into the popover would turn muddy.
  */
-export function CardHeader({ member, away, line }: { member: Member; away?: boolean; line: string }) {
+export function CardHeader({ member, away, line }: CardHeaderProps) {
   return (
     <div
       className="flex items-center gap-3 px-3 pt-3 pb-2.5 [--wash:28%] dark:[--wash:16%]"
@@ -27,21 +33,19 @@ export function CardHeader({ member, away, line }: { member: Member; away?: bool
   )
 }
 
+interface PersonCardProps {
+  presence: Presence
+  following?: boolean
+  onFollow?: () => void
+}
+
 /**
  * Someone's card, from their face: who they are and which board they're on, over a wash of their color, then buttons
  * to follow them or go to where they are. A person's says only what the room knows, never a guess at what they're doing;
  * an agent's says whose it is, and what it says it's doing in a line of its own. Someone away can't be followed, but
  * you can still go to where they were.
  */
-export function PersonCard({
-  presence,
-  following,
-  onFollow
-}: {
-  presence: Presence
-  following?: boolean
-  onFollow?: () => void
-}) {
+export function PersonCard({ presence, following, onFollow }: PersonCardProps) {
   const { member, doing, away } = presence
   const owner = whoseAgent(member)
   const line = !away && owner ? `${owner}, on ${presence.on}` : whereabouts({ ...presence, doing: undefined })

@@ -1,10 +1,15 @@
 import { hairline, type Member } from "./member.ts"
 
+interface MarqueeProps {
+  member: Member
+  rect: { x: number; y: number; w: number; h: number }
+}
+
 /**
  * Someone's marquee: the area they're dragging out, tinted in their color, with the layers it touches outlined
  * faintly so you can see what they're about to select.
  */
-export function Marquee({ member, rect }: { member: Member; rect: { x: number; y: number; w: number; h: number } }) {
+export function Marquee({ member, rect }: MarqueeProps) {
   const { color, ink } = member.palette
 
   return (

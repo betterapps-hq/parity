@@ -6,19 +6,17 @@ import { CanvasFrame } from "./CanvasFrame.tsx"
 import { Face } from "./Face.tsx"
 import { gradient, type Member } from "./member.ts"
 
+interface PresentingBarProps {
+  presenter: Member
+  followers: Member[]
+  onStop?: () => void
+}
+
 /**
  * The presenter's own side: their canvas framed in their color, as their followers' is, and the banner every canvas bar
  * shares, led by a presenting mark on their gradient, with who's following and Stop.
  */
-export function PresentingBar({
-  presenter,
-  followers,
-  onStop
-}: {
-  presenter: Member
-  followers: Member[]
-  onStop?: () => void
-}) {
+export function PresentingBar({ presenter, followers, onStop }: PresentingBarProps) {
   const { palette } = presenter
   const shown = followers.slice(0, 3)
 

@@ -8,22 +8,19 @@ import type { FollowState } from "./useFollow.ts"
 /** How long the frame and banner take to fade once following ends. */
 const fadeMs = 300
 
-/**
- * What following draws over the canvas: the frame and banner while it's on, then the note saying why it ended. As it
- * ends the frame fades, inert so its Stop button can't be reached while it goes, and then it's removed.
- */
-export function FollowLayer({
-  leader,
-  on,
-  state,
-  onStop
-}: {
+interface FollowLayerProps {
   leader: Member
   /** The board their view is on. */
   on?: string
   state: FollowState
   onStop?: () => void
-}) {
+}
+
+/**
+ * What following draws over the canvas: the frame and banner while it's on, then the note saying why it ended. As it
+ * ends the frame fades, inert so its Stop button can't be reached while it goes, and then it's removed.
+ */
+export function FollowLayer({ leader, on, state, onStop }: FollowLayerProps) {
   const following = state === "following"
   const [wasFollowing, setWasFollowing] = useState(following)
   const [fading, setFading] = useState(false)

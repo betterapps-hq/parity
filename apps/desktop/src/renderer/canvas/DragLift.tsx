@@ -10,11 +10,17 @@ const lifted =
 
 const resting = "scale-100 duration-[180ms] [filter:drop-shadow(0_0_0_rgb(0_0_0/0))_drop-shadow(0_0_0_rgb(0_0_0/0))]"
 
+interface DragLiftProps {
+  up: boolean
+  children: ReactNode
+  className?: string
+}
+
 /**
  * Picked up or not: picked up, what it holds grows a little and lifts onto a shadow that follows its shape; put down,
  * it settles back. The same for a layer's picture, an absolutely placed layer and a board.
  */
-export function DragLift({ up, children, className = "" }: { up: boolean; children: ReactNode; className?: string }) {
+export function DragLift({ up, children, className = "" }: DragLiftProps) {
   return (
     <div className={`transition-[scale,filter] ease-[cubic-bezier(0.2,0,0,1)] ${up ? lifted : resting} ${className}`}>
       {children}

@@ -2,19 +2,7 @@ import type { CSSProperties, ReactNode } from "react"
 import { hairline, type Member } from "./member.ts"
 import { NameTag } from "./NameTag.tsx"
 
-/**
- * An outline in someone's color: what they've selected, or what they're moving. Several people on one layer get a
- * ring each, the first nearest, and their tags line up along the top. A hairline of each palette's ink runs outside its
- * ring, so light colors still hold an edge on white.
- */
-export function Outlined({
-  by,
-  children,
-  className = "",
-  dashed,
-  radius = 6,
-  tagAt = "start"
-}: {
+interface OutlinedProps {
   by: Member[]
   children: ReactNode
   className?: string
@@ -23,7 +11,14 @@ export function Outlined({
   radius?: number
   /** Which top corner the tags sit on: the end, for a board, whose name is at the start. */
   tagAt?: "start" | "end"
-}) {
+}
+
+/**
+ * An outline in someone's color: what they've selected, or what they're moving. Several people on one layer get a
+ * ring each, the first nearest, and their tags line up along the top. A hairline of each palette's ink runs outside its
+ * ring, so light colors still hold an edge on white.
+ */
+export function Outlined({ by, children, className = "", dashed, radius = 6, tagAt = "start" }: OutlinedProps) {
   const spread = -2 - (by.length - 1) * 3
 
   return (
