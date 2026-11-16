@@ -3,6 +3,7 @@ import {
   type DrawnNodes,
   type FrameViewport,
   emptyLayoutAttribute,
+  prepareCanvasCss,
   qualifiedRootLayer,
   remProperty,
   resetCustomProperties,
@@ -14,6 +15,7 @@ import {
   viewportWidthProperty
 } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
+import { catchFrameStyles, frameRulesEdited, type PrepareCss } from "./frame-styles.ts"
 import { unrecordedShadow } from "./shadow.ts"
 import scrollbarCss from "./scrollbars.css?raw"
 
@@ -26,6 +28,11 @@ export interface FrameEnvironment {
   touch?: boolean
   /** Stylesheets the frame adopts after the project's own, such as the classes Parity writes for its layers. */
   sheets?: readonly CSSStyleSheet[]
+  /**
+   * How stylesheets the project's code writes into the frame are prepared, as its own are (`frame-styles.ts`): the
+   * guest's `prepare`, against the project's origin. Without one, against Parity's.
+   */
+  prepare?: PrepareCss
 }
 
 let rootSheet: CSSStyleSheet | undefined
@@ -191,13 +198,16 @@ export function prepareFrame(
   rewriteAddedRules()
   const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
+  const written = catchFrameStyles(shadow, environment.prepare ?? prepareForParity)
   const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "" }
   frameSheets.set(host, own)
-  // The project's styles, then the classes Parity writes for its layers, then the frame's own rules, with a style
-  // edit's preview last, so each wins over the ones before it where they rank the same.
+  // What the project's code writes into the frame first, where its `<style>` elements' own sheets cascade, before any
+  // adopted sheet. Then the project's styles, the classes Parity writes for its layers and the frame's own rules, with
+  // a style edit's preview last, so each wins over the ones before it where they rank the same.
   shadow.adoptedStyleSheets = [
     frameRootSheet(),
     ...(environment.touch ? [frameTouchSheet()] : []),
+    written,
     ...sheets,
     ...(environment.sheets ?? []),
     own.rules,
@@ -226,6 +236,11 @@ export function prepareFrame(
   shadow.replaceChildren(body)
 
   return target
+}
+
+/** Stylesheets written into a frame that wasn't told how to prepare them, as in tests, against Parity's own origin. */
+function prepareForParity(css: string): ReturnType<typeof prepareCanvasCss> {
+  return prepareCanvasCss(css, { baseUrl: location.origin })
 }
 
 /** A frame's own stylesheets, and the text each shows, so the same text isn't parsed again. */
@@ -292,7 +307,8 @@ let rewritingRules = false
  * Viewport units and `rem` in rules the project's code adds to a stylesheet while it runs, as CSS-in-JS does in
  * production, measure the frame's window and root font too, as its stylesheets' do. They're rewritten as they're added,
  * wherever that is. That changes nothing outside a frame, where the custom properties aren't set, so the units still
- * measure Parity's window and root. It's done once for the page's whole life, so it's never undone.
+ * measure Parity's window and root. An insert or delete in a stylesheet the project's code wrote into a frame also has
+ * the frame draw it again (`frame-styles.ts`). It's done once for the page's whole life, so it's never undone.
  */
 function rewriteAddedRules(): void {
   if (rewritingRules) {
@@ -305,8 +321,17 @@ function rewriteAddedRules(): void {
   const insertRule = original.insertRule.value!
   const replace = original.replace.value!
   const replaceSync = original.replaceSync.value!
+  const deleteRule = original.deleteRule.value!
   CSSStyleSheet.prototype.insertRule = function (rule, index) {
-    return insertRule.call(this, rewriteSheetFrameUnits(rule), index)
+    const at = insertRule.call(this, rewriteSheetFrameUnits(rule), index)
+    frameRulesEdited(this)
+
+    return at
+  }
+
+  CSSStyleSheet.prototype.deleteRule = function (index) {
+    deleteRule.call(this, index)
+    frameRulesEdited(this)
   }
 
   CSSStyleSheet.prototype.replace = function (text) {
@@ -321,12 +346,12 @@ function rewriteAddedRules(): void {
 const watched = new WeakSet<ShadowRoot>()
 
 /**
- * Viewport units and `rem` the project's code writes into a frame while it runs measure the frame's window and root
- * font too: in inline styles (`style={{ minHeight: "100dvh" }}`, however they're set) and in text in its `<style>`
- * elements, as CSS-in-JS writes in development. They're rewritten as soon as they're written, before the frame is next
- * drawn, though code that measures straight after, as a layout effect can, still sees them measure Parity's window and
- * root. A browser keeps inline style properties to itself, so they can't be caught as they're set without slowing every
- * style Parity sets.
+ * Viewport units and `rem` in inline styles the project's code writes into a frame while it runs
+ * (`style={{ minHeight: "100dvh" }}`, however they're set) measure the frame's window and root font too. They're
+ * rewritten as soon as they're written, before the frame is next drawn, though code that measures straight after, as a
+ * layout effect can, still sees them measure Parity's window and root. A browser keeps inline style properties to
+ * itself, so they can't be caught as they're set without slowing every style Parity sets. Its `<style>` elements are
+ * drawn as its stylesheets are, units and all (`frame-styles.ts`).
  */
 function watchFrameStyles(shadow: ShadowRoot): void {
   if (watched.has(shadow)) {
@@ -338,30 +363,22 @@ function watchFrameStyles(shadow: ShadowRoot): void {
     for (const record of records) {
       if (record.type === "attributes" && record.target instanceof Element) {
         rewriteStyleAttribute(record.target)
-      } else if (record.type === "characterData") {
-        rewriteStyleText(record.target)
       } else {
         for (const node of record.addedNodes) {
           rewriteAdded(node)
         }
       }
     }
-  }).observe(shadow, { childList: true, characterData: true, attributeFilter: ["style"], subtree: true })
+  }).observe(shadow, { childList: true, attributeFilter: ["style"], subtree: true })
 }
 
 function rewriteAdded(node: Node): void {
   if (!(node instanceof Element)) {
-    return rewriteStyleText(node)
+    return
   }
 
-  for (const element of [node, ...node.querySelectorAll("[style], style")]) {
-    if (element.localName !== "style") {
-      rewriteStyleAttribute(element)
-    } else {
-      for (const text of element.childNodes) {
-        rewriteStyleText(text)
-      }
-    }
+  for (const element of [node, ...node.querySelectorAll("[style]")]) {
+    rewriteStyleAttribute(element)
   }
 }
 
@@ -376,18 +393,6 @@ function rewriteStyleAttribute(element: Element): void {
 
   if (rewritten !== style) {
     element.setAttribute("style", rewritten)
-  }
-}
-
-function rewriteStyleText(node: Node): void {
-  if (!(node instanceof Text) || node.parentElement?.localName !== "style") {
-    return
-  }
-
-  const rewritten = rewriteSheetFrameUnits(node.data)
-
-  if (rewritten !== node.data) {
-    node.data = rewritten
   }
 }
 

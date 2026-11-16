@@ -11,7 +11,7 @@ import type { LoadedGuest } from "./guest.ts"
 
 /** What a frame mounts: the project's guest and styles, the mode, and what the guest reports back. */
 export interface FrameMount {
-  loaded: Pick<LoadedGuest, "guest" | "sheet" | "addedSheet" | "themeAttributes" | "rules">
+  loaded: Pick<LoadedGuest, "guest" | "sheet" | "addedSheet" | "themeAttributes" | "rules" | "prepare">
   mode: FrameMode
   /** Stylesheets after the project's own, such as the classes Parity writes for its layers. */
   sheets?: readonly CSSStyleSheet[]
@@ -54,7 +54,7 @@ export function mountFrame(host: HTMLElement, mount: FrameMount): MountedFrame {
   const { environment, options } = frameSetup(mount.mode, loaded.themeAttributes, mount.sheets)
   // What the project's code added to the page comes before its own global stylesheets, as packages' do: one of those
   // added again draws nothing new, and token edits to the project's own still win.
-  const target = prepareFrame(host, [loaded.addedSheet, loaded.sheet], environment)
+  const target = prepareFrame(host, [loaded.addedSheet, loaded.sheet], { ...environment, prepare: loaded.prepare })
   flushWatchers(host)
   const tree = mount.tree ?? []
 

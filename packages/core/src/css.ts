@@ -404,6 +404,19 @@ function serialize(
       output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
     }
 
+    if (hostRoots.includes(":host") && !context.scheme && options.qualifiedRoots !== false) {
+      const declarations = children.filter((child) => child.kind === "text")
+
+      const referencing = referencingCustomProperties(
+        declarations.map((child) => (child.kind === "text" ? child.text : "")).join(""),
+        serialize(declarations, options, [], { root: true, inRule: true })
+      )
+
+      if (referencing) {
+        output += ` :where([${bodyAttribute}]) {${referencing}}`
+      }
+    }
+
     for (const block of hoisted) {
       if (block.kind !== "block") {
         continue
@@ -440,6 +453,59 @@ function serialize(
  * for a qualified root, `:where([data-canvas-body]).dark` (see `splitQualifiedRoots`).
  */
 const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\]\)[\s\S]+)$`)
+
+/**
+ * The custom properties among a root rule's declarations whose values use other custom properties
+ * (`--palette: var(--gray-solid)`), for the frame's body as well as its host. A page's root has the page's theme on it,
+ * so a custom property it defines from another takes that theme's value. A frame's root is its host, and the mode's
+ * class and theme attributes are on its body (see `splitQualifiedRoots`), so the host would work it out with the default
+ * theme's value and the body would inherit that. Declared on the body as well, without specificity and where the root's
+ * rule is, it's worked out where the theme is, and whatever the project sets on the body still wins.
+ */
+function referencingCustomProperties(written: string, drawn: string): string {
+  const names = new Set(
+    declarationsIn(written)
+      .filter((declaration) => /(?<![\w-])var\(/.test(declaration))
+      .map(customPropertyName)
+      .filter((name) => name !== undefined)
+  )
+
+  // As they're drawn, lengths and all, picked by what the project wrote: Parity's own `var()`s don't count.
+  const found = declarationsIn(drawn).filter((declaration) => names.has(customPropertyName(declaration)))
+
+  return found.length > 0 ? ` ${found.join("; ")}; ` : ""
+}
+
+function customPropertyName(declaration: string): string | undefined {
+  return /^(--[\w-]+)\s*:/.exec(declaration)?.[1]
+}
+
+/** A declaration list's declarations, trimmed, split at the semicolons outside parentheses. */
+function declarationsIn(text: string): string[] {
+  const found: string[] = []
+  let depth = 0
+  let start = 0
+
+  for (let index = 0; index <= text.length; index++) {
+    const char = text[index]
+
+    if (char === "(") {
+      depth++
+    } else if (char === ")") {
+      depth--
+    } else if (index === text.length || (char === ";" && depth === 0)) {
+      const declaration = text.slice(start, index).trim()
+
+      if (declaration) {
+        found.push(declaration)
+      }
+
+      start = index + 1
+    }
+  }
+
+  return found
+}
 
 /** The body standing in for a qualified root, whose font size is the frame's `rem` as the host's is otherwise. */
 const bodyRootPrefix = `:where([${bodyAttribute}])`

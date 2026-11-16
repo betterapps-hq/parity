@@ -8471,6 +8471,43 @@ Parity's body and Routes list keep `InterVariable`, copacker's `globals.css`, `t
 styles sit in the head switched off, and every frame's added sheet has them. Gaps: styled-components and Turbopack's
 lazy CSS modules aren't checked against a fixture.
 
+### Stylesheets written into a frame draw as the project's own (PAR-1210)
+
+CSS-in-JS writes its rules into whatever container it's given, and a library's decorator can give it the frame: Chakra's
+and MUI's point Emotion's cache at the frame's shadow root. Those rules were written for a page. Before, they were drawn
+as written, with only their lengths changed, so the frame missed what the page would have done with them. Chakra's solid
+buttons drew transparent, because Chakra sets its palette's custom properties on `html`.
+
+- **A `<style>` the project's code puts in a frame is switched off there** (`media="not all"`), and its CSS is prepared
+  as the project's own stylesheets are (core's `prepareCanvasCss`), then drawn in that frame. That's its text, or its
+  rules once its code inserts or deletes some through the CSSOM, as Emotion does in production, including rules inserted
+  before the frame has seen the element go in. So `html` and `:root` become the frame's host and `body` its body, media
+  queries the frame's width and colour scheme, and lengths the frame's. `@font-face` and `@property` go to the document,
+  where a shadow root needs them. It's the frame's side of what's switched off in the page (PAR-1187), so it holds for
+  every library and builder, and no decorator needs to know.
+- **Where they cascade:** first among the frame's sheets, where the elements' own sheets were, before the project's
+  global stylesheets and Parity's rules. Each element's CSS, and each inserted rule, is prepared once per project, so
+  frames sharing a library's rules share the work, and a rule added later costs only itself.
+- **A root custom property made from another takes the frame's theme.** A page's root carries the page's theme, so
+  `--palette: var(--gray-solid)` on `:root` takes the theme's `--gray-solid`. A frame's root is its host, while the
+  mode's class and theme attributes are on its body. So the root rule's custom properties that use `var()` are declared
+  on the body too, with no specificity and in the root rule's place, and whatever the project sets on the body still
+  wins. This holds for the project's own stylesheets as well, as with Tailwind's `@theme` without `inline`.
+- **Not covered:** a sheet the project's code constructs and adopts into a frame keeps its rules as written, with its
+  lengths measuring the frame. Griffel's shadow DOM renderer writes Fluent's styles that way.
+
+Code: `apps/desktop/src/renderer/frame-styles.ts`, set up by `prepareFrame` in `frame.ts`, which also tells it about
+inserted and deleted rules; `prepare` from the guest, passed by `mountFrame` in `frame-host.ts`;
+`referencingCustomProperties` in `packages/core/src/css.ts`.
+
+Tests: `apps/desktop/src/renderer/frame.test.ts` (3, in Chrome: a page's root, body, width query and font written into a
+frame as text and as inserted rules, drawn as the frame's, with the elements switched off and Parity's page untouched;
+deleted rules, new text and a removed element followed; a root custom property made from another taking the theme on the
+frame's body). `packages/core/src/css.test.ts` (1: the copy on the body, by what the project wrote, not when reading
+tokens, nor for a root in a theme). Checked in the running app on `nextjs-webpack` (Chakra UI 3.37.0) on 2026-11-16:
+solid buttons drew black in light and white in dark, as Chakra draws them, teal buttons and a purple badge filled, and
+Problems found nothing in either mode. Before, every solid button was transparent.
+
 ### Detected again when what detection reads changes (PAR-820)
 
 An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: the

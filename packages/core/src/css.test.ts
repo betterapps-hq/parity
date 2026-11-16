@@ -260,6 +260,23 @@ describe("prepareCanvasCss", () => {
     )
   })
 
+  it("declares the root's custom properties made from others on the frame's body too, where its theme is (PAR-1210)", () => {
+    const css =
+      ":root { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * 2rem) } .a { color: red }"
+    expect(prepareCanvasCss(css, options).scoped).toBe(
+      ":host { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))) } " +
+        ":where([data-canvas-body]) { --palette: var(--gray-solid); --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))); } " +
+        ".a { color: red }"
+    )
+
+    // Tokens read the root as written.
+    expect(prepareCanvasCss(css, { ...options, qualifiedRoots: false }).scoped).not.toContain("data-canvas-body")
+    // A root in a theme is already drawn on the body in it.
+    expect(prepareCanvasCss(":root.dark { --palette: var(--gray-solid) }", options).scoped).not.toContain(
+      ":where([data-canvas-body]) {"
+    )
+  })
+
   it("leaves rem in selectors, strings, urls and queries alone", () => {
     const css =
       '.mt-\\[1rem\\] { content: "1rem"; background: url(/x-1rem.png); } @media (width >= 40rem) { .a { top: 0 } }' +
