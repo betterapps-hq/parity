@@ -246,6 +246,49 @@ export default function App() {
     expect(offer?.text).toContain(`import OuterProvider, { default as InnerProvider } from "../src/provider"`)
   })
 
+  it("copies a binding the app reassigns as the app declares it", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import App from "./App"
+
+let client = null
+
+function getClient() {
+  return (client ??= new QueryClient())
+}
+
+createRoot(document.getElementById("root")).render(<QueryClientProvider client={getClient()}><App /></QueryClientProvider>)
+`
+      })
+    )
+
+    expect(offer?.text).toContain("let client = null")
+  })
+
+  it("stops where sibling providers wrap different parts of the app, rather than nest them", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { IntlProvider } from "react-intl"
+import { ThemeProvider } from "styled-components"
+import { light, dark } from "./themes"
+import { Header, Main } from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <IntlProvider locale="en">
+    <ThemeProvider theme={light}><Header /></ThemeProvider>
+    <ThemeProvider theme={dark}><Main /></ThemeProvider>
+  </IntlProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider"])
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

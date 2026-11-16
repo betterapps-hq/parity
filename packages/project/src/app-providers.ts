@@ -81,7 +81,7 @@ interface Found {
  * components through their files, taking each provider on the way: a component whose name ends in `Provider` or
  * `Providers`, from a package or the app. `StrictMode`, `Suspense` and fragments are looked inside; routers are passed
  * over, since a router's extension draws frames inside one. It stops at anything else, or where an element has several
- * children that aren't providers.
+ * children and not exactly one of them is a provider.
  *
  * A provider's props are carried as the app writes them, with what they import, imported from the preview file, and
  * what the file declares at its top level, such as `const queryClient = new QueryClient()`, copied. A prop that picks a
@@ -133,8 +133,14 @@ export async function offerPreviewFile(read: ReadProjectFile): Promise<PreviewOf
   const walkChildren = async (children: ts.NodeArray<ts.JsxChild>, scope: Scope): Promise<void> => {
     const elements = elementChildren(children)
 
-    const followed =
-      elements.length === 1 ? elements : elements.filter((child) => providerName.test(lastPart(tagName(child))))
+    const providers = elements.filter((child) => providerName.test(lastPart(tagName(child))))
+    // Among several children, only a lone provider leads on: sibling providers wrap different parts of the app, and
+    // nesting them would give every frame the last one's value.
+    const followed = elements.length === 1 ? elements : providers
+
+    if (followed.length !== 1) {
+      return
+    }
 
     for (const child of followed) {
       await walk(child, scope)
@@ -622,7 +628,7 @@ function carryName(
 
     const text = ts.isFunctionDeclaration(declared)
       ? declared.getText().replace(/^export\s+(default\s+)?/, "")
-      : `const ${declared.getText()}`
+      : `${declarationKind(declared)} ${declared.getText()}`
 
     carried.declarations.push({ name, text })
 
@@ -662,6 +668,13 @@ function localNames(element: ts.Node): Set<string> {
   }
 
   return names
+}
+
+/** `const`, `let` or `var`, as the file declares it, so a binding the app reassigns can still be reassigned. */
+function declarationKind(declaration: ts.VariableDeclaration): string {
+  const keyword = declaration.parent.getFirstToken()?.getText()
+
+  return keyword === "let" || keyword === "var" ? keyword : "const"
 }
 
 /** Whether a name is declared somewhere in a file, as a component's state or a parameter is. */

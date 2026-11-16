@@ -1391,12 +1391,13 @@ already renders around the app, and never writes it unasked.
   their files, up to six files deep. A component whose name ends in `Provider` or `Providers` is taken, from a package
   or the app; `StrictMode`, `Suspense`, `Profiler` and fragments are looked inside; routers are passed over, since a
   router's extension draws frames inside one. Reading stops at anything else, or where an element has several children
-  that aren't providers.
+  and not exactly one of them is a provider, since sibling providers wrap different parts of the app.
 - **What's written.** One decorator nesting the providers, outermost first, around `<Story />`. Props are carried as the
   app writes them; what they import is imported from `.parity/`, and what the file declares at its top level, such as
-  `const queryClient = new QueryClient()`, is copied. A prop choosing a dark or light value, as
-  `isDark ? darkTheme : lightTheme` does, chooses by the frame's `theme` global, and the file declares that global with
-  `light` as its default. A JavaScript app gets `preview.jsx`, a TypeScript one `preview.tsx`, in the entry's quotes.
+  `const queryClient = new QueryClient()`, is copied with its own `const`, `let` or `var`. A prop choosing a dark or
+  light value, as `isDark ? darkTheme : lightTheme` does, chooses by the frame's `theme` global, and the file declares
+  that global with `light` as its default. A JavaScript app gets `preview.jsx`, a TypeScript one `preview.tsx`, in the
+  entry's quotes.
 - **Left out, with why.** A provider whose props need something only the running app has, such as its state or spread
   props, isn't written; the review lists it with what it needs. With none left to write, nothing is offered.
 - **Picked up at once.** The preview file is one of detection's inputs, so a project that gets one while it's open, from
