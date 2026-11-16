@@ -398,6 +398,11 @@ function guardRuleEdits(): void {
     const entry = owner instanceof Element ? caught.get(owner) : undefined
 
     if (entry) {
+      // A change to its text made before this edit, still queued, is followed first, so it doesn't undo the edit.
+      if (changes) {
+        followChanges(changes.takeRecords())
+      }
+
       entry.edited = true
       tell(entry.origin)
     }

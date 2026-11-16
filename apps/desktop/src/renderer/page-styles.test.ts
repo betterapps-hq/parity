@@ -50,6 +50,13 @@ window.project = {
     rules.forEach((rule) => style.sheet.insertRule(rule, style.sheet.cssRules.length))
     return style
   },
+  addTextThenRules(text, rules) {
+    const style = document.createElement("style")
+    document.head.append(style)
+    style.textContent = text
+    rules.forEach((rule) => style.sheet.insertRule(rule, style.sheet.cssRules.length))
+    return style
+  },
   addToShadow(root, css) {
     const style = document.createElement("style")
     style.textContent = css
@@ -127,6 +134,7 @@ declare const project: {
   addStyle(css: string, media?: string): HTMLStyleElement
   addLink(href: string): HTMLLinkElement
   addRules(rules: string[]): HTMLStyleElement
+  addTextThenRules(text: string, rules: string[]): HTMLStyleElement
   addToShadow(root: ShadowRoot, css: string): HTMLStyleElement
   call<T>(fn: () => T): T
 }
@@ -200,6 +208,20 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
       heard: 2
     })
     expect(steps.removed).toEqual({ css: [], heard: 3 })
+  })
+
+  it("keeps rules its code inserts straight after setting its text, in the same task", async () => {
+    const css = await page.evaluate(async (origin) => {
+      project.addTextThenRules(".base { color: red; }", [".added { color: blue; }"])
+      await new Promise((resolve) => setTimeout(resolve))
+
+      return parity
+        .pageStyles(origin)
+        .sheets()
+        .map((sheet) => sheet.css)
+    }, origin)
+
+    expect(css).toEqual([".base { color: red; }\n.added { color: blue; }"])
   })
 
   it("keeps the media the project gave it for its frames, when it's given or changed", async () => {
