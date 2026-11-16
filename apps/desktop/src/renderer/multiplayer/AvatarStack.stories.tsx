@@ -10,7 +10,7 @@ import { members, presences } from "./story-kit.tsx"
 /**
  * Who's here, on a bar of its own at the canvas's top-right, built as the toolbar and zoom are. Faces are round for
  * everyone: a person's picture or initials on their soft gradient, an agent's sparkle on its vivid one. They overlap,
- * and spread apart under the pointer so each is easy to hit; a face rises as you point at it and says who and where.
+ * and spread apart under the pointer so each is easy to hit; a face rises as you point at it and says who it is.
  * Whoever you follow comes first, ringed in their color; each person's agents come just after them; anyone away is
  * faded and last. Past four, a count opens everyone, people and agents apart. Your own face ends the bar, past an
  * etched line, and opens your card, where you can present.
@@ -106,13 +106,13 @@ function Pointed({ here }: { here: Presence[] }) {
   )
 }
 
-/** Pointing at Jonas: the faces spread apart, Jonas's rises, and a tooltip says who and where. */
+/** Pointing at Jonas: the faces spread apart, Jonas's rises, and a tooltip names him. */
 export const PointingAtAFace: Story = {
   render: () => <Pointed here={[mia, jonas, claude, codex]} />,
   play: async ({ canvasElement }) => {
     await userEvent.hover(within(canvasElement).getByRole("button", { name: /^Jonas Weber/ }))
     const page = within(canvasElement.ownerDocument.body)
-    await waitFor(() => expect(page.getByText("On Pricing", { selector: "span" })).toBeVisible())
+    await waitFor(() => expect(page.getByText("Jonas Weber", { selector: "span" })).toBeVisible())
   }
 }
 

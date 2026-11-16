@@ -56,7 +56,7 @@ export const Following: Story = {
       {() => (
         <>
           <FollowedCanvas />
-          <FollowLayer leader={members.mia} on="Dashboard" state="following" />
+          <FollowLayer leader={members.mia} state="following" />
         </>
       )}
     </Themes>
@@ -77,7 +77,7 @@ function Ended({ theme, label, state }: { theme: Theme; label: string; state: Fo
         <CanvasBoard name="Dashboard" x={24} y={52}>
           <DashboardDesign />
         </CanvasBoard>
-        <FollowLayer leader={members.mia} on="Dashboard" state={state} />
+        <FollowLayer leader={members.mia} state={state} />
       </CanvasPane>
     </div>
   )
@@ -117,7 +117,7 @@ function TryItStory() {
       <div className="w-full max-w-[760px]" onWheel={follow.stop}>
         <CanvasPane theme={theme} width={760} height={340}>
           <FollowedCanvas pointer={pointer} />
-          <FollowLayer leader={members.mia} on="Dashboard" state={follow.state} onStop={follow.stop} />
+          <FollowLayer leader={members.mia} state={follow.state} onStop={follow.stop} />
         </CanvasPane>
       </div>
       <div className="flex gap-2">

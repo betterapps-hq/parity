@@ -64,14 +64,14 @@ export const members = {
   you: { name: "Ana Costa", palette: palette(6) }
 } satisfies Record<string, Member>
 
-/** Where everyone in the room is: the board each one's view is on, and what each agent says it's doing. */
+/** Everyone in the room, with what each agent says it's doing and who's away. */
 export const presences = {
-  mia: { member: members.mia, on: "Dashboard" },
-  jonas: { member: members.jonas, on: "Pricing" },
-  priya: { member: members.priya, on: "Dashboard" },
-  claude: { member: members.claude, on: "Dashboard", doing: "Tightening the dashboard's spacing" },
-  codex: { member: members.codex, on: "Pricing", doing: "Checking the plans' prices" },
-  sam: { member: members.sam, on: "Settings" },
-  lena: { member: members.lena, on: "Sign in", away: "12 min" },
-  theo: { member: members.theo, on: "Dashboard" }
+  mia: { member: members.mia },
+  jonas: { member: members.jonas },
+  priya: { member: members.priya },
+  claude: { member: members.claude, doing: "Tightening the dashboard's spacing" },
+  codex: { member: members.codex, doing: "Checking the plans' prices" },
+  sam: { member: members.sam },
+  lena: { member: members.lena, away: "12 min" },
+  theo: { member: members.theo }
 } satisfies Record<string, Presence>

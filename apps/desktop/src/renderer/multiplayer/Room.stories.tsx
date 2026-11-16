@@ -8,8 +8,8 @@ import { members, presences } from "./story-kit.tsx"
 
 /**
  * One room, all together, to judge the system as a whole: three people and two agents on the canvas. Mia has the chart
- * selected, Jonas is typing on Pricing, and Priya is dragging out a marquee. Claude Code is changing the heading
- * and Codex is reading Pricing. Everyone is in the stack, top-right.
+ * selected, Jonas's pointer is over Pricing, and Priya is dragging out a marquee. Claude Code is changing the heading
+ * and Codex is reading Pricing, each saying so. Everyone is in the stack, top-right.
  */
 const meta = {
   title: "Parity/Multiplayer/Room",

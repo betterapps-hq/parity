@@ -20,27 +20,21 @@ export interface Member {
 }
 
 /**
- * Where someone is, for their face and card: only what the room knows for certain. For a person that's the board their
- * view is on, or how long they've been away; what they're doing there isn't guessed at. An agent also says what it's
- * doing, in the words of its current step.
+ * Someone in the room, for their face and card, with only what the room knows for certain: whether they've been away
+ * and for how long. Where a person is and what they're doing aren't shown, since neither can be told reliably. An agent
+ * says what it's doing itself, in the words of its current step.
  */
 export interface Presence {
   member: Member
-  /** The board their view is on. */
-  on: string
   /** What an agent says it's doing, from its current step, as "Tightening the dashboard's spacing". */
   doing?: string
   /** How long they've been away, when they've stepped away. */
   away?: string
 }
 
-/** Someone's line under their name: away and for how long, what an agent says it's doing, or the board they're on. */
-export function whereabouts(presence: Presence): string {
-  if (presence.away) {
-    return `Away for ${presence.away}`
-  }
-
-  return presence.doing ?? `On ${presence.on}`
+/** The line under someone's name, when there's one: how long they've been away, or what an agent says it's doing. */
+export function statusOf(presence: Presence): string | undefined {
+  return presence.away ? `Away for ${presence.away}` : presence.doing
 }
 
 /** What a badge or tag calls someone: a person by their first name, an agent by its whole name. */

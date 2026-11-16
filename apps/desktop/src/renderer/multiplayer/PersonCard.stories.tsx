@@ -9,11 +9,10 @@ import { members, presences } from "./story-kit.tsx"
 import { YouCard } from "./YouCard.tsx"
 
 /**
- * Someone's card, opened from their face in the avatar stack: their name over a wash of their color, the board they're
- * on (never a guess at what they're doing), and buttons to follow them or go to where they are. An agent's says whose
- * it is and what it says it's doing. Your own card, from your face, offers to present. It opens with Enter or Space from a focused face, takes focus,
- * and closes with Escape back to the face. On a narrow window the cards keep their width and stack; try the toolbar's
- * viewport menu.
+ * Someone's card, opened from their face in the avatar stack: their name over a wash of their color, and buttons to
+ * follow them or go to where they are. It never guesses where a person is or what they're doing, only says how long
+ * they've been away. An agent's says whose it is and what it says it's doing. Your own card, from your face, offers to
+ * present. It opens with Enter or Space from a focused face, takes focus, and closes with Escape back to the face.
  */
 const meta = {
   title: "Parity/Multiplayer/Person card",
@@ -56,7 +55,7 @@ const cards = (
   </>
 )
 
-/** Someone on a board, someone you're following, someone away (who can't be followed), an agent at work, and you. */
+/** Someone here, someone you're following, someone away (who can't be followed), an agent at work, and you. */
 export const Cards: Story = {
   render: () => (
     <Themes width={640} height={440}>

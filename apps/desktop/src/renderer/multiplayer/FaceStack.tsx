@@ -12,7 +12,7 @@ import type { ReactNode } from "react"
 import { GroupLabel } from "../chrome/PanelSection.tsx"
 import { BarDivider, floatingBar } from "../chrome/toolbar-parts.tsx"
 import { Face } from "./Face.tsx"
-import { type Member, type Presence, whereabouts, whoseAgent } from "./member.ts"
+import { type Member, type Presence, statusOf, whoseAgent } from "./member.ts"
 import { PersonCard } from "./PersonCard.tsx"
 import { YouCard } from "./YouCard.tsx"
 
@@ -60,7 +60,7 @@ interface StackFaceProps {
   defaultOpen: boolean
 }
 
-/** A face in the stack: hover for who and what, click or Enter for their card. */
+/** A face in the stack: hover for who it is, click or Enter for their card. */
 function StackFace({ presence, size, following, stale, defaultOpen }: StackFaceProps) {
   const { member } = presence
 
@@ -71,7 +71,11 @@ function StackFace({ presence, size, following, stale, defaultOpen }: StackFaceP
           render={
             <PopoverTrigger
               render={
-                <button type="button" aria-label={`${member.name}, ${whereabouts(presence)}`} className={faceButton}>
+                <button
+                  type="button"
+                  aria-label={[member.name, statusOf(presence)].filter(Boolean).join(", ")}
+                  className={faceButton}
+                >
                   <Face member={member} size={size} away={stale || Boolean(presence.away)} following={following} />
                 </button>
               }
@@ -80,7 +84,7 @@ function StackFace({ presence, size, following, stale, defaultOpen }: StackFaceP
         />
         <TooltipContent side="bottom" className="flex-col items-start gap-0.5">
           <span className="font-medium">{following ? `Following ${member.name}` : member.name}</span>
-          <span className="text-background/70">{whereabouts(presence)}</span>
+          {statusOf(presence) && <span className="text-background/70">{statusOf(presence)}</span>}
         </TooltipContent>
       </Tooltip>
       <PopoverContent align="end" sideOffset={10} className="w-72 gap-0 overflow-hidden p-0">
@@ -95,7 +99,7 @@ interface EveryoneRowProps {
   following: boolean
 }
 
-/** One of everyone, in the list the count opens: their face, name and where they are, and Follow on hover. */
+/** One of everyone, in the list the count opens: their face and name, whether they're away, and Follow on hover. */
 function EveryoneRow({ presence, following }: EveryoneRowProps) {
   const { member, away } = presence
   const owner = whoseAgent(member)
@@ -108,7 +112,7 @@ function EveryoneRow({ presence, following }: EveryoneRowProps) {
           <span className="truncate text-sm">{member.name}</span>
           {owner && <span className="shrink-0 text-2xs text-muted-foreground">{owner}</span>}
         </span>
-        <span className="truncate text-xs text-muted-foreground">{whereabouts(presence)}</span>
+        {statusOf(presence) && <span className="truncate text-xs text-muted-foreground">{statusOf(presence)}</span>}
       </span>
       {!away && (
         <Button
@@ -203,7 +207,7 @@ interface FaceStackProps {
 /**
  * Who's here, on a bar of its own at the canvas's top-right, built as the toolbar and zoom are: up to `max` faces, then
  * a count of the rest that opens everyone, and, past an etched line, your own face. The faces overlap and spread apart
- * under the pointer; each shows who and what on hover and opens their card on click. Your face opens your own card.
+ * under the pointer; each shows who it is on hover and opens their card on click. Your face opens your own card.
  */
 export function FaceStack({ here, you, following, max = 4, size = 28, stale = false, defaultOpen }: FaceStackProps) {
   const everyone = arrange(here, following)

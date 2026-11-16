@@ -5,8 +5,6 @@ import { type Member, shortName } from "./member.ts"
 
 interface PresentInviteProps {
   presenter: Member
-  /** The board they're presenting. */
-  board: string
   onFollow?: () => void
   onDismiss?: () => void
 }
@@ -16,13 +14,9 @@ interface PresentInviteProps {
  * banner where following will show. Following them is the same as following anyone; Not now leaves them a face in the
  * stack, where their card can still follow them.
  */
-export function PresentInvite({ presenter, board, onFollow, onDismiss }: PresentInviteProps) {
+export function PresentInvite({ presenter, onFollow, onDismiss }: PresentInviteProps) {
   return (
-    <CanvasBanner
-      lead={<Face member={presenter} size={22} />}
-      title={`${shortName(presenter)} is presenting`}
-      hint={board}
-    >
+    <CanvasBanner lead={<Face member={presenter} size={22} />} title={`${shortName(presenter)} is presenting`}>
       <Button size="xs" variant="ghost" onClick={onDismiss}>
         Not now
       </Button>

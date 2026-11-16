@@ -23,7 +23,7 @@ type Story = StoryObj<typeof meta>
 
 const { mia, jonas, priya, sam } = presences
 
-/** The invitation, as Jonas sees it when Mia starts presenting the Dashboard. */
+/** The invitation, as Jonas sees it when Mia starts presenting. */
 export const AskedToFollow: Story = {
   render: () => (
     <Themes width={760} height={340}>
@@ -33,7 +33,7 @@ export const AskedToFollow: Story = {
             <DashboardDesign />
           </CanvasBoard>
           <RemotePointer member={members.mia} at={{ x: 236, y: 170 }} />
-          <PresentInvite presenter={members.mia} board="Dashboard" />
+          <PresentInvite presenter={members.mia} />
           <div className="absolute top-3 right-3 @max-[700px]:top-15">
             <FaceStack here={[mia, priya, sam]} you={members.you} />
           </div>
