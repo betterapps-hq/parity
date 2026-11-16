@@ -41,6 +41,7 @@ import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { type Drag, followPress, gestures } from "./gesture.ts"
+import { hideLayers } from "./hide-layers.ts"
 import { frameAt, type Point } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
 import { drawLandingEdge } from "./landing-edge.ts"
@@ -307,7 +308,7 @@ function markLanded(session: ProjectDesigns, host: HTMLElement, marked: (unmark:
     const elements = selectedNodes(session.selection.get()).flatMap((id) => findNodeElements(host, id))
 
     if (elements.length > 0) {
-      marked(styleElements(elements, { visibility: "hidden" }))
+      marked(hideLayers(elements))
     } else if (tries > 1) {
       markLanded(session, host, marked, tries - 1)
     }
@@ -386,8 +387,8 @@ class DropPreview {
       markPreviewCopy(copy)
 
       copy.dataset.dropPreview = ""
-      // It holds the layers' place, unseen, under its outline.
-      copy.style.setProperty("visibility", "hidden", "important")
+      // It holds the layers' place, unseen, under its outline, which shows itself.
+      hideLayers([copy], [original])
       copy.style.pointerEvents = "none"
 
       if (getComputedStyle(original).position === "static") {
