@@ -1,4 +1,4 @@
-import type { RouteSegment } from "@parity-app/extension-api"
+import type { Route, RouteSegment } from "@parity-app/extension-api"
 import ts from "typescript"
 
 /** The extensions an import without one may leave off, tried in this order. */
@@ -98,4 +98,47 @@ export function propertyValue(object: ts.ObjectLiteralExpression, name: string):
 /** A property's name when it's written plainly or as a string. */
 function propertyName(name: ts.PropertyName): string | undefined {
   return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined
+}
+
+/**
+ * Whether a route only answers requests on the server, as a TanStack Start server route does (PAR-1173): its options
+ * have `server` and no `component`, and it has no lazy part that could draw one.
+ */
+export function serverOnly(options: ts.ObjectLiteralExpression | undefined, lazy: boolean): boolean {
+  return (
+    !lazy &&
+    options !== undefined &&
+    propertyValue(options, "server") !== undefined &&
+    propertyValue(options, "component") === undefined
+  )
+}
+
+/**
+ * Routes without the server-only ones, which draw nothing (PAR-1173). One with routes still inside it stays, so they
+ * keep their parent, and a layout or group left with nothing inside is a page.
+ */
+export function pagesOnly(routes: readonly Route[], server: ReadonlySet<string>): Route[] {
+  const kept = new Set<string>()
+  const parents = new Set<string>()
+
+  // Children come after their parents, so going backwards each route's children are decided before it.
+  for (const route of routes.toReversed()) {
+    if (route.kind === "root" || parents.has(route.id) || !server.has(route.id)) {
+      kept.add(route.id)
+
+      if (route.parent !== undefined) {
+        parents.add(route.parent)
+      }
+    }
+  }
+
+  return routes.flatMap((route) => {
+    if (!kept.has(route.id)) {
+      return []
+    }
+
+    return route.kind !== "root" && route.kind !== "page" && !parents.has(route.id)
+      ? [{ ...route, kind: "page" }]
+      : [route]
+  })
 }

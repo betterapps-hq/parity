@@ -1191,6 +1191,10 @@ bar.
   as React Router's library mode does; `loader` and `beforeLoad` say it loads data and guards the page. Routes come in
   the order their files are read. Routes made at run time, or whose parent is reached through anything but a plain
   variable, are left out.
+- **Only pages** (PAR-1173). TanStack Start's server routes, whose options have `server` and no `component`, draw
+  nothing, so they're left out, from the route tree and code-based routes alike. One with a `.lazy(…)` part stays, since
+  its lazy file may draw the component, and so does one with pages inside, so they keep their parent; a layout left with
+  nothing inside is a page (`serverOnly` and `pagesOnly` in `syntax.ts`).
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts`, `routes.ts`, `code-routes.ts` and
 `syntax.ts`); `providers` in `packages/extension-api/src/api.ts`; `provide` and `provider` in
@@ -1231,9 +1235,11 @@ routes inside is a layout, or a group when it adds nothing to the URL, as a path
 `_secure`. Library mode's routes sit inside a root in the file that declares them, which stands for the router. A route
 module's default export names its component; a `loader` or `clientLoader` means it loads data, and `middleware` or
 `clientMiddleware` that it guards the page. A loader that always throws or returns `redirect("/x")`, or library mode's
-`<Navigate to>` as the element, is where the route redirects. Whatever can only be known by running the app is left out
-and named in the route count's tooltip: "Some routes aren't supported yet", with what wasn't read, or, when no routes
-are declared anywhere it reads, that routes made while the app runs aren't supported yet.
+`<Navigate to>` as the element, is where the route redirects. A resource route, a module without a default export that
+answers with its `loader` or `action`, draws nothing and is left out (PAR-1173), unless pages sit inside it. Whatever
+can only be known by running the app is left out and named in the route count's tooltip: "Some routes aren't supported
+yet", with what wasn't read, or, when no routes are declared anywhere it reads, that routes made while the app runs
+aren't supported yet.
 
 Components the project's Vite plugin wraps for Fast Refresh, as React Router's does, draw on the canvas: the guest sets
 Fast Refresh's preamble, with hooks that do nothing, before any of the app's modules load (`viteGuestModule` in

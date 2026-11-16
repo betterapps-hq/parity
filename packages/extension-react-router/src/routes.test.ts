@@ -175,6 +175,44 @@ describe("readRoutes", () => {
     ])
   })
 
+  it("leaves out resource routes, which have no default export, but keeps one with pages inside (PAR-1173)", async () => {
+    const found = await readRoutes(
+      recordFiles({
+        "app/root.tsx": `export default function Root() {}`,
+        "app/routes.ts": `
+          import { index, route } from "@react-router/dev/routes"
+          export default [
+            index("home.tsx"),
+            route("api/report", "report.ts"),
+            route("sitemap.xml", "sitemap.ts"),
+            route("feeds", "feeds.ts", [route("rss", "rss.ts")]),
+            route("account", "account.ts", [route("profile", "profile.tsx")]),
+            route("about", "about.tsx"),
+            route("legal", "legal.tsx")
+          ]
+        `,
+        "app/home.tsx": `export default function Home() {}`,
+        "app/report.ts": `export async function loader() { return Response.json({}) }`,
+        "app/sitemap.ts": `export const loader = () => new Response("<urlset />")`,
+        "app/feeds.ts": `export async function loader() {}`,
+        "app/rss.ts": `export async function action() {}`,
+        "app/account.ts": `export async function loader() {}`,
+        "app/profile.tsx": `export default function Profile() {}`,
+        "app/about.tsx": `function About() {}\nexport { About as default }`,
+        "app/legal.tsx": `export default () => null`
+      })
+    )
+
+    expect(found.routes.map((route) => [route.id, route.kind])).toEqual([
+      ["root", "root"],
+      ["home", "page"],
+      ["account", "layout"],
+      ["profile", "page"],
+      ["about", "page"],
+      ["legal", "page"]
+    ])
+  })
+
   it("finds library mode's routes from the entry index.html names, through the files it imports", async () => {
     const found = await readRoutes(
       recordFiles({

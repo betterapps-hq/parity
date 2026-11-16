@@ -3,11 +3,13 @@ import ts from "typescript"
 import { z } from "zod"
 import { codeRouteTree, readCodeRoutes } from "./code-routes.ts"
 import {
+  pagesOnly,
   parentRouteName,
   propertyValue,
   resolvePath,
   scriptExtensions,
   segmentsOf,
+  serverOnly,
   stringProperty,
   unwrap
 } from "./syntax.ts"
@@ -30,6 +32,8 @@ interface TreeRoute {
   parent?: string
   /** The module its `Route` is imported from, from the project root, without an extension. */
   module: string
+  /** Whether it has a lazy part, as `.lazy(() => import('./routes/team.lazy'))`, which may draw its component. */
+  lazy: boolean
 }
 
 /** What a generated route tree declares: the root route's module, and every other route. */
@@ -52,14 +56,26 @@ const routerConfig = z.looseObject({ generatedRouteTree: z.string().optional() }
  * It reads the route tree the router's tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` says),
  * which names each route's id, path, parent and file, then each route's file for what it draws, whether it loads data
  * and whether it guards the page. Without a route tree, the routes the app declares in code with `createRootRoute` and
- * `createRoute` (PAR-1156). Empty when it has neither.
+ * `createRoute` (PAR-1156). Empty when it has neither. Server routes, which draw nothing, are left out (PAR-1173).
  */
 export function readRoutes(read: (path: string) => string | undefined): Route[] {
   const treeFile = routeTreeFile(read("tsr.config.json"))
   const tree = read(treeFile)
 
   if (tree === undefined) {
-    return codeRouteTree(readCodeRoutes(read), (route) => optionsSaid(route.options))
+    const server = new Set<string>()
+
+    const routes = codeRouteTree(
+      readCodeRoutes(read),
+      (route) => optionsSaid(route.options),
+      (route, id) => {
+        if (serverOnly(route.options, route.lazy)) {
+          server.add(id)
+        }
+      }
+    )
+
+    return pagesOnly(routes, server)
   }
 
   const { root, routes } = parseRouteTree(tree, treeFile)
@@ -69,11 +85,17 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
   }
 
   const found: Route[] = []
+  const server = new Set<string>()
   const children = Map.groupBy(routes, (route) => route.parent)
 
-  const add = (route: Pick<Route, "id" | "kind" | "path" | "parent" | "index">, module: string) => {
+  const add = (route: Pick<Route, "id" | "kind" | "path" | "parent" | "index">, module: string, lazy = false) => {
     const { file, text } = resolveModule(module, read)
-    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(text) })
+    const options = text === undefined ? undefined : exportedRouteOptions(text)
+    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(options) })
+
+    if (serverOnly(options, lazy)) {
+      server.add(route.id)
+    }
   }
 
   // Ids and paths in the tree are below the parent's, so each route's full ones are its parent's with its own after.
@@ -83,7 +105,8 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
     const path = joined.length > 1 ? joined.replace(/\/$/, "") : joined
     const inside = children.get(route.variable) ?? []
 
-    add({ id, kind: kindOf(route, inside), path, parent: parent.id, index: route.path.endsWith("/") }, route.module)
+    const index = route.path.endsWith("/")
+    add({ id, kind: kindOf(route, inside), path, parent: parent.id, index }, route.module, route.lazy)
 
     for (const child of inside) {
       visit(child, { id, path })
@@ -96,7 +119,7 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
     visit(route, { id: rootId, path: "/" })
   }
 
-  return found
+  return pagesOnly(found, server)
 }
 
 /** The route tree's path from the project root, as `tsr.config.json` names it or the router's default. */
@@ -147,7 +170,13 @@ function parseRouteTree(text: string, treeFile: string): RouteTree {
         }
 
         declared.push({
-          route: { variable: declaration.name.text, id, path: stringProperty(options, "path") ?? "", module },
+          route: {
+            variable: declaration.name.text,
+            id,
+            path: stringProperty(options, "path") ?? "",
+            module,
+            lazy: update.lazy
+          },
           parentName
         })
       }
@@ -179,8 +208,13 @@ function importedNames(statement: ts.ImportDeclaration): string[] {
   return bindings && ts.isNamedImports(bindings) ? bindings.elements.map((element) => element.name.text) : []
 }
 
-/** The `X.update({…})` call an initializer is or starts with, as `.update({…}).lazy(…)` does for a lazy route. */
-function updateCall(expression: ts.Expression): { imported: string; options: ts.ObjectLiteralExpression } | undefined {
+/**
+ * The `X.update({…})` call an initializer is or starts with, as `.update({…}).lazy(…)` does for a lazy route, and
+ * whether a `.lazy(…)` follows it.
+ */
+function updateCall(
+  expression: ts.Expression
+): { imported: string; options: ts.ObjectLiteralExpression; lazy: boolean } | undefined {
   if (!ts.isCallExpression(expression) || !ts.isPropertyAccessExpression(expression.expression)) {
     return undefined
   }
@@ -189,10 +223,14 @@ function updateCall(expression: ts.Expression): { imported: string; options: ts.
   const argument = expression.arguments[0] && unwrap(expression.arguments[0])
 
   if (callee.name.text === "update" && ts.isIdentifier(callee.expression) && argument) {
-    return ts.isObjectLiteralExpression(argument) ? { imported: callee.expression.text, options: argument } : undefined
+    return ts.isObjectLiteralExpression(argument)
+      ? { imported: callee.expression.text, options: argument, lazy: false }
+      : undefined
   }
 
-  return updateCall(callee.expression)
+  const inner = updateCall(callee.expression)
+
+  return inner && callee.name.text === "lazy" ? { ...inner, lazy: true } : inner
 }
 
 /** A module's file and text: the first of its extensions that's there, else `.tsx`, with no text. */
@@ -235,8 +273,9 @@ function kindOf(route: TreeRoute, inside: readonly TreeRoute[]): Route["kind"] {
  * `createRootRoute({…})`: the component it names, whether it has a `loader` or a `beforeLoad`, and where it always
  * redirects (see `alwaysRedirects`).
  */
-function routeOptions(text: string | undefined): Pick<Route, "component" | "loads" | "guards" | "redirect"> {
-  const options = text === undefined ? undefined : exportedRouteOptions(text)
+function routeOptions(
+  options: ts.ObjectLiteralExpression | undefined
+): Pick<Route, "component" | "loads" | "guards" | "redirect"> {
   const said: Pick<Route, "component" | "loads" | "guards" | "redirect"> = optionsSaid(options)
   const component = options && propertyValue(options, "component")
 

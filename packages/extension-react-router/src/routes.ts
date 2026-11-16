@@ -39,7 +39,8 @@ const libraryFileLimit = 40
  * Every route of an app that uses React Router, each parent before its children. Framework mode's `routes.ts` comes
  * first, in the folder `react-router.config` names (`app` by default), with the routes `flatRoutes()` makes from file
  * names. Without it, library mode's routes are looked for from the app's entry: its route objects, or its `<Route>`
- * elements. What can only be known by running the app is left out and named in `unread`.
+ * elements. What can only be known by running the app is left out and named in `unread`, and resource routes, which
+ * draw nothing, are left out too (PAR-1173).
  */
 export async function readRoutes(files: ProjectFiles): Promise<ReadRoutes> {
   const appDirectory = appDirectoryOf(await firstOf(files, configNames))
@@ -91,9 +92,16 @@ async function frameworkRoutes(
     { id: rootId, kind: "root", segments: [], path: "/", file: rootFile, index: false, ...moduleFacts(root?.text) }
   ]
 
+  const resources = new Set<string>()
+
   const visit = async (route: ConfigRoute, parent: { id: string; path: string }) => {
     const path = fullPath(parent.path, route.path)
     const file = joinFolder(appDirectory, route.file)
+    const text = await files.read(file)
+
+    if (isResourceRoute(text)) {
+      resources.add(route.id)
+    }
 
     routes.push({
       id: route.id,
@@ -103,7 +111,7 @@ async function frameworkRoutes(
       parent: parent.id,
       file,
       index: route.index,
-      ...moduleFacts(await files.read(file))
+      ...moduleFacts(text)
     })
 
     for (const child of route.children) {
@@ -115,7 +123,69 @@ async function frameworkRoutes(
     await visit(route, { id: rootId, path: "/" })
   }
 
-  return { routes, mode: "framework", unread }
+  return { routes: pagesOnly(routes, resources), mode: "framework", unread }
+}
+
+/**
+ * Whether a route module is a resource route, which answers requests with its `loader` or `action` and draws nothing:
+ * one without a default export (PAR-1173). A module that can't be read isn't known to be one.
+ */
+function isResourceRoute(text: string | undefined): boolean {
+  if (text === undefined) {
+    return false
+  }
+
+  const source = ts.createSourceFile("route.tsx", text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
+
+  return !source.statements.some((statement) => {
+    if (ts.isExportAssignment(statement)) {
+      return !statement.isExportEquals
+    }
+
+    if (ts.isExportDeclaration(statement)) {
+      const clause = statement.exportClause
+
+      return (
+        clause !== undefined &&
+        ts.isNamedExports(clause) &&
+        clause.elements.some((element) => element.name.text === "default")
+      )
+    }
+
+    const modifiers = ts.canHaveModifiers(statement) ? (ts.getModifiers(statement) ?? []) : []
+
+    return modifiers.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+  })
+}
+
+/**
+ * Routes without the ones given, which draw nothing. One with routes still inside it stays, so they keep their parent,
+ * and a layout or group left with nothing inside is a page.
+ */
+function pagesOnly(routes: readonly Route[], drawNothing: ReadonlySet<string>): Route[] {
+  const kept = new Set<string>()
+  const parents = new Set<string>()
+
+  // Children come after their parents, so going backwards each route's children are decided before it.
+  for (const route of routes.toReversed()) {
+    if (route.kind === "root" || parents.has(route.id) || !drawNothing.has(route.id)) {
+      kept.add(route.id)
+
+      if (route.parent !== undefined) {
+        parents.add(route.parent)
+      }
+    }
+  }
+
+  return routes.flatMap((route) => {
+    if (!kept.has(route.id)) {
+      return []
+    }
+
+    return route.kind !== "root" && route.kind !== "page" && !parents.has(route.id)
+      ? [{ ...route, kind: "page" }]
+      : [route]
+  })
 }
 
 /**
