@@ -8493,7 +8493,8 @@ buttons drew transparent, because Chakra sets its palette's custom properties on
   mode's class and theme attributes are on its body. So the root rule's custom properties are declared on the body too,
   with no specificity, in the layer a qualified root's declarations are in, so a theme's root (`:root.dark`) still
   overrides them, without importance, and whatever the project sets on the body still wins. This holds for the project's
-  own stylesheets as well, as with Tailwind's `@theme` without `inline`.
+  own stylesheets as well, as with Tailwind's `@theme` without `inline`. A token edit's preview edits the copy too
+  (`previewToken` in `guest.ts`).
 - **Not covered:** a sheet the project's code constructs and adopts into a frame keeps its rules as written, with its
   lengths measuring the frame. Griffel's shadow DOM renderer writes Fluent's styles that way.
 
