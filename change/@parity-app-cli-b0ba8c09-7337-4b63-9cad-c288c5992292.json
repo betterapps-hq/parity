@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Run a project's .parity/preview.tsx, with Storybook's preview exports, around every frame on every builder",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

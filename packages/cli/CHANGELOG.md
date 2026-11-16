@@ -1,8 +1,44 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 16 Nov 2026 07:28:34 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 17:18:11 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.73.0
+
+Mon, 16 Nov 2026 17:18:11 GMT
+
+### Minor changes
+
+- Open projects Yarn installed with Plug'n'Play: packages, Vite and the project's tools are found through .pnp.cjs
+  (ajcraswell@gmail.com)
+- Layers nests API routes by URL, from routeOutline in core, the same for every router (PAR-1185) (ajcraswell@gmail.com)
+- Toasts use the stock shadcn toast instead of Sonner, through one module, with clearer copy, plain-language failure
+  reasons and colored success and warning icons (ajcraswell@gmail.com)
+- Run a project's .parity/preview.tsx, with Storybook's preview exports, around every frame on every builder
+  (ajcraswell@gmail.com)
+- Offer to write a project's preview file from the providers its app's entry renders (ajcraswell@gmail.com)
+
+### Patches
+
+- Use Simple Icons logos for the status bar's tools, and color a logo with its brand on hover (an icon's new optional
+  color) (ajcraswell@gmail.com)
+- Check a version a builder reads from another peer against that peer's range, and keep two Next.js-on-webpack guests'
+  chunks apart in one window (ajcraswell@gmail.com)
+- Start the project service again after it runs out of memory, report that crash, and cap the type checker so it can't
+  take the service's heap (ajcraswell@gmail.com)
+- Keep any stylesheet a project's code adds to Parity's window out of it and draw it in that project's frames, whichever
+  builder or library adds it (ajcraswell@gmail.com)
+- Vite 6 and 7 projects keep their prebundled dependencies between opens instead of bundling them again, which sometimes
+  stalled the builder (ajcraswell@gmail.com)
+- Draw a TanStack Router layout on its own: the frame's router draws the frame as its root route, so its Outlet draws
+  nothing in place of failing (ajcraswell@gmail.com)
+- A library older than every registry file uses the oldest newer one, so Mantine 8 gets MantineProvider around its
+  frames (PAR-1168) (ajcraswell@gmail.com)
+- Draw only the Components panel's rows in view, and draw a row again only when what it shows changes
+  (ajcraswell@gmail.com)
+- The router extensions' route count in the status bar follows routes marked as pages or API routes, through a new
+  parity.routes API. (ajcraswell@gmail.com)
 
 ## 0.72.3
 

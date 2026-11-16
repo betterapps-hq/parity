@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "A library older than every registry file uses the oldest newer one, so Mantine 8 gets MantineProvider around its frames (PAR-1168)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

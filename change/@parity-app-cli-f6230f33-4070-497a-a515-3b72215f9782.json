@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw only the Components panel's rows in view, and draw a row again only when what it shows changes",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
