@@ -1,134 +1,302 @@
-# Extensions in the window: internal window modules, and places external extensions fill
+# Extensions in the window
 
-Status: draft for review. Follows PAR-1179 (the live room in development). It changes
-[developer-api.md](developer-api.md)'s "Drawing UI" for Parity's own extensions, and makes its canvas overlays and
-web views (PAR-1099) concrete for everyone else.
+Status: draft for review, second revision after a review panel. Follows PAR-1179 (the live room in development). It
+changes [developer-api.md](developer-api.md)'s "Drawing UI" for Parity's own extensions, and makes its canvas overlays
+and web views (PAR-1099) concrete for everyone else.
 
 Multiplayer should be an extension, `@parity-app/extension-multiplayer`, rather than code in the app. So should agents'
-pointers on the canvas. Today's API can't carry either:
+pointers on the canvas, `@parity-app/extension-agent-presence`. Today's API can't carry either:
 
 - An extension can't draw on the canvas.
 - It can't see the camera or the pointer.
 - It doesn't get the document's changes.
 - It has no say in how a project opens.
 
-This proposal adds what's missing in two tiers, the way VS Code separates its own workbench features from marketplace
-extensions.
+**What this proposal is for: the foundation.** It's about getting multiplayer's hooks into core correctly, so features
+can be built on them. Some things are out of scope for now:
+- how people find and join a room
+- when a project uses multiplayer
+- where a room's work is saved
+
+Those come later. For now, two copies on one machine joining a local room (as PAR-1179 does) is enough to build and test
+against.
 
 ## Two tiers
 
-|                       | **Internal extensions**: Parity's own, shipped in the app's build                                                                          | **External extensions**: everyone else's                                                                  |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Where code runs       | A Node half, as today, and a **window module** in the project's window                                                                    | A Node half, as today                                                                                     |
-| UI                    | Their own React, drawn directly: on the canvas, in panels, pages and dialogs                                                              | Places Parity draws: declarative views, canvas overlays, status items; web views in tabs, pages and dialogs |
-| Components            | Parity's own: the kit (`@buildkitgg/shadcn-baseui-kit`), React, and Parity's workspace packages, shared, never copied                     | Whatever they bundle into a web view, themed by Parity's CSS variables                                    |
-| The canvas            | **Draw on it directly**, in layers, with the camera and nodes' positions (`parity.canvas.layer`)                                          | Overlays attached to nodes, which Parity draws (`parity.canvas.badge`, `outline`, …)                      |
-| What Parity promises  | Nothing beyond the build they ship in. The API changes with the app, and so do they                                                       | A versioned API with deprecation                                                                          |
-| Trust                 | Same as the app's own code                                                                                                                | Sandboxed: their own process, and web views in frames                                                     |
+|                      | **Internal extensions**: Parity's own, shipped in the app's build                                                      | **External extensions**: everyone else's                                                                   |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Where code runs      | A **window module** in the project's tab, and optionally a Node half                                                   | A Node half, as today                                                                                      |
+| UI                   | Their own React, drawn directly: on the canvas, in panels, pages and dialogs                                           | Places Parity draws: declarative views, canvas overlays, status items; web views in tabs, pages and dialogs |
+| Components           | Parity's own: the kit (`@buildkitgg/shadcn-baseui-kit`), React, and Parity's workspace packages, shared, never copied | Whatever they bundle into a web view, themed by Parity's CSS variables                                     |
+| The canvas           | Drawn on directly, in layers, with the camera and nodes' positions                                                     | Overlays attached to nodes, which Parity draws                                                             |
+| What Parity promises | Nothing beyond the build they ship in: the API changes with the app, and they change with it                           | A versioned API with deprecation                                                                           |
+| Trust                | The same as the app's own code                                                                                          | Sandboxed: their own process, and web views in frames                                                      |
 
-**Why internal extensions can share everything.** They're in the app's own list of built-in extensions
-(`utility/extensions.ts`), built and released with it. They can't drift from the kit, React or the canvas, because they
-ship in the same build. That's how VS Code's Explorer, Search and Source Control use its internal widgets.
+**Why internal extensions can share everything.** They're built and released with the app, so they can't drift from
+the kit, React or the canvas. That's how VS Code's Explorer and Source Control use its internal widgets.
 
-**Why that still decouples.** A feature like multiplayer or agent presence stops being code inside the canvas. It talks
-to the canvas only through `WindowParity`:
+**Why that still decouples.** A feature stops being code inside the canvas. It talks to the canvas only through
+`WindowParity`:
 - Its pointers, cards and frames are its own components in its own package.
-- Core keeps a smaller surface: layers, the camera, where nodes are, colors, and previews of nodes moving.
-- A feature can be turned off, replaced or rewritten without touching the canvas.
+- It can be turned off, replaced or rewritten without touching the canvas.
+- Core keeps a smaller surface: layers, the camera, where nodes are, colors, previews, holds, presence events, the sync
+  seam and agent activity.
 
-**Why external extensions don't get the same.** Sharing the kit or React with code Parity doesn't ship makes every
-prop of every component a promise. The kit is at 0.5, so every minor version can break. Parity couldn't upgrade it,
-restyle a component, or swap Base UI out without breaking someone. So, like VS Code's marketplace extensions,
-external extensions:
-- fill places that Parity draws
-- draw anything else in sandboxed web views, with any framework, bound to Parity only by the names of its CSS
-  variables
+**Why external extensions don't get the same.** Sharing the kit or React with code Parity doesn't ship would make every
+prop of every component a promise. The kit is at 0.5, so every minor version can break. External extensions fill
+places Parity draws, and draw anything else in sandboxed web views, bound to Parity only by its CSS variable names. They
+can't be installed yet, so their part (overlays, web views, PAR-1099) is backlogged.
 
-### How "internal" is enforced
+## Internal extensions: window modules
 
-A manifest says `"internal": true`. Parity honours it only for an extension in its built-in list, loaded from the
-app's own resources. Anywhere else the field is refused, as `enabledApiProposals` is outside VS Code Insiders. Internal
-extensions may use what's marked `@internal` in `@parity-app/extension-api`. External ones can't import it: it isn't in
-the published package's types.
-
-## Internal: window modules
-
-A **window module** is a second entry point an internal extension ships beside its Node half. It's an ES module Parity
-loads into the project's window, on the main thread. It gets a `WindowParity` object, as the Node half gets `Parity`.
+A **window module** is an entry point an internal extension ships. It's an ES module that Parity loads into each
+project tab the extension is active for, on the main thread. It gets a `WindowParity` object, as the Node half gets
+`Parity`.
 
 ```ts
 interface Manifest {
   // …as today…
 
-  /** Only honoured for Parity's built-in extensions. */
+  /** Marks one of Parity's own extensions. Refused unless the extension is in Parity's built-in list. */
   internal?: boolean
-  /**
-   * The package export of its window module, as `./window`, whose module exports `activateWindow`. Only for an
-   * internal extension. Parity loads it in the window of each project the extension is active for.
-   */
+  /** The package export of its window module, as `./window`, whose module exports `activateWindow`. Internal only. */
   window?: string
-}
-
-/** What a window module exports. */
-export interface WindowModule {
-  /** What it returns, other extensions' window modules call through `parity.extensions`, and its Node half through `parity.window`. */
-  activateWindow(parity: WindowParity): void | object | Promise<void | object>
-  deactivateWindow?(): void | Promise<void>
+  /**
+   * What its window module may use, beyond the basics every window module gets. Internal only, and checked when the
+   * manifest is read. See "Capabilities".
+   */
+  capabilities?: Capability[]
 }
 ```
 
-**It imports what Parity imports.** React, the kit, `lucide-react` and Parity's workspace packages are shared by the
-build, not bundled twice. The app's Vite build compiles built-in extensions' window modules with the app, so they get
-one React, one kit and one theme.
+- **One list.** The built-in extensions are listed once, in `built-in-extensions.ts`. Both the Node host's list
+  (`builtIns()`) and the window modules the app's Vite build compiles are generated from it, with a test that they
+  match.
+- **Shared, not bundled.** The app's build compiles window modules with the app, so they get one React, one kit and
+  one theme. Each module is its own chunk, so its time on the main thread can be attributed to it.
+- **The main thread, on purpose.** A window module renders real React into Parity's tree, with real popovers and
+  focus, and reads the camera and node positions every frame without messages. Heavy work goes in a Web Worker it
+  starts itself, or in its Node half.
+- **Optional Node half.** An internal extension may have only a window module. Agent presence has only a window module.
+  Multiplayer has both: the Node half runs the development relay.
+- **`@internal` API.** What only internal extensions may use is marked `@internal` and exported from
+  `@parity-app/extension-api/internal`. That entry point isn't in the published package.
 
-**Why the main thread, not a worker.**
-- It renders real React into Parity's tree, with real popovers and focus.
-- It reads the camera and node positions every frame without messages.
-- Heavy work can still go in a Web Worker it starts itself, or in its Node half.
+### When a window module starts
 
-**Activation.** Two new activation events:
-- `onSetting:<key>` starts an extension while one of its boolean settings is on, and stops it when it's turned off.
-  Multiplayer starts with `onSetting:multiplayer.liveRoom`.
-- `onAgentActivity` starts an extension when an agent first works in the project. Agent presence starts so.
+How multiplayer gets turned on matters less for now than getting the order right, so features that build on it can
+count on it.
 
-### `WindowParity`
+**For each project tab:**
+1. Internal extensions are found without detection. Only internal extensions may declare `detect: { always: true }`.
+2. The tab reads the extensions' **app** settings, which don't need the project open.
+3. The tab activates the window modules whose activation holds, and waits for each `activateWindow`. A module that
+   brings the room registers `sync.onOpen` here.
+4. If a module registered `onOpen`, core opens the project on the Loro provider and waits for the handler (see
+   `parity.sync`). Otherwise it opens on the local provider, as today.
+5. The document opens. Calls a module made to `sync` before this point (`receive`, `snapshot`) wait until it's open.
+   Changes and requests from the room are buffered in the meantime.
+
+**Activation events,** added to `ActivationEvent` and evaluated in the window:
+- `onSetting:<key>`: active while one of its boolean app settings is on. Multiplayer uses `onSetting:multiplayer.liveRoom`
+  for now, an app setting so it's known before the project opens. Turning it on or off reopens the project.
+- `onStartup`: active in every project tab. Agent presence uses this, so it's listening before the first agent step.
+  It's cheap until an agent works.
+
+**Who brings the room.** A manifest that brings the room says so with `"contributes": { "sync": true }`. Two enabled
+extensions that both say so are refused when the manifests are read, so there's never a second `onOpen`.
+
+**One window, several projects.** A window holds a tab for each open project, and hidden tabs stay mounted (`App.tsx`
+mounts a `ProjectView` per tab). So:
+- each activation, and each `WindowParity`, belongs to one project tab
+- a window module keeps no state at module level
+- layers and `useFrame` pause while their tab is hidden
+- colors are claimed per tab
+
+### Capabilities
+
+Window modules declare what they use, as external extensions declare permissions. Internal extensions are trusted, so
+this isn't for security. It's so Parity:
+- skips work nobody uses, such as collecting pointer events when no module listens
+- refuses a second room
+- shows on the Extensions page what each built-in extension does
+
+It's lower priority than the rest, and can land after the APIs.
 
 ```ts
 /**
- * What a window module gets. It has the Node half's reads (selection, settings, navigation) and what only makes sense
- * in the window. Files, processes, providers and edits stay in the Node half.
+ * - `canvas`: layers, boxes, hits and previews.
+ * - `camera`: reading and moving the camera, and following.
+ * - `presence`: this person's pointer, gestures and what they're viewing.
+ * - `sync`: bringing the room; requires `contributes.sync`.
+ * - `agents`: watching agents' activity, and passing on other copies'.
+ * - `hold`: holding boards while an agent moves them.
+ */
+type Capability = "canvas" | "camera" | "presence" | "sync" | "agents" | "hold"
+```
+
+Every window module gets `render`, `colors`, `settings`, `log`, `commands`, `selection` and `navigate` without
+asking. A module that calls something it didn't declare gets a clear error naming the missing capability.
+
+## The window module and its Node half
+
+An internal extension's two halves are one extension. They activate together, stop together, and call each other
+through typed APIs.
+
+### The contract
+
+```ts
+/** What a window module exports. */
+export interface WindowModule<WindowApi extends object = object, ForNode extends ExtensionApi = ExtensionApi> {
+  /**
+   * Called once per project tab. What it returns:
+   * - `window`: called directly by other window modules in the same tab, with any values, including functions.
+   * - `node`: called by its own Node half, across processes, so JSON in and JSON out.
+   */
+  activateWindow(parity: WindowParity): Activated<WindowApi, ForNode> | Promise<Activated<WindowApi, ForNode>>
+  /** Called before it stops, after everything in `parity.subscriptions` has been disposed. */
+  deactivateWindow?(): void | Promise<void>
+}
+
+export interface Activated<WindowApi extends object, ForNode extends ExtensionApi> {
+  window?: WindowApi
+  node?: ForNode
+}
+
+/** In the window module: its own Node half. */
+export interface HostLink {
+  /** What the Node half's `activate` returned, typed by the caller. Calls go across processes. */
+  api<Api extends ExtensionApi>(): RemoteApi<Api>
+  /** The Node half's state now, and as it changes. */
+  readonly state: HalfState
+  onStateChange(listener: (state: HalfState) => void): Disposable
+}
+
+/** @internal In the Node half's `Parity`, as `parity.window`: its window module in each project tab. */
+export interface WindowLink {
+  /** What each tab's window module returned as `node`, by tab. A project is open in at most one tab. */
+  api<Api extends ExtensionApi>(): RemoteApi<Api> | undefined
+  readonly state: HalfState
+  onStateChange(listener: (state: HalfState) => void): Disposable
+}
+
+/** Where the other half is. */
+export type HalfState = "starting" | "ready" | "restarting" | "stopped"
+
+/** A call to the other half while it isn't `ready`. */
+export class HalfUnavailableError extends Error {
+  readonly state: Exclude<HalfState, "ready">
+}
+
+/** Another internal extension's window module in the same tab, by `extensionDependencies`. */
+export interface OtherWindowModule<Api extends object> {
+  id: string
+  /** Undefined while that extension is off. Window dependencies are optional: see below. */
+  readonly api: Api | undefined
+  onAvailable(listener: (api: Api) => void): Disposable
+  onGone(listener: () => void): Disposable
+}
+```
+
+### How the halves live together
+
+| What happens                         | Window module                                                                             | Node half                                                                  |
+| ------------------------------------ | ----------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| The extension activates in a tab     | Loads and runs `activateWindow`. `host.state` is `starting` until the Node half is ready  | Starts if it isn't running, and runs `activate` once for the project       |
+| Both are ready                       | `host.state` becomes `ready`                                                              | `window.state` becomes `ready`                                             |
+| The Node half crashes                | `host.state` becomes `restarting`, and calls reject with `HalfUnavailableError`. It keeps working on its own | Restarts, as a Node host does today. After three crashes in a row it stops, and the window module is deactivated too |
+| The window module throws             | Counted (see "Trust and limits"). After five failures it's stopped with "Multiplayer stopped working in this tab" | `window.state` becomes `stopped`, and calls reject                         |
+| The tab closes                       | `deactivateWindow` runs                                                                   | `window.state` becomes `stopped`. It keeps running for other tabs          |
+| The extension is turned off          | Deactivated in every tab                                                                  | Deactivated and stopped                                                    |
+
+- **Calls to a half that isn't ready reject at once.** They aren't queued, because a queued call can arrive long after
+  it makes sense.
+- **The Node half sees a window module's API only through `node`**, JSON across processes, as `extensionDependencies`
+  APIs work today.
+- **Window modules call each other directly**, through `window`, with any values. That's only possible because they
+  run in the same tab.
+
+### Window dependencies are optional
+
+An extension that names another in `extensionDependencies` gets it through `parity.extensions.get(id)`, an
+`OtherWindowModule`:
+- It doesn't force the other on, and it isn't stopped when the other is off.
+- It reacts when the other comes and goes.
+
+That keeps features independent. Neither of this proposal's two extensions depends on the other at all (see "Agents in
+a room").
+
+### An example
+
+```ts
+// window.tsx
+export const activateWindow: WindowModule<{}, MultiplayerForNode>["activateWindow"] = (parity) => {
+  parity.host.onStateChange((state) => parity.log.info(`relay host: ${state}`))
+
+  const relay = async () => {
+    try {
+      return await parity.host.api<RelayApi>().ensureRelay(parity.settings.get<number>("multiplayer.port"))
+    } catch (error) {
+      if (error instanceof HalfUnavailableError) return undefined
+      throw error
+    }
+  }
+
+  // …
+  return { node: { status: () => ({ peers: room.peers.length }) } }
+}
+
+// extension.ts, the Node half
+export function activate(parity: Parity): RelayApi {
+  return { ensureRelay: (port: number) => startRelay(port) }
+}
+
+interface RelayApi extends ExtensionApi {
+  ensureRelay(port: number): Promise<"started" | "shared">
+}
+
+interface MultiplayerForNode extends ExtensionApi {
+  status(): { peers: number }
+}
+```
+
+## `WindowParity`
+
+```ts
+/**
+ * What a window module gets, for one project tab. It has the Node half's reads (selection, settings, navigation) and
+ * what only makes sense in the window. Files, processes, providers and edits stay in the Node half.
  */
 export interface WindowParity {
   readonly extension: ExtensionInfo
   readonly project: Project
+  /** The project tab it runs in. */
+  readonly tab: string
   readonly subscriptions: Disposable[]
   readonly commands: Commands
   readonly selection: Selection
   readonly navigate: Navigate
   readonly settings: Settings
   readonly log: Log
-  /** Its own React in panels, pages and dialogs. */
   readonly render: Render
-  /** Drawing on the canvas, the camera, and where nodes are. */
-  readonly canvas: CanvasSurface
   readonly colors: Colors
+  /** `canvas` capability; `camera` for `canvas.camera`; `hold` for `canvas.hold`. */
+  readonly canvas: CanvasSurface
+  /** `presence` capability. */
   readonly presence: Presence
+  /** `sync` capability. */
   readonly sync: Sync
+  /** `agents` capability. */
   readonly agents: Agents
-  /** Its Node half: what that half's `activate` returned. */
-  readonly host: { readonly api: RemoteApi<ExtensionApi> }
-  /** Window modules of the extensions it names in `extensionDependencies`, with what their `activateWindow` returned. */
-  readonly extensions: { get<Api extends object>(id: string): { api: Api } }
+  readonly host: HostLink
+  readonly extensions: { get<Api extends object>(id: string): OtherWindowModule<Api> }
 }
 ```
 
-The Node half gets `parity.window.api`, what the window module's `activateWindow` returned, and `parity.window.onReady`.
+## `parity.canvas`: drawing on the canvas
 
-### `parity.canvas`: drawing on the canvas directly
-
-The canvas gives an internal extension **layers**: React roots laid over the canvas that Parity keeps in step with the
-camera. The extension draws anything there with its own components. Parity's job shrinks to keeping layers aligned and
-answering where things are.
+The canvas gives an internal extension **layers**: React subtrees laid over the canvas that Parity keeps in step with
+the camera. The extension draws anything there with its own components.
 
 ```
                  ┌─────────────────────────────── canvas ────────────────────────────────┐
@@ -146,88 +314,154 @@ answering where things are.
                  └───────────────────────────────────────────────────────────────────────┘
 ```
 
+**Where each layer lives.** Layers are React portals inside the project tab's own subtree, so Parity's theme, kit
+providers and portals reach them. Each has an error boundary of its own.
+
+| Order           | DOM host                                                               | Moves with                                              |
+| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
+| `underDesigns`  | tldraw's background slot, under the shapes                             | The page: Parity applies the camera's transform         |
+| `overDesigns`   | `OnTheCanvas`, above the shapes and frames, below Parity's own overlays | The page                                                |
+| `overSelection` | Above Parity's selection, hover outlines and handles                   | The page                                                |
+| `edge`          | The canvas area's in-front layer, kept clear of the toolbar and panels | Nothing: screen space, placed in a corner or along the bottom |
+
 ```ts
 import type { ReactNode } from "react"
 
 export interface CanvasSurface {
   /**
-   * Draws `children` in a layer over the canvas, in a React root of the extension's own with an error boundary.
-   * - `page` layers move and zoom with the canvas: children are placed in page coordinates. Use `useCamera().zoom` to
-   *   keep something the same size on screen.
-   * - `screen` layers stay put. `edge` places their children in a corner or along the bottom, kept clear of Parity's
-   *   toolbar.
-   * Layers don't take the pointer unless an element inside asks with `data-canvas-interactive`. Parity's own selection
-   * and handles always stay usable.
+   * Draws `children` in a layer over the canvas. In `page` space, children are placed in page coordinates; to keep
+   * something the same size on screen, scale it by `1 / zoom`. Layers don't take the pointer unless an element inside
+   * asks with `data-canvas-interactive`. Parity's own selection and handles always stay usable.
    */
   layer(options: LayerOptions, children: ReactNode): Disposable
 
+  /** `camera` capability. */
   readonly camera: Camera
 
-  /**
-   * Where a node is on the page, in whichever frame shows `state` and `mode` (the primary frame otherwise), or nothing
-   * while it isn't drawn. Its `radius` is its corner radius on screen.
-   */
-  box(ref: NodeRef, options?: { state?: string; mode?: string }): NodeBox | undefined
-  /** Told when that box changes: the node moved or resized, or its frame redrew. Not for panning: boxes are on the page. */
-  onBoxChange(ref: NodeRef, options: { state?: string; mode?: string }, listener: (box: NodeBox | undefined) => void): Disposable
-  /** The design under a point on the page, and the deepest node of it there. */
-  hit(at: Point): NodeRef | undefined
+  /** Where something is on the page, or why it isn't there. See `BoxOf`. */
+  box(ref: NodeRef, options?: BoxOptions): BoxResult
+  /** Told when that box changes: moved, resized, redrawn, gone to sleep or woken. Not for panning: boxes are on the page. */
+  onBoxChange(ref: NodeRef, listener: (box: BoxResult) => void, options?: BoxOptions): Disposable
+  /** What's under a point on the page: the design, and the deepest node of it there. */
+  hit(at: Point): { design: string; node?: string } | undefined
 
   pageToScreen(at: Point): Point
   screenToPage(at: Point): Point
 
-  /**
-   * Shows nodes really moving or resizing, as their owner sees them during a drag, before anything is written. It
-   * needs core, because the nodes are core's to draw:
-   * - A board moves itself.
-   * - A layer in a layout lifts out of it, drawn as itself, and follows. The layout makes room at `drop`, as it does for
-   *   the person dragging.
-   * - An absolutely placed layer moves or resizes through a style preview.
-   * Only this copy sees it, and nothing is saved or put in undo. Disposing it, or the drop's write arriving, settles
-   * every node where the document says.
-   */
-  preview(items: PreviewItem[], options?: { drop?: { parent: NodeRef; index: number } }): Preview
+  /** Shows nodes another person is dragging, moving as they do, without writing anything. See "Previews". */
+  preview(items: PreviewItem[], options?: PreviewOptions): Preview
+
+  /** `hold` capability. Holds a board where it is while an agent moves it. See "Holds". */
+  hold(design: string, at: Point): Held
 }
 
-export interface LayerOptions {
-  /** Names it among the extension's layers, as `multiplayer.pointers`. */
-  id: string
-  space: "page" | "screen"
-  /** Where it sits among the canvas's own: see the diagram. `edge` is for `screen` layers only. */
-  order: "underDesigns" | "overDesigns" | "overSelection" | "edge"
-  /** For `edge`: which corner, or along the bottom. */
-  placement?: "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "bottom"
-  /** Hidden while the person drags or resizes, as Parity's own overlays are. False by default. */
-  hideWhileEditing?: boolean
-}
+/** A layer: on the page, in one of three orders, or on the screen at the canvas's edge. */
+export type LayerOptions =
+  | { id: string; space: "page"; order: "underDesigns" | "overDesigns" | "overSelection"; hideWhileEditing?: boolean }
+  | { id: string; space: "screen"; order: "edge"; placement: "topLeft" | "topRight" | "bottomLeft" | "bottomRight" | "bottom" }
 
 export interface Point { x: number; y: number }
 export interface Rect extends Point { width: number; height: number }
-export interface NodeBox extends Rect { radius: number }
 
+export interface BoxOptions {
+  /** What to measure: the board around a design, the frame a state and mode draws in, or a node in that frame. */
+  in?: "board" | "frame" | "node"
+  /** Which frame. When none matches both, a frame in `mode` is used, then the primary frame, as the agent presence does today. */
+  state?: string
+  mode?: string
+}
+
+export type BoxResult =
+  /** Drawn: its box on the page, its corner radius in page units, and its laid-out size in design pixels. */
+  | { kind: "drawn"; box: Rect; radius: number; size: { width: number; height: number } }
+  /** Its frame is asleep (scrolled far away or culled): the frame's box, so something can still point at it. */
+  | { kind: "asleep"; frame: Rect }
+  /** Not on the canvas. */
+  | { kind: "missing" }
+```
+
+**Hooks for what's drawn in a layer** come from `@parity-app/canvas-layer` and read the layer's context:
+
+```ts
+/** The camera now: `zoom`, and what's in view. Re-renders at most once a frame. */
+export function useCamera(): { zoom: number; view: Rect }
+/** A box, re-rendering as it changes. */
+export function useBox(ref: NodeRef, options?: BoxOptions): BoxResult
+/** A color, by key, claimed for this tab while mounted. */
+export function useColor(key: ColorKey): Palette
+/**
+ * Runs once per animation frame while mounted and the tab is visible, inside the canvas's overlay scheduler: `measure`
+ * reads layout first, then `draw` writes. For anything that moves every frame, write a transform in `draw` instead of
+ * re-rendering.
+ */
+export function useFrame(frame: { measure?: () => void; draw: (dt: number) => void }): void
+```
+
+### Previews
+
+A preview shows nodes another person is dragging, moving with their pointer, as close to what they see as Parity can
+draw. Nothing is saved or put in undo.
+
+```ts
 /** A node in a preview: following a point on the page, keeping its size, or set to a rect, as in a resize. */
-export type PreviewItem = { ref: NodeRef; at: Point } | { ref: NodeRef; rect: Rect }
+export type PreviewItem =
+  | { ref: NodeRef; at: Point; state?: string; mode?: string }
+  | { ref: NodeRef; rect: Rect; state?: string; mode?: string }
+
+export interface PreviewOptions {
+  /** Where dragged layers would land: before the parent's child at `index`, in the frame of `state` and `mode`. */
+  drop?: { parent: NodeRef; index: number; state?: string; mode?: string }
+  /** The person dragging, for the outline round the moving nodes. */
+  color: ColorKey
+  label?: string
+}
 
 export interface Preview extends Disposable {
-  /** Moves the items, at most once a frame. A drag sends this each frame from where its pointer is drawn. */
-  update(items: PreviewItem[], options?: { drop?: { parent: NodeRef; index: number } }): void
+  /** Moves the items, at most once a frame. */
+  update(items: PreviewItem[], options?: Partial<PreviewOptions>): void
+  /**
+   * Settles when the covering write arrives: the document change whose origin is the person's drop. If none comes
+   * within 2 s, it's disposed anyway.
+   */
+  settleOnWrite(): void
 }
 ```
 
-**Hooks for what's drawn in a layer.** They come from `@parity-app/canvas-layer`, a workspace package, and read the
-layer's context:
+**What each kind of node does,** following what the local drag does today:
+
+| Node                     | The person dragging sees                                                                                         | Another copy's preview shows                                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| A board                  | It moves; the drag writes its position each frame in a gesture (`CanvasEditor`'s translate handler)              | It moves with their pointer. The board's tldraw shape is moved locally with history ignored, as `ContainerUtil`'s title drag places it, and doesn't write to the document |
+| A layer in a layout      | The original is hidden, a copy sits where it would land, and a ghost picture follows the pointer (`layer-drag.ts`) | The same three things: the original hidden, a copy at `drop`, and a ghost picture following their pointer                    |
+| An absolutely placed layer | It moves through a style preview, and the drag writes as it goes                                               | The ghost picture follows their pointer. The receiver never writes; the sender's writes arrive through the document          |
+
+**Several at once.** Today there's one ghost, one preview stylesheet and one record of what a style preview wrote,
+because only one person drags at a time. Previews need one of each per preview, keyed by the preview, so two people
+can drag at once and a person can drag while seeing someone else's. That's new work in `layer-drag.ts`, `getDragView`
+and `StylePreview`, and it's budgeted in the tasks.
+
+### Holds
+
+When an agent moves a board, the agent presence holds the board where it was, then glides it to where the agent put
+it, so it doesn't jump. Today `held-boards.ts` does this, and `CanvasEditor` reads it in three places. It stays in core
+as `canvas.hold`, because:
+- the agent's write arrives before the animation can start
+- core's write from shapes to the document has to skip held boards
 
 ```ts
-/** The camera now, re-rendering as it moves: `zoom`, and what's in view. */
-export function useCamera(): { zoom: number; view: Rect }
-/** A node's box, re-rendering as it changes. */
-export function useNodeBox(ref: NodeRef, options?: { state?: string; mode?: string }): NodeBox | undefined
-/** Calls `frame` once per animation frame while mounted, with the time since the last. Stops while the window's hidden. */
-export function useFrame(frame: (dt: number) => void): void
+export interface Held extends Disposable {
+  /** Moves the held board, at most once a frame. */
+  update(at: Point): void
+  /** Lets go: the board shows where the document says. Disposing does the same. */
+  release(): void
+}
 ```
 
-`useCamera` re-renders at most once a frame. For something that moves every frame, like a gliding pointer, components
-write a transform in `useFrame` instead of re-rendering.
+- **Before the write.** Agent activity is delivered before the write it describes is applied (see the event tables),
+  so a hold starts first and the board never flashes in its new place.
+- **Skipped.** Core doesn't write a held or previewed board's shape back to the document.
+- **Let go.** A hold is let go after 10 s whatever happens. If the person grabs a held board, the hold is let go and
+  the person's drag wins.
 
 ### `parity.canvas.camera`
 
@@ -237,22 +471,20 @@ export type CameraView = Rect
 
 export interface Camera {
   get(): CameraView
-  /** Told what's in view as it changes, at most once a frame. */
   onChange(listener: (view: CameraView) => void): Disposable
-  /** Brings `view` into view, fitting it to this window. Animates unless `animate` is false. */
+  /** Brings `view` into view, fitting it to this window, within the canvas's zoom limits. Animates unless `animate` is false. */
   show(view: CameraView, options?: { animate?: boolean }): Promise<void>
   /**
-   * Keeps showing what `update` gives, until the person presses Esc, pans or zooms themself, or opens another design,
-   * or the extension disposes it. Starting another ends this one. Parity draws nothing for it: the extension draws its
-   * own frame and banner in an `edge` layer.
+   * Keeps showing what `update` gives, until it ends. The person's own input ends it: Esc, a wheel or trackpad pan or
+   * zoom, a drag on empty canvas, or opening another design. Following's own camera moves are tagged, so they never
+   * end it. Parity draws nothing for it; the extension draws its own frame and banner.
    */
   follow(view: CameraView): Following
 }
 
 export interface Following extends Disposable {
   update(view: CameraView): void
-  /** Told why it ended, once. */
-  onEnd(listener: (why: "escape" | "panned" | "replaced" | "disposed") => void): Disposable
+  onEnd(listener: (why: "escape" | "panned" | "zoomed" | "navigated" | "replaced" | "disposed") => void): Disposable
 }
 ```
 
@@ -263,41 +495,54 @@ export interface Following extends Disposable {
 export type Place =
   /** A tab, Design tab section or page whose manifest `view` is `react`. */
   | { view: string }
-  /** A dialog, titled and sized by Parity. It closes when the person presses Esc, and its Disposable says so. */
+  /** A dialog, titled and sized by Parity. */
   | { dialog: { title: string; width?: "small" | "medium" | "large" } }
 
 export interface Render {
-  (place: Place, children: ReactNode): Disposable
+  (place: Place, children: ReactNode): Placed
+}
+
+export interface Placed extends Disposable {
+  /** Told when the person closes it, as a dialog with Esc. */
+  onClose(listener: () => void): Disposable
 }
 ```
 
-`ViewKind` gains `"react"`, only for internal extensions.
+`ViewKind` gains `"react"`, for internal extensions only.
 
-### `parity.colors`: colors for people and agents
+## `parity.colors`: colors for people and agents
 
-People and agents share one set of colors, so they look like one system and work in both themes. There are only 12 of
-the agents' palettes, and a room with a few people each running agents runs out fast. So:
+People and agents share one set of colors, so they look like one system and work in both themes. There are only 12
+palettes today, which a room with a few people each running agents uses up fast. So the set grows to 24. The new ones
+fill the gaps in hue between today's, with a lighter and a deeper step where hues are far apart. They're designed in
+Storybook first (`Parity/Multiplayer/Colors`), each with a contrast check for its badge text in both themes.
 
-- **Extensions name whose color it is, not which color.** They pass a `ColorKey`, a stable id such as a person's or an
-  agent's. Parity hands out colors across everyone on the canvas at once, people and agents together, as
-  `agent-colors.ts`'s `claim` does for agents today:
-  - two keys never share a color while one's free
-  - a key keeps its color for the session
-  - a person gets the same color in every copy of the room, because the first pick comes from a hash of the key
-- **More palettes.** The set grows from 12 to 24, filling the gaps in hue between today's, with a lighter and a deeper
-  step where hues are far apart. They're designed in Storybook first (`Parity/Multiplayer/Colors`), each with a
-  contrast check for its badge text in both themes. Past 24, colors repeat, and the names on badges tell people apart.
-- **Core keeps this,** because two extensions (agent presence and multiplayer) must never hand out the same color.
+**Keys, not colors.** Extensions pass a `ColorKey`, never a color. Keys must be unique across copies of a room: a person
+by their peer id, an agent as `${peer}:${agentId}`.
+
+**Within one copy,** `claim` hands out colors so two keys never share one while one's free. A key keeps its color while
+it's claimed.
+
+**Across copies,** the same person should be the same color for everyone. Claiming in each copy can't promise that,
+since each copy claims in its own order. So the room decides:
+- The extension that brings the room assigns palettes for its members and their agents, and sends them with presence.
+- Each copy applies them with `colors.assign(key, palette)`.
+- `claim` respects assigned colors and gives other keys what's left.
+- Without a room, `claim` is all there is.
 
 ```ts
-/** Whose color something is: a person's id, an agent's id. */
+/** Whose color something is: a person's peer id, or `${peer}:${agentId}` for an agent. */
 export type ColorKey = string
 
 export interface Colors {
-  /** The palette given to `key`, claiming one when it has none. */
-  get(key: ColorKey): Palette
+  /** The palette for `key`: its assigned one, or one claimed now that no other key in this tab has. */
+  claim(key: ColorKey): Palette
   /** Gives `key`'s color back, when its person or agent has gone. */
   release(key: ColorKey): void
+  /** Sets `key`'s palette, as the room decided. It wins over a claim. */
+  assign(key: ColorKey, palette: string): void
+  /** Every palette, by name, for the room to choose from. */
+  readonly palettes: readonly Palette[]
 }
 
 /** A gradient for pointers, a solid color for outlines, and the ink that reads on it. */
@@ -309,45 +554,48 @@ export interface Palette {
 }
 ```
 
-### `parity.presence`: what this person is doing
+Claims are counted per extension and released when it stops. `@parity-app/presence-ui`'s components take a resolved
+`Palette`, so where a color comes from stays visible: in a layer, `useColor(key)`.
 
-Only about *this* person. Showing other people is the extension's job, in its layers.
+## `parity.presence`: what this person is doing
+
+Only about this person. Showing other people is the extension's job, in its layers.
 
 ```ts
 export interface Presence {
   /** The person signed in, as others should see them. */
   readonly self: { name: string; avatar?: string }
-
-  /**
-   * Where the pointer is on the page, at most once a frame, with `over: false` once it leaves the canvas (its last
-   * point is kept). Nothing while it's still.
-   */
   onPointer(listener: (pointer: { at: Point; over: boolean }) => void): Disposable
-
-  /** Told when a gesture starts, when what it would do changes, and when it ends. Not every frame: see `Gesture`. */
   onGesture(listener: (gesture: Gesture) => void): Disposable
-
-  /** What this person is looking at: the design, and the state and mode it shows them. */
   onViewing(listener: (viewing: Viewing) => void): Disposable
 }
 
-/**
- * A gesture, as its targets and their offsets from the pointer when it starts. With the pointer sent on its own,
- * another copy can show the drag (a preview following that person's pointer) without positions every frame.
- */
+/** Where a gesture's nodes are drawn: which design's frame, by state and mode. */
+export interface InFrame {
+  state?: string
+  mode?: string
+}
+
 export type Gesture =
   | {
       kind: "move"
-      phase: "start" | "update" | "end" | "cancel"
-      /** What moves, and where each is from the pointer: boards dragged by their title, or layers. */
-      targets: { ref: NodeRef; offset: Point; size: { width: number; height: number } }[]
-      /** Only for layers in a layout: where they'd land. An `update` comes when this changes. */
-      drop?: { parent: NodeRef; index: number }
+      phase: "start" | "drop" | "end" | "cancel"
+      /** What moves, where each is from the pointer, and which frame it's in. */
+      targets: (InFrame & { ref: NodeRef; offset: Point; size: { width: number; height: number } })[]
+      /** Only for layers in a layout: where they'd land. A `drop` event comes each time this changes. */
+      drop?: InFrame & { parent: NodeRef; index: number }
     }
-  | { kind: "resize"; phase: "start" | "update" | "end" | "cancel"; ref: NodeRef; rect: Rect }
-  | { kind: "marquee"; phase: "start" | "update" | "end" | "cancel"; rect: Rect }
-  /** Typing in a text layer. The text arrives through the document, as it's typed. */
-  | { kind: "text"; phase: "start" | "end"; ref: NodeRef }
+  | {
+      kind: "resize"
+      phase: "start" | "end" | "cancel"
+      ref: NodeRef
+      frame?: InFrame
+      /** The handle, and the box when the gesture started. The rest follows the pointer. */
+      handle: "top" | "right" | "bottom" | "left" | "topLeft" | "topRight" | "bottomLeft" | "bottomRight"
+      from: Rect
+    }
+  | { kind: "marquee"; phase: "start" | "end" | "cancel"; from: Point }
+  | { kind: "text"; phase: "start" | "caret" | "end"; ref: NodeRef; frame?: InFrame; caret?: { anchor: number; focus: number } }
 
 export interface Viewing {
   design?: string
@@ -356,7 +604,10 @@ export interface Viewing {
 }
 ```
 
-### `parity.sync`: sharing the document
+A gesture says what it's doing and where it started. How it goes on is worked out from the pointer: a resize's box, a
+marquee's rect, a moved node's place. So nothing in a gesture is sent every frame except the pointer itself.
+
+## `parity.sync`: sharing the document
 
 The document stays in core: Loro, `ProjectDoc`, undo and saving. The extension brings the room. It decides how the
 document opens, carries its changes, and says whether this copy writes files.
@@ -367,50 +618,131 @@ export interface Sync {
   readonly format: string
 
   /**
-   * Says how the project opens, before it does. Parity waits for the handler, up to 30 s, showing "Joining the live
-   * room…". `{ from: "files" }` opens the files as if alone, so this copy starts the room; `{ from: "snapshot" }` opens
-   * on another copy's. Rejecting opens from files with a warning. One handler per project.
+   * Says how the project opens, before it does. Core waits up to 30 s, showing "Joining the live room…".
+   * - `{ from: "files" }` opens the project's files and starts a new document, with a new lineage. This copy writes
+   *   files.
+   * - `{ from: "snapshot" }` opens on another copy's document, keeping its lineage. This copy doesn't write files until
+   *   told to.
+   * If the handler rejects or takes too long, the project opens from files, alone: sync is detached until `reopen()`.
    */
-  onOpen(handler: () => Promise<{ from: "files" } | { from: "snapshot"; snapshot: Uint8Array }>): Disposable
+  onOpen(handler: () => Promise<OpenFrom>): Disposable
 
-  /** Told the bytes of each change made here, by the person, an agent or an extension, once it's committed. */
+  /** The document's lineage: an id every copy that shares it has. */
+  readonly lineage: string
+
+  /**
+   * Told the bytes of every change committed here, in order, none dropped: the person's, an agent's, an extension's,
+   * repairs, and files reloaded from disk.
+   */
   onLocalChanges(listener: (bytes: Uint8Array) => void): Disposable
 
-  /** Takes in another copy's change. Rejects for bytes the document can't take, changing nothing. */
-  receive(bytes: Uint8Array): Promise<void>
+  /**
+   * Takes in another copy's changes. Calls apply in the order made. `pending` is true when some of the bytes need
+   * changes this copy hasn't got yet; it keeps them and applies them when the gap is filled (`changesSince`).
+   * Rejects with `LineageError` for bytes from another lineage.
+   */
+  receive(bytes: Uint8Array): Promise<{ pending: boolean }>
 
+  /** This copy's version: what it has of the document, to compare with another copy's. */
+  version(): Uint8Array
+  /** The changes another copy at `version` is missing. */
+  changesSince(version: Uint8Array): Uint8Array
   /** The whole document, for a copy that's joining. */
   snapshot(): Promise<Uint8Array>
 
-  /** Whether this copy writes the project's files. Only one copy in a room should. True until set. */
-  setWritesFiles(writes: boolean): void
+  /** Whether this copy writes the project's files. See "Saving in a room". */
+  setWritesFiles(writes: boolean): Promise<void>
+  readonly writesFiles: boolean
 
-  /** Closes the project and opens it again through `onOpen`, as when the Live room setting changes. */
+  /** Closes the project and opens it again through `onOpen`. */
   reopen(): Promise<void>
 }
+
+export type OpenFrom = { from: "files" } | { from: "snapshot"; snapshot: Uint8Array; lineage: string }
+
+export class LineageError extends Error {}
 ```
 
-**What core changes to make sync whole,** whoever brings the room:
-- token edits go through the provider
-- typing writes as it's typed
-- the state and mode each person sees stay their own (`onViewing` reports them; they're not synced)
+**Catching up.** A copy that reconnects, or whose `receive` reports `pending`, sends its `version()` to another copy.
+That copy answers with `changesSince(version)`. The multiplayer example does this on reconnect.
 
-### `parity.agents`: what this copy's agents do
+### Saving in a room
 
-The agent API (`parity run`, MCP) stays core. An internal extension can watch it.
+Today a change from another copy is marked as not to be written (`persist: false`, because `notWritten` holds
+`"remote"` in `project-doc.ts`). The saver then treats it as already in the files (`saver.ts`'s `take`). In a room
+that means:
+- the copy that writes files never writes other people's edits
+- a copy that doesn't write files still records them as saved, so a copy that takes over writing has nothing to save
+
+**The fix, in core:**
+
+1. **Two kinds of "not ours to write".** A change records where its content already is:
+   - `written: "files"` for changes read from disk (`file`, `code`)
+   - `written: "no"` for changes from another copy
+   The saver records a file as saved only after it has actually written it, or after the change came from disk.
+2. **The copy that writes files** treats changes from other copies like its own. They're unsaved until it writes them,
+   and autosave writes them on its usual delay.
+3. **A copy that doesn't write files** never records anything as saved. Its "unsaved" state shows "Saved by the room"
+   instead of a count, and its own Save does nothing but say so.
+4. **Taking over.** `setWritesFiles(true)` compares every file with what this copy last knows was written. It writes
+   each that differs, then resolves. It also writes the stylesheet if tokens differ.
+5. **Letting go.** `setWritesFiles(false)` waits for writes in flight to finish, then stops.
+6. **Who writes, while there's no real room.** The copy that started the room writes, and when it leaves, the copy
+   that takes over as host does. Where a room's work should be saved in the end is a later decision.
+
+**Files changed on disk.** Only the copy that writes files takes in files changed on disk: it reloads them, and the
+reload goes to the room as a change like any other. Other copies ignore changes on their own disk while in a room,
+since the room's document is the truth, and say so once.
+
+**Tokens.** Token edits go through the provider today only locally: `ProjectDoc` leaves `setTokens` out of what it
+sends, and the Loro backend has no tokens. They move into a Loro container, so they sync. Only the copy that writes
+files writes the stylesheet.
+
+**What each person sees: their own state and mode.** Which state and mode a design shows is a `view` field on the
+design, saved in the file. In a room:
+- changes from the `view` origin aren't sent to the room
+- a `view` field arriving from another copy is ignored
+- the copy that writes files saves its own person's view, which is as close as a file can get
+
+**Live text.** Typing writes as it's typed:
+- one undo step per pause, rather than one per key
+- the caret is moved through other copies' changes before the next local write, so it stays where the person
+  is typing
+- the `text` gesture carries the caret, so others can see where someone is typing
+
+### When the room goes away
+
+Stopping or crashing the extension that brings the room doesn't lose anything:
+- The document stays open, in memory, with its undo history.
+- Core moves the project to the local provider and makes this copy write files (`setWritesFiles(true)`), saving
+  everything that differs.
+- A toast says "Left the live room. Your copy has every change and is saved."
+- The project doesn't reopen from files, since that would throw away edits the host hadn't written yet.
+
+## `parity.agents`: agents' activity
+
+The agent API (`parity run`, MCP) stays in core. Core reports what agents do, and takes in what agents in other copies
+do.
 
 ```ts
 export interface Agents {
-  /** Told each step of every agent working in this project in this copy, as the agent API runs it. */
-  onActivity(listener: (steps: AgentStep[]) => void): Disposable
+  /**
+   * Told each step of every agent working in this project: this copy's (no `from`), and other copies' passed in with
+   * `receive` (their `from`). This copy's steps come before the write they describe is applied.
+   */
+  onActivity(listener: (steps: AgentStep[], from?: string) => void): Disposable
+  /** Passes on another copy's agent steps, from the copy `from`. Core reports them through `onActivity`. */
+  receive(steps: AgentStep[], options: { from: string }): void
 }
 
-/** One step of an agent's work, by node: what it reads, measures, writes or moves. */
+/** One step of an agent's work. */
 export interface AgentStep {
   kind: "read" | "write" | "move" | "screenshot" | "measure" | "accessibility" | "problems" | "console" | "board" | "start" | "end"
+  /** The agent's id, unique in its copy. With `from`, it's unique in the room. */
+  agentId: string
   agent?: string
-  agentId?: string
   label?: string
+  /** What it works on: a design (`owner: "design"`, its key) for a board, or a layer (`designKey/layerId`). */
   ref?: NodeRef
   state?: string
   mode?: string
@@ -420,97 +752,206 @@ export interface AgentStep {
 }
 ```
 
+Today's `PresenceEvent` maps across like this:
+- `design` and `node` become `ref`
+- `tab` goes, because a window module already belongs to its tab
+- `agentId` is required
+
+### Agents in a room
+
+Agent presence and multiplayer are separate extensions, and neither needs the other. They meet only through
+`parity.agents` in core:
+- **Agent presence** listens to `onActivity` and draws every agent it hears of, from this copy or another.
+- **Multiplayer** sends this copy's steps (those without `from`) to the room, and hands steps from the room to
+  `receive`.
+
+| Enabled              | What happens                                                                                                                       |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Both                 | An agent working in any copy is drawn in every copy, each agent with the color the room assigned it                                |
+| Agent presence only  | This copy's agents are drawn, as today                                                                                             |
+| Multiplayer only     | The room works without agent pointers. This copy's steps still go to the room, so copies that have agent presence draw them       |
+| Neither              | Agents work, as with any extension off, without being drawn                                                                        |
+
+**No echo.** `onActivity` reports received steps with their `from`, and multiplayer sends only steps without one, so a
+step is never sent back to the room.
+
+## The event and call tables
+
+How often things happen, in what order, and what's dropped.
+
+### Events Parity sends to window modules
+
+| Event                   | When                                                          | Rate                          | Order and loss                                         |
+| ----------------------- | ------------------------------------------------------------- | ----------------------------- | ------------------------------------------------------ |
+| `presence.onPointer`    | The pointer moves over the canvas, or leaves it               | At most once a frame          | The latest per frame; leaving (`over: false`) is never dropped |
+| `presence.onGesture`    | A gesture starts, its drop target changes, it ends or cancels | On each of those              | Every one, in order                                    |
+| `presence.onViewing`    | The design, state or mode this person sees changes            | On each change                | Every one, in order                                    |
+| `selection.onChange`    | The selection changes                                         | On each change                | Every one, in order                                    |
+| `camera.onChange`       | The camera moves                                              | At most once a frame          | The latest per frame                                   |
+| `canvas.onBoxChange`    | A node moves, resizes, redraws, sleeps or wakes               | At most once a frame per node | The latest per frame                                   |
+| `sync.onLocalChanges`   | A change is committed here                                    | On each commit                | Every one, in order, none dropped                      |
+| `agents.onActivity`     | An agent takes a step, here or passed in                      | On each step                  | Every one, in order. A step here comes before its write is applied |
+| `settings.onChange`     | A setting changes                                             | On each change                | Every one                                              |
+| `host.onStateChange`    | The Node half's state changes                                 | On each change                | Every one                                              |
+| `Following.onEnd`       | Following ends                                                | Once                          | —                                                      |
+
+A move's drop always reaches `onLocalChanges` before the gesture's `end` is reported. So a copy that sends both on one
+ordered channel delivers the write before the end, and the preview can settle on it.
+
+### Calls window modules make
+
+| Call                                         | Returns                      | Rate                                  | Notes                                                                 |
+| -------------------------------------------- | ---------------------------- | ------------------------------------- | --------------------------------------------------------------------- |
+| `canvas.layer`                               | `Disposable` at once         | Once per layer                        | Its children re-render as React does                                  |
+| `canvas.box`, `hit`, `pageToScreen`, `screenToPage` | A value at once        | Any; cheap                            | Read in the scheduler's measure phase when called from `useFrame`     |
+| `Preview.update`, `Held.update`              | Nothing                      | Drawn at most once a frame            | Later calls in a frame replace earlier ones                           |
+| `camera.show`                                | A promise, when it arrives   | Any                                   | A later call replaces an earlier one                                  |
+| `Following.update`                           | Nothing                      | Drawn at most once a frame            | The latest wins                                                       |
+| `colors.claim`, `assign`, `release`          | At once                      | Any                                   |                                                                       |
+| `sync.receive`                               | A promise of `{ pending }`   | As changes arrive                     | Applied in the order called. Waits until the document is open         |
+| `sync.version`, `changesSince`               | At once                      | On reconnect or `pending`             |                                                                       |
+| `sync.snapshot`                              | A promise                    | Once per joining copy                 | Can take a moment for a large project                                 |
+| `sync.setWritesFiles`                        | A promise, once settled      | On host changes                       | `true` resolves after the files that differ are written               |
+| `agents.receive`                             | Nothing                      | As steps arrive                       | Reported through `onActivity` in the order received                   |
+| `host.api<Api>().method(…)`                  | A promise                    | Any                                   | Rejects with `HalfUnavailableError` unless the Node half is ready     |
+
+### What the multiplayer extension sends between copies
+
+This is the multiplayer extension's own protocol, not core's. It's here to show the rates work.
+
+| Message      | Sent                                             | Rate                             | Order                                     |
+| ------------ | ------------------------------------------------ | -------------------------------- | ----------------------------------------- |
+| `changes`    | Each `onLocalChanges`                            | As edits happen                  | One ordered channel with the next three   |
+| `gesture`    | Each `onGesture`                                 | A few per drag                   | After the `changes` it follows            |
+| `agents`     | Each `onActivity` without `from`                 | As agents work                   | After the `changes` of earlier steps      |
+| `presence`   | The pointer, selection, camera and viewing, the latest of each | Batched, about 30 a second | Only the latest is kept while one is in flight |
+| `colors`     | The host's assignment when someone joins or leaves | Rarely                         |                                           |
+| `hello`, `snapshot`, `version`, `missing` | Joining and catching up             | Once per join or reconnect       |                                           |
+
 ## What moves out of core
 
-| Today, in the app                                                                                   | Moves to                                                                                                     |
-| --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `renderer/agent/presence.ts`, `AgentPresence.tsx`, `motion.ts`, `scanner.ts`, `held-boards.ts`      | `@parity-app/extension-agent-presence`: the queue, choreography, scans and pointers, drawn in its own layers |
-| `AgentPointer.tsx`, `AgentBadge`, `agent-colors.ts`'s palettes                                      | `@parity-app/presence-ui`, a workspace package both extensions import, so people and agents look alike       |
-| `renderer/live-room.ts`, `canvas/RoomCursor.tsx`, `scripts/dev-room.ts`, `PARITY_ROOM`               | `@parity-app/extension-multiplayer`                                                                          |
+| Today, in the app                                                                                | Moves to                                                                                                       |
+| ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------- |
+| `renderer/agent/presence.ts`, `AgentPresence.tsx`, `motion.ts`, `scanner.ts`                     | `@parity-app/extension-agent-presence`: the queue, choreography, scans and pointers, drawn in its own layers   |
+| `AgentPointer.tsx`, `AgentBadge`, the palettes' look                                             | `@parity-app/presence-ui`, a workspace package both extensions import, so people and agents look alike         |
+| `renderer/live-room.ts`, `canvas/RoomCursor.tsx`, `scripts/dev-room.ts`, `PARITY_ROOM`            | `@parity-app/extension-multiplayer`                                                                            |
 
 **What stays in core:**
-- the agent API and its activity
-- layers, the camera and follow, node boxes and hits
-- previews of nodes moving
+- the agent API, and its activity in and out
+- layers, the camera and following, boxes and hits
+- previews and holds, since core draws the nodes they move
 - colors
-- presence events, and the document with its sync seam
+- presence events
+- the document, saving, and the sync seam
 
-### Agent presence as its own extension
+### Agent presence
 
-- **Its window module** listens to `parity.agents.onActivity`, queues and paces steps as `presence.ts` does now, and
+- **Its window module** listens to `parity.agents.onActivity`. It queues and paces steps as `presence.ts` does now, and
   draws each agent's pointer, badge, scans and measure labels in an `overDesigns` and an `overSelection` layer.
-- **Positions:** it finds where to look with `canvas.box(ref, { state, mode })`, in place of reaching into frames.
-- **The check:** the existing stories (`AgentPresence.stories.tsx`, `Agents.stories.tsx`) are the before-and-after
+- **Positions.** It finds where to look with `canvas.box(ref, { in, state, mode })`, instead of reaching into frames.
+  An `asleep` frame still gives a place to point at, and `size` gives measure labels their numbers.
+- **Moved boards** are held with `canvas.hold`.
+- **The check.** The existing stories (`AgentPresence.stories.tsx`, `Agents.stories.tsx`) are the before-and-after
   check that it looks the same.
-- **It's the hardest test the canvas API will get.** Building it first shows what's missing before multiplayer depends
-  on the API.
+- **It goes first.** It's the hardest test the canvas API will get. Building it first finds what's missing before
+  multiplayer depends on the API.
 
-**Its API, for other extensions:**
-
-```ts
-/** What agent presence's `activateWindow` returns. */
-export interface AgentPresenceApi {
-  /** Plays another copy's agent's steps here, as this copy's own are played, with `from` keeping them apart. */
-  play(steps: AgentStep[], options: { from: string }): void
-}
-```
-
-### How the multiplayer extension uses it
+### The multiplayer extension
 
 ```tsx
-// window.tsx: the room, in the project's window.
-export function activateWindow(parity: WindowParity) {
-  const room = joinRoom(parity.settings.get("multiplayer.server"), parity.project.root)
-  const agentPresence = parity.extensions.get<AgentPresenceApi>("@parity-app/extension-agent-presence").api
+// window.tsx
+export const activateWindow: WindowModule["activateWindow"] = async (parity) => {
+  await parity.host.api<RelayApi>().ensureRelay(parity.settings.get<number>("multiplayer.port")).catch(() => undefined)
+  const room = joinRoom(`http://localhost:${parity.settings.get<number>("multiplayer.port")}`, parity.project.root)
 
   // The document.
-  parity.sync.onOpen(async () =>
-    room.host === room.peer ? { from: "files" } : { from: "snapshot", snapshot: await room.askSnapshot() }
+  parity.subscriptions.push(
+    parity.sync.onOpen(async () => {
+      if (room.host === room.peer) return { from: "files" }
+      const { snapshot, lineage } = await room.askSnapshot()
+      return { from: "snapshot", snapshot, lineage }
+    }),
+    parity.sync.onLocalChanges((bytes) => room.send({ kind: "changes", bytes, lineage: parity.sync.lineage }))
   )
-  parity.sync.onLocalChanges((bytes) => room.send({ updates: [bytes] }))
-  room.onUpdates((bytes) => parity.sync.receive(bytes))
-  room.onSnapshotAsked((to) => parity.sync.snapshot().then((snapshot) => room.sendTo(to, { snapshot })))
-  room.onHostChange(() => parity.sync.setWritesFiles(room.host === room.peer))
+  room.on("changes", async ({ bytes }) => {
+    try {
+      const { pending } = await parity.sync.receive(bytes)
+      if (pending) room.askMissing(parity.sync.version())
+    } catch (error) {
+      if (error instanceof LineageError) room.leaveWith("This copy holds a different version of the project")
+      else parity.log.error(error instanceof Error ? error : String(error))
+    }
+  })
+  room.on("reconnected", () => room.askMissing(parity.sync.version()))
+  room.on("missing", ({ version, to }) => room.sendTo(to, { kind: "changes", bytes: parity.sync.changesSince(version) }))
+  room.on("snapshotAsked", async ({ to }) => room.sendTo(to, { kind: "snapshot", snapshot: await parity.sync.snapshot(), lineage: parity.sync.lineage }))
+  room.on("host", () => void parity.sync.setWritesFiles(room.host === room.peer))
+
+  // Colors: the host assigns, everyone applies.
+  room.on("colors", ({ assigned }) => assigned.forEach(([key, palette]) => parity.colors.assign(key, palette)))
+  room.on("left", ({ peer }) => parity.colors.release(peer))
 
   // What I'm doing, and what my agents are doing.
-  parity.presence.onPointer((pointer) => room.send({ pointer }))
-  parity.presence.onGesture((gesture) => room.send({ gesture }))
-  parity.selection.onChange((selection) => room.send({ selection }))
-  parity.canvas.camera.onChange((camera) => room.send({ camera }))
-  parity.presence.onViewing((viewing) => room.send({ viewing }))
-  parity.agents.onActivity((steps) => room.send({ agents: steps }))
-  room.onAgentSteps((steps, from) => agentPresence.play(steps, { from }))
-  room.onLeave((person) => parity.colors.release(person.id))
+  parity.subscriptions.push(
+    parity.presence.onPointer((pointer) => room.presence({ pointer })),
+    parity.presence.onGesture((gesture) => room.send({ kind: "gesture", gesture })),
+    parity.presence.onViewing((viewing) => room.presence({ viewing })),
+    parity.selection.onChange((selection) => room.presence({ selection })),
+    parity.canvas.camera.onChange((camera) => room.presence({ camera })),
+    parity.agents.onActivity((steps, from) => {
+      if (from === undefined) room.send({ kind: "agents", steps })
+    })
+  )
+  room.on("agents", ({ steps, from }) => parity.agents.receive(steps, { from }))
 
-  // Everyone else, drawn with our own components.
+  // Everyone else, with our own components.
   parity.subscriptions.push(
     parity.canvas.layer({ id: "multiplayer.selections", space: "page", order: "overDesigns" }, <Selections room={room} />),
     parity.canvas.layer({ id: "multiplayer.pointers", space: "page", order: "overSelection" }, <Pointers room={room} canvas={parity.canvas} />),
-    parity.canvas.layer({ id: "multiplayer.people", space: "screen", order: "edge", placement: "topRight" }, <People room={room} camera={parity.canvas.camera} />)
+    parity.canvas.layer({ id: "multiplayer.people", space: "screen", order: "edge", placement: "topRight" }, <People room={room} camera={parity.canvas.camera} />),
+    { dispose: () => room.leave() }
   )
+
+  return {}
 }
 ```
 
 ```tsx
-// Pointers.tsx: a person's pointer glides, stays where it was when they leave the canvas, and drags what they drag.
-import { useFrame, useCamera } from "@parity-app/canvas-layer"
+// Pointers.tsx: a pointer glides, stays where it was when its person leaves the canvas, and drags what they drag.
+import { useBox, useCamera, useColor, useFrame } from "@parity-app/canvas-layer"
 import { PersonPointer } from "@parity-app/presence-ui"
 
 function RemotePointer({ person, canvas }: { person: RoomPerson; canvas: CanvasSurface }) {
   const ref = useRef<HTMLDivElement>(null)
   const { zoom } = useCamera()
-  const drawn = useGlide(person.pointer.at) // eases toward each new point; longer for a longer way
-  const preview = usePreview(canvas, person.gesture) // canvas.preview while they drag
+  const palette = useColor(person.peer)
+  const glide = useGlide(person.pointer.at) // eases toward each new point, for longer the further it is
+  const preview = useRef<Preview>()
 
-  useFrame(() => {
-    const at = drawn.step()
-    ref.current!.style.transform = `translate(${at.x}px, ${at.y}px) scale(${1 / zoom})`
-    preview?.update(person.gesture.targets.map(({ ref, offset }) => ({ ref, at: { x: at.x + offset.x, y: at.y + offset.y } })))
+  useEffect(() => {
+    const gesture = person.gesture
+    if (gesture?.kind !== "move") return
+    preview.current = canvas.preview([], { color: person.peer, label: person.name, drop: gesture.drop })
+    return () => preview.current?.settleOnWrite()
+  }, [person.gesture, canvas, person.peer, person.name])
+
+  useFrame({
+    draw: () => {
+      const at = glide.step()
+      ref.current!.style.transform = `translate(${at.x}px, ${at.y}px) scale(${1 / zoom})`
+      const gesture = person.gesture
+      if (gesture?.kind === "move") {
+        preview.current?.update(
+          gesture.targets.map(({ ref: node, offset, state, mode }) => ({ ref: node, at: { x: at.x + offset.x, y: at.y + offset.y }, state, mode })),
+          { drop: gesture.drop }
+        )
+      }
+    }
   })
 
   return (
     <div ref={ref} className="absolute top-0 left-0 origin-top-left">
-      <PersonPointer color={person.id} name={person.name} away={!person.pointer.over} detail={person.typing ? "Typing…" : undefined} />
+      <PersonPointer palette={palette} name={person.name} away={!person.pointer.over} detail={person.typing ? "Typing…" : undefined} />
     </div>
   )
 }
@@ -519,138 +960,148 @@ function RemotePointer({ person, canvas }: { person: RoomPerson; canvas: CanvasS
 ```tsx
 // People.tsx: the avatar stack, with the kit's own Popover and Button.
 import { Avatar, AvatarFallback, Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { useColor } from "@parity-app/canvas-layer"
 import { PersonAvatar } from "@parity-app/presence-ui"
+
+function Face({ person, following, onFollow, onGoTo }: FaceProps) {
+  const palette = useColor(person.peer)
+
+  return (
+    <Popover>
+      <PopoverTrigger>
+        <PersonAvatar palette={palette} name={person.name} src={person.avatar} ring={following} />
+      </PopoverTrigger>
+      <PopoverContent className="w-56">
+        <p className="text-sm font-medium">{person.name}</p>
+        <p className="text-muted-foreground text-xs">{person.viewingLine}</p>
+        <div className="mt-3 flex gap-2">
+          <Button size="sm" onClick={onFollow}>Follow</Button>
+          <Button size="sm" variant="ghost" onClick={onGoTo}>Go to</Button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 function People({ room, camera }: { room: Room; camera: Camera }) {
   const people = useRoomPeople(room)
-  const [following, setFollowing] = useState<{ id: string; handle: Following }>()
+  const [following, setFollowing] = useState<{ peer: string; handle: Following }>()
+
+  useEffect(() => {
+    if (!following) return
+    return room.onPerson(following.peer, (person) => following.handle.update(person.camera))
+  }, [following, room])
 
   const follow = (person: RoomPerson) => {
     const handle = camera.follow(person.camera)
     handle.onEnd(() => setFollowing(undefined))
-    setFollowing({ id: person.id, handle })
+    setFollowing({ peer: person.peer, handle })
   }
 
   return (
     <>
       <div className="flex -space-x-2" data-canvas-interactive>
         {people.slice(0, 4).map((person) => (
-          <Popover key={person.id}>
-            <PopoverTrigger>
-              <PersonAvatar color={person.id} name={person.name} src={person.avatar} ring={following?.id === person.id} />
-            </PopoverTrigger>
-            <PopoverContent className="w-56">
-              <p className="text-sm font-medium">{person.name}</p>
-              <p className="text-muted-foreground text-xs">{person.viewingLine}</p>
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" onClick={() => follow(person)}>Follow</Button>
-                <Button size="sm" variant="ghost" onClick={() => camera.show(person.camera)}>Go to</Button>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <Face
+            key={person.peer}
+            person={person}
+            following={following?.peer === person.peer}
+            onFollow={() => follow(person)}
+            onGoTo={() => void camera.show(person.camera)}
+          />
         ))}
         {people.length > 4 && <Avatar size="sm"><AvatarFallback>+{people.length - 4}</AvatarFallback></Avatar>}
       </div>
-      {following && <FollowFrame person={room.person(following.id)} />}
+      {following && <FollowFrame person={room.person(following.peer)} />}
     </>
   )
 }
 ```
 
-## External: places Parity draws
+`joinRoom`, `useGlide`, `useRoomPeople` and `FollowFrame` are the extension's own.
 
-External extensions keep developer-api.md's model. Parity draws everything they show on the canvas. What this proposal
-settles for them:
+## External extensions (backlogged)
 
-**Canvas overlays.** developer-api.md planned these, and PAR-1095 lists them, but they aren't in `@parity-app/extension-api`
-yet. They're attached to nodes, drawn in Parity's own look, kept on their nodes as the canvas moves, hidden while the
-person drags, and colored by `ColorKey` or `Tone`:
+External extensions can't be installed yet (PAR-1098), so this part waits. What's settled for when it comes:
 
-```ts
-export interface CanvasOverlays {
-  /** A small tag on a node's corner: a count, a time, a warning. It runs `command` on the node when clicked. */
-  badge(ref: NodeRef, options: BadgeOptions): Overlay<BadgeOptions>
-  /** Text beside a node. */
-  label(ref: NodeRef, options: LabelOptions): Overlay<LabelOptions>
-  outline(ref: NodeRef, options: OutlineOptions): Overlay<OutlineOptions>
-  /** A line between two nodes. */
-  line(from: NodeRef, to: NodeRef, options: LineOptions): Overlay<LineOptions>
-  /** Shades a node's area. */
-  region(ref: NodeRef, options: RegionOptions): Overlay<RegionOptions>
-}
-
-export interface BadgeOptions { text: string; tone?: Tone; color?: ColorKey; command?: string }
-export interface LabelOptions { text: string; side?: "top" | "right" | "bottom" | "left" }
-export interface OutlineOptions { color?: ColorKey; tone?: Tone; label?: string; dashed?: boolean }
-export interface LineOptions { color?: ColorKey; dashed?: boolean; label?: string }
-export interface RegionOptions { color?: ColorKey; tone?: Tone; label?: string }
-
-/** `update` changes what's given and leaves the rest; `dispose` takes it away. */
-export interface Overlay<Options> extends Disposable {
-  update(changes: Partial<Options>): void
-}
-```
-
-Internal extensions can use these too, when Parity's look is all they need.
-
-**Web views (PAR-1099).** A sandboxed frame in a tab, a Design tab section, a page or a dialog:
-- **Any framework.** It can use React, any library, and its own copy of shadcn.
-- **Theme.** It gets Parity's theme as CSS variables (`--background`, `--muted-foreground`, `--radius`, the palettes),
-  updated live when the theme changes. The variable names are the only thing it's bound to, so they're listed and
-  versioned with the extension API.
-- **Optional starter.** Parity can publish a small Tailwind preset mapping those variables, for a web view that wants
-  to look native with little work. Extensions bundle it, so Parity's own kit stays free to change.
-- **A typed channel** to its extension's Node half. It can't reach Node itself.
-- **Not on the canvas.** A frame's popovers get clipped at its edge, and a frame takes the pointer over its whole box,
-  so a web view over the canvas would get in the way of editing. On the canvas, external extensions use overlays.
-
-**Canvas tools** stay in PAR-1099 as planned: a tool with pointer events in page coordinates and the node under the
-pointer. They're declared, so Parity draws the tool's button and cursor.
-
-## Speed
-
-- **Function calls.** A window module calls Parity directly, and Parity calls it.
-- **Batched per frame.** Events to extensions are coalesced per frame, keeping only the latest pointer and camera.
-- **Smooth motion is the extension's, on the main thread.** It moves things in `useFrame` by writing transforms, not by
-  re-rendering. Layers are composited separately, so a layer redrawing doesn't redraw the canvas.
-- **Bytes aren't copied.** Document bytes are handed over as they are.
+- **Canvas overlays,** which Parity draws: `badge`, `label`, `outline`, `line` and `region`, attached to nodes and
+  colored by `ColorKey` or `Tone`.
+  - developer-api.md planned them, and PAR-1095 lists them, but they aren't in `@parity-app/extension-api` yet.
+  - They go on `Parity` as `parity.canvas`.
+  - A `node` command target is added so a badge's command knows what it was clicked on.
+- **Web views (PAR-1099)** go in tabs, Design tab sections, pages and dialogs, not on the canvas. A frame's popovers
+  clip at its edge, and a frame takes the pointer over its whole box.
+  - They use any framework, and their own copy of shadcn if they like.
+  - Parity's theme reaches them as CSS variables, whose names are listed and versioned with the extension API.
+- **No runtime sharing** of Parity's kit or React.
 
 ## Trust and limits
 
 - **Internal extensions are trusted like the app's code,** because they are the app's code, released with it.
-- **Watched anyway.** Parity counts each window module's long tasks (`long-tasks.ts` already finds them) and render
-  time:
-  - Past a budget it says so in development and in telemetry: "Multiplayer is slowing the editor".
-  - Each layer and place has an error boundary. A crash shows "Multiplayer stopped working here", and the rest of the
-    window carries on.
-- **External extensions** stay in their own process, with web views in frames, and the permission prompts and limits
-  of PAR-1098.
+- **Contained anyway:**
+  - Every call core makes into a window module (listeners, handlers, `activateWindow`) is wrapped. An exception is
+    logged against the extension and counted.
+  - After five failures in a tab, the module is stopped there with "Multiplayer stopped working in this tab".
+  - Each layer and place has an error boundary for rendering.
+  - A synchronous hang can't be contained. It's attributed and reported.
+- **Attributed.** Parity watches the main thread with `long-animation-frame` entries, whose script timings name the
+  module's chunk, and times each callback into a window module. In development, past a budget, it says "Multiplayer is
+  slowing the editor". In production it reports to telemetry. `long-tasks.ts` gains this, since `longtask` entries
+  can't name a script.
 - **Layers can't cover Parity's own UI.** `edge` layers are kept clear of the toolbar and panels, and layers don't take
   the pointer unless an element asks.
-- **Stopping an extension** removes its layers, places, overlays and previews. If it brought the room, its project
-  reopens from files.
+- **Stopping an extension** removes its layers, places, previews and holds, and releases its colors. If it brought the
+  room, see "When the room goes away".
 
-## Changes to Linear
+## Tasks
 
-- **PAR-1099**, "Add web views and canvas tools for extensions": add what's settled here for external extensions.
-  - web views in tabs, sections, pages and dialogs, not on the canvas
-  - the theme's CSS variables as a versioned contract
-  - no runtime sharing of Parity's kit or React
-- **Canvas overlays**, planned in developer-api.md and listed in PAR-1095, aren't built. They need a task of their own.
-- **New tasks for the internal tier:**
-  - window modules and `internal`
-  - `parity.canvas` layers, camera, boxes and previews
-  - colors by key, with 24 palettes
-  - presence events
-  - the sync seam
-  - agent activity
-- **Two extensions:** agent presence, then multiplayer.
+The phase table, with dependencies, is kept in Linear under "Multiplayer and agent presence as internal extensions".
+In short:
+
+**Phase 0, decide**
+- approve this proposal
+- the Storybook designs: the avatar stack and person card, the follow frame, other people's selections, a pointer
+  going away and coming back, drag previews, the 24 palettes
+
+**Phase 1, core fixes for sync**
+- saving in a room
+- tokens in Loro, with the stylesheet written only by the copy that writes files
+- live text
+- each person's own state and mode
+
+**Phase 2, window modules**
+- `internal`, `window` and the one built-in list
+- the lifecycle and its activation events
+- the link between the halves
+- containment and attribution
+- capabilities, at lower priority
+
+**Phase 3, the canvas surface**
+- layers and their hooks
+- the camera and following
+- boxes and hits
+- several previews at once
+- holds
+- colors by key, with assignment
+
+**Phase 4, agent presence**
+- `presence-ui`
+- `parity.agents` in both directions
+- the extension, and removing its code from core
+
+**Phase 5, multiplayer**
+- presence events
+- the sync seam, with lineage, catching up, and the room going away
+- the extension: the development relay, the Live room setting replacing `PARITY_ROOM`, pointers, selections and
+  previews
+- the avatar stack and following, once designed
+
+**Throughout:** docs/editor.md, docs/extensions.md and developer-api.md, kept current.
+
+**Backlog:** canvas overlays, web views (PAR-1099), and third-party extensions (PAR-1098).
 
 ## Open questions
 
-1. **Avatar stack: top-right of the canvas or the title bar?** This draft puts it on the canvas in an `edge` layer. The
-   title bar would need a place of its own.
-2. **Order of work.** Moving agent presence first proves the canvas API before multiplayer builds on it, but delays
-   multiplayer by that move.
-3. **More than one window per project.** A project opens in one window today, so a window module runs once per
-   project. If a project can open in two, it runs once per window.
+1. **Avatar stack: on the canvas or in the title bar?** This draft puts it on the canvas, in an `edge` layer.
+2. **Whose view is saved in a room?** This draft saves the view of whoever's copy writes files. Leaving `view` out of
+   the files while in a room would be the other choice.
