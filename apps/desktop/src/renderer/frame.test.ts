@@ -750,12 +750,21 @@ describe("styles written while the project runs", () => {
       shadow.append(style)
       await tick()
       const moved = getComputedStyle(shadow.querySelector(".box")!).color
+      // Out of every frame, into a shadow root of the project's own: its sheet draws there again.
+      const plain = document.createElement("div")
+      document.querySelector("#frames")!.append(plain)
+      const own = plain.attachShadow({ mode: "open" })
+      own.innerHTML = '<div class="box"></div>'
+      own.append(style)
+      await tick()
+      const released = [getComputedStyle(own.querySelector(".box")!).color, style.getAttribute("media")]
       other.remove()
+      plain.remove()
 
-      return moved
+      return [moved, ...released]
     })
 
-    expect(color).toBe("rgb(3, 2, 1)")
+    expect(color).toEqual(["rgb(3, 2, 1)", "rgb(3, 2, 1)", "all"])
   })
 
   it("follow rules the project's code deletes and text it replaces", async () => {

@@ -119,6 +119,29 @@ export function frameRulesEdited(sheet: CSSStyleSheet): void {
   }
 }
 
+/**
+ * Lets go of a caught element taken out of the frame, unless it's in another frame now, which takes it over: wherever
+ * else it goes, out of the page included, it gets back the media the project gave it, so its own sheet draws again.
+ */
+function release(entry: FrameEntry, element: HTMLStyleElement): void {
+  const root = element.getRootNode()
+
+  if (owners.get(element) !== entry || (root instanceof ShadowRoot && frames.has(root))) {
+    return
+  }
+
+  const media = entry.media.get(element) ?? null
+  owners.delete(element)
+  entry.media.delete(element)
+  entry.edited.delete(element)
+
+  if (media === null) {
+    element.removeAttribute("media")
+  } else {
+    element.setAttribute("media", media)
+  }
+}
+
 /** Draws the frame a caught sheet is in again, as it's switched off or on: its rules haven't changed. */
 function redraw(sheet: CSSStyleSheet): void {
   const owner = sheet.ownerNode
@@ -315,6 +338,12 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
 
     if (record.removedNodes.length > 0) {
       changed = true
+    }
+
+    for (const node of record.removedNodes) {
+      for (const element of stylesIn(node)) {
+        release(entry, element)
+      }
     }
   }
 
