@@ -258,12 +258,13 @@ let changes: MutationObserver | undefined
 let removals: MutationObserver | undefined
 
 function followChanges(records: MutationRecord[]): void {
-  // Of several media changes to one element, its media now says what the last left.
-  const lastMedia = new Map<Node, MutationRecord>()
+  // Of several media changes to one element, only the last counts, with the media the project left it, read before
+  // anything here switches the element off again.
+  const lastMedia = new Map<Node, { record: MutationRecord; media: string | null }>()
 
   for (const record of records) {
-    if (record.attributeName === "media") {
-      lastMedia.set(record.target, record)
+    if (record.attributeName === "media" && record.target instanceof Element) {
+      lastMedia.set(record.target, { record, media: record.target.getAttribute("media") })
     }
   }
 
@@ -271,13 +272,15 @@ function followChanges(records: MutationRecord[]): void {
     const element = record.target instanceof Element ? record.target : record.target.parentElement
     const entry = element ? caught.get(element) : undefined
 
-    if (!element || !entry || (record.attributeName === "media" && lastMedia.get(element) !== record)) {
+    const media = element ? lastMedia.get(element) : undefined
+
+    if (!element || !entry || (record.attributeName === "media" && media?.record !== record)) {
       continue
     }
 
-    if (record.attributeName === "media") {
+    if (media && record.attributeName === "media") {
       // The project changed its media, which it means for the stylesheet, not for Parity's page, even to `not all`.
-      entry.media = element.getAttribute("media")
+      entry.media = media.media
       mute(element)
     } else if (element instanceof HTMLLinkElement) {
       mute(element)

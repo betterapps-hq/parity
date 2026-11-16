@@ -90,7 +90,7 @@ beforeAll(async () => {
   await page.route("http://project.test/project.js", (route) =>
     route.fulfill({ contentType: "text/javascript", body: projectScript })
   )
-  await page.route("http://project.test/card.css", (route) =>
+  await page.route("http://project.test/card.css*", (route) =>
     route.fulfill({
       contentType: "text/css",
       headers: { "access-control-allow-origin": "*" },
@@ -269,6 +269,21 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     }, origin)
 
     expect(steps).toEqual({ css: "@media print {\n.twice { color: red; }\n}", media: "not all" })
+  })
+
+  it("keeps a media change its code makes after changing a link's address, in the same task", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const link = project.addLink("http://project.test/card.css")
+      await parity.pageStyles(origin).settled()
+      link.href = "http://project.test/card.css?v=2"
+      link.media = "screen"
+      await new Promise((resolve) => setTimeout(resolve))
+      await parity.pageStyles(origin).settled()
+
+      return { css: parity.pageStyles(origin).sheets()[0]?.css.split("\n")[0], media: link.getAttribute("media") }
+    }, origin)
+
+    expect(steps).toEqual({ css: "@media screen {", media: "not all" })
   })
 
   it("lets go of a stylesheet taken out with the element around it, telling listeners", async () => {
