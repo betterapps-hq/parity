@@ -45,4 +45,19 @@ describe("gatherChanges", () => {
       vi.useRealTimers()
     }
   })
+
+  it("makes the guest new for a change reaching the project's preview file, which isn't a component's (PAR-100)", () => {
+    vi.useFakeTimers()
+
+    try {
+      const send = vi.fn<(change: CodeChange) => void>()
+      const changes = gatherChanges(send, 40, ".parity/preview.tsx")
+      const stamp = changes.stamp()
+      changes.add({ paths: ["./.parity/preview.tsx", "src/card.tsx"], styles: false })
+      vi.advanceTimersByTime(100)
+      expect(send).toHaveBeenCalledExactlyOnceWith({ paths: ["src/card.tsx"], stamp, styles: true })
+    } finally {
+      vi.useRealTimers()
+    }
+  })
 })

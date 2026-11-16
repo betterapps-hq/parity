@@ -140,8 +140,8 @@ components open on their docs page.
 
 - **No Storybook package is imported at runtime.** Nothing imports `@storybook/*`, `storybook`, `composeStory` or
   `setProjectAnnotations`.
-- **The project's preview isn't read or run.** `preview.*`, its decorators, loaders, parameters and global types are
-  ignored on the canvas.
+- **Storybook's preview isn't read or run on its own.** `.storybook/preview.*` is ignored on the canvas unless
+  `.parity/preview.tsx` imports it.
 - **Nothing renders through Storybook.** Frames render through Parity's own guest, built by the project's Vite, with
   library decorators written as data in `.lib.par`.
 - **No Storybook files are written.** The test fixtures in [packages/fixtures](../packages/fixtures) set up Storybook
@@ -155,11 +155,12 @@ components open on their docs page.
   decorators, loaders, parameters and global types apply as Storybook applies them, and its global types become mode
   variables. Panel-only add-ons are ignored. Storybook's newer `definePreview` format still needs checking. See
   [decorators.md](proposals/decorators.md).
-- **`.parity/preview.tsx` for projects without Storybook,** decided on 2026-10-28. It has the same exports as
-  Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx` unchanged. With no
-  Parity file, Storybook's preview is used as it is. When both exist, Parity's file wins and replaces Storybook's on the
-  canvas; it can import `.storybook/preview` and spread its decorators to build on them. A project's extensions and
-  their settings go in its `.par` file instead, as [developer-api.md](proposals/developer-api.md) sets out.
+- **`.parity/preview.tsx` for projects without Storybook,** built in PAR-100 (see [editor.md](editor.md)). It has the
+  same exports as Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx`
+  unchanged. With no Parity file, Storybook's preview is to be used as it is. When both exist, Parity's file wins and
+  replaces Storybook's on the canvas; it can import `.storybook/preview` and spread its decorators to build on them. A
+  project's extensions and their settings go in its `.par` file instead, as
+  [developer-api.md](proposals/developer-api.md) sets out.
 - **Stories from component designs.** A component design's states become stories, written next to the component file
   Parity writes for it. See [components.md](proposals/components.md).
 - **One process manager.** Storybook starts and stops through it now (PAR-20), and dev servers and `wrangler dev` are to
@@ -285,10 +286,10 @@ the canvas.
   - **Fix:** keep `.lib.par` lists outermost first, since that reads like the JSX it makes, but call it Parity's
     manifest order, not Storybook's. Reverse it when compiling into the decorator list, before any project decorators
     join, so a project's decorators nest exactly as in Storybook.
+  - The guest now nests `.parity/preview.tsx`'s decorators in Storybook's order, inside the libraries' (PAR-100).
 - **The decorator context.** decorators.md says a decorator gets `args`, `globals`, `parameters` and `loaded`. The guest
-  passes only `globals`. That's enough for `.lib.par` decorators today, which read only the mode. Before a project's own
-  decorators run, the guest must pass the rest, plus `id`, and `viewMode` as `"story"`, because Storybook decorators
-  sometimes read it.
+  passes them, with `argTypes`, `canvasElement`, and `viewMode` as `"story"`, since Storybook decorators sometimes read
+  it (PAR-100). `args` and `argTypes` are empty, and `id` isn't passed yet.
 
 ## Tests
 

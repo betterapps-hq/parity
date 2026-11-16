@@ -16,6 +16,8 @@ beforeEach(async () => {
   await write("src/card.tsx", "export const Card = () => null\n")
   await write("src/index.css", '@import "./theme.css";\n')
   await write("src/theme.css", ":root { --primary: blue }\n")
+  await write(".parity/preview.tsx", 'import { dark } from "../src/themes"\nexport const decorators = []\n')
+  await write("src/themes.ts", "export const dark = {}\n")
 })
 
 afterEach(async () => {
@@ -55,7 +57,8 @@ async function projects(loaded?: string[]): Promise<TraceProjects> {
         Button: { path: "src/button.tsx", export: "Button" },
         Card: { path: "src/card.tsx", export: "Card" }
       },
-      stylesheets: ["src/index.css"]
+      stylesheets: ["src/index.css"],
+      preview: ".parity/preview.tsx"
     }),
     loadedFiles: () => Promise.resolve(loaded)
   }
@@ -65,12 +68,22 @@ describe("frame traces (PAR-994)", () => {
   it("lists the files a frame's components import, its stylesheets and theirs, and the shared config", async () => {
     const traced = await frameTraces(await projects()).trace(job)
     expect(Object.keys(traced!.files)).toEqual([
+      ".parity/preview.tsx",
       "package.json",
       "src/button.tsx",
       "src/index.css",
       "src/lib/utils.ts",
-      "src/theme.css"
+      "src/theme.css",
+      "src/themes.ts"
     ])
+  })
+
+  it("doesn't hold once what the project's preview file imports changes (PAR-100)", async () => {
+    const traces = frameTraces(await projects())
+    const traced = (await traces.trace(job))!
+    await write("src/themes.ts", "export const dark = { background: 'black' }\n")
+    await touch("src/themes.ts")
+    expect(await traces.holds(job, traced)).toBe(false)
   })
 
   it("adds what the builder says the components load to what the scan finds", async () => {

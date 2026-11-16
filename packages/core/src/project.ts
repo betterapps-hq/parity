@@ -36,6 +36,12 @@ export interface ProjectConfig {
    */
   frameDecorators?: ExtensionDecorator[]
   /**
+   * The project's preview file for Parity, `.parity/preview.tsx` or another script extension, relative to the root: its
+   * Storybook preview exports (`decorators`, `loaders`, `parameters`, `globalTypes`, `initialGlobals`) apply to every
+   * frame, inside the libraries' decorators (PAR-100).
+   */
+  preview?: string
+  /**
    * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
    * by (`nova/Button`), as the apps that install it name them.
    */

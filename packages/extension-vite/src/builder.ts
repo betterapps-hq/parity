@@ -276,19 +276,27 @@ async function serve(vite: typeof Vite, server: Vite.ViteDevServer, config: Proj
 
   const codeListeners = new Set<(change: CodeChange) => void>()
 
-  const changes = gatherChanges((change) => {
-    for (const listener of codeListeners) {
-      listener(change)
-    }
-  })
+  const changes = gatherChanges(
+    (change) => {
+      for (const listener of codeListeners) {
+        listener(change)
+      }
+    },
+    undefined,
+    config.preview
+  )
 
   const root = vite.normalizePath(server.config.root)
   // Vite's own watcher, which already follows every file the guest imported. The list of components changes as the
   // type checker finds them, in place.
   server.watcher.on("change", (file) => {
-    const components = Object.values(config.components)
-      .filter((component) => !component.library)
-      .map((component) => component.path)
+    // The preview file is looked for as a component is; the gathered change makes the guest new for it.
+    const components = [
+      ...Object.values(config.components)
+        .filter((component) => !component.library)
+        .map((component) => component.path),
+      ...(config.preview ? [config.preview] : [])
+    ]
 
     changes.add(stampChange(client.moduleGraph, vite.normalizePath(file), changes.stamp(), root, components))
   })

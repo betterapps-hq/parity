@@ -847,7 +847,14 @@ export function createGuest(init: GuestInit): Guest {
     mount(target, tree, options = {}): MountHandle {
       const report = (cause: unknown) => options.onError?.(cause)
       const frame = frameOf(target, options.globals ?? {}, options.url ?? "/")
-      const decorate = options.bare ? (content: ReactNode) => content : decorators(init.decorators, frame, report)
+
+      const decorate = options.bare
+        ? (content: ReactNode) => content
+        : decorators(init.decorators, frame, report, (loading) => {
+            inFlight.add(loading)
+            void loading.finally(() => inFlight.delete(loading))
+          })
+
       const failing = frameFailures(options.onFailures && ((failures) => options.onFailures?.(failures)))
 
       // An error a component's boundary caught names the component, so a frame says which one failed.
@@ -1225,21 +1232,50 @@ function shadowOf(element: Element): ShadowRoot | undefined {
 }
 
 /**
- * A Storybook decorator: `Story` renders what's inside, and the decorator returns what goes around it. Library
- * decorators written as data become these, so a project's own decorators can join them later unchanged.
+ * What a Storybook decorator is told about the frame: its mode's globals, the preview's parameters, what loaded, and
+ * `canvasElement`, the frame's stand-in body.
  */
-type StoryDecorator = (Story: () => ReactNode, context: { globals: Record<string, string> }) => ReactNode
+interface StoryContext {
+  globals: StoryValues
+  parameters: StoryValues
+  args: StoryValues
+  argTypes: StoryValues
+  loaded: StoryValues
+  canvasElement: HTMLElement
+  viewMode: "story"
+}
+
+/** Values a project's preview gives by name: its globals, parameters and what its loaders return. */
+// oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- Storybook's context holds whatever a project's preview puts in it
+type StoryValues = Record<string, unknown>
+
+/** Whether a value is an object a preview's values can be read from by name. */
+function isStoryValues(value: unknown): value is StoryValues {
+  return isComposite(value) && !Array.isArray(value)
+}
 
 /**
- * Wraps a frame's content in its libraries' decorators. A manifest lists them outermost first, as they nest in JSX, so
- * the first one wraps everything after it. Body classes, attributes and styles are set on the frame straight away.
+ * A Storybook decorator: `Story` renders what's inside, and the decorator returns what goes around it. Library
+ * decorators written as data become these, and a project's preview file gives them as they are.
+ */
+type StoryDecorator = (Story: () => ReactNode, context: StoryContext) => ReactNode
+
+/**
+ * Wraps a frame's content in its decorators: its libraries', then the project's preview file's (PAR-100). A manifest
+ * lists the libraries' outermost first, as they nest in JSX, so the first one wraps everything after it; in the
+ * preview's list, as in Storybook's, the last wraps the ones before. Body classes, attributes and styles are set on the
+ * frame straight away. The preview's loaders run once, as the frame mounts, and it draws nothing until they're done;
+ * `track` hears of them so the guest's `loaded()` waits for them too.
  */
 function decorators(
   setup: GuestDecorators | undefined,
   frame: Frame,
-  report: (cause: unknown) => void
+  report: (cause: unknown) => void,
+  track: (loading: Promise<void>) => void
 ): (content: ReactNode) => ReactNode {
-  if (!setup || setup.list.length === 0) {
+  const preview = projectPreview(setup?.project, report)
+
+  if (!setup || (setup.list.length === 0 && !preview)) {
     return (content) => content
   }
 
@@ -1263,13 +1299,164 @@ function decorators(
     }
   }
 
-  const context = { globals: frame.globals }
+  const globals = { ...preview?.globals, ...frame.globals }
+  const parameters = preview?.parameters ?? {}
+  const levels = [...compiled, ...[...(preview?.decorators ?? [])].reverse()]
+
+  const context = (loaded: StoryContext["loaded"]): StoryContext => ({
+    globals,
+    parameters,
+    args: {},
+    argTypes: {},
+    loaded,
+    canvasElement: frame.body,
+    viewMode: "story"
+  })
+
+  const loaders = preview?.loaders ?? []
+
+  if (loaders.length === 0) {
+    const outer = storyChain(levels, context({}))
+
+    return (content) => createElement(StoryContentContext.Provider, { value: content }, createElement(outer))
+  }
+
+  const ready = readyStory()
+
+  const loading = Promise.all(loaders.map(async (loader) => loader(context({})))).then(
+    (results) => {
+      const loaded: StoryValues = Object.assign({}, ...results.filter(isStoryValues))
+      ready.set(storyChain(levels, context(loaded)))
+    },
+    (error) =>
+      report(new Error(`the preview's loaders failed: ${error instanceof Error ? error.message : String(error)}`))
+  )
+
+  track(loading)
 
   return (content) =>
-    compiled.reduceRight<() => ReactNode>(
-      (story, decorator) => () => decorator(story, context),
-      () => createElement(Fragment, null, content)
-    )()
+    createElement(StoryContentContext.Provider, { value: content }, createElement(ReadyStory, { ready }))
+}
+
+/**
+ * Each level's `Story` as a function made once per frame, so a decorator that draws `<Story />` keeps the same
+ * component from one draw to the next and what's inside keeps its state. The innermost draws the frame's content.
+ */
+function storyChain(levels: StoryDecorator[], context: StoryContext): () => ReactNode {
+  return levels.reduceRight<() => ReactNode>((inner, level) => () => level(inner, context), StoryContent)
+}
+
+/** What the decorators wrap: the frame's latest content, so the chain itself needn't change when it does. */
+const StoryContentContext = createContext<ReactNode>(null)
+
+function StoryContent() {
+  return createElement(Fragment, null, useContext(StoryContentContext))
+}
+
+/** The outermost `Story` once the preview's loaders are done, and what tells the frame it's there. */
+interface Ready {
+  get: () => (() => ReactNode) | undefined
+  set: (story: () => ReactNode) => void
+  subscribe: (listener: () => void) => () => void
+}
+
+function readyStory(): Ready {
+  let story: (() => ReactNode) | undefined
+  const listeners = new Set<() => void>()
+
+  return {
+    get: () => story,
+    set(next) {
+      story = next
+
+      for (const listener of listeners) {
+        listener()
+      }
+    },
+    subscribe(listener) {
+      listeners.add(listener)
+
+      return () => listeners.delete(listener)
+    }
+  }
+}
+
+function ReadyStory({ ready }: { ready: Ready }) {
+  const story = useSyncExternalStore(ready.subscribe, ready.get, ready.get)
+
+  return story ? createElement(story) : null
+}
+
+/** A preview loader: what it gives back joins `context.loaded`. */
+type StoryLoader = (context: StoryContext) => Promise<object | undefined> | object | undefined
+
+/** What a project's preview file gives every frame, read from its exports as Storybook reads `preview.tsx`'s. */
+interface ProjectPreview {
+  decorators: StoryDecorator[]
+  loaders: StoryLoader[]
+  parameters: StoryValues
+  /** Each global's default, from `globalTypes` and then `initialGlobals`, which a frame's own mode values override. */
+  globals: StoryValues
+}
+
+/**
+ * The preview file's exports: named, or as its default export's properties, as Storybook takes either. A file that
+ * didn't load is reported, and the frames draw without it.
+ */
+function projectPreview(
+  module: GuestDecorators["project"],
+  report: (cause: unknown) => void
+): ProjectPreview | undefined {
+  if (!module) {
+    return undefined
+  }
+
+  if (isText(module.loadError)) {
+    report(new Error(`the project's preview file didn't load: ${module.loadError}`))
+
+    return undefined
+  }
+
+  const globals: StoryValues = {}
+  const globalTypes = previewExport(module, "globalTypes")
+
+  if (isStoryValues(globalTypes)) {
+    for (const [name, type] of Object.entries(globalTypes)) {
+      const value = exportOf(type, "defaultValue")
+
+      if (value !== undefined) {
+        globals[name] = value
+      }
+    }
+  }
+
+  const initialGlobals = previewExport(module, "initialGlobals")
+
+  if (isStoryValues(initialGlobals)) {
+    Object.assign(globals, initialGlobals)
+  }
+
+  const decorators = previewExport(module, "decorators")
+  const loaders = previewExport(module, "loaders")
+  const parameters = previewExport(module, "parameters")
+
+  return {
+    decorators: (Array.isArray(decorators) ? decorators : [decorators]).filter(isStoryFunction<StoryDecorator>),
+    loaders: (Array.isArray(loaders) ? loaders : [loaders]).filter(isStoryFunction<StoryLoader>),
+    parameters: isStoryValues(parameters) ? parameters : {},
+    globals
+  }
+}
+
+/** One of a preview's exports: named, or a property of its default export, as Storybook takes either. */
+// oxlint-disable-next-line anti-slop/no-unknown-returns -- a preview exports whatever its project writes
+function previewExport(module: NonNullable<GuestDecorators["project"]>, name: string): unknown {
+  return exportOf(module, name) ?? exportOf(module, `default.${name}`)
+}
+
+/** Whether a value is a function, as each decorator and loader in a preview's lists is by Storybook's contract. */
+function isStoryFunction<T extends StoryDecorator | StoryLoader>(value: unknown): value is T {
+  return value instanceof Function
 }
 
 function applies(decorator: LibraryDecorator, globals: Record<string, string>): boolean {

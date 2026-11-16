@@ -200,8 +200,10 @@ async function keyFor(projects: PreviewProjects, { job }: PreviewJob): Promise<s
     return path ? [path.replace(/^\.\//, "")] : []
   })
 
-  const closure = await moduleClosure([...entries, ...project.stylesheets], (path) =>
-    importsOf(project.root, snapshot, path)
+  // Every frame draws in the preview file's decorators, so it and what it imports count as the stylesheets do.
+  const closure = await moduleClosure(
+    [...entries, ...project.stylesheets, ...(project.preview ? [project.preview] : [])],
+    (path) => importsOf(project.root, snapshot, path)
   )
 
   return previewKey({

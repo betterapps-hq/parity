@@ -240,6 +240,11 @@ go.
 | Storybook 8 and earlier | ❌     | Dropped: Storybook 8 came out in March 2024. Untested, but not blocked. |
 | Ladle, Histoire         | ❌     | Not planned.                                                            |
 
+**The project's preview file, `.parity/preview.tsx`,** has Storybook's preview exports and runs without Storybook, on
+every builder: its decorators wrap every frame inside the libraries', with Storybook's context, and its loaders run as a
+frame mounts. Storybook's own `.storybook/preview.*` isn't read unless that file imports it (PAR-98), global types give
+only their defaults, not mode variables (PAR-105), and parameters are the file's, not a design's (PAR-106).
+
 **Story files are read as story designs (read-only viewer).** `EntitiesAdapter` in `@parity-app/core` translates a
 tool's own files to Parity's entities, and back: it reads what Parity doesn't, and gives back what it does. Each tool is
 an extension: Vite, React, Tailwind CSS, TanStack Router, React Router and Storybook, whose entities provider reads CSF

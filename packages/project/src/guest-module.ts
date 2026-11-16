@@ -39,8 +39,8 @@ export interface GuestModule {
 
 /**
  * The module the canvas's guest comes from: the renderer's guest runtime, the project's styles and components, its icon
- * packages, and what its extensions' and libraries' decorators import. A decorator's module that fails to load is passed on as its
- * error, so one missing provider doesn't stop the project from rendering. The source and its eager imports share one
+ * packages, what its extensions' and libraries' decorators import, and its preview file. A decorator's module that fails
+ * to load is passed on as its error, so one missing provider doesn't stop the project from rendering. The source and its eager imports share one
  * declaration, so a builder can warm the same graph the browser will load.
  */
 export function guestModule(config: ProjectConfig, options: GuestModuleOptions): GuestModule {
@@ -158,6 +158,16 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     ref(id)
   }
 
+  // The project's preview file, inside the libraries' decorators. One that fails to load is passed on as its error, so
+  // the frames still draw and say why.
+  let previewRef: string | undefined
+
+  if (config.preview) {
+    const path = options.projectPath(config.preview)
+    optional.add(path)
+    previewRef = ref(path)
+  }
+
   const described = (config.describedTokens ?? []).flatMap((source) => source.tokens)
   const libraryCss = describedTokenCss(described)
 
@@ -179,7 +189,8 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     "  },",
     "  decorators: {",
     `    list: ${JSON.stringify(decorated)},`,
-    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }`,
+    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }${previewRef ? "," : ""}`,
+    ...(previewRef ? [`    project: ${previewRef}`] : []),
     "  },",
     `  tokenCategories: ${JSON.stringify(describedCategories(described))}`
   ]

@@ -1323,6 +1323,59 @@ manifest Parity accepts" in `packages/extension-tanstack-router/src/extension.te
 2026-11-16 on a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its
 `Outlet`.
 
+### The project's preview file (PAR-100)
+
+A project's own providers, such as a styled-components theme built from the app's theme object, go around every frame
+from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity runs without Storybook.
+
+- **Storybook's exports.** `decorators`, `loaders`, `parameters`, `globalTypes` and `initialGlobals`, named or as the
+  default export's properties, as Storybook takes them. Moving to Storybook later means moving the file to
+  `.storybook/preview.tsx`. A project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with
+  several, `preview.tsx` is the one used.
+- **Inside the libraries' decorators,** so a project's provider overrides a library's default. In its list, as in
+  Storybook's, the last decorator wraps the ones before.
+- **Storybook's context.** A decorator gets `globals`, the frame's mode values over `globalTypes`' `defaultValue`s and
+  `initialGlobals`; `parameters`; `loaded`; empty `args` and `argTypes`; `viewMode`, always `"story"`; and
+  `canvasElement`, the frame's stand-in body. `Story` is the same function from one draw to the next, so a decorator can
+  draw `<Story />` and what's inside keeps its state.
+- **Loaders** run once, as a frame mounts, with that context. What they give joins `context.loaded`, and the frame draws
+  nothing until they're done; the guest's `loaded()` waits for them too. A loader that fails says why and the frame
+  stays empty.
+- **For every builder.** The file is one more of the shared guest module's imports, so Vite, Rspack, Rsbuild, webpack
+  and both Next.js builders compile it with the project's own config, as they compile its components. A file that
+  doesn't load is reported, and frames draw with the libraries' decorators alone.
+- **Saved, it redraws the frames.** Each builder looks for the file among what a change reaches, as it looks for
+  components, and `gatherChanges` reports a change that reaches it as making the guest new, as a stylesheet's change
+  does, so the canvas loads a guest that imports it afresh. Pictures kept for components and frames count the file and
+  what it imports as they count the stylesheets, and the code snapshot reads `.parity`, so a changed provider draws them
+  again.
+- **Building on Storybook's preview.** Parity doesn't read `.storybook/preview.*` yet, so the file is the project's
+  preview on the canvas. It can import Storybook's and spread its decorators to build on them:
+  `export const decorators = [...(storybook.decorators ?? []), withCanvasOnlyProviders]`.
+- **App F** (`fixtures/webpack-react-router`) has one, `.parity/preview.jsx`: it wraps frames in styled-components'
+  `ThemeProvider` with the app's light or dark theme from `src/theme.js`, picked by the `theme` global. The styles
+  styled-components adds to the page reach the frames as any project stylesheet does (PAR-1187).
+
+Not yet: global types as mode variables (PAR-105), a design's or state's parameters (PAR-106), `context.id`, and reading
+`.storybook/preview.*` when there's no Parity file (PAR-98).
+
+Code: `findPreviewFile` in `packages/project/src/preview-file.ts`, called by `discoverProject`; `gatherChanges` in
+`packages/project/src/code-changes.ts`, given the file by the Vite, webpack-compatible and Next builders; `keyFor` in
+`utility/previews.ts` and `trace` in `utility/frame-traces.ts`; `preview` in `ProjectConfig`
+(`packages/core/src/project.ts`); `guestModule` in `packages/project/src/guest-module.ts`, which gives the loaded file
+as `GuestDecorators.project`; `decorators`, `projectPreview` and `storyChain` in
+`packages/extension-react/src/guest.ts`.
+
+Tests: "the project's preview file" in `packages/project/src/preview-file.test.ts`; "the guest module with the project's
+preview file" in `packages/project/src/guest-module.test.ts`; "a project's preview file" in
+`packages/extension-react/src/guest-preview.test.ts`: the nesting inside the libraries' decorators, the context's
+globals, parameters and frame, `Story` kept from one draw to the next, loaders, and a file that didn't load; "makes the
+guest new for a change reaching the project's preview file" in `packages/project/src/code-changes.test.ts`; "the
+project's preview file" case in `code-fingerprint.test.ts`; "doesn't hold once what the project's preview file imports
+changes" in `utility/frame-traces.test.ts`; "are made again for every component once what the project's preview file
+imports changes" in `utility/previews.test.ts`. App F's file wasn't tried in the running app, since its fixture isn't
+installed locally.
+
 ### Pages are the routes' files (PAR-1163)
 
 Which components are pages comes from the router extension's routes, not from file names in core: a component is a page
@@ -1747,8 +1800,7 @@ components compiled with its Babel config, and, in a copy with a global styleshe
 drawn with the stylesheet's custom property. On `nextjs-webpack`: Next.js 15.5.29 on webpack found, every component's
 module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components
 stopped at their theme providers. `nextjs-webpack` now uses Chakra UI, whose providers come from its library file
-(PAR-1168); `webpack-react-router`'s styled-components `ThemeProvider` needs the app's own theme, so it waits for the
-project's preview file (PAR-100).
+(PAR-1168); `webpack-react-router`'s styled-components `ThemeProvider` comes from its preview file (PAR-100).
 
 ### Storybook's stories through its entities provider (PAR-1095)
 

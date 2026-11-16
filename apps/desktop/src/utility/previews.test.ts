@@ -35,6 +35,7 @@ const project: PreviewProjects = {
   previewProject: () => ({
     root: open.root,
     stylesheets: ["src/index.css"],
+    preview: ".parity/preview.tsx",
     sources: {
       Button: { path: "src/Button.tsx", export: "Button" },
       Badge: { path: "src/Badge.tsx", export: "Badge" }
@@ -120,6 +121,8 @@ beforeEach(async () => {
   await write("src/lib/utils.ts", "export const cn = () => ''")
   await write("src/Button.tsx", `import { cn } from "./lib/utils"\nexport const Button = () => null`)
   await write("src/Badge.tsx", "export const Badge = () => null")
+  await write(".parity/preview.tsx", 'import { dark } from "../src/themes"\nexport const decorators = []')
+  await write("src/themes.ts", "export const dark = {}")
   serve("http://localhost:5001")
   vi.stubEnv("PARITY_BITMAP_DIR", store)
   previews = await startService()
@@ -163,6 +166,18 @@ describe("component previews", () => {
     // Until it's made again, Button's last picture stands in for it.
     expect(button?.image).toBeUndefined()
     expect(button?.last).toMatchObject({ width: 600, height: 100 })
+  })
+
+  it("are made again for every component once what the project's preview file imports changes (PAR-100)", async () => {
+    await previews.makePreview(preview("Badge"), "idle")
+    await write("src/themes.ts", "export const dark = { background: 'black' }")
+    const later = new Date(Date.now() + 1000)
+    await utimes(join(open.root, "src/themes.ts"), later, later)
+    serve("http://localhost:5002")
+
+    const [badge] = await previews.lookupPreviews([preview("Badge", "http://localhost:5002")])
+
+    expect(badge?.image).toBeUndefined()
   })
 
   it("keep a component that fails to draw as failing, so the same code isn't drawn again", async () => {

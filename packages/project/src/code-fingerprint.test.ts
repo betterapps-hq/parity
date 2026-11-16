@@ -18,6 +18,7 @@ afterEach(() => rm(root, { recursive: true, force: true }))
 
 /** Writes a file again with new contents, a second later so its time changes even on a coarse file system. */
 async function edit(path: string, contents: string): Promise<void> {
+  await mkdir(join(root, path, ".."), { recursive: true })
   await writeFile(join(root, path), contents)
   const later = new Date(Date.now() + 1000)
   await utimes(join(root, path), later, later)
@@ -35,7 +36,8 @@ describe("codeSnapshot", () => {
   it.each([
     ["a component's source", "src/Button.tsx", "export const Button = () => 1"],
     ["a stylesheet", "src/index.css", "body { margin: 1px }"],
-    ["a config", "vite.config.ts", "export default {}"]
+    ["a config", "vite.config.ts", "export default {}"],
+    ["the project's preview file", ".parity/preview.tsx", "export const decorators = []"]
   ])("changes when %s changes", async (_what, path, contents) => {
     const before = (await codeSnapshot(root, "a")).fingerprint
     await edit(path, contents)

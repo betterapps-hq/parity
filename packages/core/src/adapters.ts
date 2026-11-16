@@ -556,7 +556,8 @@ export interface CodeChange {
   stamp: number
   /**
    * One of the stylesheets the guest's compiled CSS is made from changed too, so the guest's CSS is new: the guest at
-   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821).
+   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821). A change to the project's preview file, or
+   * to a module it imports, sets it too, since that guest imports the file afresh as well (PAR-100).
    */
   styles?: boolean
 }
@@ -584,7 +585,7 @@ export interface GuestInit {
    * read for tokens: a library's tokens come from its `.lib.par`, and the rest are its components' own variables.
    */
   packageCss?: string
-  /** Libraries' decorators, outermost first, with the modules they import by specifier. */
+  /** Libraries' decorators, outermost first, with the modules they import by specifier, and the project's preview. */
   decorators?: GuestDecorators
   /** Categories for custom properties libraries describe, by name without `--`. */
   tokenCategories?: Record<string, TokenCategory>
@@ -608,6 +609,11 @@ export interface GuestDecorators {
   list: { library: string; decorator: LibraryDecorator }[]
   /** Modules by specifier; a module that failed to load is the error it failed with. */
   modules: Record<string, ModuleExports | { loadError: string }>
+  /**
+   * The project's preview file as it loaded (`ProjectConfig.preview`), or the error it failed with. Its decorators wrap
+   * inside the libraries'.
+   */
+  project?: ModuleExports | { loadError: string }
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
