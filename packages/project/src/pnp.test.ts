@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs"
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -70,6 +70,47 @@ describe("Yarn Plug'n'Play", () => {
   it("reads a project the map doesn't include from node_modules", async () => {
     expect(pnpProject(at("app", "legacy"))).toBeUndefined()
     expect((await findPackage(at("app", "legacy"), "react"))?.manifest.version).toBe("17.0.2")
+  })
+
+  it("reads the map again once Yarn rewrites it, as installing a package does", async () => {
+    write("app/.yarn/unpacked/zod/package.json", JSON.stringify({ name: "zod", version: "4.1.0" }))
+
+    expect(await findPackage(at("app"), "zod")).toBeUndefined()
+
+    write(
+      "app/.pnp.cjs",
+      runtime.replace("const packages = {", 'const packages = { zod: path.join(app, ".yarn", "unpacked", "zod"),')
+    )
+    // The rewrite is told apart by when it was written, which within a test can be the same millisecond.
+    utimesSync(at("app", ".pnp.cjs"), new Date(), new Date(Date.now() + 5000))
+
+    expect((await findPackage(at("app"), "zod"))?.manifest.version).toBe("4.1.0")
+  })
+
+  it("finds a package's dependency when the package is kept outside the project, as in Yarn's global cache", async () => {
+    const cache = at("cache", "tailwind-vite")
+
+    write("cache/tailwind-vite/package.json", JSON.stringify({ name: "tailwind-vite", version: "4.2.0" }))
+    write("cache/tailwind-node/package.json", JSON.stringify({ name: "tailwind-node", version: "4.2.0" }))
+    write("global/package.json", JSON.stringify({ name: "global" }))
+    write(
+      "global/.pnp.cjs",
+      `const path = require("node:path")
+const cache = ${JSON.stringify(at("cache"))}
+const owns = (location) => path.resolve(location).startsWith(__dirname) || path.resolve(location).startsWith(cache)
+module.exports = {
+  setup() {},
+  findPackageLocator: (location) => (owns(location) ? { name: "global", reference: "workspace:." } : null),
+  resolveToUnqualified(request, issuer) {
+    if (owns(issuer)) return path.join(cache, request) + path.sep
+    throw new Error(request + " isn't a dependency of " + issuer)
+  }
+}
+`
+    )
+
+    expect((await findPackage(at("global"), "tailwind-vite"))?.dir).toBe(cache)
+    expect((await findPackage(cache, "tailwind-node"))?.manifest.version).toBe("4.2.0")
   })
 
   it("gives Node the runtime, and the loader when Yarn wrote one, after the options it had", () => {

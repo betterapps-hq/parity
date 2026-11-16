@@ -7924,8 +7924,10 @@ Parity opens one as it opens any other, with its builder, tools, component libra
 
 - **Packages are found through the map.** `findPackage` asks the nearest `.pnp.cjs` whose map includes the folder where
   a package is wanted, and only that, never a `node_modules` above it; a folder the map leaves out, such as a subproject
-  installed with `node_modules`, is read as before. The runtime is loaded once per project and, where the process isn't
-  Yarn's own, set up so Node's file functions read inside the archives.
+  installed with `node_modules`, is read as before. A package kept outside the project, as in Yarn's global cache,
+  belongs to the project whose map has it. The runtime is loaded once per project, again once Yarn rewrites it
+  (installing a library does), and, where the process isn't Yarn's own, set up so Node's file functions read inside the
+  archives.
 - **Vite runs from the project.** The builder loads the project's Vite through the map, with Yarn's ESM loader
   registered. A Vite plugin resolves what Parity's own guest modules import, since Yarn wouldn't resolve a file outside
   the project, and resolves the renderer's runtime packages, such as React, as the project does, so the app and Parity
@@ -7937,12 +7939,13 @@ Code: `pnpProject`, `pnpNodeOptions` and `importFromPnp` in `packages/project/sr
 `packages.ts`; `importsOutsidePnp` in `packages/extension-vite/src/pnp-imports.ts`, added by `builder.ts`; `binScript`
 and `launch` in `apps/desktop/src/utility/extension-processes.ts`. Tests: `packages/project/src/pnp.test.ts` (a package
 found through the map from any folder in the project, none from a `node_modules` above it, a subproject outside the map
-read from its `node_modules`, and the Node options with and without the loader),
-`packages/extension-vite/src/pnp-imports.test.ts` (which imports come from outside the project, and their files found
-from the importer), and the `vite-fluent-pnp` detection snapshot in `packages/fixtures`, read in a separate Node
-process. Tried in the app on 2026-11-16 with `vite-fluent-pnp`: its five routes, its 12 components, Fluent's library and
-2 screens from Storybook, with the Home design drawn in desktop and mobile frames. Gaps: Vite 7 re-bundles its
-dependencies on every open and sometimes stalls (PAR-1196), and the end-to-end tests don't open a Plug'n'Play project.
+read from its `node_modules`, the map read again once rewritten, a dependency found for a package kept outside the
+project, and the Node options with and without the loader), `packages/extension-vite/src/pnp-imports.test.ts` (which
+imports come from outside the project, and their files found from the importer), and the `vite-fluent-pnp` detection
+snapshot in `packages/fixtures`, read in a separate Node process. Tried in the app on 2026-11-16 with `vite-fluent-pnp`:
+its five routes, its 12 components, Fluent's library and 2 screens from Storybook, with the Home design drawn in desktop
+and mobile frames. Gaps: Vite 7 re-bundles its dependencies on every open and sometimes stalls (PAR-1196), and the
+end-to-end tests don't open a Plug'n'Play project.
 
 ### Opening in seconds (PAR-179)
 

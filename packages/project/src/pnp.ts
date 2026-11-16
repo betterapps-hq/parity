@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs"
+import { existsSync, statSync } from "node:fs"
 import { createRequire, register, syncBuiltinESMExports } from "node:module"
 import { dirname, join, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
@@ -27,8 +27,8 @@ const pnpApi = z.custom<PnpApi>(
 
 const require = createRequire(import.meta.url)
 
-/** Each project's runtime, by its `.pnp.cjs`, loaded once. */
-const loaded = new Map<string, PnpApi>()
+/** Each project's runtime, by its `.pnp.cjs`, with when that file was written, loaded again once Yarn rewrites it. */
+const loaded = new Map<string, { api: PnpApi; written: number }>()
 
 /** The project a folder is installed in by Plug'n'Play: its `.pnp.cjs` and that runtime's API. */
 export interface PnpProject {
@@ -39,18 +39,28 @@ export interface PnpProject {
 /**
  * The Plug'n'Play project a folder's code is installed in, with its runtime loaded into this process, or nothing when
  * it's installed another way. The nearest `.pnp.cjs` here or above counts only when its map includes the folder, so a
- * project installed with `node_modules` inside a Plug'n'Play one isn't read as Plug'n'Play.
+ * project installed with `node_modules` inside a Plug'n'Play one isn't read as Plug'n'Play. A folder with none above
+ * it, such as a package in Yarn's global cache, belongs to whichever project already loaded has it in its map.
  */
 export function pnpProject(from: string): PnpProject | undefined {
+  const location = `${resolve(from)}${sep}`
   const file = pnpFile(from)
 
-  if (!file) {
-    return undefined
+  if (file) {
+    const api = loadPnp(file)
+
+    return api.findPackageLocator(location) ? { file, api } : undefined
   }
 
-  const api = loadPnp(file)
+  for (const known of loaded.keys()) {
+    const api = loadPnp(known)
 
-  return api.findPackageLocator(`${resolve(from)}${sep}`) ? { file, api } : undefined
+    if (api.findPackageLocator(location)) {
+      return { file: known, api }
+    }
+  }
+
+  return undefined
 }
 
 /**
@@ -127,16 +137,21 @@ function pnpFile(from: string): string | undefined {
 }
 
 /**
- * Loads a project's runtime. The first one loaded is set up, which patches `fs` for every project's archives and
- * module resolution for every project's files, so later ones only need their map. Parity's own modules imported `fs`
- * as ES modules, whose bindings Node updates only when asked.
+ * Loads a project's runtime, again when Yarn has rewritten it since, as installing a package does, so the map is the
+ * current one. The first one loaded is set up, which patches `fs` for every project's archives and module resolution
+ * for every project's files, so later ones only need their map. Parity's own modules imported `fs` as ES modules, whose
+ * bindings Node updates only when asked.
  */
 function loadPnp(file: string): PnpApi {
+  const written = statSync(file).mtimeMs
   const known = loaded.get(file)
 
-  if (known) {
-    return known
+  if (known?.written === written) {
+    return known.api
   }
+
+  // Node keeps what it required; the rewritten file is read only once that's forgotten.
+  delete require.cache[require.resolve(file)]
 
   const api = pnpApi.parse(require(file))
 
@@ -145,7 +160,7 @@ function loadPnp(file: string): PnpApi {
     syncBuiltinESMExports()
   }
 
-  loaded.set(file, api)
+  loaded.set(file, { api, written })
 
   return api
 }
