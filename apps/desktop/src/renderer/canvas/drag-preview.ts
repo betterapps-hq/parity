@@ -16,15 +16,16 @@ export interface PreviewTarget {
   node?: string
 }
 
-export interface Rect extends Point {
-  width: number
-  height: number
+/**
+ * A node in a preview, following a point on the page: its top-left, keeping its size. Resizes, which the proposal gives
+ * a rect, aren't drawn yet.
+ */
+export interface PreviewItem {
+  target: PreviewTarget
+  at: Point
+  state?: string
+  mode?: string
 }
-
-/** A node in a preview, following a point on the page (its top-left), or set to a rect there, as in a resize. */
-export type PreviewItem =
-  | { target: PreviewTarget; at: Point; state?: string; mode?: string }
-  | { target: PreviewTarget; rect: Rect; state?: string; mode?: string }
 
 export interface PreviewOptions {
   /** Where dragged layers would land: before the parent's child at `index`, in the frame of `state` and `mode`. */
@@ -158,11 +159,6 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
   }
 }
 
-/** Where an item's top-left is on the page. */
-function topLeft(item: PreviewItem): Point {
-  return "at" in item ? item.at : { x: item.rect.x, y: item.rect.y }
-}
-
 /** Boards move where the preview says, without writing, lifted as a board dragged by its name is. */
 function boardPart(surface: PreviewSurface, boards: PreviewItem[]): Part {
   const placements = new Map<string, Placement>()
@@ -189,9 +185,9 @@ function boardPart(surface: PreviewSurface, boards: PreviewItem[]): Part {
         const placed = placements.get(design)
 
         if (placed) {
-          placed.move(topLeft(item))
+          placed.move(item.at)
         } else {
-          placements.set(design, placedBoards.place(surface.tab, design, topLeft(item)))
+          placements.set(design, placedBoards.place(surface.tab, design, item.at))
         }
       }
 
@@ -254,6 +250,9 @@ function layersPart(
     bottom: Math.max(...rects.map((rect) => rect.bottom))
   }
 
+  // The picture's corner is the layers' together; the first item follows its own, which may sit inside it.
+  const firstBox = nodeBox(host, ids[0]!)
+  const offset = firstBox ? { x: firstBox.left - union.left, y: firstBox.top - union.top } : { x: 0, y: 0 }
   const absolute = elements.length === 1 && getComputedStyle(elements[0]!).position === "absolute"
   const { scale } = frameGeometry(host)
   const space = () => areaSpace(surface.area)
@@ -283,7 +282,8 @@ function layersPart(
       const item = items.find((candidate) => candidate.target.design === design && candidate.target.node === ids[0])
 
       if (item) {
-        pictures.carry(toArea(topLeft(item)))
+        const point = toArea(item.at)
+        pictures.carry({ x: point.x - offset.x, y: point.y - offset.y })
       }
 
       if (!drop) {

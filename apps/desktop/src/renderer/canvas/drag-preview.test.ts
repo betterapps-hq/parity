@@ -114,9 +114,8 @@ describe("preview of a board", () => {
   })
 
   it("shows two people's boards at once, each ending on its own", () => {
-    const rect = { x: 5, y: 5, width: 100, height: 80 }
     const mia = preview(surface, [{ target: { design: "home" }, at: { x: 0, y: 0 } }], jonas)
-    const priya = preview(surface, [{ target: { design: "pricing" }, rect }], { color: palette(2) })
+    const priya = preview(surface, [{ target: { design: "pricing" }, at: { x: 5, y: 5 } }], { color: palette(2) })
 
     expect(placedBoards.at("tab", "home")).toEqual({ x: 0, y: 0 })
     expect(placedBoards.at("tab", "pricing")).toEqual({ x: 5, y: 5 })
