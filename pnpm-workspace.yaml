@@ -50,6 +50,7 @@ catalog:
   "@webref/css": 8.7.8
   beachball: 2.66.0
   css-tree: 3.2.1
+  dockview-react: 8.9.0
   electron-builder: 26.18.0
   electron-updater: 6.8.11
   happy-dom: ^21.0.4

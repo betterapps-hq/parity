@@ -50,7 +50,7 @@ import {
   Terminal,
   X
 } from "lucide-react"
-import { type KeyboardEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useState } from "react"
+import { type KeyboardEvent, type ReactNode, useState } from "react"
 import { AccountMenu } from "../../account/AccountMenu.tsx"
 import { iconFor } from "../../chrome/command-icons.ts"
 import { Hint } from "../../chrome/Hint.tsx"
@@ -61,13 +61,16 @@ import type { LensId } from "./model.ts"
 /** The window's chrome: the title bar's strip and the lens bar down the left, one surface, as the tab strip was. */
 export const chromeSurface = "bg-neutral-100 dark:bg-[#0a0a0a]"
 
+/** What a lens dragged from the lens bar carries, so the canvases' tabs take it as they take a tab. */
+export const lensDragType = "application/x-parity-lens"
+
 /** What the title bar and the lens bar do, for the window they're in. */
 export interface ChromeActions {
   /** Whether a project is open: on Home, what acts on one is unavailable. */
   project: boolean
   /** Which lens shows in the canvas in focus, and which show in other canvases or windows. */
   current: LensId
-  elsewhere: (lens: LensId) => "beside" | "window" | undefined
+  elsewhere: (lens: LensId) => "open" | "window" | undefined
   show: (lens: LensId) => void
   splitRight: (lens: LensId) => void
   canSplit: (lens: LensId) => boolean
@@ -77,7 +80,6 @@ export interface ChromeActions {
   canMoveToMain: (lens: LensId) => boolean
   close: (lens: LensId) => void
   canClose: (lens: LensId) => boolean
-  startDrag: (lens: LensId, event: ReactPointerEvent) => void
   panels: { left: boolean; right: boolean }
   togglePanels: () => void
   closeProject: () => void
@@ -108,22 +110,6 @@ export function TitleBar({ name, actions }: { name?: string; actions: ChromeActi
             <AccountMenu />
           </div>
         )}
-        <WindowButtons />
-      </div>
-    </header>
-  )
-}
-
-/** A lens's own window's title bar: the lens, then the project it's from, and the window buttons. */
-export function LensWindowBar({ lens, name }: { lens: LensId; name: string }) {
-  const { label, icon: Icon } = lenses[lens]
-
-  return (
-    <header className={`flex h-10 shrink-0 items-center gap-2 border-b pl-3.5 ${chromeSurface}`}>
-      <Icon className="size-4 text-muted-foreground" />
-      <span className="text-sm font-medium">{label}</span>
-      <span className="truncate text-sm text-muted-foreground">{name}</span>
-      <div className="ml-auto flex h-full">
         <WindowButtons />
       </div>
     </header>
@@ -500,7 +486,7 @@ export function LensBar({ actions }: { actions: ChromeActions }) {
 }
 
 /** Where a lens shows when it isn't the canvas in focus's, for its hint. */
-const placeWords = { beside: "Shown beside", window: "In its own window" }
+const placeWords = { open: "Open in a tab", window: "In its own window" }
 
 function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions }) {
   const { label, icon: Icon, keys, missing } = lenses[lens]
@@ -541,7 +527,11 @@ function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions })
               aria-pressed={current}
               tabIndex={current ? 0 : -1}
               onClick={() => actions.show(lens)}
-              onPointerDown={(event) => actions.startDrag(lens, event)}
+              draggable={!missing}
+              onDragStart={(event) => {
+                event.dataTransfer.setData(lensDragType, lens)
+                event.dataTransfer.effectAllowed = "move"
+              }}
               className={`relative grid size-9 place-items-center rounded-lg border outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 ${look}`}
             >
               <Icon className="size-[18px]" strokeWidth={current ? 2 : 1.75} />

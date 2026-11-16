@@ -191,6 +191,9 @@ catalogs:
     css-tree:
       specifier: 3.2.1
       version: 3.2.1
+    dockview-react:
+      specifier: 8.9.0
+      version: 8.9.0
     electron-builder:
       specifier: 26.18.0
       version: 26.18.0
@@ -306,6 +309,9 @@ importers:
       css-tree:
         specifier: 'catalog:'
         version: 3.2.1
+      dockview-react:
+        specifier: 'catalog:'
+        version: 8.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       lucide-react:
         specifier: ^1.66.0
         version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
@@ -6635,6 +6641,18 @@ packages:
 
   dmg-builder@26.18.0:
     resolution: {integrity: sha512-ozCGC54wi2C1RkS2v69y9lQxvoQ1Coh+iT8CmWiyY8y1ZuOKVvuNson2Hd+HEOs9+EZNNsOBbzKgQZ4SNqWd0w==}
+
+  dockview-core@8.9.0:
+    resolution: {integrity: sha512-qsXM+9wFik5WSEBq8x4KP041v19iM6cgSKVFrQpIgkJSXTM00+zEb66hI1kG3e+O7L4IKUfSziMUyZrofwetlg==}
+
+  dockview-react@8.9.0:
+    resolution: {integrity: sha512-dyzV3u6PX5kLsxYQBd5hL1DManxVepGqnYZvqobDgJ8cDwZmad+VnChRUcaCY7OgQ0b1gUL55YYn9w/eymqcLg==}
+    peerDependencies:
+      react: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+      react-dom: ^16.8.0 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
+  dockview@8.9.0:
+    resolution: {integrity: sha512-uZYPtKEOb7j8rrSeT1PqfPP9z5OEiM9+NhLgn9lZ3hVhVpmrWoAWckY7MFGsnQINR3on9mza4RlJQ9lYyq0Ivg==}
 
   doctrine@3.0.0:
     resolution: {integrity: sha512-yS+Q5i3hBf7GBkd4KG8a7eBNNWNGLTaEwwYWUijIYM7zrlYDM0BFXHjjPWlWZ1Rg7UaddZeIDmi9jF3HmqiQ2w==}
@@ -15610,6 +15628,18 @@ snapshots:
     transitivePeerDependencies:
       - electron-builder-squirrel-windows
       - supports-color
+
+  dockview-core@8.9.0: {}
+
+  dockview-react@8.9.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1):
+    dependencies:
+      dockview: 8.9.0
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+
+  dockview@8.9.0:
+    dependencies:
+      dockview-core: 8.9.0
 
   doctrine@3.0.0:
     dependencies:

@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Spike the lens exploration on Dockview",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}
