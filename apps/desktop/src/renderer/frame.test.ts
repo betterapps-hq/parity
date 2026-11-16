@@ -664,19 +664,23 @@ describe("styles written while the project runs", () => {
 
   it("take a root custom property made from another from the frame's theme, as a page's root does (PAR-1210)", async () => {
     await frameWith(
-      `:root { --gray-solid: rgb(0, 0, 0); --palette-solid: var(--gray-solid) }
+      `:root { --gray-solid: rgb(0, 0, 0); --palette-solid: var(--gray-solid); --palette-fg: var(--gray-solid) }
         [data-theme="dark"] { --gray-solid: rgb(255, 255, 255) }
-        .solid { background-color: var(--palette-solid) }`,
+        :root[data-theme="dark"] { --palette-fg: rgb(1, 2, 3) }
+        .solid { background-color: var(--palette-solid); color: var(--palette-fg) }`,
       '<div class="solid"></div>',
       "",
       { "data-theme": "dark" }
     )
 
-    const background = await page.evaluate(
-      () => getComputedStyle(document.querySelector("#host")!.shadowRoot!.querySelector(".solid")!).backgroundColor
-    )
+    const drawn = await page.evaluate(() => {
+      const style = getComputedStyle(document.querySelector("#host")!.shadowRoot!.querySelector(".solid")!)
 
-    expect(background).toBe("rgb(255, 255, 255)")
+      return [style.backgroundColor, style.color]
+    })
+
+    // The theme's root still overrides the copy on the body.
+    expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)"])
   })
 
   it("follow rules the project's code deletes and text it replaces", async () => {
@@ -702,13 +706,25 @@ describe("styles written while the project runs", () => {
       text.textContent = ".box { color: rgb(3, 3, 3) }"
       await tick()
       const replaced = getComputedStyle(box).color
+      // A rule inserted straight after new text, before the frame has seen the text change.
+      text.textContent = ".box { color: rgb(4, 4, 4) }"
+      text.sheet!.insertRule(".box { color: rgb(5, 5, 5) }", 1)
+      await tick()
+      const insertedAfterText = getComputedStyle(box).color
       text.remove()
       await tick()
 
-      return [first, deleted, added, replaced, getComputedStyle(box).color]
+      return [first, deleted, added, replaced, insertedAfterText, getComputedStyle(box).color]
     })
 
-    expect(colors).toEqual(["rgb(1, 1, 1)", "rgb(0, 0, 0)", "rgb(2, 2, 2)", "rgb(3, 3, 3)", "rgb(0, 0, 0)"])
+    expect(colors).toEqual([
+      "rgb(1, 1, 1)",
+      "rgb(0, 0, 0)",
+      "rgb(2, 2, 2)",
+      "rgb(3, 3, 3)",
+      "rgb(5, 5, 5)",
+      "rgb(0, 0, 0)"
+    ])
   })
 
   it("leave Parity's own styles measuring Parity's window", async () => {

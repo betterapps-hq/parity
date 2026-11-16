@@ -8491,8 +8491,9 @@ buttons drew transparent, because Chakra sets its palette's custom properties on
 - **A root custom property made from another takes the frame's theme.** A page's root carries the page's theme, so
   `--palette: var(--gray-solid)` on `:root` takes the theme's `--gray-solid`. A frame's root is its host, while the
   mode's class and theme attributes are on its body. So the root rule's custom properties that use `var()` are declared
-  on the body too, with no specificity and in the root rule's place, and whatever the project sets on the body still
-  wins. This holds for the project's own stylesheets as well, as with Tailwind's `@theme` without `inline`.
+  on the body too, with no specificity, in the layer a qualified root's declarations are in, so a theme's root
+  (`:root.dark`) still overrides them, and whatever the project sets on the body still wins. This holds for the
+  project's own stylesheets as well, as with Tailwind's `@theme` without `inline`.
 - **Not covered:** a sheet the project's code constructs and adopts into a frame keeps its rules as written, with its
   lengths measuring the frame. Griffel's shadow DOM renderer writes Fluent's styles that way.
 

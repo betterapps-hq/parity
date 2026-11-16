@@ -266,7 +266,7 @@ describe("prepareCanvasCss", () => {
 
     expect(prepareCanvasCss(css, options).scoped).toBe(
       ":host { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))) } " +
-        ":where([data-canvas-body]) { --palette: var(--gray-solid); --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))); } " +
+        "@layer canvas-qualified-root { :where([data-canvas-body]) { --palette: var(--gray-solid); --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))); } } " +
         ".a { color: red }"
     )
 

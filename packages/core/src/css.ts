@@ -413,7 +413,8 @@ function serialize(
       )
 
       if (referencing) {
-        output += ` :where([${bodyAttribute}]) {${referencing}}`
+        // In the qualified roots' layer, so a theme's root, as `:root.dark`, still overrides the copy on the body.
+        output += ` @layer ${qualifiedRootLayer} { :where([${bodyAttribute}]) {${referencing}} }`
       }
     }
 

@@ -32,6 +32,8 @@ interface FrameEntry {
   edited: Set<HTMLStyleElement>
   shown: string
   scheduled: boolean
+  /** Follows the frame's elements and their text. */
+  observer?: MutationObserver
 }
 
 const muted = "not all"
@@ -80,7 +82,8 @@ export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss): CSSSt
     catchElement(entry, element)
   }
 
-  new MutationObserver((records) => follow(entry, records)).observe(shadow, {
+  entry.observer = new MutationObserver((records) => follow(entry, records))
+  entry.observer.observe(shadow, {
     childList: true,
     characterData: true,
     subtree: true
@@ -106,6 +109,8 @@ export function frameRulesEdited(sheet: CSSStyleSheet): void {
   const entry = owners.get(owner) ?? (root instanceof ShadowRoot ? frames.get(root) : undefined)
 
   if (entry) {
+    // A change to its text made before this edit, still queued, is followed first, so it doesn't undo the edit.
+    follow(entry, entry.observer?.takeRecords() ?? [])
     catchElement(entry, owner)
     entry.edited.add(owner)
     schedule(entry)
