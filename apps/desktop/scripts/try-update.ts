@@ -312,9 +312,18 @@ function updateToast(page: Page): Locator {
     .filter({ hasText: /update|Downloading Parity|up to date/i })
 }
 
+/**
+ * A button on the update notice. Base UI hides a failure's toast from the accessibility tree until it's focused, since
+ * a live region announces it, and a toast's close button until the stack is hovered or focused, so the role query
+ * includes hidden elements. Clicking hovers first, as a person would.
+ */
+function toastButton(page: Page, name: string): Locator {
+  return updateToast(page).getByRole("button", { name, exact: true, includeHidden: true })
+}
+
 /** Closing the notice keeps the update. The leaving toast is gone before this returns. */
 async function later(page: Page): Promise<void> {
-  await updateToast(page).getByRole("button", { name: "Close toast", exact: true }).click()
+  await toastButton(page, "Close toast").click()
   await page
     .locator('[data-slot="toast"]')
     .filter({ hasText: /update|Downloading Parity|up to date/i })
@@ -323,7 +332,7 @@ async function later(page: Page): Promise<void> {
 
 async function openUpdate(page: Page): Promise<void> {
   await checkFromMenu(page)
-  await updateToast(page).getByRole("button", { name: "Restart", exact: true }).waitFor()
+  await toastButton(page, "Restart").waitFor()
 
   if (await page.getByRole("dialog", { name: "Parity", exact: true }).count()) {
     throw new Error("Check for updates opened About instead of a toast.")
@@ -516,8 +525,7 @@ try {
   corrupt = false
   stage = "downloading a valid update"
   print(stage)
-  // A failure's toast is hidden from the accessibility tree until it's focused, since its live region announces it.
-  await updateToast(page).getByRole("button", { name: "Try again", exact: true, includeHidden: true }).click()
+  await toastButton(page, "Try again").click()
   await waitForUpdate(page, "ready")
   await later(page)
 

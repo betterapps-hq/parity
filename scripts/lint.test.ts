@@ -33,9 +33,9 @@ describe("error notifications go through reportError (PAR-644)", () => {
   const folder = mkdtempSync(join(root, "scripts", "lint-probe-"))
   afterAll(() => rmSync(folder, { recursive: true, force: true }))
 
-  it("refuses toast.error, naming reportError", () => {
+  it("refuses notify.failed, naming reportError", () => {
     const file = join(folder, "probe.ts")
-    writeFileSync(file, 'import { toast } from "sonner"\n\ntoast.error("Couldn\'t save")\n')
+    writeFileSync(file, 'import { notify } from "./toasts.tsx"\n\nnotify.failed("Couldn\'t save the project")\n')
 
     expect(lint(file)).toEqual([
       expect.objectContaining({
@@ -47,7 +47,10 @@ describe("error notifications go through reportError (PAR-644)", () => {
 
   it("allows the other notifications", () => {
     const file = join(folder, "other.ts")
-    writeFileSync(file, 'import { toast } from "sonner"\n\ntoast.success("Saved")\n\ntoast("Copied")\n')
+    writeFileSync(
+      file,
+      'import { notify } from "./toasts.tsx"\n\nnotify.done("Saved the project")\n\nnotify.info("Nothing to paste")\n'
+    )
 
     expect(lint(file)).toEqual([])
   })
