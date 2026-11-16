@@ -1,4 +1,4 @@
-import { DropdownMenuCheckboxItem, DropdownMenuItem } from "@buildkitgg/shadcn-baseui-kit"
+import { DropdownMenuCheckboxItem, DropdownMenuItem } from "@buildkitgg/shadcn"
 import { Columns3, Rows3 } from "lucide-react"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"

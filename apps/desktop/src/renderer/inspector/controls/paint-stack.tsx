@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Switch
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { gradientDirections } from "@parity-app/style-schema"
 import { ArrowLeftRight, Plus } from "lucide-react"
 import { type CSSProperties, type PointerEvent, useState } from "react"

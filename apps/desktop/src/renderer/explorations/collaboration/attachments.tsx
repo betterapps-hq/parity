@@ -1,4 +1,4 @@
-import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Dialog, DialogContent, DialogDescription, DialogTitle } from "@buildkitgg/shadcn"
 import {
   ChevronLeft,
   ChevronRight,

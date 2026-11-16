@@ -1,4 +1,4 @@
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { TooltipProvider } from "@buildkitgg/shadcn"
 import { createContext, type ReactNode, use, useMemo, useState, useSyncExternalStore } from "react"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { type Comparison, Comparisons, type Point } from "./comparisons.tsx"

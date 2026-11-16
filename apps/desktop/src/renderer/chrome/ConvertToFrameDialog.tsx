@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { kindName } from "@parity-app/editor"
 import { CircleMinus } from "lucide-react"
 import { useStore, windowStore } from "../store.ts"

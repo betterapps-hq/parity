@@ -1,4 +1,4 @@
-import { Button, Textarea } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Textarea } from "@buildkitgg/shadcn"
 import { Check, CornerDownRight, X } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import { me, type Person } from "../explore-data.ts"

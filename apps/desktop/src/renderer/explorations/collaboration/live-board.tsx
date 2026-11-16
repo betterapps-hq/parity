@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { Eye, MessageSquarePlus } from "lucide-react"
 import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import { formatKeys } from "../../chrome/keys.ts"

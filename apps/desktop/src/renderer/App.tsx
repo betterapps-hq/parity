@@ -1,4 +1,4 @@
-import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { type ReactNode, useEffect } from "react"
 import { accountActions, startAccount, useAccount } from "./account/account.ts"
 import { SignInDialog, SignInScreen, UntilQuitDialog } from "./account/SignIn.tsx"

@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { Check, Clock, MessageSquare } from "lucide-react"
 import { Fragment, type ReactNode } from "react"
 import { me, type Person } from "../explore-data.ts"

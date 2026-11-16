@@ -11,7 +11,7 @@ import {
   TableRow,
   ToggleGroup,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react"
 import { Name } from "./chrome/Name.tsx"

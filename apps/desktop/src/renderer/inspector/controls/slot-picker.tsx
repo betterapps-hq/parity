@@ -1,4 +1,4 @@
-import { ComboboxTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { ComboboxTrigger } from "@buildkitgg/shadcn"
 import { readLayersDrag } from "@parity-app/editor"
 import { ChevronRight, Diamond } from "lucide-react"
 import { type DragEvent, type HTMLAttributes, type ReactNode, useState } from "react"
@@ -143,7 +143,6 @@ export function SlotPickerField({
     >
       {layer && (
         <AppChip
-          removeLabel={`Clear ${label}`}
           className="cursor-pointer"
           // A press on the box opens its list; one on the chip doesn't, as it selects the layer instead.
           onMouseDown={(event) => event.stopPropagation()}
@@ -161,7 +160,7 @@ export function SlotPickerField({
         </AppChip>
       )}
       <AppChipsInput aria-label={`Fill ${label}`} placeholder={layer ? undefined : "Add a layer"} />
-      <ComboboxTrigger className="ml-auto flex h-5 shrink-0 items-center pl-1" />
+      <ComboboxTrigger aria-label="Show options" className="ml-auto flex h-5 shrink-0 items-center pl-1" />
     </AppChips>
   )
 }

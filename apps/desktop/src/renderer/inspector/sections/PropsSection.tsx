@@ -11,7 +11,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   changesField,
   type ComponentProp,

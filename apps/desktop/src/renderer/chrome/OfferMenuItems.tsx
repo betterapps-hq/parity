@@ -1,4 +1,4 @@
-import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn-baseui-kit"
+import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn"
 import { ExternalLink } from "lucide-react"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import type { Offer } from "./command-offers.ts"

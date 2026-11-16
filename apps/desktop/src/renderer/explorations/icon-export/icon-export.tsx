@@ -15,7 +15,7 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { LibraryInfo } from "@parity-app/core"
 import { Download } from "lucide-react"
 import { useMemo, useState } from "react"

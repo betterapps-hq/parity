@@ -1,4 +1,4 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { createContext, type CSSProperties, type ReactNode, use, useLayoutEffect, useRef, useState } from "react"
 import { KeyHints } from "../../canvas/KeyHints.tsx"
 import { spacingColors } from "../../canvas/spacing-colors.ts"

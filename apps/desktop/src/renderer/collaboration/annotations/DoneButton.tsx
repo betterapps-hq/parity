@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { actions } from "../../chrome/actions.ts"
 import { shortcutOf } from "../../chrome/keymap.ts"
 import { pressableWide, pressMotion } from "../../chrome/toolbar-parts.tsx"

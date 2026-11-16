@@ -5,7 +5,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuShortcut
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { isTool } from "../../selection.ts"
 import { actions } from "../actions.ts"
 import { gestures, keymap, shortcutOf } from "../keymap.ts"

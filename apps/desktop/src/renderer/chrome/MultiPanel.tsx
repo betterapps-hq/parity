@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { isBaseState } from "@parity-app/core"
 import { kindsName } from "@parity-app/editor"
 import { containerEntry } from "@parity-app/multiplayer"

@@ -1,4 +1,4 @@
-import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
+import { TabsContent } from "@buildkitgg/shadcn"
 import { Component, ImagePlay, Layers, Palette, Smile } from "lucide-react"
 import { MediaPanel } from "../media/MediaPanel.tsx"
 import { ComponentsPanel, IconsPanel } from "./AssetsPanel.tsx"

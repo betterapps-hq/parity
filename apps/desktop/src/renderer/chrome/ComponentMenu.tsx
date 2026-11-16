@@ -1,4 +1,4 @@
-import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn-baseui-kit"
+import { ContextMenuItem, ContextMenuSeparator, ContextMenuShortcut } from "@buildkitgg/shadcn"
 import type { AdapterIcon } from "@parity-app/core"
 import { FileCode } from "lucide-react"
 import type { ReactNode } from "react"

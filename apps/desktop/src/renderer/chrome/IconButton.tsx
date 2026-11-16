@@ -1,4 +1,4 @@
-import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn"
 import type { ReactNode } from "react"
 import { actions, commandsFor } from "./actions.ts"
 import { type Command, type Shortcut, shortcutOf } from "./keymap.ts"

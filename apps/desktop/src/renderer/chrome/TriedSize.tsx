@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { hasTriedSize, withoutTriedSize } from "@parity-app/editor"
 import { updateContainer } from "@parity-app/multiplayer"
 import { RotateCcw } from "lucide-react"

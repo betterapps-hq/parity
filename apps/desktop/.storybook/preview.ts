@@ -1,4 +1,4 @@
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { TooltipProvider } from "@buildkitgg/shadcn"
 import { definePreview } from "@buildkitgg/storybook-config/preview"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"

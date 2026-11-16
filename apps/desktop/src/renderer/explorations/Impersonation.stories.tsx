@@ -7,7 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   Toaster
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { LifeBuoy } from "lucide-react"
 import { useState } from "react"

@@ -11,7 +11,7 @@ import {
   Tabs,
   TabsList,
   TabsTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Ban, ChevronRight, CircleX, Info, RotateCw, ScrollText, TriangleAlert, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ExtensionStatus, LogLine } from "../../shared/protocol.ts"

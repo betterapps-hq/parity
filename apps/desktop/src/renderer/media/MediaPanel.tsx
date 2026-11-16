@@ -7,7 +7,7 @@ import {
   Skeleton,
   ToggleGroup,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   filterImages,
   type ImageMedium,

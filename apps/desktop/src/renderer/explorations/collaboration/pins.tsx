@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { Check, Component, Eye, ListFilter, MessageSquarePlus, Plus } from "lucide-react"
 import type { ReactNode } from "react"
 import { agentPalettes } from "../../agent/agent-colors.ts"

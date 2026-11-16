@@ -252,7 +252,7 @@ export default defineConfig({
             {
               paths: [
                 {
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: [
                     "Select",
                     "SelectContent",
@@ -269,12 +269,12 @@ export default defineConfig({
                 },
                 {
                   // Fields of tags kept copying the chips' box and chip, as Selects did their parts (AppChips).
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: ["ComboboxChips", "ComboboxChip", "ComboboxChipsInput"],
                   message: "Use AppChips, AppChip and AppChipsInput from apps/desktop/src/renderer/chrome/AppChips.tsx."
                 },
                 {
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: [
                     "toast",
                     "createToastManager",

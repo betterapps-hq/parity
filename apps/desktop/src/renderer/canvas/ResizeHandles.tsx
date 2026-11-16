@@ -1,4 +1,4 @@
-import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Kbd } from "@buildkitgg/shadcn"
 import { type Edge, handleBoxes } from "@parity-app/editor"
 import { type CSSProperties, type PointerEvent as ReactPointerEvent, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"

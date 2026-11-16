@@ -1,4 +1,4 @@
-import { Toggle } from "@buildkitgg/shadcn-baseui-kit"
+import { Toggle } from "@buildkitgg/shadcn"
 import { formatNumber } from "@parity-app/style-schema"
 import { FlipHorizontal2, FlipVertical2, Link2 } from "lucide-react"
 import { useState } from "react"

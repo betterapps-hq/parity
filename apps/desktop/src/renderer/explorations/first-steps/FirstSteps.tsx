@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { Check, X } from "lucide-react"
 import type { ReactNode } from "react"
 import { formatKeys } from "../../chrome/keys.ts"

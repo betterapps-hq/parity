@@ -8,7 +8,7 @@ import {
   PopoverContent,
   PopoverTrigger,
   Toggle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { formatNumber, remPx, trackSizeCss } from "@parity-app/style-schema"
 import { ChevronDown, LayoutTemplate, Link2, Monitor, Squircle } from "lucide-react"
 import { type CSSProperties, type ReactNode, useCallback, useEffect, useState } from "react"

@@ -9,7 +9,7 @@ import {
   Input,
   Label,
   Switch
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ExternalLink, Search } from "lucide-react"
 import { useState } from "react"
 import { AppSelect } from "../../chrome/AppSelect.tsx"

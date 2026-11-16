@@ -1,4 +1,4 @@
-import { toast } from "@buildkitgg/shadcn-baseui-kit"
+import { toast } from "@buildkitgg/shadcn"
 import { plainReason } from "@parity-app/core"
 import type { ReactNode } from "react"
 

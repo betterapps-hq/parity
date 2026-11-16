@@ -1,4 +1,4 @@
-import { Button, DropdownMenuItem, Tabs, TabsContent, TabsList, TabsTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, DropdownMenuItem, Tabs, TabsContent, TabsList, TabsTrigger } from "@buildkitgg/shadcn"
 import { unclosedInValue } from "@parity-app/tokens"
 import { Braces, ListOrdered, Plus, SlidersHorizontal } from "lucide-react"
 import { useState } from "react"

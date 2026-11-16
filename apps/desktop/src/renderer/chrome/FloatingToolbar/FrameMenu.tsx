@@ -6,7 +6,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuShortcut
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { framePresets } from "@parity-app/editor"
 import { AppWindow, Component } from "lucide-react"
 import { useProject } from "../../canvas/context.ts"

@@ -6,7 +6,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronDown } from "lucide-react"
 import { type CSSProperties, type ReactElement, useEffect, useRef } from "react"
 import { asEasing, pop, springs } from "../springs.ts"

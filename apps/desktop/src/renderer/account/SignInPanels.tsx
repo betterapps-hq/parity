@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogTitle,
   Input
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   ArrowRight,
   Ban,

@@ -1,4 +1,4 @@
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@buildkitgg/shadcn-baseui-kit"
+import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@buildkitgg/shadcn"
 import { FolderOpen, History, type LucideIcon, Star, Users } from "lucide-react"
 import { useId, useState } from "react"
 import { ProjectCard } from "./ProjectCard.tsx"

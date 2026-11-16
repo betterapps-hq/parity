@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Popover, PopoverContent, PopoverTrigger, Kbd } from "@buildkitgg/shadcn"
 import { Eye, Layers, LocateFixed, MonitorPlay, RefreshCw, WifiOff } from "lucide-react"
 import type { ReactNode } from "react"
 import type { PresenceEvent } from "../../../shared/protocol.ts"

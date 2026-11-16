@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Copy } from "lucide-react"
 import { useEffect, useState } from "react"
 import icon from "../../../../../brand/parity-icon.svg?url"

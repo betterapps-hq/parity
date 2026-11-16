@@ -9,7 +9,7 @@ import {
   PopoverTrigger,
   ToggleGroup,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   type ComponentRef,
   type ComponentRole,

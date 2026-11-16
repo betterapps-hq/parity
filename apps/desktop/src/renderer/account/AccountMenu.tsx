@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { KeyRound, Plus } from "lucide-react"
 import { useRef, useState } from "react"
 import type { SignedInAccount } from "../../shared/account.ts"

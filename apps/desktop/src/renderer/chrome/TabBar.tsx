@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Tooltip, TooltipContent, TooltipTrigger, Kbd } from "@buildkitgg/shadcn"
 import { House, LoaderCircle, Plus, TriangleAlert, X } from "lucide-react"
 import { type ReactNode, useEffect, useRef } from "react"
 import { AccountMenu } from "../account/AccountMenu.tsx"

@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * The org's activity: what every team, person and agent in Kestrel did, newest first, with the designs it touched.
  * Filters narrow it to your teams or the people you follow. Things only for you (mentions, review requests, seat

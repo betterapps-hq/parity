@@ -1,11 +1,4 @@
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ToggleGroup,
-  ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Popover, PopoverContent, PopoverTrigger, ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn"
 import { type ModeSettings } from "@parity-app/core"
 import { builtOn, defaultValues, type PreviewKind, previewKind, type Token, type TokenMap } from "@parity-app/tokens"
 import { type LibraryToken, matchDescribed, type TokenWrite } from "@parity-app/tokens"

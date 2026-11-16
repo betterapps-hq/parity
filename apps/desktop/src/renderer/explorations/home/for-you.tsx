@@ -8,7 +8,7 @@ import {
   ItemTitle,
   Skeleton,
   Spinner
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { useEffect, useId, useRef, useState } from "react"
 import { OrganizationBadge } from "../../account/OrganizationBadge.tsx"
 import { PersonAvatar } from "../../account/PersonAvatar.tsx"

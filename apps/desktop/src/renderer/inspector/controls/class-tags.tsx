@@ -70,7 +70,7 @@ export function ClassTagsField({
         const { variants, utility } = splitClass(name)
 
         return (
-          <AppChip key={name} removeLabel={`Remove ${name}`} className="font-mono">
+          <AppChip key={name} className="font-mono">
             <span className="truncate">
               {variants && <span className="text-muted-foreground">{variants}</span>}
               {utility}

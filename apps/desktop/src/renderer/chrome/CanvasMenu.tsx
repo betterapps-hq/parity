@@ -8,7 +8,7 @@ import {
   ContextMenuSubContent,
   ContextMenuSubTrigger,
   ContextMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { type ElementSource, isInnerPath } from "@parity-app/core"
 import { selectedDesigns, type Selection } from "@parity-app/editor"
 import { CheckIcon, FileCode, Layers } from "lucide-react"

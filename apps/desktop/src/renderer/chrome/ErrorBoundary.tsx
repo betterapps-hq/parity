@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { CircleAlert, RotateCcw, RotateCw, TriangleAlert, X } from "lucide-react"
 import { Component, type CSSProperties, type ReactNode, type Ref, useRef } from "react"
 import parityIcon from "../../../../../brand/parity-icon.svg?url"

@@ -1,4 +1,4 @@
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
 import { Check, Copy, X } from "lucide-react"
 import { type ReactElement, type ReactNode, useEffect, useState } from "react"
 

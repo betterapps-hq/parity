@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { Gauge } from "lucide-react"
 import { useState } from "react"
 import type { ProcessUsage } from "../../shared/protocol.ts"
