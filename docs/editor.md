@@ -7927,7 +7927,8 @@ Parity opens one as it opens any other, with its builder, tools, component libra
   installed with `node_modules`, is read as before. A package kept outside the project, as in Yarn's global cache,
   belongs to the project whose map has it. The runtime is loaded once per project, again once Yarn rewrites it
   (installing a library does), and, where the process isn't Yarn's own, set up so Node's file functions read inside the
-  archives.
+  archives, with Yarn's loader registered so a package found this way can be imported as an ES module, as Tailwind's
+  extension imports `@tailwindcss/node`.
 - **Vite runs from the project.** The builder loads the project's Vite through the map, with Yarn's ESM loader
   registered. A Vite plugin resolves what Parity's own guest modules import, since Yarn wouldn't resolve a file outside
   the project, and resolves the renderer's runtime packages, such as React, as the project does, so the app and Parity

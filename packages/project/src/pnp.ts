@@ -117,9 +117,17 @@ const registered = new Set<string>()
  */
 export function importFromPnp(from: string): void {
   const project = pnpProject(from)
-  const loader = project && join(dirname(project.file), ".pnp.loader.mjs")
 
-  if (!loader || registered.has(loader) || !existsSync(loader)) {
+  if (project) {
+    registerPnpLoader(project)
+  }
+}
+
+/** Registers a Plug'n'Play project's ES module loader in this process, once. */
+export function registerPnpLoader(project: PnpProject): void {
+  const loader = join(dirname(project.file), ".pnp.loader.mjs")
+
+  if (registered.has(loader) || !existsSync(loader)) {
     return
   }
 

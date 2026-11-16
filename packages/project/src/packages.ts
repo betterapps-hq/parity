@@ -9,7 +9,7 @@ import {
   type RendererAdapter
 } from "@parity-app/core"
 import { isComposite, isText } from "@parity-app/core/values/evaluate"
-import { pnpPackageDir, pnpProject } from "./pnp.ts"
+import { pnpPackageDir, pnpProject, registerPnpLoader } from "./pnp.ts"
 
 /**
  * The one reader of installed packages (PAR-573): where a package is installed, its manifest and version, the file
@@ -37,7 +37,7 @@ export interface InstalledPackage extends PackageFolder {
 /**
  * The package a folder's code gets for `name`, found the way Node finds packages: in `node_modules` here or in a folder
  * above, with links followed, or through Yarn's map when the folder is in a Plug'n'Play project, whose packages stay
- * in archives that Yarn's runtime then reads. It reads the package's own package.json, which its `exports` may leave
+ * in archives that Yarn's runtime then reads, with Yarn's loader registered so its ES modules can be imported too. It reads the package's own package.json, which its `exports` may leave
  * out of reach of `require.resolve`, and never falls back to NODE_PATH, which pnpm's bin shims point at Parity's own
  * dependencies. Throws when the manifest isn't a package's.
  */
@@ -46,6 +46,8 @@ export async function findPackage(from: string, name: string): Promise<Installed
 
   // A Plug'n'Play project's packages are only the ones its map gives, whatever a `node_modules` above it holds.
   if (pnp) {
+    registerPnpLoader(pnp)
+
     const dir = pnpPackageDir(pnp, from, name)
     const file = dir && join(dir, "package.json")
     const text = file && (await readFile(file, "utf8").catch(() => undefined))
