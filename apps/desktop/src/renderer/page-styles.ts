@@ -336,16 +336,23 @@ function guardInsertions(): void {
   const replaceWith = element.replaceWith.value!
   const insertAdjacentElement = element.insertAdjacentElement.value!
 
+  // Each gives back the node it's given, as the originals do.
   Node.prototype.appendChild = function <T extends Node>(child: T): T {
-    return guarded(this, [child], () => appendChild.call(this, child))
+    guarded(this, [child], () => appendChild.call(this, child))
+
+    return child
   }
 
   Node.prototype.insertBefore = function <T extends Node>(child: T, reference: Node | null): T {
-    return guarded(this, [child], () => insertBefore.call(this, child, reference))
+    guarded(this, [child], () => insertBefore.call(this, child, reference))
+
+    return child
   }
 
   Node.prototype.replaceChild = function <T extends Node>(child: Node, old: T): T {
-    return guarded(this, [child], () => replaceChild.call(this, child, old))
+    guarded(this, [child], () => replaceChild.call(this, child, old))
+
+    return old
   }
 
   Element.prototype.append = function (...nodes) {
