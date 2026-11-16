@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Draw a TanStack Router layout on its own: the frame's router draws the frame as its root route, so its Outlet draws nothing in place of failing",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

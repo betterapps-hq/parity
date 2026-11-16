@@ -1299,19 +1299,28 @@ there.
   in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
   with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
   router (`useLoaderData`, `useFetcher`) still need their route's loader to run, which the canvas doesn't do.
-- **TanStack Router** wraps each frame in `RouterContextProvider`, with a router `createRouter` makes from an empty root
-  route and memory history at the frame's URL, so `Link` draws. `Outlet` draws nothing, as no route matches.
+- **TanStack Router** wraps each frame in `RouterProvider`, with a router `createRouter` makes from a root route and
+  memory history at the frame's URL, so `Link` draws. The root route draws the frame, through `{ "$frame": "content" }`,
+  so a layout's `Outlet` has the matched route it needs and draws nothing, as no child route matches (PAR-1195). The
+  root's not-found component draws nothing too, in place of TanStack Router's "Not Found".
+- **The frame's content as a value.** `{ "$frame": "content" }` is an element drawing what the decorator wraps, for a
+  component that draws it some way other than as its children, as a router draws its root route's component. It reads
+  the content from context, so a value made once, such as that router, draws the frame's latest content.
 
 Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
 `packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
 `packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
 `ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
 `packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
-`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`; each router's manifest.
+`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`, which gives the `content` part from
+`FrameContentContext` too; each router's manifest.
 
 Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
 frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
-around the libraries'" in `packages/extension-vite/src/builder.test.ts`.
+around the libraries'" in `packages/extension-vite/src/builder.test.ts`; "draws it where the component puts it, once,
+and draws the frame's next content there too" in `packages/extension-react/src/guest.react-18.test.ts`; "has a manifest
+Parity accepts" in `packages/extension-tanstack-router/src/extension.test.ts`. Tried in the running app on 2026-11-16 on
+a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its `Outlet`.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1642,8 +1651,7 @@ Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3
 components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
 code since PAR-1156. Tried again on 2026-11-16 on a copy of it: it opens once (PAR-1193), its Home and Settings route
 screens draw the app's pages with `AppShell` around them, and an edit to Home reloads its screen (PAR-1194). `AppShell`
-on its own still fails to draw, as its `Outlet` has no matched route in the router TanStack Router's extension puts
-around frames (PAR-1195).
+on its own draws too, since TanStack Router's frame router draws the frame as its root route (PAR-1195).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 

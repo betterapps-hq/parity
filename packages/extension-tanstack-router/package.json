@@ -99,7 +99,7 @@
             {
               "wrap": {
                 "import": "@tanstack/react-router",
-                "component": "RouterContextProvider",
+                "component": "RouterProvider",
                 "props": {
                   "router": {
                     "$call": {
@@ -112,7 +112,19 @@
                           "$call": {
                             "import": "@tanstack/react-router",
                             "export": "createRootRoute"
-                          }
+                          },
+                          "args": [
+                            {
+                              "component": {
+                                "$function": {
+                                  "$frame": "content"
+                                }
+                              },
+                              "notFoundComponent": {
+                                "$function": null
+                              }
+                            }
+                          ]
                         },
                         "history": {
                           "$call": {

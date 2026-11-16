@@ -4,6 +4,7 @@ import {
   cloneElement,
   createElement,
   forwardRef,
+  memo,
   type ReactElement,
   type ReactNode,
   type Ref,
@@ -136,5 +137,56 @@ describe("frames on React 18", () => {
 
       await vi.waitFor(() => expect(given).toBeInstanceOf(HTMLButtonElement))
     })
+  })
+})
+
+describe("a decorator drawing the frame's content itself", () => {
+  /** A router as TanStack's is: made once, drawing its root route's component and not its own children. */
+  interface Router {
+    root: () => ReactNode
+  }
+
+  const Root = memo(function Root({ router }: { router: Router }) {
+    return router.root()
+  })
+
+  const RouterProvider = ({ router }: { router: Router }) => createElement(Root, { router })
+
+  const guest = () =>
+    createGuest({
+      components: {},
+      css: "",
+      decorators: {
+        list: [
+          {
+            library: "router",
+            decorator: {
+              wrap: {
+                import: "router",
+                component: "RouterProvider",
+                props: {
+                  router: {
+                    $call: { import: "router", export: "createRouter" },
+                    args: [{ root: { $function: { $frame: "content" } } }]
+                  }
+                }
+              }
+            }
+          }
+        ],
+        modules: { router: { RouterProvider, createRouter: (options: Router) => options } }
+      }
+    })
+
+  const saying = (text: string): RenderNode => ({ ...paragraph, children: [{ kind: "text", text }] })
+
+  it("draws it where the component puts it, once, and draws the frame's next content there too (PAR-1195)", async () => {
+    const handle = mount(guest(), [saying("Hello")])
+
+    await vi.waitFor(() => expect(target.textContent).toBe("Hello"))
+
+    handle.update([saying("Goodbye")])
+
+    await vi.waitFor(() => expect(target.textContent).toBe("Goodbye"))
   })
 })
