@@ -409,6 +409,45 @@ createRoot(document.getElementById("root")).render(
     expect(offer).toBeUndefined()
   })
 
+  it("writes copied declarations in the order the app's file has them", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { ConfigProvider } from "./config-provider"
+import App from "./App"
+
+const getConfig = () => config
+const config = { onLoad: getConfig }
+
+createRoot(document.getElementById("root")).render(<ConfigProvider value={getConfig()}><App /></ConfigProvider>)
+`
+      })
+    )
+
+    const text = offer?.text ?? ""
+
+    expect(text.indexOf("const getConfig")).toBeGreaterThan(-1)
+    expect(text.indexOf("const getConfig")).toBeLessThan(text.indexOf("const config"))
+  })
+
+  it("imports a name a computed method key uses", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { GreetingProvider } from "./greeting"
+import { locale } from "./locale"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <GreetingProvider value={{ [locale]() { return "hi" } }}><App /></GreetingProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import { locale } from "../src/locale"`)
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

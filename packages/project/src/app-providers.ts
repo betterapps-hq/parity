@@ -441,6 +441,9 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
   const openings: string[] = []
   const imports = new Map<string, Imported>()
   const declarations = new Map<string, string>()
+  // Where each copied declaration stands in its file, so they're written in the app's order, which a lazy reference
+  // from one to a later one relies on.
+  const places = new Map<string, { file: string; position: number }>()
   let themed = false
   const text = entry.source.text
   const quote = (text.match(/'/g)?.length ?? 0) > (text.match(/"/g)?.length ?? 0) ? "'" : '"'
@@ -492,8 +495,9 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
       imports.set(local, from)
     }
 
-    for (const { name: declared, text: copied } of carried.declarations) {
+    for (const { name: declared, text: copied, node } of carried.declarations) {
       declarations.set(declared, copied)
+      places.set(declared, { file: scope.path, position: node.pos })
     }
 
     themed ||= props.themed
@@ -514,7 +518,7 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
       providers,
       openings,
       imports: withJsxRuntime(imports, entry),
-      declarations,
+      declarations: inSourceOrder(declarations, places),
       themed,
       typescript,
       quote
@@ -892,9 +896,11 @@ function freeNames(node: ts.Node): string[] {
       const inner = new Set([...bound, ...declaredIn(each)])
 
       ts.forEachChild(each, (child) => {
-        // A function's or method's own name isn't something it uses.
+        // A function's or method's own name isn't something it uses, but a computed one's key is, from around it.
         if (child !== each.name) {
           visit(child, inner)
+        } else if (ts.isComputedPropertyName(child)) {
+          visit(child.expression, bound)
         }
       })
 
@@ -1083,6 +1089,23 @@ function previewText({
   }
 
   return lines.join("\n")
+}
+
+/** Copied declarations in the order their files have them, each file's together. */
+function inSourceOrder(
+  declarations: Map<string, string>,
+  places: Map<string, { file: string; position: number }>
+): Map<string, string> {
+  const placeOf = (name: string) => places.get(name) ?? { file: "", position: 0 }
+
+  return new Map(
+    [...declarations].toSorted(([one], [other]) => {
+      const a = placeOf(one)
+      const b = placeOf(other)
+
+      return a.file === b.file ? a.position - b.position : a.file.localeCompare(b.file)
+    })
+  )
 }
 
 /** Stands for the decorator's context in a prop, until the decorator's parameters are named. */
