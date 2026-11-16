@@ -124,6 +124,12 @@ function focusOn(each: LensWindow, groupId: string): LensWindow {
 export function splitRight(layout: Layout, lens: LensId, beside?: string): Layout {
   const from = find(layout, lens)
   const besideId = beside ?? from?.group.id
+
+  // A lens alone in its group, split beside that group, would leave the group empty: there's nothing to split.
+  if (from && from.group.lenses.length === 1 && besideId === from.group.id) {
+    return layout
+  }
+
   const fresh = group([lens])
   const windows = withoutLens(layout, lens)
   const target = windows.find((each) => each.groups.some((one) => one.id === besideId)) ?? windows[0]
