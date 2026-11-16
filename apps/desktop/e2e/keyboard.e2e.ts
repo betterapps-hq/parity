@@ -1,5 +1,6 @@
 import { lengthSteps } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
+import type { Frame } from "playwright-core"
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vite-plus/test"
 import { App, center, until } from "./app.ts"
 
@@ -319,8 +320,16 @@ describe("paste over selection and paste to replace", () => {
   })
 
   it("replaces the selected layer in its place with Ctrl+Shift+R, without reloading the window", async () => {
-    let loads = 0
-    const count = () => loads++
+    // Only the window's own page counts (PAR-1209). The example's route pages are frames on the canvas, and each save
+    // of shadcn-vite.par, which Tailwind scans but Vite doesn't import, makes Tailwind's Vite plugin reload them all.
+    const reloads: string[] = []
+
+    const count = (frame: Frame) => {
+      if (frame === app.page.mainFrame()) {
+        reloads.push(frame.url())
+      }
+    }
+
     app.page.on("framenavigated", count)
 
     try {
@@ -332,7 +341,7 @@ describe("paste over selection and paste to replace", () => {
       await expect.poll(async () => (await app.children("Pricing", links)).includes(status)).toBe(false)
       const copy = (await app.selection()).node!
       expect(await app.children("Pricing", links)).toEqual([privacy, terms, copy])
-      expect(loads).toBe(0)
+      expect(reloads).toEqual([])
       expect(await app.page.evaluate(() => window.e2e !== undefined)).toBe(true)
       await app.page.keyboard.press("Control+z")
       await expect.poll(() => app.children("Pricing", links)).toEqual([privacy, terms, status])
