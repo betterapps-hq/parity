@@ -516,7 +516,8 @@ try {
   corrupt = false
   stage = "downloading a valid update"
   print(stage)
-  await updateToast(page).getByRole("button", { name: "Try again", exact: true }).click()
+  // A failure's toast is hidden from the accessibility tree until it's focused, since its live region announces it.
+  await updateToast(page).getByRole("button", { name: "Try again", exact: true, includeHidden: true }).click()
   await waitForUpdate(page, "ready")
   await later(page)
 
