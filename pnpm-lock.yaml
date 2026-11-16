@@ -909,7 +909,7 @@ importers:
         specifier: workspace:*
         version: link:../project
       '@rsbuild/core':
-        specifier: ^1.0.0 || ^2.0.0
+        specifier: ^1.4.0 || ^2.0.0
         version: 2.3.2
       zod:
         specifier: 'catalog:'

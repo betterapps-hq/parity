@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Rsbuild's supported range starts at 1.4, matching Rspack's",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
