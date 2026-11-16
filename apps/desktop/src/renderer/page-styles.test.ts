@@ -20,8 +20,9 @@ const errors: string[] = []
 /** Parity's side: the boundary, and a stylesheet of Parity's own added the same way a project's is. */
 const entry = `
 import { guardPage, pageStyles } from "./page-styles.ts"
+import { resetWindowStores } from "./store.ts"
 
-export { guardPage, pageStyles }
+export { guardPage, pageStyles, resetWindowStores }
 
 export function addOwnStyle(css) {
   const style = document.createElement("style")
@@ -154,7 +155,10 @@ beforeEach(async () => {
   })
 })
 
-declare const parity: typeof pageStylesModule & { addOwnStyle(css: string): HTMLStyleElement }
+declare const parity: typeof pageStylesModule & {
+  addOwnStyle(css: string): HTMLStyleElement
+  resetWindowStores(): void
+}
 
 declare const project: {
   addStyle(css: string, media?: string): HTMLStyleElement
@@ -487,11 +491,44 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
       await parity.pageStyles(origin).settled()
       project.call(() => link.sheet?.insertRule(".added { background: url(added.png); }", 1))
       project.call(() => link.sheet?.deleteRule(0))
+      const edited = parity.pageStyles(origin).sheets()[0]?.css
 
-      return parity.pageStyles(origin).sheets()[0]?.css
+      // Switched off and on again, the browser reads it again, so its edits are gone in the page and in frames.
+      project.call(() => link.setAttribute("disabled", ""))
+      await new Promise((resolve) => setTimeout(resolve))
+      const reloaded = new Promise((resolve) => link.addEventListener("load", resolve))
+      project.call(() => link.removeAttribute("disabled"))
+      await Promise.race([reloaded, new Promise((resolve) => setTimeout(resolve, 1000))])
+      await new Promise((resolve) => setTimeout(resolve))
+
+      return {
+        edited,
+        reenabled: parity.pageStyles(origin).sheets()[0]?.css,
+        live: [...(link.sheet?.cssRules ?? [])].map((rule) => rule.cssText).join(" ")
+      }
     }, origin)
 
-    expect(result).toBe('.added { background: url("http://project.test/added.png"); }')
+    expect(result).toEqual({
+      edited: '.added { background: url("http://project.test/added.png"); }',
+      reenabled: ".card { color: rgb(255, 0, 0); background: url(http://project.test/card.png); }",
+      live: '.card { color: rgb(255, 0, 0); background: url("card.png"); }'
+    })
+  })
+
+  it("is forgotten when the window's state is reset, as in a new window", async () => {
+    const result = await page.evaluate(async (origin) => {
+      const style = project.addStyle(".a { color: rgb(255, 0, 0); }")
+      let told = 0
+
+      parity.pageStyles(origin).subscribe(() => told++)
+      parity.resetWindowStores()
+      style.textContent = ".b {}"
+      await new Promise((resolve) => setTimeout(resolve))
+
+      return { sheets: parity.pageStyles(origin).sheets(), told, media: style.getAttribute("media") }
+    }, origin)
+
+    expect(result).toEqual({ sheets: [], told: 0, media: "not all" })
   })
 
   it("resolves a redirected stylesheet's url()s against where it came from in the end", async () => {

@@ -1,5 +1,6 @@
 import { callerOrigin, importsIn, relativeUrlsFrom, withImports, withMedia } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
+import { resetWithWindow, type Signal, signal } from "./store.ts"
 
 /**
  * The boundary between a project's styles and Parity's own window (PAR-1187). A project's code runs in Parity's page,
@@ -47,7 +48,9 @@ interface Caught {
 
 const muted = "not all"
 const caught = new Map<Element, Caught>()
-const listeners = new Map<string, Set<() => void>>()
+
+/** What tells each origin's listeners its stylesheets changed. */
+const signals = new Map<string, Signal>()
 
 /** What settles once the linked stylesheets each origin's code added so far have been read. */
 const read = new Map<string, Promise<void>>()
@@ -94,11 +97,10 @@ export function pageStyles(origin: string): PageStyles {
       })
     },
     subscribe(listener) {
-      const set = listeners.get(origin) ?? new Set()
-      listeners.set(origin, set)
-      set.add(listener)
+      const changes = signals.get(origin) ?? signal()
+      signals.set(origin, changes)
 
-      return () => set.delete(listener)
+      return changes.subscribe(listener)
     },
     async settled() {
       await read.get(origin)
@@ -195,9 +197,7 @@ function tell(origin: string): void {
       changed.clear()
 
       for (const each of origins) {
-        for (const listener of listeners.get(each) ?? []) {
-          listener()
-        }
+        signals.get(each)?.notify()
       }
     })
   }
@@ -324,7 +324,8 @@ function followChanges(records: MutationRecord[]): void {
       entry.media = media.media
       mute(element)
     } else {
-      // A new address or text replaces its rules, edits and all.
+      // A new address or text replaces its rules, edits and all; so does switching a link off and on again, which reads
+      // it again.
       entry.edited = false
 
       if (element instanceof HTMLLinkElement) {
@@ -545,3 +546,18 @@ function guardRuleEdits(): void {
     edited(this)
   }
 }
+
+// A new window has caught nothing yet. What the last one caught stays switched off in the page, as the project's.
+resetWithWindow(() => {
+  caught.clear()
+
+  for (const changes of signals.values()) {
+    changes.dispose()
+  }
+
+  signals.clear()
+  read.clear()
+  changed.clear()
+  lastOrder.clear()
+  imported.clear()
+})

@@ -8355,7 +8355,7 @@ Code: `apps/desktop/src/renderer/page-styles.ts`; what's done to a stylesheet's 
 `showAddedStyles` and `addedSheet` in `guest.ts`, adopted before the guest's own sheet by `mountFrame` in
 `frame-host.ts`.
 
-Tests: `apps/desktop/src/renderer/page-styles.test.ts` (19, in Chrome, with Parity's page and a project's code served
+Tests: `apps/desktop/src/renderer/page-styles.test.ts` (20, in Chrome, with Parity's page and a project's code served
 from two origins: a project's stylesheet switched off in the page and kept for its frames; Parity's own and one in a
 frame's shadow root left alone; text, inserted rules and removal followed, with one update each; rules inserted straight
 after its text is set, in the same task, kept; a move within the page taken as a new place; the media kept when it's
@@ -8364,7 +8364,8 @@ kept, and one made after a link's address changes; a stylesheet taken out with t
 frame's shadow root, or out of an element that moved first, let go of; a new order from moving the elements around them;
 a link its code disables left out until it's enabled; the media it was given, and changed, kept; a linked stylesheet
 read with its relative `url()`s resolved against its address, or where a redirect took it; rules its code inserts into
-and deletes from a readable linked stylesheet taken). `packages/core/src/page-css.test.ts` (11: a quoted `url()` with
+and deletes from a readable linked stylesheet taken, until switching it off and on reads it again; everything caught
+forgotten when the window's stores are reset). `packages/core/src/page-css.test.ts` (11: a quoted `url()` with
 parentheses resolved whole; `url(` in a string or comment left alone; nested supports conditions and ones like
 `selector()` kept as written; the caller's origin from a stack, past an opaque one; relative `url()`s resolved;
 `@import`s put in place with their conditions, a quoted import address with semicolons read whole and an import's root
