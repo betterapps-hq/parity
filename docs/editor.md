@@ -7941,11 +7941,15 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   (`BuilderAdapter.prepare`): Vite creates its server, says which stylesheets the app loads from it, and starts serving
   once the project's components are known. The modules it read the stylesheets with are compiled again once its
   dependency optimizer runs, so none keep its earlier hashes. A builder that doesn't prepare, or can't say, leaves it to
-  its extension, as before. Opening copacker went from about 36 seconds to between 26 and 32 seconds until it served,
-  timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts` (2: the stylesheets come from the
-  builder started early, and from its extension when it can't say) and `packages/processes/src/builder-process.test.ts`
-  (3: a prepared builder answers the stylesheets before its config comes, one whose config never comes is closed, and
-  one that doesn't prepare says nothing).
+  its extension, as before. That's the extension of the builder that serves the project (PAR-1193): a builder's config
+  file being there doesn't make it the project's, as Rspack's extension watches `rsbuild.config.*` and leaves the
+  project to Rsbuild's. Asking Rspack's gave no stylesheets, while the check after opening asked Rsbuild's, so every
+  Rsbuild project read as changed and opened again, endlessly. Opening copacker went from about 36 seconds to between 26
+  and 32 seconds until it served, timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts`
+  (3: the stylesheets come from the builder started early, from its extension when it can't say, and from the builder
+  that serves the project when the one started early leaves it to another) and
+  `packages/processes/src/builder-process.test.ts` (3: a prepared builder answers the stylesheets before its config
+  comes, one whose config never comes is closed, and one that doesn't prepare says nothing).
 - **A builder process waits ready before a project opens (PAR-1079).** Starting a builder's process and loading the
   builders' code took about 0.4 seconds before the builder itself began. The service starts one process as it starts,
   and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
