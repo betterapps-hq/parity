@@ -8508,6 +8508,38 @@ tokens, nor for a root in a theme). Checked in the running app on `nextjs-webpac
 solid buttons drew black in light and white in dark, as Chakra draws them, teal buttons and a purple badge filled, and
 Problems found nothing in either mode. Before, every solid button was transparent.
 
+### A project's code can't reload Parity's window or change its root (PAR-1207)
+
+A project's code can't reload or leave Parity's window, nor change Parity's `<html>` or `<body>`, whichever builder or
+library it comes from. It runs in Parity's own window, beside the stylesheet boundary above. Before, a Vite project's
+client, which its modules import for hot updates, reloaded the whole window when its server restarted. A shadcn theme
+toggle set `dark` on the page's `<html>`, where Parity keeps its own theme.
+
+- **Reloads.** The first guest the page loads adds a `beforeunload` handler (`guardWindow`). An unload runs it in the
+  same call as the `location.reload()` or navigation that started it, so the code that asked is on the stack. If any
+  frame on it is another origin's, the unload is cancelled and the log says which origin tried. Any frame, not the
+  first: Sentry wraps every listener the page adds, so Parity's own code calls the handler. Parity's own reloads go
+  ahead, and so does closing or reloading the window from its menu, which no page code starts. Electron cancels without
+  asking.
+- **`<html>` and `<body>`.** `setAttribute`, `removeAttribute`, `toggleAttribute`, `className`, `classList`'s methods,
+  `setProperty`, `removeProperty` and inline style properties set by name are wrapped. Chrome sets a style property by
+  name without a setter to wrap, so their `style` is a proxy. Another origin's change to them is dropped, and `toggle`,
+  `replace` and `toggleAttribute` answer as if it had been made. It isn't moved into the project's frames: a frame's
+  body takes its classes and attributes from the frame's modes, such as a theme mode's `dark`, which a toggle would
+  otherwise override in every frame. Parity's own changes, and the project's to its own elements, go through.
+- **What it doesn't cover.** Changes through `dataset`, other ways to navigate that don't run page code first, and the
+  rest of what the proposal lists: window listeners, history, portals, globals and errors.
+
+Code: `apps/desktop/src/renderer/page-window.ts`, set up from `guest.ts` beside `guardPage`. Tests:
+`apps/desktop/src/renderer/page-window.test.ts` (3, in Chrome, with Parity's page and a project's code served from two
+origins: a project's reload cancelled and logged with its origin, with listeners wrapped as Sentry wraps them, and
+Parity's own reload let through; a theme toggle's class, attribute, `colorScheme` and scroll lock dropped from `<html>`
+and `<body>`, with `toggle` and `toggleAttribute` answering as if they'd been made; Parity's own changes to them, and
+the project's to its own elements, made). Checked in the running app with shadcn-vite open: a module of the project's
+that toggles the theme and sets the body's overflow left Parity's `<html>` and `<body>` as they were. Its
+`location.reload()`, and its Vite client's reload after the project's `vite.config.ts` changed, both left the window
+open, with one log line each kind. Parity's own reload went ahead.
+
 ### Detected again when what detection reads changes (PAR-820)
 
 An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: the
