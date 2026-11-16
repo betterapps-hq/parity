@@ -1,7 +1,15 @@
 import { memoryPorts } from "@parity-app/channel"
-import type { BuilderAdapter, BuilderStartOptions, CodeChange, RendererAdapter } from "@parity-app/core"
+import type {
+  AppStyles,
+  BuilderAdapter,
+  BuilderStartOptions,
+  CodeChange,
+  ProjectConfig,
+  RendererAdapter
+} from "@parity-app/core"
 import { describe, expect, it, vi } from "vite-plus/test"
 import {
+  type BuilderLaunchOptions,
   type BuilderProcessClientOptions,
   builderProcessOptions,
   connectBuilderProcess,
@@ -68,7 +76,8 @@ function fakeBuilder(start?: (options: BuilderStartOptions) => Promise<void>) {
 function connect(
   builder: BuilderAdapter,
   settings: BuilderProcessClientOptions = {},
-  times: () => ProcessTimes = () => ({ cpu: 0, uptime: 1, memory: 0 })
+  times: () => ProcessTimes = () => ({ cpu: 0, uptime: 1, memory: 0 }),
+  launch: BuilderLaunchOptions = builderProcessOptions(builder, startOptions)
 ) {
   const [service, child] = memoryPorts()
   let finish: (end: ChildEnd) => void = () => undefined
@@ -79,7 +88,7 @@ function connect(
 
   serveBuilderProcess({ port: child, usage: times, exit }, [builder])
 
-  const client = connectBuilderProcess({ port: service, life }, builderProcessOptions(builder, startOptions), {
+  const client = connectBuilderProcess({ port: service, life }, launch, {
     name: "Vite",
     ...settings
   })
@@ -260,5 +269,65 @@ describe("a builder in its own process", () => {
     life.stop()
     await life.exited
     expect(onCrash).not.toHaveBeenCalled()
+  })
+})
+
+/** A builder that prepares (PAR-1182): what it was prepared and started with, and what closed. */
+function preparingBuilder(styles: AppStyles) {
+  const { builder, started, close } = fakeBuilder()
+  const prepared: unknown[] = []
+  const closedUnstarted = vi.fn<() => Promise<void>>(() => Promise.resolve())
+
+  builder.prepare = (options) => {
+    prepared.push(options)
+
+    return Promise.resolve({
+      styles: () => Promise.resolve(styles),
+      start: (config) => builder.start({ ...options, config }),
+      close: closedUnstarted
+    })
+  }
+
+  return { builder, prepared, started, close, closedUnstarted }
+}
+
+describe("a builder that prepares", () => {
+  const appStyles: AppStyles = { styles: ["src/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+
+  it("says which stylesheets the app loads before the project's config is known, then starts with it", async () => {
+    const { builder, prepared, started } = preparingBuilder(appStyles)
+    const config = Promise.withResolvers<ProjectConfig>()
+    const launch = { ...builderProcessOptions(builder, startOptions), config: config.promise }
+    const { client } = connect(builder, {}, undefined, launch)
+
+    expect(await client.styles()).toEqual(appStyles)
+    expect(prepared).toHaveLength(1)
+    expect(started).toEqual([])
+
+    config.resolve(startOptions.config)
+    expect((await client.session).guestUrl).toBe("http://127.0.0.1:5400/guest")
+    expect(started[0]?.config.components).toEqual(startOptions.config.components)
+  })
+
+  it("closes a prepared builder whose config never comes", async () => {
+    const { builder, closedUnstarted, started } = preparingBuilder(appStyles)
+    const config = Promise.withResolvers<ProjectConfig>()
+    const launch = { ...builderProcessOptions(builder, startOptions), config: config.promise }
+    const { client, exit } = connect(builder, {}, undefined, launch)
+    await client.styles()
+
+    config.reject(new Error("The project couldn't be read"))
+    await expect(client.session).rejects.toThrow("The project couldn't be read")
+    await vi.waitFor(() => expect(exit).toHaveBeenCalled())
+    expect(closedUnstarted).toHaveBeenCalledTimes(1)
+    expect(started).toEqual([])
+  })
+
+  it("says nothing of the stylesheets when the builder doesn't prepare", async () => {
+    const { builder } = fakeBuilder()
+    const { client } = connect(builder)
+
+    expect(await client.styles()).toBeUndefined()
+    await client.session
   })
 })

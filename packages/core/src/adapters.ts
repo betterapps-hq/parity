@@ -380,10 +380,30 @@ export interface BuilderAdapter extends Adapter {
   watches: readonly string[]
   start(options: BuilderStartOptions): Promise<BuilderSession>
   /**
+   * Starts in two steps, so the slow part overlaps Parity reading the project (PAR-1182). The build tool loads the
+   * project's config and plugins before the project's components are known. Then the prepared builder says which
+   * global stylesheets the app loads, using that same build tool, and starts once it has the project's config. A
+   * builder without it is started whole, once the config is known.
+   */
+  prepare?(options: BuilderPrepareOptions): Promise<PreparedBuilder>
+  /**
    * The global stylesheets the app loads, as the build tool resolves the app's imports from its entries: the only
    * source Parity has for them. Empty when the app loads none, as with CSS-in-JS.
    */
   styles?(project: DetectContext): Promise<AppStyles>
+}
+
+/** What a builder prepares with (`BuilderAdapter.prepare`): its start options, less the project's config. */
+export type BuilderPrepareOptions = Omit<BuilderStartOptions, "config">
+
+/** A builder whose build tool has loaded the project's config, and hasn't started serving yet. */
+export interface PreparedBuilder {
+  /** The global stylesheets the app loads, as `BuilderAdapter.styles` finds them, using the prepared build tool. */
+  styles(): Promise<AppStyles>
+  /** Starts serving the guest of `config`. A builder starts once. */
+  start(config: ProjectConfig): Promise<BuilderSession>
+  /** Closes the build tool without starting it. */
+  close(): Promise<void>
 }
 
 /** The global stylesheets an app loads, as its builder reports them (`BuilderAdapter.styles`). */
@@ -400,7 +420,7 @@ export interface AppStyles {
  * A builder as its extension's manifest describes it (PAR-1095): its provider says whether it serves a project, and its
  * entry module starts it, in the builder process.
  */
-export type BuilderDescription = Omit<BuilderAdapter, "start" | "detect" | "styles">
+export type BuilderDescription = Omit<BuilderAdapter, "start" | "prepare" | "detect" | "styles">
 
 /** What of an extension's `package.json` describes the builder it gives. */
 export interface BuilderPackage {

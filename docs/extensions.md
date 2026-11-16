@@ -112,6 +112,8 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `providers.renderer` names its guest module, runtime packages and imports, development stand-ins and component file
   extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's
   `providers.builder` names its entry module, which the builder process runs, and the config files it watches. An
+  entry module whose builder has `prepare()` as well as `start()` loads the project's config before its components are known
+  and says which stylesheets the app loads with it, so the config loads once as the project opens (PAR-1182). An
   `entities` provider's `import({ components })` reads a tool's files as screens and
   `export({ screen, edited, components })` writes an edited one back, as Storybook's stories, while the manifest's
   `providers.entities` names the config files it watches, which also say where its tool's config is, and how Parity

@@ -7843,6 +7843,18 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   A builder that detection doesn't confirm is closed, and the one it finds is started instead.
   `apps/desktop/src/utility/projects.test.ts` (2: the builder starts before detection confirms it and serves from there,
   and one detection can't confirm is closed).
+- **The project's config loads once as it opens (PAR-1182).** Which global stylesheets the app loads was asked of a
+  build tool of its own, loading the project's config and plugins a second time, and the builder waited for the answer.
+  On copacker that took about 13 seconds, mostly Cloudflare's plugin starting its worker runtime. Now the builder
+  whose config file is there starts as soon as the renderer is known and prepares in its own process
+  (`BuilderAdapter.prepare`): Vite creates its server, says which stylesheets the app loads from it, and starts serving
+  once the project's components are known. The modules it read the stylesheets with are compiled again once its
+  dependency optimizer runs, so none keep its earlier hashes. A builder that doesn't prepare, or can't say, leaves it to
+  its extension, as before. Opening copacker went from about 36 seconds to between 26 and 32 seconds until it served,
+  timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts` (2: the stylesheets come from the
+  builder started early, and from its extension when it can't say) and `packages/processes/src/builder-process.test.ts`
+  (3: a prepared builder answers the stylesheets before its config comes, one whose config never comes is closed, and
+  one that doesn't prepare says nothing).
 - **A builder process waits ready before a project opens (PAR-1079).** Starting a builder's process and loading the
   builders' code took about 0.4 seconds before the builder itself began. The service starts one process as it starts,
   and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.

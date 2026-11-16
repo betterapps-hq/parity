@@ -1,9 +1,9 @@
 import { availableParallelism } from "node:os"
 import { fileURLToPath } from "node:url"
-import type { CodeChange } from "@parity-app/core"
+import type { AppStyles, CodeChange } from "@parity-app/core"
 import {
   type BuilderProcessClient,
-  type BuilderProcessOptions,
+  type BuilderLaunchOptions,
   type BuilderProcessSession,
   type ChildExit,
   connectBuilderProcess,
@@ -49,6 +49,11 @@ const running = new Set<Running>()
 export interface StartedBuilder {
   pid?: number
   session: Promise<BuilderProcessSession>
+  /**
+   * The global stylesheets the app loads, from the builder while it prepares (PAR-1182); none when it doesn't prepare.
+   * Fails when it couldn't find them.
+   */
+  styles(): Promise<AppStyles | undefined>
 }
 
 /** How a builder's process ended by itself: its exit code or signal, and the last of what it printed. */
@@ -81,7 +86,7 @@ export function stoppedFromOutside(exit: BuilderExit | undefined): boolean {
  * service's output, and the end of it into the error when the process stops by itself.
  */
 export function startBuilder(
-  options: BuilderProcessOptions,
+  options: BuilderLaunchOptions,
   {
     builder,
     project,
@@ -122,7 +127,13 @@ export function startBuilder(
   running.add(item)
   void life.exited.then(() => running.delete(item))
 
-  return life.pid ? { pid: life.pid, session: client.session } : { session: client.session }
+  const started: StartedBuilder = { session: client.session, styles: () => client.styles() }
+
+  if (life.pid) {
+    started.pid = life.pid
+  }
+
+  return started
 }
 
 /** How a builder's process ended, as the project's crash handling reads it. */
