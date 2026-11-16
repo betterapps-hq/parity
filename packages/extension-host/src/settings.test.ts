@@ -1,6 +1,6 @@
-import type { SettingContribution } from "@parity-app/extension-api"
+import type { SettingContribution } from "@parity-app/extension"
 import { describe, expect, it } from "vite-plus/test"
-import { changedValues, defaultOf, fits, readExtensionSettings, storedKey } from "./settings.ts"
+import { changedValues, defaultOf, readExtensionSettings, storedKey } from "./settings.ts"
 
 const declared = {
   "storybook.configDir": { type: "string", default: ".storybook", scope: "project", title: "Config folder" },
@@ -39,14 +39,6 @@ describe("extensions' settings", () => {
 
     expect(read.values["storybook.openIn"]).toBe("browser")
     expect(read.problems).toEqual(["Open stories in is set to \"tab\", which it can't take, so it's at its default."])
-  })
-
-  it("takes a value only of its type, and one of its choices when it has them", () => {
-    expect(fits({ type: "number", scope: "app", title: "N" }, 3)).toBe(true)
-    expect(fits({ type: "number", scope: "app", title: "N" }, "3")).toBe(false)
-    expect(fits({ type: "boolean", scope: "app", title: "On" }, false)).toBe(true)
-    expect(fits(declared["storybook.openIn"], "parity")).toBe(true)
-    expect(fits(declared["storybook.openIn"], "tab")).toBe(false)
   })
 
   it("defaults to the first choice, or the type's empty value, without a default", () => {

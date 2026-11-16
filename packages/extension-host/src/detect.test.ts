@@ -1,7 +1,7 @@
-import type { JsonValue } from "@parity-app/extension-api"
+import type { JsonValue } from "@parity-app/extension"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import { detectByManifest } from "./detect.ts"
-import { readExtension } from "./manifest.ts"
 
 const icon = { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" }
 

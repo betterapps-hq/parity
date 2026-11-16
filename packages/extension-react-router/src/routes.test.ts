@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { join } from "node:path"
-import type { Route } from "@parity-app/extension-api"
+import type { Route } from "@parity-app/extension"
 import { describe, expect, it } from "vite-plus/test"
 import type { ProjectFiles } from "./config.ts"
 import { appDirectoryOf, fullPath, moduleFacts, readRoutes, segmentsOf } from "./routes.ts"

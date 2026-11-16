@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
 import { detectWebpack, webpackBuilder, webpackConfigFiles } from "./builder.ts"

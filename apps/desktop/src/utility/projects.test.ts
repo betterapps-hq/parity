@@ -11,11 +11,11 @@ import {
   extensionRenderer,
   parseCanvasDocument
 } from "@parity-app/core"
+import type { ProviderCall, ProviderKind } from "@parity-app/extension-host"
 import { readComponents } from "@parity-app/extension-react"
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { importStoryScreens } from "@parity-app/extension-storybook/screens"
-import type { ProviderCall, ProviderKind } from "@parity-app/extensions"
 import type { BuilderProcessSession } from "@parity-app/processes"
 import { detectContext, projectSource } from "@parity-app/project"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"

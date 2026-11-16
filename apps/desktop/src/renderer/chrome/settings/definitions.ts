@@ -1,4 +1,4 @@
-import type { Permissions } from "@parity-app/extension-api"
+import type { Permissions } from "@parity-app/extension"
 import { codeEditors } from "@parity-app/processes"
 import {
   Download,

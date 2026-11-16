@@ -1,4 +1,4 @@
-import type { Route, RouteSegment } from "@parity-app/extension-api"
+import type { Route, RouteSegment } from "@parity-app/extension"
 import ts from "typescript"
 
 /** The extensions an import without one may leave off, tried in this order. */

@@ -1,4 +1,4 @@
-import type { Parity } from "@parity-app/extension-api"
+import { defineExtension, type Parity } from "@parity-app/extension"
 import type { StorybookApi } from "@parity-app/extension-storybook"
 import { z } from "zod"
 import { accessibilityPage } from "./accessibility.ts"
@@ -16,7 +16,9 @@ const storybookId = "@parity-app/extension-storybook"
 /** The `a11y.page` tool's input, as its schema in the manifest gives it. */
 const pageInput = z.object({ component: z.string() })
 
-export async function activate(parity: Parity): Promise<void> {
+export default defineExtension({ activate })
+
+async function activate(parity: Parity): Promise<void> {
   const storybook = parity.extensions.get<StorybookApi>(storybookId).api
   parity.context.set("a11y.hasStories", await storybook.componentsWithStories())
 

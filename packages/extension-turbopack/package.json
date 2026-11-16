@@ -13,12 +13,9 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*",
     "@parity-app/next-builders": "workspace:*",
     "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
     "next": "^16.0.0"

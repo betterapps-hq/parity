@@ -6,7 +6,7 @@ import type {
   ProcessInfo,
   Processes,
   ProcessErrorCode
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
 import { isLocalHost, matchedLineLength, opensAt, readyPattern } from "@parity-app/processes"
 import { z } from "zod"
 import type { HostServiceMethods, ProcessSnapshot } from "./protocol.ts"

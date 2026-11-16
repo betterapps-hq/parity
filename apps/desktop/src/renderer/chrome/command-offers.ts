@@ -1,5 +1,5 @@
 import { isInnerPath, locateInner, locateNode, type NodeRef } from "@parity-app/core"
-import type { CommandTarget, LayerTarget, MenuPlacement } from "@parity-app/extension-api"
+import type { CommandTarget, LayerTarget, MenuPlacement } from "@parity-app/extension"
 import { containerEntry } from "@parity-app/multiplayer"
 import type { ExtensionStatus } from "../../shared/protocol.ts"
 import { boardComponent } from "../canvas/component-boards.ts"

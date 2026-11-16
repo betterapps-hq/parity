@@ -1,7 +1,7 @@
 import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
-import { agentExtensions } from "@parity-app/extensions"
+import { agentExtensions } from "@parity-app/extension-host"
 import { errorCode } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"

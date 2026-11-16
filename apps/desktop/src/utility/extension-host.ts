@@ -5,7 +5,7 @@ import { AsyncLocalStorage } from "node:async_hooks"
 import { pathToFileURL } from "node:url"
 import { format } from "node:util"
 import { nodePort } from "@parity-app/channel"
-import { serveExtensionHost } from "@parity-app/extensions"
+import { serveExtensionHost } from "@parity-app/extension-host"
 
 // Which agent's call the extension's code is running for, carried across its awaits (PAR-1096).
 const calls = new AsyncLocalStorage<number | undefined>()

@@ -11,12 +11,9 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@parity-app/extension": "workspace:*",
     "typescript": "6.0.3",
     "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
     "@tanstack/react-router": "^1.0.0"

@@ -1,4 +1,5 @@
 import { libraryDecorator, parseData, peerVersions, type ToolVersions } from "@parity-app/core"
+import { z } from "zod"
 import type {
   ActivationEvent,
   AgentToolContribution,
@@ -14,9 +15,7 @@ import type {
   Providers,
   SettingContribution,
   ToolVersionFacts
-} from "@parity-app/extension-api"
-import { isProcessPermission } from "@parity-app/processes"
-import { z } from "zod"
+} from "../index.ts"
 import { keymapKeys } from "./keys.ts"
 import { fits } from "./settings.ts"
 import { isBuiltInKey, parseWhen, type When, whenKeys } from "./when.ts"
@@ -37,6 +36,11 @@ const iconName = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "expected an ico
 const viewKind = z.enum(["table", "tree", "list", "form", "keyValue"])
 
 const title = z.string().trim().min(1, "can't be blank")
+
+/** Whether a `permissions.processes` entry is well formed: a kind of run, then what it names. */
+function isProcessPermission(entry: string): boolean {
+  return /^(bin|script|exec|node):\S+$/.test(entry)
+}
 
 /** Path data's commands and numbers, and nothing that could carry script. */
 const pathData = /^[MmZzLlHhVvCcSsQqTtAa0-9eE.,+\-\s]+$/

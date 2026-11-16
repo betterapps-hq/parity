@@ -10,10 +10,6 @@
     ".": "./src/extension.ts",
     "./package.json": "./package.json"
   },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
-  },
   "peerDependencies": {
     "next": "^16.0.0"
   },
@@ -102,5 +98,8 @@
         "router": {}
       }
     }
+  },
+  "dependencies": {
+    "@parity-app/extension": "workspace:*"
   }
 }

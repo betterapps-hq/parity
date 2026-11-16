@@ -1,5 +1,5 @@
 import { type ClassPrinter, writeClasses } from "@parity-app/core"
-import type { Parity, ThemeVariable } from "@parity-app/extension-api"
+import { defineExtension, type Parity, type ThemeVariable } from "@parity-app/extension"
 import { loadDesignSystem } from "./design-system.ts"
 import { tailwindPrinter } from "./printer.ts"
 import { writeTailwindTokens } from "./tokens.ts"
@@ -31,7 +31,9 @@ export async function readTheme(root: string, stylesheet: string): Promise<Theme
   return variables
 }
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const { root } = parity.project
   const status = parity.status.item("tailwind.status")
   status.set({ value: "Tailwind CSS", tooltip: "Reads the theme and writes classes. Click to show the tokens" })

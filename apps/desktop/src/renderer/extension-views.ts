@@ -7,7 +7,7 @@ import type {
   ViewData,
   ViewItem,
   ViewKind
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
 import type { ExtensionStatus } from "../shared/protocol.ts"
 import { setLayout } from "./chrome/layout.ts"
 import { extensionsOf, holdsFor, showing } from "./extensions.ts"

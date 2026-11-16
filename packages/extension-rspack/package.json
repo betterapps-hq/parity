@@ -13,11 +13,8 @@
   },
   "dependencies": {
     "@parity-app/builder-webpack-compatible": "workspace:*",
-    "@parity-app/core": "workspace:*"
-  },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
+    "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*"
   },
   "peerDependencies": {
     "@rspack/core": "^1.4.0 || ^2.0.0"

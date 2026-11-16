@@ -1,4 +1,4 @@
-import type { Route, RouteSegment } from "@parity-app/extension-api"
+import type { Route, RouteSegment } from "@parity-app/extension"
 
 /*
  * Next.js's file conventions in Parity's terms (PAR-1162). Next.js has no route tree to read: its routes are its

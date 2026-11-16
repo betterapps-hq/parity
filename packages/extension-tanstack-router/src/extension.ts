@@ -1,4 +1,4 @@
-import type { CommandTarget, NodeRef, Parity, Route } from "@parity-app/extension-api"
+import { type CommandTarget, defineExtension, type NodeRef, type Parity, type Route } from "@parity-app/extension"
 import { readRoutes } from "./routes.ts"
 
 /*
@@ -9,7 +9,9 @@ import { readRoutes } from "./routes.ts"
  * bar counts the pages. Its peer dependency says which versions Parity supports, and finds the router in a project.
  */
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const count = parity.status.item("tanstack-router.routes")
   parity.subscriptions.push(count)
 

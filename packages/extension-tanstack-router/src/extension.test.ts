@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
 import { isPage, projectRoutes, routeOf } from "./extension.ts"

@@ -1,6 +1,6 @@
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import type { ExtensionStatus, ProjectProcess } from "../shared/protocol.ts"
 import { commandsAt, extensionKeyFor, extensionKeys, statusItems, statusTooltip } from "./extensions.ts"

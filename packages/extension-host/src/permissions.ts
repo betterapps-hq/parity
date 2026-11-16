@@ -1,4 +1,4 @@
-import type { Permissions } from "@parity-app/extension-api"
+import type { Permissions } from "@parity-app/extension"
 
 /*
  * What an extension's manifest lets it change. Permissions keep an extension's writes through Parity to what it declared,

@@ -1,4 +1,4 @@
-import type { PathIcon } from "@parity-app/extension-api"
+import type { PathIcon } from "@parity-app/extension"
 import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
 
 /** Whether a name is one of the kit's icons. */

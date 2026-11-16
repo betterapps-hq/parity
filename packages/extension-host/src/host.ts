@@ -16,7 +16,7 @@ import type {
   SettingValue,
   State,
   StatusItem
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
 import { type HostFiles, hostFiles } from "./host-files.ts"
 import { type HostProcesses, hostProcesses } from "./host-processes.ts"
 import type {
@@ -325,10 +325,10 @@ async function activate(
   calls: CallContext,
   { processes, files, marks }: { processes: HostProcesses; files: HostFiles; marks: Marks }
 ): Promise<Activated> {
-  const exports = await side.load(params.main)
+  const exports = extensionOf(await side.load(params.main))
 
-  if (!isModule(exports)) {
-    throw new Error(`${params.main} doesn't export an activate function`)
+  if (!exports) {
+    throw new Error(`${params.main} doesn't export an extension: export default defineExtension({ activate })`)
   }
 
   const handlers = new Map<string, CommandHandler>()
@@ -775,7 +775,17 @@ function isObject(value: unknown): value is object {
   return Object(value) === value
 }
 
-/** Whether a module's exports have an `activate` function. An extension's module can export anything. */
+/** The extension a module exports: its default, as `defineExtension` makes it, or its own `activate`. */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- a module can export anything
+function extensionOf(exports: unknown): ExtensionModule | undefined {
+  if (isObject(exports) && "default" in exports && isModule(exports.default)) {
+    return exports.default
+  }
+
+  return isModule(exports) ? exports : undefined
+}
+
+/** Whether a value has an `activate` function, as an extension does. */
 function isModule(exports: unknown): exports is ExtensionModule {
   return (
     isObject(exports) &&

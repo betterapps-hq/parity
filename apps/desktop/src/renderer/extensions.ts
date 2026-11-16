@@ -6,8 +6,14 @@ import type {
   MenuPlacement,
   NodeRef,
   StatusItemContribution
-} from "@parity-app/extension-api"
-import { type ExtensionKey, holdsWhen, type ResolvedKeys, resolveKeys, type WhenValue } from "@parity-app/extensions"
+} from "@parity-app/extension"
+import {
+  type ExtensionKey,
+  holdsWhen,
+  type ResolvedKeys,
+  resolveKeys,
+  type WhenValue
+} from "@parity-app/extension/manifest"
 import { toast } from "sonner"
 import type { ExtensionStatus, ExtensionUiRequest, LogLine, ProjectProcess } from "../shared/protocol.ts"
 import { type Command, keymap, keysOf } from "./chrome/keymap.ts"

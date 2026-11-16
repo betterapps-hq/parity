@@ -1,4 +1,4 @@
-import type { Keybinding } from "@parity-app/extension-api"
+import type { Keybinding } from "../index.ts"
 
 /*
  * Extensions' keys (PAR-1092). A manifest writes keys as VS Code does, `mod+shift+t`; Parity's keymap writes them as on

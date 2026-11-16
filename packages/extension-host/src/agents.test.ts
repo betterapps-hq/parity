@@ -1,13 +1,13 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 import { memoryPorts } from "@parity-app/channel"
-import type { AgentToolInput, ExtensionModule, Parity } from "@parity-app/extension-api"
+import type { AgentToolInput, ExtensionModule, Parity } from "@parity-app/extension"
+import { type ExtensionPackage, readExtension } from "@parity-app/extension/manifest"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { z } from "zod"
 import { agentExtensions, readToolInput } from "./agents.ts"
 import { serveExtensionHost } from "./host.ts"
 import { type ExtensionEdits, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
-import { type ExtensionPackage, readExtension } from "./manifest.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
 

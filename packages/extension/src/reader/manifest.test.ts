@@ -1,5 +1,5 @@
-import type { JsonValue, Manifest } from "@parity-app/extension-api"
 import { describe, expect, it } from "vite-plus/test"
+import type { JsonValue, Manifest } from "../index.ts"
 import { readExtension } from "./manifest.ts"
 
 const icon = { viewBox: "0 0 24 24", path: "M12 2L2 22h20z" }
@@ -52,6 +52,20 @@ describe("readExtension", () => {
     })
     expect(readExtension(packageJson()).versions).toBeUndefined()
     expect(() => readExtension(packageJson({ versions: { majors: [] } }))).toThrow("/parity/versions")
+  })
+
+  it("takes a process permission only as a kind of run, then what it names", () => {
+    expect(
+      readExtension(packageJson({ permissions: { processes: ["exec:cloudflared"] } })).manifest.permissions
+    ).toEqual({
+      processes: ["exec:cloudflared"]
+    })
+    expect(() => readExtension(packageJson({ permissions: { processes: ["cloudflared"] } }))).toThrow(
+      "/parity/permissions/processes/0"
+    )
+    expect(() => readExtension(packageJson({ permissions: { processes: ["exec:"] } }))).toThrow(
+      "/parity/permissions/processes/0"
+    )
   })
 
   it("refuses a package without a manifest", () => {

@@ -1,4 +1,4 @@
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
 import { readComponents } from "./extension.ts"

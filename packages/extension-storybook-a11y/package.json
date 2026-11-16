@@ -12,14 +12,11 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@parity-app/extension": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@parity-app/channel": "workspace:*",
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extension-storybook": "workspace:*",
-    "@parity-app/extensions": "workspace:*",
-    "@parity-app/processes": "workspace:*"
+    "@parity-app/extension-storybook": "workspace:*"
   },
   "peerDependencies": {
     "@storybook/addon-a11y": "^9.0.0 || ^10.0.0"

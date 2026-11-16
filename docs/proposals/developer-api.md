@@ -48,8 +48,9 @@ overlay, keep state, or fail without taking the project service down with it.
 - **Parity's own features are extensions.** Storybook, TanStack Router, React Router, Next.js, Tailwind, React and Vite
   use only the public API. When Storybook needs something the API lacks, the API is missing it, so every gap shows up in
   real use first.
-- **One typed, versioned API.** Extensions depend on `@parity-app/extension-api`, which holds types and nothing else,
-  and name the version they need in `engines.parity`. Nothing from `@parity-app/core` leaks, so Parity can change inside
+- **One typed, versioned API.** Extensions depend on one package, `@parity-app/extension`: its types, `defineExtension`,
+  and the manifest check their tests run. They name the version they need in `engines.parity`. Parity's host,
+  `@parity-app/extension-host`, stays internal. Nothing from `@parity-app/core` leaks, so Parity can change inside
   without breaking anyone.
 - **Declare what shows before any code runs.** The manifest must list every contribution and where it shows. Parity
   draws them at once and loads the code only when one is used.
@@ -87,8 +88,8 @@ Today's code and [extensions.md](extensions.md) say adapter for both the package
 
 ## Anatomy of an extension
 
-An extension is an npm package with a `parity` field in its `package.json` and a module that exports `activate`. This
-one measures how long each route takes to load and shows it:
+An extension is an npm package with a `parity` field in its `package.json` and a module whose default export is
+`defineExtension({ activate })`. This one measures how long each route takes to load and shows it:
 
 ```jsonc
 // package.json
@@ -121,25 +122,27 @@ one measures how long each route takes to load and shows it:
 
 ```ts
 // src/extension.ts
-import type { Parity } from "@parity-app/extension-api"
+import { defineExtension } from "@parity-app/extension"
 
-export function activate(parity: Parity) {
-  const table = parity.views.table("timings.table", { columns: ["Route", "Load time"] })
+export default defineExtension({
+  activate(parity) {
+    const table = parity.views.table("timings.table", { columns: ["Route", "Load time"] })
 
-  parity.commands.register("timings.measure", async () => {
-    const runs = parity.settings.get<number>("timings.runs")
+    parity.commands.register("timings.measure", async () => {
+      const runs = parity.settings.get<number>("timings.runs")
 
-    await parity.ui.progress("Measuring routes…", async () => {
-      for (const route of parity.nodes.ofType("route")) {
-        const time = await measure(parity.navigate.pageUrl(route.ref), runs)
+      await parity.ui.progress("Measuring routes…", async () => {
+        for (const route of parity.nodes.ofType("route")) {
+          const time = await measure(parity.navigate.pageUrl(route.ref), runs)
 
-        await parity.facts.set(route.ref, [{ id: "load", label: "Load time", value: `${time} ms` }])
-        parity.canvas.badge(route.ref, { text: `${time} ms`, tone: time > 500 ? "warning" : "neutral" })
-        table.upsert(route.ref.key, [route.name, `${time} ms`])
-      }
+          await parity.facts.set(route.ref, [{ id: "load", label: "Load time", value: `${time} ms` }])
+          parity.canvas.badge(route.ref, { text: `${time} ms`, tone: time > 500 ? "warning" : "neutral" })
+          table.upsert(route.ref.key, [route.name, `${time} ms`])
+        }
+      })
     })
-  })
-}
+  }
+})
 ```
 
 Parity draws the command in each route's menu in Layers and in Search actions, and the Timings tab in the right panel,
@@ -517,12 +520,13 @@ one freeze the editor, and give their code the window's access. A web view gives
   changes. Its log, activation time and errors show in its tab in the bottom panel.
 - **Debug:** the extension's host takes a debugger, as Node does, and an error names the extension, the command and the
   line.
-- **Test:** `@parity-app/extension-test` runs an extension against a fixture project without Electron, with nodes,
-  selection, settings and a fake person who picks and confirms. Tests check what it contributed and what it changed, as
-  [packages.md](packages.md) asks of Parity's own packages. Declarative views can be previewed in Storybook with a
-  stand-in host.
-- **Learn:** an API reference generated from `@parity-app/extension-api`, with an example for every call; recipes for
-  the common jobs; Parity's own extensions as samples.
+- **Test:** an extension's tests check its manifest as Parity does, with `readExtension` from
+  `@parity-app/extension/manifest`. A test harness (PAR-1097) runs an extension against a fixture project without
+  Electron, with nodes, selection, settings and a fake person who picks and confirms. Tests check what it contributed
+  and what it changed, as [packages.md](packages.md) asks of Parity's own packages. Declarative views can be previewed
+  in Storybook with a stand-in host.
+- **Learn:** an API reference generated from `@parity-app/extension`, with an example for every call; recipes for the
+  common jobs; Parity's own extensions as samples.
 - **Publish:** an npm package with the `parity-extension` keyword and `engines.parity`; later a registry with verified
   publishers ([extensions.md](extensions.md#packaging-and-discovery)).
 - **Install and update:** the Extensions page installs one into the app from npm by name, and updates it when a newer
@@ -589,7 +593,7 @@ with the renderer and builder providers and their entry modules; then the connec
 ## Order of work
 
 1. **An incremental node index,** sending differences as edits settle rather than rebuilding after a pause.
-2. **The extension host, `@parity-app/extension-api` and the manifest,** with `parity.ui`, state and the bottom panel's
+2. **The extension host, `@parity-app/extension` and the manifest,** with `parity.ui`, state and the bottom panel's
    tabs, and Storybook's command and fact moved onto them.
 3. **Settings,** with Settings paged in a view that loads no project code, the `extensions` field in the main project
    file, and the app's state once it has a place for them.
@@ -623,5 +627,8 @@ with the renderer and builder providers and their entry modules; then the connec
 - **`extensions` doesn't raise `formatVersion`,** as no optional field before it has.
 - **Settings a project mustn't touch are changed in a view that loads no project code:** app settings and permission
   grants.
+- **Extensions import one package, `@parity-app/extension`** (PAR-1102): types, `defineExtension` and the manifest
+  check. The host is `@parity-app/extension-host`, which no extension imports. Both stay private and unpublished until
+  outside developers come (PAR-1097, PAR-1098).
 - **Permissions limit files and processes but aren't a sandbox.** Network hosts are shown, not enforced, and installing
   an extension trusts its publisher.

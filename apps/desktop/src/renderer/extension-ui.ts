@@ -1,4 +1,4 @@
-import type { PickItem } from "@parity-app/extension-api"
+import type { PickItem } from "@parity-app/extension"
 import { type ExternalToast, toast } from "sonner"
 import type { ExtensionUiAnswer, ExtensionUiRequest } from "../shared/protocol.ts"
 import { request } from "./service.ts"

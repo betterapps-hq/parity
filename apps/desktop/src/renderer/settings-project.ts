@@ -1,5 +1,5 @@
 import { extensionAdds, type ProjectPreferenceKey } from "@parity-app/core"
-import type { ExtensionStatus, InstalledStatus } from "@parity-app/extensions"
+import type { ExtensionStatus, InstalledStatus } from "@parity-app/extension-host"
 import { useEffect, useMemo, useSyncExternalStore } from "react"
 import { z } from "zod"
 import type { SettingsProject, SettingsProjectChange } from "../shared/settings-view.ts"

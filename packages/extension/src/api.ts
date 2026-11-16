@@ -3,9 +3,10 @@ import type { Processes } from "./processes.ts"
 import type { ProviderRegistry } from "./providers.ts"
 
 /*
- * What an extension's code gets. Its module exports `activate`, which Parity calls with one `Parity` object when an
- * activation event its manifest names happens. Each extension runs in a process of its own, for one open project. Reads
- * come from copies its process keeps, so they're synchronous; anything that changes something is asynchronous.
+ * What an extension's code gets. Its module's default export is `defineExtension({ activate })`, and Parity calls
+ * `activate` with one `Parity` object when an activation event its manifest names happens. Each extension runs in a
+ * process of its own, for one open project. Reads come from copies its process keeps, so they're synchronous; anything
+ * that changes something is asynchronous.
  */
 
 /** Something that can be taken back: a registration, a subscription, a status item. */
@@ -13,10 +14,10 @@ export interface Disposable {
   dispose(): void
 }
 
-/** What an extension's module exports. */
-export interface ExtensionModule {
+/** An extension's code: what `defineExtension` takes, and what its module exports as its default. */
+export interface ExtensionModule<Api extends void | ExtensionApi = void | ExtensionApi> {
   /** What it returns is its API, which extensions that name it in `extensionDependencies` call (`parity.extensions`). */
-  activate(parity: Parity): void | ExtensionApi | Promise<void | ExtensionApi>
+  activate(parity: Parity): Api | Promise<Api>
   /** Called before its process ends, after everything in `parity.subscriptions` has gone. */
   deactivate?(): void | Promise<void>
 }

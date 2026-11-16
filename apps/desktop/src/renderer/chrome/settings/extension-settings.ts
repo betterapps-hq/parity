@@ -1,5 +1,5 @@
-import type { SettingContribution } from "@parity-app/extension-api"
-import { defaultOf } from "@parity-app/extensions/settings"
+import type { SettingContribution } from "@parity-app/extension"
+import { defaultOf } from "@parity-app/extension-host/settings"
 import type { Control, Extension, Setting } from "./definitions.ts"
 
 /*

@@ -12,13 +12,10 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/style-schema": "workspace:*",
     "@parity-app/tokens": "workspace:*"
-  },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
     "tailwindcss": "^4.0.0"

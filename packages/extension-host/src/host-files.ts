@@ -1,4 +1,4 @@
-import type { Disposable, Files } from "@parity-app/extension-api"
+import type { Disposable, Files } from "@parity-app/extension"
 import type { HostServiceMethods } from "./protocol.ts"
 
 /*

@@ -1,6 +1,6 @@
-import type { ViewData } from "@parity-app/extension-api"
+import type { ViewData } from "@parity-app/extension"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { expect, userEvent, within } from "storybook/test"

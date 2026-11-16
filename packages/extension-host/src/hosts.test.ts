@@ -1,14 +1,16 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
-import type {
-  ExtensionModule,
-  FolderEntry,
-  JsonValue,
-  Parity,
-  ProcessHandle,
-  ProcessInfo,
-  ProviderHandle,
-  Route
-} from "@parity-app/extension-api"
+import {
+  defineExtension,
+  type ExtensionModule,
+  type FolderEntry,
+  type JsonValue,
+  type Parity,
+  type ProcessHandle,
+  type ProcessInfo,
+  type ProviderHandle,
+  type Route
+} from "@parity-app/extension"
+import { readExtension } from "@parity-app/extension/manifest"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
@@ -25,7 +27,6 @@ import {
   type OpenedProject,
   type ProcessListener
 } from "./hosts.ts"
-import { readExtension } from "./manifest.ts"
 import type { HostMethods, HostServiceMethods, LogLine, ProcessSnapshot } from "./protocol.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
@@ -158,7 +159,10 @@ interface Started {
  * Hosts whose processes are in memory: each runs the extension's module given here through the real host code, over a
  * pair of memory ports, and ends as a process would.
  */
-function setUp(modules: Record<string, ExtensionModule>, options: Partial<ExtensionHostsOptions<OpenedProject>> = {}) {
+function setUp(
+  modules: Record<string, ExtensionModule | { default: ExtensionModule }>,
+  options: Partial<ExtensionHostsOptions<OpenedProject>> = {}
+) {
   const changes: ExtensionStatus[][] = []
   const lines: { extension: string; line: LogLine }[] = []
   const notified: string[] = []
@@ -306,6 +310,17 @@ describe("extension hosts", () => {
     expect(activate).toHaveBeenCalledOnce()
     expect(latest("@parity-app/extension-storybook")?.state).toBe("running")
     expect(latest("parity-route-timings")).toBeUndefined()
+  })
+
+  it("runs a module whose default export is its extension, as defineExtension makes it", async () => {
+    const activate = vi.fn<() => void>()
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": { default: defineExtension({ activate }) } })
+
+    hosts.open(project)
+    await settle()
+
+    expect(activate).toHaveBeenCalledOnce()
+    expect(latest("@parity-app/extension-storybook")?.state).toBe("running")
   })
 
   it("lists every installed extension from its manifest, with no project open (PAR-1129)", () => {

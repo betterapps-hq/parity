@@ -1,4 +1,4 @@
-import type { Parity, ProvidedAddress } from "@parity-app/extension-api"
+import { defineExtension, type Parity, type ProvidedAddress } from "@parity-app/extension"
 import { z } from "zod"
 import { inFolder, type PortlessState, readPortless, type Route } from "./portless.ts"
 
@@ -12,7 +12,9 @@ import { inFolder, type PortlessState, readPortless, type Route } from "./portle
 /** What the manifest's `detect` found: Portless's folder. */
 const detected = z.object({ path: z.string() })
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const found = detected.safeParse(parity.project.detected)
 
   if (!found.success) {

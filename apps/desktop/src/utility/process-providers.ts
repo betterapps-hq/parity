@@ -1,4 +1,4 @@
-import type { Address, DiscoveredServer, ServerFacts } from "@parity-app/extension-api"
+import type { Address, DiscoveredServer, ServerFacts } from "@parity-app/extension"
 import {
   discoveredServers,
   type ExtensionProviders,
@@ -6,7 +6,7 @@ import {
   type ProviderAsk,
   providedAddresses,
   type RegisteredProvider
-} from "@parity-app/extensions"
+} from "@parity-app/extension-host"
 import { addressRefusal, isLocalHost, opensAt } from "@parity-app/processes"
 import { listedId } from "../shared/process-ids.ts"
 import type { ProjectProcess } from "../shared/protocol.ts"

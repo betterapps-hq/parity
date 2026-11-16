@@ -15,13 +15,10 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*",
     "@parity-app/project": "workspace:*",
     "typescript": "6.0.3",
     "zod": "catalog:"
-  },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
     "storybook": "^9.0.0 || ^10.0.0",
