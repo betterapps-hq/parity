@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep any stylesheet a project's code adds to Parity's window out of it and draw it in that project's frames, whichever builder or library adds it",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

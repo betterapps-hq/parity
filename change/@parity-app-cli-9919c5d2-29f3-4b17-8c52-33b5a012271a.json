@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "Extensions import one package, @parity-app/extension, and are written with defineExtension",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

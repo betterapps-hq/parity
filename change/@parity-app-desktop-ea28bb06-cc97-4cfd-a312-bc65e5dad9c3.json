@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Vite 6 and 7 projects keep their prebundled dependencies between opens instead of bundling them again, which sometimes stalled the builder",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

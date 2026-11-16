@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Layers nests API routes by URL, from routeOutline in core, the same for every router (PAR-1185)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

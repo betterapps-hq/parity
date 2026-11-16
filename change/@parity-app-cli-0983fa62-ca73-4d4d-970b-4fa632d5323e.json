@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Use Simple Icons logos for the status bar's tools, and color a logo with its brand on hover (an icon's new optional color)",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
