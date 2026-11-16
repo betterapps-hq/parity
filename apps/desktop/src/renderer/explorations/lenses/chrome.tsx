@@ -61,7 +61,7 @@ import type { LensId } from "./model.ts"
 /** The window's chrome: the title bar's strip and the lens bar down the left, one surface, as the tab strip was. */
 export const chromeSurface = "bg-neutral-100 dark:bg-[#0a0a0a]"
 
-/** What a lens dragged from the lens bar carries, so the canvases' tabs take it as they take a tab. */
+/** What a lens dragged from the lens bar carries, so a canvas takes it: on its side to split, in its middle to show it. */
 export const lensDragType = "application/x-parity-lens"
 
 /** What the title bar and the lens bar do, for the window they're in. */
@@ -70,7 +70,7 @@ export interface ChromeActions {
   project: boolean
   /** Which lens shows in the canvas in focus, and which show in other canvases or windows. */
   current: LensId
-  elsewhere: (lens: LensId) => "open" | "window" | undefined
+  elsewhere: (lens: LensId) => "canvas" | "window" | undefined
   show: (lens: LensId) => void
   splitRight: (lens: LensId) => void
   canSplit: (lens: LensId) => boolean
@@ -437,10 +437,11 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
 
 /**
  * The lenses, one above another down the window's left edge, as VS Code's activity bar lists its views, on the same
- * surface as the title bar. The lens in the canvas in focus is picked out as an open tab was; one shown in another
- * canvas or window has a dot. A lens the project has nothing for sits at the bottom, quieter. Clicking the lens that's
- * already shown hides or shows the left panel, as VS Code's does. The arrow keys move between lenses, and each has a
- * menu to split it or move it to a window, and can be dragged onto a canvas or out of the window.
+ * surface as the title bar. Clicking one shows it in the canvas in focus, in place of that canvas's lens, which is
+ * picked out; one shown in another canvas or window has a dot, and clicking it goes there. A lens the project has
+ * nothing for sits at the bottom, quieter. Clicking the lens in focus hides or shows the left panel, as VS Code's does.
+ * The arrow keys move between lenses, and each has a menu to split it or move it to a window, and can be dragged onto a
+ * canvas or out of the window.
  */
 export function LensBar({ actions }: { actions: ChromeActions }) {
   const available = lensOrder.filter((id) => !lenses[id].missing)
@@ -486,7 +487,7 @@ export function LensBar({ actions }: { actions: ChromeActions }) {
 }
 
 /** Where a lens shows when it isn't the canvas in focus's, for its hint. */
-const placeWords = { open: "Open in a tab", window: "In its own window" }
+const placeWords = { canvas: "In another canvas", window: "In its own window" }
 
 function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions }) {
   const { label, icon: Icon, keys, missing } = lenses[lens]

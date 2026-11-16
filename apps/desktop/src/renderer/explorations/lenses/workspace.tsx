@@ -28,10 +28,10 @@ import { LensInspector } from "./inspector.tsx"
 import type { LensId } from "./model.ts"
 import { LensPanel } from "./panel.tsx"
 
-/** What a story opens the project on: its groups of lens tabs, left to right, the first tab of each in front. */
+/** What a story opens the project on: its canvases, left to right, each showing one lens. */
 export interface LensLayout {
-  groups: LensId[][]
-  /** The group in focus, which the left panel and the inspector follow. */
+  canvases: LensId[]
+  /** The canvas in focus, which the left panel and the inspector follow. */
   focused?: number
   /** What's selected in each lens, which stays when another lens is shown. */
   selected: Partial<Record<LensId, string>>
@@ -45,51 +45,58 @@ const windowSize = { width: 1100, height: 720 }
 
 const theme: DockviewTheme = { name: "parity", className: "dockview-theme-parity" }
 
-/** Where each open lens is: in the main window's canvases, or in a window of its own. */
-type Where = "grid" | "window"
+/** Where a shown lens is: in one of the main window's canvases, or in a window of its own. */
+type Where = "canvas" | "window"
 
 interface Snapshot {
   active: LensId | undefined
   open: Partial<Record<LensId, Where>>
+  /** How many canvases the main window has, so the last one can't be closed. */
+  canvases: number
 }
 
 const isLens = (id: string | undefined): id is LensId => lensOrder.some((lens) => lens === id)
+
+/** The main window's canvases. Dockview keeps an empty, hidden group in their place for a window that came from there. */
+const canvasesOf = (api: DockviewApi) =>
+  api.groups.filter((group) => group.api.location.type === "grid" && group.panels.length > 0)
 
 function snapshotOf(api: DockviewApi): Snapshot {
   const open: Partial<Record<LensId, Where>> = {}
 
   for (const panel of api.panels) {
     if (isLens(panel.id)) {
-      open[panel.id] = panel.group.api.location.type === "popout" ? "window" : "grid"
+      open[panel.id] = panel.group.api.location.type === "popout" ? "window" : "canvas"
     }
   }
 
   const active = api.activePanel?.id
 
-  return { active: isLens(active) ? active : undefined, open }
+  return { active: isLens(active) ? active : undefined, open, canvases: canvasesOf(api).length }
 }
 
-/** What every lens's canvas reads, wherever its tab is: selections, views and the link being pointed at. */
+/** What every lens's canvas reads, in any window: selections, views, the link being pointed at, and the canvases. */
 interface LensState {
   selected: Partial<Record<LensId, string>>
   select: (lens: LensId, id: string | undefined) => void
   cameras: Partial<Record<LensId, Camera>>
   setCamera: (lens: LensId, camera: Camera) => void
   peek: Ref | undefined
+  canvases: number
 }
 
 const LensContext = createContext<LensState | undefined>(undefined)
 
 /**
- * The prototype on Dockview: one project per window, its lenses down the left as before, and each lens open as a tab
- * over its canvas, as VS Code opens files. Tabs drag to split, to another group, or off the window into one of their
- * own, which is a real window; the button at the end of each group's tabs pops its tab out, and in that window takes it
- * back. The left panel and the inspector follow the tab in focus, in any window.
+ * The prototype on Dockview: one project per window, its lenses down the left, and the lens bar picks what the canvas in
+ * focus shows, as VS Code's activity bar picks its side bar's view. Each canvas shows one lens under a title, which drags
+ * it beside another canvas or off the window into one of its own, a real window; the button at the title's end does the
+ * same, and in that window takes it back. The left panel and the inspector follow the canvas in focus, in any window.
  */
 export function LensesPrototype({ initial }: { initial: LensLayout }) {
   const [api, setApi] = useState<DockviewApi>()
-  const [snapshot, setSnapshot] = useState<Snapshot>({ active: undefined, open: {} })
-  const [last, setLast] = useState<LensId>(initial.groups[initial.focused ?? 0]?.[0] ?? "pages")
+  const [snapshot, setSnapshot] = useState<Snapshot>({ active: undefined, open: {}, canvases: 0 })
+  const [last, setLast] = useState<LensId>(initial.canvases[initial.focused ?? 0] ?? "pages")
   const [selected, setSelected] = useState(initial.selected)
   const [cameras, setCameras] = useState<Partial<Record<LensId, Camera>>>({})
   const [panels, setPanelState] = useState({ left: true, right: true })
@@ -127,7 +134,7 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     // A lens's own window, once its group is in, takes the main window's theme and says what it holds.
     subscriptions.push(api.onDidAddPopoutGroup(({ window: opened, group }) => dress(opened, group.activePanel?.title)))
 
-    // A lens drawn from the lens bar drops where a tab would.
+    // A lens drawn from the lens bar drops on a canvas: on its side to split, in its middle to show it there.
     subscriptions.push(
       api.onUnhandledDragOver((event) => {
         if (event.nativeEvent instanceof DragEvent && event.nativeEvent.dataTransfer?.types.includes(lensDragType)) {
@@ -136,7 +143,16 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
       })
     )
 
-    // A tab let go outside the window, where nothing takes it, opens in a window of its own there, as a browser's
+    // A canvas shows one lens, so a canvas dragged by its title drops on another's side, never in with its lens.
+    subscriptions.push(
+      api.onWillShowOverlay((event) => {
+        if (event.getData() && (event.kind === "tab" || event.kind === "header_space" || event.position === "center")) {
+          event.preventDefault()
+        }
+      })
+    )
+
+    // A canvas let go outside the window, where nothing takes it, opens in a window of its own there, as a browser's
     // tab does.
     let dragged: IDockviewPanel | undefined
     subscriptions.push(api.onWillDragPanel((event) => (dragged = event.panel)))
@@ -166,34 +182,15 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
   const onReady = ({ api: ready }: DockviewReadyEvent) => {
     let previous: DockviewGroupPanel | undefined
 
-    for (const ids of initial.groups) {
-      for (const [index, lens] of ids.entries()) {
-        let position: AddPanelPositionOptions | undefined
-
-        if (index > 0 && previous) {
-          position = { referenceGroup: previous, direction: "within" }
-        } else if (previous) {
-          position = { referenceGroup: previous, direction: "right" }
-        }
-
-        const panel = addLens(ready, lens, position)
-
-        if (index === 0) {
-          previous = panel.group
-        }
-      }
+    for (const lens of initial.canvases) {
+      previous = addLens(ready, lens, previous && { referenceGroup: previous, direction: "right" }).group
     }
 
-    // The first tab of each group in front, and the focused group's in focus.
-    for (const ids of initial.groups) {
-      ready.getPanel(ids[0]!)?.api.setActive()
-    }
-
-    ready.getPanel(initial.groups[initial.focused ?? 0]?.[0] ?? "")?.api.setActive()
+    ready.getPanel(initial.canvases[initial.focused ?? 0] ?? "")?.api.setActive()
     setApi(ready)
   }
 
-  // Ctrl and a number shows that lens, as it went to that tab.
+  // Ctrl and a number shows that lens, as clicking it in the lens bar does.
   const showRef = useCallback(
     (lens: LensId) => {
       if (api) {
@@ -230,14 +227,16 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
 
     const existing = api.getPanel(lens)
 
-    if (existing && event.group) {
+    if (event.group && event.position === "center") {
+      showIn(api, event.group, lens)
+    } else if (existing && event.group) {
       existing.api.moveTo({ group: event.group, position: event.position })
     } else if (!existing) {
       addLens(
         api,
         lens,
         event.group ? { referenceGroup: event.group, direction: directions[event.position] } : undefined
-      )
+      ).api.setActive()
     }
   }
 
@@ -246,7 +245,8 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     select: (lens, id) => setSelected((before) => ({ ...before, [lens]: id })),
     cameras,
     setCamera: (lens, camera) => setCameras((before) => ({ ...before, [lens]: camera })),
-    peek
+    peek,
+    canvases: snapshot.canvases
   }
 
   const actions = lensActions(api, snapshot, current, {
@@ -278,8 +278,8 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     )
   }
 
-  // A link shows its lens where it's open, in any window, else as a tab in the group in focus; beside, in a group to
-  // the right.
+  // A link shows its lens where it's shown, in any window, else in the canvas in focus; beside, in a canvas to its
+  // right.
   const showLink = (ref: Ref, beside: boolean) => {
     setPeek(undefined)
     state.select(ref.lens, ref.id)
@@ -288,15 +288,10 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
       return
     }
 
-    const panel = api.getPanel(ref.lens)
-    const group = api.activeGroup
-
-    if (!beside || (panel && panel.group !== group)) {
+    if (!beside || api.getPanel(ref.lens)) {
       show(api, ref.lens)
-    } else if (panel && group && group.panels.length > 1) {
-      panel.api.moveTo({ group, position: "right" })
-    } else if (!panel) {
-      addLens(api, ref.lens, group ? { referenceGroup: group, direction: "right" } : undefined)
+    } else {
+      addBeside(api, ref.lens)
     }
   }
 
@@ -323,8 +318,9 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
               className="absolute inset-0"
               theme={theme}
               components={components}
-              defaultTabComponent={LensTab}
-              rightHeaderActionsComponent={GroupActions}
+              defaultTabComponent={LensTitle}
+              rightHeaderActionsComponent={CanvasActions}
+              singleTabMode="fullwidth"
               watermarkComponent={NoLens}
               popoutUrl={popoutUrl}
               disableFloatingGroups
@@ -366,12 +362,27 @@ function addLens(api: DockviewApi, lens: LensId, position?: AddPanelPositionOpti
   return position ? api.addPanel({ ...panel, position }) : api.addPanel(panel)
 }
 
-/** Shows a lens where it's open, bringing its window forward, or opens it as a tab in the group in focus. */
+/** The main window's canvas in focus, or its first, where the lens bar shows a lens. */
+function mainCanvas(api: DockviewApi): DockviewGroupPanel | undefined {
+  const canvases = canvasesOf(api)
+
+  return canvases.find((group) => group === api.activeGroup) ?? canvases[0]
+}
+
+/**
+ * Shows a lens where it's shown, bringing its window forward, or else in the main window's canvas in focus, in place of
+ * that canvas's lens.
+ */
 function show(api: DockviewApi, lens: LensId): void {
   const panel = api.getPanel(lens)
+  const canvas = mainCanvas(api)
 
   if (!panel) {
-    addLens(api, lens).api.setActive()
+    if (canvas) {
+      showIn(api, canvas, lens)
+    } else {
+      addLens(api, lens, { direction: "right" }).api.setActive()
+    }
 
     return
   }
@@ -384,7 +395,31 @@ function show(api: DockviewApi, lens: LensId): void {
   }
 }
 
-/** Opens a lens, or a group of them, in a window of its own: where a tab was let go, or beside the main window. */
+/** Shows a lens in a canvas in place of its lens, moving it there if another canvas or window shows it. */
+function showIn(api: DockviewApi, canvas: DockviewGroupPanel, lens: LensId): void {
+  const before = canvas.activePanel
+  const panel = api.getPanel(lens)
+
+  if (before !== panel) {
+    if (panel) {
+      panel.api.moveTo({ group: canvas, position: "center" })
+    } else {
+      addLens(api, lens, { referenceGroup: canvas, direction: "within" })
+    }
+
+    before?.api.close()
+  }
+
+  api.getPanel(lens)?.api.setActive()
+}
+
+/** Shows a lens in a new canvas right of the canvas in focus. */
+function addBeside(api: DockviewApi, lens: LensId): void {
+  const canvas = mainCanvas(api)
+  addLens(api, lens, canvas ? { referenceGroup: canvas, direction: "right" } : { direction: "right" }).api.setActive()
+}
+
+/** Opens a canvas's lens in a window of its own: where its title was let go, or beside the main window. */
 function popOut(api: DockviewApi, item: IDockviewPanel | DockviewGroupPanel, at?: { x: number; y: number }) {
   const position = at
     ? { left: Math.round(at.x - 120), top: Math.round(at.y - 18), ...windowSize }
@@ -421,7 +456,7 @@ function outsideWindow(event: DragEvent): boolean {
   return outsideView || outsideScreen
 }
 
-/** A lens's canvas, as a tab's content. */
+/** A lens's canvas, under its title. */
 function LensContent({ params }: IDockviewPanelProps<{ lens: LensId }>) {
   const state = use(LensContext)!
   const { lens } = params
@@ -442,46 +477,45 @@ function LensContent({ params }: IDockviewPanelProps<{ lens: LensId }>) {
 
 const components = { lens: LensContent }
 
-/** A lens's tab: its icon and name, the handle that drags it, and a close button. */
-function LensTab({ api, params }: IDockviewPanelHeaderProps<{ lens: LensId }>) {
+/** A canvas's title: its lens's icon and name, the handle that drags it beside another canvas or out of the window. */
+function LensTitle({ params }: IDockviewPanelHeaderProps<{ lens: LensId }>) {
   const { label, icon: Icon } = lenses[params.lens]
 
   return (
-    <div className="group/tab flex h-full min-w-0 items-center gap-2 px-3">
+    <div className="flex h-full min-w-0 items-center gap-2 px-3">
       <Icon className="size-4 shrink-0" />
-      <span className="min-w-0 flex-1 truncate">{label}</span>
-      <button
-        type="button"
-        aria-label={`Close ${label}`}
-        className="grid size-5 shrink-0 place-items-center rounded opacity-0 group-hover/tab:opacity-100 hover:bg-accent focus-visible:opacity-100 [.dv-active-tab_&]:opacity-100"
-        onPointerDown={(event) => event.stopPropagation()}
-        onClick={(event) => {
-          event.stopPropagation()
-          api.close()
-        }}
-      >
-        <X className="size-3.5" />
-      </button>
+      <span className="min-w-0 truncate font-medium">{label}</span>
     </div>
   )
 }
 
-/** At the end of each group's tabs: its tab out into a window of its own, or, in that window, back into the main one. */
-function GroupActions({ group, containerApi, activePanel }: IDockviewHeaderActionsProps) {
+/**
+ * At the end of a canvas's title: its lens out into a window of its own, or, in that window, back into the main one,
+ * and closing the canvas while the main window has another.
+ */
+function CanvasActions({ group, containerApi, activePanel }: IDockviewHeaderActionsProps) {
+  const { canvases } = use(LensContext)!
   const popped = group.api.location.type === "popout"
 
+  if (!activePanel) {
+    return null
+  }
+
   return (
-    <div className="flex h-full items-center pr-2">
+    <div className="flex h-full items-center gap-0.5 pr-2">
       {popped ? (
         <IconButton label="Move to main window" onClick={() => group.api.moveTo({ position: "right" })}>
           <SquareArrowOutDownLeft />
         </IconButton>
       ) : (
-        activePanel && (
-          <IconButton label="Move to new window" onClick={() => void popOut(containerApi, activePanel)}>
-            <SquareArrowOutUpRight />
-          </IconButton>
-        )
+        <IconButton label="Move to new window" onClick={() => void popOut(containerApi, activePanel)}>
+          <SquareArrowOutUpRight />
+        </IconButton>
+      )}
+      {!popped && canvases > 1 && (
+        <IconButton label={`Close ${activePanel.title ?? ""}`.trim()} onClick={() => activePanel.api.close()}>
+          <X />
+        </IconButton>
       )}
     </div>
   )
@@ -512,16 +546,8 @@ function lensActions(
   return {
     project: true,
     current,
-    elsewhere: (lens) => {
-      const where = snapshot.open[lens]
-
-      if (!where || lens === snapshot.active) {
-        return undefined
-      }
-
-      return where === "window" ? "window" : "open"
-    },
-    // The lens in front hides or shows the left panel, as VS Code's activity bar does.
+    elsewhere: (lens) => (lens === snapshot.active ? undefined : snapshot.open[lens]),
+    // The lens in the canvas in focus hides or shows the left panel, as VS Code's activity bar does.
     show: (lens) => {
       if (lens === snapshot.active) {
         window.toggleLeft()
@@ -530,56 +556,26 @@ function lensActions(
       }
     },
     splitRight: (lens) => {
-      const group = api?.activeGroup
       const panel = panelOf(lens)
+      const canvas = api && mainCanvas(api)
 
-      if (!api) {
-        return
-      }
-
-      if (panel && group) {
-        panel.api.moveTo({ group, position: "right" })
-      } else if (!panel) {
-        addLens(api, lens, group ? { referenceGroup: group, direction: "right" } : undefined)
+      if (panel && canvas) {
+        panel.api.moveTo({ group: canvas, position: "right" })
+      } else if (api && !panel) {
+        addBeside(api, lens)
       }
     },
-    canSplit: (lens) => {
-      const panel = panelOf(lens)
-      const group = api?.activeGroup
-
-      return !!api && !(panel && panel.group === group && group.panels.length === 1)
-    },
+    canSplit: (lens) => !!api && panelOf(lens)?.group !== mainCanvas(api),
     toWindow: (lens) => {
       if (api) {
-        void popOut(api, panelOf(lens) ?? addLens(api, lens))
+        void popOut(api, panelOf(lens) ?? addLens(api, lens, { direction: "right" }))
       }
     },
-    canMoveToWindow: (lens) => {
-      const panel = panelOf(lens)
-
-      return (
-        !!api &&
-        !lenses[lens].missing &&
-        !(panel?.group.api.location.type === "popout" && panel.group.panels.length === 1)
-      )
-    },
-    toMain: (lens) => {
-      const panel = panelOf(lens)
-      const grid = api?.groups.find((each) => each.api.location.type === "grid")
-
-      if (!panel) {
-        return
-      }
-
-      if (grid) {
-        panel.api.moveTo({ group: grid, position: "center" })
-      } else {
-        panel.group.api.moveTo({ position: "right" })
-      }
-    },
+    canMoveToWindow: (lens) => !!api && !lenses[lens].missing && snapshot.open[lens] !== "window",
+    toMain: (lens) => panelOf(lens)?.group.api.moveTo({ position: "right" }),
     canMoveToMain: (lens) => snapshot.open[lens] === "window",
     close: (lens) => panelOf(lens)?.api.close(),
-    canClose: (lens) => !!snapshot.open[lens],
+    canClose: (lens) => snapshot.open[lens] === "window" || (snapshot.open[lens] === "canvas" && snapshot.canvases > 1),
     panels: window.panels,
     togglePanels: window.togglePanels,
     closeProject: window.closeProject,

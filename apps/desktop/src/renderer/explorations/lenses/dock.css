@@ -1,25 +1,24 @@
 /*
- * Dockview in the app's colors (PAR-1237). A group's tabs are the app's project tabs: rounded at the top, on the title
- * bar's color, with the open one in the canvas's color, joined to the canvas below it. The open tab of the group in
- * focus has the selection's blue along its top. The strip is as tall as the side panels' tab rows, so they line up.
+ * Dockview in the app's colors (PAR-1237). Each canvas shows one lens under a title row: its icon and name on the side
+ * panels' background, as tall as their tab rows, so the three read as one row across the window. The canvas in focus
+ * has its title in the text's color, and the others' are quieter.
  */
 .dockview-theme-parity {
   --lens-canvas: rgb(249, 250, 251);
-  --lens-strip: oklch(0.97 0 0);
 
   color-scheme: inherit;
   --dv-tabs-and-actions-container-font-size: 14px;
   --dv-tabs-and-actions-container-height: 36px;
   --dv-tab-font-size: 14px;
-  --dv-tabs-and-actions-container-background-color: var(--lens-strip);
+  --dv-tabs-and-actions-container-background-color: var(--background);
   --dv-group-view-background-color: var(--lens-canvas);
-  --dv-activegroup-visiblepanel-tab-background-color: var(--lens-canvas);
-  --dv-inactivegroup-visiblepanel-tab-background-color: var(--lens-canvas);
+  --dv-activegroup-visiblepanel-tab-background-color: transparent;
+  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;
   --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--foreground);
   --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
-  --dv-inactivegroup-visiblepanel-tab-color: color-mix(in oklch, var(--foreground) 80%, transparent);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--muted-foreground);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
   --dv-tab-divider-color: transparent;
   --dv-separator-border: var(--border);
@@ -42,54 +41,20 @@
 
 .dark .dockview-theme-parity {
   --lens-canvas: rgb(16, 16, 17);
-  --lens-strip: #0a0a0a;
 }
 
-/* The strip's bottom edge, which the open tab covers so it runs on into its canvas. */
 .dockview-theme-parity .dv-tabs-and-actions-container {
   box-shadow: inset 0 -1px var(--border);
 }
 
-.dockview-theme-parity .dv-tabs-container {
-  align-items: flex-end;
-  gap: 2px;
-  padding-inline: 6px;
-}
-
-/* The project tab's size: as wide as it can be up to 224px, down to 96px before the strip scrolls. */
 .dockview-theme-parity .dv-tab {
   display: flex;
-  flex-shrink: 1;
-  width: 224px;
-  min-width: 96px;
-  height: 32px;
   padding: 0;
-  border: 1px solid transparent;
-  border-bottom: 0;
-  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 .dockview-theme-parity .dv-tab > * {
   flex: 1;
   min-width: 0;
-}
-
-.dockview-theme-parity .dv-tab.dv-active-tab {
-  border-color: var(--border);
-  box-shadow: none;
-}
-
-.dockview-theme-parity
-  .dv-groupview
-  > .dv-tabs-and-actions-container
-  .dv-tabs-container
-  > .dv-tab.dv-inactive-tab:hover {
-  background-color: color-mix(in oklch, var(--muted) 40%, transparent);
-  color: var(--foreground);
-}
-
-.dockview-theme-parity .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
-  box-shadow: inset 0 2px var(--canvas-layer);
 }
 
 .dockview-theme-parity .dv-tab:focus-visible {
