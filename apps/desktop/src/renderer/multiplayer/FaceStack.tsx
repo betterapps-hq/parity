@@ -1,19 +1,10 @@
-import {
-  Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@buildkitgg/shadcn"
-import { Eye } from "lucide-react"
-import type { ReactNode } from "react"
-import { GroupLabel } from "../chrome/PanelSection.tsx"
+import { Popover, PopoverContent, PopoverTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
 import { BarDivider, floatingBar } from "../chrome/toolbar-parts.tsx"
+import { EveryoneCount } from "./EveryoneCount.tsx"
+import { faceButton } from "./face-button.ts"
 import { Face } from "./Face.tsx"
-import { type Member, type Presence, statusOf, whoseAgent } from "./member.ts"
-import { PersonCard } from "./PersonCard.tsx"
+import type { Member, Presence } from "./member.ts"
+import { StackFace } from "./StackFace.tsx"
 import { YouCard } from "./YouCard.tsx"
 
 /**
@@ -47,149 +38,6 @@ export function arrange(here: Presence[], following?: Member): Presence[] {
  */
 const overlap =
   "-ml-1 transition-[margin] duration-200 ease-[cubic-bezier(0.2,0,0,1)] group-hover/stack:ml-1 group-focus-within/stack:ml-1 motion-reduce:transition-none"
-
-/** A face's button: it rises a little under the pointer, above its neighbours. */
-const faceButton =
-  "relative flex rounded-full outline-offset-2 transition-transform duration-150 hover:z-10 hover:-translate-y-0.5 focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring motion-reduce:hover:translate-y-0"
-
-interface StackFaceProps {
-  presence: Presence
-  size: number
-  following: boolean
-  stale: boolean
-  defaultOpen: boolean
-}
-
-/** A face in the stack: hover for who it is, click or Enter for their card. */
-function StackFace({ presence, size, following, stale, defaultOpen }: StackFaceProps) {
-  const { member } = presence
-
-  return (
-    <Popover defaultOpen={defaultOpen}>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <PopoverTrigger
-              render={
-                <button
-                  type="button"
-                  aria-label={[member.name, statusOf(presence)].filter(Boolean).join(", ")}
-                  className={faceButton}
-                >
-                  <Face member={member} size={size} away={stale || Boolean(presence.away)} following={following} />
-                </button>
-              }
-            />
-          }
-        />
-        <TooltipContent side="bottom" className="flex-col items-start gap-0.5">
-          <span className="font-medium">{following ? `Following ${member.name}` : member.name}</span>
-          {statusOf(presence) && <span className="text-background/70">{statusOf(presence)}</span>}
-        </TooltipContent>
-      </Tooltip>
-      <PopoverContent align="end" sideOffset={10} className="w-72 gap-0 overflow-hidden p-0">
-        <PersonCard presence={presence} following={following} />
-      </PopoverContent>
-    </Popover>
-  )
-}
-
-interface EveryoneRowProps {
-  presence: Presence
-  following: boolean
-}
-
-/** One of everyone, in the list the count opens: their face and name, whether they're away, and Follow on hover. */
-function EveryoneRow({ presence, following }: EveryoneRowProps) {
-  const { member, away } = presence
-  const owner = whoseAgent(member)
-
-  return (
-    <li className="group/row flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
-      <Face member={member} size={28} away={Boolean(away)} following={following} />
-      <span className="flex min-w-0 flex-1 flex-col">
-        <span className="flex items-baseline gap-1.5">
-          <span className="truncate text-sm">{member.name}</span>
-          {owner && <span className="shrink-0 text-2xs text-muted-foreground">{owner}</span>}
-        </span>
-        {statusOf(presence) && <span className="truncate text-xs text-muted-foreground">{statusOf(presence)}</span>}
-      </span>
-      {!away && (
-        <Button
-          size="icon-xs"
-          variant="ghost"
-          aria-label={following ? `Stop following ${member.name}` : `Follow ${member.name}`}
-          aria-pressed={following}
-          className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-pressed:opacity-100"
-        >
-          <Eye />
-        </Button>
-      )}
-    </li>
-  )
-}
-
-interface EveryoneGroupProps {
-  label: string
-  children: ReactNode
-}
-
-/** A group in the list of everyone: People, then Agents. */
-function EveryoneGroup({ label, children }: EveryoneGroupProps) {
-  return (
-    <li className="flex flex-col">
-      <GroupLabel className="px-2 pt-2 pb-1">{label}</GroupLabel>
-      <ul className="flex flex-col">{children}</ul>
-    </li>
-  )
-}
-
-interface CountProps {
-  everyone: Presence[]
-  more: number
-  size: number
-  following?: Member
-}
-
-/** The count of faces past the first few: it opens everyone here, people and agents apart. */
-function Count({ everyone, more, size, following }: CountProps) {
-  const people = everyone.filter((presence) => !presence.member.agent)
-  const agents = everyone.filter((presence) => presence.member.agent)
-
-  return (
-    <Popover>
-      <PopoverTrigger
-        render={
-          <button
-            type="button"
-            aria-label={`${more} more, of ${everyone.length} here`}
-            className={`${faceButton} grid place-items-center bg-(--floating-bar-step) text-2xs font-medium text-muted-foreground tabular-nums shadow-[0_0_0_2px_var(--face-cutout)] hover:text-foreground dark:bg-muted`}
-            style={{ width: size, height: size }}
-          >
-            +{more}
-          </button>
-        }
-      />
-      <PopoverContent align="end" sideOffset={10} className="w-80 gap-0 p-1.5 [--face-cutout:var(--popover)]">
-        <span className="px-2 pt-1 text-sm font-medium">{everyone.length} here</span>
-        <ul className="flex flex-col">
-          <EveryoneGroup label="People">
-            {people.map((presence) => (
-              <EveryoneRow key={presence.member.name} presence={presence} following={presence.member === following} />
-            ))}
-          </EveryoneGroup>
-          {agents.length > 0 && (
-            <EveryoneGroup label="Agents">
-              {agents.map((presence) => (
-                <EveryoneRow key={presence.member.name} presence={presence} following={presence.member === following} />
-              ))}
-            </EveryoneGroup>
-          )}
-        </ul>
-      </PopoverContent>
-    </Popover>
-  )
-}
 
 interface FaceStackProps {
   here: Presence[]
@@ -234,7 +82,7 @@ export function FaceStack({ here, you, following, max = 4, size = 28, stale = fa
           ))}
           {more > 0 && (
             <li className={`flex h-8 items-center ${overlap}`}>
-              <Count everyone={everyone} more={more} size={size} following={following} />
+              <EveryoneCount everyone={everyone} more={more} size={size} following={following} />
             </li>
           )}
         </ul>

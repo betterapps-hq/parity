@@ -1,8 +1,8 @@
 import { Button, Label, Switch } from "@buildkitgg/shadcn"
 import { MonitorPlay } from "lucide-react"
 import { useId } from "react"
+import { CardHeader } from "./CardHeader.tsx"
 import type { Member } from "./member.ts"
-import { CardHeader } from "./PersonCard.tsx"
 
 interface YouCardProps {
   you: Member
