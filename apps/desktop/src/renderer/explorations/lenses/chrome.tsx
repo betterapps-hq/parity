@@ -46,6 +46,7 @@ import {
   Square,
   SquareArrowOutDownLeft,
   SquareArrowOutUpRight,
+  SquarePlus,
   SquareTerminal,
   Terminal,
   X
@@ -61,17 +62,21 @@ import type { LensId } from "./model.ts"
 /** The window's chrome: the title bar's strip and the lens bar down the left, one surface, as the tab strip was. */
 export const chromeSurface = "bg-neutral-100 dark:bg-[#0a0a0a]"
 
-/** What a lens dragged from the lens bar carries, so a canvas takes it: on its side to split, in its middle to show it. */
+/** What a lens dragged from the lens bar carries, so a group's tabs take it as a new tab and a canvas's side splits. */
 export const lensDragType = "application/x-parity-lens"
 
 /** What the title bar and the lens bar do, for the window they're in. */
 export interface ChromeActions {
   /** Whether a project is open: on Home, what acts on one is unavailable. */
   project: boolean
-  /** Which lens shows in the canvas in focus, and which show in other canvases or windows. */
-  current: LensId
-  elsewhere: (lens: LensId) => "canvas" | "window" | undefined
+  /** Which lens shows in the tab in focus, none with every tab closed, and which are open in other tabs or windows. */
+  current: LensId | undefined
+  elsewhere: (lens: LensId) => "open" | "window" | undefined
+  /** Shows a lens in the tab in focus, as a link opens in the tab it's clicked in, or where it's open. */
   show: (lens: LensId) => void
+  /** Shows a lens in a new tab, as Ctrl+click opens a link, or where it's open. */
+  openTab: (lens: LensId) => void
+  canOpenTab: (lens: LensId) => boolean
   splitRight: (lens: LensId) => void
   canSplit: (lens: LensId) => boolean
   toWindow: (lens: LensId) => void
@@ -273,7 +278,8 @@ function Commands({ list }: { list: (Command | "-")[] }) {
  * its own, where it had Home.
  */
 function AppMenus({ actions }: { actions: ChromeActions }) {
-  const lens = lenses[actions.current]
+  const current = actions.current
+  const lens = current && lenses[current]
 
   return (
     <Menubar
@@ -355,16 +361,16 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
           </MenubarGroup>
           <MenubarSeparator />
           <MenubarItem
-            disabled={!actions.canSplit(actions.current)}
-            onClick={() => actions.splitRight(actions.current)}
+            disabled={!current || !actions.canSplit(current)}
+            onClick={() => current && actions.splitRight(current)}
           >
-            <Columns2 /> Split {lens.label} right
+            <Columns2 /> {lens ? `Split ${lens.label} right` : "Split right"}
           </MenubarItem>
           <MenubarItem
-            disabled={!actions.canMoveToWindow(actions.current)}
-            onClick={() => actions.toWindow(actions.current)}
+            disabled={!current || !actions.canMoveToWindow(current)}
+            onClick={() => current && actions.toWindow(current)}
           >
-            <SquareArrowOutUpRight /> Move {lens.label} to new window
+            <SquareArrowOutUpRight /> {lens ? `Move ${lens.label} to new window` : "Move to new window"}
           </MenubarItem>
           <MenubarSeparator />
           <Cmd command="zoomIn" />
@@ -437,11 +443,12 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
 
 /**
  * The lenses, one above another down the window's left edge, as VS Code's activity bar lists its views, on the same
- * surface as the title bar. Clicking one shows it in the canvas in focus, in place of that canvas's lens, which is
- * picked out; one shown in another canvas or window has a dot, and clicking it goes there. A lens the project has
- * nothing for sits at the bottom, quieter. Clicking the lens in focus hides or shows the left panel, as VS Code's does.
- * The arrow keys move between lenses, and each has a menu to split it or move it to a window, and can be dragged onto a
- * canvas or out of the window.
+ * surface as the title bar. They work as links do in a browser: a click shows the lens in the tab in focus, and
+ * Ctrl+click or a middle click opens it in a new tab. The lens in the tab in focus is picked out; one open in another
+ * tab or window has a dot, and clicking it goes there. A lens the project has nothing for sits at the bottom, quieter.
+ * Clicking the lens in focus hides or shows the left panel, as VS Code's does. The arrow keys move between lenses, and
+ * each has a menu to open it in a new tab, split it or move it to a window, and can be dragged onto the tabs, a
+ * canvas's side or out of the window.
  */
 export function LensBar({ actions }: { actions: ChromeActions }) {
   const available = lensOrder.filter((id) => !lenses[id].missing)
@@ -487,7 +494,7 @@ export function LensBar({ actions }: { actions: ChromeActions }) {
 }
 
 /** Where a lens shows when it isn't the canvas in focus's, for its hint. */
-const placeWords = { canvas: "In another canvas", window: "In its own window" }
+const placeWords = { open: "Open in a tab", window: "In its own window" }
 
 function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions }) {
   const { label, icon: Icon, keys, missing } = lenses[lens]
@@ -527,7 +534,8 @@ function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions })
               aria-label={said ? `${label}, ${said.toLowerCase()}` : label}
               aria-pressed={current}
               tabIndex={current ? 0 : -1}
-              onClick={() => actions.show(lens)}
+              onClick={(event) => (event.ctrlKey || event.metaKey ? actions.openTab(lens) : actions.show(lens))}
+              onAuxClick={(event) => event.button === 1 && actions.openTab(lens)}
               draggable={!missing}
               onDragStart={(event) => {
                 event.dataTransfer.setData(lensDragType, lens)
@@ -551,6 +559,9 @@ function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions })
         <ContextMenuItem onClick={() => actions.show(lens)}>
           <Icon /> Show {label}
           <ContextMenuShortcut>{keys}</ContextMenuShortcut>
+        </ContextMenuItem>
+        <ContextMenuItem disabled={!actions.canOpenTab(lens)} onClick={() => actions.openTab(lens)}>
+          <SquarePlus /> Open in new tab
         </ContextMenuItem>
         <ContextMenuSeparator />
         <ContextMenuItem disabled={!actions.canSplit(lens)} onClick={() => actions.splitRight(lens)}>

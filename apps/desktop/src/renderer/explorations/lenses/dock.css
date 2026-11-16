@@ -1,24 +1,24 @@
 /*
- * Dockview in the app's colors (PAR-1237). Each canvas shows one lens under a title row: its icon and name on the side
- * panels' background, as tall as their tab rows, so the three read as one row across the window. The canvas in focus
- * has its title in the text's color, and the others' are quieter.
+ * Dockview in the app's colors (PAR-1237). Tabs are flat, on the side panels' background and as tall as their tab rows,
+ * so the three read as one row across the window. The open tab takes its canvas's color and runs on into it; the
+ * others are quieter, and so is the open tab of a group out of focus.
  */
 .dockview-theme-parity {
   --lens-canvas: rgb(249, 250, 251);
 
   color-scheme: inherit;
-  --dv-tabs-and-actions-container-font-size: 14px;
+  --dv-tabs-and-actions-container-font-size: 13px;
   --dv-tabs-and-actions-container-height: 36px;
-  --dv-tab-font-size: 14px;
+  --dv-tab-font-size: 13px;
   --dv-tabs-and-actions-container-background-color: var(--background);
   --dv-group-view-background-color: var(--lens-canvas);
-  --dv-activegroup-visiblepanel-tab-background-color: transparent;
-  --dv-inactivegroup-visiblepanel-tab-background-color: transparent;
+  --dv-activegroup-visiblepanel-tab-background-color: var(--lens-canvas);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--lens-canvas);
   --dv-activegroup-hiddenpanel-tab-background-color: transparent;
   --dv-inactivegroup-hiddenpanel-tab-background-color: transparent;
   --dv-activegroup-visiblepanel-tab-color: var(--foreground);
   --dv-activegroup-hiddenpanel-tab-color: var(--muted-foreground);
-  --dv-inactivegroup-visiblepanel-tab-color: var(--muted-foreground);
+  --dv-inactivegroup-visiblepanel-tab-color: color-mix(in oklch, var(--foreground) 70%, transparent);
   --dv-inactivegroup-hiddenpanel-tab-color: var(--muted-foreground);
   --dv-tab-divider-color: transparent;
   --dv-separator-border: var(--border);
@@ -43,6 +43,7 @@
   --lens-canvas: rgb(16, 16, 17);
 }
 
+/* The strip's bottom edge, which the open tab covers so it runs on into its canvas. */
 .dockview-theme-parity .dv-tabs-and-actions-container {
   box-shadow: inset 0 -1px var(--border);
 }
@@ -50,11 +51,20 @@
 .dockview-theme-parity .dv-tab {
   display: flex;
   padding: 0;
+  border-right: 1px solid var(--border);
 }
 
 .dockview-theme-parity .dv-tab > * {
   flex: 1;
   min-width: 0;
+}
+
+.dockview-theme-parity
+  .dv-groupview
+  > .dv-tabs-and-actions-container
+  .dv-tabs-container
+  > .dv-tab.dv-inactive-tab:hover {
+  color: var(--foreground);
 }
 
 .dockview-theme-parity .dv-tab:focus-visible {
