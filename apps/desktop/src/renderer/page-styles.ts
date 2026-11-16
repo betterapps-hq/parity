@@ -1,3 +1,4 @@
+import { callerOrigin, importsIn, relativeUrlsFrom, withImports, withMedia } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
 
 /**
@@ -106,57 +107,6 @@ export function pageStyles(origin: string): PageStyles {
 }
 
 /**
- * The origin of the code that called the method being guarded, or `undefined` when it's Parity's own, or there's no
- * telling (code with no address). `stack` is a V8 stack whose first frame is that code's.
- */
-export function callerOrigin(stack: string, pageOrigin: string): string | undefined {
-  for (const line of stack.split("\n")) {
-    const address = /\b([a-z][a-z\d+.-]*:\/\/[^\s()]+?):\d+:\d+/i.exec(line)?.[1]
-
-    if (!address) {
-      continue
-    }
-
-    const origin = new URL(address).origin
-
-    // An opaque origin, as `webpack-internal://` code has, says nothing about whose code it is: look further out.
-    if (origin === "null") {
-      continue
-    }
-
-    return origin === pageOrigin ? undefined : origin
-  }
-
-  return undefined
-}
-
-/**
- * `css` with each relative `url()`, from the root too, resolved against `address`, the linked stylesheet it was read
- * from, as a browser resolves them. Frames take it as a sheet of Parity's own, where they'd resolve against Parity's
- * page, and an imported stylesheet's root may be another origin's. Addresses with a scheme and fragments stay as
- * they are.
- */
-export function relativeUrlsFrom(css: string, address: string): string {
-  // A quoted address is read whole, parentheses and all; an unquoted one ends at whitespace or `)`.
-  return css.replace(
-    /url\(\s*(?:"([^"]*)"|'([^']*)'|([^"'\s)]+))\s*\)/gi,
-    (match, double?: string, single?: string, bare?: string) => {
-      const path = double ?? single ?? bare ?? ""
-      const quote = [double === undefined ? "" : '"', single === undefined ? "" : "'"].join("")
-
-      return /^(?:[a-z][a-z\d+.-]*:|#)/i.test(path) ? match : `url(${quote}${new URL(path, address).href}${quote})`
-    }
-  )
-}
-
-/** `css` as a stylesheet with `media` applies it, when that's narrower than every medium. */
-export function withMedia(css: string, media: string | null): string {
-  const query = media?.trim()
-
-  return !query || query === "all" ? css : `@media ${query} {\n${css}\n}`
-}
-
-/**
  * A caught stylesheet's CSS for its frames, or `undefined` while there's none: a link not read yet or that isn't a
  * stylesheet, or one its code disabled. A link's `disabled` attribute is followed as it changes; a style element's
  * sheet disabled through the CSSOM is seen the next time its frames' styles are drawn again.
@@ -209,37 +159,13 @@ function styleWithImports(css: string, origin: string): string {
   imported.set(key, css)
   reading(
     origin,
-    withImports(css, `${origin}/`).then((expanded) => {
+    withImports(css, `${origin}/`, fetchStylesheet).then((expanded) => {
       imported.set(key, expanded)
       tell(origin)
     })
   )
 
   return css
-}
-
-/** `@import` statements: the address, plain or in `url()`, and what follows it (layer, supports, media). */
-function importPattern(): RegExp {
-  // A quoted address is read whole, semicolons and all, as Google Fonts' carry.
-  return /@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)|"([^"]*)"|'([^']*)')\s*([^;]*);/g
-}
-
-/** An `@import` match's address, whichever way it was written. */
-function importAddress(match: readonly (string | undefined)[]): string {
-  return match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? ""
-}
-
-/** `css`'s `@import` statements outside comments: where each starts and ends, its address and its conditions. */
-function importsIn(css: string): { start: number; end: number; address: string; conditions: string }[] {
-  // Comments are blanked out, same length, so what's found lines up with the text as it was.
-  const uncommented = css.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, (comment) => " ".repeat(comment.length))
-
-  return [...uncommented.matchAll(importPattern())].map((match) => ({
-    start: match.index,
-    end: match.index + match[0].length,
-    address: importAddress(match),
-    conditions: match[6] ?? ""
-  }))
 }
 
 /** A stylesheet's text by its address, and where it came from in the end, after any redirect. */
@@ -251,81 +177,6 @@ async function fetchStylesheet(address: string): Promise<{ text: string; from: s
   } catch {
     return undefined
   }
-}
-
-/**
- * `css`, read from `address`, with each `@import` replaced by what it imports, read the same way and wrapped in its
- * layer, supports condition and media, as a browser applies it. A frame's stylesheet ignores `@import`, so what a
- * stylesheet imports would otherwise be lost. One that can't be read is left out. Imports nest five deep at most.
- */
-export async function withImports(
-  css: string,
-  address: string,
-  readSheet: (address: string) => Promise<{ text: string; from: string } | undefined> = fetchStylesheet,
-  depth = 0
-): Promise<string> {
-  const statements = importsIn(css)
-
-  if (statements.length === 0 || depth > 5) {
-    return css
-  }
-
-  const contents = await Promise.all(
-    statements.map(async (statement) => {
-      const answer = await readSheet(new URL(statement.address, address).href)
-
-      return answer ? withImports(relativeUrlsFrom(answer.text, answer.from), answer.from, readSheet, depth + 1) : ""
-    })
-  )
-
-  let from = 0
-
-  const parts = statements.map((statement, index) => {
-    const before = css.slice(from, statement.start)
-
-    from = statement.end
-
-    return before + importConditions(contents[index] ?? "", statement.conditions)
-  })
-
-  return parts.join("") + css.slice(from)
-}
-
-/** Imported CSS wrapped in the layer, supports condition and media its `@import` names, in that order outward. */
-export function importConditions(css: string, conditions: string): string {
-  let rest = conditions.trim()
-  let wrapped = css
-  const layer = /^layer(?:\(\s*([^)]*?)\s*\))?/.exec(rest)
-
-  if (layer) {
-    wrapped = `@layer${layer[1] ? ` ${layer[1]}` : ""} {\n${wrapped}\n}`
-    rest = rest.slice(layer[0].length).trim()
-  }
-
-  const supports = rest.startsWith("supports(") ? balanced(rest, "supports".length) : undefined
-
-  if (supports !== undefined) {
-    const condition = rest.slice("supports(".length, supports).trim()
-    wrapped = `@supports ${condition.startsWith("(") ? condition : `(${condition})`} {\n${wrapped}\n}`
-    rest = rest.slice(supports + 1).trim()
-  }
-
-  return withMedia(wrapped, rest)
-}
-
-/** Where the parenthesis that opens at `open` in `text` closes, however deep what's inside nests. */
-function balanced(text: string, open: number): number | undefined {
-  let depth = 0
-
-  for (let index = open; index < text.length; index++) {
-    if (text[index] === "(") {
-      depth++
-    } else if (text[index] === ")" && --depth === 0) {
-      return index
-    }
-  }
-
-  return undefined
 }
 
 function baseUrl(element: Element, entry: Caught, origin: string): string {
@@ -369,7 +220,7 @@ function readLink(link: HTMLLinkElement, entry: Caught): void {
   reading(
     entry.origin,
     fetchStylesheet(address).then(async (answer) => {
-      const text = answer ? await withImports(answer.text, answer.from) : undefined
+      const text = answer ? await withImports(answer.text, answer.from, fetchStylesheet) : undefined
 
       if (answer && text !== undefined && entry.read === address) {
         entry.linked = text
