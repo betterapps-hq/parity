@@ -292,6 +292,23 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     expect(steps).toEqual({ before: 1, after: 0, heard: 1 })
   })
 
+  it("lets go of a stylesheet its code moves into a frame's shadow root, with the media it gave it", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const settle = () => new Promise((resolve) => setTimeout(resolve))
+      const style = project.addStyle(".moved {}", "screen")
+      await settle()
+      const host = document.createElement("div")
+      document.body.append(host)
+      const shadow = host.attachShadow({ mode: "open" })
+      project.call(() => shadow.appendChild(style))
+      await settle()
+
+      return { sheets: parity.pageStyles(origin).sheets().length, media: style.getAttribute("media") }
+    }, origin)
+
+    expect(steps).toEqual({ sheets: 0, media: "screen" })
+  })
+
   it("keeps the media the project gave it when its code takes it out and puts it back later", async () => {
     const steps = await page.evaluate(async (origin) => {
       const settle = () => new Promise((resolve) => setTimeout(resolve))

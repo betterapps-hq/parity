@@ -69,7 +69,7 @@ export function pageStyles(origin: string): PageStyles {
   return {
     sheets: () =>
       [...caught]
-        .filter(([element, entry]) => entry.origin === origin && element.isConnected)
+        .filter(([element, entry]) => entry.origin === origin && inPage(element))
         .sort(([a], [b]) => (hasFlag(a.compareDocumentPosition(b), Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1))
         .flatMap(([element, entry]) => {
           const css = sheetText(element, entry)
@@ -290,14 +290,22 @@ function followChanges(records: MutationRecord[]): void {
   }
 }
 
-/** Lets go of every caught element no longer in the page, taken out itself or with an element around it. */
+/** Whether a node is in Parity's own document tree: not out of the page, nor in a frame's shadow root. */
+function inPage(node: Node): boolean {
+  return node.isConnected && node.getRootNode() === document
+}
+
+/**
+ * Lets go of every caught element no longer in the page's own tree: taken out itself or with an element around it, or
+ * moved into a frame's shadow root, where it styles only that frame.
+ */
 function followRemovals(records: MutationRecord[]): void {
   if (!records.some((record) => record.removedNodes.length > 0)) {
     return
   }
 
   for (const [element, entry] of caught) {
-    if (!element.isConnected) {
+    if (!inPage(element)) {
       caught.delete(element)
       // It leaves with the media the project gave it, so it's caught with that again if it comes back.
       setOwnMedia(element, entry.media)
@@ -353,7 +361,7 @@ function stylesheetsIn(nodes: readonly unknown[]): (HTMLStyleElement | HTMLLinkE
 function guarded<R>(parent: Node | null, inserted: readonly unknown[], insert: () => R): R {
   const found = stylesheetsIn(inserted)
 
-  if (found.length === 0 || !parent?.isConnected || parent.getRootNode() !== document) {
+  if (found.length === 0 || !parent || !inPage(parent)) {
     return insert()
   }
 

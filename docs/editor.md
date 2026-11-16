@@ -8291,19 +8291,20 @@ imported stylesheet to the page's head, and the app's Tailwind base styles came 
 Code: `apps/desktop/src/renderer/page-styles.ts`; `showAddedStyles` and `addedSheet` in `guest.ts`, adopted before the
 guest's own sheet by `mountFrame` in `frame-host.ts`.
 
-Tests: `apps/desktop/src/renderer/page-styles.test.ts` (15; 12 in Chrome, with Parity's page and a project's code served
+Tests: `apps/desktop/src/renderer/page-styles.test.ts` (16; 13 in Chrome, with Parity's page and a project's code served
 from two origins: a project's stylesheet switched off in the page and kept for its frames; Parity's own and one in a
 frame's shadow root left alone; text, inserted rules and removal followed, with one update each; rules inserted straight
 after its text is set, in the same task, kept; a move within the page taken as a new place; the media kept when it's
 taken out and put back; media its code sets to `not all` taken as its own; the last of several media changes in one task
-kept; a stylesheet taken out with the element around it let go of; the media it was given, and changed, kept; a linked
-stylesheet read with its relative `url()`s resolved against its address; and 3 without: the caller's origin from a
-stack, relative `url()`s resolved, and media wrapping). `guest.test.ts` (1, in Chrome: added rules drawn for frames,
-fonts and registered properties in the document after the global stylesheets', changes shown, nothing after stopping).
-`frame-host.test.ts` (1, in Chrome: the added stylesheet adopted before the guest's own and the ones a frame is given).
-Checked in the running app with copacker open: Parity's body and Routes list keep `InterVariable`, copacker's
-`globals.css`, `theme.css.ts.vanilla.css` and sonner's styles sit in the head switched off, and every frame's added
-sheet has them. Gaps: styled-components and Turbopack's lazy CSS modules aren't checked against a fixture.
+kept; a stylesheet taken out with the element around it, or moved into a frame's shadow root, let go of; the media it
+was given, and changed, kept; a linked stylesheet read with its relative `url()`s resolved against its address; and 3
+without: the caller's origin from a stack, relative `url()`s resolved, and media wrapping). `guest.test.ts` (1, in
+Chrome: added rules drawn for frames, fonts and registered properties in the document after the global stylesheets',
+changes shown, nothing after stopping). `frame-host.test.ts` (1, in Chrome: the added stylesheet adopted before the
+guest's own and the ones a frame is given). Checked in the running app with copacker open: Parity's body and Routes list
+keep `InterVariable`, copacker's `globals.css`, `theme.css.ts.vanilla.css` and sonner's styles sit in the head switched
+off, and every frame's added sheet has them. Gaps: styled-components and Turbopack's lazy CSS modules aren't checked
+against a fixture.
 
 ### Detected again when what detection reads changes (PAR-820)
 
