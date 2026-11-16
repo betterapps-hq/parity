@@ -52,7 +52,30 @@ const darkName = /dark/i
 const lightName = /light/i
 
 /** The names a module uses without declaring or importing them, which are the page's own. */
-const pageGlobals = new Set(["window", "document", "globalThis", "navigator", "localStorage", "undefined", "process"])
+const pageGlobals = new Set([
+  "window",
+  "document",
+  "globalThis",
+  "navigator",
+  "location",
+  "history",
+  "localStorage",
+  "sessionStorage",
+  "matchMedia",
+  "getComputedStyle",
+  "requestAnimationFrame",
+  "cancelAnimationFrame",
+  "customElements",
+  "process"
+])
+
+/** Names Node has but a page doesn't, which a preview file running in a frame can't use. */
+const nodeOnly = new Set(["Buffer", "global", "setImmediate", "clearImmediate"])
+
+/** Whether a name is the page's own: one of the language's globals, as `Math` and `JSON` are, or the browser's. */
+function isPageGlobal(name: string): boolean {
+  return pageGlobals.has(name) || (name in globalThis && !nodeOnly.has(name))
+}
 
 interface Imported {
   /** The module as the importing file names it. */
@@ -683,7 +706,8 @@ function carryName(
     return undefined
   }
 
-  return declaredAnywhere(name, scope.source) && !pageGlobals.has(name) ? name : undefined
+  // Anything else is something the preview file can't have, such as an enum or a name only the running app makes.
+  return isPageGlobal(name) ? undefined : name
 }
 
 /**
@@ -846,38 +870,6 @@ function declarationKind(declaration: ts.VariableDeclaration): string {
   return keyword === "let" || keyword === "var" ? keyword : "const"
 }
 
-/** Whether a name is declared somewhere in a file, as a component's state or a parameter is. */
-function declaredAnywhere(name: string, source: ts.SourceFile): boolean {
-  let found = false
-
-  const visit = (node: ts.Node) => {
-    if (found) {
-      return
-    }
-
-    if (
-      (ts.isVariableDeclaration(node) ||
-        ts.isParameter(node) ||
-        ts.isBindingElement(node) ||
-        ts.isFunctionDeclaration(node) ||
-        ts.isClassDeclaration(node)) &&
-      node.name &&
-      ts.isIdentifier(node.name) &&
-      node.name.text === name
-    ) {
-      found = true
-
-      return
-    }
-
-    ts.forEachChild(node, visit)
-  }
-
-  visit(source)
-
-  return found
-}
-
 /**
  * The names an expression or declaration uses from around it: not property names or keys, and not what a function in
  * it declares, which counts only inside that function, as `user => user.name` binds `user` only for its own body.
@@ -979,36 +971,42 @@ function freeNames(node: ts.Node): string[] {
 }
 
 /**
- * The names a function declares for its own body: its parameters, and the variables, functions and classes in it,
- * leaving those of the functions inside it to them.
+ * The names a function declares for all of its body: its parameters, and the variables, functions and classes its body
+ * declares at its top. What a block inside declares counts only there, so it isn't taken here; a name it hides is then
+ * read as used, which at worst leaves a provider out.
  */
 function declaredIn(fn: ts.SignatureDeclaration): string[] {
   const names: string[] = []
 
-  const collect = (node: ts.Node) => {
-    if (
-      (ts.isParameter(node) ||
-        ts.isBindingElement(node) ||
-        ts.isVariableDeclaration(node) ||
-        ts.isFunctionDeclaration(node) ||
-        ts.isClassDeclaration(node)) &&
-      node.name &&
-      ts.isIdentifier(node.name)
-    ) {
-      names.push(node.name.text)
-    }
-
-    // A function inside declares its name here, and the rest for itself.
-    if (!ts.isFunctionLike(node)) {
-      ts.forEachChild(node, collect)
+  const bind = (name: ts.BindingName) => {
+    if (ts.isIdentifier(name)) {
+      names.push(name.text)
+    } else {
+      for (const element of name.elements) {
+        if (ts.isBindingElement(element)) {
+          bind(element.name)
+        }
+      }
     }
   }
 
-  ts.forEachChild(fn, (child) => {
-    if (child !== fn.name) {
-      collect(child)
+  for (const parameter of fn.parameters) {
+    bind(parameter.name)
+  }
+
+  const body = ts.isFunctionLike(fn) && "body" in fn ? fn.body : undefined
+
+  if (body && ts.isBlock(body)) {
+    for (const statement of body.statements) {
+      if (ts.isVariableStatement(statement)) {
+        for (const declaration of statement.declarationList.declarations) {
+          bind(declaration.name)
+        }
+      } else if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name) {
+        names.push(statement.name.text)
+      }
     }
-  })
+  }
 
   return names
 }

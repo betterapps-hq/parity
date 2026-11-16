@@ -448,6 +448,41 @@ createRoot(document.getElementById("root")).render(
     expect(offer?.text).toContain(`import { locale } from "../src/locale"`)
   })
 
+  it("imports a name a callback uses outside a block that declares the same name", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { SessionProvider } from "./session"
+import { user } from "./fixtures"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <SessionProvider value={() => { for (const user of []) {} return user }}><App /></SessionProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import { user } from "../src/fixtures"`)
+  })
+
+  it("leaves out a provider whose prop uses a name the reader can't carry, such as an enum", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.tsx": `import { createRoot } from "react-dom/client"
+import { IntlProvider } from "react-intl"
+import { App } from "./App"
+
+enum Locale { English = "en" }
+
+createRoot(document.getElementById("root")!).render(<IntlProvider locale={Locale.English}><App /></IntlProvider>)
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({
