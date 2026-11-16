@@ -15,7 +15,7 @@ import {
   viewportWidthProperty
 } from "@parity-app/core"
 import { hasFlag } from "./bits.ts"
-import { catchFrameStyles, frameRulesEdited, type PrepareCss } from "./frame-styles.ts"
+import { catchFrameStyles, followRuleEdits, frameRulesEdited, type PrepareCss } from "./frame-styles.ts"
 import { unrecordedShadow } from "./shadow.ts"
 import scrollbarCss from "./scrollbars.css?raw"
 
@@ -349,6 +349,8 @@ function rewriteAddedRules(): void {
   CSSStyleSheet.prototype.replaceSync = function (text) {
     replaceSync.call(this, rewriteSheetFrameUnits(text))
   }
+
+  followRuleEdits()
 }
 
 const watched = new WeakSet<ShadowRoot>()

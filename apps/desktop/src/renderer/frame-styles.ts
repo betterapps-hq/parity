@@ -108,23 +108,136 @@ export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss, origin
  */
 export function frameRulesEdited(sheet: CSSStyleSheet): void {
   const owner = sheet.ownerNode
+  const entry = owner instanceof HTMLStyleElement ? entryOf(owner) : undefined
 
-  if (!(owner instanceof HTMLStyleElement)) {
-    return
-  }
-
-  // Code that adds a `<style>` and inserts its rules straight away, as Emotion does, edits it before the frame's
-  // observer has seen it go in.
-  const root = owner.getRootNode()
-  const entry = owners.get(owner) ?? (root instanceof ShadowRoot ? frames.get(root) : undefined)
-
-  if (entry) {
+  if (owner instanceof HTMLStyleElement && entry) {
     // A change to its text made before this edit, still queued, is followed first, so it doesn't undo the edit.
     follow(entry, entry.observer?.takeRecords() ?? [])
     catchElement(entry, owner)
     entry.edited.add(owner)
     schedule(entry)
   }
+}
+
+/** The frame a `<style>` is caught in, or is in before the frame's observer has seen it go in. */
+function entryOf(owner: HTMLStyleElement): FrameEntry | undefined {
+  // Code that adds a `<style>` and inserts its rules straight away, as Emotion does, edits it before then.
+  const root = owner.getRootNode()
+
+  return owners.get(owner) ?? (root instanceof ShadowRoot ? frames.get(root) : undefined)
+}
+
+/** Whether `sheet` is a `<style>` element's in a frame, whose edits the frame follows. */
+function inFrame(sheet: CSSStyleSheet | null): sheet is CSSStyleSheet {
+  return sheet?.ownerNode instanceof HTMLStyleElement && entryOf(sheet.ownerNode) !== undefined
+}
+
+/** Each caught rule's declarations, as the project's code is given them, which tell the frame what it changes. */
+const followedDeclarations = new WeakMap<CSSStyleDeclaration, CSSStyleDeclaration>()
+
+/**
+ * Follows the edits the project's code makes to a caught sheet's rules rather than the sheet itself: rules inserted
+ * into or deleted from a rule in it (`@media`), a selector changed, and declarations set or removed through a rule's
+ * `style`. Only a frame's `<style>` sheets are touched: a rule's `style` is followed for them alone, so Parity's own
+ * styles and every element's inline style stay as fast as they were. Called once, with `rewriteAddedRules` in
+ * `frame.ts`.
+ */
+export function followRuleEdits(): void {
+  const grouping = Object.getOwnPropertyDescriptors(CSSGroupingRule.prototype)
+  const insertRule = grouping.insertRule.value!
+  const deleteRule = grouping.deleteRule.value!
+  const styleRule = Object.getOwnPropertyDescriptors(CSSStyleRule.prototype)
+  const selectorText = styleRule.selectorText
+  const style = styleRule.style
+
+  const edited = (rule: CSSRule) => {
+    if (inFrame(rule.parentStyleSheet)) {
+      frameRulesEdited(rule.parentStyleSheet)
+    }
+  }
+
+  CSSGroupingRule.prototype.insertRule = function (rule, index) {
+    const at = insertRule.call(this, rule, index)
+    edited(this)
+
+    return at
+  }
+
+  CSSGroupingRule.prototype.deleteRule = function (index) {
+    deleteRule.call(this, index)
+    edited(this)
+  }
+
+  Object.defineProperty(CSSStyleRule.prototype, "selectorText", {
+    ...selectorText,
+    set(this: CSSStyleRule, value: string) {
+      selectorText.set!.call(this, value)
+      edited(this)
+    }
+  })
+
+  Object.defineProperty(CSSStyleRule.prototype, "style", {
+    ...style,
+    get(this: CSSStyleRule) {
+      const declarations = style.get!.call(this)
+
+      return inFrame(this.parentStyleSheet) ? followed(declarations, this) : declarations
+    }
+  })
+}
+
+function followed(declarations: CSSStyleDeclaration, rule: CSSRule): CSSStyleDeclaration {
+  const known = followedDeclarations.get(declarations)
+
+  if (known) {
+    return known
+  }
+
+  const tell = () => {
+    if (inFrame(rule.parentStyleSheet)) {
+      frameRulesEdited(rule.parentStyleSheet)
+    }
+  }
+
+  const setProperty = (...args: Parameters<CSSStyleDeclaration["setProperty"]>) => {
+    declarations.setProperty(...args)
+    tell()
+  }
+
+  const removeProperty = (property: string) => {
+    const removed = declarations.removeProperty(property)
+    tell()
+
+    return removed
+  }
+
+  const proxy = new Proxy(declarations, {
+    get(target, property) {
+      if (property === "setProperty") {
+        return setProperty
+      }
+
+      if (property === "removeProperty") {
+        return removeProperty
+      }
+
+      // Read from the declarations themselves, whose getters and methods need them as `this`.
+      // SAFETY: what code reads from a rule's declarations is one of their keys, or undefined for anything else.
+      const value: unknown = target[property as keyof CSSStyleDeclaration]
+
+      return value instanceof Function ? value.bind(target) : value
+    },
+    set(target, property, value) {
+      const done = Reflect.set(target, property, value, target)
+      tell()
+
+      return done
+    }
+  })
+
+  followedDeclarations.set(declarations, proxy)
+
+  return proxy
 }
 
 function follow(entry: FrameEntry, records: MutationRecord[]): void {

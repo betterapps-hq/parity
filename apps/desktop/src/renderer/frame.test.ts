@@ -669,7 +669,10 @@ describe("styles written while the project runs", () => {
         :root[data-theme="dark"] { --palette-fg: rgb(1, 2, 3) }
         :root { --late: var(--gray-solid) }
         :root { --late: rgb(7, 8, 9) }
-        .solid { background-color: var(--palette-solid); color: var(--palette-fg); border-top-color: var(--late) }`,
+        @layer tokens { :root { --layered: var(--gray-solid) } }
+        :root[data-theme="dark"] { --layered: rgb(4, 5, 6) }
+        .solid { background-color: var(--palette-solid); color: var(--palette-fg); border-top-color: var(--late);
+          border-bottom-color: var(--layered) }`,
       '<div class="solid"></div>',
       "",
       { "data-theme": "dark" }
@@ -678,11 +681,11 @@ describe("styles written while the project runs", () => {
     const drawn = await page.evaluate(() => {
       const style = getComputedStyle(document.querySelector("#host")!.shadowRoot!.querySelector(".solid")!)
 
-      return [style.backgroundColor, style.color, style.borderTopColor]
+      return [style.backgroundColor, style.color, style.borderTopColor, style.borderBottomColor]
     })
 
-    // The theme's root, and a later root rule, still override the copy on the body.
-    expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)", "rgb(7, 8, 9)"])
+    // The theme's root, a later root rule and an unlayered theme's root over a layered one still override the copy.
+    expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)", "rgb(7, 8, 9)", "rgb(4, 5, 6)"])
   })
 
   it("follow a written stylesheet's media as the project changes it, and read what it imports", async () => {
@@ -751,10 +754,39 @@ describe("styles written while the project runs", () => {
       text.sheet!.insertRule(".box { color: rgb(5, 5, 5) }", 1)
       await tick()
       const insertedAfterText = getComputedStyle(box).color
+      // A rule's declarations and selector changed in place, and a rule inserted into a rule in it.
+      // SAFETY: the second rule is the `.box` style rule inserted above.
+      const rule = text.sheet!.cssRules[1] as CSSStyleRule
+      rule.style.setProperty("color", "rgb(7, 7, 7)")
+      await tick()
+      const setProperty = getComputedStyle(box).color
+      rule.style.color = "rgb(8, 8, 8)"
+      await tick()
+      const named = getComputedStyle(box).color
+      rule.selectorText = ".nothing"
+      await tick()
+      const selector = getComputedStyle(box).color
+      text.sheet!.insertRule("@media all { }", 2)
+      // SAFETY: the third rule is the `@media` rule just inserted.
+      const media = text.sheet!.cssRules[2] as CSSMediaRule
+      media.insertRule(".box { color: rgb(9, 9, 9) }")
+      await tick()
+      const nested = getComputedStyle(box).color
       text.remove()
       await tick()
 
-      return [first, deleted, added, replaced, insertedAfterText, getComputedStyle(box).color]
+      return [
+        first,
+        deleted,
+        added,
+        replaced,
+        insertedAfterText,
+        setProperty,
+        named,
+        selector,
+        nested,
+        getComputedStyle(box).color
+      ]
     })
 
     expect(colors).toEqual([
@@ -763,6 +795,10 @@ describe("styles written while the project runs", () => {
       "rgb(2, 2, 2)",
       "rgb(3, 3, 3)",
       "rgb(5, 5, 5)",
+      "rgb(7, 7, 7)",
+      "rgb(8, 8, 8)",
+      "rgb(4, 4, 4)",
+      "rgb(9, 9, 9)",
       "rgb(0, 0, 0)"
     ])
   })

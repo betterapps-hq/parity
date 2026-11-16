@@ -125,8 +125,19 @@ export function colorSchemeQuery(query: string): ColorScheme | undefined {
  */
 export function prepareCanvasCss(css: string, options: PrepareCssOptions): CanvasCss {
   const globals: string[] = []
+  const bodyCopies: string[] = []
+  const serializing = { ...options, uncopiedCustomProperties: uncopiedCustomProperties(css), bodyCopies }
+  let scoped = ""
 
-  const scoped = serialize(parse(css), { ...options, uncopiedCustomProperties: uncopiedCustomProperties(css) }, globals)
+  // Each top-level rule in turn, with the body's copies of layered roots' custom properties after it, out of its layer.
+  for (const node of parse(css)) {
+    scoped += serialize([node], serializing, globals)
+
+    if (bodyCopies.length > 0) {
+      scoped += ` ${bodyCopies.join(" ")}`
+      bodyCopies.length = 0
+    }
+  }
 
   return { scoped, global: globals.join("\n") }
 }
@@ -138,6 +149,8 @@ type SerializeOptions = PrepareCssOptions & {
    * (`@property … { inherits: false }`), which the body's copy of the root's would change (see `rootCustomProperties`).
    */
   uncopiedCustomProperties?: ReadonlySet<string>
+  /** The body's copies of layered roots' custom properties, put after the top-level rule they're in. */
+  bodyCopies?: string[]
 }
 
 function uncopiedCustomProperties(css: string): Set<string> {
@@ -316,6 +329,11 @@ interface SerializeContext {
    * body, whatever the body's own is, under the same conditions.
    */
   bodyRoot?: boolean
+  /**
+   * The at-rules around the rule, outermost first: a cascade layer's name (empty for an anonymous one), or another's
+   * prelude as the frame draws it.
+   */
+  enclosing?: { layer?: string; condition?: string }[]
 }
 
 /** Serializes rules for a frame. */
@@ -359,12 +377,16 @@ function serialize(
       } else if (scheme) {
         output += leading + serialize(node.children, options, globals, { ...context, scheme })
       } else {
-        const body = serialize(node.children, options, globals, context)
+        const drawnPrelude = /^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude
+        const layer = /^@layer\b\s*([^{]*)$/i.exec(prelude)?.[1]?.trim()
+        const around = layer === undefined ? { condition: drawnPrelude } : { layer }
+        const enclosing = context.inRule ? context.enclosing : [...(context.enclosing ?? []), around]
+        const body = serialize(node.children, options, globals, { ...context, enclosing })
 
         if (/^@(property|font-face)\b/i.test(prelude)) {
           globals.push(`${prelude} {${body}}`)
         } else {
-          output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
+          output += `${leading}${drawnPrelude} {${body}}`
         }
       }
 
@@ -437,9 +459,18 @@ function serialize(
         (name) => conditional.has(name) || options.uncopiedCustomProperties?.has(name) === true
       )
 
-      if (referencing) {
+      const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
+      const copy = `:where([${bodyAttribute}]) {${referencing}}`
+
+      if (referencing && layers.length === 0) {
         // In the qualified roots' layer, so a theme's root, as `:root.dark`, still overrides the copy on the body.
-        output += ` @layer ${qualifiedRootLayer} { :where([${bodyAttribute}]) {${referencing}} }`
+        output += ` @layer ${qualifiedRootLayer} { ${copy} }`
+      } else if (referencing && !layers.includes("") && options.bodyCopies) {
+        // A layered root's copy goes in a layer of the qualified roots' named after its own, under its conditions, so
+        // it ranks below an unlayered theme's root as the root's own rule does, and below an unlayered root's copy.
+        const conditions = (context.enclosing ?? []).flatMap((around) => around.condition ?? [])
+        const wrapped = conditions.reduceRight((inner, condition) => `${condition} { ${inner} }`, copy)
+        options.bodyCopies.push(`@layer ${qualifiedRootLayer}.${layers.join(".")} { ${wrapped} }`)
       }
     }
 

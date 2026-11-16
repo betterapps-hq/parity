@@ -294,6 +294,17 @@ describe("prepareCanvasCss", () => {
         options
       ).scoped
     ).toContain(bodyCopy("--a: var(--b);"))
+    // A layered root's copy goes in a layer of the qualified roots' named after its own, below an unlayered theme's root.
+    expect(prepareCanvasCss("@layer base { :root { --fg: red } } :root.dark { --fg: blue }", options).scoped).toBe(
+      "@layer base { :host { --fg: red } } @layer canvas-qualified-root.base { :where([data-canvas-body]) { --fg: red; } } " +
+        ":host(.dark) { --fg: blue } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --fg: blue } }"
+    )
+    expect(
+      prepareCanvasCss("@layer theme { @media (width >= 40rem) { :root { --a: var(--b) } } }", options).scoped
+    ).toBe(
+      "@layer theme { @container canvas-viewport (width >= 40rem) { :host { --a: var(--b) } } } " +
+        "@layer canvas-qualified-root.theme { @container canvas-viewport (width >= 40rem) { :where([data-canvas-body]) { --a: var(--b); } } }"
+    )
     // A semicolon in a string doesn't end a declaration.
     expect(prepareCanvasCss(':root { --a: "one;two"; --b: "three;four" }', options).scoped).toContain(
       bodyCopy('--a: "one;two"; --b: "three;four";')
