@@ -775,14 +775,10 @@ function isObject(value: unknown): value is object {
   return Object(value) === value
 }
 
-/** The extension a module exports: its default, as `defineExtension` makes it, or its own `activate`. */
+/** The extension a module exports as its default, as `defineExtension` makes it. */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- a module can export anything
 function extensionOf(exports: unknown): ExtensionModule | undefined {
-  if (isObject(exports) && "default" in exports && isModule(exports.default)) {
-    return exports.default
-  }
-
-  return isModule(exports) ? exports : undefined
+  return isObject(exports) && "default" in exports && isModule(exports.default) ? exports.default : undefined
 }
 
 /** Whether a value has an `activate` function, as an extension does. */

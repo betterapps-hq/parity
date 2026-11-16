@@ -51,7 +51,7 @@ function setUp(module: ExtensionModule) {
 
       serveExtensionHost({
         port: host,
-        load: () => Promise.resolve(Object.assign(Object.create(null), module)),
+        load: () => Promise.resolve(Object.assign(Object.create(null), { default: module })),
         exit: () => end({ code: 0 })
       })
 

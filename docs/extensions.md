@@ -316,15 +316,15 @@ out, as Portless does.
 - [keys.test.ts](../packages/extension/src/reader/keys.test.ts): keys as the keymap writes them, keys it can't read, and
   Parity's keys winning a clash, with two extensions on one key both named.
 - [hosts.test.ts](../packages/extension-host/src/hosts.test.ts): starting on detection and on a command, a module whose
-  default export is its extension, what `activate` gets, a command nobody handles, status items drawn before the code
-  loads, undeclared ids, state between runs, logs and `parity.ui`, restarting after a crash and stopping after 3, one
-  extension's crash leaving another running, a failed activation, a stuck host, stopping everything with the project,
-  and (PAR-1092) the selection from the start and as it changes, selecting, highlighting and navigating through the
-  window, a route's page URL, Parity's commands run in the window and an extension's in its host, and a node that isn't
-  one refused. Hosts talk over in-memory ports there, and load modules without a prototype, as Node's are. Settings:
-  each read from its own scope with an undeclared key refused, changes heard by the running code once each, a project
-  setting's `update` sent to the window and an app setting's refused, and a value that doesn't fit listed with its note,
-  with the activation time and permissions.
+  default export is its extension and one whose isn't refused, what `activate` gets, a command nobody handles, status
+  items drawn before the code loads, undeclared ids, state between runs, logs and `parity.ui`, restarting after a crash
+  and stopping after 3, one extension's crash leaving another running, a failed activation, a stuck host, stopping
+  everything with the project, and (PAR-1092) the selection from the start and as it changes, selecting, highlighting
+  and navigating through the window, a route's page URL, Parity's commands run in the window and an extension's in its
+  host, and a node that isn't one refused. Hosts talk over in-memory ports there, and load modules without a prototype,
+  as Node's are. Settings: each read from its own scope with an undeclared key refused, changes heard by the running
+  code once each, a project setting's `update` sent to the window and an app setting's refused, and a value that doesn't
+  fit listed with its note, with the activation time and permissions.
 - [hosts.test.ts](../packages/extension-host/src/hosts.test.ts) also: renaming a layer from a command as one labelled
   change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`; and
   (PAR-1095) a provider's host started the first time it's asked, with its answer read, nothing without one, an answer

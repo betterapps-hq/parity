@@ -159,10 +159,7 @@ interface Started {
  * Hosts whose processes are in memory: each runs the extension's module given here through the real host code, over a
  * pair of memory ports, and ends as a process would.
  */
-function setUp(
-  modules: Record<string, ExtensionModule | { default: ExtensionModule }>,
-  options: Partial<ExtensionHostsOptions<OpenedProject>> = {}
-) {
+function setUp(modules: Record<string, ExtensionModule>, options: Partial<ExtensionHostsOptions<OpenedProject>> = {}) {
   const changes: ExtensionStatus[][] = []
   const lines: { extension: string; line: LogLine }[] = []
   const notified: string[] = []
@@ -191,7 +188,7 @@ function setUp(
       serveExtensionHost({
         port: host,
         // Like a real module namespace, what the host loads has no prototype.
-        load: (main) => Promise.resolve(Object.assign(Object.create(null), modules[main])),
+        load: (main) => Promise.resolve(Object.assign(Object.create(null), { default: modules[main] })),
         exit: () => end({ code: 0 })
       })
 
@@ -312,15 +309,29 @@ describe("extension hosts", () => {
     expect(latest("parity-route-timings")).toBeUndefined()
   })
 
-  it("runs a module whose default export is its extension, as defineExtension makes it", async () => {
+  it("runs a module's default export, as defineExtension makes it", async () => {
     const activate = vi.fn<() => void>()
-    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": { default: defineExtension({ activate }) } })
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": defineExtension({ activate }) })
 
     hosts.open(project)
     await settle()
 
     expect(activate).toHaveBeenCalledOnce()
     expect(latest("@parity-app/extension-storybook")?.state).toBe("running")
+  })
+
+  it("refuses a module whose default export isn't an extension", async () => {
+    // A default export without an `activate`.
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": Object.create(null) })
+
+    hosts.open(project)
+    await settle()
+
+    expect(latest("@parity-app/extension-storybook")).toMatchObject({
+      state: "crashed",
+      reason:
+        "Couldn't activate: @parity-app/extension-storybook doesn't export an extension: export default defineExtension({ activate })"
+    })
   })
 
   it("lists every installed extension from its manifest, with no project open (PAR-1129)", () => {
@@ -1406,7 +1417,7 @@ describe("providers (PAR-1095)", () => {
 
           serveExtensionHost({
             port: host,
-            load: () => Promise.resolve({ activate }),
+            load: () => Promise.resolve({ default: { activate } }),
             exit: () => end({ code: 0 })
           })
           started.push(extension.package.id)

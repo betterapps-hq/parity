@@ -83,7 +83,7 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
 
       serveExtensionHost({
         port: host,
-        load: (main) => Promise.resolve(Object.assign(Object.create(null), modules[main])),
+        load: (main) => Promise.resolve(Object.assign(Object.create(null), { default: modules[main] })),
         exit: () => end({ code: 0 }),
         calls: { run: (call, task) => calls.run(call, task), current: () => calls.getStore() }
       })
