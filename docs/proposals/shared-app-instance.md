@@ -1,21 +1,20 @@
 # Proposal: pages drawn by the project's one instance (PAR-1204)
 
-Status: draft for discussion, 2026-11-16. Nothing here is built. It follows
-[loading.md](loading.md), where this was the last change, "later". Andrew moved it up. It answers his question: should
-pages share one instance of the app with component and story frames, or have one of their own, given the visual tests
-planned for components and stories?
+Status: draft for discussion, 2026-11-16. Nothing here is built. It follows [loading.md](loading.md), where this was the
+last change, "later". Andrew moved it up. It answers his question: should pages share one instance of the app with
+component and story frames, or have one of their own, given the visual tests planned for components and stories?
 
 ## In one line
 
-Every frame on a project's canvas, whether a component, a story or a page, draws from one instance of the project's code.
-A page is a frame whose router holds the app's real route tree, in memory, at the page's URL. Visual tests keep a fresh
-page for each case, so they don't decide how the live canvas shares its instance.
+Every frame on a project's canvas, whether a component, a story or a page, draws from one instance of the project's
+code. A page is a frame whose router holds the app's real route tree, in memory, at the page's URL. Visual tests keep a
+fresh page for each case, so they don't decide how the live canvas shares its instance.
 
 ## Today
 
-- **Components and stories** draw from the guest module, imported once into Parity's window. Each frame is a shadow
-  root with its own React root. A router extension wraps every frame in its router, at the frame's URL, with an empty
-  route tree (PAR-1152), so `Link` and router hooks work. The frame's mount can take a `url`, but no frame passes one.
+- **Components and stories** draw from the guest module, imported once into Parity's window. Each frame is a shadow root
+  with its own React root. A router extension wraps every frame in its router, at the frame's URL, with an empty route
+  tree (PAR-1152), so `Link` and router hooks work. The frame's mount can take a `url`, but no frame passes one.
 - **Pages** are iframes, each loading the app's `index.html` at its URL (`PageFrame` in `ContainerView.tsx`). Opening
   Copacker boots 41 of them, each with 247 modules, about 10,100 module loads in all, in one renderer process, and they
   finish loading 25 to 29 seconds after the window appears. None sleeps or shows a bitmap.
@@ -26,11 +25,11 @@ page for each case, so they don't decide how the live canvas shares its instance
 
 Shared in the live canvas, separate in visual tests. The two have different jobs:
 
-| Where                     | Job                                                            | Instances                         |
-| ------------------------- | -------------------------------------------------------------- | --------------------------------- |
-| The live canvas           | Show the whole app at once, editable, and keep it fast to open | One per project, for every frame  |
-| Bitmaps and previews      | Stand in for frames out of view                                | One per offscreen window, reused  |
-| Visual tests and baselines | The same pixels every run, whatever ran before                 | One per case, in a fresh page     |
+| Where                      | Job                                                            | Instances                        |
+| -------------------------- | -------------------------------------------------------------- | -------------------------------- |
+| The live canvas            | Show the whole app at once, editable, and keep it fast to open | One per project, for every frame |
+| Bitmaps and previews       | Stand in for frames out of view                                | One per offscreen window, reused |
+| Visual tests and baselines | The same pixels every run, whatever ran before                 | One per case, in a fresh page    |
 
 Determinism is the visual tests' job, and they get it from a fresh page per case, so nothing on the canvas can change a
 capture. Sharing on the canvas then only has to be right for working on the app. There it's what the app does in a
@@ -54,10 +53,10 @@ and keep page frames apart from Layers, selection and editing for no gain the vi
    Layouts, loaders, `beforeLoad` and redirects run in the router as they would in a tab, and the page gets what frames
    already have: sleep, bitmaps, skeletons, placeholders, selection, and its layers down to what its components draw.
    Layers can show inside a page, which an iframe on another origin can't (editor.md, page layers).
-3. **The router says where it landed.** The decorator reports the matched location after each navigation, which
-   replaces the `page-landed` and `page-height` messages from the script put into `index.html`.
-4. **The app's providers come from its root route,** where TanStack Router and React Router framework mode put them,
-   and from the project's decorators otherwise, as for components. Providers set up only in the app's `main.tsx` need a
+3. **The router says where it landed.** The decorator reports the matched location after each navigation, which replaces
+   the `page-landed` and `page-height` messages from the script put into `index.html`.
+4. **The app's providers come from its root route,** where TanStack Router and React Router framework mode put them, and
+   from the project's decorators otherwise, as for components. Providers set up only in the app's `main.tsx` need a
    decorator, as they do for components today.
 
 ### What keeps an iframe
@@ -71,8 +70,8 @@ A page whose router can't run in the window keeps today's frame, drawn from a bi
 - routes the router extension can only know by running the app;
 - a project with no router extension, as a Rsbuild or webpack app whose routes are written in code.
 
-A page in an iframe and a page drawn by the instance look the same on the canvas. Only Interact and Layers can tell
-them apart.
+A page in an iframe and a page drawn by the instance look the same on the canvas. Only Interact and Layers can tell them
+apart.
 
 ## What the project's code can reach
 
@@ -92,13 +91,13 @@ One instance shares one main thread with Parity either way, as component frames 
 
 Expected, not measured, until a prototype opens Copacker:
 
-| On opening Copacker           | Today                                    | Pages drawn by the instance                                |
-| ----------------------------- | ---------------------------------------- | ---------------------------------------------------------- |
-| App boots for pages           | 41                                       | none                                                       |
-| Module loads for pages        | about 10,100                             | the route modules not already in the guest                 |
-| Pages out of view             | live, in iframes                         | asleep, showing their bitmaps                              |
-| Bitmaps of pages              | none                                     | made in the offscreen windows, as for frames               |
-| Each page's loaders           | run once per page                        | run once per page                                          |
+| On opening Copacker    | Today             | Pages drawn by the instance                  |
+| ---------------------- | ----------------- | -------------------------------------------- |
+| App boots for pages    | 41                | none                                         |
+| Module loads for pages | about 10,100      | the route modules not already in the guest   |
+| Pages out of view      | live, in iframes  | asleep, showing their bitmaps                |
+| Bitmaps of pages       | none              | made in the offscreen windows, as for frames |
+| Each page's loaders    | run once per page | run once per page                            |
 
 ## Steps
 
