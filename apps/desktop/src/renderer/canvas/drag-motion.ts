@@ -6,8 +6,9 @@
  * `carried.ts`) all read them.
  *
  * - Picking up: what's picked up grows 3% and lifts onto a shadow, in 120 ms (`DragLift`).
- * - Carrying: it follows the pointer exactly. From a layout, a picture of it is carried (`DragPicture`) while a faded
- *   copy shows where it would land (`LandingSpot`), and the layout makes room as it will: what's around it slides
+ * - Carrying: it follows the pointer exactly. From a layout, a picture of it is carried (`DragPicture`) while an empty
+ *   dashed outline of it shows where it would land (`LandingSpot`), so it reads as moved rather than copied, and the
+ *   layout makes room as it will: what's around it slides
  *   aside, and back when the copy moves on, in 180 ms (`make-room.ts`).
  * - Dropping: the picture flies from the pointer into its landing spot and settles, in 180 ms.
  * - Cancelling, with Esc: it flies back to where it was, a little slower, in 260 ms, so it reads as going back.
@@ -41,21 +42,29 @@ export const liftShadow = "drop-shadow(0 12px 16px rgb(0 0 0 / 0.18)) drop-shado
 /** The same shadow at rest, with nothing to see, so the two blend into each other. */
 export const restShadow = "drop-shadow(0 0 0 rgb(0 0 0 / 0)) drop-shadow(0 0 0 rgb(0 0 0 / 0))"
 
-/** How faded the copy that shows where something would land is. */
-export const landingOpacity = 0.55
-
-/** The dashed edge around that copy: its width, and the gap between it and the copy, in pixels. */
+/**
+ * The dashed outline that shows where something would land, in screen pixels: its width, and the gap between it and
+ * where the thing would be. What's carried leaves nothing else there: the outline is empty.
+ */
 export const landingEdge = { width: 1.5, gap: 1 }
 
 /**
- * The copy that shows where something would land, as inline styles for an element of the canvas's own, which React
- * doesn't draw: faded, with a dashed outline in `color` that follows its corners, as far out as `LandingSpot`'s edge.
+ * The landing outline as inline styles for an element of the canvas's own, which React doesn't draw: a box laid over the
+ * place it marks, as far out as `LandingSpot`'s edge, in `color`, following corners `radius` round. It's in a frame's
+ * pixels, `scale` screen pixels each, so it's the same on screen at any zoom. One marking something that clips what
+ * overflows it is drawn just inside instead, where it's seen.
  */
-export function landingLook(color: string): Record<"opacity" | "outline" | "outline-offset", string> {
+export function landingEdgeStyle(color: string, scale: number, radius: number, { inside = false } = {}) {
+  const out = inside ? 0 : (landingEdge.width + landingEdge.gap) / scale
+
   return {
-    opacity: String(landingOpacity),
-    outline: `${landingEdge.width}px dashed ${color}`,
-    "outline-offset": `${landingEdge.gap}px`
+    position: "absolute",
+    inset: `${-round(out)}px`,
+    border: `${round(landingEdge.width / scale)}px dashed ${color}`,
+    "border-radius": `${round(radius + out)}px`,
+    "box-sizing": "border-box",
+    "pointer-events": "none",
+    visibility: "visible"
   }
 }
 

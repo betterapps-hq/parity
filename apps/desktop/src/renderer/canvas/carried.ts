@@ -1,10 +1,20 @@
 import { createStore, type Store, windowStore } from "../store.ts"
 import { type DragPhase, flightMs } from "./drag-motion.ts"
 
+/** Where carried layers land, in the canvas area's pixels, and how round its corners are. */
+export interface Spot {
+  x: number
+  y: number
+  w: number
+  h: number
+  radius: number
+}
+
 /**
  * The picture of layers carried out of a layout, while they're carried and while it flies once they're let go: what it
  * shows, where its top-left is in the canvas area's pixels, where it was grabbed from its top-left, and the drag's
- * phase. The overlay over `area` draws it (`CarriedPicture`).
+ * phase. Dropped, `spot` is where they landed, which keeps its outline until the picture gets there. The overlay over
+ * `area` draws it (`CarriedPicture`).
  */
 export interface Carried<Picture = HTMLElement> {
   area: Element
@@ -12,6 +22,7 @@ export interface Carried<Picture = HTMLElement> {
   at: { x: number; y: number }
   grab: { x: number; y: number }
   phase: DragPhase
+  spot?: Spot
 }
 
 /** Waiting for a flight to end: the window's timers, or a test's. */
@@ -34,9 +45,16 @@ export interface CarriedPictures<Picture> {
   carry(at: { x: number; y: number }): void
   /**
    * Lets it go: it flies `to` where it lands (`dropping`) or back to where it was (`cancelling`), then goes, and `landed`
-   * runs. With reduced motion, or with nothing carried, it goes and `landed` runs at once.
+   * runs. With reduced motion, or with nothing carried, it goes and `landed` runs at once. `spot` is where it lands, to
+   * outline until then.
    */
-  letGo(phase: Exclude<DragPhase, "carrying">, to: { x: number; y: number }, reduced: boolean, landed: () => void): void
+  letGo(
+    phase: Exclude<DragPhase, "carrying">,
+    to: { x: number; y: number },
+    reduced: boolean,
+    landed: () => void,
+    spot?: Spot
+  ): void
   /** Ends a flight still going at once, as though it had landed. */
   finish(): void
 }
@@ -76,7 +94,7 @@ export function carriedPictures<Picture>(
         store.set({ ...carried, at })
       }
     },
-    letGo(phase, to, reduced, landed) {
+    letGo(phase, to, reduced, landed, spot) {
       const carried = store.get()
 
       const land = () => {
@@ -92,7 +110,7 @@ export function carriedPictures<Picture>(
         return
       }
 
-      store.set({ ...carried, phase, at: to })
+      store.set(spot ? { ...carried, phase, at: to, spot } : { ...carried, phase, at: to })
       flight = {
         timer: timers.set(() => {
           flight = undefined

@@ -22,7 +22,7 @@ import { LandingSpot } from "./LandingSpot.tsx"
 /**
  * Picking things up, carrying them and putting them down on the canvas, one way for everything and everyone: what's
  * picked up lifts onto a shadow, follows the pointer, and settles when it's dropped. From a layout, a picture of the
- * layer is carried while a faded copy shows where it would land and the layout makes room; dropped, the picture flies
+ * layer is carried while an empty outline shows where it would land and the layout makes room; dropped, the picture flies
  * into place; cancelled with Esc, it flies back. Someone else's drag, in Multiplayer's drag previews, moves the same
  * way with their outline and name added. The canvas's own drags move this way too, with the same parts and the timings in
  * `drag-motion.ts` (PAR-1199).
@@ -103,7 +103,7 @@ function phaseAt(time: number, cancel?: boolean): DragPhase | undefined {
   return cancel ? "cancelling" : "dropping"
 }
 
-/** Churn's card where it would land: faded and dashed while carried, unseen while its picture flies back. */
+/** Churn's card where it would land: an empty dashed outline while carried, unseen while its picture flies back. */
 function ChurnWhileCarried({ phase, children }: { phase: DragPhase; children: ReactNode }) {
   if (phase === "cancelling") {
     return <div className="h-full opacity-0">{children}</div>
@@ -167,8 +167,8 @@ function LayoutDrag({ time, cancel }: { time: number; cancel?: boolean }) {
 
 /**
  * Dragging the Churn card to the front of its row. Picked up, it lifts; a picture of it follows the pointer while a
- * faded copy shows where it would land, and the row makes room as it moves. Let go, the picture flies into the copy's
- * place and settles.
+ * an empty outline shows where it would land, and the row makes room as it moves. Let go, the picture flies into the
+ * outline and settles.
  */
 export const LayerInALayout: Story = {
   render: () => (

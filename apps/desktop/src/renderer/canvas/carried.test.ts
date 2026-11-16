@@ -70,6 +70,15 @@ describe("carriedPictures", () => {
     expect(pictures.store.get()).toBeUndefined()
   })
 
+  it("keeps where a dropped picture lands while it flies there, for its outline", () => {
+    const { timers, pictures } = pickedUp()
+    const spot = { x: 12, y: 42, w: 87, h: 51, radius: 8 }
+    pictures.letGo("dropping", { x: 12, y: 42 }, false, () => undefined, spot)
+    expect(pictures.store.get()).toMatchObject({ phase: "dropping", spot })
+    timers.tick(180)
+    expect(pictures.store.get()).toBeUndefined()
+  })
+
   it("flies a cancelled picture back for 260 ms", () => {
     const { timers, pictures } = pickedUp()
     const landed: string[] = []

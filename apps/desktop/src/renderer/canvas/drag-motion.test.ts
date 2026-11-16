@@ -3,7 +3,7 @@ import {
   cancelMs,
   dropMs,
   flightMs,
-  landingLook,
+  landingEdgeStyle,
   lift,
   liftMs,
   liftShadow,
@@ -87,8 +87,32 @@ describe("flightMs", () => {
   })
 })
 
-describe("landingLook", () => {
-  it("fades the copy to 55% with a 1.5px dashed edge 1px out, in the color it's given", () => {
-    expect(landingLook("red")).toEqual({ opacity: "0.55", outline: "1.5px dashed red", "outline-offset": "1px" })
+describe("landingEdgeStyle", () => {
+  it("draws an empty 1.5px dashed outline 1px out, round its corners, in the color it's given", () => {
+    expect(landingEdgeStyle("red", 1, 12)).toEqual({
+      position: "absolute",
+      inset: "-2.5px",
+      border: "1.5px dashed red",
+      "border-radius": "14.5px",
+      "box-sizing": "border-box",
+      "pointer-events": "none",
+      visibility: "visible"
+    })
+  })
+
+  it("keeps the same size on screen in a frame drawn at half size", () => {
+    expect(landingEdgeStyle("red", 0.5, 12)).toMatchObject({
+      inset: "-5px",
+      border: "3px dashed red",
+      "border-radius": "17px"
+    })
+  })
+
+  it("draws it just inside something that clips what overflows it", () => {
+    expect(landingEdgeStyle("red", 0.5, 12, { inside: true })).toMatchObject({
+      inset: "0px",
+      border: "3px dashed red",
+      "border-radius": "12px"
+    })
   })
 })

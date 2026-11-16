@@ -27,8 +27,8 @@ import {
 import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
-import { carriedPicture } from "./carried.ts"
-import { landingLook } from "./drag-motion.ts"
+import { carriedPicture, type Spot } from "./carried.ts"
+import { landingEdgeStyle } from "./drag-motion.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
@@ -51,8 +51,9 @@ import { StylePreview } from "./style-preview.ts"
  *
  * They move as everything dragged on the canvas does (`drag-motion.ts`, the `Parity/Canvas/Dragging` stories). From a
  * layout, a picture of the layers is carried, lifted (`carriedPicture`, drawn by the overlay's `CarriedPicture`), while
- * their faded copies show where they'd land (`DropPreview`); dropped, the picture flies into where they landed, which
- * looks like the copy until it gets there; cancelled, it flies back to where they are, which stays empty until then. An
+ * an empty dashed outline of them shows where they'd land (`DropPreview`); dropped, the picture flies into where they
+ * landed, which keeps the outline until it gets there; cancelled, it flies back to where they are, which stays empty
+ * until then. An
  * absolutely placed layer lifts itself, follows the pointer and settles where it's dropped, or flies back
  * (`liftElements`).
  */
@@ -219,7 +220,7 @@ export function pressLayers(
         return
       }
 
-      const copies = preview?.box()
+      const copies = preview?.spot(space)
       // Called off, the row closes around where the layers come back; dropped, the move lays it out as it's shown.
       preview?.end(!kept || !target)
       const reduced = reducedMotion()
@@ -246,10 +247,10 @@ export function pressLayers(
         moves.designs.push(target.design)
       }
 
-      // Where they landed looks like their copy did until the picture gets there.
+      // Where they landed stays an outline, drawn over the canvas, until the picture gets there.
       let unmark: (() => void) | undefined
       let gone = false
-      const to = copies ? space.point(copies) : carriedPicture.store.get()?.at
+      const to = copies ?? carriedPicture.store.get()?.at
 
       carriedPicture.letGo(
         "dropping",
@@ -258,11 +259,12 @@ export function pressLayers(
         landed(() => {
           gone = true
           unmark?.()
-        })
+        }),
+        copies
       )
 
       if (!gone && landing) {
-        markLanded(session, landing, landingColor(area), (put) => {
+        markLanded(session, landing, (put) => {
           if (gone) {
             put()
           } else {
@@ -285,29 +287,23 @@ function corner(boxes: readonly DOMRect[]): Point | undefined {
 }
 
 /**
- * Gives where the selected layers landed in a frame the look of their copy (`landingLook`), once the frame draws them
- * there, which may take an animation frame or two; `marked` gets what takes it off.
+ * Leaves where the selected layers landed in a frame empty, as their place was while they were carried, once the frame
+ * draws them there, which may take an animation frame or two; `marked` gets what shows them.
  */
-function markLanded(
-  session: ProjectDesigns,
-  host: HTMLElement,
-  color: string,
-  marked: (unmark: () => void) => void,
-  tries = 2
-): void {
+function markLanded(session: ProjectDesigns, host: HTMLElement, marked: (unmark: () => void) => void, tries = 2): void {
   window.requestAnimationFrame(() => {
     const elements = selectedNodes(session.selection.get()).flatMap((id) => findNodeElements(host, id))
 
     if (elements.length > 0) {
-      marked(styleElements(elements, landingLook(color)))
+      marked(styleElements(elements, { visibility: "hidden" }))
     } else if (tries > 1) {
-      markLanded(session, host, color, marked, tries - 1)
+      markLanded(session, host, marked, tries - 1)
     }
   })
 }
 
 /**
- * The layer color as the canvas `area` draws it, for the look of where layers land, which goes inside frames: a frame
+ * The layer color as the canvas `area` draws it, for the outline of where layers land, which goes inside frames: a frame
  * sets the custom properties Parity's page gives it back to `initial`, so the color's `var()` means nothing there.
  */
 function landingColor(area: Element): string {
@@ -334,23 +330,34 @@ export function moveTarget(
 }
 
 /**
- * Shows where dragged layers would land, before anything changes: the layers are hidden where they are, and faded
- * copies of them go where they'd be dropped, so every layout around them reflows exactly as it will. The copies look
- * like `LandingSpot` (`landingLook`). They're plain DOM, outside React, and gone before the move is made. As the copies
- * move, they and the layers around them slide to their new places (`slideElements`), rather than jumping there.
+ * Shows where dragged layers would land, before anything changes: the layers are hidden where they are, and copies
+ * of them go where they'd be dropped, so every layout around them reflows exactly as it will. The copies aren't
+ * drawn, only a dashed outline over each, as `LandingSpot` draws it (`landingEdgeStyle`), so the layers read as moved
+ * rather than copied. They're plain DOM, outside React, and gone before the move is made. As the copies move, they and
+ * the layers around them slide to their new places (`slideElements`), rather than jumping there.
  */
 class DropPreview {
   private readonly templates: HTMLElement[]
   private readonly displays: string[]
+  /** Each layer's corners, in its own pixels, which its outline follows. */
+  private readonly radii: number[]
+  /** Which layers clip what overflows them, so their outline is drawn inside, where it's seen. */
+  private readonly clips: boolean[]
   private copies: HTMLElement[] = []
   private hidden = false
   private at = ""
 
   constructor(
     private readonly originals: HTMLElement[],
-    color: string,
+    private readonly color: string,
     private readonly reduced: boolean
   ) {
+    this.radii = originals.map((original) => parseFloat(getComputedStyle(original).borderTopLeftRadius) || 0)
+    this.clips = originals.map((original) => {
+      const style = getComputedStyle(original)
+
+      return style.overflowX !== "visible" || style.overflowY !== "visible"
+    })
     this.templates = originals.map((original) => {
       // SAFETY: a deep clone of an element is an element of the same kind.
       const copy = original.cloneNode(true) as HTMLElement
@@ -361,12 +368,15 @@ class DropPreview {
       }
 
       copy.dataset.dropPreview = ""
+      // It holds the layers' place, unseen, under its outline.
+      copy.style.setProperty("visibility", "hidden", "important")
+      copy.style.pointerEvents = "none"
 
-      for (const [name, value] of Object.entries(landingLook(color))) {
-        copy.style.setProperty(name, value)
+      if (getComputedStyle(original).position === "static") {
+        copy.style.position = "relative"
       }
 
-      copy.style.pointerEvents = "none"
+      copy.append(document.createElement("span"))
 
       return copy
     })
@@ -432,9 +442,25 @@ class DropPreview {
         const copies =
           this.copies.length > 0 ? this.copies : this.templates.map((t) => t.cloneNode(true) as HTMLElement)
 
-        for (const copy of copies) {
+        // The outline is drawn in the frame's pixels, so it's redrawn for the frame's scale.
+        const { scale } = frameGeometry(host)
+
+        copies.forEach((copy, index) => {
           parent.insertBefore(copy, before ?? null)
-        }
+          const edge = copy.lastElementChild
+
+          if (edge instanceof HTMLElement) {
+            edge.style.cssText = ""
+
+            for (const [name, value] of Object.entries(
+              landingEdgeStyle(this.color, scale, this.radii[index]!, {
+                inside: this.clips[index]
+              })
+            )) {
+              edge.style.setProperty(name, value, "important")
+            }
+          }
+        })
 
         this.copies = copies
       },
@@ -446,9 +472,21 @@ class DropPreview {
     return true
   }
 
-  /** Where the copies are, in client pixels: their box's top-left. Nothing when none is shown. */
-  box(): Point | undefined {
-    return corner(this.copies.map((copy) => copy.getBoundingClientRect()))
+  /** Where the copies are, in the overlay's pixels, and how round, for their outline. Nothing when none is shown. */
+  spot(space: ReturnType<typeof areaSpace>): Spot | undefined {
+    const at = corner(this.copies.map((copy) => copy.getBoundingClientRect()))
+    const first = this.copies[0]
+
+    if (!at || !first) {
+      return undefined
+    }
+
+    const right = Math.max(...this.copies.map((copy) => copy.getBoundingClientRect().right))
+    const bottom = Math.max(...this.copies.map((copy) => copy.getBoundingClientRect().bottom))
+    const size = first.offsetWidth
+    const scale = size > 0 ? first.getBoundingClientRect().width / size : 1
+
+    return { ...space.point(at), w: right - at.x, h: bottom - at.y, radius: this.radii[0]! * scale }
   }
 
   /** Takes the copies away, and what was beside them slides back together. */
