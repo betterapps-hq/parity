@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Count only the window's own navigations in the paste-to-replace test",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

@@ -40,6 +40,9 @@ Search before the code loads, and starts the extension the first time it runs:
 }
 ```
 
+The `icon` is the tool's logo as one path, drawn in the text's color. Give it a `color` with a hex for each theme, as
+`{ "light": "#FF4785", "dark": "#FF4785" }`, and the logo takes it when its status bar item is hovered.
+
 A test checks the manifest as Parity does, and names the field that breaks a rule:
 
 ```ts
