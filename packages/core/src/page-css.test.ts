@@ -95,6 +95,21 @@ describe("withImports", () => {
     expect(asked).toEqual(["http://project.test/new.css"])
     expect(css).toBe('/* @import "old.css"; */ .b {} .a {}')
   })
+
+  it("leaves @import in a string alone", async () => {
+    const asked: string[] = []
+
+    const read = async (address: string) => {
+      asked.push(address)
+
+      return { text: ".b {}", from: address }
+    }
+
+    const css = `.a::before { content: '@import "old.css";'; } .c::after { content: "say \\"@import 'x.css';\\""; }`
+
+    expect(await withImports(css, "http://project.test/app.css", read)).toBe(css)
+    expect(asked).toEqual([])
+  })
 })
 
 describe("importConditions", () => {
@@ -106,6 +121,8 @@ describe("importConditions", () => {
     expect(importConditions(".a {}", "supports((display: grid) and (not (color: red))) print")).toBe(
       "@media print {\n@supports (display: grid) and (not (color: red)) {\n.a {}\n}\n}"
     )
+    expect(importConditions(".a {}", "supports(selector(:has(*)))")).toBe("@supports selector(:has(*)) {\n.a {}\n}")
+    expect(importConditions(".a {}", "supports(not (display: grid))")).toBe("@supports not (display: grid) {\n.a {}\n}")
   })
 })
 

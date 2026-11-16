@@ -8336,16 +8336,17 @@ kept, and one made after a link's address changes; a stylesheet taken out with t
 frame's shadow root, or out of an element that moved first, let go of; a new order from moving the elements around them;
 a link its code disables left out until it's enabled; the media it was given, and changed, kept; a linked stylesheet
 read with its relative `url()`s resolved against its address, or where a redirect took it; rules its code inserts into
-and deletes from a readable linked stylesheet taken). `packages/core/src/page-css.test.ts` (10: a quoted `url()` with
-parentheses resolved whole; `url(` in a string or comment left alone; nested supports conditions kept; the caller's
-origin from a stack, past an opaque one; relative `url()`s resolved; `@import`s put in place with their conditions, a
-quoted import address with semicolons read whole and an import's root resolved against its own origin, an import in a
-comment left alone, the conditions' order, and media wrapping). `guest.test.ts` (1, in Chrome: added rules drawn for
-frames, fonts and registered properties in the document after the global stylesheets', changes shown, nothing after
-stopping). `frame-host.test.ts` (1, in Chrome: the added stylesheet adopted before the guest's own and the ones a frame
-is given). Checked in the running app with copacker open: Parity's body and Routes list keep `InterVariable`, copacker's
-`globals.css`, `theme.css.ts.vanilla.css` and sonner's styles sit in the head switched off, and every frame's added
-sheet has them. Gaps: styled-components and Turbopack's lazy CSS modules aren't checked against a fixture.
+and deletes from a readable linked stylesheet taken). `packages/core/src/page-css.test.ts` (11: a quoted `url()` with
+parentheses resolved whole; `url(` in a string or comment left alone; nested supports conditions and ones like
+`selector()` kept as written; the caller's origin from a stack, past an opaque one; relative `url()`s resolved;
+`@import`s put in place with their conditions, a quoted import address with semicolons read whole and an import's root
+resolved against its own origin, an import in a comment or a string left alone, the conditions' order, and media
+wrapping). `guest.test.ts` (1, in Chrome: added rules drawn for frames, fonts and registered properties in the document
+after the global stylesheets', changes shown, nothing after stopping). `frame-host.test.ts` (1, in Chrome: the added
+stylesheet adopted before the guest's own and the ones a frame is given). Checked in the running app with copacker open:
+Parity's body and Routes list keep `InterVariable`, copacker's `globals.css`, `theme.css.ts.vanilla.css` and sonner's
+styles sit in the head switched off, and every frame's added sheet has them. Gaps: styled-components and Turbopack's
+lazy CSS modules aren't checked against a fixture.
 
 ### Detected again when what detection reads changes (PAR-820)
 

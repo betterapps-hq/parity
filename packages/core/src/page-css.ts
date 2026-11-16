@@ -70,17 +70,29 @@ function importAddress(match: readonly (string | undefined)[]): string {
   return match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? ""
 }
 
-/** `css`'s `@import` statements outside comments: where each starts and ends, its address and its conditions. */
+/**
+ * `css`'s `@import` statements outside comments and strings: where each starts and ends, its address and its
+ * conditions.
+ */
 export function importsIn(css: string): { start: number; end: number; address: string; conditions: string }[] {
-  // Comments are blanked out, same length, so what's found lines up with the text as it was.
-  const uncommented = css.replace(/\/\*[\s\S]*?(?:\*\/|$)/g, (comment) => " ".repeat(comment.length))
+  // Read left to right, so a comment or a string, such as a `content` that reads `@import`, is passed over whole.
+  const tokens = new RegExp(
+    `${importPattern().source}|\\/\\*[\\s\\S]*?(?:\\*\\/|$)|"(?:[^"\\\\\\n]|\\\\[\\s\\S])*"|'(?:[^'\\\\\\n]|\\\\[\\s\\S])*'`,
+    "g"
+  )
 
-  return [...uncommented.matchAll(importPattern())].map((match) => ({
-    start: match.index,
-    end: match.index + match[0].length,
-    address: importAddress(match),
-    conditions: match[6] ?? ""
-  }))
+  return [...css.matchAll(tokens)].flatMap((match) =>
+    match[0].startsWith("@")
+      ? [
+          {
+            start: match.index,
+            end: match.index + match[0].length,
+            address: importAddress(match),
+            conditions: match[6] ?? ""
+          }
+        ]
+      : []
+  )
 }
 
 /**
@@ -137,7 +149,9 @@ export function importConditions(css: string, conditions: string): string {
 
   if (supports !== undefined) {
     const condition = rest.slice("supports(".length, supports).trim()
-    wrapped = `@supports ${condition.startsWith("(") ? condition : `(${condition})`} {\n${wrapped}\n}`
+    // A bare declaration, `display: grid`, needs parentheses; a whole condition, `selector(:has(*))`, has them.
+    const declaration = /^-*[a-z_][\w-]*\s*:/i.test(condition)
+    wrapped = `@supports ${declaration ? `(${condition})` : condition} {\n${wrapped}\n}`
     rest = rest.slice(supports + 1).trim()
   }
 
