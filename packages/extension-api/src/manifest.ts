@@ -272,8 +272,9 @@ export interface RouterContribution {
  * A component the canvas puts around every frame, written as data, so it runs no code of the extension's own. Its
  * module is imported by the project's own build, so it's a package the project depends on, and its props are JSON or
  * the value forms libraries' decorators use: `{ "$frame": "url" }` is the URL the frame stands for, `/` unless it's a
- * page's, and `{ "$call": { "import": "pkg", "export": "name" }, "args": [...] }` what calling an export returns,
- * made once for each frame.
+ * page's, `{ "$frame": "content" }` an element drawing what it wraps, for a router that draws it as its root route,
+ * and `{ "$call": { "import": "pkg", "export": "name" }, "args": [...] }` what calling an export returns, made once
+ * for each frame.
  */
 export interface FrameDecorator {
   /** Applies only when the frame's globals have these values, as in `{ "theme": "dark" }`. */

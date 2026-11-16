@@ -1299,19 +1299,28 @@ there.
   in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
   with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
   router (`useLoaderData`, `useFetcher`) still need their route's loader to run, which the canvas doesn't do.
-- **TanStack Router** wraps each frame in `RouterContextProvider`, with a router `createRouter` makes from an empty root
-  route and memory history at the frame's URL, so `Link` draws. `Outlet` draws nothing, as no route matches.
+- **TanStack Router** wraps each frame in `RouterProvider`, with a router `createRouter` makes from a root route and
+  memory history at the frame's URL, so `Link` draws. The root route draws the frame, through `{ "$frame": "content" }`,
+  so a layout's `Outlet` has the matched route it needs and draws nothing, as no child route matches (PAR-1195). The
+  root's not-found component draws nothing too, in place of TanStack Router's "Not Found".
+- **The frame's content as a value.** `{ "$frame": "content" }` is an element drawing what the decorator wraps, for a
+  component that draws it some way other than as its children, as a router draws its root route's component. It reads
+  the content from context, so a value made once, such as that router, draws the frame's latest content.
 
 Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
 `packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
 `packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
 `ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
 `packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
-`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`; each router's manifest.
+`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`, which gives the `content` part from
+`FrameContentContext` too; each router's manifest.
 
 Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
 frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
-around the libraries'" in `packages/extension-vite/src/builder.test.ts`.
+around the libraries'" in `packages/extension-vite/src/builder.test.ts`; "draws it where the component puts it, once,
+and draws the frame's next content there too" in `packages/extension-react/src/guest.react-18.test.ts`; "has a manifest
+Parity accepts" in `packages/extension-tanstack-router/src/extension.test.ts`. Tried in the running app on 2026-11-16 on
+a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its `Outlet`.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1642,8 +1651,7 @@ Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3
 components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
 code since PAR-1156. Tried again on 2026-11-16 on a copy of it: it opens once (PAR-1193), its Home and Settings route
 screens draw the app's pages with `AppShell` around them, and an edit to Home reloads its screen (PAR-1194). `AppShell`
-on its own still fails to draw, as its `Outlet` has no matched route in the router TanStack Router's extension puts
-around frames (PAR-1195).
+on its own draws too, since TanStack Router's frame router draws the frame as its root route (PAR-1195).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 
@@ -7946,6 +7954,37 @@ Code: `prunedView`, `withPrunedView` and `prunedDocument` in `packages/editor/sr
 `packages/editor/src/prune-view.test.ts` (modes gone wherever named, states gone as a story taken out, a screen's
 previews kept, a page's params gone and a design's kept, and a view naming nothing gone left as it is). Gaps: neither
 step was tried in the app, and `openCodeDesigns` has no unit test.
+
+### A project Yarn installed with Plug'n'Play (PAR-1190)
+
+A project Yarn installed with Plug'n'Play has no `node_modules`: its packages are zip archives that its `.pnp.cjs` maps.
+Parity opens one as it opens any other, with its builder, tools, component library and icons found.
+
+- **Packages are found through the map.** `findPackage` asks the nearest `.pnp.cjs` whose map includes the folder where
+  a package is wanted, and only that, never a `node_modules` above it; a folder the map leaves out, such as a subproject
+  installed with `node_modules`, is read as before. A package kept outside the project, as in Yarn's global cache,
+  belongs to the project whose map has it. The runtime is loaded once per project, again once Yarn rewrites it
+  (installing a library does), and, where the process isn't Yarn's own, set up so Node's file functions read inside the
+  archives, with Yarn's loader registered so a package found this way can be imported as an ES module, as Tailwind's
+  extension imports `@tailwindcss/node`.
+- **Vite runs from the project.** The builder loads the project's Vite through the map, with Yarn's ESM loader
+  registered. A Vite plugin resolves what Parity's own guest modules import, since Yarn wouldn't resolve a file outside
+  the project, and resolves the renderer's runtime packages, such as React, as the project does, so the app and Parity
+  share one copy.
+- **The project's tools start with the runtime.** A tool run from the project's `bin`, such as Storybook, gets
+  `.pnp.cjs` and the loader in `NODE_OPTIONS`, as `yarn run` would give it.
+
+Code: `pnpProject`, `pnpNodeOptions` and `importFromPnp` in `packages/project/src/pnp.ts`, used by `findPackage` in
+`packages.ts`; `importsOutsidePnp` in `packages/extension-vite/src/pnp-imports.ts`, added by `builder.ts`; `binScript`
+and `launch` in `apps/desktop/src/utility/extension-processes.ts`. Tests: `packages/project/src/pnp.test.ts` (a package
+found through the map from any folder in the project, none from a `node_modules` above it, a subproject outside the map
+read from its `node_modules`, the map read again once rewritten, a dependency found for a package kept outside the
+project, and the Node options with and without the loader), `packages/extension-vite/src/pnp-imports.test.ts` (which
+imports come from outside the project, and their files found from the importer), and the `vite-fluent-pnp` detection
+snapshot in `packages/fixtures`, read in a separate Node process. Tried in the app on 2026-11-16 with `vite-fluent-pnp`:
+its five routes, its 12 components, Fluent's library and 2 screens from Storybook, with the Home design drawn in desktop
+and mobile frames. Gaps: Vite 7 re-bundles its dependencies on every open and sometimes stalls (PAR-1196), and the
+end-to-end tests don't open a Plug'n'Play project.
 
 ### Opening in seconds (PAR-179)
 

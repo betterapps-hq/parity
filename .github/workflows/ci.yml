@@ -17,8 +17,9 @@ jobs:
     with:
       os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
       # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
-      # node_modules come back from the cache while their lockfiles are unchanged, and npm ci would delete them, so
-      # they're installed only when one is missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
+      # node_modules, or for vite-fluent-pnp Yarn's Plug'n'Play files and its archives in `.yarn`, come back from the
+      # cache while their lockfiles are unchanged, and npm ci would delete them, so they're installed only when one is
+      # missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
       # come from npm at pinned versions, the same on every system.
       prepare: |
         # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
@@ -31,7 +32,7 @@ jobs:
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
         missing=
         for project in fixtures/*/; do
-          if [ ! -d "${project}node_modules" ]; then missing=1; fi
+          if [ ! -d "${project}node_modules" ] && [ ! -f "${project}.pnp.cjs" ]; then missing=1; fi
         done
         if [ -n "$missing" ]; then
           tools=$(mktemp -d)
@@ -45,6 +46,10 @@ jobs:
       # changes, the new one downloads on each run until a fixture's lockfile changes too.
       cache-path: |
         fixtures/*/node_modules
+        fixtures/*/.pnp.*
+        fixtures/*/.yarn/cache
+        fixtures/*/.yarn/unplugged
+        fixtures/*/.yarn/install-state.gz
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
       # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
@@ -80,7 +85,7 @@ jobs:
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
         missing=
         for project in fixtures/*/; do
-          if [ ! -d "${project}node_modules" ]; then missing=1; fi
+          if [ ! -d "${project}node_modules" ] && [ ! -f "${project}.pnp.cjs" ]; then missing=1; fi
         done
         if [ -n "$missing" ]; then
           tools=$(mktemp -d)
@@ -94,6 +99,10 @@ jobs:
       # changes, the new one downloads on each run until a fixture's lockfile changes too.
       cache-path: |
         fixtures/*/node_modules
+        fixtures/*/.pnp.*
+        fixtures/*/.yarn/cache
+        fixtures/*/.yarn/unplugged
+        fixtures/*/.yarn/install-state.gz
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
       # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
@@ -135,7 +144,7 @@ jobs:
         node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
         missing=
         for project in fixtures/*/; do
-          if [ ! -d "${project}node_modules" ]; then missing=1; fi
+          if [ ! -d "${project}node_modules" ] && [ ! -f "${project}.pnp.cjs" ]; then missing=1; fi
         done
         if [ -n "$missing" ]; then
           tools=$(mktemp -d)
@@ -149,6 +158,10 @@ jobs:
       # changes, the new one downloads on each run until a fixture's lockfile changes too.
       cache-path: |
         fixtures/*/node_modules
+        fixtures/*/.pnp.*
+        fixtures/*/.yarn/cache
+        fixtures/*/.yarn/unplugged
+        fixtures/*/.yarn/install-state.gz
         ~/.cache/parity-ci/electron
         ~/.cache/parity-ci/electron-builder
       # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.

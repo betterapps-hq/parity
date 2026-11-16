@@ -1,9 +1,11 @@
+import { execFile } from "node:child_process"
 import { cp, mkdtemp, readdir, rm, stat, symlink } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { basename, dirname, join, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
+import { promisify } from "node:util"
 import { describe, expect, it } from "vite-plus/test"
-import { snapshotProject } from "./detect.ts"
+import { type ProjectSnapshot, snapshotProject } from "./detect.ts"
 
 const fixturesDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../../fixtures")
 
@@ -23,20 +25,35 @@ describe.skipIf(!process.env.CI)("detection snapshot", { timeout: 120_000 }, () 
   it.each(projects)("%s", async (name) => {
     const source = join(fixturesDir, name)
 
-    if (!(await exists(join(source, "node_modules")))) {
+    if (!(await installed(source))) {
       throw new Error(`fixtures/${name} isn't installed. Run: pnpm --filter @parity-app/fixtures install-projects`)
     }
 
-    const root = await copyProject(source)
+    const snapshot = await snapshotOf(source)
 
-    try {
-      const snapshot = await snapshotProject(root)
-      await expect(`${JSON.stringify(snapshot, null, 2)}\n`).toMatchFileSnapshot(join(source, "expected.json"))
-    } finally {
-      await rm(root, { recursive: true, force: true })
-    }
+    await expect(`${JSON.stringify(snapshot, null, 2)}
+`).toMatchFileSnapshot(join(source, "expected.json"))
   })
 })
+
+/**
+ * Detects a project. Yarn's map leads to its archives by how many folders up they are, so a Plug'n'Play project is read
+ * where it's installed, since in a copy elsewhere its packages aren't found; detection only reads it. Any other project
+ * is read from a copy.
+ */
+async function snapshotOf(source: string): Promise<ProjectSnapshot> {
+  if (await exists(join(source, ".pnp.cjs"))) {
+    return snapshotInNode(source)
+  }
+
+  const root = await copyProject(source)
+
+  try {
+    return await snapshotProject(root)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
 
 /**
  * Copies a project to a temporary folder, so nothing a check does reaches the committed one. Its installed packages
@@ -53,6 +70,24 @@ async function copyProject(source: string): Promise<string> {
   await symlink(join(source, "node_modules"), join(root, "node_modules"), "junction")
 
   return root
+}
+
+/**
+ * A Plug'n'Play project's snapshot, taken in a Node process of its own, as the app's processes run detection. Vitest
+ * resolves the project's own Vite with its copy of Node's resolver, which can't read Yarn's archives, where Node can
+ * once Yarn's runtime is loaded.
+ */
+async function snapshotInNode(root: string): Promise<ProjectSnapshot> {
+  const script = fileURLToPath(new URL("snapshot.ts", import.meta.url))
+  const { stdout } = await promisify(execFile)(process.execPath, [script, root], { maxBuffer: 64 * 1024 * 1024 })
+
+  // SAFETY: snapshot.ts prints the ProjectSnapshot that snapshotProject returns.
+  return JSON.parse(stdout) as ProjectSnapshot
+}
+
+/** Whether a project's packages are installed: in `node_modules`, or by Yarn's Plug'n'Play. */
+async function installed(project: string): Promise<boolean> {
+  return (await exists(join(project, "node_modules"))) || (await exists(join(project, ".pnp.cjs")))
 }
 
 async function exists(path: string): Promise<boolean> {

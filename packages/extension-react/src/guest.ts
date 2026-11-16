@@ -1344,7 +1344,11 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
   const props = (spec.props ? value(spec.props) : {}) as Props
 
   if (decorator.wrap) {
-    return (Story) => createElement(component, props, Story())
+    return (Story) => {
+      const content = Story()
+
+      return createElement(FrameContentContext.Provider, { value: content }, createElement(component, props, content))
+    }
   }
 
   return (Story) => createElement(Fragment, null, Story(), createElement(component, props))
@@ -1356,6 +1360,16 @@ function compile(decorator: LibraryDecorator, setup: GuestDecorators, frame: Fra
  */
 function asText<T>(value: T): string {
   return isText(value) ? value : JSON.stringify(value)
+}
+
+/**
+ * What the nearest wrapping decorator wraps. `{ "$frame": "content" }` draws it from context rather than holding it, so
+ * a value made once, such as a router whose root route draws it, draws the frame's latest content.
+ */
+const FrameContentContext = createContext<ReactNode>(null)
+
+function FrameContent() {
+  return useContext(FrameContentContext)
 }
 
 /** What a decorator's values are worked out against: the frame, and the modules the builder loaded for them. */
@@ -1383,6 +1397,8 @@ function frameHost(setup: GuestDecorators, frame: Frame): ValueHost {
           return bodySelector
         case "url":
           return frame.url
+        case "content":
+          return createElement(FrameContent)
       }
     },
     made: frame.made

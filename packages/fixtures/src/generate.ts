@@ -74,6 +74,45 @@ const projects = new Map<string, Project>([
     }
   ],
   [
+    "vite-fluent-pnp",
+    {
+      install: "yarn install --immutable",
+      async generate(dir) {
+        // App G: Vite 7, React 19, TanStack Router with code-based routes, Fluent UI v9 on Griffel with Fluent's icons,
+        // and Storybook, installed by Yarn with Plug'n'Play, Yarn's default, so there's no node_modules. Its cache
+        // stays in the project (`.yarn/cache`), where CI keeps it with the other projects' installs.
+        await createVite("8.3.0", dir, "react-ts", "--no-interactive --no-rolldown")
+        await remove(dir, "src/App.tsx", "src/App.css", "src/assets")
+        await overlay(dir, "vite-fluent-pnp")
+        await writeFile(
+          join(dir, ".gitignore"),
+          `${await readFile(join(dir, ".gitignore"), "utf8")}.pnp.*\n.yarn/*\n!.yarn/patches\n!.yarn/plugins\n!.yarn/releases\n`
+        )
+        // An empty lockfile makes Yarn treat this folder as a project of its own, not part of the repo around it.
+        await writeFile(join(dir, "yarn.lock"), "")
+        await editPackage(dir, (pkg) => {
+          pkg.packageManager = "yarn@4.18.1"
+          addDependencies(pkg, "dependencies", {
+            "@fluentui/react-components": "9.75.2",
+            "@fluentui/react-icons": "2.0.346",
+            // Fluent's decorator on the canvas renders Griffel's styles into each frame with it.
+            "@griffel/shadow-dom": "0.2.19",
+            "@tanstack/react-router": "1.170.46"
+          })
+        })
+        await storybook(
+          dir,
+          "npx --yes create-storybook@10.6.7 --yes --no-dev --skip-install --type react --builder vite --package-manager yarn2 --features docs"
+        )
+        // Storybook's own config, laid over what its init wrote: under Plug'n'Play it finds its framework and addons by
+        // their folders, and Fluent's components take their theme from the provider each story gets.
+        await remove(dir, "src/stories", ".storybook/main.ts", ".storybook/preview.ts")
+        await overlay(dir, "vite-fluent-pnp-storybook")
+        await run(dir, "yarn install")
+      }
+    }
+  ],
+  [
     "mantine",
     {
       install: "bun install --frozen-lockfile",
