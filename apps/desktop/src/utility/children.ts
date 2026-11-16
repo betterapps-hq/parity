@@ -8,8 +8,8 @@ import { killTree } from "../shared/process-tree.ts"
  * The adapters that start the service's children and hand them to the one lifecycle in `@parity-app/processes`
  * (PAR-987): a spawned command, as Storybook or a package manager, a forked script with an IPC channel, as a builder,
  * and a worker thread, as the type checker. Every child started here ends when the service ends by itself. One that
- * main kills runs no exit handler, so main ends the service's whole process tree (PAR-980), and each builder ends when
- * its link to the service closes. One that crashes runs none either, and its children can't be found from it once it's
+ * main kills runs no exit handler, so main ends the service's whole process tree (PAR-980), and each builder ends as
+ * soon as the service is gone, even while busy (PAR-1189). One that crashes runs none either, and its children can't be found from it once it's
  * gone, so the service tells main which processes it's running, and main ends their trees after a crash (PAR-1019).
  */
 

@@ -8822,6 +8822,25 @@ printed, and started again), `packages/processes/src/service-restarts.test.ts` (
 doesn't) and `packages/telemetry/src/app-events.test.ts` (running out of memory is one cause, with code 0). Gap: nothing
 automated runs a real service out of memory. That's the check above.
 
+### A crashed service's builder ends at once (PAR-1189)
+
+Each builder process ends as soon as the project service that started it is gone, however the service ended. A thread of
+the builder's own asks every quarter second whether the service is still there, and ends the builder outright once it
+isn't. The builder's other way to notice, its IPC link closing, is an event its main thread handles: after the service
+ran out of memory with copacker open, its 1 GB Vite builder, busy on its main thread, went on for about five minutes,
+holding the project while the fresh service's builder for it hung.
+
+Checked on Windows 11 on 2026-11-16 with plain Node: a busy process started outside the job object Node puts its
+children in, as Electron's utility process starts the builder, still ran 5 s after its parent was killed; with the
+watching thread it ended in about 50 ms.
+
+Code: `endWithParent` in `apps/desktop/src/utility/parent-watch.ts`, called by `builder-process.ts` beside it.
+
+Tests: `apps/desktop/src/utility/parent-watch.test.ts` (a real process whose parent dies while its main thread is busy:
+ended with the watch, still running without it). Gaps: whether two copacker builders or two `workerd`s sharing
+`.wrangler` state block each other, and why Vite sets up 10,000 watchers for copacker, aren't looked into here; ending
+the old builder at once leaves the fresh one alone with the project.
+
 ## The window
 
 How the app's window holds the canvas and the panels around it.
