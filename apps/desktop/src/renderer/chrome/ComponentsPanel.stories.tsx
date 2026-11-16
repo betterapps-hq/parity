@@ -247,6 +247,23 @@ export const Searching: Story = {
   }
 }
 
+/**
+ * A source closed during one search is open again in the next: clearing a search forgets what was opened or closed
+ * while it showed, as starting one does.
+ */
+export const SearchingAgain: Story = {
+  loaders: [openComponents],
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Search components" })
+    await enter(field, "card")
+    await userEvent.click(source(canvasElement, "UI kit"))
+    await waitFor(() => expect(source(canvasElement, "UI kit")).toHaveAttribute("aria-expanded", "false"))
+    await enter(field, "")
+    await enter(field, "card")
+    await waitFor(() => expect(source(canvasElement, "UI kit")).toHaveAttribute("aria-expanded", "true"))
+  }
+}
+
 /** A search that matches nothing. */
 export const NothingMatches: Story = {
   loaders: [openComponents],

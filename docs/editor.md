@@ -1914,7 +1914,8 @@ Tests:
   family's first and last rows; and keys that differ across sources.
 - `chrome/ComponentsPanel.stories.tsx`: OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once
   the list scrolls to its end; StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has
-  focus; and ComponentMenu, its menu worked out as it opens.
+  focus; ComponentMenu, its menu worked out as it opens; and SearchingAgain, a source closed in one search open again in
+  the next.
 
 Tried on Copacker in a development copy of the app on 2026-11-16: the panel held 212 to 348 elements, 24 to 35 lines, in
 every view, at 256 and 200 pixels wide; moving a design five times drew no rows again; searching "badge", Tab through a

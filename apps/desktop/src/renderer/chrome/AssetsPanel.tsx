@@ -409,9 +409,16 @@ export function ComponentsPanel() {
     by: {}
   })
 
-  const openedBy = opened.searching === !!needle ? opened.by : noneOpened
+  const searching = !!needle
 
-  const toggle = (id: string, open: boolean) => setOpened({ searching: !!needle, by: { ...openedBy, [id]: open } })
+  // Entering or leaving a search drops what was toggled, so the next search doesn't bring back the last one's.
+  if (opened.searching !== searching) {
+    setOpened({ searching, by: noneOpened })
+  }
+
+  const openedBy = opened.searching === searching ? opened.by : noneOpened
+
+  const toggle = (id: string, open: boolean) => setOpened({ searching, by: { ...openedBy, [id]: open } })
 
   const lines = useMemo(
     () =>
