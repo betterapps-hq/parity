@@ -1,5 +1,4 @@
-import { rm } from "node:fs/promises"
-import { dirname, join, resolve } from "node:path"
+import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { BuilderSession } from "@parity-app/core"
 import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
@@ -18,19 +17,15 @@ const rendererGuestPath = fileURLToPath(import.meta.resolve("@parity-app/extensi
 const startedIn = process.cwd()
 let session: BuilderSession | undefined
 
-// Next takes a while to close on Windows, and what it built a while more to remove.
+// Next takes a while to close on Windows.
 afterAll(async () => {
   await session?.close()
   // The builder runs Next from the project's folder, as `next dev` does.
   process.chdir(startedIn)
 
-  // The guest app, and what Next built, which Windows keeps busy for a moment after Next closes. Its `public` is a link to
-  // the app's, which removing takes away without going into it.
-  for (const folder of [".next/parity", ".next/parity-build"]) {
-    await rm(join(root, folder), { recursive: true, force: true, maxRetries: 20, retryDelay: 250 }).catch(
-      (error: Error) => console.warn(`${folder} is left: ${error.message}`)
-    )
-  }
+  // The guest app and what Next built stay in the app's `.next`, which git ignores. Closing Next leaves Turbopack's
+  // watcher running in this process, and removing them here sends it looking for cache files the removal has already
+  // deleted, which aborts the worker (PAR-1224).
 }, 180_000)
 
 describe.skipIf(!process.env.CI)("the Turbopack builder on nextjs-turbopack", { timeout: 300_000 }, () => {
