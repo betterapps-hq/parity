@@ -204,7 +204,7 @@ function WindowView({ win, main, actions }: { win: LensWindow; main: boolean; ac
             />
           ))}
         </div>
-        <Inspector lens={lens} actions={actions} />
+        <Inspector lens={lens} group={focused.id} actions={actions} />
       </div>
       <div className="flex h-7 shrink-0 items-center gap-4 border-t px-3 text-xs text-muted-foreground">
         <span>Vite</span>
@@ -545,7 +545,7 @@ function Relations() {
 }
 
 /** The inspector follows the focused group: what's selected in its lens, and what it links to in the others. */
-function Inspector({ lens, actions }: { lens: LensId; actions: Actions }) {
+function Inspector({ lens, group, actions }: { lens: LensId; group: string; actions: Actions }) {
   const item = items[lens].find((one) => one.id === actions.layout.selected[lens])
 
   return (
@@ -575,9 +575,7 @@ function Inspector({ lens, actions }: { lens: LensId; actions: Actions }) {
                     type="button"
                     onClick={() =>
                       actions.set((layout) => {
-                        const opened = find(layout, link.lens)
-                          ? layout
-                          : place(layout, link.lens, layout.windows[0]!.focused)
+                        const opened = find(layout, link.lens) ? layout : place(layout, link.lens, group)
 
                         return select(show(opened, link.lens), link.lens, link.id)
                       })

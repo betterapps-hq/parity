@@ -75,6 +75,11 @@ export function show(layout: Layout, lens: LensId): Layout {
 
 /** Opens a lens in a group, at a place in its tabs, or moves it there if it's open elsewhere. */
 export function place(layout: Layout, lens: LensId, groupId: string, index?: number): Layout {
+  // Taking the lens out first would close its group if it's the only tab there, leaving nowhere to put it back.
+  if (find(layout, lens)?.group.id === groupId) {
+    return reorder(layout, lens, groupId, index)
+  }
+
   const windows = withoutLens(layout, lens).map((each) => ({
     ...each,
     groups: each.groups.map((one) => {
@@ -83,6 +88,25 @@ export function place(layout: Layout, lens: LensId, groupId: string, index?: num
       }
 
       const lenses = [...one.lenses]
+      lenses.splice(index ?? lenses.length, 0, lens)
+
+      return { ...one, lenses, shown: lens }
+    })
+  }))
+
+  return { ...layout, windows: windows.map((each) => focusOn(each, groupId)) }
+}
+
+/** Moves a lens to another place in the group it's already in. */
+function reorder(layout: Layout, lens: LensId, groupId: string, index?: number): Layout {
+  const windows = layout.windows.map((each) => ({
+    ...each,
+    groups: each.groups.map((one) => {
+      if (one.id !== groupId) {
+        return one
+      }
+
+      const lenses = one.lenses.filter((other) => other !== lens)
       lenses.splice(index ?? lenses.length, 0, lens)
 
       return { ...one, lenses, shown: lens }
