@@ -85,7 +85,8 @@ reads from the project add to it.
    - `{ "$call": { "import": "pkg", "export": "name" }, "args": [...], "methods": [...] }`: what calling it returns,
      after its `methods` are called on it in order. A method that's missing or throws is passed over.
    - `{ "$global": "theme", "values": { "dark": ... }, "default": ... }`: the value for the frame's option.
-   - `{ "$frame": "root" }`: part of the frame. Also `host`, `body`, `document`, `dir`, `lang` and `selector`.
+   - `{ "$frame": "root" }`: part of the frame. Also `host`, `body`, `document`, `dir`, `lang`, `selector`, `url` and
+     `content`, an element drawing what the decorator wraps.
    - `{ "$function": ... }`: a function returning the value it holds.
 
    Any other object is plain JSON, and its values can be forms too. The forms are checked when the library file loads

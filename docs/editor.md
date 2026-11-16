@@ -1299,19 +1299,28 @@ there.
   in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
   with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
   router (`useLoaderData`, `useFetcher`) still need their route's loader to run, which the canvas doesn't do.
-- **TanStack Router** wraps each frame in `RouterContextProvider`, with a router `createRouter` makes from an empty root
-  route and memory history at the frame's URL, so `Link` draws. `Outlet` draws nothing, as no route matches.
+- **TanStack Router** wraps each frame in `RouterProvider`, with a router `createRouter` makes from a root route and
+  memory history at the frame's URL, so `Link` draws. The root route draws the frame, through `{ "$frame": "content" }`,
+  so a layout's `Outlet` has the matched route it needs and draws nothing, as no child route matches (PAR-1195). The
+  root's not-found component draws nothing too, in place of TanStack Router's "Not Found".
+- **The frame's content as a value.** `{ "$frame": "content" }` is an element drawing what the decorator wraps, for a
+  component that draws it some way other than as its children, as a router draws its root route's component. It reads
+  the content from context, so a value made once, such as that router, draws the frame's latest content.
 
 Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
 `packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
 `packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
 `ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
 `packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
-`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`; each router's manifest.
+`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`, which gives the `content` part from
+`FrameContentContext` too; each router's manifest.
 
 Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
 frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
-around the libraries'" in `packages/extension-vite/src/builder.test.ts`.
+around the libraries'" in `packages/extension-vite/src/builder.test.ts`; "draws it where the component puts it, once,
+and draws the frame's next content there too" in `packages/extension-react/src/guest.react-18.test.ts`; "has a manifest
+Parity accepts" in `packages/extension-tanstack-router/src/extension.test.ts`. Tried in the running app on 2026-11-16 on
+a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its `Outlet`.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1642,8 +1651,7 @@ Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3
 components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
 code since PAR-1156. Tried again on 2026-11-16 on a copy of it: it opens once (PAR-1193), its Home and Settings route
 screens draw the app's pages with `AppShell` around them, and an edit to Home reloads its screen (PAR-1194). `AppShell`
-on its own still fails to draw, as its `Outlet` has no matched route in the router TanStack Router's extension puts
-around frames (PAR-1195).
+on its own draws too, since TanStack Router's frame router draws the frame as its root route (PAR-1195).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 
@@ -1726,9 +1734,10 @@ the CSS change) and `next-loader.test.ts` (the chunks and the guest module);
 browser. On `webpack-react-router`: webpack 5.112.2 and its config found, React Aria's `Button` drawn, the app's own
 components compiled with its Babel config, and, in a copy with a global stylesheet and a CSS module, the module's class
 drawn with the stylesheet's custom property. On `nextjs-webpack`: Next.js 15.5.29 on webpack found, every component's
-module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components stop
-at their theme providers, styled-components' `ThemeProvider` and Mantine's `MantineProvider`, which the canvas doesn't
-render.
+module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components
+stopped at their theme providers, styled-components' `ThemeProvider` and Mantine's `MantineProvider`. Mantine's now
+comes from its library file (PAR-1168); styled-components' needs the app's own theme, so it waits for the project's
+preview file (PAR-100).
 
 ### Storybook's stories through its entities provider (PAR-1095)
 
@@ -6349,6 +6358,25 @@ draws nothing and the sidebar's parent; a `Sidebar` alone throws naming the prov
 registry draws the sidebar). `packages/project/src/library-files.test.ts` (1: a part marked `visual: false` stays
 listed). Composing a Nova sidebar inside its provider through `parity exec` was checked in the running app on
 2026-11-04: `Problems` found nothing, and the same sidebar without the provider reported the provider's error.
+
+### A library older than every registry file (PAR-1168)
+
+The registry may describe only a library's newest major, as it does Mantine 9. A project on an older version, such as
+Mantine 8 on the `nextjs-webpack` example app, still gets the oldest file made for a newer version rather than none, so
+it keeps the file's decorators, breakpoints and components: frames are wrapped in `MantineProvider`. Components the file
+lists that the installed package doesn't export are left out, and components it exports that the file doesn't list are
+found by name. A note says so and names `parity lib <package> --registry`, which makes a file for that version. A
+version newer than every file takes the newest older file the same way.
+
+Code: `registryEntryFor` in `packages/registry/src/index.ts`, which marks such a file `newer`; `findLibraries` in
+`packages/project/src/libraries.ts`, which checks its components against the package's declarations; `packageExports` in
+`packages/code/src/package-exports.ts`, which asks TypeScript what the package exports, so components made with a
+factory, as Mantine's are, aren't dropped.
+
+Tests: `packages/registry/src/index.test.ts` ("uses the oldest newer file for a version older than every file");
+`packages/project/src/library-files.test.ts` ("keeps a file made for a newer version, with its decorators");
+`packages/code/src/package-exports.test.ts` (each way a package exports a name); the `nextjs-webpack` validation
+project, which lists Mantine as a library.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
