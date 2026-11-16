@@ -19,7 +19,9 @@ const jsonValue = z.json()
 const pathIcon = z.strictObject({
   viewBox: shortText,
   path: z.string().max(20_000),
-  fillRule: z.enum(["nonzero", "evenodd"]).optional()
+  fillRule: z.enum(["nonzero", "evenodd"]).optional(),
+  // The logo's brand color, as its manifest gives it, so a colored extension's entry isn't refused.
+  color: z.strictObject({ light: shortText, dark: shortText }).optional()
 })
 
 /** A setting as an extension's manifest declares it, which Settings draws with the kit's controls. */

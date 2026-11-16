@@ -170,7 +170,9 @@ function Item({
   pressed?: boolean
   children: ReactNode
 }) {
-  const className = "flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5"
+  // A logo with a brand color takes it on hover, as the item lights up.
+  const className =
+    "flex h-6 shrink-0 items-center gap-1.5 rounded px-1.5 [&_[data-brand]]:transition-colors hover:[&_[data-brand]]:text-(--brand)"
 
   return (
     <Hint label={hint} detail={detail}>

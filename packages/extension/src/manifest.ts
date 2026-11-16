@@ -15,6 +15,17 @@ export interface PathIcon {
   path: string
   /** How the path fills where it crosses itself, as an SVG's `fill-rule`. `nonzero` when left out. */
   fillRule?: "nonzero" | "evenodd"
+  /**
+   * The brand's color for each theme, as six-digit hexes such as `#FF4785`, which the logo takes when its status bar
+   * item is hovered. Left out, the logo keeps the text's color.
+   */
+  color?: BrandColor
+}
+
+/** A brand color for the light theme and the dark, the same hex in both when one reads on either. */
+export interface BrandColor {
+  light: string
+  dark: string
 }
 
 /** A contribution's icon: a name from the kit's icon set, in kebab case, such as `book-open` or `timer`. */

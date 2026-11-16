@@ -206,6 +206,15 @@ describe("readExtension", () => {
     )
   })
 
+  it("takes the logo's brand color only as a hex for each theme", () => {
+    const color = { light: "#FF4785", dark: "#ff6b9c" }
+    expect(readExtension(packageJson({ icon: { ...icon, color } })).manifest.icon.color).toEqual(color)
+    expect(() => readExtension(packageJson({ icon: { ...icon, color: "#FF4785" } }))).toThrow("/parity/icon/color")
+    expect(() =>
+      readExtension(packageJson({ icon: { ...icon, color: { light: "red;background:url(x)", dark: "#000000" } } }))
+    ).toThrow("/parity/icon/color/light: expected a six-digit hex color")
+  })
+
   it("takes a contribution's icon only as a kit icon's name", () => {
     const commands = [{ id: "timings.measure", title: "Measure", icon: "<svg/>" }]
 

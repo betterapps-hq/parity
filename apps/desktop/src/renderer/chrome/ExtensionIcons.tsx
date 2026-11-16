@@ -1,5 +1,6 @@
 import type { PathIcon } from "@parity-app/extension"
 import { DynamicIcon, type IconName, iconNames } from "lucide-react/dynamic"
+import type { CSSProperties } from "react"
 
 /** Whether a name is one of the kit's icons. */
 export function isIconName(name: string): name is IconName {
@@ -21,8 +22,23 @@ export function ContributionIcon({ name, logo, className }: { name?: string; log
 /** An extension's logo, drawn from its path data in the text's color. */
 export function ExtensionLogo({ icon, className }: { icon: PathIcon; className?: string }) {
   return (
-    <svg viewBox={icon.viewBox} className={className} fill="currentColor" aria-hidden>
+    <svg viewBox={icon.viewBox} className={className} fill="currentColor" aria-hidden {...brandColor(icon.color)}>
       <path d={icon.path} fillRule={icon.fillRule ?? "nonzero"} />
     </svg>
   )
+}
+
+/**
+ * A logo's brand color, for what holds it to show: `data-brand` marks it, and `--brand` is the color in the current
+ * theme. The status bar's items color it on hover.
+ */
+export function brandColor(color: PathIcon["color"]) {
+  if (!color) {
+    return {}
+  }
+
+  // SAFETY: a custom property, which React sets as it's named and CSSProperties has no key for.
+  const style = { "--brand": `light-dark(${color.light}, ${color.dark})` } as CSSProperties
+
+  return { "data-brand": "", style }
 }
