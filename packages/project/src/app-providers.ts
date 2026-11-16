@@ -427,7 +427,9 @@ function fromPreviewFolder(path: string): string {
 interface Carried {
   imports: { local: string; from: Imported }[]
   /** Top-level declarations copied from the provider's file, by the name each declares. */
-  declarations: { name: string; text: string }[]
+  declarations: { name: string; text: string; node: ts.Node }[]
+  /** The app's entry, which is never imported, since importing it would mount the app. */
+  entry: string
   /** The names the provider's own component declares, which shadow the file's and only the running app has. */
   locals: ReadonlySet<string>
 }
@@ -444,7 +446,7 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
   const quote = (text.match(/'/g)?.length ?? 0) > (text.match(/"/g)?.length ?? 0) ? "'" : '"'
 
   for (const { name, scope, element } of found) {
-    const carried: Carried = { imports: [], declarations: [], locals: localNames(element) }
+    const carried: Carried = { imports: [], declarations: [], locals: localNames(element), entry: entry.path }
     const tag = carryName(firstPart(name), scope, carried)
     const props = carryProps(element.openingElement.attributes, scope, carried, quote)
 
@@ -470,6 +472,19 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
 
     if (clash) {
       leftOut.push({ name, file: scope.path, needs: clash })
+      continue
+    }
+
+    // A copy is a new value: one the file also uses elsewhere, as a context its components read or an instance it sets
+    // up in later statements, would differ from the app's, so the provider is left out instead.
+    const copies = carried.declarations.map((declaration) => declaration.node)
+
+    const entangled = carried.declarations.find((declaration) =>
+      usedElsewhere(declaration.name, scope.source, [element.openingElement, ...copies])
+    )
+
+    if (entangled) {
+      leftOut.push({ name, file: scope.path, needs: entangled.name })
       continue
     }
 
@@ -616,6 +631,16 @@ function carryName(
   }
 
   const declared = scope.declarations.get(name)
+  const exported = declared && scope.path !== carried.entry ? exportedAs(name, scope.source) : undefined
+
+  // What the file exports is imported, so the preview file has the app's own value, set up as the app sets it up.
+  if (exported) {
+    const specifier = fromPreviewFolder(scope.path.replace(/\.[cm]?[jt]sx?$/, ""))
+
+    carried.imports.push({ local: name, from: { specifier, imported: exported } })
+
+    return undefined
+  }
 
   if (declared) {
     for (const used of freeNames(declared)) {
@@ -630,7 +655,7 @@ function carryName(
       ? declared.getText().replace(/^export\s+(default\s+)?/, "")
       : `${declarationKind(declared)} ${declared.getText()}`
 
-    carried.declarations.push({ name, text })
+    carried.declarations.push({ name, text, node: declared })
 
     return undefined
   }
@@ -668,6 +693,99 @@ function localNames(element: ts.Node): Set<string> {
   }
 
   return names
+}
+
+/** The name a file exports one of its top-level names by, `default` for its default export, if it exports it. */
+function exportedAs(name: string, source: ts.SourceFile): string | undefined {
+  for (const statement of source.statements) {
+    const exportKeyword = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword)
+      : false
+
+    const isDefault = ts.canHaveModifiers(statement)
+      ? ts.getModifiers(statement)?.some((modifier) => modifier.kind === ts.SyntaxKind.DefaultKeyword)
+      : false
+
+    if (exportKeyword && ts.isFunctionDeclaration(statement) && statement.name?.text === name) {
+      return isDefault ? "default" : name
+    }
+
+    if (
+      exportKeyword &&
+      ts.isVariableStatement(statement) &&
+      statement.declarationList.declarations.some((each) => ts.isIdentifier(each.name) && each.name.text === name)
+    ) {
+      return name
+    }
+
+    if (
+      ts.isExportAssignment(statement) &&
+      ts.isIdentifier(statement.expression) &&
+      statement.expression.text === name
+    ) {
+      return "default"
+    }
+
+    if (
+      ts.isExportDeclaration(statement) &&
+      !statement.moduleSpecifier &&
+      statement.exportClause &&
+      ts.isNamedExports(statement.exportClause)
+    ) {
+      const named = statement.exportClause.elements.find((each) => (each.propertyName ?? each.name).text === name)
+
+      if (named) {
+        return named.name.text
+      }
+    }
+  }
+
+  return undefined
+}
+
+/**
+ * Whether a file uses a top-level name anywhere but the nodes given: the provider's tag and props, and the declarations
+ * copied with it.
+ */
+function usedElsewhere(name: string, source: ts.SourceFile, allowed: readonly ts.Node[]): boolean {
+  let used = false
+
+  const visit = (node: ts.Node) => {
+    if (used || allowed.some((each) => node.pos >= each.pos && node.end <= each.end)) {
+      return
+    }
+
+    if (ts.isIdentifier(node) && node.text === name && !namesOnly(node)) {
+      used = true
+
+      return
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(source)
+
+  return used
+}
+
+/** Whether an identifier only names something, as a property, a key or what a declaration declares, rather than uses it. */
+function namesOnly(node: ts.Identifier): boolean {
+  const parent = node.parent
+
+  if (ts.isPropertyAccessExpression(parent) || ts.isPropertyAssignment(parent) || ts.isJsxAttribute(parent)) {
+    return parent.name === node
+  }
+
+  return (
+    (ts.isVariableDeclaration(parent) ||
+      ts.isFunctionDeclaration(parent) ||
+      ts.isParameter(parent) ||
+      ts.isBindingElement(parent) ||
+      ts.isImportSpecifier(parent) ||
+      ts.isImportClause(parent)) &&
+    parent.name === node
+  )
 }
 
 /** `const`, `let` or `var`, as the file declares it, so a binding the app reassigns can still be reassigned. */

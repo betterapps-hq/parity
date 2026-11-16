@@ -289,6 +289,49 @@ createRoot(document.getElementById("root")).render(
     expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider"])
   })
 
+  it("imports a context its file exports, so the app's components read the same one", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(<App />)
+`,
+        "src/App.jsx": `import { createContext } from "react"
+import { guest } from "./fixtures"
+
+export const SessionContext = createContext(null)
+
+export default function App() {
+  return <SessionContext.Provider value={guest}><Home /></SessionContext.Provider>
+}
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import { SessionContext } from "../src/App"`)
+    expect(offer?.text).not.toContain("createContext")
+  })
+
+  it("leaves out a provider whose value the file sets up in other statements", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { createInstance } from "i18next"
+import { I18nextProvider } from "react-i18next"
+import App from "./App"
+
+const i18n = createInstance()
+i18n.init({ lng: "en" })
+
+createRoot(document.getElementById("root")).render(<I18nextProvider i18n={i18n}><App /></I18nextProvider>)
+`
+      })
+    )
+
+    expect(offer).toBeUndefined()
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({
