@@ -35,11 +35,11 @@ export function startCanvasSurface(editor: Editor): () => void {
   const measure = createMeasure(domMeasurePort(editor))
   surfaces.set(editor, {
     camera,
-    box: measure.box,
-    onBoxChange: measure.onBoxChange,
-    hit: measure.hit,
-    pageToScreen: measure.pageToScreen,
-    screenToPage: measure.screenToPage
+    box: (ref, options) => measure.box(ref, options),
+    onBoxChange: (ref, listener, options) => measure.onBoxChange(ref, listener, options),
+    hit: (at) => measure.hit(at),
+    pageToScreen: (at) => measure.pageToScreen(at),
+    screenToPage: (at) => measure.screenToPage(at)
   })
 
   return () => {
