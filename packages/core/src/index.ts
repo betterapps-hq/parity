@@ -41,6 +41,9 @@ export {
   type EntitiesDescription,
   type EntitiesPackage,
   extensionEntities,
+  extensionPreview,
+  type PreviewDescription,
+  type PreviewPackage,
   type FileWrite,
   type Adapter,
   type AdapterDetection,
@@ -409,6 +412,7 @@ export {
   type ComponentSource,
   type DescribedTokens,
   type ExtensionDecorator,
+  type PreviewComposer,
   type LibraryInfo,
   type OpenProp,
   type ProjectConfig

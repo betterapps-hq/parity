@@ -29,6 +29,7 @@ import {
   forwardRef,
   Fragment,
   type Key,
+  memo,
   type ReactNode,
   type Ref,
   useContext,
@@ -1273,9 +1274,10 @@ function decorators(
   report: (cause: unknown) => void,
   track: (loading: Promise<void>) => void
 ): (content: ReactNode) => ReactNode {
-  const preview = projectPreview(setup?.project, report)
+  const storybook = setup?.composer ? composedPreview(setup, frame, report) : undefined
+  const preview = storybook ? undefined : projectPreview(setup?.composer ? undefined : setup?.project, report)
 
-  if (!setup || (setup.list.length === 0 && !preview)) {
+  if (!setup || (setup.list.length === 0 && !preview && !storybook)) {
     return (content) => content
   }
 
@@ -1312,6 +1314,18 @@ function decorators(
     canvasElement: frame.body,
     viewMode: "story"
   })
+
+  // Storybook's preview, composed with the project's own portable stories API, is the innermost level: it draws the
+  // frame's content itself, inside its decorators, once its loaders are done.
+  if (storybook) {
+    const ready = readyStory()
+    const outer = storyChain([...compiled, storybook.level], context({}))
+
+    track(storybook.load.then(() => ready.set(outer), report))
+
+    return (content) =>
+      createElement(StoryContentContext.Provider, { value: content }, createElement(ReadyStory, { ready }))
+  }
 
   const loaders = preview?.loaders ?? []
 
@@ -1446,6 +1460,117 @@ function projectPreview(
     parameters: isStoryValues(parameters) ? parameters : {},
     globals
   }
+}
+
+/**
+ * Storybook's portable stories API, from the package the extension that names the preview picks, such as the
+ * project's `@storybook/react` or a framework that re-exports it.
+ */
+interface PortableStories {
+  setProjectAnnotations: (annotations: StoryValues[]) => void
+  composeStory: (story: FrameStory, meta: StoryValues) => ComposedStory
+}
+
+/** The story composed for a frame: it draws the frame's content, with the frame's mode values as its globals. */
+interface FrameStory {
+  name: string
+  render: () => ReactNode
+  globals: StoryValues
+}
+
+/** A story composed with the project's annotations: called, it draws inside their decorators; `load` runs loaders. */
+interface ComposedStory {
+  (args?: StoryValues): ReactNode
+  load: () => Promise<void>
+}
+
+/** The preview modules set as the project's annotations, so each is set once however many frames draw. */
+const annotatedPreviews = new WeakSet<object>()
+
+/** Each frame's story, by the annotations it was composed from, so the outermost decorator can find its frame. */
+const frameStories = new WeakMap<object, Frame>()
+
+/**
+ * Gives Storybook's decorators the frame's stand-in body as `canvasElement`, which a story drawn with the function
+ * `composeStory` returns otherwise leaves unset. It's outermost, so every decorator of the project's sees it.
+ */
+function withFrameCanvas(Story: (update?: StoryValues) => ReactNode, context: StoryValues): ReactNode {
+  const frame = isComposite(context.moduleExport) ? frameStories.get(context.moduleExport) : undefined
+
+  return Story(frame ? { canvasElement: frame.body } : {})
+}
+
+/**
+ * A tool's preview an extension names with `portable-stories` (PAR-98), such as Storybook's, applied as the tool applies
+ * it: the project's own portable stories API sets it as
+ * the project's annotations, as a Vitest setup file does, and composes a story per frame that draws the frame's content
+ * with the frame's mode values as its globals. Its loaders and `beforeEach` run before the frame draws. A preview or
+ * package that didn't load, or a composition that throws, is reported, and frames draw with the libraries' decorators.
+ */
+function composedPreview(
+  setup: GuestDecorators,
+  frame: Frame,
+  report: (cause: unknown) => void
+): { level: StoryDecorator; load: Promise<void> } | undefined {
+  const { project, composer } = setup
+
+  for (const [module, what] of [
+    [project, "the project's preview"],
+    [composer, "the package that composes the preview"]
+  ] as const) {
+    if (isText(module?.loadError)) {
+      report(new Error(`${what} didn't load: ${module.loadError}`))
+
+      return undefined
+    }
+  }
+
+  const api = portableStories(composer)
+
+  if (!project || !api) {
+    report(new Error("the package that composes the preview has no setProjectAnnotations and composeStory"))
+
+    return undefined
+  }
+
+  try {
+    if (!annotatedPreviews.has(project)) {
+      api.setProjectAnnotations([{ decorators: [withFrameCanvas] }, project])
+      annotatedPreviews.add(project)
+    }
+
+    const story: FrameStory = { name: "Frame", render: () => createElement(StoryContent), globals: frame.globals }
+    frameStories.set(story, frame)
+
+    const composed = api.composeStory(story, { title: "Parity" })
+
+    // Called as a component, as `render(<Story />)` draws a portable story, so its decorators can use hooks. Memoized,
+    // so the frame drawing again leaves it be: what's inside reads the frame's latest content itself.
+    const Composed = memo(function ComposedFrame() {
+      return createElement(Fragment, null, composed())
+    })
+
+    const load = composed.load().catch((error) => {
+      throw new Error(`the preview's loaders failed: ${error instanceof Error ? error.message : String(error)}`)
+    })
+
+    return { level: () => createElement(Composed), load }
+  } catch (error) {
+    report(new Error(`the project's preview didn't compose: ${error instanceof Error ? error.message : String(error)}`))
+
+    return undefined
+  }
+}
+
+/** The portable stories API from the package that composes the preview, if it has one. */
+function portableStories(module: GuestDecorators["composer"]): PortableStories | undefined {
+  const set = exportOf(module, "setProjectAnnotations")
+  const compose = exportOf(module, "composeStory")
+
+  // SAFETY: Storybook's portable stories API takes and gives these shapes; the guest only checks that both are there.
+  return set instanceof Function && compose instanceof Function
+    ? ({ setProjectAnnotations: set, composeStory: compose } as PortableStories)
+    : undefined
 }
 
 /** One of a preview's exports: named, or a property of its default export, as Storybook takes either. */

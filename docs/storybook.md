@@ -138,10 +138,11 @@ components open on their docs page.
 
 ## What Parity doesn't do
 
-- **No Storybook package is imported at runtime.** Nothing imports `@storybook/*`, `storybook`, `composeStory` or
-  `setProjectAnnotations`.
-- **Storybook's preview isn't read or run on its own.** `.storybook/preview.*` is ignored on the canvas unless
-  `.parity/preview.tsx` imports it.
+- **Storybook is imported only to compose its preview.** With no `.parity/preview.*`, the React guest imports
+  `setProjectAnnotations` and `composeStory` from the project's own `@storybook/react`, or the React framework that
+  re-exports it, to apply `.storybook/preview.*` to frames. Storybook's extension names the files and packages in its
+  manifest (`contributes.providers.preview`), so nothing outside it names Storybook's files (PAR-98, see
+  [editor.md](editor.md)). Nothing else of Storybook's is imported.
 - **Nothing renders through Storybook.** Frames render through Parity's own guest, built by the project's Vite, with
   library decorators written as data in `.lib.par`.
 - **No Storybook files are written.** The test fixtures in [packages/fixtures](../packages/fixtures) set up Storybook
@@ -150,14 +151,13 @@ components open on their docs page.
 
 ## What's planned
 
-- **The project's preview on the canvas.** Parity composes `.storybook/preview.*` with Storybook's portable stories API
-  (`setProjectAnnotations` and `composeStory`), the API that runs stories outside Storybook, as Vitest does. Its
-  decorators, loaders, parameters and global types apply as Storybook applies them, and its global types become mode
-  variables. Panel-only add-ons are ignored. Storybook's newer `definePreview` format still needs checking. See
+- **The rest of the project's preview on the canvas.** Parity composes `.storybook/preview.*` with Storybook's portable
+  stories API now (PAR-98). Still to come: its global types as mode variables (PAR-105), `definePreview` previews
+  (PAR-97), a stories file's decorators (PAR-99) and add-ons' annotations (PAR-112). Panel-only add-ons are ignored. See
   [decorators.md](proposals/decorators.md).
 - **`.parity/preview.tsx` for projects without Storybook,** built in PAR-100 (see [editor.md](editor.md)). It has the
   same exports as Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx`
-  unchanged. With no Parity file, Storybook's preview is to be used as it is. When both exist, Parity's file wins and
+  unchanged. With no Parity file, Storybook's preview is used as it is (PAR-98). When both exist, Parity's file wins and
   replaces Storybook's on the canvas; it can import `.storybook/preview` and spread its decorators to build on them. A
   project's extensions and their settings go in its `.par` file instead, as
   [developer-api.md](proposals/developer-api.md) sets out.
