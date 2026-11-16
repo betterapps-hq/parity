@@ -611,17 +611,21 @@ function targetAt(x: number, y: number): Target | undefined {
       continue
     }
 
-    const canvas = element.closest<HTMLElement>("[data-canvas]")
+    // The window's right or bottom edge, whatever is drawn there: inspector, status bar or canvas.
+    const winElement = element.closest<HTMLElement>("[data-window]")
 
-    if (canvas) {
-      const box = canvas.getBoundingClientRect()
-      const winElement = canvas.closest<HTMLElement>("[data-window]")!
+    if (winElement) {
       const win = winElement.getBoundingClientRect()
-      const edge = Math.min(win.right - x, win.bottom - y)
 
-      if (edge < 12 * (win.width / windowSize.width)) {
+      if (Math.min(win.right - x, win.bottom - y) < 16 * (win.width / windowSize.width)) {
         return { kind: "window" }
       }
+    }
+
+    const canvas = element.closest<HTMLElement>("[data-canvas]")
+
+    if (canvas && winElement) {
+      const box = canvas.getBoundingClientRect()
 
       return x > box.left + box.width * 0.6
         ? { kind: "split", window: winElement.dataset.window!, group: canvas.dataset.canvas! }
