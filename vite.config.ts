@@ -351,8 +351,9 @@ export default defineConfig({
     // process then fail, though their work takes milliseconds (PAR-1215), so a test there gets 60. Locally a slow test
     // still fails at 5.
     testTimeout: process.env.CI ? 60_000 : 5_000,
-    // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533).
-    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } },
+    // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533), and more than 5
+    // when the runner stalls (PAR-1221). Short of a test's 60, so a poll that never passes still says what it waited for.
+    expect: { poll: { timeout: process.env.CI ? 45_000 : 1_000 } },
     // The React guest's React 18 tests run as a project of their own, with React 18 for `react` (PAR-1157).
     projects: [
       { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, reactEighteenTests] } },
