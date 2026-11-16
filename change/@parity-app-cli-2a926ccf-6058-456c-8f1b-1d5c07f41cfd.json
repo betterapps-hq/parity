@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Open a project with one Vite server: the builder starts as soon as the renderer is known and says which stylesheets the app loads, instead of a second server loading the project's config first",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
