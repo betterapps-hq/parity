@@ -1,14 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { serviceCall } from "./service-call.ts"
+import type { FailureOptions, ToastOptions } from "./toasts.tsx"
 
-const notifications = vi.hoisted(() => ({
-  loading: vi.fn<(title: string, options?: { id?: string }) => string>(() => "progress"),
-  success: vi.fn<(title: string, options: { id: string }) => void>(),
-  error: vi.fn<(title: string, options: { id: string; description?: string }) => void>(),
-  dismiss: vi.fn<(id: string) => void>()
+const toasts = vi.hoisted(() => ({
+  progress: vi.fn<(title: string, options?: ToastOptions) => string>(() => "progress"),
+  done: vi.fn<(title: string, options?: ToastOptions) => string>(),
+  failed: vi.fn<(title: string, options?: FailureOptions) => string>(),
+  close: vi.fn<(id?: string) => void>()
 }))
 
-vi.mock("sonner", () => ({ toast: notifications }))
+vi.mock("./toasts.tsx", () => ({ notify: toasts }))
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -23,31 +24,33 @@ describe("a service call", () => {
     })
 
     expect(answer).toEqual({ files: ["a.png", "b.png"] })
-    expect(notifications.loading).toHaveBeenCalledWith("Exporting 2 files…", undefined)
-    expect(notifications.success).toHaveBeenCalledWith("Exported 2 files", { description: "D:/out", id: "progress" })
+    expect(toasts.progress).toHaveBeenCalledWith("Exporting 2 files…", undefined)
+    expect(toasts.done).toHaveBeenCalledWith("Exported 2 files", { description: "D:/out", id: "progress" })
   })
 
   it("reports a failure the answer carries in the progress notification's place", async () => {
+    const failure = new Error("Nothing was drawn")
+
     await serviceCall({
       progress: "Copying as PNG…",
       run: () => Promise.resolve({ png: undefined }),
-      done: () => ({ failure: new Error("Nothing was drawn"), operation: "layers.picture", title: "Couldn't copy" })
+      done: () => ({ failure, operation: "layers.picture", title: "Couldn't copy" })
     })
 
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't copy", { id: "progress" })
+    expect(toasts.failed).toHaveBeenCalledWith("Couldn't copy", { id: "progress", error: failure })
   })
 
   it("takes the notification away, or leaves it for the caller, as its outcome says", async () => {
     await serviceCall({ progress: "Adding the image…", run: () => Promise.resolve(1), done: () => "dismiss" })
-    expect(notifications.dismiss).toHaveBeenCalledWith("progress")
+    expect(toasts.close).toHaveBeenCalledWith("progress")
 
-    notifications.dismiss.mockClear()
+    toasts.close.mockClear()
     await serviceCall({ progress: "Putting back app.tsx…", run: () => Promise.resolve(1), done: () => "keep" })
-    expect(notifications.dismiss).not.toHaveBeenCalled()
-    expect(notifications.success).not.toHaveBeenCalled()
+    expect(toasts.close).not.toHaveBeenCalled()
+    expect(toasts.done).not.toHaveBeenCalled()
   })
 
-  it("reports a call that throws, with its message, and records it its own way", async () => {
+  it("reports a call that throws, with its plain reason, and records it its own way", async () => {
     const recorded = vi.fn<(cause: unknown) => void>()
 
     const answer = await serviceCall({
@@ -59,9 +62,31 @@ describe("a service call", () => {
 
     expect(answer).toBeUndefined()
     expect(recorded).toHaveBeenCalledWith(new Error("pnpm failed"), expect.any(Number))
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't install Nova", {
+    expect(toasts.failed).toHaveBeenCalledWith("Couldn't install Nova", {
       id: "progress",
-      description: "pnpm failed"
+      description: undefined,
+      error: new Error("pnpm failed")
+    })
+  })
+
+  it("gives a call that throws the description and details it makes of the failure", async () => {
+    await serviceCall({
+      progress: "Saving a copy…",
+      run: () => Promise.reject(new Error("EACCES")),
+      done: () => "dismiss",
+      failed: {
+        operation: "document.saveCopy",
+        title: "Couldn't save the copy",
+        description: () => "Try another folder.",
+        details: (cause) => `log: ${String(cause)}`
+      }
+    })
+
+    expect(toasts.failed).toHaveBeenCalledWith("Couldn't save the copy", {
+      id: "progress",
+      description: "Try another folder.",
+      details: "log: Error: EACCES",
+      error: new Error("EACCES")
     })
   })
 
@@ -74,10 +99,11 @@ describe("a service call", () => {
       failed: { operation: "library.add", title: "Couldn't install Nova" }
     })
 
-    expect(notifications.success).toHaveBeenCalled()
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't install Nova", {
+    expect(toasts.done).toHaveBeenCalled()
+    expect(toasts.failed).toHaveBeenCalledWith("Couldn't install Nova", {
       id: "progress",
-      description: "The project didn't reopen"
+      description: undefined,
+      error: new Error("The project didn't reopen")
     })
   })
 
@@ -85,7 +111,7 @@ describe("a service call", () => {
     await expect(
       serviceCall({ progress: "Adding 2 images…", run: () => Promise.reject(new Error("gone")), done: () => "dismiss" })
     ).rejects.toThrow("gone")
-    expect(notifications.dismiss).toHaveBeenCalledWith("progress")
-    expect(notifications.error).not.toHaveBeenCalled()
+    expect(toasts.close).toHaveBeenCalledWith("progress")
+    expect(toasts.failed).not.toHaveBeenCalled()
   })
 })

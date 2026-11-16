@@ -14,7 +14,6 @@ import {
   decidePaste,
   kindsName,
   missingComponents,
-  noLayoutHere,
   type PasteAction,
   type PasteAsk,
   type PasteContent,
@@ -49,12 +48,12 @@ import {
   noteEntries,
   updateContainer
 } from "@parity-app/multiplayer"
-import { toast } from "sonner"
 import type { CopiedFile } from "../../shared/protocol.ts"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { shortcutOf } from "../chrome/keymap.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
+import { list, notify } from "../toasts.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { addImageFiles } from "./drop-files.ts"
@@ -111,7 +110,7 @@ export async function pasteClipboard(
   const action = decidePaste(ask, kind)
 
   if (action.do === "nothing") {
-    return refuse(ask.how, kind, action)
+    return refuse(ask, kind, action)
   }
 
   if (action.do === "designs" && isEnvelope(content, "designs")) {
@@ -213,19 +212,59 @@ function pasted(how: PasteHow, content: PasteContent, count: number, design?: st
  * A paste that pastes nothing, as `decidePaste` says: its message as a toast, or as an error for an unreadable copy,
  * and recorded with why. One that wasn't available says and records nothing.
  */
-function refuse(how: PasteHow, content: PasteContent, action: Extract<PasteAction, { do: "nothing" }>): void {
+function refuse(ask: PasteAsk, content: PasteContent, action: Extract<PasteAction, { do: "nothing" }>): void {
   if (!action.reason) {
     return
   }
 
   if (action.reason === "unreadable" && action.message) {
-    reportError(action.message, { operation: "clipboard.read", title: action.message })
+    reportError(action.message, {
+      operation: "clipboard.read",
+      title: "Couldn't paste",
+      description: "The clipboard holds something Parity can't read."
+    })
   } else if (action.message) {
-    toast.info(action.message)
+    const { title, ...shown } = refusal(ask, content, action.reason)
+    notify.info(title, shown)
   }
 
-  pasteFailed(how, content, action.reason)
+  pasteFailed(ask.how, content, action.reason)
 }
+
+/** What a refused paste says: what didn't happen, and what works instead. */
+interface Refusal {
+  title: string
+  description?: string
+}
+
+/** What `ask` says when it refuses `content` for `reason`. */
+function refusal(ask: PasteAsk, content: PasteContent, reason: PasteRefusal): Refusal {
+  if (reason === "empty") {
+    return { title: "Nothing to paste" }
+  }
+
+  if (reason === "noTarget") {
+    return cantPasteHere
+  }
+
+  const copied = content === "notes" ? "notes" : "a screen"
+
+  if (ask.how === "replace") {
+    return { title: `Can't replace layers with ${copied}`, description: "Copy layers to replace these with them." }
+  }
+
+  if (ask.how === "over" && ask.where === "designs") {
+    return {
+      title: `Can't paste ${content === "notes" ? "notes" : "layers"} over a screen`,
+      description: "Copy a screen or component to replace it."
+    }
+  }
+
+  return { title: `Can't paste ${copied} here`, description: "Copy layers to paste them over layers." }
+}
+
+/** Paste here, or a paste whose layout went while the clipboard was read, with no layout to paste into. */
+const cantPasteHere: Refusal = { title: "Can't paste here", description: "Paste onto a layout or the empty canvas." }
 
 /** Records a paste that pasted nothing, with why. */
 function pasteFailed(
@@ -252,6 +291,10 @@ type ClipboardContent =
   | { kind: "text"; text: string }
   | { kind: "unreadable" }
   | { kind: "empty" }
+
+function insideInstance(): void {
+  notify.info("Can't edit inside an instance", { description: "Edit its component to change these layers." })
+}
 
 /**
  * What's on the system clipboard: Parity's own copy, a file copied in Explorer or Finder, an image or SVG markup, or
@@ -329,7 +372,7 @@ export async function pasteOverSelection(
   const action = decidePaste(ask, kind)
 
   if (action.do === "nothing") {
-    return refuse(ask.how, kind, action)
+    return refuse(ask, kind, action)
   }
 
   if (action.do === "designs" && isEnvelope(content, "designs")) {
@@ -362,7 +405,7 @@ export async function pasteOverSelection(
   const frame = current && editFrame(doc, current)
 
   if (!current || !frame) {
-    toast.info("No layers are selected, so nothing was pasted")
+    notify.info("Nothing pasted", { description: "No layers are selected." })
     pasteFailed(ask.how, layers.content, "noTarget")
 
     return
@@ -384,7 +427,7 @@ export async function pasteOverSelection(
   )
 
   if (copies.length === 0) {
-    toast.info("Layers inside an instance can't be pasted over")
+    insideInstance()
     pasteFailed(ask.how, layers.content, "instance")
 
     return
@@ -414,7 +457,7 @@ export async function pasteToReplace(
   const action = decidePaste(ask, kind)
 
   if (action.do === "nothing") {
-    return refuse(ask.how, kind, action)
+    return refuse(ask, kind, action)
   }
 
   const layers = await clipboardLayers(session.id, ask.how, content)
@@ -428,7 +471,7 @@ export async function pasteToReplace(
   const frame = current && editFrame(session.doc, current)
 
   if (!current || !frame) {
-    toast.info("The selection changed, so nothing was replaced")
+    notify.info("Nothing replaced", { description: "The selection changed before the paste finished." })
     pasteFailed(ask.how, layers.content, "noTarget")
 
     return
@@ -450,7 +493,7 @@ export async function pasteToReplace(
   )
 
   if (copies.length === 0) {
-    toast.info("Layers inside an instance can't be replaced")
+    insideInstance()
     pasteFailed(ask.how, layers.content, "instance")
 
     return
@@ -490,7 +533,7 @@ export async function pasteAtPointer(
   const action = decidePaste(ask, kind)
 
   if (action.do === "nothing") {
-    return refuse(ask.how, kind, action)
+    return refuse(ask, kind, action)
   }
 
   if (action.do === "designs" && isEnvelope(content, "designs")) {
@@ -547,7 +590,8 @@ export async function pasteAtPointer(
 
   // The design or its layout can go while the clipboard is read, leaving nowhere to paste.
   if (copies.length === 0) {
-    toast.info(noLayoutHere)
+    const { title, ...shown } = cantPasteHere
+    notify.info(title, shown)
     pasteFailed(ask.how, layers.content, "noTarget")
 
     return
@@ -679,7 +723,7 @@ export function copyStyle(session: ProjectDesigns): boolean {
   }
 
   copiedStyle = style
-  toast.success("Copied the style", { duration: 1500 })
+  notify.done("Copied the style", { timeout: 1500 })
 
   return true
 }
@@ -695,7 +739,9 @@ export function pasteStyle(session: ProjectDesigns): void {
     if (!style) {
       const keys = shortcutOf("copyStyle")
 
-      toast.info(keys ? `Copy a layer's style first, with ${keys}` : "Copy a layer's style first")
+      notify.info("No style copied", {
+        description: keys ? `Copy a layer's style first with ${keys}.` : "Copy a layer's style first."
+      })
     }
 
     return
@@ -856,6 +902,9 @@ function warnUnknown<Component>(nodes: DesignNode[], known: Readonly<Record<stri
   const missing = missingComponents(nodes, known)
 
   if (missing.length > 0) {
-    toast.warning("Some components aren't in this project", { description: missing.join(", ") })
+    const one = missing.length === 1
+    notify.warning("Some components are missing", {
+      description: `${list(missing)} ${one ? "isn't" : "aren't"} in this project, so ${one ? "it shows" : "they show"} as missing.`
+    })
   }
 }

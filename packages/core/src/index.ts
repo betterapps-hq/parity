@@ -29,7 +29,6 @@ export {
   type GuestIconSet,
   type GuestInit,
   type LayerFailure,
-  type ModuleStyles,
   type MountHandle,
   type MountOptions,
   packageManifest,
@@ -262,6 +261,8 @@ export {
   readErrorDetails,
   unknownReference
 } from "./errors.ts"
+
+export { plainReason } from "./reasons.ts"
 
 export {
   applyFieldInput,
@@ -581,3 +582,5 @@ export {
   type Translate,
   withAlpha
 } from "@parity-app/style-schema"
+
+export { callerOrigin, importConditions, importsIn, relativeUrlsFrom, withImports, withMedia } from "./page-css.ts"

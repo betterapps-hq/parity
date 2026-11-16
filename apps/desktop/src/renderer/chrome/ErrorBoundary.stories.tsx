@@ -1,9 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect } from "react"
-import { toast } from "sonner"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow, WindowBoundary } from "../App.tsx"
 import { openProjects } from "../stories/fixtures.tsx"
+import { notify } from "../toasts.tsx"
 import { closeDialog, openDialog } from "./app-dialogs.ts"
 import { setBoundaryReporter, tripBoundary } from "./ErrorBoundary.tsx"
 import { setLayout } from "./layout.ts"
@@ -78,7 +78,7 @@ const meta = {
       })
       // Set before the window draws, since the part fails on its first draw.
       setBoundaryReporter(
-        args.reportable ? (_error, { name }) => toast(`Report a problem would open, for ${name}`) : undefined
+        args.reportable ? (_error, { name }) => notify.info(`Report a problem would open, for ${name}`) : undefined
       )
       tripBoundary(args.part, args.failures)
     }

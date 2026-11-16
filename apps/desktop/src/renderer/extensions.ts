@@ -1,4 +1,4 @@
-import { locateNode } from "@parity-app/core"
+import { locateNode, plainReason } from "@parity-app/core"
 import { selectionRefs } from "@parity-app/editor"
 import type {
   CommandContribution,
@@ -8,7 +8,6 @@ import type {
   StatusItemContribution
 } from "@parity-app/extension-api"
 import { type ExtensionKey, holdsWhen, type ResolvedKeys, resolveKeys, type WhenValue } from "@parity-app/extensions"
-import { toast } from "sonner"
 import type { ExtensionStatus, ExtensionUiRequest, LogLine, ProjectProcess } from "../shared/protocol.ts"
 import { type Command, keymap, keysOf } from "./chrome/keymap.ts"
 import { matches } from "./chrome/keys.ts"
@@ -16,6 +15,7 @@ import { projectPart } from "./project-part.ts"
 import { reportError } from "./report-error.ts"
 import { request } from "./service.ts"
 import { createStore, type Store, useStore } from "./store.ts"
+import { notify } from "./toasts.tsx"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -413,10 +413,10 @@ export async function runCommand(
 
     reportError(cause, {
       operation: "extensions.run",
-      title: `${command.title} didn't work`,
-      description: cause instanceof Error ? cause.message.slice(0, 600) : String(cause),
+      title: "Couldn't run the command",
+      description: plainReason(cause)?.slice(0, 600),
       context: { extension: extension.id, command: command.id },
-      action: down ? { label: "Restart", onClick: () => restartExtension(session, extension.id) } : undefined
+      action: down ? { label: "Restart", run: () => restartExtension(session, extension.id) } : undefined
     })
   }
 }
@@ -430,13 +430,15 @@ export function restartExtension(session: Pick<Session, "id">, extension: string
 
 /** Names an extension that crashed or stopped answering, with Restart. */
 function announceTrouble(session: Session, extension: ExtensionStatus): void {
-  const title =
-    extension.state === "crashed" ? `${extension.displayName} stopped` : `${extension.displayName} isn't answering`
+  const crashed = extension.state === "crashed"
+  const name = extension.displayName
 
-  toast.warning(title, {
+  notify.warning(crashed ? "An extension stopped" : "An extension isn't answering", {
     id: `extension-trouble:${session.id}:${extension.id}`,
-    description: extension.reason,
-    duration: 15_000,
-    action: { label: "Restart", onClick: () => restartExtension(session, extension.id) }
+    description: extension.reason
+      ? `${name}: ${plainReason(extension.reason)}`
+      : `${name} ${crashed ? "stopped" : "isn't answering"}.`,
+    timeout: 15_000,
+    action: { label: "Restart", run: () => restartExtension(session, extension.id) }
   })
 }

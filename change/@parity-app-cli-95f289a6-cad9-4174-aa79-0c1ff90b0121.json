@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Toasts use the stock shadcn toast instead of Sonner, through one module, with clearer copy, plain-language failure reasons and colored success and warning icons",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

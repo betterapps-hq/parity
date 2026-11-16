@@ -12,13 +12,13 @@ const errors: string[] = []
 
 /** What the page loads: a guest stylesheet whose compiled CSS declares `--primary` in the root and dark themes. */
 const entry = `
-import { guestSheet, previewToken, showModuleStyles, showTokenOverrides } from "./guest.ts"
+import { guestSheet, previewToken, showAddedStyles, showTokenOverrides } from "./guest.ts"
 
 export const css = ":host { --primary: black; --radius: 0.5rem; } .dark { --primary: white; }"
-export { guestSheet, previewToken, showModuleStyles, showTokenOverrides }
+export { guestSheet, previewToken, showAddedStyles, showTokenOverrides }
 
-/** Stylesheets as a guest's modules import them, with what the canvas listens with. */
-export function moduleStyles() {
+/** Stylesheets as the project's code adds them to the page, with what the canvas listens with. */
+export function addedStyles() {
   const sheets = new Map()
   const listeners = new Set()
 
@@ -28,7 +28,7 @@ export function moduleStyles() {
       listeners.forEach((listener) => listener())
     },
     listeners: () => listeners.size,
-    sheets: () => [...sheets.values()],
+    sheets: () => [...sheets.values()].map((css) => ({ css, baseUrl: "http://project.test/" })),
     subscribe(listener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -241,16 +241,16 @@ describe("previewToken", () => {
   })
 })
 
-describe("showModuleStyles", () => {
-  it("draws what the project's modules import in frames, and keeps fonts and registered properties in the document (PAR-1181)", async () => {
+describe("showAddedStyles", () => {
+  it("draws what the project's code adds to the page in frames, and keeps fonts and registered properties in the document (PAR-1187)", async () => {
     const shown = await page.evaluate(() => {
       // @ts-expect-error The bundle's global.
-      const { moduleStyles, showModuleStyles, text } = guest
-      const styles = moduleStyles()
+      const { addedStyles, showAddedStyles, text } = guest
+      const styles = addedStyles()
       const before = "@property --a { syntax: '*'; inherits: false; }"
       const sheets = { scoped: new CSSStyleSheet(), global: new CSSStyleSheet(), before }
       const read = () => ({ scoped: text(sheets.scoped), global: text(sheets.global) })
-      const stop = showModuleStyles(styles, sheets, "http://project.test")
+      const stop = showAddedStyles(styles, sheets)
 
       const steps = [read()]
       styles.set("/src/card.css", "body { color: red; } @font-face { font-family: Card; src: url(/card.woff2); }")
@@ -277,7 +277,7 @@ describe("showModuleStyles", () => {
       global: property
     })
     expect(shown.steps[3]).toEqual({ scoped: ":host { --brand: green; }", global: property })
-    // Once stopped, a stylesheet a module imports later changes nothing.
+    // Once stopped, a stylesheet the project adds later changes nothing.
     expect(shown.steps[4]).toEqual(shown.steps[3])
     expect(shown.listeners).toBe(0)
   })

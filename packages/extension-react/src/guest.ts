@@ -976,10 +976,6 @@ export function createGuest(init: GuestInit): Guest {
     guest.packageCss = init.packageCss
   }
 
-  if (init.moduleStyles) {
-    guest.moduleStyles = init.moduleStyles
-  }
-
   if (init.tokenCategories) {
     guest.tokenCategories = init.tokenCategories
   }
@@ -1237,8 +1233,7 @@ function shadowOf(element: Element): ShadowRoot | undefined {
 
 /**
  * What a Storybook decorator is told about the frame: its mode's globals, the preview's parameters, what loaded, and
- * `canvasElement`, the frame's stand-in body, where a CSS-in-JS library can put its styles so they reach the frame's
- * shadow root.
+ * `canvasElement`, the frame's stand-in body.
  */
 interface StoryContext {
   globals: StoryValues

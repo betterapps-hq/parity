@@ -1,12 +1,12 @@
 import { CodedError } from "@parity-app/core"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
-import type { ExternalToast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { reportError, setWindowTelemetry, track } from "./report-error.ts"
+import type { FailureOptions } from "./toasts.tsx"
 
-const notifications = vi.hoisted(() => ({ error: vi.fn<(title: string, options: ExternalToast) => void>() }))
+const toasts = vi.hoisted(() => ({ failed: vi.fn<(title: string, options: FailureOptions) => string>(() => "toast") }))
 
-vi.mock("sonner", () => ({ toast: notifications }))
+vi.mock("./toasts.tsx", () => ({ notify: toasts }))
 
 const sink = createTestSink()
 
@@ -24,7 +24,7 @@ beforeEach(() => {
 afterEach(() => {
   setWindowTelemetry(undefined)
   sink.clear()
-  notifications.error.mockReset()
+  toasts.failed.mockClear()
 })
 
 describe("reportError", () => {
@@ -38,7 +38,11 @@ describe("reportError", () => {
       context: { designs: 2 }
     })
 
-    expect(notifications.error).toHaveBeenCalledWith("Couldn't export", { id: "progress", description: "No design d1" })
+    expect(toasts.failed).toHaveBeenCalledWith("Couldn't export", {
+      id: "progress",
+      description: "No design d1",
+      error
+    })
     expect(sink.named("error.caught")).toMatchObject([
       {
         level: "error",
@@ -51,6 +55,15 @@ describe("reportError", () => {
         }
       }
     ])
+  })
+
+  it("leaves the description to the failure's plain reason, and passes on Try again", () => {
+    const error = new Error("EPERM: operation not permitted, open 'D:/demo/demo.par'")
+    const retry = vi.fn<() => void>()
+    reportError(error, { operation: "project.save", title: "Couldn't save the project", retry })
+
+    expect(toasts.failed).toHaveBeenCalledWith("Couldn't save the project", { retry, error })
+    expect(toasts.failed.mock.calls[0]?.[1]).not.toHaveProperty("description")
   })
 
   it("records a failure without a code, given as text", () => {
@@ -74,7 +87,7 @@ describe("reportError", () => {
     setWindowTelemetry(undefined)
     reportError(new Error("Nope"), { operation: "document.save", title: "Couldn't save" })
 
-    expect(notifications.error).toHaveBeenCalledOnce()
+    expect(toasts.failed).toHaveBeenCalledOnce()
     expect(sink.events).toEqual([])
   })
 })

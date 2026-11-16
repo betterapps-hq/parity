@@ -24,11 +24,6 @@ export interface GuestModuleOptions {
    */
   styles: "inline" | "bundled"
   /**
-   * With `inline` styles, the specifier of a module whose `moduleStyles` export collects the stylesheets the project's
-   * modules import as they load (`GuestInit.moduleStyles`), which the dev server would otherwise add to the page.
-   */
-  moduleStyles?: string
-  /**
    * Decorators of the builder's own, outermost first, around the libraries': what its framework needs mounted around
    * every frame, as Next's router (PAR-1160). Each names the library it stands for, and its modules by their specifier.
    */
@@ -176,8 +171,6 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
   const described = (config.describedTokens ?? []).flatMap((source) => source.tokens)
   const libraryCss = describedTokenCss(described)
 
-  const moduleStylesRef = inline && options.moduleStyles ? ref(options.moduleStyles) : undefined
-
   const loads = imports.map((id) =>
     optional.has(id)
       ? `import(${JSON.stringify(id)}).catch((error) => ({ loadError: String(error?.message ?? error) }))`
@@ -208,7 +201,6 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
         // Tokens libraries only create at run time come first, so the project's own declarations still win.
         `  css: [${[...(libraryCss ? [JSON.stringify(libraryCss)] : []), ...styleRefs].join(", ")}].join("\\n"),`,
         ...(packageStyleRefs.length > 0 ? [`  packageCss: [${packageStyleRefs.join(", ")}].join("\\n"),`] : []),
-        ...(moduleStylesRef ? [`  moduleStyles: ${moduleStylesRef}.moduleStyles,`] : []),
         ...init,
         "})"
       ]

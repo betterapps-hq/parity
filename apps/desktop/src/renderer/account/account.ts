@@ -1,4 +1,3 @@
-import { toast } from "sonner"
 import {
   type AccountPerson,
   type AccountState,
@@ -9,6 +8,7 @@ import {
 } from "../../shared/account.ts"
 import { errorMessage, reportError, track } from "../report-error.ts"
 import { createStore, useStore } from "../store.ts"
+import { notify } from "../toasts.tsx"
 import { currentOrganization } from "./OrganizationBadge.tsx"
 
 /**
@@ -131,21 +131,25 @@ function joinedToast(email: string, before: readonly SignedInAccount[]): void {
   }
 
   const had = before.find((each) => each.email === email)
-  let title = `Added ${email}`
 
-  if (had) {
-    title = had.ended ? `Signed in again as ${email}` : `${email} is already signed in`
+  if (had && !had.ended) {
+    notify.info("Nothing to add", { id: "account-joined", description: `${email} is already signed in.` })
+
+    return
   }
 
-  toast(title, { id: "account-joined" })
+  notify.done(had ? "Signed in again" : "Added an account", {
+    id: "account-joined",
+    description: `You're signed in as ${email}.`
+  })
 }
 
 function untilQuitToast(): void {
-  toast("You're signed in until you quit Parity", {
+  notify.info("Signed in until you quit", {
     id: "until-quit",
     description: "This system has no keyring to keep you signed in.",
-    action: { label: "What to do", onClick: () => update({ untilQuit: true }) },
-    duration: 12_000
+    action: { label: "Details", run: () => update({ untilQuit: true }) },
+    timeout: 12_000
   })
 }
 
@@ -178,9 +182,20 @@ export function useAccount(): AccountView {
   return useStore(account)
 }
 
-const failed = (title: string) => (cause: unknown) => {
+/**
+ * Says an account step failed and where things stand, and offers to try it again. Without a description, it gives the
+ * failure's reason.
+ */
+const failed = (title: string, description: () => string | undefined, retry: () => void) => (cause: unknown) => {
   console.error(title, cause)
-  reportError(cause, { operation: "account", title, description: "Try again in a moment." })
+  reportError(cause, { operation: "account", title, description: description(), retry })
+}
+
+/** Where the account you're in is now, as a failure says nothing changed. */
+function stillIn(): string | undefined {
+  const now = account.get().state.account
+
+  return now ? `You're still in ${workspaceOf(now)} as ${now.email}.` : undefined
 }
 
 /** What the sign-in screens, the account menu and Home do. */
@@ -188,8 +203,21 @@ export const accountActions = {
   /** Sign in from the title bar or Home: the sign-in screen in a dialog. */
   open: () => update({ place: "dialog" }),
   signIn: (request: SignInRequest) =>
-    void window.canvasHost.account.signIn(request).catch(failed("Parity couldn't start signing you in")),
-  reopen: () => void window.canvasHost.account.reopen().catch(failed("Parity couldn't open your browser")),
+    void window.canvasHost.account.signIn(request).catch(
+      failed(
+        "Couldn't start signing in",
+        () => "You're still signed out of Parity.",
+        () => accountActions.signIn(request)
+      )
+    ),
+  reopen: () =>
+    void window.canvasHost.account.reopen().catch(
+      failed(
+        "Couldn't open your browser",
+        () => "Sign-in is still waiting for you there.",
+        () => accountActions.reopen()
+      )
+    ),
   /** Back to the ways in: the attempt, or the session that ended, is put away. */
   back: () => void window.canvasHost.account.cancel(),
   /** Closes the dialog, stopping a sign-in that's waiting. */
@@ -207,39 +235,63 @@ export const accountActions = {
     const { state } = account.get()
     const leaving = state.accounts.find((each) => each.email === email)
     const here = state.account?.email === email
-    void window.canvasHost.account.signOut(email).then(() => {
-      const now = account.get().state.account
+    void window.canvasHost.account.signOut(email).then(
+      () => {
+        const now = account.get().state.account
 
-      if (leaving?.ended) {
-        toast(`Removed ${email}`, { id: "signed-out" })
-      } else if (!now) {
-        toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
-      } else if (here) {
-        toast(`Signed out of ${email}`, {
-          id: "signed-out",
-          description: `You're in ${workspaceOf(now)} as ${now.email} now.`
-        })
-      } else {
-        toast(`Signed out of ${email}`, { id: "signed-out" })
-      }
-    }, failed("Parity couldn't sign you out"))
+        if (leaving?.ended) {
+          notify.done("Removed an account", { id: "signed-out", description: `Parity forgot ${email}.` })
+        } else if (!now) {
+          notify.done("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
+        } else if (here) {
+          notify.done("Signed out of an account", {
+            id: "signed-out",
+            description: `You're in ${workspaceOf(now)} as ${now.email} now.`
+          })
+        } else {
+          notify.done("Signed out of an account", { id: "signed-out", description: `${email} is signed out.` })
+        }
+      },
+      failed(
+        "Couldn't sign out",
+        () => `${email} is still signed in.`,
+        () => accountActions.signOut(email)
+      )
+    )
   },
   /** Switches to another account signed in, at once: each keeps its own session. */
   use: (email: string) =>
-    void window.canvasHost.account.use(email).then(() => {
-      const now = account.get().state.account
+    void window.canvasHost.account.use(email).then(
+      () => {
+        const now = account.get().state.account
 
-      if (now?.email !== email) {
-        return
-      }
+        if (now?.email !== email) {
+          return
+        }
 
-      toast(`Switched to ${email}`, { id: "account-switched", description: `You're in ${workspaceOf(now)} now.` })
-    }, failed("Parity couldn't switch accounts")),
+        notify.done("Switched accounts", {
+          id: "account-switched",
+          description: `You're in ${workspaceOf(now)} as ${email} now.`
+        })
+      },
+      failed("Couldn't switch accounts", stillIn, () => accountActions.use(email))
+    ),
   explainUntilQuit: (open: boolean) => update({ untilQuit: open }),
   /**
    * Moves the account you're in to another of the person's organizations. Main refreshes, and the window follows its
    * state; it settles either way, once main has.
    */
   switchOrganization: (organizationId: string): Promise<void> =>
-    window.canvasHost.account.switchOrganization(organizationId).catch(failed("Parity couldn't switch organizations"))
+    window.canvasHost.account.switchOrganization(organizationId).catch(
+      failed(
+        "Couldn't switch organizations",
+        () => {
+          const now = account.get().state.account
+          const name = now && currentOrganization(now)?.name
+
+          return name ? `Nothing changed; you're still in ${name}.` : "You're still in the same organization."
+        },
+        () => void accountActions.switchOrganization(organizationId)
+      )
+    )
 }

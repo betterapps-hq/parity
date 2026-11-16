@@ -915,18 +915,18 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 async function installLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
   await serviceCall({
     progress: `Installing ${library.name}…`,
-    shown: { description: "With the project's package manager" },
     run: () => request("library.add", { projectId, library: library.id }),
     done() {
       track("library.added", { package: library.id })
 
-      return { success: `${library.name} is ready`, description: undefined }
+      return { success: `Installed ${library.name}` }
     },
     after: () => workspace.reload(projectId, `Loading ${library.name}`),
     failed: {
       operation: "library.add",
       title: `Couldn't install ${library.name}`,
-      description: (error) => message(error).slice(-400),
+      description: () => "The package manager stopped with an error.",
+      details: (error) => message(error).slice(-2000),
       track(error) {
         const failed: Attributes<"library.failed"> = { package: library.id }
         const code = errorCode(error)
@@ -956,11 +956,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
       onOpenChange={(open) => {
         if (open && !catalog) {
           void request("library.catalog", { projectId: session.id }).then(setCatalog, (cause: unknown) =>
-            reportError(cause, {
-              operation: "library.catalog",
-              title: "Couldn't list libraries",
-              description: message(cause)
-            })
+            reportError(cause, { operation: "library.catalog", title: "Couldn't load libraries" })
           )
         }
       }}
@@ -1061,8 +1057,8 @@ export async function importStyles(projectId: string, library: LibraryInfo): Pro
   } catch (error) {
     reportError(error, {
       operation: "library.importStyles",
-      title: "Couldn't import its styles",
-      description: message(error)
+      title: `Couldn't import ${library.name}'s styles`,
+      retry: () => void importStyles(projectId, library)
     })
   }
 }
