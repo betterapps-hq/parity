@@ -5483,6 +5483,10 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
 - **Letters aren't cut off.** The editor leaves room above and below its lines (0.3em) for letters that reach past them,
   as a heading set solid has, so their tops and descenders show and the text doesn't shift up when the caret moves; the
   text stays where the frame draws it.
+- **Hugging text grows as it's typed.** Text whose box hugs its line in a wider layout, as a heading centred in a column
+  does, is edited growing along the line up to the room its layout has, from the side it sits on (its middle when it's
+  centred), as the frame draws it once it's written. It used to wrap at the width it opened with until the next write
+  measured it again, so what was typed past it jumped onto a second line and back.
 - **A frame named after its text** follows each write, as it did the closing one.
 - Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
 

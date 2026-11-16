@@ -22,14 +22,26 @@ import { drawnText, textNodes } from "./text-caret.ts"
 /** How far letters can reach past their line, above and below, in the text's own size. */
 const glyphRoom = "0.3em"
 
+/** For each side of the editor's box that stays put, how far along the box it is and how far back the editor moves. */
+const anchors = {
+  left: { along: 0, translate: "0" },
+  center: { along: 0.5, translate: "-50%" },
+  right: { along: 1, translate: "-100%" }
+} as const
+
 /** What closed the editor: Enter, Escape, or clicking away. */
 type TextEditEnd = "enter" | "escape" | "blur"
 
 /** Where the editor draws, in the canvas area's pixels, and how its text looks there. */
 interface EditorLayout {
   box: { x: number; y: number; w: number; h: number }
-  /** Whether it grows along its line, as auto width text and text that doesn't wrap do, or wraps at its width. */
+  /**
+   * Whether it grows along its line, as auto width text, text that doesn't wrap and text hugging its line in a wider
+   * layout do, or wraps at its width.
+   */
   grows: boolean
+  /** Which side of its box stays put as it grows: where the text sits in what holds it, so both grow alike. */
+  anchor: "left" | "center" | "right"
   style: CSSProperties
 }
 
@@ -269,12 +281,14 @@ export function TextEditor() {
         layout
           ? {
               ...layout.style,
-              left: layout.box.x,
+              left: layout.box.x + layout.box.w * anchors[layout.anchor].along,
+              translate: anchors[layout.anchor].translate,
               // Room above and below the lines for letters taller than them, as a heading set solid has, which the
               // textarea would otherwise cut off and scroll to the caret; the text stays where the frame draws it.
               top: `calc(${layout.box.y}px - ${glyphRoom})`,
               paddingBlock: glyphRoom,
-              ...(layout.grows ? { minWidth: layout.box.w } : { width: layout.box.w }),
+              // Growing, it's as wide as its longest line up to its maximum, however near the canvas's edge it starts.
+              ...(layout.grows ? { minWidth: layout.box.w, width: "max-content" } : { width: layout.box.w }),
               minHeight: `calc(${layout.box.h}px + 2 * ${glyphRoom})`
             }
           : { display: "none" }
@@ -366,6 +380,9 @@ function editorLayout(
   const computed = getComputedStyle(element)
   // The element's own scale: the camera's, the frame's and any transform the design gives it together.
   const { scale, border, padding } = drawn
+  // Text whose box hugs its line in a wider layout, as a heading centred in a column does, grows as it's typed, as the
+  // frame will draw it once it's written, rather than wrapping at the width it had.
+  const hug = grows ? undefined : hugging(element, drawn)
   const text = space.box(grows ? (textBounds(element) ?? drawn.contentBox) : drawn.contentBox)
   const scaled = (value: string) => (value === "normal" ? "normal" : `${parseFloat(value) * scale}px`)
 
@@ -403,11 +420,59 @@ function editorLayout(
     style.maxWidth = parseFloat(computed.maxWidth) * scale - (borderBox ? sides : 0)
   }
 
+  if (hug) {
+    style.maxWidth = hug.room
+
+    return { box: text, grows: true, anchor: hug.anchor, style }
+  }
+
   return {
     box: { ...text, w: Math.max(text.w, grows ? 24 : 0) },
     grows,
+    anchor: "left",
     style
   }
+}
+
+/**
+ * Whether an element's box hugs its text in a wider parent, and if so how wide its text can grow, in screen pixels, and
+ * which side of it stays put: the middle when it's centred in its parent, the right when it's at its right.
+ */
+function hugging(
+  element: HTMLElement,
+  drawn: ElementGeometry
+): { room: number; anchor: EditorLayout["anchor"] } | undefined {
+  const parent = element.parentElement
+
+  if (!parent) {
+    return undefined
+  }
+
+  const { scale } = drawn
+  const own = element.getBoundingClientRect()
+  const width = drawn.contentBox.right - drawn.contentBox.left
+  const outer = getComputedStyle(parent)
+  const inner = getComputedStyle(element)
+  const side = (style: CSSStyleDeclaration, name: string) => (parseFloat(style.getPropertyValue(name)) || 0) * scale
+  const left = parent.getBoundingClientRect().left + side(outer, "border-left-width") + side(outer, "padding-left")
+  const right = parent.getBoundingClientRect().right - side(outer, "border-right-width") - side(outer, "padding-right")
+  // What around the text isn't text: its own padding, border and margins.
+  const around = own.width - width + side(inner, "margin-left") + side(inner, "margin-right")
+  const room = right - left - around
+
+  if (room - width < 1) {
+    return undefined
+  }
+
+  let anchor: EditorLayout["anchor"] = "left"
+
+  if (Math.abs((own.left + own.right) / 2 - (left + right) / 2) < 1) {
+    anchor = "center"
+  } else if (Math.abs(own.right + side(inner, "margin-right") - right) < 1) {
+    anchor = "right"
+  }
+
+  return { room, anchor }
 }
 
 /** The box around the characters an element draws, leaving out icons beside them. */
