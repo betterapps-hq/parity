@@ -8,7 +8,6 @@
 //   node scripts/changes.ts check                             fails when one is missing from what's staged (pre-commit)
 //   node scripts/changes.ts check --committed                 the same for the branch's commits (pre-push and CI)
 import { execFileSync } from "node:child_process"
-import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { createRequire } from "node:module"
 import { dirname, join, matchesGlob } from "node:path"
 import { parseData, plainObject } from "@parity-app/core/schema"
@@ -271,18 +270,20 @@ export function listChangeFiles(range: string[], cwd = root): string[] {
     .map((entry) => entry.path)
 }
 
-function readWorkspace(): WorkspacePackage[] {
-  const found: { dir: string; json: z.output<typeof manifest> }[] = []
+/**
+ * The workspace packages under apps/ and packages/, read from the same snapshot as the changes, the index or HEAD, so
+ * an unstaged manifest edit can't change which packages need change files.
+ */
+function readWorkspace(committed: boolean, now: (file: string) => string): WorkspacePackage[] {
+  const listed = committed
+    ? git("ls-tree", "-r", "--name-only", "HEAD", "--", "apps", "packages")
+    : git("ls-files", "--", "apps", "packages")
 
-  for (const parent of ["apps", "packages"]) {
-    for (const name of readdirSync(join(root, parent))) {
-      const file = join(root, parent, name, "package.json")
+  const found = lines(listed).flatMap((file) => {
+    const dir = /^((?:apps|packages)\/[^/]+)\/package\.json$/.exec(file)?.[1]
 
-      if (existsSync(file)) {
-        found.push({ dir: `${parent}/${name}`, json: parseData(manifest, JSON.parse(readFileSync(file, "utf8"))) })
-      }
-    }
-  }
+    return dir ? [{ dir, json: parseData(manifest, JSON.parse(now(file))) }] : []
+  })
 
   const names = new Set(found.map(({ json }) => json.name))
 
@@ -306,6 +307,7 @@ function beachballConfig(): z.output<typeof beachballSettings> {
 
 /** What a branch changed, and the packages its change files cover and its release commits released. */
 interface Changes {
+  packages: WorkspacePackage[]
   files: string[]
   changedCatalog: Catalogs
   covered: Set<string>
@@ -347,7 +349,13 @@ function changes(branch: string, committed: boolean): Changes {
     }
   }
 
-  return { files, changedCatalog: catalogChanges(base, files, now), covered, released }
+  return {
+    packages: readWorkspace(committed, now),
+    files,
+    changedCatalog: catalogChanges(base, files, now),
+    covered,
+    released
+  }
 }
 
 const catalogFile = "pnpm-workspace.yaml"
@@ -386,10 +394,11 @@ function option(name: string): string | undefined {
 function main(): void {
   const command = process.argv[2]
   const config = beachballConfig()
-  const { files, changedCatalog, covered, released } = changes(config.branch, process.argv.includes("--committed"))
+  const committed = process.argv.includes("--committed")
+  const { packages, files, changedCatalog, covered, released } = changes(config.branch, committed)
   // Beachball's own ignore patterns, plus the change files and changelogs it ignores itself.
   const ignored = [...(config.ignorePatterns ?? []), "change/*.json", "**/CHANGELOG.md", "**/CHANGELOG.json"]
-  const needed = releasesFor(readWorkspace(), files, ignored, changedCatalog)
+  const needed = releasesFor(packages, files, ignored, changedCatalog)
   const missing = needed.filter((name) => !covered.has(name))
 
   // Beachball checks ordinary change files; a consumed release is checked by version + generated changelog instead.
