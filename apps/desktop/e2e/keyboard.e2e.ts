@@ -12,6 +12,23 @@ let app: App
 
 beforeAll(async () => {
   app = await App.connect()
+
+  // PAR-1209 diagnostics, to be removed: every child frame's comings, goings and navigations, with the test running.
+  const log = (what: string) => (frame: Frame) => {
+    if (frame !== app.page.mainFrame()) {
+      const test = expect.getState().currentTestName ?? "(between tests)"
+      process.stderr.write(`[PAR-1209] ${new Date().toISOString()} ${what} ${frame.url()} in ${test}\n`)
+    }
+  }
+
+  app.page.on("frameattached", log("attached"))
+  app.page.on("framedetached", log("detached"))
+  app.page.on("framenavigated", log("navigated"))
+  app.page.on("console", (message) => {
+    if (message.text().includes("[vite]")) {
+      process.stderr.write(`[PAR-1209] ${new Date().toISOString()} console ${message.text()}\n`)
+    }
+  })
 })
 
 afterEach(() => app?.reset())
