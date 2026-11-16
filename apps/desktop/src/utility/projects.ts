@@ -457,11 +457,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * config and plugins load once. Both in this process would only take turns on its thread, and start the builder
    * later.
    */
-  async function detect(
-    root: string,
-    opening: Opening,
-    early?: (start: EarlyStart) => Promise<AppStyles | undefined>
-  ) {
+  async function detect(root: string, opening: Opening, early?: (start: EarlyStart) => Promise<AppStyles | undefined>) {
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {

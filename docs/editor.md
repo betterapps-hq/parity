@@ -7900,8 +7900,8 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   and one detection can't confirm is closed).
 - **The project's config loads once as it opens (PAR-1182).** Which global stylesheets the app loads was asked of a
   build tool of its own, loading the project's config and plugins a second time, and the builder waited for the answer.
-  On copacker that took about 13 seconds, mostly Cloudflare's plugin starting its worker runtime. Now the builder
-  whose config file is there starts as soon as the renderer is known and prepares in its own process
+  On copacker that took about 13 seconds, mostly Cloudflare's plugin starting its worker runtime. Now the builder whose
+  config file is there starts as soon as the renderer is known and prepares in its own process
   (`BuilderAdapter.prepare`): Vite creates its server, says which stylesheets the app loads from it, and starts serving
   once the project's components are known. The modules it read the stylesheets with are compiled again once its
   dependency optimizer runs, so none keep its earlier hashes. A builder that doesn't prepare, or can't say, leaves it to

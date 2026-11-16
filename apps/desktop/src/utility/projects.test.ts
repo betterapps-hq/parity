@@ -154,7 +154,8 @@ function fakeBuilder() {
               throw cause
             }
           ),
-      styles: () => (failures.builderStyles ? Promise.reject(failures.builderStyles) : Promise.resolve(loads.builderStyles))
+      styles: () =>
+        failures.builderStyles ? Promise.reject(failures.builderStyles) : Promise.resolve(loads.builderStyles)
     }
   }
 

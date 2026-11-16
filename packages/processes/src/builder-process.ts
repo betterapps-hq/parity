@@ -338,27 +338,27 @@ export function connectBuilderProcess(
       return channel.request("start", { ...prepareOptions, config: known })
     })
     .then(({ guestUrl, toolVersion }): BuilderProcessSession => {
-    // A start that answers after it was told to close is closing anyway.
-    if (state !== "starting") {
-      throw new Error(`${name} closed before it started`)
-    }
+      // A start that answers after it was told to close is closing anyway.
+      if (state !== "starting") {
+        throw new Error(`${name} closed before it started`)
+      }
 
-    state = "running"
+      state = "running"
 
-    return {
-      guestUrl,
-      toolVersion,
-      setComponents: (components) => {
-        if (state === "running") {
-          void channel.request("components", components).catch(() => undefined)
-        }
-      },
-      usage,
-      restyledGuestUrl,
-      loadedFiles,
-      close
-    }
-  })
+      return {
+        guestUrl,
+        toolVersion,
+        setComponents: (components) => {
+          if (state === "running") {
+            void channel.request("components", components).catch(() => undefined)
+          }
+        },
+        usage,
+        restyledGuestUrl,
+        loadedFiles,
+        close
+      }
+    })
 
   // A builder that couldn't start has its process ended.
   started.catch(() => void close())
