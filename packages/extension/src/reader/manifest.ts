@@ -45,10 +45,14 @@ function isProcessPermission(entry: string): boolean {
 /** Path data's commands and numbers, and nothing that could carry script. */
 const pathData = /^[MmZzLlHhVvCcSsQqTtAa0-9eE.,+\-\s]+$/
 
+/** A six-digit hex color, and nothing else, so it can't carry CSS. */
+const hexColor = z.string().regex(/^#[0-9a-fA-F]{6}$/, "expected a six-digit hex color, as #FF4785")
+
 const pathIcon = z.strictObject({
   viewBox: z.string().regex(/^\s*-?[\d.]+(?:[\s,]+-?[\d.]+){3}\s*$/, "expected four numbers, as 0 0 24 24"),
   path: z.string().trim().min(1, "can't be blank").regex(pathData, "expected path data, as an SVG path's d"),
-  fillRule: z.enum(["nonzero", "evenodd"]).optional()
+  fillRule: z.enum(["nonzero", "evenodd"]).optional(),
+  color: z.strictObject({ light: hexColor, dark: hexColor }).optional()
 }) satisfies z.ZodType<PathIcon>
 
 const activationMessage = "expected onDetect, onStartup, onCommand:id, onView:id or onNodeType:type"

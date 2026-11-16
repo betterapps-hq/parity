@@ -14,8 +14,17 @@ const load = () => loadDesignSystem(example, "src/index.css")
 let system: DesignSystem
 let spelling: DesignSystem
 
+/** The installed Tailwind's package.json. */
+let manifest: string
+
+// Everything is read here, under the hook's minute, so the tests only check what was read. CI's Windows runner has
+// stalled for over 30 seconds, and a test still waiting on the disk then outlives its 20 (PAR-1215).
 beforeAll(async () => {
-  ;[system, spelling] = await Promise.all([load(), load()])
+  ;[system, spelling, manifest] = await Promise.all([
+    load(),
+    load(),
+    readFile(`${example}/node_modules/tailwindcss/package.json`, "utf8")
+  ])
   spelling.canonicalizeCandidates(["p-4"])
 }, 60_000)
 
@@ -29,9 +38,7 @@ function declared(nodes: CssNode[] | undefined): string[] {
 }
 
 describe("the design system Tailwind 4.3 gives", () => {
-  it("is the version these were pinned against", async () => {
-    const manifest = await readFile(`${example}/node_modules/tailwindcss/package.json`, "utf8")
-
+  it("is the version these were pinned against", () => {
     expect(manifest).toMatch(/"version": "4\.3\.\d+"/)
   })
 
