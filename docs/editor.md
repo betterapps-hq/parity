@@ -2008,6 +2008,8 @@ of Base UI's, Shadcn Vega's and Recharts' entries, with about 1,950 buttons, eac
   it as before.
 - **Searching starts at the top** of what matches, and starting or clearing a search forgets which sources were opened
   or closed by hand, as before.
+- **Libraries start closed,** each a heading with its count, and so do the app's components and pages beside two other
+  sources or more. A search opens every source with a match.
 
 Code: which lines show is pure, in `packages/editor/src/asset-lines.ts` (`assetLines`). The panel is `ComponentsPanel`,
 `AssetList` and `AssetEntry` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`; `AssetMenu` and `RowOffers` work out
@@ -2019,10 +2021,10 @@ Tests:
 - `packages/editor/src/asset-lines.test.ts` (5): a source's heading, its families' headings and one item to a row; the
   count of a closed source; a closed source's notice without its items; items two to a row in Grid, marking each
   family's first and last rows; and keys that differ across sources.
-- `chrome/ComponentsPanel.stories.tsx`: OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once
-  the list scrolls to its end; StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has
-  focus; ComponentMenu, its menu worked out as it opens; and SearchingAgain, a source closed in one search open again in
-  the next.
+- `chrome/ComponentsPanel.stories.tsx`: AllSources, each library closed and the component designs open as the tab first
+  opens; OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once the list scrolls to its end;
+  StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has focus; ComponentMenu, its menu
+  worked out as it opens; and SearchingAgain, a source closed in one search open again in the next.
 
 Tried on Copacker in a development copy of the app on 2026-11-16: the panel held 212 to 348 elements, 24 to 35 lines, in
 every view, at 256 and 200 pixels wide; moving a design five times drew no rows again; searching "badge", Tab through a
@@ -8670,6 +8672,46 @@ stylesheet adopted before the guest's own and the ones a frame is given). Checke
 Parity's body and Routes list keep `InterVariable`, copacker's `globals.css`, `theme.css.ts.vanilla.css` and sonner's
 styles sit in the head switched off, and every frame's added sheet has them. Gaps: styled-components and Turbopack's
 lazy CSS modules aren't checked against a fixture.
+
+### Stylesheets written into a frame draw as the project's own (PAR-1210)
+
+CSS-in-JS writes its rules into whatever container it's given, and a library's decorator can give it the frame: Chakra's
+and MUI's point Emotion's cache at the frame's shadow root. Those rules were written for a page. Before, they were drawn
+as written, with only their lengths changed, so the frame missed what the page would have done with them. Chakra's solid
+buttons drew transparent, because Chakra sets its palette's custom properties on `html`.
+
+- **A `<style>` the project's code puts in a frame is switched off there** (`media="not all"`), and its CSS is prepared
+  as the project's own stylesheets are (core's `prepareCanvasCss`), then drawn in that frame. That's its text, or its
+  rules once its code inserts or deletes some through the CSSOM, as Emotion does in production, including rules inserted
+  before the frame has seen the element go in. So `html` and `:root` become the frame's host and `body` its body, media
+  queries the frame's width and colour scheme, and lengths the frame's. `@font-face` and `@property` go to the document,
+  where a shadow root needs them. It's the frame's side of what's switched off in the page (PAR-1187), so it holds for
+  every library and builder, and no decorator needs to know.
+- **Where they cascade:** first among the frame's sheets, where the elements' own sheets were, before the project's
+  global stylesheets and Parity's rules. Each element's CSS, and each inserted rule, is prepared once per project, so
+  frames sharing a library's rules share the work, and a rule added later costs only itself.
+- **A root custom property made from another takes the frame's theme.** A page's root carries the page's theme, so
+  `--palette: var(--gray-solid)` on `:root` takes the theme's `--gray-solid`. A frame's root is its host, while the
+  mode's class and theme attributes are on its body. So the root rule's custom properties are declared on the body too,
+  with no specificity, in the layer a qualified root's declarations are in, so a theme's root (`:root.dark`) still
+  overrides them, and whatever the project sets on the body still wins. One the stylesheet declares `!important`, or the
+  root rule sets again under a condition, is left to the host's cascade, as before. This holds for the project's own
+  stylesheets as well, as with Tailwind's `@theme` without `inline`. A token edit's preview edits the copy too
+  (`previewToken` in `guest.ts`).
+- **Not covered:** a sheet the project's code constructs and adopts into a frame keeps its rules as written, with its
+  lengths measuring the frame. Griffel's shadow DOM renderer writes Fluent's styles that way.
+
+Code: `apps/desktop/src/renderer/frame-styles.ts`, set up by `prepareFrame` in `frame.ts`, which also tells it about
+inserted and deleted rules; `prepare` from the guest, passed by `mountFrame` in `frame-host.ts`;
+`referencingCustomProperties` in `packages/core/src/css.ts`.
+
+Tests: `apps/desktop/src/renderer/frame.test.ts` (3, in Chrome: a page's root, body, width query and font written into a
+frame as text and as inserted rules, drawn as the frame's, with the elements switched off and Parity's page untouched;
+deleted rules, new text and a removed element followed; a root custom property made from another taking the theme on the
+frame's body). `packages/core/src/css.test.ts` (1: the copy on the body, by what the project wrote, not when reading
+tokens, nor for a root in a theme). Checked in the running app on `nextjs-webpack` (Chakra UI 3.37.0) on 2026-11-16:
+solid buttons drew black in light and white in dark, as Chakra draws them, teal buttons and a purple badge filled, and
+Problems found nothing in either mode. Before, every solid button was transparent.
 
 ### Detected again when what detection reads changes (PAR-820)
 
