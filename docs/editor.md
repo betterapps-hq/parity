@@ -2861,7 +2861,10 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   layer blue going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
   control or its first; the hidden side can't be reached by pointer, keyboard or screen reader. The toolbar is named for
   its side ("Toolbar", "Comments", "Behaviour annotations"). A focused button's ring shows whole at either end of the
-  bar.
+  bar. The hidden side takes no room, so a bar that hasn't measured its sides yet fits the side showing (PAR-1192).
+  Before, it took the hidden review bar's 400px around the tools' 315px whenever its ResizeObserver hadn't reported, as
+  in a window the system hides, leaving empty space at both ends. Checked on 2026-11-16 in a dev copy whose window was
+  covered: with the hidden side out of the flow, the bar measured 324px around the tools.
 - **Zoom floats at the top right:** Zoom out, the level, Zoom in and Zoom to fit, each with its keys in its tooltip. The
   level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on its own tab's canvas. Undo and Redo
   left the canvas for the Edit menu and their keys.
