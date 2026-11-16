@@ -1,5 +1,6 @@
 import { readdir, readFile } from "node:fs/promises"
 import { dirname, join, posix, relative } from "node:path"
+import { packageExports } from "@parity-app/code"
 import {
   type ComponentSource,
   type ContainerSpec,
@@ -18,7 +19,7 @@ import {
 } from "@parity-app/core"
 import { newestEntries, registryEntryFor, withEdits } from "@parity-app/registry"
 import { type ReadTokenFile, readDesignTokens, type SkippedToken } from "@parity-app/tokens"
-import { exportedComponents, findPackage, type InstalledPackage, exportedNames, packageEntry } from "./packages.ts"
+import { exportedComponents, findPackage, type InstalledPackage, packageEntry } from "./packages.ts"
 import { readStylesheet } from "./styles.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */
@@ -301,7 +302,7 @@ async function otherExports(
   const names = new Set(declared.map((component) => component.name))
   const listedRoots = new Set(Object.keys(list).map((name) => name.split(".")[0]!))
   // A name the renderer doesn't take for a component may still be exported, as Mantine's `factory()` components are.
-  const exported = await exportedNames(entry)
+  const exported = packageExports(entry)
 
   const gone = new Set(
     Object.keys(list).filter((name) => {

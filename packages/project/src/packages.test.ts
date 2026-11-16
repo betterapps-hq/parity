@@ -8,7 +8,6 @@ import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
 import { findLibraries } from "./libraries.ts"
 import {
   exportedComponents,
-  exportedNames,
   findPackage,
   type InstalledPackage,
   packageEntry,
@@ -305,42 +304,6 @@ describe("following re-exports", () => {
         declaration: "../../node_modules/exported/types/main.d.mts"
       }
     })
-  })
-
-  it("names every value a package exports, whatever declares it, through each kind of re-export (PAR-1168)", async () => {
-    const dist = (file: string) => at("node_modules/@acme/names/dist", file)
-    write(
-      "node_modules/@acme/names/dist/index.d.mts",
-      [
-        'export * from "./card.mjs"',
-        'export { Panel, Kept as Renamed } from "./panel.mjs"',
-        'export * as Dialog from "@radix-ui/react-dialog"',
-        'export { Slot } from "@radix-ui/react-slot"',
-        'export * as Menu from "./menu.mjs"',
-        'export { default as Badge } from "./badge.mjs"',
-        "declare const Local: unknown",
-        "export { Local }",
-        'export type { PanelProps } from "./panel.mjs"'
-      ].join("\n")
-    )
-    write("node_modules/@acme/names/dist/card.d.mts", "export declare const Card: Factory<{ props: CardProps }>")
-    write("node_modules/@acme/names/dist/badge.d.mts", "declare const Badge: Factory<{}>\nexport default Badge")
-    write("node_modules/@acme/names/dist/menu.d.mts", "export declare const Root: Factory<{}>")
-    write(
-      "node_modules/@acme/names/dist/panel.d.mts",
-      ["Panel", "Kept", "Hidden"].map((name) => `export declare const ${name}: Factory<{}>`).join("\n")
-    )
-
-    expect([...(await exportedNames(dist("index.d.mts")))].sort()).toEqual([
-      "Badge",
-      "Card",
-      "Dialog",
-      "Local",
-      "Menu",
-      "Panel",
-      "Renamed",
-      "Slot"
-    ])
   })
 
   it("follows them through source, to a folder's index and to `./x.js` written for `./x.tsx`", async () => {
