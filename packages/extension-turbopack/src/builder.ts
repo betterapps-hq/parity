@@ -70,8 +70,7 @@ async function guestModuleText(server: NextServer, session: string): Promise<str
     chunks,
     id: reference.id,
     styles: styles.stylesheets,
-    packageStyles: packageStyles.stylesheets,
-    stylesheetBase: base
+    packageStyles: packageStyles.stylesheets
   })
 }
 

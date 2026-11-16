@@ -51,8 +51,7 @@ describe("webpackGuestLoaderSource", () => {
       ...webpackGuestChunks(pages(guestPage), origin),
       session: "s1",
       styles: [],
-      packageStyles: [],
-      stylesheetBase: `${origin}/_next/`
+      packageStyles: []
     })
 
     expect(source).toContain("chunks.push = (chunk) => Array.prototype.push.call(chunks, [chunk[0], chunk[1]])")

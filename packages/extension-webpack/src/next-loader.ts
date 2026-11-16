@@ -92,8 +92,7 @@ export const nextWebpackLoader: NextGuestLoader = {
       ...webpackGuestChunks(pages, server.origin),
       session,
       styles: pages.styles.stylesheets,
-      packageStyles: pages.packageStyles.stylesheets,
-      stylesheetBase: `${server.origin}/_next/`
+      packageStyles: pages.packageStyles.stylesheets
     })
   }
 }
