@@ -2,10 +2,12 @@ import { existsSync } from "node:fs"
 import { join } from "node:path"
 import type { AppStyles } from "@parity-app/core"
 import { readPackage } from "./packages.ts"
+import { findPreviewFile, previewFolder, previewNames } from "./preview-file.ts"
 
 /**
  * What detection read of a project that an open project can't take in without opening again (PAR-820): its global
- * stylesheets (as its builder reports them), its dependencies, and which of the builders' config files it has. Props, components and designs follow their own files while it's open, so they're not here.
+ * stylesheets (as its builder reports them), its dependencies, which of the builders' config files it has, and which
+ * preview file (PAR-100), so one written while it's open, by hand or from Parity's offer (PAR-104), draws its frames. Props, components and designs follow their own files while it's open, so they're not here.
  */
 export interface DetectionInputs {
   /** The same while detection would find the same; compare two to know whether the project must open again. */
@@ -44,10 +46,12 @@ export async function detectionInputs(
     package: { name: manifest.name ?? null, dependencies },
     styles: styles?.styles ?? null,
     packageStyles: styles?.packageStyles ?? null,
-    builders: builderConfigs.filter((file) => existsSync(join(root, file)))
+    builders: builderConfigs.filter((file) => existsSync(join(root, file))),
+    preview: (await findPreviewFile(root)) ?? null
   })
 
-  const files = ["package.json", ...(styles?.from ?? []), ...builderConfigs]
+  const previewFiles = previewNames.map((name) => `${previewFolder}/${name}`)
+  const files = ["package.json", ...(styles?.from ?? []), ...builderConfigs, ...previewFiles]
 
   return { key, files: [...new Set(files)] }
 }

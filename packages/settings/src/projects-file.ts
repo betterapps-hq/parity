@@ -9,6 +9,8 @@ export interface ProjectNote {
   /** When it last opened, in milliseconds since 1970. */
   opened?: number
   starred?: true
+  /** The offer to write its preview file from its app's providers was closed (PAR-104), so it isn't made again. */
+  previewOfferClosed?: true
 }
 
 /** `projects.json`: the recent projects, most recent first, and notes on each project listed, by folder. */
@@ -26,7 +28,8 @@ const roots = z
 const note = z
   .object({
     opened: z.number().finite().optional().catch(undefined),
-    starred: z.literal(true).optional().catch(undefined)
+    starred: z.literal(true).optional().catch(undefined),
+    previewOfferClosed: z.literal(true).optional().catch(undefined)
   })
   .catch({})
   .transform((read) => {
@@ -38,6 +41,10 @@ const note = z
 
     if (read.starred) {
       kept.starred = true
+    }
+
+    if (read.previewOfferClosed) {
+      kept.previewOfferClosed = true
     }
 
     return kept
@@ -53,7 +60,9 @@ export const projectsChange = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("opened"), root: folder }),
   /** A project comes off the recent list, or every project does when there's no `root`. Starred ones stay starred. */
   z.strictObject({ kind: z.literal("forgot"), root: folder.optional() }),
-  z.strictObject({ kind: z.literal("starred"), root: folder, starred: z.boolean() })
+  z.strictObject({ kind: z.literal("starred"), root: folder, starred: z.boolean() }),
+  /** The offer to write its preview file was closed, so it isn't made again (PAR-104). */
+  z.strictObject({ kind: z.literal("closedPreviewOffer"), root: folder })
 ])
 
 export type ProjectsChange = z.infer<typeof projectsChange>
@@ -91,19 +100,11 @@ export function changeProjectsData(before: Projects, change: ProjectsChange, now
     kept = { ...kept, [change.root]: { ...kept[change.root], opened: now } }
   } else if (change.kind === "forgot") {
     recent = change.root === undefined ? [] : recent.filter((root) => root !== change.root)
+  } else if (change.kind === "closedPreviewOffer") {
+    kept = { ...kept, [change.root]: { ...kept[change.root], previewOfferClosed: true } }
   } else {
-    const { opened } = kept[change.root] ?? {}
-    const changed: ProjectNote = {}
-
-    if (opened !== undefined) {
-      changed.opened = opened
-    }
-
-    if (change.starred) {
-      changed.starred = true
-    }
-
-    kept = { ...kept, [change.root]: changed }
+    const { starred: _starred, ...rest } = kept[change.root] ?? {}
+    kept = { ...kept, [change.root]: change.starred ? { ...rest, starred: true } : rest }
   }
 
   return {
@@ -120,19 +121,25 @@ export function changeProjects(text: string | undefined, change: ProjectsChange,
   const object = objectToChange("projects.json", text)
   const after = changeProjectsData(projectsOf(object), change, now)
 
-  const written = Object.entries(after.notes).map(([root, { opened, starred }]): [string, JsonValue] => {
-    const kept: Record<string, JsonValue> = {}
+  const written = Object.entries(after.notes).map(
+    ([root, { opened, starred, previewOfferClosed }]): [string, JsonValue] => {
+      const kept: Record<string, JsonValue> = {}
 
-    if (opened !== undefined) {
-      kept["opened"] = opened
+      if (opened !== undefined) {
+        kept["opened"] = opened
+      }
+
+      if (starred) {
+        kept["starred"] = true
+      }
+
+      if (previewOfferClosed) {
+        kept["previewOfferClosed"] = true
+      }
+
+      return [root, kept]
     }
-
-    if (starred) {
-      kept["starred"] = true
-    }
-
-    return [root, kept]
-  })
+  )
 
   return fileText({ ...object, recent: after.recent, notes: Object.fromEntries(written) })
 }

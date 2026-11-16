@@ -60,6 +60,13 @@ export async function launch(
   const project = await copyExample(dir)
   const profile = join(dir, "profile")
   await mkdir(profile)
+  // The example's entry renders providers, so Parity would offer it a preview file (PAR-104); the copy starts with that
+  // offer turned down, so its toast doesn't sit over the tests. The project's key is its folder, in either slash form.
+  const turnedDown = { previewOfferClosed: true }
+  await writeFile(
+    join(profile, "projects.json"),
+    JSON.stringify({ recent: [], notes: { [project]: turnedDown, [project.replaceAll("\\", "/")]: turnedDown } })
+  )
   const uiPort = await freePort(suitePorts.ui)
   const debugPort = await freePort(suitePorts.debug)
   const log = join(dir, "app.log")
