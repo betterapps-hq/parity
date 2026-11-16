@@ -25,10 +25,20 @@ beforeAll(async () => {
   app.page.on("framedetached", log("detached"))
   app.page.on("framenavigated", log("navigated"))
   app.page.on("console", (message) => {
-    if (message.text().includes("[vite]")) {
+    if (message.text().includes("[vite]") || message.text().startsWith("[PAR-1209]")) {
       process.stderr.write(`[PAR-1209] ${new Date().toISOString()} console ${message.text()}\n`)
     }
   })
+  // Who puts an iframe in the page, with where from.
+  await app.page.evaluate(`{
+    const append = Node.prototype.appendChild
+    Node.prototype.appendChild = function (child) {
+      if (child instanceof HTMLIFrameElement && !child.src) {
+        console.warn("[PAR-1209] iframe into " + this.nodeName + ": " + new Error().stack)
+      }
+      return append.call(this, child)
+    }
+  }`)
 })
 
 afterEach(() => app?.reset())
