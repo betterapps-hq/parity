@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Stop opening a Vite 7 project sometimes hanging at \"Starting the project's builder\"",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

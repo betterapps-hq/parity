@@ -1681,6 +1681,12 @@ status bar.
   otherwise bundle the packages those modules import at once, stored with the config as it was before the builder added
   the libraries, and then delete and bundle them again as the server listened, on every open; the guest's warm-up could
   wait on the bundle deleted under it. Vite 8 waits for the optimizer to start, so it never did.
+- **Opening can't hang on the optimizer** (PAR-1223). Vite's background compiles of each module's imports are off too
+  while the stylesheets are found: left on, they outlived the search and bundled React before the optimizer started,
+  which left dependencies listed as still bundling under a batch that had already settled. The guest's warm-up waited on
+  that batch in a loop that never let Vite's next run, set on a timer, go ahead, so about one open in eight of
+  `vite7-js` stopped at "Starting the project's builder". The warm-up now lets timers run once every listed batch has
+  settled, and fails naming the dependencies if the optimizer still hasn't finished them after 2 minutes.
 
 Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
 `packages/extension/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and `byPeers`
@@ -1689,12 +1695,16 @@ in `utility/extensions.ts`; `detectBuilder` and `findBuilder` in `utility/projec
 Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions and entry module), `detect.test.ts` (what
 Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
 provider, and `prepare.test.ts` (a prepared server finding the stylesheets of an app that imports a package without
-asking the optimizer to bundle it, then importing it through the optimizer once started). Tried in the running app on
-2026-11-14 on the example: Vite 8.3.5 and its config found through the provider, the guest served, the Pricing page
-drawn, and Vite first in the status bar. The kept prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a
-`node_modules` project, prepared and started three times: before the change every start re-optimized, after it none did.
-Gaps: the test runs on Vite 8, which never re-optimized, so it checks that nothing is bundled early rather than Vite 7
-itself; ten opens of `vite-fluent-pnp` in a row in the app are untried.
+asking the optimizer to bundle it, nor letting Vite's background compiles do so, then importing it through the optimizer
+once started), and `warmup.test.ts` (the warm-up finishing when Vite clears a settled batch on a timer, and failing with
+the dependencies' names when it never does). Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its
+config found through the provider, the guest served, the Pricing page drawn, and Vite first in the status bar. The kept
+prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a `node_modules` project, prepared and started three
+times: before the change every start re-optimized, after it none did. The hang was reproduced on 2026-11-16 with
+`vite7-js` (Vite 7.3.7) by preparing, finding the stylesheets and starting outside the app: before the change, 1 start
+in about 8 never finished; after it, none of 35 hung. Gaps: the tests run on Vite 8, which never re-optimized, so they
+check that nothing is bundled early rather than Vite 7 itself; ten opens of `vite-fluent-pnp` in a row in the app are
+untried.
 
 ### Rspack as an extension, through its builder provider (PAR-1147)
 

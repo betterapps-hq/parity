@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type OptimizerMetadata, warmGuestGraph } from "./warmup.ts"
+import { type OptimizerMetadata, optimizerBatches, warmGuestGraph } from "./warmup.ts"
 
 function deferred() {
   let resolve: () => void = () => undefined
@@ -129,5 +129,52 @@ describe("warming the guest graph", () => {
       ["/src/index.css?inline", "/src/button.tsx"]
     )
     expect(transformed).toEqual(["/src/index.css?inline", "/src/button.tsx", "/src/lib/utils.ts"])
+  })
+})
+
+describe("waiting for the optimizer's batches", () => {
+  // Vite 7 can resolve a batch without bundling some of its dependencies, which keep the settled batch listed until a
+  // run it schedules on a timer bundles them (PAR-1223). Awaiting that batch again only ran microtasks, forever.
+  it("lets a run scheduled on a timer finish dependencies whose batch has already settled", async () => {
+    const metadata: OptimizerMetadata = {
+      optimized: { react: {} },
+      discovered: { "react-dom": { processing: Promise.resolve() } }
+    }
+
+    setTimeout(() => {
+      metadata.discovered = {}
+      metadata.optimized["react-dom"] = {}
+    }, 20)
+
+    let invalidated = false
+
+    await warmGuestGraph(
+      {
+        depsOptimizer: { init: async () => undefined, isOptimizedDepUrl: () => false, metadata },
+        transformRequest: async () => null,
+        moduleGraph: {
+          getModuleByUrl: async () => undefined,
+          invalidateAll: () => {
+            invalidated = true
+          }
+        }
+      },
+      []
+    )
+    expect(invalidated).toBe(true)
+  })
+
+  it("names the dependencies the optimizer never finishes", async () => {
+    const metadata: OptimizerMetadata = {
+      optimized: {},
+      discovered: {
+        "react-dom": { processing: Promise.resolve() },
+        "react-dom/client": { processing: Promise.resolve() }
+      }
+    }
+
+    await expect(optimizerBatches({ metadata }, 50)).rejects.toThrow(
+      "Vite's dependency optimizer didn't finish bundling react-dom, react-dom/client in 0 s"
+    )
   })
 })

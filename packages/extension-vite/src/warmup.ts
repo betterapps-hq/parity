@@ -68,19 +68,59 @@ export async function warmGuestGraph(client: Client, roots: string[]): Promise<v
     }
   }
 
-  while (client.depsOptimizer) {
-    const { optimized, discovered } = client.depsOptimizer.metadata
+  await optimizerBatches(client.depsOptimizer, settledLimit)
+  client.moduleGraph.invalidateAll()
+}
 
-    const batches = Object.values({ ...optimized, ...discovered })
-      .map((dependency) => dependency.processing)
-      .filter((pending) => pending !== undefined)
+/**
+ * How long the optimizer may list batches that have all settled before the warm-up gives up: longer than it takes to
+ * bundle a large app's dependencies again.
+ */
+const settledLimit = 120_000
 
-    if (!batches.length) {
-      break
+/**
+ * Waits until the optimizer lists no batch as still bundling. Vite can resolve a batch without bundling some of its
+ * dependencies, which keep the settled batch until a later run, scheduled on a timer, bundles them (PAR-1223). Waiting
+ * on settled batches again only runs microtasks, so that timer would never fire: once every batch listed has settled,
+ * this waits on timers instead, and fails after `limit` milliseconds of that.
+ */
+export async function optimizerBatches(
+  optimizer: { metadata: OptimizerMetadata } | undefined,
+  limit: number
+): Promise<void> {
+  const settled = new Set<Promise<void>>()
+  let stalledSince: number | undefined
+
+  while (optimizer) {
+    const listed = Object.entries({ ...optimizer.metadata.optimized, ...optimizer.metadata.discovered }).filter(
+      (entry): entry is [string, { processing: Promise<void> }] => entry[1].processing !== undefined
+    )
+
+    if (!listed.length) {
+      return
     }
 
-    await Promise.all(batches)
-  }
+    const unsettled = listed.map(([, dependency]) => dependency.processing).filter((batch) => !settled.has(batch))
 
-  client.moduleGraph.invalidateAll()
+    if (unsettled.length) {
+      stalledSince = undefined
+      await Promise.all(unsettled)
+
+      for (const batch of unsettled) {
+        settled.add(batch)
+      }
+
+      continue
+    }
+
+    stalledSince ??= performance.now()
+
+    if (performance.now() - stalledSince >= limit) {
+      const names = listed.map(([name]) => name).join(", ")
+
+      throw new Error(`Vite's dependency optimizer didn't finish bundling ${names} in ${Math.round(limit / 1000)} s`)
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 10))
+  }
 }
