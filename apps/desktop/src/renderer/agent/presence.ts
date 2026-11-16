@@ -15,6 +15,8 @@ class PresenceQueue {
   /** Tabs whose canvas is playing their queue, by how many players. */
   private readonly watched = new Map<string, number>()
   private version = 0
+  /** Told of the events this copy's agents send, which a live room passes on to the other copies. */
+  private readonly pushed = new Set<(events: PresenceEvent[]) => void>()
 
   subscribe = this.changes.subscribe
 
@@ -35,7 +37,23 @@ class PresenceQueue {
     }
   }
 
-  push(events: PresenceEvent[]): void {
+  /** Listens to the events this copy's agents send, not those passed on from another copy. */
+  onPush(listener: (events: PresenceEvent[]) => void): () => void {
+    this.pushed.add(listener)
+
+    return () => {
+      this.pushed.delete(listener)
+    }
+  }
+
+  /** Queues agents' events; `passedOn` for those another copy in a live room sent. */
+  push(events: PresenceEvent[], passedOn = false): void {
+    if (!passedOn) {
+      for (const listener of this.pushed) {
+        listener(events)
+      }
+    }
+
     for (const event of events) {
       const id = queueId(event.tab, agentOf(event))
       const queue = this.queues.get(id) ?? []

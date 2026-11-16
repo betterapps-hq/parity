@@ -5775,6 +5775,52 @@ Tests:
 - `apps/desktop/src/utility/projects.test.ts`: the service finds Storybook there, and asks the windows to open the
   project again when the folder changes.
 
+### A live room in development (PAR-1179)
+
+Two copies of the app can edit one project together, each showing the other's cursor and agents, before rooms exist
+(docs/proposals/multiplayer.md, When Loro loads). It's for trying multiplayer on one machine, in development only.
+
+```bash
+PARITY_ROOM=1 pnpm dev
+```
+
+```bash
+PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
+```
+
+- **A room per project.** With `PARITY_ROOM=1`, `pnpm dev` starts a relay on `127.0.0.1:5390` (`PARITY_ROOM_PORT`), or
+  uses the one another copy started. Each copy that opens a project joins its room, keyed by the project's folder, and
+  opens it on the Loro provider rather than the local one.
+- **The first copy in hosts.** It opens the files. A later copy opens on a snapshot asked of the copies already there,
+  the first to answer, so it starts from the same Loro document, unsaved edits included. When the host leaves, the copy
+  that joined next takes over.
+- **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
+  show as `remote` changes: in neither person's undo.
+- **Only the host saves,** so copies don't write the same files over each other, and only the host takes in a file
+  changed on disk; the others get it from there.
+- **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
+  a palette of the agents', named with the signed-in person's first name (`PARITY_ROOM_NAME` overrides it). It glides
+  between the positions sent.
+- **Agents.** What an agent does in one copy is passed on as it is to the others' agent presence, so each copy plays its
+  cursor the same way.
+- **In order, coalesced.** One batch is on its way at a time; what comes meanwhile goes in the next, with only the
+  latest of each cursor.
+
+Without `PARITY_ROOM`, or in a packaged app, nothing changes: the window opens projects on the local provider.
+
+Code: `apps/desktop/scripts/dev-room.ts` (the relay), `apps/desktop/src/renderer/live-room.ts`, `openDocSession` in
+`renderer/project-doc.ts` (the room's provider, saving only while hosting), `canvas/RoomCursor.tsx`, `onPush` in
+`agent/presence.ts`, and `openLoro`'s `snapshot` and `subscribeLocalUpdates` in `packages/multiplayer-loro`.
+
+Tests:
+
+- `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it, edits the files given
+  don't have yet included; two documents kept in step through each one's local updates, delivered late as a relay does,
+  with a merge repaired the same on both and remote changes out of undo.
+- `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
+  copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
+  isn't one refused.
+
 ## Tokens
 
 What the Tokens tab shows, and how a token is copied and edited from it.

@@ -92,6 +92,13 @@ export interface LoroBackend extends DocBackend {
   repairs(): readonly Repair[]
   /** Every file and the modes as Loro holds them, read whole: what the plain values must equal. */
   read(): { files: ReadonlyMap<string, CanvasDocument>; modes: ModeSettings }
+  /** The whole document, for another replica to open on. */
+  snapshot(): Uint8Array
+  /**
+   * Told of each commit this replica makes, repairs after a `receive` included, as updates for the other replicas'
+   * `receive`. Others' changes taken in aren't told.
+   */
+  subscribeLocalUpdates(listener: (bytes: Uint8Array) => void): () => void
   /** The Loro document, for this package's tests. */
   readonly doc: LoroDoc<ProjectContainers>
 }
@@ -870,6 +877,40 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     }
   }
 
+  /** Every file and the modes as Loro holds them. */
+  const readWhole = (): { files: Map<string, CanvasDocument>; modes: ModeSettings } =>
+    scoped(() => {
+      const all = new Set(rootsOf(tree).map((root) => root.id))
+      const files = new Map<string, CanvasDocument>()
+
+      for (const path of filesMap.keys()) {
+        files.set(path, fileFrom(path, all) ?? emptyDocument())
+      }
+
+      return { files, modes: readModes(modesMap) }
+    })
+
+  // On another replica's snapshot, what it holds wins over the files given, which can be older than its edits.
+  if (snapshot) {
+    const whole = readWhole()
+    // In the order the files were given, with any only the snapshot has after them.
+    const files = new Map<string, CanvasDocument>()
+
+    for (const [path, document] of state.files) {
+      const held = drawn.has(path) ? document : whole.files.get(path)
+
+      if (held) {
+        files.set(path, held)
+      }
+    }
+
+    for (const [path, document] of whole.files) {
+      files.set(path, document)
+    }
+
+    state = { ...state, files, modes: whole.modes }
+  }
+
   return {
     provider,
     sync: true,
@@ -892,17 +933,9 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       scoped(() => receive(bytes))
     },
     repairs: () => lastRepairs,
-    read: () =>
-      scoped(() => {
-        const all = new Set(rootsOf(tree).map((root) => root.id))
-        const files = new Map<string, CanvasDocument>()
-
-        for (const path of filesMap.keys()) {
-          files.set(path, fileFrom(path, all) ?? emptyDocument())
-        }
-
-        return { files, modes: readModes(modesMap) }
-      }),
+    read: readWhole,
+    snapshot: () => doc.export({ mode: "snapshot" }),
+    subscribeLocalUpdates: (listener) => doc.subscribeLocalUpdates(listener),
     dispose: () => {
       listeners.clear()
 
