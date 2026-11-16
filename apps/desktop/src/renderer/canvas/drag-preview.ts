@@ -295,7 +295,6 @@ function layersPart(
   const pictures: CarriedPictures<HTMLElement> = carriedPictureSet.of(key)
   // The picture is taken before the layers are hidden.
   const picture = layerPicture(host, elements, scale, union)
-  hideAgain()
 
   if (picture) {
     pictures.pickUp({
@@ -308,6 +307,8 @@ function layersPart(
   }
 
   const drop = absolute ? undefined : new DropPreview(host, elements, options.color.color, reduced)
+  // Its copies are taken from the layers as they're drawn, so they're hidden again only now.
+  hideAgain()
   let at = ""
   // The frame the layers would land in, last, where they're left empty until their picture lands.
   let landing: HTMLElement | undefined
