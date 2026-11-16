@@ -31,8 +31,8 @@
       "version": "15.5.29",
       "from": "node_modules/next",
       "config": "next.config.ts",
-      "status": "newer",
-      "summary": "webpack 15.5.29 from node_modules/next, config next.config.ts, newer than the versions Parity is tested with"
+      "status": "supported",
+      "summary": "webpack 15.5.29 from node_modules/next, config next.config.ts"
     }
   ],
   "styles": {
