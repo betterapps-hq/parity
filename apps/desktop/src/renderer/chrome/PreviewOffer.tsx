@@ -13,7 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { PreviewOffer } from "@parity-app/project"
 import { CircleMinus } from "lucide-react"
 import { useState } from "react"
