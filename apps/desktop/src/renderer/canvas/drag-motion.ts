@@ -64,7 +64,7 @@ export function landingEdgeStyle(
   const out = inside ? 0 : (landingEdge.width + landingEdge.gap) / scale
   const at = `${round(out)}px`
 
-  const place = anchor
+  const place: Record<string, string> = anchor
     ? {
         "position-anchor": anchor,
         top: `calc(anchor(top) - ${at})`,
