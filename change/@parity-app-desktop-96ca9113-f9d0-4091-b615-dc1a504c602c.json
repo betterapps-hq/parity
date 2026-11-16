@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Draw what CSS-in-JS writes into a frame as the project's stylesheets are: root, body, media queries, colour scheme and fonts, so Chakra's solid buttons fill (PAR-1210)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

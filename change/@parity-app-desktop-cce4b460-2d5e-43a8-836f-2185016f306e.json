@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Library sections in the Components panel start closed.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
