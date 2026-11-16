@@ -210,13 +210,22 @@ function rowsFor(lens: LensId, open: Set<string>, query: string): Row[] {
   const rows: Row[] = []
   const match = (text: string) => text.toLowerCase().includes(query.toLowerCase())
 
-  const add = (item: Thing, depth: number, parent?: string) => {
+  // A search finds what the tree lists: a thing, or a member, layer or column anywhere in it.
+  const holds = (item: Thing): boolean =>
+    match(item.name) ||
+    (item.layers ?? []).some((layer) => match(layer.name)) ||
+    (item.columns ?? []).some((column) => match(column.name)) ||
+    members(lens, item.id).some(holds)
+
+  // A thing that matches by name shows everything in it; otherwise only what matches inside it shows.
+  const add = (item: Thing, depth: number, parent?: string, matched = false) => {
     const look = kindLooks[item.kind]
     const opens = inside(lens, item) > 0
     const isOpen = query ? true : open.has(item.id)
     const children = members(lens, item.id)
+    const whole = !query || matched || match(item.name)
 
-    if (query && !match(item.name) && !children.some((child) => match(child.name))) {
+    if (!whole && !holds(item)) {
       return
     }
 
@@ -238,10 +247,14 @@ function rowsFor(lens: LensId, open: Set<string>, query: string): Row[] {
     }
 
     for (const child of children) {
-      add(child, depth + 1, item.id)
+      add(child, depth + 1, item.id, whole)
     }
 
     for (const [index, layer] of (item.layers ?? []).entries()) {
+      if (!whole && !match(layer.name)) {
+        continue
+      }
+
       rows.push({
         key: `${item.id}/${index}`,
         depth: depth + 1,
@@ -255,6 +268,10 @@ function rowsFor(lens: LensId, open: Set<string>, query: string): Row[] {
     }
 
     for (const column of item.columns ?? []) {
+      if (!whole && !match(column.name)) {
+        continue
+      }
+
       rows.push({
         key: `${item.id}.${column.name}`,
         depth: depth + 1,
