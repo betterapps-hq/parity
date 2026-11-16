@@ -349,6 +349,49 @@ createRoot(document.getElementById("root")).render(<LocaleProvider load={loadLoc
     expect(offer).toBeUndefined()
   })
 
+  it("imports React for an app whose entry imports it, as the classic JSX transform needs", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/index.jsx": `import React from "react"
+import ReactDOM from "react-dom"
+import { ThemeProvider } from "styled-components"
+import { theme } from "./theme"
+import App from "./App"
+
+ReactDOM.render(<ThemeProvider theme={theme}><App /></ThemeProvider>, document.getElementById("root"))
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import React from "react"`)
+  })
+
+  it("names the decorator's parameters so they don't hide a value a provider carries", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { ThemeProvider } from "styled-components"
+import { SessionProvider } from "./session"
+import { context } from "./fixtures"
+import { darkTheme, lightTheme } from "./theme"
+import App from "./App"
+
+const isDark = matchMedia("(prefers-color-scheme: dark)").matches
+
+createRoot(document.getElementById("root")).render(
+  <ThemeProvider theme={isDark ? darkTheme : lightTheme}>
+    <SessionProvider value={context}><App /></SessionProvider>
+  </ThemeProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`const withProviders = (Story, context2) => (`)
+    expect(offer?.text).toContain(`theme={context2.globals.theme === "dark" ? darkTheme : lightTheme}`)
+    expect(offer?.text).toContain(`<SessionProvider value={context}>`)
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

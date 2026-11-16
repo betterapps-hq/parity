@@ -510,7 +510,15 @@ function writeOffer(found: Found[], entry: Scope): PreviewOffer | undefined {
 
   return {
     file,
-    text: previewText({ providers, openings, imports, declarations, themed, typescript, quote }),
+    text: previewText({
+      providers,
+      openings,
+      imports: withJsxRuntime(imports, entry),
+      declarations,
+      themed,
+      typescript,
+      quote
+    }),
     providers,
     leftOut
   }
@@ -566,7 +574,7 @@ function carryProps(
 
     if (theme) {
       themed = true
-      text += ` ${name}={context.globals.theme === ${quote}dark${quote} ? ${theme.dark.getText()} : ${theme.light.getText()}}`
+      text += ` ${name}={${contextMark}.globals.theme === ${quote}dark${quote} ? ${theme.dark.getText()} : ${theme.light.getText()}}`
     } else {
       text += ` ${name}={${expression.getText()}}`
     }
@@ -1025,22 +1033,40 @@ function previewText({
     lines.push(declaration, "")
   }
 
-  const story = typescript ? "Story: ComponentType" : "Story"
-  const context = typescript ? "context: { globals: Record<string, unknown> }" : "context"
+  // The decorator's own names stay clear of what it carries from the app, so neither hides the other.
+  const taken = new Set([
+    ...imports.keys(),
+    ...declarations.keys(),
+    ...openings.flatMap((opening) => opening.match(/[A-Za-z_$][\w$]*/g) ?? [])
+  ])
+
+  const storyName = freeName("Story", taken)
+  const contextName = freeName("context", taken)
+  const decorator = freeName("withProviders", taken)
+  const componentType = typescript ? freeName("ComponentType", taken) : "ComponentType"
+  const story = typescript ? `${storyName}: ${componentType}` : storyName
+  const context = typescript ? `${contextName}: { globals: Record<string, unknown> }` : contextName
   const parameters = themed ? `${story}, ${context}` : story
   const names = [...new Set(providers.map((provider) => provider.file))].join(" and ")
 
-  lines.push(`// The providers ${names} renders around the app, around every frame on the canvas.`)
-  lines.push(`const withProviders = (${parameters}) => (`)
+  if (typescript) {
+    const typeImport = componentType === "ComponentType" ? "ComponentType" : `ComponentType as ${componentType}`
+    lines[0] = `import type { ${typeImport} } from ${quote}react${quote}`
+  }
 
-  openings.forEach((opening, depth) => lines.push(`${"  ".repeat(depth + 1)}${opening}`))
-  lines.push(`${"  ".repeat(openings.length + 1)}<Story />`)
+  lines.push(`// The providers ${names} renders around the app, around every frame on the canvas.`)
+  lines.push(`const ${decorator} = (${parameters}) => (`)
+
+  openings.forEach((opening, depth) =>
+    lines.push(`${"  ".repeat(depth + 1)}${opening.replaceAll(contextMark, contextName)}`)
+  )
+  lines.push(`${"  ".repeat(openings.length + 1)}<${storyName} />`)
 
   for (let depth = openings.length - 1; depth >= 0; depth -= 1) {
     lines.push(`${"  ".repeat(depth + 1)}</${providers[depth]!.name}>`)
   }
 
-  lines.push(")", "", "export const decorators = [withProviders]", "")
+  lines.push(")", "", `export const decorators = [${decorator}]`, "")
 
   if (themed) {
     lines.push(
@@ -1052,6 +1078,34 @@ function previewText({
   }
 
   return lines.join("\n")
+}
+
+/** Stands for the decorator's context in a prop, until the decorator's parameters are named. */
+const contextMark = "\u0000\u0001\u0000"
+
+/**
+ * The imports with React's own, where the app's entry imports `React` itself, as the classic JSX transform needs: its
+ * JSX compiles to `React.createElement`, so the preview file's needs `React` too.
+ */
+function withJsxRuntime(imports: Map<string, Imported>, entry: Scope): Map<string, Imported> {
+  const react = entry.imports.get("React")
+
+  if (!react || react.specifier !== "react" || imports.has("React")) {
+    return imports
+  }
+
+  return new Map([["React", react], ...imports])
+}
+
+/** A name for something the preview file declares that none of the names it carries from the app already is. */
+function freeName(base: string, taken: ReadonlySet<string>): string {
+  let name = base
+
+  for (let suffix = 2; taken.has(name); suffix += 1) {
+    name = `${base}${suffix}`
+  }
+
+  return name
 }
 
 /** One import line per module, its default first: the packages first, each in the order the providers need it. */
