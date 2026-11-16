@@ -113,6 +113,10 @@ describe("starting a server", { timeout: 60_000 }, () => {
       code: "process_spec_differs"
     })
     expect(sink.named("processes.refused").map((event) => event.attributes.code)).toEqual(["process_spec_differs"])
+    // Ready, so no ready check is still asking it when it stops: on macOS, Node's fetch threw `setTypeOfService EINVAL`
+    // from a request in flight as the server went.
+    await one.ready()
+    await one.stop("extension")
   })
 
   it("starts once for two starts that wait for the run being stopped", async () => {
