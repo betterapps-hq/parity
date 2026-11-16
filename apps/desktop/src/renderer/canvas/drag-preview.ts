@@ -147,6 +147,10 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
       frame ||= window.requestAnimationFrame(draw)
     },
     settleOnWrite() {
+      if (life.ended) {
+        return
+      }
+
       if (frame) {
         window.cancelAnimationFrame(frame)
         draw()

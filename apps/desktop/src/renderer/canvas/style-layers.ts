@@ -46,13 +46,23 @@ export function takeLayer(element: Styled, name: string, key: string): void {
 
 /**
  * Forgets what preview `key` wrote on an element's `name`, leaving it drawn, for the change that makes it to draw over.
- * Other previews' values stay; with none, the property is the element's own again.
+ * The change makes that value the element's own, so other previews taken back later come back to it, not to what was
+ * there before; with none left, the property is the element's own again.
  */
 export function leaveLayer(element: Styled, name: string, key: string): void {
   const property = written.get(element)?.get(name)
+  const value = property?.by.get(key)
 
-  if (property?.by.delete(key) && property.by.size === 0) {
+  if (!property || value === undefined) {
+    return
+  }
+
+  property.by.delete(key)
+
+  if (property.by.size === 0) {
     written.get(element)?.delete(name)
+  } else {
+    property.base = value
   }
 }
 

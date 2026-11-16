@@ -55,6 +55,15 @@ describe("style layers", () => {
     expect(card.values.get("padding")).toBe("8px")
   })
 
+  it("comes back to a value handed to its change, not to what was there before, when another preview goes", () => {
+    const card = element({ width: "100px" })
+    writeLayer(card, "width", "local", "120px")
+    writeLayer(card, "width", "preview-1", "140px")
+    leaveLayer(card, "width", "local")
+    takeLayer(card, "width", "preview-1")
+    expect(card.values.get("width")).toBe("120px")
+  })
+
   it("leaves what's shown when a preview hands it to the change that makes it", () => {
     const card = element({ width: "100px" })
     writeLayer(card, "width", "local", "120px")
