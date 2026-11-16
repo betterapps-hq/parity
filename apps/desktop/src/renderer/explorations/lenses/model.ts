@@ -1,5 +1,5 @@
 /** A lens: one layer of the app, with its own canvas, left panel and selection. */
-export type LensId = "pages" | "components" | "stories" | "data"
+export type LensId = "pages" | "screens" | "components" | "stories" | "data" | "api"
 
 /** A canvas showing one lens. A window can show several side by side. */
 export interface LensGroup {

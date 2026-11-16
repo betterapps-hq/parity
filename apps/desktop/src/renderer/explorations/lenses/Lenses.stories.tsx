@@ -1,49 +1,66 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { openProjects, ProjectStage } from "../../stories/fixtures.tsx"
 import { group, lensWindow } from "./model.ts"
 import { LensesPrototype } from "./workspace.tsx"
 
 /**
- * One project per window, with no project tabs: the project's name in the window's bar opens another in its place. The
- * app's lenses, Pages, Components, Stories and Data, are listed down the window's left edge, as VS Code lists its
- * views, each with its own canvas, left panel and selection, so opening a project draws only the lens shown.
+ * One project per window, with its lenses down the window's left edge, as VS Code lists its views. Each lens is one of
+ * today's Layers groups made a canvas of its own: Pages for the app's routes, Screens for its designs, Components,
+ * Stories, and Data for its database. The left panel, the inspector, the canvas's colors, titles and floating bars,
+ * the status bar and the menus are the app's own; the asset tabs, Modes and the status bar show the example project.
  *
- * - Click a lens to show it. The left panel and the inspector follow the canvas in focus.
- * - Right-click a lens to split it to the right, or to move it to a window of its own: the story then shows two
- *   screens. In that window, Move to main window brings it back.
- * - Drag a lens onto a canvas to show it there, onto the right of one to split, or to the window's edge for a window of
- *   its own.
- * - A lens with nothing to read from, such as API without an OpenAPI document, is listed but can't be shown.
- * - A link in the inspector shows its lens with it selected, in place or to the side: Billing uses PlanCard and reads
- *   the plans table.
- *
- * The pictures are the example app's pages and components.
+ * - Click a lens, or press Ctrl and its number. Clicking the lens already shown hides or shows the left panel.
+ * - Right-click a lens to split it to the right or move it to a window of its own; the story then shows a screen for
+ *   each window. Drag a lens onto a canvas, onto a canvas's right side, or to the window's edge, for the same.
+ * - A link in the inspector shows its lens with it selected; Show beside, at the row's end, splits it right.
+ * - The wheel pans each canvas and Ctrl with the wheel zooms; each lens keeps its own view and selection.
+ * - The project's name, in the middle of the title bar, opens another project in this one's place or closes it, which
+ *   leaves the window on Home.
  */
 const meta = {
   title: "Parity/Explorations/Lenses",
   component: LensesPrototype,
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  loaders: [() => openProjects("example")],
+  decorators: [
+    (Story) => (
+      <ProjectStage project="example" className="block">
+        <Story />
+      </ProjectStage>
+    )
+  ]
 } satisfies Meta<typeof LensesPrototype>
 
 export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** The project on Pages, with Billing selected. */
+/** The project on Pages, Billing selected: its route, and what it's linked to in the other lenses. */
 export const Pages: Story = {
   args: { initial: { windows: [lensWindow([group("pages")])], selected: { pages: "billing" } } }
 }
 
-/** Pages and Data side by side: Billing reads the plans table. */
+/** Screens, today's designs, each in the project's modes, with the asset tabs in the left panel. */
+export const Screens: Story = {
+  args: { initial: { windows: [lensWindow([group("screens")])], selected: { screens: "billing-screen" } } }
+}
+
+/** Components on their boards, each state side by side. */
+export const Components: Story = {
+  args: { initial: { windows: [lensWindow([group("components")])], selected: { components: "plan" } } }
+}
+
+/** Pages and Data side by side: Billing reads the plans and subscriptions tables. */
 export const SideBySide: Story = {
   args: {
     initial: {
-      windows: [lensWindow([group("pages"), group("data")])],
-      selected: { pages: "billing", data: "plans" }
+      windows: [lensWindow([group("pages"), group("data")], 1)],
+      selected: { pages: "billing", data: "subscriptions" }
     }
   }
 }
 
-/** Data moved to a window of its own, on a second screen, beside the main window. */
+/** Data moved to a window of its own, on a second display, beside the main window. */
 export const OwnWindow: Story = {
   args: {
     initial: {
@@ -51,9 +68,4 @@ export const OwnWindow: Story = {
       selected: { pages: "profile", data: "users" }
     }
   }
-}
-
-/** Stories on their own canvas, PlanCard's Popular story selected. */
-export const Stories: Story = {
-  args: { initial: { windows: [lensWindow([group("stories")])], selected: { stories: "plan-popular" } } }
 }
