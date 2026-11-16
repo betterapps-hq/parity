@@ -1,7 +1,8 @@
 // Says which released packages a change needs a change file for, and writes or checks them. Beachball versions only the
 // packages that aren't private, the desktop app and the CLI, so on its own it would miss a change to a private package
 // they bundle, such as @parity-app/core. Like Beachball, it counts from where the branch left the one beachball.config.cjs
-// names. Unlike it, it reads only the index or the commits, never the working tree, which sessions share.
+// names. Unlike it, it reads only the index or the commits, never the working tree, which sessions share. A changed entry
+// in pnpm-workspace.yaml's catalog counts as Beachball's check counts it, so the two never disagree (PAR-1177).
 // Usage:
 //   node scripts/changes.ts write --type patch --message "…"  writes the change files that are missing (pnpm changefile)
 //   node scripts/changes.ts check                             fails when one is missing from what's staged (pre-commit)
@@ -21,6 +22,58 @@ export interface WorkspacePackage {
   private: boolean
   /** The workspace packages it depends on, of any kind. */
   dependencies: string[]
+  /** Its dependencies of any kind whose version is `catalog:…`, by name, with that version. */
+  catalogDependencies?: Record<string, string>
+}
+
+/** The catalogs pnpm-workspace.yaml declares: `catalog` (or `catalogs.default`), and the rest of `catalogs` by name. */
+export interface Catalogs {
+  default?: Record<string, string>
+  named?: Record<string, Record<string, string>>
+}
+
+/**
+ * The catalog entries added or changed since `before`, as Beachball's check diffs them. A removed entry doesn't count,
+ * and with no catalogs before, every entry does.
+ */
+export function changedCatalogEntries(before: Catalogs | undefined, after: Catalogs | undefined): Catalogs {
+  const diff = (old: Record<string, string> | undefined, now: Record<string, string>): Record<string, string> =>
+    Object.fromEntries(Object.entries(now).filter(([name, version]) => old?.[name] !== version))
+
+  const changed: Catalogs = {}
+  const defaults = diff(before?.default, after?.default ?? {})
+
+  if (Object.keys(defaults).length > 0) {
+    changed.default = defaults
+  }
+
+  for (const [catalog, entries] of Object.entries(after?.named ?? {})) {
+    const named = diff(before?.named?.[catalog], entries)
+
+    if (Object.keys(named).length > 0) {
+      changed.named = { ...changed.named, [catalog]: named }
+    }
+  }
+
+  return changed
+}
+
+/** Whether a `catalog:…` version resolves to one of the catalog entries, as pnpm and Beachball resolve it. */
+function inCatalogs(catalogs: Catalogs, name: string, version: string): boolean {
+  if (!version.startsWith("catalog:")) {
+    return false
+  }
+
+  const catalog = version.slice("catalog:".length)
+
+  // `catalog:` is the default catalog, and so is `catalog:default` unless a catalog is named that.
+  if (!catalog) {
+    return catalogs.default?.[name] !== undefined
+  }
+
+  const entries = catalogs.named?.[catalog] ?? (catalog === "default" ? catalogs.default : undefined)
+
+  return entries?.[name] !== undefined
 }
 
 /** The released packages that bundle each private package, directly or through other private packages. */
@@ -56,11 +109,18 @@ export function bundledBy(packages: WorkspacePackage[]): Map<string, string[]> {
 
 /**
  * The released packages that changed files need a change file for: the package a file is in when it's released, and
- * every released package that bundles it when it's private. Files matching an ignore pattern don't count.
+ * every released package that bundles it when it's private. Files matching an ignore pattern don't count. A package
+ * whose `catalog:` dependency is among the changed catalog entries has changed too, whatever the ignore patterns say,
+ * as Beachball's check counts it.
  */
-export function releasesFor(packages: WorkspacePackage[], files: string[], ignorePatterns: string[]): string[] {
+export function releasesFor(
+  packages: WorkspacePackage[],
+  files: string[],
+  ignorePatterns: string[],
+  changedCatalog: Catalogs = {}
+): string[] {
   const bundlers = bundledBy(packages)
-  const releases = new Set<string>()
+  const changed = new Set<WorkspacePackage>()
 
   for (const file of files) {
     if (ignorePatterns.some((pattern) => matchesGlob(file, pattern))) {
@@ -71,11 +131,23 @@ export function releasesFor(packages: WorkspacePackage[], files: string[], ignor
       .filter((pkg) => file.startsWith(`${pkg.dir}/`))
       .sort((a, b) => b.dir.length - a.dir.length)[0]
 
-    if (!owner) {
-      continue
+    if (owner) {
+      changed.add(owner)
     }
+  }
 
-    for (const release of owner.private ? (bundlers.get(owner.name) ?? []) : [owner.name]) {
+  for (const pkg of packages) {
+    const references = Object.entries(pkg.catalogDependencies ?? {})
+
+    if (references.some(([name, version]) => inCatalogs(changedCatalog, name, version))) {
+      changed.add(pkg)
+    }
+  }
+
+  const releases = new Set<string>()
+
+  for (const pkg of changed) {
+    for (const release of pkg.private ? (bundlers.get(pkg.name) ?? []) : [pkg.name]) {
       releases.add(release)
     }
   }
@@ -151,6 +223,13 @@ const manifest = z.object({
   optionalDependencies: z.record(z.string(), z.string()).optional()
 })
 
+/** Catalogs as workspace-tools parses pnpm-workspace.yaml for Beachball. */
+const catalogEntries = z.record(z.string(), z.string())
+const catalogs = z.object({
+  default: catalogEntries.optional(),
+  named: z.record(z.string(), catalogEntries).optional()
+})
+
 /** The part of beachball.config.cjs this script reads. */
 const beachballSettings = z.object({ branch: z.string(), ignorePatterns: z.array(z.string()).optional() })
 
@@ -207,13 +286,14 @@ function readWorkspace(): WorkspacePackage[] {
 
   return found.map(({ dir, json }) => {
     const kinds = [json.dependencies, json.devDependencies, json.peerDependencies, json.optionalDependencies]
-    const declared = kinds.flatMap((kind) => Object.keys(kind ?? {}))
+    const declared = kinds.flatMap((kind) => Object.entries(kind ?? {}))
 
     return {
       name: json.name,
       dir,
       private: json.private === true,
-      dependencies: declared.filter((name) => names.has(name))
+      dependencies: declared.flatMap(([name]) => (names.has(name) ? [name] : [])),
+      catalogDependencies: Object.fromEntries(declared.filter(([, version]) => version.startsWith("catalog:")))
     }
   })
 }
@@ -225,6 +305,7 @@ function beachballConfig(): z.output<typeof beachballSettings> {
 /** What a branch changed, and the packages its change files cover and its release commits released. */
 interface Changes {
   files: string[]
+  changedCatalog: Catalogs
   covered: Set<string>
   released: Set<string>
 }
@@ -264,7 +345,34 @@ function changes(branch: string, committed: boolean): Changes {
     }
   }
 
-  return { files, covered, released }
+  return { files, changedCatalog: catalogChanges(base, files, now), covered, released }
+}
+
+const catalogFile = "pnpm-workspace.yaml"
+
+/**
+ * The catalog entries changed since `base`, read with the parser Beachball's own check uses, so the YAML means the same
+ * to both. Like Beachball, it looks only when the file changed.
+ */
+function catalogChanges(base: string, files: string[], now: (file: string) => string): Catalogs {
+  if (!files.includes(catalogFile)) {
+    return {}
+  }
+
+  const fromBeachball = createRequire(createRequire(import.meta.url).resolve("beachball/package.json"))
+  const parser = z.function({ input: [z.string(), z.literal("pnpm")], output: catalogs.optional() })
+  const tools = parseData(z.object({ parseCatalogContent: parser }), fromBeachball("workspace-tools"))
+  const parse = (content: string): Catalogs | undefined => tools.parseCatalogContent(content, "pnpm")
+
+  let before: string | undefined
+
+  try {
+    before = git("show", `${base}:${catalogFile}`)
+  } catch {
+    before = undefined
+  }
+
+  return changedCatalogEntries(before === undefined ? undefined : parse(before), parse(now(catalogFile)))
 }
 
 function option(name: string): string | undefined {
@@ -276,10 +384,10 @@ function option(name: string): string | undefined {
 function main(): void {
   const command = process.argv[2]
   const config = beachballConfig()
-  const { files, covered, released } = changes(config.branch, process.argv.includes("--committed"))
+  const { files, changedCatalog, covered, released } = changes(config.branch, process.argv.includes("--committed"))
   // Beachball's own ignore patterns, plus the change files and changelogs it ignores itself.
   const ignored = [...(config.ignorePatterns ?? []), "change/*.json", "**/CHANGELOG.md", "**/CHANGELOG.json"]
-  const needed = releasesFor(readWorkspace(), files, ignored)
+  const needed = releasesFor(readWorkspace(), files, ignored, changedCatalog)
   const missing = needed.filter((name) => !covered.has(name))
 
   // Beachball checks ordinary change files; a consumed release is checked by version + generated changelog instead.
