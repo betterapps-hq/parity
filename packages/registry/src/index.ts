@@ -168,8 +168,8 @@ async function entriesFor(packageName: string, dir = registryDir()): Promise<Reg
  * The registry's file for a package at a version: the one whose range covers the version, preferring the newest
  * generated. When none covers it, the newest file made for an older version, marked `older`, so a library newer
  * than its file keeps its decorators, tokens and components rather than losing them. A version older than every file
- * takes the oldest of them, marked `newer`, for the same reason: Mantine 8 still gets the provider Mantine 9's file
- * wraps frames in (PAR-1168). No version at all matches nothing.
+ * takes the oldest of them, marked `newer`, for the same reason: MUI 7 still gets the providers MUI 9's file wraps
+ * frames in (PAR-1168). No version at all matches nothing.
  */
 export async function registryEntryFor(
   packageName: string,

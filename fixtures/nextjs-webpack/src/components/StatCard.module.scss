@@ -10,7 +10,7 @@
   font-weight: 700;
   line-height: 1;
 
-  @media (max-width: tokens.$breakpoint-sm) {
+  @media (max-width: tokens.$breakpoint-md) {
     font-size: tokens.rem(22px);
   }
 }
