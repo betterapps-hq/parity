@@ -183,7 +183,7 @@ export const AlignSet: Story = {
   )
 }
 
-/** AlignSet, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** AlignSet, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...AlignSet, parameters: { demo: true } }
 
 /** Layers with different alignments: none pressed, and Mixed after them. */

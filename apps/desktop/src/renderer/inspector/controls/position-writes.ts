@@ -1,10 +1,10 @@
 /*
  * Position's Placement, its insets from the inset box, and Layer order: what they store and write. A pinned side is an
  * inset; an unpinned one is `auto` and writes nothing. Center writes `left: d; right: -d` with auto margins, as the
- * panel spec's presets table says; Fill parent is `inset-0`. Each side writes as sides-writes.ts writes any side, in
+ * panel spec's presets table says; Fill parent is `inset: 0`. Each side writes as sides-writes.ts writes any side, in
  * css-values.ts's forms; where the layer is drawn takes the project's spacing tokens, so a token inset lands where it says.
  */
-import { type Side, type Sides, sideClass, sideCss, sideNumber, sideStored, sidesWrites } from "./sides-writes.ts"
+import { type Side, type Sides, sideCss, sideNumber, sideStored, sidesWrites } from "./sides-writes.ts"
 import type { LengthToken } from "./tokens.ts"
 import type { StoredObject, Writes } from "./writes.ts"
 
@@ -19,7 +19,7 @@ export interface Position {
   centerX?: number
   /** Centered down, with its offset from the center. */
   centerY?: number
-  /** Whether the layer hugs its content on each axis, which Center needs `w-fit` or `h-fit` for. */
+  /** Whether the layer hugs its content on each axis, which Center needs `fit-content` for. */
   hugs?: { width: boolean; height: boolean }
 }
 
@@ -120,7 +120,7 @@ export function distances(rect: Rect, parent: Stage["parent"]): [number, number,
 /** Placement, the insets and Center's auto margins. In layout writes nothing. */
 export function positionWrites(position: Position): Writes {
   if (position.placement === "static") {
-    return { stored: undefined, css: [], tailwind: [] }
+    return { stored: undefined, css: [] }
   }
 
   const sides: Sides = [...position.insets]
@@ -137,7 +137,6 @@ export function positionWrites(position: Position): Writes {
 
   const insets = sidesWrites("inset", sides)
   const css = [`position: ${position.placement}`, ...insets.css]
-  const tailwind = [position.placement, ...insets.tailwind]
   const stored: StoredObject = { position: { keyword: position.placement } }
 
   if (insets.stored !== undefined) {
@@ -147,47 +146,41 @@ export function positionWrites(position: Position): Writes {
   if (position.centerX !== undefined) {
     stored.marginInline = { keyword: "auto" }
     css.push("margin-inline: auto")
-    tailwind.push("mx-auto")
 
     // An auto width between two insets stretches, so a layer that hugs needs fit-content to center.
     if (position.hugs?.width) {
       stored.width = { mode: "hug" }
       css.push("width: fit-content")
-      tailwind.push("w-fit")
     }
   }
 
   if (position.centerY !== undefined) {
     stored.marginBlock = { keyword: "auto" }
     css.push("margin-block: auto")
-    tailwind.push("my-auto")
 
     if (position.hugs?.height) {
       stored.height = { mode: "hug" }
       css.push("height: fit-content")
-      tailwind.push("h-fit")
     }
   }
 
-  return { stored, css, tailwind }
+  return { stored, css }
 }
 
 /**
- * Layer order: `z-10`, `-z-5`, a token as `z-(--z-overlay)`. In a flex or grid layout it needs nothing more; a child
+ * Layer order: `z-index: 10`, `-5`, a token as `var(--z-overlay)`. In a flex or grid layout it needs nothing more; a child
  * of a Block layout that's In layout gets `position: relative`, which `z-index` needs there.
  */
 export function layerOrderWrites(value: Side, needsPosition = false): Writes {
   if (value === undefined || value === "auto") {
-    return { stored: undefined, css: [], tailwind: [] }
+    return { stored: undefined, css: [] }
   }
 
   const css = [`z-index: ${sideCss("layer", value)}`]
-  const tailwind = [sideClass("layer", "z", value)]
 
   if (needsPosition) {
     css.unshift("position: relative")
-    tailwind.unshift("relative")
   }
 
-  return { stored: sideStored("layer", value), css, tailwind }
+  return { stored: sideStored("layer", value), css }
 }

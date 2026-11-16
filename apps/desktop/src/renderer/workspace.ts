@@ -46,6 +46,7 @@ import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { designFailuresNow, onDesignFailures } from "./failures-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
+import type { LiveRoom } from "./live-room.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
 import { closeDocSession, type DocSession, openDocSession } from "./project-doc.ts"
 import { keepProjectPicture } from "./project-picture.ts"
@@ -88,6 +89,7 @@ export class ProjectSession implements DocSession {
   readonly saver: DocSession["saver"]
   readonly libraryDesigns: DocSession["libraryDesigns"]
   readonly epoch: string
+  readonly room: DocSession["room"]
   readonly autosave: () => boolean
   readonly selection: SelectionStore
   /** Components and their props, inferred from source after the tab opens. */
@@ -112,6 +114,7 @@ export class ProjectSession implements DocSession {
     this.saver = fixed.designs.saver
     this.libraryDesigns = fixed.designs.libraryDesigns
     this.epoch = fixed.designs.epoch
+    this.room = fixed.designs.room
     const { autosave } = fixed.designs
     this.autosave = () => autosave()
     this.selection = fixed.selection
@@ -1049,6 +1052,7 @@ export class Workspace {
     }
 
     this.updateSession(tab, tab.session, { editor })
+    tab.session.room?.attachEditor(editor, id)
   }
 
   /** The tabs with a project in them, as agents see them. */
@@ -1319,7 +1323,10 @@ async function createSession(
     }
   }
 
+  const room = await liveRoom(info.root)
+
   const designs: DocSession = openDocSession({
+    room,
     files: opening,
     drawn: code.designs,
     modes,
@@ -1378,6 +1385,29 @@ async function createSession(
     })
 
   return { session, recordLoaded }
+}
+
+/**
+ * The project's live room, in development with `PARITY_ROOM=1` (live-room.ts), or nothing. A room that can't be joined
+ * leaves the project to open as it would without one.
+ */
+async function liveRoom(root: string): Promise<LiveRoom | undefined> {
+  // Set by `pnpm dev` with `PARITY_ROOM=1`. The room's code, and Loro with it, loads only then.
+  const url = import.meta.env.DEV ? import.meta.env.VITE_PARITY_ROOM : undefined
+
+  if (!url) {
+    return undefined
+  }
+
+  try {
+    const { joinLiveRoom } = await import("./live-room.ts")
+
+    return await joinLiveRoom(url, root)
+  } catch (error) {
+    reportError(error, { operation: "liveRoom.join", title: "Couldn't join the live room" })
+
+    return undefined
+  }
 }
 
 /**

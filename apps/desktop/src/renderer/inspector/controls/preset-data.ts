@@ -374,10 +374,6 @@ export function valueWords(field: TypeField, values: Required<TypeValues>, token
 
 /* What it writes */
 
-/** A preset's one class: a project utility when it sets a font, else a `--text-*` size, as Tailwind's adapter writes. */
-export const presetClass = (preset: TypePreset) =>
-  preset.values.font === undefined ? `text-${preset.name}` : `type-${preset.name}`
-
 /** One row's writes, without the size a line height is written beside. */
 function rowWrites(field: TypeField, values: TypeValues): Writes | undefined {
   if (field === "font") {
@@ -416,8 +412,7 @@ const storedKeys: Record<TypeField, string> = {
 
 /**
  * What the layer stores and writes: its preset by name (`typePreset: { token: "heading" }`) and its own values, the
- * same in every framework. Tailwind writes the preset's one class, then each override as a class after it
- * (`type-heading leading-6`); the CSS is what the class sets, then the overrides.
+ * same in every framework. The CSS is what the preset sets, then the overrides.
  */
 export function presetWrites(layer: PresetLayer): Writes {
   const preset = presetNamed(layer.preset)
@@ -425,7 +420,7 @@ export function presetWrites(layer: PresetLayer): Writes {
 
   if (preset) {
     const css = coveredBy(preset).flatMap((field) => rowWrites(field, preset.values)?.css ?? [])
-    parts.typePreset = { stored: { token: preset.name }, css, tailwind: [presetClass(preset)] }
+    parts.typePreset = { stored: { token: preset.name }, css }
   }
 
   for (const { field } of typeFields) {

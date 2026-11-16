@@ -418,6 +418,9 @@ importers:
       '@parity-app/multiplayer-local':
         specifier: workspace:*
         version: link:../../packages/multiplayer-local
+      '@parity-app/multiplayer-loro':
+        specifier: workspace:*
+        version: link:../../packages/multiplayer-loro
       '@parity-app/processes':
         specifier: workspace:*
         version: link:../../packages/processes

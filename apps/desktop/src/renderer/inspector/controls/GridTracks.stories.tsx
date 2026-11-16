@@ -58,7 +58,7 @@ export const EqualColumns: Story = {
   }
 }
 
-/** EqualColumns, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** EqualColumns, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...EqualColumns, parameters: { demo: true } }
 
 /** Sized tracks, listed one a row: 200 pixels, Fill, and Fill ×2; one row that hugs. */

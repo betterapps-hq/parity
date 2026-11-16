@@ -37,7 +37,7 @@ export const Empty: Story = { render: () => <Transform start={{}} /> }
 /** Moved 16px right, a spacing step, and up by half its own height: `translate-x-4 -translate-y-1/2`. */
 export const Move: Story = { render: () => <Transform start={{ moveX: { px: 16 }, moveY: { percent: -50 } }} /> }
 
-/** Move, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Move, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Move, parameters: { demo: true } }
 
 /** Scaled to 105%, X and Y together: `scale-105`. */

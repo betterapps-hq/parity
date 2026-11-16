@@ -25,12 +25,12 @@ type Story = StoryObj<typeof meta>
 /** What Opacity writes: a token by name, or a percentage. */
 function opacityWrites(value: number | undefined, token: string | undefined): Writes {
   if (token !== undefined) {
-    return { stored: { token }, css: [`opacity: var(--opacity-${token})`], tailwind: [`opacity-${token}`] }
+    return { stored: { token }, css: [`opacity: var(--opacity-${token})`] }
   }
 
   return value === undefined
-    ? { stored: undefined, css: [], tailwind: [] }
-    : { stored: { value: `${value}%` }, css: [`opacity: ${value}%`], tailwind: [`opacity-${value}`] }
+    ? { stored: undefined, css: [] }
+    : { stored: { value: `${value}%` }, css: [`opacity: ${value}%`] }
 }
 
 /** Opacity, kept here, with what it writes, offering the opacity tokens. */
@@ -60,7 +60,7 @@ function Opacity({ start, token }: { start: number | undefined; token?: string }
 /** 80%. */
 export const Set: Story = { render: () => <Opacity start={80} /> }
 
-/** Set, with what it stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Set, with what it stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Set, parameters: { demo: true } }
 
 /** Holding the muted opacity token, as its chip. */

@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import {
   bundledBy,
+  changedCatalogEntries,
   listChangeFiles,
   onlyVersionChanged,
   releasesFor,
@@ -88,6 +89,74 @@ describe("releasesFor", () => {
   it("doesn't take a folder whose name starts the same for the package", () => {
     const files = ["packages/core-extra/src/index.ts"]
     expect(releasesFor(workspace, files, ignored)).toEqual([])
+  })
+
+  describe("with catalog dependencies", () => {
+    const references = new Map([
+      ["@parity-app/desktop", { "@sentry/electron": "catalog:", vitest: "catalog:" }],
+      ["@parity-app/cli", { yaml: "catalog:legacy" }],
+      ["@parity-app/core", { zod: "catalog:default" }]
+    ])
+
+    const catalogued = workspace.map((pkg) => ({ ...pkg, catalogDependencies: references.get(pkg.name) ?? {} }))
+    // PR #716 changed only the catalog, the lockfile and a doc, and Beachball's check still asked for the desktop app.
+    const sentryBump = ["pnpm-workspace.yaml", "pnpm-lock.yaml", "docs/telemetry.md"]
+
+    it("asks for the released package that references a bumped catalog entry", () => {
+      const changed = { default: { "@sentry/electron": "8.4.0" } }
+      expect(releasesFor(catalogued, sentryBump, ignored, changed)).toEqual(["@parity-app/desktop"])
+    })
+
+    it("asks for it whatever the ignore patterns say, as Beachball does", () => {
+      const changed = { default: { vitest: "5.0.6" } }
+      expect(releasesFor(catalogued, ["pnpm-workspace.yaml"], ["**/*.yaml"], changed)).toEqual(["@parity-app/desktop"])
+    })
+
+    it("asks for every released package that bundles a private package referencing it", () => {
+      const changed = { default: { zod: "4.6.8" } }
+      expect(releasesFor(catalogued, ["pnpm-workspace.yaml"], ignored, changed)).toEqual([
+        "@parity-app/cli",
+        "@parity-app/desktop"
+      ])
+    })
+
+    it("resolves a named catalog only from that catalog", () => {
+      expect(releasesFor(catalogued, [], ignored, { named: { legacy: { yaml: "2.0.0" } } })).toEqual([
+        "@parity-app/cli"
+      ])
+      expect(releasesFor(catalogued, [], ignored, { default: { yaml: "2.0.0" } })).toEqual([])
+    })
+
+    it("asks for nothing when no package references the changed entry", () => {
+      expect(releasesFor(catalogued, sentryBump, ignored, { default: { sharp: "0.35.6" } })).toEqual([])
+    })
+  })
+})
+
+describe("changedCatalogEntries", () => {
+  const before = {
+    default: { "@sentry/electron": "8.3.0", zod: "4.6.7", knip: "6.44.1" },
+    named: { legacy: { yaml: "1.0.0" } }
+  }
+
+  it("keeps the entries a bump changed or added, and leaves out removed and unchanged ones", () => {
+    const after = {
+      default: { "@sentry/electron": "8.4.0", zod: "4.6.7", sharp: "0.35.5" },
+      named: { legacy: { yaml: "1.0.0" } }
+    }
+
+    expect(changedCatalogEntries(before, after)).toEqual({ default: { "@sentry/electron": "8.4.0", sharp: "0.35.5" } })
+  })
+
+  it("diffs named catalogs on their own", () => {
+    const after = { ...before, named: { legacy: { yaml: "2.0.0" }, next: { zod: "5.0.0" } } }
+    expect(changedCatalogEntries(before, after)).toEqual({
+      named: { legacy: { yaml: "2.0.0" }, next: { zod: "5.0.0" } }
+    })
+  })
+
+  it("counts every entry when there were no catalogs before", () => {
+    expect(changedCatalogEntries(undefined, { default: { zod: "4.6.7" } })).toEqual({ default: { zod: "4.6.7" } })
   })
 })
 

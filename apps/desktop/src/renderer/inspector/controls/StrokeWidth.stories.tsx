@@ -55,7 +55,7 @@ function StrokeWidth({ start, mixed = [] }: { start: Sides; mixed?: boolean[] })
 /** 1 on every side: `border`. */
 export const AllSides: Story = { render: () => <StrokeWidth start={[px(1), px(1), px(1), px(1)]} /> }
 
-/** AllSides, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** AllSides, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...AllSides, parameters: { demo: true } }
 
 /** Each side its own: four fields in CSS's order. */

@@ -1,4 +1,5 @@
 import type {
+  BuilderConsole,
   CanvasDocument,
   ChangeConflict,
   ComponentInfo,
@@ -76,6 +77,8 @@ export type TabSnapshot = Omit<AgentSnapshot, "tab"> & {
   revision: string
   projectId: string
   guestUrl: string
+  /** What the project's builder writes to the console of its own, which agents don't read. */
+  builderConsole?: BuilderConsole
   /** Components the type checker found after the guest loaded, which other pages' guests have to add themselves. */
   addedComponents?: Record<string, Pick<ComponentSource, "path" | "export">>
   /** The app's exports the type checker left out, with why. */

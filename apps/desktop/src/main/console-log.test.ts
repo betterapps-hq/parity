@@ -41,9 +41,11 @@ describe("the console log", () => {
     expect(log.read(guest)[0]).not.toHaveProperty("design")
   })
 
-  it("drops chatter every dev build writes, and the oldest past its limit", () => {
+  it("drops React's DevTools notice, and the oldest past its limit", () => {
     const log = createConsoleLog({ limit: 2 })
-    expect(log.write(written({ text: "[vite] hot updated: /src/App.tsx" }))).toBeUndefined()
+    expect(
+      log.write(written({ text: "Download the React DevTools for a better development experience" }))
+    ).toBeUndefined()
 
     for (const line of [1, 2, 3]) {
       log.write(written({ line }))

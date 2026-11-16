@@ -4,11 +4,15 @@ import packageJson from "../package.json" with { type: "json" }
 import { viteBuilder, viteConfigFiles } from "./builder.ts"
 
 describe("the Vite extension", () => {
-  it("has a manifest Parity accepts, with its builder's entry and config files, and its versions", () => {
+  it("has a manifest Parity accepts, with its builder's entry, config files and console chatter, and its versions", () => {
     const found = readExtension(packageJson)
 
     expect(found.manifest.activates).toEqual(["onDetect"])
-    expect(found.manifest.contributes.providers?.builder).toEqual({ entry: "./builder", watches: viteConfigFiles })
+    expect(found.manifest.contributes.providers?.builder).toEqual({
+      entry: "./builder",
+      watches: viteConfigFiles,
+      console: { chatter: [String.raw`^\[vite\]`], generatedPaths: ["^@"] }
+    })
     expect(found.versions).toEqual({
       packages: ["vite"],
       range: "^6.0.0 || ^7.0.0 || ^8.0.0",

@@ -6,9 +6,13 @@ import { basename, dirname, isAbsolute, join, posix, relative, resolve } from "n
 import { pathToFileURL } from "node:url"
 import { hasElementSources, tagElementSources } from "@parity-app/code"
 import {
+  type AppStyles,
   type BuilderAdapter,
   type BuilderDetection,
-  type BuilderStartOptions,
+  type BuilderPrepareOptions,
+  type BuilderRenderer,
+  type BuilderSession,
+  type PreparedBuilder,
   type CodeChange,
   type ExportsTarget,
   iconStyleModules,
@@ -22,7 +26,7 @@ import { isComposite, isText } from "@parity-app/core/values/evaluate"
 import { commandOption, gatherChanges, type GuestModule, guestModule, scriptRunning } from "@parity-app/project"
 import type * as Vite from "vite"
 import { appPageModes } from "./app-page.ts"
-import { viteAppStyles } from "./app-styles.ts"
+import { serverAppStyles, viteAppStyles } from "./app-styles.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
@@ -52,158 +56,224 @@ export const viteBuilder: BuilderAdapter = {
   detect: ({ root }) => detectVite(root),
   styles: ({ root }) => viteAppStyles(root),
   async start(options) {
-    // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
-    // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.
-    options = {
-      ...options,
-      root: await realpath(options.root),
-      rendererGuestPath: await realpath(options.rendererGuestPath)
-    }
-    const vite = await loadProjectVite(options.root)
-    const configFile = await scriptedConfig(options.root)
-    const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
+    const { config, ...rest } = options
+    const prepared = await prepareVite(rest)
 
-    // The app's own page, which draws each route on the canvas (PAR-1076): scanned with the components, so what only the
-    // app's entry imports, such as its router, is bundled before a page asks for it rather than re-bundled under it.
-    const appPage = await stat(join(options.root, "index.html")).then(
-      () => ["index.html"],
-      () => []
+    return prepared.start(config)
+  },
+  prepare: (options) => prepareVite(options)
+}
+
+/**
+ * Loads the project's config and plugins into a Vite server that isn't serving yet (`BuilderAdapter.prepare`). Loading
+ * them is the slow part: Cloudflare's plugin starts its worker runtime, which took about 13 seconds on copacker
+ * (PAR-1182). The server answers which stylesheets the app loads meanwhile, and starts once the project's config is
+ * known, so the config and plugins load once per opening.
+ */
+async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuilder> {
+  // Windows temp folders can use an 8.3 alias. Vite resolves imports to the long path, which must also be the
+  // configured root and filesystem allow-list or the project's own CSS/modules are rejected with 403.
+  options = {
+    ...options,
+    root: await realpath(options.root),
+    rendererGuestPath: await realpath(options.rendererGuestPath)
+  }
+  const vite = await loadProjectVite(options.root)
+  const configFile = await scriptedConfig(options.root)
+  const port = options.port !== undefined && (await portFree(options.port)) ? options.port : await freePort()
+
+  // The app's own page, which draws each route on the canvas (PAR-1076): scanned with the components, so what only the
+  // app's entry imports, such as its router, is bundled before a page asks for it rather than re-bundled under it.
+  const appPage = await stat(join(options.root, "index.html")).then(
+    () => ["index.html"],
+    () => []
+  )
+
+  /** The project's config, once `start` has it: the guest is made from it, and the builder process updates it in place. */
+  let served: ProjectConfig | undefined
+
+  const server = await vite.createServer({
+    root: options.root,
+    // Left undefined, Vite looks for the config file itself, as it does when the key is absent.
+    configFile,
+    // Its own dependency cache: the project's own dev server, often running alongside, would otherwise re-optimize
+    // into the same folder, and each server would then serve stale dependencies ("Outdated Optimize Dep").
+    cacheDir: "node_modules/.vite-parity",
+    clearScreen: false,
+    server: {
+      // Vite reads port 0 as unset and starts at 5173, so two Parity instances both took it, one on IPv4 and one on
+      // IPv6, and `localhost` reached either. A port the system gave out, on 127.0.0.1 only, is this server's alone.
+      host: loopback,
+      port,
+      strictPort: true,
+      // The guest never loads index.html, so there is no HMR client. This also turns off framework refresh
+      // transforms (React Fast Refresh) that would otherwise expect that page's preamble.
+      hmr: false,
+      cors: { origin: options.allowedOrigins },
+      fs: { allow: [vite.searchForWorkspaceRoot(options.root), ...guestFolders(options.rendererGuestPath)] }
+    },
+    resolve: { dedupe: options.renderer.runtimePackages },
+    // What to bundle is set once the components are known, before the optimizer starts: see `start` below.
+    optimizeDeps: {
+      include: [...options.renderer.runtimeImports],
+      entries: appPage,
+      ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
+    },
+    plugins: [
+      guestPlugin(options.renderer, () => served, vite.normalizePath(options.rendererGuestPath)),
+      moduleStyles(() => (served?.styles ?? []).map((path) => vite.normalizePath(resolve(options.root, path)))),
+      elementSources(vite.normalizePath(options.root)),
+      dependencySourceMaps(),
+      appPageModes()
+    ]
+  })
+
+  let styles: Promise<AppStyles> | undefined
+  let started = false
+
+  return {
+    styles() {
+      styles ??= serverAppStyles(vite, server, options.root)
+
+      return styles
+    },
+    async start(config) {
+      if (started) {
+        throw new Error("The builder has started already")
+      }
+
+      started = true
+      served = config
+
+      try {
+        // Modules the stylesheets were found with were compiled before the optimizer ran, with its hashes from then.
+        await styles?.catch(() => undefined)
+        server.environments.client?.moduleGraph.invalidateAll()
+        bundleFor(server, options.renderer.runtimeImports, appPage, config)
+
+        return await serve(vite, server, config)
+      } catch (error) {
+        await server.close()
+        throw error
+      }
+    },
+    close: () => server.close()
+  }
+}
+
+/**
+ * Sets what Vite's dependency optimizer bundles, once the project's components are known: the renderer's runtime, the
+ * libraries' packages and icons, and what the app's page and components import. The optimizer reads them when it starts,
+ * as the server listens.
+ */
+function bundleFor(server: Vite.ViteDevServer, runtimeImports: string[], appPage: string[], config: ProjectConfig) {
+  // A workspace package is the app's own source, which Vite compiles as it does the app's files.
+  const include = [
+    ...runtimeImports,
+    ...new Set(
+      config.libraries.flatMap((library) =>
+        library.workspace ? [] : [library.importName, ...iconImports(library), ...libraryImports(library)]
+      )
     )
+  ]
 
-    const server = await vite.createServer({
-      root: options.root,
-      // Left undefined, Vite looks for the config file itself, as it does when the key is absent.
-      configFile,
-      // Its own dependency cache: the project's own dev server, often running alongside, would otherwise re-optimize
-      // into the same folder, and each server would then serve stale dependencies ("Outdated Optimize Dep").
-      cacheDir: "node_modules/.vite-parity",
-      clearScreen: false,
-      server: {
-        // Vite reads port 0 as unset and starts at 5173, so two Parity instances both took it, one on IPv4 and one on
-        // IPv6, and `localhost` reached either. A port the system gave out, on 127.0.0.1 only, is this server's alone.
-        host: loopback,
-        port,
-        strictPort: true,
-        // The guest never loads index.html, so there is no HMR client. This also turns off framework refresh
-        // transforms (React Fast Refresh) that would otherwise expect that page's preamble.
-        hmr: false,
-        cors: { origin: options.allowedOrigins },
-        fs: { allow: [vite.searchForWorkspaceRoot(options.root), ...guestFolders(options.rendererGuestPath)] }
-      },
-      resolve: { dedupe: options.renderer.runtimePackages },
-      optimizeDeps: {
-        // A workspace package is the app's own source, which Vite compiles as it does the app's files.
-        include: [
-          ...options.renderer.runtimeImports,
-          ...new Set(
-            options.config.libraries.flatMap((library) =>
-              library.workspace ? [] : [library.importName, ...iconImports(library), ...libraryImports(library)]
-            )
-          )
-        ],
-        entries: [
-          ...appPage,
-          ...Object.values(options.config.components)
-            .filter((component) => !component.library)
-            .map((component) => component.path)
-        ],
-        ...productionDependencies(vite, options.root, options.renderer.developmentStandIns)
-      },
-      plugins: [
-        guestPlugin(options, vite.normalizePath(options.rendererGuestPath)),
-        moduleStyles(() => options.config.styles.map((path) => vite.normalizePath(resolve(options.root, path)))),
-        elementSources(vite.normalizePath(options.root)),
-        dependencySourceMaps(),
-        appPageModes()
-      ]
+  const entries = [
+    ...appPage,
+    ...Object.values(config.components)
+      .filter((component) => !component.library)
+      .map((component) => component.path)
+  ]
+
+  for (const optimizeDeps of [server.config.optimizeDeps, server.environments.client?.config.optimizeDeps]) {
+    if (optimizeDeps) {
+      optimizeDeps.include = [...new Set([...(optimizeDeps.include ?? []), ...include])]
+      optimizeDeps.entries = entries
+    }
+  }
+}
+
+/** Starts serving the guest of `config` from a prepared server: listens, bundles its dependencies and warms its graph. */
+async function serve(vite: typeof Vite, server: Vite.ViteDevServer, config: ProjectConfig): Promise<BuilderSession> {
+  await server.listen()
+  const client = server.environments.client
+
+  if (!client) {
+    throw new Error("Vite did not create its client environment")
+  }
+
+  await client.depsOptimizer?.init()
+  await client.depsOptimizer?.scanProcessing
+  // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
+  // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
+  const guest = viteGuestModule(config)
+
+  const urls = await Promise.all(
+    guest.imports.map(async (id) => {
+      try {
+        const resolved = await client.pluginContainer.resolveId(id)
+
+        if (!resolved) {
+          return
+        }
+
+        return resolved.id.startsWith("\0")
+          ? `/@id/__x00__${resolved.id.slice(1)}`
+          : `/@fs/${vite.normalizePath(resolved.id)}`
+      } catch (error) {
+        if (!guest.optional.has(id)) {
+          throw error
+        }
+
+        return undefined
+      }
     })
+  )
 
-    try {
-      await server.listen()
-      const client = server.environments.client
+  await warmGuestGraph(
+    client,
+    urls.filter((url) => url !== undefined)
+  )
+  const origin = server.resolvedUrls?.local[0]
 
-      if (!client) {
-        throw new Error("Vite did not create its client environment")
-      }
+  if (!origin) {
+    throw new Error("Vite did not report a local URL")
+  }
 
-      await client.depsOptimizer?.init()
-      await client.depsOptimizer?.scanProcessing
-      // Finish the cold dependency graph before the browser imports it. A failed child import stays cached by URL,
-      // so retrying only the guest module cannot recover from Vite replacing its optimized dependency hashes.
-      const guest = viteGuestModule(options.config)
+  const codeListeners = new Set<(change: CodeChange) => void>()
 
-      const urls = await Promise.all(
-        guest.imports.map(async (id) => {
-          try {
-            const resolved = await client.pluginContainer.resolveId(id)
+  const changes = gatherChanges((change) => {
+    for (const listener of codeListeners) {
+      listener(change)
+    }
+  })
 
-            if (!resolved) {
-              return
-            }
+  const root = vite.normalizePath(server.config.root)
+  // Vite's own watcher, which already follows every file the guest imported. The list of components changes as the
+  // type checker finds them, in place.
+  server.watcher.on("change", (file) => {
+    const components = Object.values(config.components)
+      .filter((component) => !component.library)
+      .map((component) => component.path)
 
-            return resolved.id.startsWith("\0")
-              ? `/@id/__x00__${resolved.id.slice(1)}`
-              : `/@fs/${vite.normalizePath(resolved.id)}`
-          } catch (error) {
-            if (!guest.optional.has(id)) {
-              throw error
-            }
+    changes.add(stampChange(client.moduleGraph, vite.normalizePath(file), changes.stamp(), root, components))
+  })
 
-            return undefined
-          }
-        })
-      )
+  const guestUrl = new URL(`/@id/__x00__${guestId}`, origin).href
 
-      await warmGuestGraph(
-        client,
-        urls.filter((url) => url !== undefined)
-      )
-      const origin = server.resolvedUrls?.local[0]
+  return {
+    guestUrl,
+    toolVersion: vite.version,
+    restyledGuestUrl: (stamp) => restyledGuest(guestUrl, stamp),
+    loadedFiles: (files) => loadedFiles(client.moduleGraph, root, files),
+    codeChanges(listener) {
+      codeListeners.add(listener)
 
-      if (!origin) {
-        throw new Error("Vite did not report a local URL")
-      }
+      return () => codeListeners.delete(listener)
+    },
+    close: () => {
+      changes.stop()
 
-      const codeListeners = new Set<(change: CodeChange) => void>()
-
-      const changes = gatherChanges((change) => {
-        for (const listener of codeListeners) {
-          listener(change)
-        }
-      })
-
-      const root = vite.normalizePath(options.root)
-      // Vite's own watcher, which already follows every file the guest imported. The list of components changes as the
-      // type checker finds them, in place.
-      server.watcher.on("change", (file) => {
-        const components = Object.values(options.config.components)
-          .filter((component) => !component.library)
-          .map((component) => component.path)
-
-        changes.add(stampChange(client.moduleGraph, vite.normalizePath(file), changes.stamp(), root, components))
-      })
-
-      const guestUrl = new URL(`/@id/__x00__${guestId}`, origin).href
-
-      return {
-        guestUrl,
-        toolVersion: vite.version,
-        restyledGuestUrl: (stamp) => restyledGuest(guestUrl, stamp),
-        loadedFiles: (files) => loadedFiles(client.moduleGraph, root, files),
-        codeChanges(listener) {
-          codeListeners.add(listener)
-
-          return () => codeListeners.delete(listener)
-        },
-        close: () => {
-          changes.stop()
-
-          return server.close()
-        }
-      }
-    } catch (error) {
-      await server.close()
-      throw error
+      return server.close()
     }
   }
 }
@@ -344,7 +414,11 @@ function guestFolders(rendererGuestPath: string): string[] {
   return [dirname(rendererGuestPath), dirname(dirname(evaluator))]
 }
 
-function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): Vite.Plugin {
+function guestPlugin(
+  renderer: BuilderRenderer,
+  config: () => ProjectConfig | undefined,
+  rendererGuestPath: string
+): Vite.Plugin {
   return {
     name: "canvas:guest",
     enforce: "pre",
@@ -365,7 +439,7 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
         return this.resolve(id, from, { skipSelf: true })
       }
 
-      if (!developmentStandIn(id, options.renderer.developmentStandIns)) {
+      if (!developmentStandIn(id, renderer.developmentStandIns)) {
         return undefined
       }
 
@@ -377,7 +451,7 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
       if (id.startsWith(`\0${standInId}`)) {
         const specifier = id.slice(standInId.length + 1).split("?")[0] ?? ""
 
-        return developmentStandIn(specifier, options.renderer.developmentStandIns)
+        return developmentStandIn(specifier, renderer.developmentStandIns)
       }
 
       // The canvas may add a cache-busting query when it retries a load.
@@ -385,7 +459,14 @@ function guestPlugin(options: BuilderStartOptions, rendererGuestPath: string): V
         return undefined
       }
 
-      return guestModuleSource(options.config)
+      const served = config()
+
+      // Nothing asks for the guest before the builder starts, which is when it has the config.
+      if (!served) {
+        throw new Error("The guest was asked for before the builder started")
+      }
+
+      return guestModuleSource(served)
     }
   }
 }

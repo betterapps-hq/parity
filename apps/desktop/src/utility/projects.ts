@@ -17,6 +17,7 @@ import {
   type BuilderDescription,
   type BuilderDetection,
   type AppStyles,
+  type BuilderPrepareOptions,
   type BuilderStartOptions,
   type CodeChange,
   type ComponentInfo,
@@ -28,6 +29,7 @@ import {
   type ExtensionTool,
   libraryManifestExtension,
   type PackageManifest,
+  type ProjectConfig,
   parseCanvasDocument,
   type CanvasDocument,
   type RendererAdapter,
@@ -37,7 +39,7 @@ import {
 } from "@parity-app/core"
 import { batched, type ProviderCall, type ProviderKind, type ProviderResult } from "@parity-app/extensions"
 import {
-  type BuilderProcessOptions,
+  type BuilderLaunchOptions,
   builderProcessOptions,
   type BuilderProcessSession,
   lastLines
@@ -197,7 +199,7 @@ export interface ProjectAdapters {
   entities?: EntitiesDescription[]
   /** The builder link: starts a project's builder in a process of its own (see builders.ts). */
   startBuilder: (
-    options: BuilderProcessOptions,
+    options: BuilderLaunchOptions,
     about: {
       builder: string
       project: string
@@ -308,10 +310,14 @@ interface Opening {
 }
 
 /** What a builder is started with before detection confirms it (PAR-1078): the builder whose config file is there. */
+/** A builder's start options, whose project config may follow once the project is read (PAR-1182). */
+type LaunchOptions = Omit<BuilderStartOptions, "config"> & { config: ProjectConfig | Promise<ProjectConfig> }
+
 interface EarlyStart {
   builder: BuilderDescription
   name: string
-  startOptions: BuilderStartOptions
+  /** Its start options, less the project's config, which follows once the project is read. */
+  options: BuilderPrepareOptions
 }
 
 /**
@@ -444,12 +450,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * Reads what opening a project needs before its builder starts: its package, renderer and builder, the tools it uses,
    * its files and components, and what the type checker found last time.
    *
-   * Confirming the builder is the slow part, as it loads the project's config: Vite's took over a second (PAR-1078). So
-   * the files and components are read first, and `early` hears what the builder would be started with, with the builder
-   * whose config file is there. Its process starts while this one confirms it. Both at once in this process would only
-   * take turns on its thread, and start the builder later.
+   * Loading the project's config and plugins is the slow part: Vite's took over a second (PAR-1078), and about 13 s on
+   * copacker, where Cloudflare's plugin starts its worker runtime (PAR-1182). So the builder whose config file is there
+   * starts as soon as the renderer is known, through `early`, and prepares in its own process while this one reads the
+   * project. Its prepared build tool answers which stylesheets the app loads, which the components wait on, so the
+   * config and plugins load once. Both in this process would only take turns on its thread, and start the builder
+   * later.
    */
-  async function detect(root: string, opening: Opening, early?: (read: EarlyStart) => void) {
+  async function detect(root: string, opening: Opening, early?: (start: EarlyStart) => Promise<AppStyles | undefined>) {
     const pkg = (await readPackage(root))?.manifest
 
     if (!pkg) {
@@ -475,12 +483,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     // change from what it opened with. The serving builder is asked, as several builders' extensions can be running: the
     // one whose config file is there, which starts early, else the first that says it serves the project.
     const likely = likelyBuilder(adapters.builders, root)
+    /** Settles once the stylesheets are known, from the builder started early or from its extension. */
+    const styles = Promise.withResolvers<AppStyles | undefined>()
 
-    const styles = (likely ? Promise.resolve(likely.id) : servingBuilder(adapters.builders, detectOnce)).then(
-      (builder) => appStyles(asking, builder)
-    )
+    // Without a config file to go by, the builder's extension is asked, while the renderer is.
+    if (!likely) {
+      styles.resolve(servingBuilder(adapters.builders, detectOnce).then((builder) => appStyles(asking, builder)))
+    }
 
-    const readingInputs = styles.then((found) => detectionInputs(root, watched, found)).catch(() => undefined)
+    const readingInputs = styles.promise.then((found) => detectionInputs(root, watched, found)).catch(() => undefined)
 
     // Every adapter is asked whether the project uses its tool, through the same context, and only those that find it
     // are used: the first renderer and builder, and every other.
@@ -494,6 +505,26 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const name = pkg.name ?? basename(root)
     const renderer = providedRenderer(rendererFound.adapter, { root, name, pkg })
     opening.framework = renderer.id
+
+    if (likely) {
+      const prepared = early?.({
+        builder: likely,
+        name,
+        options: { root, renderer, rendererGuestPath: guestPath(renderer), allowedOrigins }
+      })
+
+      // A builder that doesn't prepare, or can't say, leaves it to its extension, as one not started early does.
+      styles.resolve(
+        (prepared ?? Promise.resolve(undefined))
+          .catch((cause: unknown) => {
+            logNote(`[service] ${name}'s builder couldn't say which stylesheets the app loads: ${message(cause)}`)
+
+            return undefined
+          })
+          .then((found) => found ?? appStyles(asking, likely.id))
+      )
+    }
+
     const usedBy = <A extends Adapter>(found: AdapterFound<A>[]) => found.filter(({ detection }) => detection.found)
 
     const entitiesFound = await detectAdapters(project, adapters.entities ?? []).then(usedBy)
@@ -514,7 +545,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     const usedEntities = entitiesFound.map(({ adapter }) => adapter)
 
-    const reading = await readProject(root, renderer, pkg, name, usedEntities, styles, early).then(
+    const reading = await readProject(root, renderer, pkg, name, usedEntities, styles.promise).then(
       (read) => ({ read }),
       (cause: unknown) => ({ cause })
     )
@@ -590,8 +621,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     pkg: PackageManifest,
     name: string,
     usedEntities: EntitiesDescription[],
-    styles: Promise<AppStyles | undefined>,
-    early?: (read: EarlyStart) => void
+    styles: Promise<AppStyles | undefined>
   ) {
     // The project files are read before discovery. A project file that can't be read stops the project opening, with an
     // error naming it (PAR-1011).
@@ -652,12 +682,6 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       renderer,
       rendererGuestPath: guestPath(renderer),
       allowedOrigins
-    }
-
-    const likely = likelyBuilder(adapters.builders, root)
-
-    if (likely) {
-      early?.({ builder: likely, name, startOptions })
     }
 
     return { config, discovered, documents, entities, fingerprint, known, mainDocument, opened, saved, startOptions }
@@ -725,15 +749,27 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
   async function start(root: string, opening: Opening): Promise<ProjectInfo> {
     const began = performance.now()
     let builderStarted = began
-    /** The builder started before detection confirmed it, and its session. */
-    let early: { builder: BuilderDescription; serving: Promise<BuilderProcessSession> } | undefined
 
-    const serve = async (builder: BuilderDescription, name: string, options: BuilderStartOptions) => {
+    /** The builder started before detection confirmed it, its session, and the config it's waiting for. */
+    let early:
+      | {
+          builder: BuilderDescription
+          serving: Promise<BuilderProcessSession>
+          config: PromiseWithResolvers<ProjectConfig>
+        }
+      | undefined
+
+    const serve = async (
+      builder: BuilderDescription,
+      name: string,
+      options: LaunchOptions,
+      launched?: (started: StartedBuilder) => void
+    ) => {
       // The same project's last builder may still be closing.
       await closing.get(root)
       builderStarted = performance.now()
 
-      return serveBuilder(root, name, builder, options)
+      return serveBuilder(root, name, builder, options, false, true, launched)
     }
 
     const closeEarly = async () => {
@@ -741,16 +777,22 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       early = undefined
 
       if (started) {
+        // It may still be waiting for the config, which it won't get now.
+        started.config.reject(new Error(`${started.builder.name} doesn't serve the project`))
         await stopServing(root, started.serving)
       }
     }
 
     const detected = await inSpan("project.detected", { root }, () =>
-      detect(root, opening, (read) => {
-        const serving = serve(read.builder, read.name, read.startOptions)
+      detect(root, opening, ({ builder, name, options }) => {
+        const config = Promise.withResolvers<ProjectConfig>()
+        const launch = Promise.withResolvers<StartedBuilder>()
+        const serving = serve(builder, name, { ...options, config: config.promise }, launch.resolve)
         // Its error is the opening's only once detection confirms the builder.
-        serving.catch(() => undefined)
-        early = { builder: read.builder, serving }
+        serving.catch(launch.reject)
+        early = { builder, serving, config }
+
+        return launch.promise.then((started) => started.styles())
       })
     ).catch((cause: unknown) => {
       void closeEarly()
@@ -788,6 +830,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       await closeEarly()
     }
 
+    early?.config.resolve(startOptions.config)
+
     const serving = early?.serving ?? serve(builder, name, startOptions)
     serving.then(
       () => (opening.builderMs = since(builderStarted)),
@@ -816,7 +860,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       root,
       name,
       renderer: { id: renderer.id, name: renderer.name },
-      builder: { id: builder.id, name: builder.name, toolVersion: session.toolVersion },
+      builder: {
+        id: builder.id,
+        name: builder.name,
+        toolVersion: session.toolVersion,
+        ...(builder.console && { console: builder.console })
+      },
       router: routed?.router,
       styles,
       guestUrl: session.guestUrl,
@@ -910,9 +959,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     root: string,
     name: string,
     builder: BuilderDescription,
-    options: BuilderStartOptions,
+    options: LaunchOptions,
     again = false,
-    newPort = !again
+    newPort = !again,
+    /** Told the builder that started, before it serves. */
+    launched?: (started: StartedBuilder) => void
   ): Promise<BuilderProcessSession> {
     const id = builderProcessId(root)
     const began = performance.now()
@@ -972,6 +1023,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         }
       }
     })
+
+    launched?.(started)
 
     if (started.pid) {
       tracking.set("starting", { pid: started.pid })

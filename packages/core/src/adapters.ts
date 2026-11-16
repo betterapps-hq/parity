@@ -378,12 +378,55 @@ export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] a
 export interface BuilderAdapter extends Adapter {
   /** Its config files, relative to the project root, which say whether it serves the project (PAR-826). */
   watches: readonly string[]
+  /** What its dev build writes to the console and serves that isn't the project's own, from its manifest. */
+  console?: BuilderConsole
   start(options: BuilderStartOptions): Promise<BuilderSession>
+  /**
+   * Starts in two steps, so the slow part overlaps Parity reading the project (PAR-1182). The build tool loads the
+   * project's config and plugins before the project's components are known. Then the prepared builder says which
+   * global stylesheets the app loads, using that same build tool, and starts once it has the project's config. A
+   * builder without it is started whole, once the config is known.
+   */
+  prepare?(options: BuilderPrepareOptions): Promise<PreparedBuilder>
   /**
    * The global stylesheets the app loads, as the build tool resolves the app's imports from its entries: the only
    * source Parity has for them. Empty when the app loads none, as with CSS-in-JS.
    */
   styles?(project: DetectContext): Promise<AppStyles>
+}
+
+/** What a builder prepares with (`BuilderAdapter.prepare`): its start options, less the project's config. */
+export type BuilderPrepareOptions = Omit<BuilderStartOptions, "config">
+
+/** A builder whose build tool has loaded the project's config, and hasn't started serving yet. */
+export interface PreparedBuilder {
+  /** The global stylesheets the app loads, as `BuilderAdapter.styles` finds them, using the prepared build tool. */
+  styles(): Promise<AppStyles>
+  /** Starts serving the guest of `config`. A builder starts once. */
+  start(config: ProjectConfig): Promise<BuilderSession>
+  /** Closes the build tool without starting it. */
+  close(): Promise<void>
+}
+
+/**
+ * What a builder's dev build adds that isn't the project's own, as regular expressions: the messages it writes to the
+ * console, such as Vite's about hot updates, and the paths of modules it makes, such as Vite's `@vite/client`.
+ */
+export interface BuilderConsole {
+  /** Messages it writes, which the Console panel and agents leave out. */
+  chatter?: string[]
+  /** Paths, from the server's root without the leading slash, of modules it makes rather than serves from the project. */
+  generatedPaths?: string[]
+}
+
+/** Whether a console message is the builder's own chatter, as its manifest describes it. */
+export function isBuilderChatter(text: string, builder: BuilderConsole | undefined): boolean {
+  return (builder?.chatter ?? []).some((pattern) => new RegExp(pattern).test(text))
+}
+
+/** Whether a path the builder serves, from its root without the leading slash, is a module it made. */
+export function isGeneratedPath(path: string, builder: BuilderConsole | undefined): boolean {
+  return (builder?.generatedPaths ?? []).some((pattern) => new RegExp(pattern).test(path))
 }
 
 /** The global stylesheets an app loads, as its builder reports them (`BuilderAdapter.styles`). */
@@ -400,7 +443,7 @@ export interface AppStyles {
  * A builder as its extension's manifest describes it (PAR-1095): its provider says whether it serves a project, and its
  * entry module starts it, in the builder process.
  */
-export type BuilderDescription = Omit<BuilderAdapter, "start" | "detect" | "styles">
+export type BuilderDescription = Omit<BuilderAdapter, "start" | "prepare" | "detect" | "styles">
 
 /** What of an extension's `package.json` describes the builder it gives. */
 export interface BuilderPackage {
@@ -410,7 +453,7 @@ export interface BuilderPackage {
     displayName: string
     icon?: AdapterIcon
     versions?: ToolVersionsExtra
-    contributes: { providers?: { builder?: { entry: string; watches: string[] } } }
+    contributes: { providers?: { builder?: { entry: string; watches: string[]; console?: BuilderConsole } } }
   }
 }
 
@@ -432,6 +475,10 @@ export function extensionBuilder(pkg: BuilderPackage): BuilderDescription | unde
 
   if (versions) {
     description.versions = versions
+  }
+
+  if (builder.console) {
+    description.console = builder.console
   }
 
   return description

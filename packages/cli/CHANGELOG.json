@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 03:59:00 GMT",
+      "version": "0.72.1",
+      "tag": "@parity-app/cli_v0.72.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "ba5e16713884c50e1f1c45203e60b0d0e089ec7c",
+            "comment": "Leave the builder's own console chatter to its manifest, and drop the inspector's dead Tailwind readouts"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 00:12:13 GMT",
       "version": "0.72.0",
       "tag": "@parity-app/cli_v0.72.0",

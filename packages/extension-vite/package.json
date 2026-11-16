@@ -62,7 +62,15 @@
             "vite.config.js",
             "vite.config.mjs",
             "vite.config.cjs"
-          ]
+          ],
+          "console": {
+            "chatter": [
+              "^\\[vite\\]"
+            ],
+            "generatedPaths": [
+              "^@"
+            ]
+          }
         }
       }
     }

@@ -336,6 +336,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     revision: revisionOf(session),
     projectId: session.id,
     guestUrl: session.info.guestUrl,
+    ...(session.info.builder.console && { builderConsole: session.info.builder.console }),
     // The guest keeps components whose files were deleted since it loaded; they aren't the project's any more.
     components: session.loaded.guest.components.filter((name) => name in session.info.sources),
     sources: session.info.sources,

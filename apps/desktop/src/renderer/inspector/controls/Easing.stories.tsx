@@ -48,8 +48,7 @@ function EasingStory({ start, open = false, mixed = false }: { start?: Easing; o
     const duration = timeWrites("duration", { step: ms })
     writes = {
       stored: { easing: writes.stored, duration: { setBy: "Easing" } },
-      css: [...duration.css, ...writes.css],
-      tailwind: [...duration.tailwind, ...writes.tailwind]
+      css: [...duration.css, ...writes.css]
     }
   }
 
@@ -74,7 +73,7 @@ export const Unset: Story = { render: () => <EasingStory /> }
 /** Ease out, one of Tailwind's: `ease-out`. */
 export const Preset: Story = { render: () => <EasingStory start={{ keyword: "ease-out" }} /> }
 
-/** Preset, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Preset, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Preset, parameters: { demo: true } }
 
 /** The project's `ease-snappy`, as a chip with its curve: `ease-snappy`. */

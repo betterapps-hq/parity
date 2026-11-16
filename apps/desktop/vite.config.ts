@@ -30,7 +30,14 @@ export default defineConfig(({ mode }) => {
     // Dependencies come without their source maps inlined, which cost the window more memory than their code, and each
     // lucide icon loads on its own rather than every one with the first.
     plugins: lazyPlugins(() => [reactPlugin(react.react), tailwindcss(), dependencySourceMaps(), iconImportsPlugin()]),
-    resolve: { alias: react.alias },
+    // Loro, for the live room in development (src/renderer/live-room.ts), as the build that carries its WebAssembly
+    // inline: the one Vite would pick imports the `.wasm` file as a module, which needs a plugin.
+    resolve: {
+      alias: [
+        ...Object.entries(react.alias).map(([find, replacement]) => ({ find, replacement })),
+        { find: /^loro-crdt$/, replacement: "loro-crdt/base64" }
+      ]
+    },
     // Prebundled dependencies are minified, which halves what the window holds of tldraw and React DOM. Their source
     // maps still lead DevTools to the code as published; only the app's own code is served as written.
     optimizeDeps: { rolldownOptions: { output: { minify: true }, ...react.dependencies } },
