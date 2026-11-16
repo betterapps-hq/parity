@@ -113,7 +113,9 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's
   `providers.builder` names its entry module, which the builder process runs, the config files it watches, and in
   `console`, what its dev build adds that isn't the project's: `chatter`, the messages it writes, and `generatedPaths`,
-  the modules it makes, each a list of regular expressions, which the Console panel and agents leave out. An `entities`
+  the modules it makes, each a list of regular expressions, which the Console panel and agents leave out. A builder
+  whose entry has `prepare()` as well as `start()` loads the project's config before its components are known and says
+  which stylesheets the app loads with it, so the config loads once as the project opens (PAR-1182). An `entities`
   provider's `import({ components })` reads a tool's files as screens and `export({ screen, edited, components })`
   writes an edited one back, as Storybook's stories, while the manifest's `providers.entities` names the config files it
   watches, which also say where its tool's config is, and how Parity shows its screens (PAR-1131): `group`, what Layers

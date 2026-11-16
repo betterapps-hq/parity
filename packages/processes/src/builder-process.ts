@@ -1,11 +1,14 @@
 import { createChannel, type Port } from "@parity-app/channel"
 import type {
+  AppStyles,
   BuilderAdapter,
+  BuilderPrepareOptions,
   BuilderRenderer,
   BuilderSession,
   BuilderStartOptions,
   CodeChange,
   ComponentSource,
+  PreparedBuilder,
   ProjectConfig
 } from "@parity-app/core"
 import { type ChildExit, endedByItself, type Lifecycle } from "./lifecycle.ts"
@@ -22,9 +25,24 @@ import { type ChildExit, endedByItself, type Lifecycle } from "./lifecycle.ts"
 /** A builder's start options as they cross to its process, with the builder by id. */
 export type BuilderProcessOptions = BuilderStartOptions & { builder: string }
 
+/** What a builder's process prepares with (`BuilderAdapter.prepare`): its start options, less the project's config. */
+type BuilderProcessPrepareOptions = BuilderPrepareOptions & { builder: string }
+
+/**
+ * A builder's start options for `connectBuilderProcess`, whose project config may come later (PAR-1182): its process
+ * prepares the builder meanwhile, when the builder can, and says which stylesheets the app loads.
+ */
+export type BuilderLaunchOptions = Omit<BuilderProcessOptions, "config"> & {
+  config: ProjectConfig | Promise<ProjectConfig>
+}
+
 /** What the project service asks of a builder's process. */
 export interface BuilderProcessMethods {
-  /** Starts the builder, and answers once it serves the guest. */
+  /** Prepares the builder before the project's config is known, when it can (`BuilderAdapter.prepare`). */
+  prepare: { params: BuilderProcessPrepareOptions; result: undefined }
+  /** The global stylesheets the app loads, from the prepared builder; none when it doesn't prepare. */
+  styles: { params: undefined; result: AppStyles | undefined }
+  /** Starts the builder, prepared or not, and answers once it serves the guest. */
   start: { params: BuilderProcessOptions; result: { guestUrl: string; toolVersion: string } }
   /** The components the guest imports, which change as the type checker and edited files find them. */
   components: { params: Record<string, ComponentSource>; result: undefined }
@@ -54,8 +72,11 @@ export interface ProcessTimes {
   memory: number
 }
 
-/** Start options as data, for a builder's process. */
-export function builderProcessOptions(builder: { id: string }, options: BuilderStartOptions): BuilderProcessOptions {
+/** Start options as data, for a builder's process. The project's config may come later (`BuilderLaunchOptions`). */
+export function builderProcessOptions<C extends ProjectConfig | Promise<ProjectConfig>>(
+  builder: { id: string },
+  options: Omit<BuilderStartOptions, "config"> & { config: C }
+): Omit<BuilderProcessOptions, "config"> & { config: C } {
   const { id, name, guestModule, runtimePackages, runtimeImports, developmentStandIns } = options.renderer
   const renderer: BuilderRenderer = { id, name, guestModule, runtimePackages, runtimeImports }
 
@@ -81,11 +102,36 @@ export interface BuilderProcessSide {
  */
 export function serveBuilderProcess(side: BuilderProcessSide, builders: BuilderAdapter[]): void {
   let config: ProjectConfig | undefined
+  let prepared: Promise<PreparedBuilder> | undefined
   let session: Promise<BuilderSession | undefined> = Promise.resolve(undefined)
   let closing = false
   const channel = createChannel<BuilderProcessMethods, BuilderServiceMethods>()
 
+  const builderCalled = (id: string) => {
+    const builder = builders.find((adapter) => adapter.id === id)
+
+    if (!builder) {
+      throw new Error(`No builder is called ${id}`)
+    }
+
+    return builder
+  }
+
   channel.serve({
+    prepare({ builder: id, ...options }) {
+      const builder = builderCalled(id)
+
+      if (prepared || config || !builder.prepare) {
+        return
+      }
+
+      prepared = builder.prepare(options)
+      // Its failure is the start's, which waits for it.
+      prepared.catch(() => undefined)
+    },
+    async styles() {
+      return prepared ? (await prepared).styles() : undefined
+    },
     async start(options) {
       if (config) {
         throw new Error("The builder has started already")
@@ -95,13 +141,9 @@ export function serveBuilderProcess(side: BuilderProcessSide, builders: BuilderA
       config = rest.config
 
       const starting = (async () => {
-        const builder = builders.find((adapter) => adapter.id === id)
+        const builder = builderCalled(id)
 
-        if (!builder) {
-          throw new Error(`No builder is called ${id}`)
-        }
-
-        return builder.start(rest)
+        return prepared ? (await prepared).start(rest.config) : builder.start(rest)
       })()
 
       session = starting.catch(() => undefined)
@@ -136,8 +178,9 @@ export function serveBuilderProcess(side: BuilderProcessSide, builders: BuilderA
       }
 
       closing = true
-      void session
-        .then((started) => started?.close())
+      // A prepared builder that never started closes too.
+      const unstarted = config ? undefined : prepared
+      void Promise.all([session.then((started) => started?.close()), unstarted?.then((builder) => builder.close())])
         .catch(() => undefined)
         .then(() => side.exit())
     }
@@ -183,6 +226,11 @@ export interface BuilderProcessClient {
   session: Promise<BuilderProcessSession>
   /** The process's CPU and memory, while it runs, starting or not. */
   usage(): Promise<BuilderUsage | undefined>
+  /**
+   * The global stylesheets the app loads, as the prepared builder finds them (PAR-1182); none when the builder doesn't
+   * prepare, or its process has ended. Fails when the builder couldn't find them.
+   */
+  styles(): Promise<AppStyles | undefined>
 }
 
 export interface BuilderProcessClientOptions {
@@ -209,7 +257,7 @@ export interface BuilderProcessClientOptions {
  */
 export function connectBuilderProcess(
   { port, life }: BuilderProcessLink,
-  options: BuilderProcessOptions,
+  { config, ...prepareOptions }: BuilderLaunchOptions,
   {
     name = "The builder",
     onCrash,
@@ -275,29 +323,42 @@ export function connectBuilderProcess(
       : Promise.resolve(undefined)
 
   channel.connect(port)
+  // Prepared while the project's config is read, when the builder can; its failure is the start's.
+  void channel.request("prepare", prepareOptions).catch(() => undefined)
 
-  const started = channel.request("start", options).then(({ guestUrl, toolVersion }): BuilderProcessSession => {
-    // A start that answers after it was told to close is closing anyway.
-    if (state !== "starting") {
-      throw new Error(`${name} closed before it started`)
-    }
+  const styles = (): Promise<AppStyles | undefined> =>
+    state === "ended" ? Promise.resolve(undefined) : channel.request("styles", undefined)
 
-    state = "running"
+  const started = Promise.resolve(config)
+    .then((known) => {
+      if (state !== "starting") {
+        throw new Error(`${name} closed before it started`)
+      }
 
-    return {
-      guestUrl,
-      toolVersion,
-      setComponents: (components) => {
-        if (state === "running") {
-          void channel.request("components", components).catch(() => undefined)
-        }
-      },
-      usage,
-      restyledGuestUrl,
-      loadedFiles,
-      close
-    }
-  })
+      return channel.request("start", { ...prepareOptions, config: known })
+    })
+    .then(({ guestUrl, toolVersion }): BuilderProcessSession => {
+      // A start that answers after it was told to close is closing anyway.
+      if (state !== "starting") {
+        throw new Error(`${name} closed before it started`)
+      }
+
+      state = "running"
+
+      return {
+        guestUrl,
+        toolVersion,
+        setComponents: (components) => {
+          if (state === "running") {
+            void channel.request("components", components).catch(() => undefined)
+          }
+        },
+        usage,
+        restyledGuestUrl,
+        loadedFiles,
+        close
+      }
+    })
 
   // A builder that couldn't start has its process ended.
   started.catch(() => void close())
@@ -318,7 +379,7 @@ export function connectBuilderProcess(
 
   exited.catch(() => undefined)
 
-  return { session: Promise.race([started, exited]), usage }
+  return { session: Promise.race([started, exited]), usage, styles }
 }
 
 /** What `asked` answers, or nothing when it fails or takes longer than `ms`. */

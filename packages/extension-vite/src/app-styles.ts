@@ -44,15 +44,35 @@ export async function viteAppStyles(root: string): Promise<AppStyles> {
   const client = await clientGraph(vite, options)
 
   try {
-    const base = vite.normalizePath(root)
-
-    return await chooseAppStyles(await importedStyles(client, base), base, (specifier, importer) =>
-      client.resolve(specifier, importer)
-    )
+    return await stylesIn(vite, client, root)
   } finally {
     await client.close()
     await rm(cacheDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
   }
+}
+
+/**
+ * The global stylesheets the app at `root` loads, read with a Vite server that's already running: the builder's own, so
+ * finding them doesn't load the project's config and plugins a second time (PAR-1182). It compiles the same modules
+ * the guest will import anyway, through the same environment, so the guest's warm-up reuses them.
+ */
+export async function serverAppStyles(vite: typeof Vite, server: Vite.ViteDevServer, root: string): Promise<AppStyles> {
+  const client = server.environments.client
+
+  if (!client) {
+    throw new Error("Vite did not create its client environment")
+  }
+
+  return stylesIn(vite, environmentGraph(vite, client), root)
+}
+
+/** The stylesheets the app's modules, as `client` compiles them, import: see `viteAppStyles`. */
+async function stylesIn(vite: typeof Vite, client: ClientGraph, root: string): Promise<AppStyles> {
+  const base = vite.normalizePath(root)
+
+  return chooseAppStyles(await importedStyles(client, base), base, (specifier, importer) =>
+    client.resolve(specifier, importer)
+  )
 }
 
 /**
@@ -133,18 +153,22 @@ async function clientGraph(vite: typeof Vite, options: Vite.InlineConfig): Promi
   const config = await vite.resolveConfig(options, "serve", "development")
   const client = new vite.DevEnvironment("client", config, { hot: false })
   await client.init()
-  const { build } = client.config
 
+  return { ...environmentGraph(vite, client), close: () => client.close() }
+}
+
+/** A Vite 6+ client environment as the walk reads it. Closing it is left to whoever made it. */
+function environmentGraph(vite: typeof Vite, client: Vite.DevEnvironment): ClientGraph {
   return {
-    input: configInput(build),
+    input: configInput(client.config.build),
     transform: async (url) => {
       await client.transformRequest(url)
     },
     module: async (url) => graphModule(await client.moduleGraph.getModuleByUrl(url)),
     resolve: async (id, importer) => (await client.pluginContainer.resolveId(id, importer))?.id,
-    staticSpecifiers,
+    staticSpecifiers: (code) => parsedSpecifiers(vite, code),
     extensions: client.config.resolve.extensions,
-    close: () => client.close()
+    close: () => Promise.resolve()
   }
 }
 

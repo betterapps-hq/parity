@@ -62,6 +62,14 @@ async function write(path: string, contents: string): Promise<void> {
 interface Failures {
   detection?: Error
   start?: Error
+  /** The prepared builder fails to find the stylesheets. */
+  builderStyles?: Error
+}
+
+/** What the fake builder says the app loads: its extension's answer, and its prepared build tool's. */
+interface FakeStyles {
+  styles: AppStyles
+  builderStyles?: AppStyles
 }
 
 /** What a test runs as the fake builder starts. */
@@ -83,8 +91,11 @@ function fakeBuilder() {
   const failures: Failures = {}
   const hooks: BuilderHooks = {}
   const none: AppStyles = { styles: [], packageStyles: [], from: ["src/main.tsx"] }
-  /** What it says the app loads, which a test changes as a change to the app's root would. */
-  const loads = { styles: none }
+  /**
+   * What it says the app loads, which a test changes as a change to the app's root would: its extension's answer, and
+   * the prepared builder's (PAR-1182), which a builder that doesn't prepare leaves unset.
+   */
+  const loads: FakeStyles = { styles: none }
 
   const builder: BuilderAdapter = {
     id: "fake",
@@ -127,15 +138,33 @@ function fakeBuilder() {
       session.restyledGuestUrl = (stamp) => Promise.resolve(`${session.guestUrl}?styles=${stamp}`)
     }
 
-    return { pid: 1, session: failures.start ? Promise.reject(failures.start) : Promise.resolve(session) }
+    // As a builder process does, it starts once the project's config is known, and its prepared build tool may say
+    // which stylesheets the app loads before then.
+    const config = Promise.resolve(options.config)
+
+    return {
+      pid: 1,
+      // One whose config never comes, as when detection fails, has its process closed.
+      session: failures.start
+        ? Promise.reject(failures.start)
+        : config.then(
+            () => session,
+            async (cause: unknown) => {
+              await session.close()
+              throw cause
+            }
+          ),
+      styles: () =>
+        failures.builderStyles ? Promise.reject(failures.builderStyles) : Promise.resolve(loads.builderStyles)
+    }
   }
 
   /** Crashes the builder started last, as its process stopping by itself does. */
   const crash = (exitCode: number, output: string) =>
     crashes.at(-1)?.(`Fake builder stopped by itself, with exit code ${exitCode}`, { exitCode, output })
 
-  /** Makes the builder fail from now on with this error: reading the project's config, or answering once started. */
-  const fail = (at: "detection" | "start", error: Error) => {
+  /** Makes the builder fail from now on with this error: reading the project's config, starting, or finding stylesheets. */
+  const fail = (at: keyof Failures, error: Error) => {
     failures[at] = error
   }
 
@@ -326,6 +355,25 @@ describe("opening a project", () => {
 
     expect(builder.started).toEqual([5100])
     await vi.waitFor(() => expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"]))
+  })
+
+  it("takes the app's stylesheets from the builder it started early, without loading the config again", async () => {
+    await write("fake.config.ts", "export default {}")
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    const { projects, builder } = setUp()
+    builder.loads.builderStyles = { styles: ["src/styles/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+
+    expect((await projects.open(root)).notes).toContain("styles the builder found: src/styles/app.css")
+  })
+
+  it("asks the builder's extension for the stylesheets when the builder it started early can't say", async () => {
+    await write("fake.config.ts", "export default {}")
+    await write("src/styles/app.css", ":root { --primary: red; }")
+    const { projects, builder } = setUp()
+    builder.loads.styles = { styles: ["src/styles/app.css"], packageStyles: [], from: ["src/main.tsx"] }
+    builder.fail("builderStyles", new Error("Its walk failed"))
+
+    expect((await projects.open(root)).notes).toContain("styles the builder found: src/styles/app.css")
   })
 
   it("takes its root from the project Parity was started with, read when the projects are made", () => {
