@@ -6332,11 +6332,14 @@ found by name. A note says so and names `parity lib <package> --registry`, which
 version newer than every file takes the newest older file the same way.
 
 Code: `registryEntryFor` in `packages/registry/src/index.ts`, which marks such a file `newer`; `findLibraries` in
-`packages/project/src/libraries.ts`, which checks its components against the package's declarations.
+`packages/project/src/libraries.ts`, which checks its components against the package's declarations; `packageExports` in
+`packages/code/src/package-exports.ts`, which asks TypeScript what the package exports, so components made with a
+factory, as Mantine's are, aren't dropped.
 
 Tests: `packages/registry/src/index.test.ts` ("uses the oldest newer file for a version older than every file");
-`packages/project/src/library-files.test.ts` ("keeps a file made for a newer version, with its decorators"); the
-`nextjs-webpack` validation project, which lists Mantine as a library.
+`packages/project/src/library-files.test.ts` ("keeps a file made for a newer version, with its decorators");
+`packages/code/src/package-exports.test.ts` (each way a package exports a name); the `nextjs-webpack` validation
+project, which lists Mantine as a library.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
