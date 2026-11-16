@@ -410,31 +410,78 @@ async function exportsOf(
 }
 
 /**
- * The source of a module and of every file of the package's own it re-exports from, by path: where to look for a name
- * it exports when what declares it isn't a component the renderer recognises, as Mantine's `factory()` components.
+ * Every value name a module exports, whatever declares it: its own `export` declarations and lists, and what its
+ * re-exports bring, `export *` everything but `default` and `export { A, B as C } from` only those names. Where the
+ * renderer doesn't take a declaration for a component, as Mantine's `factory()` components, this still says whether the
+ * package exports it. Types are left out.
  */
-export async function reexportedSources(file: string, read = new Map<string, string>()): Promise<Map<string, string>> {
-  if (read.has(file)) {
-    return read
+export function exportedNames(file: string): Promise<Set<string>> {
+  return namesOf(file, new Map())
+}
+
+async function namesOf(file: string, read: Map<string, Set<string>>): Promise<Set<string>> {
+  const known = read.get(file)
+
+  if (known) {
+    return known
   }
 
+  const found = new Set<string>()
+  read.set(file, found)
   const source = await readFile(file, "utf8").catch(() => undefined)
 
   if (source === undefined) {
-    return read
+    return found
   }
 
-  read.set(file, source)
+  const declared =
+    /export\s+(?:declare\s+)?(?:default\s+)?(?:abstract\s+)?(?:async\s+)?(?:const|let|var|function\*?|class|enum|namespace)\s+([\w$]+)/g
+
+  for (const match of source.matchAll(declared)) {
+    found.add(match[1]!)
+  }
+
+  // `export { A, B as C }` with no `from` names the module's own declarations.
+  for (const match of source.matchAll(/export\s+\{([^}]*)\}(?!\s*from)/g)) {
+    for (const part of match[1]!.split(",")) {
+      const [name, as] = part
+        .trim()
+        .split(/\s+as\s+/)
+        .map((text) => text.trim())
+
+      if (name && !name.startsWith("type ")) {
+        found.add(as ?? name)
+      }
+    }
+  }
 
   for (const reexport of reexportsOf(source)) {
     const target = resolveRelative(file, reexport.from)
 
-    if (target) {
-      await reexportedSources(target, read)
+    if (!target) {
+      continue
+    }
+
+    const inner = await namesOf(target, read)
+
+    if (!reexport.names) {
+      for (const name of inner) {
+        if (name !== "default") {
+          found.add(name)
+        }
+      }
+
+      continue
+    }
+
+    for (const [name, as] of reexport.names) {
+      if (inner.has(name)) {
+        found.add(as)
+      }
     }
   }
 
-  return read
+  return found
 }
 
 /** A module's re-exports: `export * from "./x"` (every name), and `export { A, B as C } from "./x"`. Types are left out. */
