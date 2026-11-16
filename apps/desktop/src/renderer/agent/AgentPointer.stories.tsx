@@ -34,7 +34,7 @@ function Cursor({
 }
 
 const meta = {
-  title: "Agent/Cursor",
+  title: "Parity/Multiplayer/Agents/Cursor",
   component: Cursor,
   parameters: { layout: "fullscreen" },
   argTypes: {
@@ -63,36 +63,3 @@ export const Idle: Story = { args: { state: "idle", kind: undefined, label: "" }
 
 /** Over a light design, as it often is. */
 export const OnLight: Story = { args: { light: true } }
-
-/** The badge beside the pointer in each state; idle shows none. */
-const badges = {
-  rest: { kind: "read", label: "Review pricing" },
-  pressed: { kind: "move", label: "Tidy the layout" },
-  idle: undefined
-} as const
-
-/** Every state side by side, in every palette. */
-export const AllStates: Story = {
-  render: () => (
-    <div className="grid grid-cols-3 gap-x-16 gap-y-12 bg-[#0e0e10] p-16">
-      {agentPalettes.flatMap((palette) =>
-        (["rest", "pressed", "idle"] as const).map((state) => (
-          <div key={`${palette.name}-${state}`} className="flex flex-col gap-3">
-            <span className="text-xs text-muted-foreground">
-              {palette.name}, {state}
-            </span>
-            <div className="group/cursor relative h-12" data-idle={state === "idle"}>
-              <AgentPointer palette={palette} pressed={state === "pressed"} />
-              <AgentBadge
-                palette={palette}
-                agent="Claude Code"
-                kind={badges[state]?.kind}
-                label={badges[state]?.label}
-              />
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  )
-}

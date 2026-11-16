@@ -239,7 +239,7 @@ describe("a component's slots", () => {
   })
 
   it("aren't shown while a layer is dragged", () => {
-    expect(overlayMarks(scene({ slots, drag: { ghost: { x: 0, y: 0, w: 10, h: 10 } } })).slots).toBeUndefined()
+    expect(overlayMarks(scene({ slots, drag: { carried: true } })).slots).toBeUndefined()
   })
 })
 

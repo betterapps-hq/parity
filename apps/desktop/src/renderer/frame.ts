@@ -280,6 +280,22 @@ export function adoptFrameSheet(host: Element, sheet: CSSStyleSheet): void {
   }
 }
 
+/** Takes away a stylesheet `adoptFrameSheet` added. */
+export function dropFrameSheet(host: Element, sheet: CSSStyleSheet): void {
+  const shadow = host.shadowRoot
+
+  if (shadow?.adoptedStyleSheets.includes(sheet)) {
+    shadow.adoptedStyleSheets = shadow.adoptedStyleSheets.filter((adopted) => adopted !== sheet)
+  }
+}
+
+/** A frame's own rules, and a style edit's preview over them: what its layers that have no classes are drawn from. */
+export function frameRuleSheets(host: Element): CSSStyleSheet[] {
+  const sheets = frameSheets.get(host)
+
+  return sheets ? [sheets.rules, sheets.preview] : []
+}
+
 /** Sizes the window a frame stands for: the project's viewport units measure it. */
 export function setFrameViewport(host: HTMLElement, viewport: FrameViewport): void {
   host.style.setProperty(viewportWidthProperty, `${viewport.width / 100}px`)

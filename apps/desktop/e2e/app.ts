@@ -37,7 +37,7 @@ interface PageHelpers {
   size(key: string, id: string): { width: number; height: number } | undefined
   /**
    * What a layout draws in the design's main frame, in order: each child layer's id, `hidden:<id>` for one that isn't
-   * drawn, and `copy` for the faded copy a drag shows where layers would land.
+   * drawn, and `copy` for the hidden copy, drawn as an outline, that a drag shows where layers would land.
    */
   drawn(key: string, id: string): string[]
   /** The page's stand-in for the system clipboard, which is never read or written. */

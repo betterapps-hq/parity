@@ -2033,10 +2033,68 @@ in the app, not by a test. The stories' play functions run in Storybook, not in 
 
 Dragging layers and designs, where they land, resize handles and duplicates.
 
+### How dragged things move (PAR-1199)
+
+Everything dragged on the canvas is picked up, carried and put down the same way, as the `Parity/Canvas/Dragging`
+stories show it (PAR-1188):
+
+- **Picked up,** it grows 3% from where it was grabbed, so that point stays under the pointer, and lifts onto a
+  two-layer shadow that follows its shape, in 120 ms. **Carried,** it follows the pointer exactly. **Dropped,** it
+  settles in 180 ms, quick to start and gentle to land (`cubic-bezier(0.2, 0, 0, 1)`). **Cancelled with Escape,** it
+  flies back to where it was in 260 ms, a little slower, so it reads as going back.
+- **A layer in a layout (flex or grid)** stays where it is, hidden, and a picture of it is carried, lifted. Nothing of
+  it is left behind: an empty dashed outline in the layer color, 1.5px wide, shows where it would land, so it reads as
+  moved rather than copied. The outline sits 1px outside the layer, or just inside one that clips what overflows it,
+  where it would be cut off; round a layer that can't hold it, as an image or a field can't, it's pinned beside it, 1px
+  outside. The layout makes room for it as it moves (see "Where a dragged layer lands", below): what's around it slides
+  aside in 180 ms, with the same easing, and the outline slides from slot to slot, rather than either jumping. A slide
+  turned around mid-way carries on from where it's drawn. Dropped, the picture flies into the outline, where the layer
+  will be once any slide still going ends, and the moved layer stays hidden until the picture gets there and goes.
+  Cancelled, or dropped where nothing takes it, the row closes and the picture flies back to where the layer is, which
+  stays empty until then, as the row slides closed. The layer's selection outline is left out until the picture lands.
+- **An absolutely placed layer** lifts itself, follows the pointer and settles where it's dropped; nothing marks where
+  it was. Its outline follows it, a little bigger while it's carried, but its size label says its own size. Cancelled,
+  it flies back from where it was let go.
+- **A board dragged by its name** lifts itself, with every other selected board, follows the pointer and settles; on
+  Escape the boards fly back.
+- **With reduced motion** (the system's setting) nothing grows or flies: what's picked up keeps its shadow, and a drop
+  or Escape puts it where it goes at once.
+- **Edge cases.** The picture copies the layers into a shadow root of its own, each part drawn as it's drawn now,
+  property by property, `::before` and `::after` too, so rules about what a layer's in, what's beside it or its
+  container still show, and as faint and filtered as what it's in makes it (an SVG filter, `url()`, is left out). What's
+  placed absolutely or fixed inside a layer that isn't positioned stays where it's drawn, though the copy is placed
+  absolutely. A canvas element's drawing and scroll positions inside them aren't copied. Nothing in the picture is hit.
+  The copy holding a layer's place, and the moved layer until the picture lands, are hidden all the way through, so
+  nothing inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag, in
+  Multiplayer's drag previews, will reuse the same parts with their outline and color (not wired yet).
+
+Code: the timings and looks are in one place, `apps/desktop/src/renderer/canvas/drag-motion.ts` (`liftMs`, `dropMs`,
+`cancelMs`, `makeRoomMs`, `settle`, `liftScale`, the shadows, `landingEdge`, `landingEdgeStyle` and `lift`). The
+design's parts draw them: `DragLift` lifts what React draws, `DragPicture` carries a picture and flies it, and
+`LandingSpot` is the empty outline. In a frame, the layout's placeholder is a hidden copy of the layer that keeps its
+size, with the outline drawn over it by `landingEdgeStyle`; while the picture flies in, the overlay draws a
+`LandingSpot` where it lands. The canvas's own drags use them: `canvas/carried.ts` (`carriedPictures`) keeps the carried
+picture from pick-up until it lands, which the overlay draws as a `DragPicture` (`canvas/CarriedPicture.tsx`);
+`canvas/layer-picture.ts` (`layerPicture`) takes the picture; `canvas/make-room.ts` (`slideElements`) slides what makes
+room; `canvas/element-lift.ts` (`liftElements`) lifts the canvas's own elements, an absolutely placed layer or a board,
+settles them and flies them back, and `liftOf` tells the overlay how much bigger one is drawn; `canvas/layer-drag.ts`
+(`pressLayers`) and `canvas/ContainerUtil.tsx` (`dragByTitle`) drive them.
+
+Tests: `canvas/drag-motion.test.ts`: lifting and settling, with reduced motion, from a scale and filter of the element's
+own, growing and moving computed `scale` and `translate` values, the flights' times and the landing outline, outside or
+inside, at any zoom. `canvas/carried.test.ts`: a picture carried with the pointer, flying in for 180 ms and back for 260
+ms, landing at once with reduced motion or with nothing carried, the landing spot kept while it flies in, a flight ended
+by the next pick-up, and `finish`. End to end, `apps/desktop/e2e/moving.e2e.ts` reads the Review slot's middle while
+it's carried, since it's drawn bigger around it, and waits for it to fly back after Escape.
+
+Gaps: the motion itself was checked by hand in the running app on 2026-11-16 (the stat cards, the Review slot and
+Pricing's board, dropped and cancelled), sampling each frame; it isn't tested end to end, since the suite reads where
+things end up.
+
 ### Where a dragged layer lands (CAN-47)
 
-Dragging a selected layer shows a faded copy where it would land, and the layouts around it reflow around the copy.
-Where it lands follows the pointer:
+Dragging a selected layer shows an empty dashed outline where it would land, and the layouts around it reflow around it,
+while a picture of it is carried (see "How dragged things move", above). Where it lands follows the pointer:
 
 - **The slot under the pointer.** In a grid or a wrapping row, the line of children the pointer is on comes first (the
   row it's over, or the nearer one in the gap between rows), then, along that line, the layer goes before the first
@@ -2057,6 +2115,10 @@ Where it lands follows the pointer:
   and never drops into one, or into anything inside one, even when the neighbour is a layout, as each of the dashboard's
   revenue bars is. Outside its own layout it goes into the deepest layout under the pointer, as before, in this design
   or another. To put a layer inside its neighbour, drag it there in Layers.
+- **The outline is round a hidden copy of the layer, laid out as the layer is.** A frame draws a layer that has no
+  classes from rules about its node alone, so the copy is drawn from those rules too, taken from the frame the layer is
+  in, even in another design. The copy carries the node under another attribute, so nothing that finds layers in a frame
+  (hit testing, outlines, measuring) takes it for one.
 - **Into another design, the copies are what the frame shows** (PAR-464): the state being edited, the variant options
   the board shows, the frame's viewport and the values bound params show, keeping only the bindings the destination has
   params for, as a paste does (see "Copy, paste and paste style").
@@ -2467,7 +2529,7 @@ the text cursor. Escape cancels each of these drags.
 - **The text tool** gives tldraw's canvas the browser's text cursor, by a rule more specific than tldraw's own, which
   takes the cursor of tldraw's tool, always Select or Hand here.
 - **Escape on a design dragged by its title** puts every dragged design back where it was, saves nothing and adds no
-  undo step, and leaves the design selected.
+  undo step, and leaves the design selected. The boards fly back there (see "How dragged things move").
 
 Code: `apps/desktop/src/renderer/canvas/gesture.ts`: `followPress` follows a press, `gestures` holds each gesture's
 policy, `dragThreshold` (from `@parity-app/editor`'s `move-resize.ts`) is the 4 pixels, `holdCursor` the layer, and
@@ -10003,7 +10065,8 @@ numeric ones left out; `subagent` on every listed tool but the two that answer a
 the tool list stays within 21.5 KB).
 
 Gap: not tried with real subagents. Claude Code's CLI wasn't signed in where this was built, so nothing here shows that
-subagents pass the name. The story Agent/Behavior, Three subagents, plays what the canvas shows when they do.
+subagents pass the name. The story Parity/Multiplayer/Agents/Behavior, Three subagents, plays what the canvas shows when
+they do.
 
 ### Shared execute contract (PAR-451)
 

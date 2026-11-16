@@ -227,7 +227,7 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
 }
 
 const meta = {
-  title: "Agent/Behavior",
+  title: "Parity/Multiplayer/Agents/Behavior",
   component: Stage,
   parameters: { layout: "fullscreen" }
 } satisfies Meta<typeof Stage>

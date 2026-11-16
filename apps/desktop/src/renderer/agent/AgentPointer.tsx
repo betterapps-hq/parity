@@ -17,8 +17,8 @@ import type { AgentPalette } from "./agent-colors.ts"
 /** Before an agent has a palette of its own. */
 const fallbackColor = "var(--canvas-agent)"
 
-/** An arrowhead with a rounded tip and corners, pointing up and left from its tip at (3, 3). */
-const pointerPath =
+/** An arrowhead with a rounded tip and corners, pointing up and left from its tip at (3, 3). People's pointers share it. */
+export const pointerPath =
   "M4.2 3.1C3.5 2.8 2.8 3.5 3.1 4.2L9.4 19.6C9.7 20.4 10.8 20.3 11 19.5L12.6 13.4C12.7 13 13 12.7 13.4 12.6L19.5 11C20.3 10.8 20.4 9.7 19.6 9.4Z"
 
 /**

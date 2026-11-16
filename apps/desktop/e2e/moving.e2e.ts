@@ -215,7 +215,8 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
     }))
 
     expect(during?.style).toMatchObject({ top: { step: 40 } })
-    expect(during?.box.y).toBeCloseTo(before.y + before.height / 2, 0)
+    // Picked up, it's drawn a little bigger around where it was grabbed, its middle, which moved half its height.
+    expect(during && during.box.y + during.box.height / 2).toBeCloseTo(before.y + before.height, 0)
     await expect
       .poll(() => app.style("Calendar", review))
       .toMatchObject({
@@ -248,7 +249,8 @@ describe("snapping an absolutely placed layer (PAR-174)", () => {
       await app.frames(2)
     })
     expect(await app.style("Calendar", review)).toMatchObject({ top: { step: 40 } })
-    expect((await app.box("Calendar", review)).y).toBeCloseTo(before.y, 0)
+    // It flies back to where it was.
+    await expect.poll(async () => (await app.box("Calendar", review)).y).toBeCloseTo(before.y, 0)
     expect(await app.undoLabel()).toBeUndefined()
     expect(await indicators()).toEqual([])
   })

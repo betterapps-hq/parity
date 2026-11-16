@@ -56,6 +56,12 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "../../out/renderer",
       emptyOutDir: true,
+      // Code and CSS as written, as the dev server serves them, with nothing rewritten for older browsers: the window only
+      // ever runs in Electron's Chromium. Storybook builds the same way, as it keeps this one of the build's settings.
+      // For Vite's default, older browsers, the CSS minifier rewrote `light-dark()` into variables settled where a color
+      // is declared rather than where it's used, so anything with its own color scheme inside the page, such as a light
+      // story pane in a dark Storybook, took the page's colors instead.
+      target: "esnext",
       // Written for Sentry, without the bundles pointing at them; scripts/build.ts moves them out of what's packaged.
       sourcemap: "hidden",
       rolldownOptions: {

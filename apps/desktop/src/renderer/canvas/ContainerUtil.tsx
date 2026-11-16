@@ -23,6 +23,7 @@ import { getEffectivePreferences } from "../project-settings.ts"
 import { isRestingFar, isTabHidden, isZoomSettled, canvasIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
+import { type ElementLift, liftElements } from "./element-lift.ts"
 import { type BoardRest, boardDormant } from "./frame-sleep.ts"
 import { setBoardSized } from "./free-space.ts"
 import { followPress, gestures } from "./gesture.ts"
@@ -277,7 +278,9 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
   /**
    * Selects the design and drags it by its title, like a frame's name in Figma, along with every other selected
    * design. Shift adds it to the selection or takes it out. The move is one undo step, saved when the drag ends; Escape
-   * puts the designs back where they were and saves nothing (see `gestures.titleDrag`).
+   * puts the designs back where they were and saves nothing (see `gestures.titleDrag`). The boards move as everything
+   * dragged on the canvas does (`drag-motion.ts`): picked up, they lift, follow the pointer and settle where they're
+   * dropped; called off, they fly back.
    */
   const dragByTitle = (event: ReactPointerEvent<HTMLElement>) => {
     // A locked design's title is left to the canvas, as its board is: it's selected and moved only from Layers.
@@ -323,6 +326,14 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
 
     const origin = origins.get(key) ?? { x: container.x, y: container.y }
     const others = new Set(moving.map(canvasIdFor))
+    let lifted: ElementLift | undefined
+
+    // The boards' own elements, which lift.
+    const boards = () =>
+      [...origins.keys()].flatMap(
+        (candidate) =>
+          editor.getContainer().querySelector(`.container-view[data-design="${CSS.escape(candidate)}"]`) ?? []
+      )
 
     const place = (dx: number, dy: number) =>
       editor.run(
@@ -346,6 +357,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
         designDrag.active = true
         // The title has the pointer captured, so it's given the cursor too, besides the layer over the window.
         target.style.cursor = "grabbing"
+        lifted = liftElements(boards(), { origin: { x: event.clientX, y: event.clientY } })
       },
       move(moveEvent) {
         const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
@@ -368,9 +380,11 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
           target.releasePointerCapture(event.pointerId)
         }
 
-        // Put back while the canvas still knows the move is the title's, so it isn't saved.
-        if (!kept) {
-          place(0, 0)
+        // Put back while the canvas still knows the move is the title's, so it isn't saved; they fly back there.
+        if (kept) {
+          lifted?.drop()
+        } else {
+          lifted?.cancel(() => place(0, 0))
         }
 
         designDrag.active = false
