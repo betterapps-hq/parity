@@ -1064,8 +1064,12 @@ selecting a group's design. The panel's height is dragged at its top edge and ke
   window's developer tools still point at the lines that wrote each message. What a frame writes as it first draws on
   the canvas, or later on its own, is the project's, unless its offscreen draw wrote it too.
 - **Where it was written:** the message's own line when that's in the project's files, or else the first call in its
-  stack that is, as React's warnings name the component in their stack. Vite's own modules and installed packages are
-  never a place.
+  stack that is, as React's warnings name the component in their stack. The builder's own modules and installed packages
+  are never a place.
+- **The builder's own chatter:** what a builder's dev build writes of its own, as Vite's lines about hot updates, and
+  the modules it makes, as `@vite/client`, come from its manifest's `providers.builder.console` (PAR-1158): `chatter`
+  and `generatedPaths`, each a list of regular expressions. The panel and agents leave out its chatter, and its modules
+  are never a place. Main still drops React's DevTools notice itself.
 - **For agents:** each entry `parity console` and `get_console` give has the design's key, state and mode when known,
   and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
 
@@ -1074,20 +1078,25 @@ Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChang
 and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and
 `window.canvasHost.console` in the preload script; the job's `design` in `shared/render-job.ts` and
 `shared/protocol.ts`; `captureConsole` and `frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`,
-`projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in
+`projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, with `BuilderConsole`,
+`isBuilderChatter` and `isGeneratedPath` in `packages/core/src/adapters.ts`, fed by `startConsole` in
 `renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, its filter in `chrome/console-filter.ts`, kept for
 each tab with `projectPart` in `renderer/project-part.ts`, the count in `chrome/StatusBar.tsx` and the board's in
-`canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`
-and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+`canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`,
+`FrameRequest.state` and `TabSnapshot.builderConsole` in `packages/agent/src/types.ts`, the chatter left out by
+`dispatch`'s `console`, and `describeConsole` in `packages/cli/src/client.ts`.
 
 Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
-frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
-cleared, with listeners told; an announcement held for the next message of its level alone, briefly; a frame's message
-through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes batched, each once as
-it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message for several
-frames with each frame and every time; the place from the stack when a library wrote it, with the stack apart and short;
-counts by message, of one design or all; a project file's place without Vite's query; none for a library's, Vite's or
-another server's; each project given its builder's messages and cleared with it).
+frame's kept apart; no design when none is known; React's DevTools notice and the oldest past the limit dropped; one
+builder's read and cleared, with listeners told; an announcement held for the next message of its level alone, briefly;
+a frame's message through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes
+batched, each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (8: one
+message for several frames with each frame and every time; the place from the stack when a library wrote it, with the
+stack apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
+library's, Vite's or another server's; which modules a builder made left to its manifest; each project given its
+builder's messages and cleared with it; a builder's chatter left out). `packages/core/src/adapters.test.ts` (a builder's
+console from its manifest; its chatter and generated paths told apart from the project's) and
+`packages/agent/src/dispatch.test.ts` (the builder's chatter left out of what agents read).
 `renderer/canvas/console-capture.test.ts` (4: the frame from an event's path; an announcement before each message while
 a frame handles an event and none after its task; the frame code's call found past the wrapper in the stack; the console
 left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears the console before each end-to-end test,
@@ -5774,6 +5783,52 @@ Tests:
 - `packages/project/src/index.test.ts`: Storybook found in the folder the project sets, and none when it has no config.
 - `apps/desktop/src/utility/projects.test.ts`: the service finds Storybook there, and asks the windows to open the
   project again when the folder changes.
+
+### A live room in development (PAR-1179)
+
+Two copies of the app can edit one project together, each showing the other's cursor and agents, before rooms exist
+(docs/proposals/multiplayer.md, When Loro loads). It's for trying multiplayer on one machine, in development only.
+
+```bash
+PARITY_ROOM=1 pnpm dev
+```
+
+```bash
+PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
+```
+
+- **A room per project.** With `PARITY_ROOM=1`, `pnpm dev` starts a relay on `127.0.0.1:5390` (`PARITY_ROOM_PORT`), or
+  uses the one another copy started. Each copy that opens a project joins its room, keyed by the project's folder, and
+  opens it on the Loro provider rather than the local one.
+- **The first copy in hosts.** It opens the files. A later copy opens on a snapshot asked of the copies already there,
+  the first to answer, so it starts from the same Loro document, unsaved edits included. When the host leaves, the copy
+  that joined next takes over.
+- **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
+  show as `remote` changes: in neither person's undo.
+- **Only the host saves,** so copies don't write the same files over each other, and only the host takes in a file
+  changed on disk; the others get it from there.
+- **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
+  a palette of the agents', named with the signed-in person's first name (`PARITY_ROOM_NAME` overrides it). It glides
+  between the positions sent.
+- **Agents.** What an agent does in one copy is passed on as it is to the others' agent presence, so each copy plays its
+  cursor the same way.
+- **In order, coalesced.** One batch is on its way at a time; what comes meanwhile goes in the next, with only the
+  latest of each cursor.
+
+Without `PARITY_ROOM`, or in a packaged app, nothing changes: the window opens projects on the local provider.
+
+Code: `apps/desktop/scripts/dev-room.ts` (the relay), `apps/desktop/src/renderer/live-room.ts`, `openDocSession` in
+`renderer/project-doc.ts` (the room's provider, saving only while hosting), `canvas/RoomCursor.tsx`, `onPush` in
+`agent/presence.ts`, and `openLoro`'s `snapshot` and `subscribeLocalUpdates` in `packages/multiplayer-loro`.
+
+Tests:
+
+- `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it, edits the files given
+  don't have yet included; two documents kept in step through each one's local updates, delivered late as a relay does,
+  with a merge repaired the same on both and remote changes out of undo.
+- `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
+  copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
+  isn't one refused.
 
 ## Tokens
 

@@ -538,38 +538,34 @@ export const alignChoices: KeywordChoice[] = [
     value: "start",
     label: "Left",
     icon: <AlignLeft className="size-3.5" />,
-    css: "text-align: start",
-    tailwind: "text-start"
+    css: "text-align: start"
   },
   {
     value: "center",
     label: "Center",
     icon: <AlignCenter className="size-3.5" />,
-    css: "text-align: center",
-    tailwind: "text-center"
+    css: "text-align: center"
   },
   {
     value: "end",
     label: "Right",
     icon: <AlignRight className="size-3.5" />,
-    css: "text-align: end",
-    tailwind: "text-end"
+    css: "text-align: end"
   },
   {
     value: "justify",
     label: "Justify",
     icon: <AlignJustify className="size-3.5" />,
-    css: "text-align: justify",
-    tailwind: "text-justify"
+    css: "text-align: justify"
   }
 ]
 
 /** Text's Case, Small caps included, which is `font-variant-caps` rather than `text-transform`. */
 export const caseChoices: KeywordChoice[] = [
-  { value: "none", label: "As typed", icon: "—", css: "text-transform: none", tailwind: "normal-case" },
-  { value: "uppercase", label: "Uppercase", icon: "AG", css: "text-transform: uppercase", tailwind: "uppercase" },
-  { value: "lowercase", label: "Lowercase", icon: "ag", css: "text-transform: lowercase", tailwind: "lowercase" },
-  { value: "capitalize", label: "Title case", icon: "Ag", css: "text-transform: capitalize", tailwind: "capitalize" },
+  { value: "none", label: "As typed", icon: "—", css: "text-transform: none" },
+  { value: "uppercase", label: "Uppercase", icon: "AG", css: "text-transform: uppercase" },
+  { value: "lowercase", label: "Lowercase", icon: "ag", css: "text-transform: lowercase" },
+  { value: "capitalize", label: "Title case", icon: "Ag", css: "text-transform: capitalize" },
   {
     value: "small-caps",
     label: "Small caps",
@@ -581,23 +577,21 @@ export const caseChoices: KeywordChoice[] = [
 
 /** Text's Wrap; Pretty isn't Baseline. */
 export const wrapChoices: KeywordChoice[] = [
-  { value: "wrap", label: "Wrap", css: "text-wrap: wrap", tailwind: "text-wrap" },
-  { value: "balance", label: "Balance", css: "text-wrap: balance", tailwind: "text-balance" },
+  { value: "wrap", label: "Wrap", css: "text-wrap: wrap" },
+  { value: "balance", label: "Balance", css: "text-wrap: balance" },
   {
     value: "pretty",
     label: "Pretty",
     css: "text-wrap: pretty",
-    tailwind: "text-pretty",
     browsers: "Chromium and Safari"
   },
-  { value: "nowrap", label: "No wrap", css: "text-wrap: nowrap", tailwind: "text-nowrap" }
+  { value: "nowrap", label: "No wrap", css: "text-wrap: nowrap" }
 ]
 
 const cursor = (value: string, label: string): KeywordChoice => ({
   value,
   label,
-  css: `cursor: ${value}`,
-  tailwind: `cursor-${value}`
+  css: `cursor: ${value}`
 })
 
 /**
@@ -619,7 +613,6 @@ export function cursorChoices(tokens: readonly FieldToken[]): KeywordChoice[] {
         value,
         label,
         css: `cursor: var(--${token.name})`,
-        tailwind: `cursor-(--${token.name})`,
         token: true,
         comesTo: token.value
       }
@@ -667,8 +660,7 @@ const strokeStyle = (value: string, label: string, more = false): KeywordChoice 
   value,
   label,
   more,
-  css: `border-style: ${value}`,
-  tailwind: more ? undefined : `border-${value}`
+  css: `border-style: ${value}`
 })
 
 /** Stroke's Style; Groove, Ridge, Inset and Outset under More styles, with no Tailwind utility of their own. */
@@ -698,9 +690,9 @@ export function drawStrokeStyle(choice: KeywordChoice) {
 
 /** Clip content's modes: Clip doesn't make a scroll container, so a sticky layer inside still sticks. */
 export const clipChoices: KeywordChoice[] = [
-  { value: "clip", label: "Clip", css: "overflow: clip", tailwind: "overflow-clip" },
-  { value: "scroll", label: "Scroll", css: "overflow: scroll", tailwind: "overflow-scroll", part: "scrollAlways" },
-  { value: "auto", label: "Scroll when needed", css: "overflow: auto", tailwind: "overflow-auto" }
+  { value: "clip", label: "Clip", css: "overflow: clip" },
+  { value: "scroll", label: "Scroll", css: "overflow: scroll", part: "scrollAlways" },
+  { value: "auto", label: "Scroll when needed", css: "overflow: auto" }
 ]
 
 /**

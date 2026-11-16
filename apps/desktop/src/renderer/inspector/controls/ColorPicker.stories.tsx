@@ -63,7 +63,7 @@ function Picker({
  */
 export const Custom: Story = { render: () => <Picker value="chart-2" tab="custom" /> }
 
-/** Custom, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Custom, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Custom, parameters: { demo: true } }
 
 /** Custom in OKLCH: a color picked here is written as `oklch()`. */

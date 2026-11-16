@@ -77,7 +77,7 @@ export const Rows: Story = {
   )
 }
 
-/** Rows, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Rows, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Rows, parameters: { demo: true } }
 
 /** A row turned off: dimmed, kept in the file, and not written. */
@@ -140,18 +140,18 @@ export const Classes: Story = {
         [{ property: "interpolate-size", value: "allow-keywords" }],
         ["data-[state=open]:animate-in"],
         [
-          { property: "padding", value: "16px", control: "Spacing's Padding", tailwind: "p-4" },
+          { property: "padding", value: "16px", control: "Spacing's Padding", className: "p-4" },
           {
             property: "border-radius",
             value: "var(--radius-md)",
             control: "Appearance's Radius",
-            tailwind: "rounded-md"
+            className: "rounded-md"
           },
           {
             property: "background-color",
             value: "color-mix(in oklab, var(--color-primary) 90%, transparent)",
             control: "Fill",
-            tailwind: "hover:bg-primary/90"
+            className: "hover:bg-primary/90"
           }
         ]
       )}

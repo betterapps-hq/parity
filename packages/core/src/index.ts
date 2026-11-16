@@ -1,9 +1,12 @@
 export {
   type AppStyles,
   type BuilderAdapter,
+  type BuilderConsole,
   type BuilderDescription,
   type BuilderPackage,
   extensionBuilder,
+  isBuilderChatter,
+  isGeneratedPath,
   type ExtensionTool,
   extensionTool,
   type ToolPackage,

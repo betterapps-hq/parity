@@ -62,7 +62,7 @@ export const Unset: Story = { render: () => <LayerOrder start={undefined} /> }
 /** 10: in front of Hero, `z-10`. Up makes it 11, Shift+Up 20. */
 export const InFront: Story = { render: () => <LayerOrder start={{ number: 10 }} /> }
 
-/** InFront, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** InFront, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...InFront, parameters: { demo: true } }
 
 /** −5: behind Hero, `-z-5`. */

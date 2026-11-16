@@ -2,6 +2,7 @@ import {
   CodedError,
   describeRenderStatus,
   designStates,
+  isBuilderChatter,
   renderProblem,
   resolveModes,
   unknownReference
@@ -254,7 +255,11 @@ const methods: MethodTable = {
       host.console(snapshot, params.clear)
     )
 
-    return { tab: tabRef(snapshot), entries }
+    // The builder's own chatter says nothing about the project (PAR-1158).
+    return {
+      tab: tabRef(snapshot),
+      entries: entries.filter((entry) => !isBuilderChatter(entry.text, snapshot.builderConsole))
+    }
   },
   async status(params, { host }) {
     const { tab, ...status } = await host.status(params)

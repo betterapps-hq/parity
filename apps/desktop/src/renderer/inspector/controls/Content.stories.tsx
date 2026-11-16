@@ -35,7 +35,7 @@ function Content({ start, words = "Simple pricing for every team" }: { start?: s
 /** Unset: Paragraph, muted, written as `<p>`. */
 export const Paragraph: Story = { render: () => <Content /> }
 
-/** Paragraph, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Paragraph, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Paragraph, parameters: { demo: true } }
 
 /** Heading 2, `<h2>`. */

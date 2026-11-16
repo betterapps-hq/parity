@@ -67,5 +67,5 @@ export const WithMargin: Story = {
   render: () => <Spacing padding={[px(16), px(24), px(16), px(24)]} margin={[px(8), undefined, px(8), undefined]} />
 }
 
-/** WithMargin, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** WithMargin, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...WithMargin, parameters: { demo: true } }

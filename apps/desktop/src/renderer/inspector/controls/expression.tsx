@@ -13,7 +13,6 @@ import { type KeyboardEvent, type ReactNode, useId, useRef, useState } from "rea
 import { Hint } from "../../chrome/Hint.tsx"
 import { numberValue } from "../../chrome/prop-values.ts"
 import { swatch } from "../../chrome/token-previews.tsx"
-import { arbitrary } from "./css-values.ts"
 import {
   comboboxProps,
   fieldBox,
@@ -89,36 +88,31 @@ export function fillTokens(text: string): string {
 }
 
 /** What an expression field writes, in its simplest form. */
-export function expressionWrites(property: string, prefix: string, text: string | undefined): Writes {
+export function expressionWrites(property: string, text: string | undefined): Writes {
   if (text === undefined) {
-    return { stored: undefined, css: [], tailwind: [] }
+    return { stored: undefined, css: [] }
   }
 
   const form = expressionForm(text)
 
   if ("step" in form) {
-    return {
-      stored: form,
-      css: [`${property}: calc(var(--spacing) * ${form.step})`],
-      tailwind: [`${prefix}-${form.step}`]
-    }
+    return { stored: form, css: [`${property}: calc(var(--spacing) * ${form.step})`] }
   }
 
   if ("token" in form && form.alpha) {
     return {
       stored: form,
-      css: [`${property}: color-mix(in oklab, var(--color-${form.token}) ${form.alpha.step}%, transparent)`],
-      tailwind: [`${prefix}-${form.token}/${form.alpha.step}`]
+      css: [`${property}: color-mix(in oklab, var(--color-${form.token}) ${form.alpha.step}%, transparent)`]
     }
   }
 
   if ("token" in form) {
     const variable = property.includes("color") ? `--color-${form.token}` : `--${form.token}`
 
-    return { stored: form, css: [`${property}: var(${variable})`], tailwind: [`${prefix}-(${variable})`] }
+    return { stored: form, css: [`${property}: var(${variable})`] }
   }
 
-  return { stored: form, css: [`${property}: ${form.value}`], tailwind: [`${prefix}-[${arbitrary(form.value)}]`] }
+  return { stored: form, css: [`${property}: ${form.value}`] }
 }
 
 // The functions offered, each with the kinds of field it gives a value for, so a field lists only what it can take.

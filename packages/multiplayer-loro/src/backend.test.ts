@@ -307,6 +307,58 @@ describe("loroProvider's backend", () => {
     expectInStep(a)
   })
 
+  it("opens on a snapshot as the replica holds it, edits the files given don't have yet included", () => {
+    const { backend: a, doc } = open()
+    apply(doc, [{ op: "set", design: "app.par#home", node: "title", path: ["name"], value: "Unsaved" }])
+
+    const b = openLoro({ files: files(), main: "app.par", modes: defaultModeSettings }, a.snapshot())
+
+    expect(b.files().get("app.par")).toEqual(a.files().get("app.par"))
+    expect(b.files().get("pages.par")).toEqual(files()[2]?.document)
+    expect([...b.files().keys()]).toEqual(["app.par", "more.par", "pages.par"])
+    expectInStep(b)
+  })
+
+  it("keeps two documents in step through each one's local updates, repairs included", () => {
+    const { backend: a, doc: docA } = open()
+    const b = openLoro({ files: files(), main: "app.par", modes: defaultModeSettings }, a.snapshot())
+    const docB = createProjectDoc(b, { undoLimit: 200, main: "app.par" })
+    const toB: Uint8Array[] = []
+    const toA: Uint8Array[] = []
+    a.subscribeLocalUpdates((bytes) => toB.push(bytes))
+    b.subscribeLocalUpdates((bytes) => toA.push(bytes))
+
+    // Delivered later, as a relay does, so both sides change the same layer before seeing the other's change.
+    const deliver = () => {
+      while (toA.length > 0 || toB.length > 0) {
+        for (const bytes of toB.splice(0)) {
+          b.receive(bytes)
+        }
+
+        for (const bytes of toA.splice(0)) {
+          a.receive(bytes)
+        }
+      }
+    }
+
+    const origins: string[] = []
+    docB.subscribe((change) => origins.push(change.origin))
+    apply(docA, [{ op: "set", design: "app.par#home", node: "title", path: ["name"], value: "From A" }])
+    deliver()
+    expect(docB.files()).toEqual(docA.files())
+    expect(origins).toEqual(["remote"])
+    expect(docB.history().undo).toEqual([])
+
+    const layer = { type: "text", id: "same", text: "Same" } as const
+    apply(docA, [{ op: "insert", design: "app.par#home", parent: "row", node: layer }])
+    apply(docB, [{ op: "insert", design: "app.par#home", parent: "row", node: layer }])
+    deliver()
+    expect(docA.files()).toEqual(docB.files())
+    expect(a.read().files).toEqual(b.read().files)
+    expectInStep(a)
+    expectInStep(b)
+  })
+
   it("repairs a merge the same way on both replicas, deriving the new id from the node", () => {
     const a = openLoro({ files: files(), main: "app.par", modes: defaultModeSettings })
 

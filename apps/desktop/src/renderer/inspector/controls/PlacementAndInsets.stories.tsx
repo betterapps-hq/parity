@@ -56,8 +56,7 @@ function Placement({
 
   const writes: Writes = {
     stored: placed.stored === undefined && order.stored === undefined ? undefined : stored,
-    css: [...placed.css, ...order.css],
-    tailwind: [...placed.tailwind, ...order.tailwind]
+    css: [...placed.css, ...order.css]
   }
 
   return (
@@ -85,7 +84,7 @@ const none: Position["insets"] = [undefined, undefined, undefined, undefined]
 /** In layout: placed by its layout, so there's no inset box and nothing is written. Choose Absolute to take it out. */
 export const InLayout: Story = { render: () => <Placement start={{ placement: "static", insets: none }} /> }
 
-/** InLayout, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** InLayout, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...InLayout, parameters: { demo: true } }
 
 /**

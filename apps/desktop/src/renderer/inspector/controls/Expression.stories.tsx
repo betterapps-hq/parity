@@ -33,7 +33,6 @@ const parentWidth = 680
 function Expr({
   label,
   property,
-  prefix,
   start,
   kind = "length",
   basis = { percent: parentWidth },
@@ -41,7 +40,6 @@ function Expr({
 }: {
   label: string
   property: string
-  prefix: string
   start?: string
   kind?: "length" | "color"
   basis?: Basis
@@ -79,7 +77,7 @@ function Expr({
   }
 
   return (
-    <Playground writes={expressionWrites(property, prefix, value)} preview={preview}>
+    <Playground writes={expressionWrites(property, value)} preview={preview}>
       <Field label={label}>
         <div className={narrow ? "w-20" : undefined}>
           <ExpressionField
@@ -99,10 +97,10 @@ function Expr({
 
 /** Width, `calc(100% - 2rem)`, whole, and what it comes to in Plans, 648. Click it to edit the text. */
 export const Calc: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="calc(100% - 2rem)" />
+  render: () => <Expr label="Width" property="width" start="calc(100% - 2rem)" />
 }
 
-/** Calc, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Calc, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Calc, parameters: { demo: true } }
 
 /**
@@ -114,7 +112,7 @@ export const Clamp: Story = {
     <Expr
       label="Font size"
       property="font-size"
-      prefix="text"
+
       start="clamp(1rem, 2vw, 2rem)"
       basis={{ percent: 16, fontSize: 16 }}
     />
@@ -123,17 +121,17 @@ export const Clamp: Story = {
 
 /** Tokens inside: `calc(var(--container-md) - 2rem)`, the token drawn as a chip while it's edited. */
 export const TokensInside: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="calc(var(--container-md) - 2rem)" />
+  render: () => <Expr label="Width" property="width" start="calc(var(--container-md) - 2rem)" />
 }
 
 /** In a field under 96px, as a side is: ƒ, with the expression and what it comes to in its hint. */
 export const Narrow: Story = {
-  render: () => <Expr label="Top padding" property="padding-top" prefix="pt" start="max(1rem, 2vh)" narrow />
+  render: () => <Expr label="Top padding" property="padding-top" start="max(1rem, 2vh)" narrow />
 }
 
 /** A plain length, 320: type = to open an expression. Here `min(100%, 40rem)` is typed and Enter pressed. */
 export const TypingAnExpression: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="320px" />,
+  render: () => <Expr label="Width" property="width" start="320px" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
@@ -148,7 +146,7 @@ export const TypingAnExpression: Story = {
  * nothing typed takes the `=` away, closing the editor with Width still 320, and focus back on the field.
  */
 export const JustEquals: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="320px" />,
+  render: () => <Expr label="Width" property="width" start="320px" />,
   play: async ({ canvasElement, step }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
@@ -168,7 +166,7 @@ export const JustEquals: Story = {
 
 /** `cl` typed after =: completion offers clamp(); Tab or Enter takes it. */
 export const Completion: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="320px" />,
+  render: () => <Expr label="Width" property="width" start="320px" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
@@ -179,7 +177,7 @@ export const Completion: Story = {
 
 /** `calc(var(--spacing) * 18)` typed: it comes to one step, so it's stored as `{ step: 18 }` and written `w-18`. */
 export const SimplestForm: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="320px" />,
+  render: () => <Expr label="Width" property="width" start="320px" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.type(canvas.getByRole("textbox", { name: "Width" }), "=")
@@ -195,7 +193,7 @@ export const ColorMix: Story = {
     <Expr
       label="Fill"
       property="background-color"
-      prefix="bg"
+
       kind="color"
       start="color-mix(in oklab, var(--color-chart-2) 50%, transparent)"
     />
@@ -204,7 +202,7 @@ export const ColorMix: Story = {
 
 /** `calc(100% - )` typed and Enter pressed: it isn't finished, so it stays, outlined, with the reason under it. */
 export const InvalidAsTyped: Story = {
-  render: () => <Expr label="Width" property="width" prefix="w" start="calc(100% - 2rem)" />,
+  render: () => <Expr label="Width" property="width" start="calc(100% - 2rem)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement)
     await userEvent.click(canvas.getByRole("textbox", { name: "Width" }))
