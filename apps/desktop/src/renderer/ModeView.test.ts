@@ -46,6 +46,7 @@ function Broken() {
 const loaded = {
   guest: createGuest({ components: { Field, Broken }, css: "" }),
   sheet,
+  moduleSheet: new CSSStyleSheet(),
   tokens: [],
   ...frameCss("", "http://parity.test")
 }

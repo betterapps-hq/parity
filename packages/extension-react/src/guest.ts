@@ -969,6 +969,10 @@ export function createGuest(init: GuestInit): Guest {
     guest.packageCss = init.packageCss
   }
 
+  if (init.moduleStyles) {
+    guest.moduleStyles = init.moduleStyles
+  }
+
   if (init.tokenCategories) {
     guest.tokenCategories = init.tokenCategories
   }

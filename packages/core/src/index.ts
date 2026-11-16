@@ -29,6 +29,7 @@ export {
   type GuestIconSet,
   type GuestInit,
   type LayerFailure,
+  type ModuleStyles,
   type MountHandle,
   type MountOptions,
   packageManifest,

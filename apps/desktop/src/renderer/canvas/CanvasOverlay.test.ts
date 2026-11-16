@@ -40,6 +40,7 @@ sheet.replaceSync(":host { --spacing: 4px }")
 const loaded = {
   guest: createGuest({ components: { Checkbox }, css: "" }),
   sheet,
+  moduleSheet: new CSSStyleSheet(),
   tokens: [],
   ...frameCss("", "http://parity.test")
 }

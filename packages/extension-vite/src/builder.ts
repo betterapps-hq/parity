@@ -30,6 +30,10 @@ import { serverAppStyles, viteAppStyles } from "./app-styles.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
 import { loadedFiles } from "./loaded-files.ts"
+import { moduleStyles, moduleStylesId } from "./module-styles.ts"
+
+export { moduleStylesId, moduleStylesSource } from "./module-styles.ts"
+
 import { warmGuestGraph } from "./warmup.ts"
 
 /** The config files Vite looks for. The config itself is found by the project's own Vite; these explain a miss. */
@@ -117,6 +121,7 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
     },
     plugins: [
       guestPlugin(options.renderer, () => served, vite.normalizePath(options.rendererGuestPath)),
+      moduleStyles(() => (served?.styles ?? []).map((path) => vite.normalizePath(resolve(options.root, path)))),
       elementSources(vite.normalizePath(options.root)),
       dependencySourceMaps(),
       appPageModes()
@@ -502,7 +507,12 @@ export function guestModuleSource(config: ProjectConfig): string {
 }
 
 function viteGuestModule(config: ProjectConfig): GuestModule {
-  const module = guestModule(config, { renderer: rendererId, projectPath: rootPath, styles: "inline" })
+  const module = guestModule(config, {
+    renderer: rendererId,
+    projectPath: rootPath,
+    styles: "inline",
+    moduleStyles: moduleStylesId
+  })
 
   // A framework plugin that wraps the app's modules for Fast Refresh, as React Router's does, throws unless the page
   // installed Fast Refresh's preamble first. The guest has no HMR client and refreshes nothing, so before any of the

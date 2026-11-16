@@ -21,7 +21,13 @@ import { type ProjectStorybook, projectStorybook } from "@parity-app/extension-s
 import { handles, readTheme } from "@parity-app/extension-tailwind"
 import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
-import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/extension-vite/builder"
+import {
+  guestModuleSource,
+  moduleStylesId,
+  moduleStylesSource,
+  taggedModule,
+  viteBuilder
+} from "@parity-app/extension-vite/builder"
 import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
 import {
   adapterStatus,
@@ -95,6 +101,11 @@ export function exampleProject(): Plugin {
         return require.resolve("@parity-app/extension-react/guest")
       }
 
+      // The collector of the stylesheets the project's modules import, which the project's builder serves.
+      if (source === moduleStylesId) {
+        return `\0${moduleStylesId}`
+      }
+
       if (source.startsWith("/")) {
         return join(root, source)
       }
@@ -118,6 +129,10 @@ export function exampleProject(): Plugin {
 
       if (id.split("?")[0] === `\0${guestId}`) {
         return guestModuleSource((await project()).config)
+      }
+
+      if (id === `\0${moduleStylesId}`) {
+        return moduleStylesSource([])
       }
 
       if (id === `\0${sourcesId}`) {

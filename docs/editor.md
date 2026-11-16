@@ -1609,8 +1609,8 @@ sets out. What any Next.js builder needs is in `packages/next-builders`, for the
 - **The global stylesheets** are the ones the root layout imports, or the Pages Router's `_app`, following the project's
   own modules through its path aliases until some import stylesheets, the choice the other builders make too
   (`chooseAppStyles`). CSS modules are left out.
-- **Not yet:** CSS modules don't reach frames, as with Vite. Code changes and modules found later load without a restart
-  (PAR-1159), Next's router is mounted around frames (PAR-1160) and elements know their sources (PAR-1161).
+- **Not yet:** CSS modules don't reach frames. Code changes and modules found later load without a restart (PAR-1159),
+  Next's router is mounted around frames (PAR-1160) and elements know their sources (PAR-1161).
 
 Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts` and `loader.ts`);
 `packages/next-builders` (`next.ts`, `bundler.ts`, `guest-app.ts`, `guest-runtime.ts`, `server-modules.ts`, `page.ts`,
@@ -8221,6 +8221,42 @@ PAR-820's, with a fake builder's answer). `parity lib` on an app asks the regist
 Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which `configInput`'s tests cover with that shape rather
 than a real Vite 7, and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects
 are compiled with a middleware-mode dev server, since Vite 5 has no environments.
+
+### A project's stylesheets stay in its frames (PAR-1181)
+
+A stylesheet one of the project's modules imports styles that project's frames and nothing else. Before, opening
+copacker turned Parity's own panels serif: its root route, error pages and marketing modules import the app's
+`globals.css`, Vite serves each imported stylesheet as a module that adds a `<style>` to the page's head through its
+client's `updateStyle`, and the canvas imports the guest into Parity's own window, so the app's Tailwind base styles
+came after Parity's and won.
+
+- **Vite's builder hands them to the guest instead.** After Vite's CSS plugin, `canvas:module-styles-imports` points
+  each stylesheet module's `updateStyle` and `removeStyle` at the guest's collector, `virtual:canvas/module-styles`, a
+  module of the builder's own that keeps each stylesheet's CSS by its module id. The guest module passes it to
+  `createGuest` as `moduleStyles`. Plain stylesheets, CSS modules and vanilla-extract's `.css.ts` stylesheets all arrive
+  this way.
+- **The global stylesheets are left out,** since the guest already has them as text: copacker's `globals.css`, 441 KB,
+  isn't drawn twice. They're matched by path without case.
+- **Frames draw the rest after the global stylesheets.** The canvas prepares them as it does the project's CSS
+  (`showModuleStyles`) into a stylesheet every frame adopts after the guest's own and before Parity's layer classes, and
+  puts their `@font-face` and `@property` rules in the document, where a shadow root needs them, beside the global
+  stylesheets'. A stylesheet a module loads later, as when a component is first drawn, shows in every frame at once.
+
+Code: `packages/extension-vite/src/module-styles.ts`, registered in `builder.ts`; `moduleStyles` in
+`GuestModuleOptions`, `packages/project/src/guest-module.ts`; `ModuleStyles` and `GuestInit.moduleStyles` in
+`packages/core/src/adapters.ts`, passed on by `createGuest` in `packages/extension-react/src/guest.ts`;
+`showModuleStyles` and `moduleSheet` in `apps/desktop/src/renderer/guest.ts`, adopted by `mountFrame` in
+`frame-host.ts`.
+
+Tests: `packages/extension-vite/src/module-styles.test.ts` (7; 4 with a real Vite: a plain stylesheet and a CSS module
+served to the collector rather than through Vite's client, the guest passing the collector on, and the collector keeping
+a stylesheet until it's taken away, hearing each change once and leaving out a global stylesheet named in other case;
+and 3 without: a module that adds no stylesheet left alone, Vite's client under a base path, the global stylesheets'
+paths without case). `apps/desktop/src/renderer/guest.test.ts` (1, in Chrome: a module's rules drawn for frames, its
+fonts and registered properties in the document after the global stylesheets', changed and removed ones shown, nothing
+after stopping). `apps/desktop/src/renderer/frame-host.test.ts` (1, in Chrome: the module stylesheet adopted after the
+guest's own and before the ones a frame is given). Gaps: the bundlers' builders don't pass `moduleStyles`; Turbopack's
+CSS modules still don't reach frames, and what its runtime links for a module's CSS stays in the page, muted.
 
 ### Detected again when what detection reads changes (PAR-820)
 

@@ -77,6 +77,8 @@ beforeAll(async () => {
 
     const sheet = new CSSStyleSheet()
     sheet.replaceSync(".dark { color: rgb(255, 255, 255) }")
+    const moduleSheet = new CSSStyleSheet()
+    moduleSheet.replaceSync(".card { color: rgb(0, 0, 255) }")
 
     Object.assign(window, {
       log,
@@ -85,6 +87,7 @@ beforeAll(async () => {
       loaded: {
         guest,
         sheet,
+        moduleSheet,
         themeAttributes: { dark: { "data-theme": "dark" } },
         rules: (tree: { nodeId: string }[]) =>
           tree.map(({ nodeId }) => `[data-drawn="${nodeId}"] { order: 1 }`).join("")
@@ -138,6 +141,21 @@ describe("mountFrame", () => {
     expect(mounted.targetInBody).toBe(true)
     expect(mounted.ids).toEqual(["a", "b"])
     expect(mounted.found).toBe("b")
+  })
+
+  it("draws with the stylesheets the project's modules imported, after its own and before the ones it's given (PAR-1181)", async () => {
+    const adopted = await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const given = new CSSStyleSheet()
+      frames.mountFrame(host, { loaded, mode, sheets: [given] })
+      const sheets = host.shadowRoot!.adoptedStyleSheets
+
+      return [sheets.indexOf(loaded.sheet), sheets.indexOf(loaded.moduleSheet), sheets.indexOf(given)]
+    })
+
+    expect(adopted[0]).toBeGreaterThanOrEqual(0)
+    expect(adopted[1]).toBe(adopted[0]! + 1)
+    expect(adopted[2]).toBe(adopted[1]! + 1)
   })
 
   it("draws an update in place, and resizes the window it stands for", async () => {
