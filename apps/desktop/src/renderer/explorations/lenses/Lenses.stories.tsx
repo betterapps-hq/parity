@@ -10,9 +10,9 @@ import { LensesPrototype } from "./workspace.tsx"
  * the status bar and the menus are the app's own; the asset tabs, Modes and the status bar show the example project.
  *
  * - Click a lens, or press Ctrl and its number. Clicking the lens already shown hides or shows the left panel.
- * - Drag a lens, or a canvas's header, off the window onto the desktop around it to open it in a window of its own,
- *   as onto another monitor; the story then shows a screen for each window. Drop it on a canvas to show it there, or on
- *   a canvas's right side to show it beside. Right-click a lens for the same.
+ * - Each canvas has a tab with its lens's name. The button at its end moves the lens to a window of its own, and back;
+ *   dragging the tab off the window, onto the desktop around it, does the same, as a browser's tab does. The story then
+ *   shows a screen for each window. Drop a tab or a lens on a canvas to show it there, or on its right side, beside it.
  * - A link in the inspector shows its lens with it selected; Show beside, at the row's end, splits it right.
  * - The wheel pans each canvas and Ctrl with the wheel zooms; each lens keeps its own view and selection.
  * - The project's name, in the middle of the title bar, opens another project in this one's place or closes it, which

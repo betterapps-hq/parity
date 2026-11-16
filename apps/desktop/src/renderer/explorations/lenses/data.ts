@@ -28,8 +28,8 @@ export interface LensInfo {
   icon: LucideIcon
   /** The keys that show it, as the tabs' Ctrl+1 to Ctrl+9 did. */
   keys: string
-  /** The left panel's first tab, named for the lens, lists what it draws: its search, and what it says with nothing to list. */
-  outline: { search: string; none?: string }
+  /** The left panel's first tab, which lists what the lens draws, and what it says with nothing to list. */
+  outline: { label: string; search: string; none?: string }
   /** The inspector's first tab. */
   inspector: string
   /** What the inspector says with nothing selected. */
@@ -48,9 +48,9 @@ export const lenses: Record<LensId, LensInfo> = {
     label: "Pages",
     icon: Route,
     keys: "Ctrl+1",
-    outline: { search: "Search pages" },
+    outline: { label: "Layers", search: "Search pages" },
     inspector: "Design",
-    nothing: "Select a page on the canvas or in Pages.",
+    nothing: "Select a page on the canvas or in Layers.",
     tools: true
   },
   screens: {
@@ -58,9 +58,9 @@ export const lenses: Record<LensId, LensInfo> = {
     label: "Screens",
     icon: AppWindow,
     keys: "Ctrl+2",
-    outline: { search: "Search layers" },
+    outline: { label: "Layers", search: "Search layers" },
     inspector: "Design",
-    nothing: "Select a screen or frame on the canvas or in Screens.",
+    nothing: "Select a screen or frame on the canvas or in Layers.",
     assets: true,
     tools: true
   },
@@ -69,9 +69,9 @@ export const lenses: Record<LensId, LensInfo> = {
     label: "Components",
     icon: Component,
     keys: "Ctrl+3",
-    outline: { search: "Search components" },
+    outline: { label: "Layers", search: "Search components" },
     inspector: "Design",
-    nothing: "Select a component on the canvas or in Components.",
+    nothing: "Select a component on the canvas or in Layers.",
     tools: true
   },
   stories: {
@@ -79,25 +79,25 @@ export const lenses: Record<LensId, LensInfo> = {
     label: "Stories",
     icon: Bookmark,
     keys: "Ctrl+4",
-    outline: { search: "Search stories" },
+    outline: { label: "Layers", search: "Search stories" },
     inspector: "Design",
-    nothing: "Select a story on the canvas or in Stories."
+    nothing: "Select a story on the canvas or in Layers."
   },
   data: {
     id: "data",
     label: "Data",
     icon: Database,
     keys: "Ctrl+5",
-    outline: { search: "Search tables" },
+    outline: { label: "Tables", search: "Search tables" },
     inspector: "Schema",
-    nothing: "Select a table on the canvas or in Data."
+    nothing: "Select a table on the canvas or in Tables."
   },
   api: {
     id: "api",
     label: "API",
     icon: Server,
     keys: "Ctrl+6",
-    outline: { search: "Search endpoints", none: "No endpoints yet." },
+    outline: { label: "Endpoints", search: "Search endpoints", none: "No endpoints yet." },
     inspector: "Endpoint",
     nothing: "",
     missing: {

@@ -438,9 +438,11 @@ function WindowView({ win, main, shared }: { win: LensWindow; main: boolean; sha
 }
 
 /**
- * A canvas showing one lens. With two or more side by side, each has a header with its lens, picked out like an open
- * tab while it's the canvas in focus, and the lens's actions at its end; the header drags the lens as the lens bar
- * does. Dropping a lens on a canvas shows it there; on its right side, beside it.
+ * A canvas showing one lens, under a tab with the lens's name, drawn as the side panels draw their open tab so the
+ * three line up. The tab drags the lens off the window into a window of its own, as a browser's tab does, or onto
+ * another canvas; the button at its end does the same in one click, and in a lens's own window takes it back. With two
+ * or more canvases side by side, the one in focus has a blue top edge. Dropping a lens on a canvas shows it there; on
+ * its right side, beside it.
  */
 function GroupView({
   group,
@@ -471,48 +473,47 @@ function GroupView({
       onPointerDownCapture={() => !focused && set((before) => focus(before, group.id))}
       onFocusCapture={() => !focused && set((before) => focus(before, group.id))}
     >
-      {split && (
-        <div
-          className={`relative flex h-9 shrink-0 items-center gap-1.5 border-b pr-1 pl-3 text-sm ${
-            focused ? "bg-background text-foreground" : "bg-neutral-50 text-muted-foreground dark:bg-white/[0.02]"
-          }`}
-          onPointerDown={(event) => {
-            if (!(event.target instanceof Element && event.target.closest("button"))) {
-              shared.startDrag(group.lens, event)
-            }
-          }}
-        >
-          {focused && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-(--canvas-layer)" />}
-          <Icon className="size-4 shrink-0" />
-          <span className="truncate">{label}</span>
-          <span
-            className={`ml-auto flex items-center ${focused ? "" : "opacity-0 group-focus-within/canvas:opacity-100 group-hover/canvas:opacity-100"}`}
+      <div
+        className={`relative flex shrink-0 items-center gap-1 border-b p-2 ${
+          focused || !split ? "bg-background" : "bg-neutral-50 dark:bg-white/[0.02]"
+        }`}
+        onPointerDown={(event) => {
+          if (!(event.target instanceof Element && event.target.closest("button"))) {
+            shared.startDrag(group.lens, event)
+          }
+        }}
+      >
+        {split && focused && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-(--canvas-layer)" />}
+        <div className="inline-flex h-8 min-w-0 items-center p-[3px]">
+          <div
+            className={`flex h-[calc(100%-1px)] min-w-0 items-center gap-1.5 rounded-md border px-1.5 text-sm font-medium ${
+              focused || !split
+                ? "border-transparent bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30"
+                : "border-transparent text-muted-foreground"
+            }`}
           >
-            <IconButton
-              label="Split right"
-              onClick={() => set((before) => splitRight(before, group.lens, win.id, group.id))}
-            >
-              <Columns2 />
-            </IconButton>
-            {main ? (
-              canLeave(layout, group.lens) && (
-                <IconButton label="Move to new window" onClick={() => set((before) => moveOut(before, group.lens))}>
-                  <SquareArrowOutUpRight />
-                </IconButton>
-              )
-            ) : (
-              <IconButton label="Move to main window" onClick={() => set((before) => toMainWindow(before, group.lens))}>
-                <SquareArrowOutDownLeft />
-              </IconButton>
-            )}
-            {closable && (
-              <IconButton label={`Close ${label}`} onClick={() => set((before) => closeGroup(before, group.id))}>
-                <X />
-              </IconButton>
-            )}
-          </span>
+            <Icon className="size-4 shrink-0" />
+            <span className="truncate">{label}</span>
+          </div>
         </div>
-      )}
+        <div className="flex-1" />
+        {main ? (
+          canLeave(layout, group.lens) && (
+            <IconButton label="Move to new window" onClick={() => set((before) => moveOut(before, group.lens))}>
+              <SquareArrowOutUpRight />
+            </IconButton>
+          )
+        ) : (
+          <IconButton label="Move to main window" onClick={() => set((before) => toMainWindow(before, group.lens))}>
+            <SquareArrowOutDownLeft />
+          </IconButton>
+        )}
+        {closable && (
+          <IconButton label={`Close ${label}`} onClick={() => set((before) => closeGroup(before, group.id))}>
+            <X />
+          </IconButton>
+        )}
+      </div>
       <div className="relative flex min-h-0 flex-1 flex-col" data-canvas={group.id}>
         <LensCanvas
           lens={group.lens}
