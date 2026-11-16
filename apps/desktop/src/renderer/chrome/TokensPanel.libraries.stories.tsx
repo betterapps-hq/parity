@@ -1,4 +1,4 @@
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { TooltipProvider } from "@buildkitgg/shadcn"
 import { describedCategories, describedTokenCss, extractTokens, readDesignTokens } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { within } from "storybook/test"

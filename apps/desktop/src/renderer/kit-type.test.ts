@@ -50,7 +50,7 @@ const known = {
     "font-medium": "its title: styles.css repoints it to semibold",
     "leading-none": "its title: styles.css sets a 20px line"
   },
-  "drawer.js": { "font-medium": "unused", "md:text-start": "unused" },
+  "drawer.js": { "font-medium": "unused", "md:text-left": "unused" },
   "dropdown-menu.js": {
     "font-medium": "its label: already a Group label",
     "tracking-widest": "its shortcut: styles.css sets it to 0"
@@ -107,7 +107,7 @@ const typeClass =
 
 /** Every type class in each of the kit's components, as "class" or "class×count". */
 function scanKit() {
-  const folder = fileURLToPath(new URL("../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/ui/", import.meta.url))
+  const folder = fileURLToPath(new URL("../../node_modules/@buildkitgg/shadcn/ui/", import.meta.url))
   const found: Record<string, string[]> = {}
 
   for (const file of readdirSync(folder)

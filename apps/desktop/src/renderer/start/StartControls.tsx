@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
   Kbd,
   Spinner
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronDown, ChevronsUpDown, FileInput, FolderOpen, Plus, Search } from "lucide-react"
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { accountActions, useAccount } from "../account/account.ts"

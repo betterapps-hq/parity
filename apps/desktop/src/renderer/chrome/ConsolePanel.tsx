@@ -16,7 +16,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { resolveModes } from "@parity-app/core"
 import {
   Ban,

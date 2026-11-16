@@ -1,4 +1,4 @@
-import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Component } from "lucide-react"
 import type { ReactNode } from "react"

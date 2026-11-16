@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { FileJson, RotateCcw } from "lucide-react"
 import { type KeyboardEvent, useId, useState } from "react"
 import { groups, keymap } from "../keymap.ts"

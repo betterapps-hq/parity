@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * The first time, signed in with nothing yet. It keeps Home's layout, so nothing moves once there are projects: a
  * finished sample where Continue will be, what to set up where For you will be, and templates where Recent will be.

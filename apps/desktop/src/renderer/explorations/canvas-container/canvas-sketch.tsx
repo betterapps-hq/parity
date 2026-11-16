@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import type { ResolvedMode } from "@parity-app/core"
 import { labelLook, titleReach } from "@parity-app/editor"
 import {

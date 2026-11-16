@@ -1,4 +1,4 @@
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { TooltipProvider } from "@buildkitgg/shadcn"
 import { type ReactNode, useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { AppWindow } from "../../App.tsx"

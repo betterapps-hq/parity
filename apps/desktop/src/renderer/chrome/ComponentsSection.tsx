@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { type RepeatCandidate } from "@parity-app/core"
 import { Diamond, ScanSearch, Sparkles } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"

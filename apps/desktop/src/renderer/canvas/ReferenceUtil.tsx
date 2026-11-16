@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { connectorById } from "@parity-app/connectors"
 import type { ReferenceSpec } from "@parity-app/core"
 import { referenceExpired } from "@parity-app/editor"

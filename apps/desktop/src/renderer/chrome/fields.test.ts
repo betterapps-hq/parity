@@ -16,7 +16,7 @@ const errors: string[] = []
 const entry = `
 import { createElement as h, useState } from "react"
 import { createRoot } from "react-dom/client"
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { TooltipProvider } from "@buildkitgg/shadcn"
 import { Field } from "../inspector/controls/field-row.tsx"
 import { NumberProp } from "../inspector/controls/number-field.tsx"
 

@@ -1,12 +1,10 @@
 @import "tailwindcss";
-/* Buildkit's Base UI Nova: its theme tokens, light and dark, its animations and variants, and its components' classes. */
-@import "@buildkitgg/shadcn-baseui-kit/tailwind.css";
-@import "./scrollbars.css";
 /*
- * The kit's code highlighting (Shiki) colors each token by classes in its `lib`, which its stylesheet doesn't scan, so
- * the Code tab's code showed in one color (PAR-167).
+ * The shadcn components shadcn-sync generates (Base UI, Nova): their theme tokens, light and dark, their animations and
+ * variants, and a source over their files, code highlighting included, so their classes build with the app's theme.
  */
-@source "../../node_modules/@buildkitgg/shadcn-baseui-kit/dist/lib/highlighter.js";
+@import "@buildkitgg/shadcn/tailwind.css";
+@import "./scrollbars.css";
 /* The media player's package sits outside the app, where Tailwind doesn't look for classes by itself. */
 @source "../../../../packages/media-player/src";
 

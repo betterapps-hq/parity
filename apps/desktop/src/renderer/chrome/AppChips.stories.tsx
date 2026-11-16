@@ -4,7 +4,7 @@ import { expect, userEvent, within } from "storybook/test"
 import { Changed as MarkChanged } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { AppChip, AppChips, type AppChipsGroup, AppChipsInput } from "./AppChips.tsx"
-import { slowly } from "./inspector-stories.tsx"
+import { chipRemove, slowly } from "./inspector-stories.tsx"
 
 /**
  * The app's chips (`AppChips`, `AppChip`, `AppChipsInput`), which every field of tags is built on: class names and a
@@ -51,7 +51,7 @@ function Chips({ start, withOptions = false }: { start: string[]; withOptions?: 
             options={withOptions ? groups : undefined}
           >
             {value.map((each) => (
-              <AppChip key={each} removeLabel={`Remove ${labelOf(each)}`}>
+              <AppChip key={each}>
                 <span className="truncate">{labelOf(each)}</span>
               </AppChip>
             ))}
@@ -81,7 +81,7 @@ export const Removing: Story = {
   render: () => <Chips start={["red", "small"]} />,
   play: async ({ canvasElement }) => {
     const box = within(canvasElement)
-    await userEvent.click(box.getByRole("button", { name: "Remove Red" }))
+    await userEvent.click(chipRemove(box.getByText("Red")))
     await expect(box.queryByText("Red")).toBeNull()
     await expect(box.getByText("Small")).toBeVisible()
   }

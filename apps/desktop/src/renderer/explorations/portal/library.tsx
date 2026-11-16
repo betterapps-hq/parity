@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * A library's page: its components as they render, which version each project uses, and what each release changed.
  * Parity's components are the code itself, so "where is this used" is exact, down to the board, and an outdated

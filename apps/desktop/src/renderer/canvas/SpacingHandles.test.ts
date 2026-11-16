@@ -1,9 +1,11 @@
 import { readFileSync } from "node:fs"
 import { createRequire } from "node:module"
+import { dirname } from "node:path"
 import { fileURLToPath } from "node:url"
 import { contrastRatio, type Rgba } from "@parity-app/tokens"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
+import { compile } from "tailwindcss"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 
 // The handles hatch what they change while the pointer is on them, and their colors are the app's custom properties, so
@@ -15,7 +17,7 @@ const errors: string[] = []
 const entry = `
 import { createElement } from "react"
 import { createRoot } from "react-dom/client"
-import { TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { TooltipProvider } from "@buildkitgg/shadcn"
 import { spacingHandles } from "@parity-app/editor"
 import { chipColors } from "./kinds.tsx"
 import { SpacingHandles } from "./SpacingHandles.tsx"
@@ -79,6 +81,26 @@ function canvasColors(): string {
     .join("")
 }
 
+/**
+ * The tooltip's classes, built with the components' Tailwind theme, so a hint opens as it does in the app: sliding in
+ * from its handle, with its arrow. The generated components ship no compiled CSS, so this builds what the tooltip uses.
+ */
+async function tooltipStyles(): Promise<string> {
+  const require = createRequire(import.meta.url)
+
+  const compiler = await compile(`@import "tailwindcss"; @import "@buildkitgg/shadcn/tailwind.css";`, {
+    loadStylesheet: async (id) => {
+      const path = require.resolve(id === "tailwindcss" ? "tailwindcss/index.css" : id)
+
+      return { path, base: dirname(path), content: readFileSync(path, "utf8") }
+    }
+  })
+
+  const tooltip = fileURLToPath(new URL("../../../node_modules/@buildkitgg/shadcn/ui/tooltip.js", import.meta.url))
+
+  return compiler.build(readFileSync(tooltip, "utf8").split(/[\s"'`]+/))
+}
+
 beforeAll(async () => {
   const canvas = fileURLToPath(new URL(".", import.meta.url))
 
@@ -105,8 +127,7 @@ beforeAll(async () => {
   await page.setContent(`<style>:root { color-scheme: light; ${canvasColors()} }
     .absolute { position: absolute } .pointer-events-none { pointer-events: none }</style>
     <body style="margin: 0"><div id="overlay" style="position: relative; height: 600px"></div></body>`)
-  // The kit's own classes, so a hint opens as it does in the app: sliding in from its handle, with its arrow.
-  await page.addStyleTag({ path: createRequire(import.meta.url).resolve("@buildkitgg/shadcn-baseui-kit/styles.css") })
+  await page.addStyleTag({ content: await tooltipStyles() })
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
 })
 

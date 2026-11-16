@@ -1,4 +1,4 @@
-import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { designStates, shownStates } from "@parity-app/core"
 import { ChevronDown, MonitorSmartphone, Settings2, SquareStack } from "lucide-react"
 import { createContext, type ReactNode, useContext, useState } from "react"

@@ -8,7 +8,7 @@ import {
   InputGroupAddon,
   InputGroupInput,
   Kbd
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Search } from "lucide-react"
 import { Fragment, useState } from "react"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"

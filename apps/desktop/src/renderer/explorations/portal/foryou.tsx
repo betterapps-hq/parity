@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * For you: a digest, as the start page's For you is. Everything waiting on you is one line with its one or two actions
  * on it, so you can answer most of it from here, and what happened in your projects since you were last here follows

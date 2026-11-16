@@ -1,4 +1,4 @@
-import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@buildkitgg/shadcn"
 import { layersSelection, type Selection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"

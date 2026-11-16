@@ -1,4 +1,4 @@
-import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { type ReactNode, useMemo, useRef, useState } from "react"
 import type { SignInProvider } from "../../../shared/account.ts"
 import { TabBar } from "../../chrome/TabBar.tsx"

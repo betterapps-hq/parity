@@ -1,11 +1,4 @@
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@buildkitgg/shadcn"
 import { type ComponentProps, type ReactNode } from "react"
 import { ChangeMark, useChanged } from "../inspector/controls/field-parts.tsx"
 import { useFieldName, useMixed } from "../inspector/controls/field-row.tsx"

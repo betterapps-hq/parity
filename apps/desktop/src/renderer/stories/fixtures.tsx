@@ -1,4 +1,4 @@
-import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity-app/core"
 import { containerEntries, containerEntry } from "@parity-app/multiplayer"
 import type { ReactNode } from "react"

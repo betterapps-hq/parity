@@ -1,4 +1,4 @@
-import { Input } from "@buildkitgg/shadcn-baseui-kit"
+import { Input } from "@buildkitgg/shadcn"
 import { useFieldName, useMixed } from "../inspector/controls/field-row.tsx"
 import { NameInput } from "./Name.tsx"
 import { swatch } from "./token-previews.tsx"

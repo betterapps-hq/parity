@@ -4,7 +4,7 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { ProjectRoute } from "@parity-app/core"
 import type { Selection } from "@parity-app/editor"
 import { AppWindow, ChevronRight, Server } from "lucide-react"

@@ -1,4 +1,4 @@
-import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Label, Switch } from "@buildkitgg/shadcn"
 import type { AccessibilityFinding, AccessibilityImpact, ContrastDetail, TokenFix } from "@parity-app/agent"
 import {
   type ContainerSpec,

@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
   Input,
   type Popover
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { checkTokenEdit, codeForms, substituteReferences, tokenReferences, valueParts } from "@parity-app/tokens"
 import { Check, ChevronDown, Pause, Pencil, Play } from "lucide-react"
 import { type ComponentProps, Fragment, useEffect, useId, useRef, useState } from "react"

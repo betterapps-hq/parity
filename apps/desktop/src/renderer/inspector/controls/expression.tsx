@@ -1,4 +1,4 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import {
   type Basis,
   evaluateLength as evaluate,

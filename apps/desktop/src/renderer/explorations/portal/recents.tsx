@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /** The Recents page: every project in Kestrel you've been in. */
 import { LayoutGrid, List } from "lucide-react"
 import { GitHubMark } from "../parts.tsx"

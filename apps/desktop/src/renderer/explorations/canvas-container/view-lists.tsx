@@ -1,4 +1,4 @@
-import { Button, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Switch } from "@buildkitgg/shadcn"
 import { GripVertical, Settings2 } from "lucide-react"
 import type { ReactNode } from "react"
 import { Hint } from "../../chrome/Hint.tsx"

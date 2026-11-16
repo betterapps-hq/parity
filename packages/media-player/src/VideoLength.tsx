@@ -1,4 +1,4 @@
-import { cn } from "@buildkitgg/shadcn-baseui-kit"
+import { cn } from "@buildkitgg/shadcn"
 import { Play } from "lucide-react"
 import { clockOf } from "./controls.ts"
 

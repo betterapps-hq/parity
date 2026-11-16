@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { fitPicture, type ImageMedium, inUse, mediumOf, type PictureSize, type ProjectImage } from "@parity-app/editor"
 import { clockOf, VideoPlayer } from "@parity-app/media-player"
 import { ExternalLink, Film, ImageIcon, type LucideIcon, PenTool, Plus, Trash2 } from "lucide-react"

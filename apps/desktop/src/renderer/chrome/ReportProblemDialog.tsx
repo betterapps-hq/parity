@@ -17,7 +17,7 @@ import {
   FieldLabel,
   Spinner,
   Textarea
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { TriangleAlert } from "lucide-react"
 import { useId, useState } from "react"
 import type { ProblemReportRequest } from "../../shared/protocol.ts"

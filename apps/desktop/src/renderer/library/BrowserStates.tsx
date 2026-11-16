@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
   Skeleton,
   Spinner
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   type ConnectorInfo,
   layoutFor,

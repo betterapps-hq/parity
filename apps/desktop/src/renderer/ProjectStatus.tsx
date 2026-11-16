@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { Check, Circle, LoaderCircle } from "lucide-react"
 import { ErrorPage } from "./chrome/ErrorPage.tsx"
 import { useLayout } from "./chrome/layout.ts"

@@ -123,9 +123,9 @@ The three 12px titles differ only by weight and color, so they're components, no
   `font-medium` reads the repointed variable and does nothing, so the lint rule fails it there; their children get the
   medium back. Each unlayered rule is keyed on the kit class it replaces, so a caller's own size or line, which makes
   `cn` drop the kit's, also turns the rule off. The `type-*` roles are registered with the class merger (`createCn`,
-  installed with the kit runtime's `setCn` in `class-merger.ts`), so a caller's role replaces the kit's size as
-  `text-xs` would. `kit-type.test.ts` scans the kit's `dist` for its own sizes, lines, tracking and medium, and fails on
-  any it doesn't list.
+  installed with the generated package's `setCn` in `class-merger.ts`), so a caller's role replaces the kit's size as
+  `text-xs` would. `kit-type.test.ts` scans the components shadcn-sync generates for their own sizes, lines, tracking
+  and medium, and fails on any it doesn't list.
 - **The theme's line heights are ratios,** as Tailwind's are, so a child sized inline inherits a line in proportion.
 - **The lint rule (PAR-729, to come).** A rule in the vite-plus oxlint plugin config fails `className` strings with
   one-off type values in `apps/desktop/src/renderer`, outside explorations and the exempt parts above, gathering every

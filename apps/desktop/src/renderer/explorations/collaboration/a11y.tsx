@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { Check, CircleDashed, Sparkles, TriangleAlert } from "lucide-react"
 import type { ReactNode } from "react"
 import { type AccessibilityOption, accessibilityOptions } from "../../collaboration/annotations/annotation-options.ts"

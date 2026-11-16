@@ -4596,7 +4596,8 @@ chips. Its box is drawn as the panel's text input is, with its border, fill and 
 it, but not while its list is open. A chip reads at the panel's 10px with an × that removes it, and the box grows onto
 more lines as chips are added. A chip too long for the box truncates. Backspace in the empty input removes the last
 chip. Given options, typing in the input lists the matches under the box in groups, and picking one adds it as a chip.
-When nothing matches, the list says No matches. Keyboard use, focus and names are Base UI's.
+When nothing matches, the list says No matches. Keyboard use, focus and names are Base UI's, and a chip's × has no name
+of its own, as in stock shadcn.
 
 Code: `AppChips`, `AppChip` and `AppChipsInput` in `apps/desktop/src/renderer/chrome/AppChips.tsx`, used by
 `ClassTagsField` in `inspector/controls/class-tags.tsx` and `SlotPickerField` in `inspector/controls/slot-picker.tsx`;
