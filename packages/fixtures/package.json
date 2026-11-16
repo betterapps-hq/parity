@@ -18,6 +18,7 @@
     "@parity-app/extension-rspack": "workspace:*",
     "@parity-app/extension-turbopack": "workspace:*",
     "@parity-app/extension-vite": "workspace:*",
+    "@parity-app/extension-webpack": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/tokens": "workspace:*"
   }

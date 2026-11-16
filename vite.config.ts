@@ -28,6 +28,7 @@ const edge = [
   "extension-tanstack-router",
   "extension-turbopack",
   "extension-vite",
+  "extension-webpack",
   "fixtures",
   "libgen",
   "media-player",

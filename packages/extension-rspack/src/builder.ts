@@ -1,31 +1,24 @@
-import { readdir, readFile, realpath } from "node:fs/promises"
-import { basename, dirname, extname, join, resolve } from "node:path"
+import { readdir, realpath } from "node:fs/promises"
 import {
   type Bundler,
   type BundlerConfig,
-  bundlerConfig,
   bundledAppStyles,
+  cliConfig,
+  cliConfigFiles,
+  type CliConfigSource,
   importProjectPackage,
   rspackApi,
   rspackBundler,
   type RspackModule,
   startBundledGuest
 } from "@parity-app/builder-webpack-compatible"
-import {
-  type AppStyles,
-  type BuilderAdapter,
-  type BuilderDetection,
-  parseManifest,
-  scriptConfigExtensions
-} from "@parity-app/core"
-import { commandOption, findConfig, loadConfig, scriptRunning } from "@parity-app/project"
-import { z } from "zod"
+import { type AppStyles, type BuilderAdapter, type BuilderDetection, scriptConfigExtensions } from "@parity-app/core"
 
 /** The config files Rspack's CLI looks for. */
-export const rspackConfigFiles = scriptConfigExtensions.map((extension) => `rspack.config.${extension}`)
+export const rspackConfigFiles = cliConfigFiles("rspack.config")
 
 /** Rsbuild's, whose project Rsbuild builds, though it has Rspack installed too. */
-const rsbuildConfigFiles = scriptConfigExtensions.map((extension) => `rsbuild.config.${extension}`)
+const rsbuildConfigFiles = cliConfigFiles("rsbuild.config")
 
 /** Runs Rspack's dev server: `rspack dev`, `rspack serve`, or `rspack` alone. */
 const rspackServe = /(?:^|[\s;&|(])rspack(?![\w.-])(?!\s+(?:build|preview)\b)/
@@ -119,76 +112,10 @@ export async function rspackAppStyles(root: string): Promise<AppStyles> {
   return bundledAppStyles(bundler, config, root, file)
 }
 
-/**
- * The project's Rspack config for `rspack dev`, and its file from the root: the one its dev script names with
- * `--config` or `-c`, else `rspack.config.*` in its folder. A config that exports a function is called as Rspack's CLI
- * calls it for `serve`; one that exports a list gives its first. Loading it runs it, as `rspack` does.
- */
-export async function rspackConfig(root: string): Promise<{ config: BundlerConfig; file: string } | undefined> {
-  const named = await scriptedConfig(root)
-  const folder = named ? dirname(named) : root
-  const files = named ? [basename(named, extname(named))] : ["rspack.config"]
-  const source = { files, extensions: [...scriptConfigExtensions], here: true }
+/** How Rspack's CLI finds its config for `rspack dev`. */
+const rspackCli: CliConfigSource = { file: "rspack.config", serve: rspackServe, env: { RSPACK_SERVE: true } }
 
-  if (!(await findConfig(root, folder, source))) {
-    return undefined
-  }
-
-  const loaded = await loadConfig(root, folder, source, z.unknown())
-
-  if (!loaded) {
-    return undefined
-  }
-
-  // A config file may export a promise of its config, which `rspack` waits for.
-  return { config: await servedConfig(configExport.parse(await loaded.value)), file: loaded.path }
-}
-
-/** What Rspack's CLI passes a config that exports a function, for `rspack dev`. */
-export interface ServeEnv {
-  RSPACK_SERVE: true
-}
-
-export interface ServeArgv {
-  mode: "development"
-  env: ServeEnv
-}
-
-/** What a config file exports: a config, a list of them, or a function that gives one. */
-const configExport = z.union([
-  // oxlint-disable-next-line anti-slop/no-unknown-returns -- what the function gives is parsed by this schema in turn
-  z.custom<(env: ServeEnv, argv: ServeArgv) => unknown>((value) => value instanceof Function),
-  z.array(bundlerConfig),
-  bundlerConfig
-])
-
-/** A config's value as `rspack dev` takes it: a function's result, a list's first. */
-export async function servedConfig(value: z.output<typeof configExport>): Promise<BundlerConfig> {
-  if (value instanceof Function) {
-    const env: ServeEnv = { RSPACK_SERVE: true }
-
-    return servedConfig(configExport.parse(await value(env, { mode: "development", env })))
-  }
-
-  if (!Array.isArray(value)) {
-    return value
-  }
-
-  const [first] = value
-
-  if (!first) {
-    throw new TypeError("its config is an empty list")
-  }
-
-  return first
-}
-
-/** The config the project's dev script names with `--config` or `-c`, as an absolute path. */
-async function scriptedConfig(root: string): Promise<string | undefined> {
-  const file = join(root, "package.json")
-  const text = await readFile(file, "utf8").catch(() => undefined)
-  const script = text === undefined ? undefined : scriptRunning(parseManifest(text, file).scripts, rspackServe)
-  const named = script && commandOption(script[1], ["-c", "--config"])
-
-  return named ? resolve(root, named) : undefined
+/** The project's Rspack config for `rspack dev`, and its file from the root, as Rspack's CLI finds and runs it. */
+export function rspackConfig(root: string): Promise<{ config: BundlerConfig; file: string } | undefined> {
+  return cliConfig(root, rspackCli)
 }

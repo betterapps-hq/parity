@@ -4,7 +4,8 @@ import { posix } from "node:path"
 /*
  * Modules of the project's that only Next's server can compile. The guest module is a client module, so everything it
  * imports is built for the browser, and Next fails the whole guest page for one module it can't build there: a page or
- * layout that exports `metadata`, or one that imports `next/headers` or `server-only`. The guest app imports each of
+ * layout that exports `metadata`, or one that imports `next/headers`, `server-only` or `next/document`, which only
+ * Next's Pages Router renders. The guest app imports each of
  * those from a stand-in that throws why, so only that module's components fail, each with the reason.
  */
 
@@ -12,8 +13,8 @@ import { posix } from "node:path"
 const serverExports =
   /^\s*export\s+(?:(?:const|let|var)\s+(?:metadata|viewport)\b|(?:async\s+)?function\s+(?:generateMetadata|generateViewport)\b)|^\s*export\s*\{[^}]*\b(?:metadata|generateMetadata|viewport|generateViewport)\b[^}]*\}/m
 
-/** What only a server component may import. */
-const serverImports = /^\s*import\s+(?:[^"';]*?\bfrom\s*)?["'](server-only|next\/headers)["']/m
+/** What only a server component, or a Pages Router document, may import. */
+const serverImports = /^\s*import\s+(?:[^"';]*?\bfrom\s*)?["'](server-only|next\/headers|next\/document)["']/m
 
 /** A module that says it's a client module, which Next builds for the browser whatever it imports. */
 const clientDirective = /^(?:\s|\/\/[^\n]*\n|\/\*[\s\S]*?\*\/)*["']use client["']/
@@ -63,13 +64,14 @@ export async function serverOnlyStandIns(root: string, modules: readonly string[
 
   return modules.flatMap((module, index) => {
     const reason = reasons[index]
+    const kind = reason === "imports next/document" ? "a Pages Router document" : "a server component"
 
     return reason
       ? [
           {
             module,
             path: `${standInFolder}/${index}.js`,
-            text: `throw new Error(${JSON.stringify(`${module} ${reason}, so it's a server component, which the canvas can't draw yet`)})\n`
+            text: `throw new Error(${JSON.stringify(`${module} ${reason}, so it's ${kind}, which the canvas can't draw yet`)})\n`
           }
         ]
       : []

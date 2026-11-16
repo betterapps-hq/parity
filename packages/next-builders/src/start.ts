@@ -15,7 +15,7 @@ import {
   watchCodeChanges
 } from "./module-server.ts"
 import { nextRouterDecorator } from "./next-router.ts"
-import { detectNext, postcssConfigFile, projectTsconfigFile } from "./next.ts"
+import { detectNext, postcssConfigFile, projectTsconfigFile, tsconfigPathsBase } from "./next.ts"
 import { type GuestPage, readGuestPage } from "./page.ts"
 import { projectPageFiles, projectRouteFolders, type ProjectRouteFile, routeFolders } from "./project-pages.ts"
 import { serverOnlyStandIns } from "./server-modules.ts"
@@ -118,6 +118,11 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
 
   if (tsconfig) {
     app.tsconfig = tsconfig
+    const base = tsconfigPathsBase(root, tsconfig)
+
+    if (base !== undefined) {
+      app.tsconfigPathsBase = base
+    }
   }
 
   await writeGuestApp(root, [...guestAppFiles(app), ...pages, ...standIns.map(({ path, text }) => ({ path, text }))])

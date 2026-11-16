@@ -22,6 +22,8 @@ import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
 import turbopackExtension from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import { viteBuilder } from "@parity-app/extension-vite/builder"
 import viteExtension from "@parity-app/extension-vite/package.json" with { type: "json" }
+import { webpackBuilder } from "@parity-app/extension-webpack/builder"
+import webpackExtension from "@parity-app/extension-webpack/package.json" with { type: "json" }
 
 /*
  * Parity's own extensions, run here rather than in hosts of their own (PAR-1095): each as its manifest describes it,
@@ -31,12 +33,13 @@ import viteExtension from "@parity-app/extension-vite/package.json" with { type:
 /** React's renderer, reading components here. */
 export const renderers: RendererAdapter[] = [{ ...extensionRenderer(reactExtension)!, findComponents }]
 
-/** Vite's, Rspack's, Rsbuild's and Turbopack's builders, each with its entry module's detection and start. */
+/** Vite's, Rspack's, Rsbuild's, Turbopack's and webpack's builders, each with its entry module's detection and start. */
 export const builders: BuilderAdapter[] = [
   { ...viteBuilder, ...extensionBuilder(viteExtension)! },
   { ...rspackBuilder, ...extensionBuilder(rspackExtension)! },
   { ...rsbuildBuilder, ...extensionBuilder(rsbuildExtension)! },
-  { ...turbopackBuilder, ...extensionBuilder(turbopackExtension)! }
+  { ...turbopackBuilder, ...extensionBuilder(turbopackExtension)! },
+  { ...webpackBuilder, ...extensionBuilder(webpackExtension)! }
 ]
 
 /** Storybook's entities provider, importing and exporting here. */

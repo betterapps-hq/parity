@@ -25,6 +25,7 @@ import tailwindPackage from "@parity-app/extension-tailwind/package.json" with {
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import turbopackPackage from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
+import webpackPackage from "@parity-app/extension-webpack/package.json" with { type: "json" }
 import {
   detectByManifest,
   type ExtensionEdits,
@@ -97,7 +98,8 @@ export const builtInBuilders: BuilderDescription[] = [
   extensionBuilder(vitePackage),
   extensionBuilder(rspackPackage),
   extensionBuilder(rsbuildPackage),
-  extensionBuilder(turbopackPackage)
+  extensionBuilder(turbopackPackage),
+  extensionBuilder(webpackPackage)
 ].filter((builder) => builder !== undefined)
 
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
@@ -119,6 +121,7 @@ const builtIns = (): InstalledExtension<ExtensionProject>[] => [
   builtIn(rspackPackage, "rspack"),
   builtIn(rsbuildPackage, "rsbuild"),
   builtIn(turbopackPackage, "turbopack"),
+  builtIn(webpackPackage, "webpack"),
   builtIn(reactPackage, "react"),
   builtIn(tailwindPackage, "tailwind"),
   builtIn(routerPackage, "tanstack-router"),

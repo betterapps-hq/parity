@@ -13,9 +13,9 @@ export {
   projectImport
 } from "./guest-app.ts"
 
-export { copyGuestRuntime, replaceSpecifier, runtimeFolder } from "./guest-runtime.ts"
+export { type GuestStylesheets, guestExportSource } from "./guest-export.ts"
 
-export { guestModuleRoute, guestPage, type NextGuestLoader, startNextGuest } from "./guest-server.ts"
+export { copyGuestRuntime, replaceSpecifier, runtimeFolder } from "./guest-runtime.ts"
 
 export {
   detectNext,
@@ -25,7 +25,8 @@ export {
   type NextProject,
   postcssConfigFile,
   type ProjectNext,
-  projectTsconfigFile
+  projectTsconfigFile,
+  tsconfigPathsBase
 } from "./next.ts"
 
 export { type GuestPage, readGuestPage } from "./page.ts"
@@ -33,3 +34,5 @@ export { type GuestPage, readGuestPage } from "./page.ts"
 export { serverOnlyReason, serverOnlyStandIns, type StandIn, standInFolder } from "./server-modules.ts"
 
 export { freePort, type NextServer, type OwnRoute, portFree, startNextServer, writeGuestApp } from "./server.ts"
+
+export { guestModuleRoute, guestPage, type NextGuestLoader, startNextGuest } from "./start.ts"

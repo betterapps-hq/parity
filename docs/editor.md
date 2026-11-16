@@ -1610,6 +1610,49 @@ in the running app on 2026-11-15 on `fixtures/nextjs-turbopack`: Next.js 16.4.6 
 stories and Home drawn with Tailwind and Recharts. On a Next.js 16.3.1 app with vanilla-extract, Sentry and Radix: it
 opened with 97 components and 441 theme variables, and the components that need no provider drew.
 
+### webpack as an extension, through its builder provider (PAR-1150)
+
+A Next.js app whose dev server runs webpack, and a plain webpack 5 project, draw their components with the project's own
+tools, and "webpack" leads the status bar.
+
+- **Its builder provider says whether webpack builds the project.** A Next.js app is its own when `next dev` runs
+  webpack, as Next.js 15 does unless its dev script passes `--turbopack`, and 16 only with `--webpack`; otherwise it's
+  Turbopack's. Any other project is when it has webpack and a config: the one the dev script names with `--config` or
+  `-c`, else `webpack.config.*`. A config that exports a function is called as `webpack serve` calls it. A project with
+  an Rspack or Rsbuild config is left to them.
+- **A Next.js app builds on the Turbopack builder's guest app,** with the start both builders share (`startNextGuest`).
+  The guest module loads the guest page's webpack chunks with their start-up functions taken out, so Next's router never
+  starts, then webpack's runtime, and asks it for the guest module. A component's CSS module loads as Turbopack's do. A
+  Pages Router `_document` fails on its own, with why, as a server component does.
+- **A plain project builds on the code the Rspack builder shares** (`packages/builder-webpack-compatible`). CSS reaches
+  the guest as text either way. With the project's `mini-css-extract-plugin`, the shared code extracts it. Without one,
+  the stylesheet rules swap `style-loader` and `css-loader` for webpack's own CSS (`experiments.css`), keeping the
+  loaders before them. The files `css-loader`'s `modules` option made CSS modules stay ones: by name (`.module.css`) by
+  default, every file or none when it said so. Their classes come as `css-loader` gave them: as its options say, else
+  named exports from version 7 and the default export before. Where the project's webpack can (5.104 and later), its
+  custom properties stay global, as with `css-loader`.
+- **Babel works from the project's folder.** Each `babel-loader` in the project's rules finds the project's
+  `babel.config.*` as it would under `webpack serve`, which Rspack projects using Babel get too.
+- **The rest is the shared code's:** the guest, a changed component loading afresh, the global stylesheets, element
+  sources, code changes and loaded files, as for Rspack.
+
+Code: `packages/extension-webpack` (its manifest, `extension.ts`, `builder.ts`, `webpack.ts` and `next-loader.ts`);
+`packages/next-builders` (`start.ts` and `guest-export.ts`, shared with the Turbopack builder);
+`packages/builder-webpack-compatible` (`cli-config.ts`, which loads a CLI's config for webpack and Rspack, and
+`babel.ts`).
+
+Tests: `packages/extension-webpack/src/builder.test.ts` (detection and its manifest), `webpack.test.ts` (the bundler and
+the CSS change) and `next-loader.test.ts` (the chunks and the guest module);
+`packages/next-builders/src/guest-app.test.ts` and `server-modules.test.ts`;
+`packages/builder-webpack-compatible/src/cli-config.test.ts` and `babel.test.ts`; the `webpack-react-router` and
+`nextjs-webpack` validation projects. Tried on 2026-11-15 by starting the builder on each and loading its guest in a
+browser. On `webpack-react-router`: webpack 5.112.2 and its config found, React Aria's `Button` drawn, the app's own
+components compiled with its Babel config, and, in a copy with a global stylesheet and a CSS module, the module's class
+drawn with the stylesheet's custom property. On `nextjs-webpack`: Next.js 15.5.29 on webpack found, every component's
+module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components stop
+at their theme providers, styled-components' `ThemeProvider` and Mantine's `MantineProvider`, which the canvas doesn't
+render.
+
 ### Storybook's stories through its entities provider (PAR-1095)
 
 Storybook's stories are read and written back by its extension, through Parity's public API alone, rather than by an

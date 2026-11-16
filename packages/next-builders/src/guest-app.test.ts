@@ -65,10 +65,21 @@ describe("the guest app", () => {
     expect(script).toContain("nextjs-portal { display: none !important }")
   })
 
-  it("extends the project's tsconfig", () => {
-    const files = guestAppFiles({ ...options, tsconfig: "tsconfig.json" })
+  it("extends the project's tsconfig, with a baseUrl where its paths resolve from unless it gives one", () => {
+    const files = guestAppFiles({ ...options, tsconfig: "tsconfig.json", tsconfigPathsBase: "" })
 
-    expect(JSON.parse(text(files, "tsconfig.json")!)).toEqual({ extends: "../../tsconfig.json" })
+    expect(JSON.parse(text(files, "tsconfig.json")!)).toEqual({
+      extends: "../../tsconfig.json",
+      compilerOptions: { baseUrl: "../.." }
+    })
+
+    const inherited = guestAppFiles({ ...options, tsconfig: "tsconfig.json", tsconfigPathsBase: "config" })
+
+    expect(JSON.parse(text(inherited, "tsconfig.json")!).compilerOptions).toEqual({ baseUrl: "../../config" })
+
+    const withBase = guestAppFiles({ ...options, tsconfig: "tsconfig.json" })
+
+    expect(JSON.parse(text(withBase, "tsconfig.json")!)).toEqual({ extends: "../../tsconfig.json" })
   })
 
   it("passes on the project's PostCSS config, with Tailwind's plugin looking for classes from the project", async () => {
@@ -119,7 +130,9 @@ describe("the guest app", () => {
     const mjs = nextConfigSource({ ...options, config: "next.config.mjs" })
     const none = nextConfigSource(options)
 
-    expect(ts).toContain('transpileConfig({ nextConfigPath: "D:/work/app/next.config.ts", dir: "D:/work/app" })')
+    expect(ts).toContain(
+      'transpileConfig({"nextConfigPath":"D:/work/app/next.config.ts","configFileName":"next.config.ts","cwd":"D:/work/app","dir":"D:/work/app"})'
+    )
     expect(mjs).toContain('import("file:///D:/work/app/next.config.mjs")')
     expect(none).toContain("return {}")
 

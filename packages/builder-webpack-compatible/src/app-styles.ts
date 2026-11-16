@@ -3,6 +3,7 @@ import { tmpdir } from "node:os"
 import { join, posix } from "node:path"
 import type { AppStyles } from "@parity-app/core"
 import { chooseAppStyles, type Imported, isStylesheetFile, type Walked } from "@parity-app/project"
+import { babelFromRoot } from "./babel.ts"
 import type { Bundler, BundlerCompilation, BundlerConfig, BundlerModule, BundlerStats } from "./bundler.ts"
 import { filePath } from "./graph.ts"
 
@@ -37,6 +38,7 @@ export async function bundledAppStyles(
       devServer: undefined,
       devtool: false,
       output: { ...config.output, path: output, clean: false },
+      module: { ...config.module, rules: config.module?.rules?.map((rule) => babelFromRoot(rule, root)) },
       // Its own cache, if it has one, isn't the one to write.
       cache: false
     })
