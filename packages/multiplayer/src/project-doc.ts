@@ -10,11 +10,11 @@ import {
   type ReferenceSpec
 } from "@parity-app/core"
 import {
-  noTokenEdits,
   sameDesign,
   sameDocument,
   sameTokenValues,
   sameValue,
+  type TokenEdit,
   type TokenEdits,
   withTidyView,
   withoutModes
@@ -38,7 +38,8 @@ import type {
   TransactOptions,
   TransactProblem,
   TransactResult,
-  UndoState
+  UndoState,
+  Written
 } from "./types.ts"
 import { fieldOf, pathOf } from "./values.ts"
 
@@ -49,10 +50,13 @@ import { fieldOf, pathOf } from "./values.ts"
  * draft, and takes back only this person's steps.
  */
 
-/** An inverse, with the value its target holds while nothing else has changed it, to tell when someone else has. */
+/**
+ * An inverse, with the value its target holds while nothing else has changed it, to tell when someone else has: a
+ * field's value, or the token values a token edit left.
+ */
 interface Inverse {
   op: DocOp
-  expect?: { value: JsonValue | undefined }
+  expect?: { value: JsonValue | undefined } | { tokens: TokenEdits }
 }
 
 interface Step {
@@ -87,15 +91,11 @@ interface GestureState {
 /** Origins whose changes are never steps. */
 const notSteps = new Set<ChangeOrigin>(["view", "code", "remote"])
 
-/** Origins whose changes aren't written. */
-const notWritten = new Set<ChangeOrigin>(["code", "file", "remote"])
+/** Origins whose changes come from the files, so the files already hold them. */
+const fromFiles = new Set<ChangeOrigin>(["code", "file"])
 
-export function createProjectDoc(
-  backend: DocBackend,
-  options: { undoLimit: number; main: string; tokens?: TokenEdits }
-): ProjectDoc {
+export function createProjectDoc(backend: DocBackend, options: { undoLimit: number; main: string }): ProjectDoc {
   const { main, undoLimit } = options
-  let tokens = options.tokens ?? noTokenEdits
   let undoStack: Step[] = []
   let redoStack: Step[] = []
   let steps = 0
@@ -110,7 +110,7 @@ export function createProjectDoc(
   const listeners = new Set<(change: DocChange) => void>()
   const gestureListeners = new Set<() => void>()
 
-  const state = (): DocState => ({ files: backend.files(), main, modes: backend.modes(), tokens })
+  const state = (): DocState => ({ files: backend.files(), main, modes: backend.modes(), tokens: backend.tokens() })
 
   const notify = (change: DocChange) => {
     for (const listener of listeners) {
@@ -149,8 +149,8 @@ export function createProjectDoc(
       origin: "remote",
       label: "",
       kind: "remote",
-      persist: false,
-      tokens: false,
+      // Not in this copy's files yet: the copy that writes files writes it like its own.
+      written: "no",
       kept: 0
     })
   })
@@ -170,13 +170,19 @@ export function createProjectDoc(
       let applied: Applied
 
       // Undoing: a field someone else has changed since is left as they left it.
-      if (skipping && expect && !sameValue(currentValue(after, op), expect.value)) {
+      if (skipping && expect && "value" in expect && !sameValue(currentValue(after, op), expect.value)) {
         skipping.kept += 1
         continue
       }
 
+      // And so is a token value someone else has changed since: only the step's own token values go back.
+      const taken =
+        skipping && expect && "tokens" in expect && op.op === "setTokens"
+          ? tokensBack(after.tokens, op.tokens, expect.tokens, skipping)
+          : op
+
       try {
-        applied = applyOp(after, op, index, recorder)
+        applied = applyOp(after, taken, index, recorder)
       } catch (error) {
         if (!(error instanceof OpProblem)) {
           throw error
@@ -245,13 +251,10 @@ export function createProjectDoc(
       return problem
     }
 
-    const sent = result.plain.filter((op) => op.op !== "setTokens")
-
-    if (sent.length > 0) {
-      backend.apply(sent, origin)
+    if (result.plain.length > 0) {
+      backend.apply(result.plain, origin)
     }
 
-    tokens = result.after.tokens
     changeCount += 1
     history = undefined
 
@@ -260,7 +263,7 @@ export function createProjectDoc(
 
   const changeOf = (
     recorder: Recorder,
-    extra: Pick<DocChange, "origin" | "label" | "kind" | "persist" | "kept"> & {
+    extra: Pick<DocChange, "origin" | "label" | "kind" | "written" | "kept"> & {
       gesture?: GestureId
       meta?: JsonValue
     }
@@ -330,7 +333,7 @@ export function createProjectDoc(
       origin: options.origin,
       label,
       kind,
-      persist: (options.persist ?? true) && !notWritten.has(options.origin),
+      written: writtenOf(options),
       kept: 0,
       gesture: options.gesture,
       meta: options.meta
@@ -401,7 +404,7 @@ export function createProjectDoc(
       origin: step.origin,
       label: step.label,
       kind,
-      persist: true,
+      written: "no",
       kept: skipping.kept,
       meta: step.meta
     })
@@ -482,7 +485,7 @@ export function createProjectDoc(
       return parent ? { node: parent.id, slot: location.slot } : "design"
     },
     modes: () => backend.modes(),
-    tokens: () => tokens,
+    tokens: () => backend.tokens(),
     version: () => backend.version(),
 
     transact: (label, ops, options) => run(label, ops, options, "transaction"),
@@ -499,7 +502,7 @@ export function createProjectDoc(
         }
       }
 
-      return run(`Reload ${path}`, ops, { origin: "file", persist: false, undoable: true }, "replaceFile")
+      return run(`Reload ${path}`, ops, { origin: "file", written: "files", undoable: true }, "replaceFile")
     },
 
     beginGesture: () => {
@@ -802,11 +805,53 @@ function designIn(state: DocState, key: DesignKey): ContainerSpec | undefined {
   return split && state.files.get(split.path)?.containers.find((container) => container.id === split.id)
 }
 
-/** An inverse with the value its target holds now, for the fields an inverse sets back. */
+/** Where a transaction's content is already written. */
+function writtenOf(options: TransactOptions): Written {
+  return options.written ?? (fromFiles.has(options.origin) ? "files" : "no")
+}
+
+/** An inverse with the value its target holds now, for the fields and token values an inverse sets back. */
 function guarded(op: DocOp, after: DocState): Inverse {
+  if (op.op === "setTokens") {
+    return { op, expect: { tokens: after.tokens } }
+  }
+
   return op.op === "set" || op.op === "setDesign" || op.op === "setFileField"
     ? { op, expect: { value: currentValue(after, op) } }
     : { op }
+}
+
+/**
+ * The token values undoing a token edit leaves: each token the step changed goes back to what it was before, unless
+ * someone else has changed it since, and every other token stays as it is now.
+ */
+function tokensBack(now: TokenEdits, before: TokenEdits, left: TokenEdits, skipping: { kept: number }) {
+  const next = new Map(now)
+
+  for (const key of new Set([...before.keys(), ...left.keys()])) {
+    if (sameEdit(before.get(key), left.get(key))) {
+      continue
+    }
+
+    if (!sameEdit(now.get(key), left.get(key))) {
+      skipping.kept += 1
+      continue
+    }
+
+    const back = before.get(key)
+
+    if (back) {
+      next.set(key, back)
+    } else {
+      next.delete(key)
+    }
+  }
+
+  return { op: "setTokens", tokens: next } satisfies DocOp
+}
+
+function sameEdit(a: TokenEdit | undefined, b: TokenEdit | undefined): boolean {
+  return a === b || (a !== undefined && b !== undefined && a.value === b.value && a.original === b.original)
 }
 
 /** What the field an inverse sets back holds now. */

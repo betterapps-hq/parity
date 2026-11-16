@@ -14,7 +14,15 @@ import {
 } from "@parity-app/core"
 import type { TokenEdit } from "@parity-app/editor"
 import { describe, expect, it } from "vite-plus/test"
-import { applyAgentChanges, changeTokens, restoreCopy, updateContainer, updateNote, updateView } from "../callers.ts"
+import {
+  applyAgentChanges,
+  changeTokens,
+  restoreCopy,
+  setModes,
+  updateContainer,
+  updateNote,
+  updateView
+} from "../callers.ts"
 import { createProjectDoc } from "../project-doc.ts"
 import type { DocChange, DocOp, DocProvider, ProjectDoc } from "../types.ts"
 import type { ReplicaPair } from "./replicas.ts"
@@ -358,7 +366,7 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         expect(doc.file("app.par")?.containers.map((design) => design.id)).toEqual(["card"])
         expect(doc.file("app.par")?.modes).toBeUndefined()
         expect(doc.modes()).toEqual(darkModes)
-        expect(changes.at(-1)).toMatchObject({ kind: "replaceFile", persist: false, files: ["app.par"] })
+        expect(changes.at(-1)).toMatchObject({ kind: "replaceFile", written: "files", files: ["app.par"] })
         expect(doc.history().undo).toHaveLength(1)
       })
 
@@ -732,13 +740,13 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         ])
         expect(changes[0]).toMatchObject({
           files: ["app.par"],
-          persist: true,
+          written: "no",
           layers: { changed: [{ address: { design: "app.par#home", node: "a" }, fields: ["name"] }] }
         })
         expect(changes[3]).toMatchObject({ files: [], tokens: true })
         expect(changes[4]).toMatchObject({
           files: ["more.par"],
-          persist: false,
+          written: "files",
           designs: { removed: ["more.par#about"] }
         })
       })
@@ -746,24 +754,39 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
 
     describe.skipIf(!options.replicas)("concurrent", () => {
       /** Two people with the project open, each with their own document, exchanging what they've done. */
-      const together = () => {
-        const pair = options.replicas!.open({ files: files(), main: "app.par", modes: defaultModeSettings })
+      const together = (modes: ModeSettings = defaultModeSettings) => {
+        const pair = options.replicas!.open({ files: files(), main: "app.par", modes })
         const a = createProjectDoc(pair.a, { undoLimit: 200, main: "app.par" })
         const b = createProjectDoc(pair.b, { undoLimit: 200, main: "app.par" })
+        const changesOfA: DocChange[] = []
+        a.subscribe((change) => changesOfA.push(change))
 
         const exchange = () => {
           pair.exchange()
           expect(b.files()).toEqual(a.files())
           expect(b.modes()).toEqual(a.modes())
+          expect(b.tokens()).toEqual(a.tokens())
         }
 
-        return { a, b, exchange }
+        return { a, b, exchange, changesOfA, swap: () => pair.exchange() }
       }
 
       const set = (node: string, path: string[], value: JsonValue) =>
         ({ op: "set", design: "app.par#home", node, path, value }) satisfies DocOp
 
       const text = (id: string): DesignNode => ({ type: "text", id, text: id })
+
+      /** Shows the home screen in the small mode here, as picking a mode on its board does. */
+      const showSmall = (doc: ProjectDoc) => {
+        const view = {
+          op: "setDesign",
+          design: "app.par#home",
+          path: ["view"],
+          value: { mode: "small" }
+        } satisfies DocOp
+
+        expect(doc.transact("Show small", [view], { origin: "view" }).ok).toBe(true)
+      }
 
       it("lands both people's changes to different fields of one layer, and the same field the same on both", () => {
         const { a, b, exchange } = together()
@@ -899,6 +922,70 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         const more = layer(a, "app.par#home", "more")
         const filled = more?.type === "instance" ? (more.slots?.actions ?? []).map((child) => child.id) : []
         expect(filled.toSorted()).toEqual(["one", "two"])
+      })
+
+      it("marks the other person's changes as not yet written, for the copy that writes files", () => {
+        const { b, exchange, changesOfA } = together()
+        apply(b, [set("title", ["name"], "Theirs")])
+        exchange()
+
+        expect(changesOfA.at(-1)).toMatchObject({ kind: "remote", origin: "remote", written: "no", files: ["app.par"] })
+      })
+
+      it("shares token values, and undo takes back only this person's, keeping the other person's later ones", () => {
+        const { a, b, exchange, changesOfA } = together()
+        const accent = (value: string): TokenEdit => ({ name: "accent", theme: "default", value, original: "white" })
+        changeTokens(a, "Change primary", [primary("red")])
+        exchange()
+        expect(b.tokens().get("primary default")).toEqual(primary("red"))
+
+        changeTokens(b, "Change accent", [accent("blue")])
+        exchange()
+        expect(changesOfA.at(-1)).toMatchObject({ kind: "remote", tokens: true, files: [] })
+        expect(a.tokens().get("accent default")).toEqual(accent("blue"))
+
+        changeTokens(b, "Change primary", [primary("green")])
+        exchange()
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 1 })
+        exchange()
+        expect(b.tokens().get("primary default")?.value).toBe("green")
+        expect(b.tokens().get("accent default")?.value).toBe("blue")
+      })
+
+      it("takes back this person's token value on undo, leaving the other person's token edits", () => {
+        const { a, b, exchange } = together()
+        const accent = (value: string): TokenEdit => ({ name: "accent", theme: "default", value, original: "white" })
+        changeTokens(a, "Change primary", [primary("red")])
+        exchange()
+        changeTokens(b, "Change accent", [accent("blue")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(b.tokens().has("primary default")).toBe(false)
+        expect(b.tokens().get("accent default")?.value).toBe("blue")
+      })
+
+      it("keeps which state and mode each design shows to each person, as their changes to it arrive", () => {
+        const { a, b, swap } = together(darkModes)
+        showSmall(a)
+        apply(b, [{ op: "setDesign", design: "app.par#home", path: ["name"], value: "Start" }])
+        apply(b, [set("title", ["name"], "Theirs")])
+        swap()
+
+        expect(a.design("app.par#home")).toMatchObject({ name: "Start", view: { mode: "small" } })
+        expect(layer(a, "app.par#home", "title")?.name).toBe("Theirs")
+        expect(b.design("app.par#home")?.view).toBeUndefined()
+      })
+
+      it("drops a mode the other person took away from what each design shows here", () => {
+        const { a, b, swap } = together(darkModes)
+        showSmall(a)
+        setModes(b, defaultModeSettings, "Remove small")
+        swap()
+
+        expect(a.modes()).toEqual(defaultModeSettings)
+        expect(a.design("app.par#home")?.view).toBeUndefined()
       })
 
       it("undoes only this person's step, keeping the other person's later change to the same field", () => {

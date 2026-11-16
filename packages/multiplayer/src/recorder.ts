@@ -138,7 +138,8 @@ export class Recorder {
       notes: this.notes,
       references: this.references,
       fileFields: [...this.fileFields.values()],
-      modes: this.modes
+      modes: this.modes,
+      tokens: this.tokens
     }
   }
 

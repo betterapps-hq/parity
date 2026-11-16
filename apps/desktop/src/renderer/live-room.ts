@@ -15,7 +15,9 @@ import { reportError } from "./report-error.ts"
  * `scripts/dev-room.ts`. The first copy in opens the files and hosts; a later one opens on the host's snapshot. Each
  * copy sends the Loro updates of its commits and takes in the others'. People's cursors are tldraw presence records,
  * drawn by `RoomCursor`; an agent's steps are passed on as they are to the agent presence queue, so the other copies
- * play its cursor as this one does. Only the host saves files.
+ * play its cursor as this one does. Only the host writes files, others' edits included, and token values sync with the
+ * rest; which state and mode a design shows stays each person's own (docs/proposals/extensions-in-the-window.md:
+ * Saving in a room).
  */
 
 /** Where someone's cursor is, in page coordinates, or nowhere when it's off the canvas. */
@@ -88,8 +90,10 @@ type Outgoing =
 export interface LiveRoom {
   /** This copy, as the relay knows it. */
   readonly peer: string
-  /** Whether this copy saves files: the host does, and a copy that takes over when the host leaves. */
+  /** Whether this copy writes files: the host does, and a copy that takes over when the host leaves. */
   saves(): boolean
+  /** Told when this copy starts or stops writing files, as the host changes. */
+  onSavesChange(listener: (saves: boolean) => void): () => void
   /** Opens the project on Loro, on the host's snapshot unless this copy is the first in. */
   readonly provider: DocProvider
   /**
@@ -202,6 +206,7 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
   const early: Uint8Array[] = []
   const askers: string[] = []
   const people = new Map<string, Person>()
+  const hostListeners = new Set<(saves: boolean) => void>()
   let stopEditor: () => void = nothing
   let stopLocal: () => void = nothing
 
@@ -240,6 +245,17 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
     editor?.store.mergeRemoteChanges(() => editor?.store.remove([InstancePresenceRecordType.createId(from)]))
   }
 
+  const setHost = (next: string) => {
+    const saved = host === peer
+    host = next
+
+    if ((host === peer) !== saved) {
+      for (const listener of hostListeners) {
+        listener(host === peer)
+      }
+    }
+  }
+
   listeners.add((message) => {
     switch (message.kind) {
       case "hello":
@@ -266,10 +282,10 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
       // A welcome comes again when the connection to a relay that restarted reconnects.
       case "welcome":
       case "joined":
-        host = message.host
+        setHost(message.host)
         break
       case "left":
-        host = message.host ?? peer
+        setHost(message.host ?? peer)
         forget(message.from)
         break
       default:
@@ -317,6 +333,11 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
   return {
     peer,
     saves: () => host === peer,
+    onSavesChange: (listener) => {
+      hostListeners.add(listener)
+
+      return () => hostListeners.delete(listener)
+    },
     provider,
     attachEditor: (next, of) => {
       stopEditor()
@@ -348,6 +369,7 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
       stopLocal()
       events.close()
       listeners.clear()
+      hostListeners.clear()
     }
   }
 }

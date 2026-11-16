@@ -6102,9 +6102,19 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   the first to answer, so it starts from the same Loro document, unsaved edits included. When the host leaves, the copy
   that joined next takes over.
 - **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
-  show as `remote` changes: in neither person's undo.
-- **Only the host saves,** so copies don't write the same files over each other, and only the host takes in a file
-  changed on disk; the others get it from there.
+  show as `remote` changes: in neither person's undo. Token values edited on the canvas merge too, a token at a time,
+  and undoing a token edit puts back only the tokens that step changed and nobody has changed since (PAR-1231).
+- **Only the host writes files** (PAR-1231), so copies don't write the same files over each other. It writes the others'
+  edits like its own, autosaving them on its usual delay, and writes the stylesheet. A change says where its content is
+  already written (`written`): `files` for a file reloaded from disk or code drawn again, which the saver takes as
+  saved, and `no` for everything else, the others' edits included. Only the host takes in a file changed on disk; the
+  others get it from there.
+- **A copy that doesn't write files has nothing to save.** It records nothing as saved, its tab shows no unsaved dot,
+  closing it asks nothing, and Save says "Saved by the room". When the host leaves and it takes over, it writes every
+  file that differs from what it read from disk when it opened, and the stylesheet when token values do.
+- **Each person picks their own state and mode** (PAR-1231). Which state and mode a design shows (its `view`) goes into
+  the room with the design, and changes to it after stay in that copy: they aren't sent, and a design someone else edits
+  keeps the view it has here, without a state or mode that's gone. The host's file saves the host's view.
 - **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
   a palette of the agents', named with the signed-in person's first name (`PARITY_ROOM_NAME` overrides it). It glides
   between the positions sent.
@@ -6116,14 +6126,22 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
 Without `PARITY_ROOM`, or in a packaged app, nothing changes: the window opens projects on the local provider.
 
 Code: `apps/desktop/scripts/dev-room.ts` (the relay), `apps/desktop/src/renderer/live-room.ts`, `openDocSession` in
-`renderer/project-doc.ts` (the room's provider, saving only while hosting), `canvas/RoomCursor.tsx`, `onPush` in
-`agent/presence.ts`, and `openLoro`'s `snapshot` and `subscribeLocalUpdates` in `packages/multiplayer-loro`.
+`renderer/project-doc.ts` (the room's provider, and the saver writing files only while hosting), `setWritesFiles` and
+`written` in `packages/multiplayer`'s saver, `canvas/RoomCursor.tsx`, `onPush` in `agent/presence.ts`, and `openLoro`'s
+`snapshot`, `subscribeLocalUpdates`, tokens map and views in `packages/multiplayer-loro`.
 
 Tests:
 
 - `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it, edits the files given
   don't have yet included; two documents kept in step through each one's local updates, delivered late as a relay does,
   with a merge repaired the same on both and remote changes out of undo.
+- `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": another copy's change written a moment after
+  it and counted in `fromOthers`; another copy's token values written to the stylesheet; nothing written or unsaved in a
+  copy that doesn't write files; taking over writes every file that differs from what its files held, and the
+  stylesheet; letting go after the write in flight.
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: the other person's changes
+  arrive as not yet written; token values shared, with undo taking back only this person's; which state and mode a
+  design shows kept to each person as the other's edits arrive, and a mode the other took away dropped from it.
 - `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
   copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
   isn't one refused.

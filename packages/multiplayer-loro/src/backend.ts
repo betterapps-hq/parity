@@ -8,7 +8,7 @@ import {
   type ModeSettings,
   nodeIds
 } from "@parity-app/core"
-import { noTokenEdits } from "@parity-app/editor"
+import { noTokenEdits, prunedDocument, sameTokenValues, type TokenEdits, withPrunedView } from "@parity-app/editor"
 import {
   applyOp,
   applyPlain,
@@ -46,6 +46,7 @@ import {
   readDesign,
   readFile,
   readModes,
+  readTokens,
   sameJson,
   type ProjectContainers,
   recordIn,
@@ -55,6 +56,7 @@ import {
   slotKey,
   syncField,
   syncKey,
+  tokenJson,
   type Tree,
   writeDesign,
   writeLayer
@@ -66,6 +68,10 @@ import { type Repair, repairDesigns } from "./repair.ts"
  * operation's Loro calls and one commit, and keeps the plain values beside Loro with `applyPlain`. Others' changes come
  * in through `receive`: the designs they touched are repaired, read back from Loro, and made into operations on the
  * plain values with `fileOps`, so what changed is said the same way as for this person's changes.
+ *
+ * Which state and mode each design shows is each person's own (docs/proposals/extensions-in-the-window.md: What each
+ * person sees). A design's `view` goes into Loro when the design does, and changes to it after stay in this replica's
+ * plain values: they aren't shared, and a design others change keeps the view it has here.
  */
 
 const provider = "loro"
@@ -112,6 +118,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
   const referencesMap = doc.getMap("references")
   const filesMap = doc.getMap("files")
   const modesMap = doc.getMap("modes")
+  const tokensMap = doc.getMap("tokens")
   // Drawn files are drawn from code by each window: they're in the plain values and never in Loro.
   const drawn = new Set(options.files.flatMap((file) => (file.drawn ? [file.path] : [])))
 
@@ -119,21 +126,21 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     files: new Map(options.files.map((file) => [file.path, file.document])),
     main: options.main,
     modes: options.modes,
-    tokens: noTokenEdits
+    tokens: options.tokens ?? noTokenEdits
   }
 
   /** Every node, a design's own included, to its design's node: kept for deleted nodes, as others' deletes name them. */
   const designOf = new Map<TreeID, TreeID>()
   const designs = new Map<TreeID, DesignEntry>()
   const keys = new Map<DesignKey, TreeID>()
-  /** Changes to drawn files, which Loro's version doesn't see. */
-  let drawnChanges = 0
+  /** Changes Loro's version doesn't see: to drawn files, and to what designs show here. */
+  let unsharedChanges = 0
   let lastRepairs: Repair[] = []
   const listeners = new Set<(change: BackendChange) => void>()
 
   const version = (): DocVersion => ({
     provider,
-    value: `${JSON.stringify(doc.frontiers())}/${drawnChanges}`
+    value: `${JSON.stringify(doc.frontiers())}/${unsharedChanges}`
   })
 
   // Indexing.
@@ -258,6 +265,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       }
 
       syncModes(undefined, options.modes)
+      syncTokens(noTokenEdits, state.tokens)
       doc.commit({ origin: "load" })
     }
   })
@@ -310,6 +318,22 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     for (const [key, value] of entriesOf(next)) {
       if (!before || !sameJson(previous[key], value)) {
         modesMap.set(key, value)
+      }
+    }
+  }
+
+  function syncTokens(before: TokenEdits, after: TokenEdits): void {
+    for (const key of before.keys()) {
+      if (!after.has(key)) {
+        tokensMap.delete(key)
+      }
+    }
+
+    for (const [key, edit] of after) {
+      const was = before.get(key)
+
+      if (!was || was.value !== edit.value || was.original !== edit.original) {
+        tokensMap.set(key, tokenJson(edit))
       }
     }
   }
@@ -577,6 +601,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         return
 
       case "setTokens":
+        syncTokens(before.tokens, after.tokens)
+
         return
     }
   }
@@ -636,8 +662,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       state = applyOp(state, op, at, recorder, false).state
       const file = fileOf(op)
 
-      if (file !== undefined && drawn.has(file)) {
-        drawnChanges += 1
+      if ((file !== undefined && drawn.has(file)) || isView(op)) {
+        unsharedChanges += 1
       } else {
         write(op, before, state)
       }
@@ -722,6 +748,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     const roots = new Set<TreeID>()
     const touchedFiles = new Set<string>()
     let modesTouched = false
+    let tokensTouched = false
 
     for (const event of events) {
       const [top, second] = event.path
@@ -756,6 +783,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         }
       } else if (top === "modes") {
         modesTouched = true
+      } else if (top === "tokens") {
+        tokensTouched = true
       }
     }
 
@@ -789,16 +818,31 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       ops.push(...fileOps(path, state.files.get(path), fileFrom(path, roots)))
     }
 
+    let modesChanged = false
+
     if (modesTouched) {
       const modes = readModes(modesMap)
 
       if (!sameJson(jsonOf(fieldsOf(modes)), jsonOf(fieldsOf(state.modes)))) {
         ops.push({ op: "setModes", modes })
+        modesChanged = true
+      }
+    }
+
+    if (tokensTouched) {
+      const tokens = readTokens(tokensMap)
+
+      if (!sameTokenEdits(tokens, state.tokens)) {
+        ops.push({ op: "setTokens", tokens })
       }
     }
 
     const recorder = new Recorder()
     state = applyRemote(state, ops, recorder, touchedFiles, roots)
+
+    if (modesChanged) {
+      state = withPrunedViews(state, recorder)
+    }
 
     for (const root of roots) {
       if (alive(root)) {
@@ -836,11 +880,44 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         continue
       }
 
-      const kept = touched.has(root.id) ? undefined : current.get(textOf(dataOf(root).get("id")) ?? "")
-      containers.push(kept ?? readDesign(root))
+      const here = current.get(textOf(dataOf(root).get("id")) ?? "")
+      const kept = touched.has(root.id) ? undefined : here
+      containers.push(kept ?? withOwnView(readDesign(root), here))
     }
 
     return readFile(containers, notesMap.get(path), referencesMap.get(path), fields)
+  }
+
+  /** A design as Loro holds it, showing what it shows here, without a state or mode that's gone. */
+  const withOwnView = (read: ContainerSpec, here: ContainerSpec | undefined): ContainerSpec => {
+    if (!here) {
+      return read
+    }
+
+    const own: ContainerSpec = { ...read }
+
+    if (here.view) {
+      own.view = here.view
+    } else {
+      delete own.view
+    }
+
+    return withPrunedView(own, { modes: readModes(modesMap) })
+  }
+
+  /** Views here left naming a mode others took away lose it, as `setModes` prunes them for this person's changes. */
+  const withPrunedViews = (from: DocState, recorder: Recorder): DocState => {
+    const ops: DocOp[] = []
+
+    for (const [path, document] of from.files) {
+      const pruned = prunedDocument(document, from.modes)
+
+      if (pruned !== document) {
+        ops.push(...fileOps(path, document, pruned))
+      }
+    }
+
+    return ops.length > 0 ? applyPlain(from, ops, recorder) : from
   }
 
   /**
@@ -873,7 +950,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         }
       }
 
-      return { ...from, files, modes: readModes(modesMap) }
+      return { ...from, files, modes: readModes(modesMap), tokens: readTokens(tokensMap) }
     }
   }
 
@@ -908,7 +985,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       files.set(path, document)
     }
 
-    state = { ...state, files, modes: whole.modes }
+    state = { ...state, files, modes: whole.modes, tokens: readTokens(tokensMap) }
   }
 
   return {
@@ -917,6 +994,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     doc,
     files: () => state.files,
     modes: () => state.modes,
+    tokens: () => state.tokens,
     version,
     apply,
     subscribe: (listener) => {
@@ -939,7 +1017,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     dispose: () => {
       listeners.clear()
 
-      for (const container of [tree, notesMap, referencesMap, filesMap, modesMap]) {
+      for (const container of [tree, notesMap, referencesMap, filesMap, modesMap, tokensMap]) {
         container.free()
       }
 
@@ -949,6 +1027,28 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
 }
 
 const emptyRoot: DesignNode = { type: "layout", id: "", children: [] }
+
+/** Whether an operation sets what a design shows, which stays with each person. */
+function isView(op: DocOp): boolean {
+  return op.op === "setDesign" && op.path[0] === "view"
+}
+
+/** Whether two sets of token edits are the same, originals included. */
+function sameTokenEdits(a: TokenEdits, b: TokenEdits): boolean {
+  if (a.size !== b.size || !sameTokenValues(a, b)) {
+    return false
+  }
+
+  for (const [key, edit] of a) {
+    const other = b.get(key)
+
+    if (!other || other.value !== edit.value || other.original !== edit.original) {
+      return false
+    }
+  }
+
+  return true
+}
 
 function idsOf(list: ItemList): string[] {
   return listJson(list).map((item) => (isJsonRecord(item) ? (textOf(item.id) ?? "") : ""))
