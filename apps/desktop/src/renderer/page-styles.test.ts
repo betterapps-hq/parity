@@ -313,6 +313,53 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     expect(steps).toEqual({ css: "@media screen {", media: "not all" })
   })
 
+  it("takes a new order from moving the elements around them, telling listeners", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const styles = parity.pageStyles(origin)
+      const settle = () => new Promise((resolve) => setTimeout(resolve))
+      const first = document.createElement("div")
+      const second = document.createElement("div")
+      document.body.append(first, second)
+      project.addInto(first, ".first {}")
+      project.addInto(second, ".second {}")
+      await settle()
+      const before = styles.sheets().map((sheet) => sheet.css)
+      let heard = 0
+      const stop = styles.subscribe(() => heard++)
+      document.body.append(first)
+      await settle()
+      stop()
+      const after = styles.sheets().map((sheet) => sheet.css)
+      first.remove()
+      second.remove()
+
+      return { before, after, heard }
+    }, origin)
+
+    expect(steps).toEqual({ before: [".first {}", ".second {}"], after: [".second {}", ".first {}"], heard: 1 })
+  })
+
+  it("leaves a link its code disables out of frames, and brings it back once enabled", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const styles = parity.pageStyles(origin)
+      const link = project.addLink("http://project.test/card.css")
+      await styles.settled()
+      const enabled = styles.sheets().length
+      let heard = 0
+      const stop = styles.subscribe(() => heard++)
+      link.disabled = true
+      await new Promise((resolve) => setTimeout(resolve))
+      const disabled = styles.sheets().length
+      link.disabled = false
+      await new Promise((resolve) => setTimeout(resolve))
+      stop()
+
+      return { enabled, disabled, again: styles.sheets().length, heard }
+    }, origin)
+
+    expect(steps).toEqual({ enabled: 1, disabled: 0, again: 1, heard: 2 })
+  })
+
   it("lets go of a stylesheet taken out of an element around it that moved first", async () => {
     const steps = await page.evaluate(async (origin) => {
       const styles = parity.pageStyles(origin)

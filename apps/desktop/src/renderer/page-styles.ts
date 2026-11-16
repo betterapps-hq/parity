@@ -66,20 +66,32 @@ export function guardPage(): void {
   guardRuleEdits()
 }
 
+/** The order each origin's stylesheets were last given in, to tell when moving what's around them changes it. */
+const lastOrder = new Map<string, Element[]>()
+
+/** An origin's caught stylesheets in the page, in the page's order. */
+function inOrder(origin: string): [Element, Caught][] {
+  return [...caught]
+    .filter(([element, entry]) => entry.origin === origin && inPage(element))
+    .sort(([a], [b]) => (hasFlag(a.compareDocumentPosition(b), Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1))
+}
+
 /** The stylesheets code served from `origin` added to the page. */
 export function pageStyles(origin: string): PageStyles {
   return {
-    sheets: () =>
-      [...caught]
-        .filter(([element, entry]) => entry.origin === origin && inPage(element))
-        .sort(([a], [b]) => (hasFlag(a.compareDocumentPosition(b), Node.DOCUMENT_POSITION_FOLLOWING) ? -1 : 1))
-        .flatMap(([element, entry]) => {
-          const css = sheetText(element, entry)
+    sheets: () => {
+      const ordered = inOrder(origin)
+      lastOrder.set(
+        origin,
+        ordered.map(([element]) => element)
+      )
 
-          return css === undefined
-            ? []
-            : [{ css: withMedia(css, entry.media), baseUrl: baseUrl(element, entry, origin) }]
-        }),
+      return ordered.flatMap(([element, entry]) => {
+        const css = sheetText(element, entry)
+
+        return css === undefined ? [] : [{ css: withMedia(css, entry.media), baseUrl: baseUrl(element, entry, origin) }]
+      })
+    },
     subscribe(listener) {
       const set = listeners.get(origin) ?? new Set()
       listeners.set(origin, set)
@@ -133,14 +145,24 @@ export function withMedia(css: string, media: string | null): string {
   return !query || query === "all" ? css : `@media ${query} {\n${css}\n}`
 }
 
+/**
+ * A caught stylesheet's CSS for its frames, or `undefined` while there's none: a link not read yet or that isn't a
+ * stylesheet, or one its code disabled. A link's `disabled` attribute is followed as it changes; a style element's
+ * sheet disabled through the CSSOM is seen the next time its frames' styles are drawn again.
+ */
 function sheetText(element: Element, entry: Caught): string | undefined {
   if (element instanceof HTMLLinkElement) {
-    return isStylesheet(element) && entry.read === element.href && entry.linked !== undefined
+    return isStylesheet(element) && !element.disabled && entry.read === element.href && entry.linked !== undefined
       ? relativeUrlsFrom(entry.linked, entry.linkedFrom ?? element.href)
       : undefined
   }
 
   const sheet = element instanceof HTMLStyleElement ? element.sheet : null
+
+  if (sheet?.disabled) {
+    return undefined
+  }
+
   const text = entry.edited && sheet ? [...sheet.cssRules].map((rule) => rule.cssText).join("\n") : element.textContent
 
   return styleWithImports(text ?? "", entry.origin)
@@ -431,6 +453,15 @@ function followRemovals(records: MutationRecord[]): void {
       tell(entry.origin)
     }
   }
+
+  // Moving an element around some of them can change their order without catching any again.
+  for (const [origin, last] of lastOrder) {
+    const now = inOrder(origin).map(([element]) => element)
+
+    if (now.length !== last.length || now.some((element, index) => element !== last[index])) {
+      tell(origin)
+    }
+  }
 }
 
 const parents = new WeakSet<Node>()
@@ -442,7 +473,7 @@ function watch(element: Element): void {
 
   changes?.observe(element, {
     attributes: true,
-    attributeFilter: ["media", "href", "rel"],
+    attributeFilter: ["media", "href", "rel", "disabled"],
     childList: true,
     characterData: true,
     subtree: true
