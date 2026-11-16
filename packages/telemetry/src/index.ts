@@ -28,6 +28,8 @@ export * from "./hangs.ts"
 
 export * from "./process-events.ts"
 
+export * from "./extension-events.ts"
+
 export * from "./project-events.ts"
 
 export * from "./registry.ts"

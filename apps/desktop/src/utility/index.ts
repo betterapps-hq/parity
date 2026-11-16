@@ -2,7 +2,7 @@ import { ChangeBaselines } from "@parity-app/change-detection"
 import { type Channel, type Handlers, nodePort } from "@parity-app/channel"
 import { parseInput, type RenderNode } from "@parity-app/core"
 import { agentExtensions } from "@parity-app/extension-host"
-import { errorCode } from "@parity-app/telemetry"
+import { errorCode, type EventAttributes, type EventName, type registeredEvents } from "@parity-app/telemetry"
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
@@ -137,6 +137,14 @@ const extensions = startExtensions(
     },
     reveal: (projectId, extension, view) => {
       editor?.request("extensions.reveal", { projectId, extension, view }).catch(() => undefined)
+    },
+    // An internal extension's Node half calls its window module, which is ready only in a window with the project open.
+    async callWindow(projectId, extension, method, args) {
+      if (!editor) {
+        throw new Error("No window has the project open")
+      }
+
+      return (await editor.request("extensions.windowCall", { projectId, extension, method, args })).result
     }
   },
   {
@@ -152,8 +160,17 @@ const extensions = startExtensions(
 
       return edit.files.map((file) => file.path)
     }
-  }
+  },
+  recordExtension
 )
+
+/** Records an extension's lifecycle event through the service's telemetry, as the window's `track` does. */
+function recordExtension<Name extends EventName<typeof registeredEvents>>(
+  name: Name,
+  attributes: EventAttributes<typeof registeredEvents, Name>
+): void {
+  telemetry.track(name, attributes)
+}
 
 /** Opens a project and tells its extensions, which start the ones that activate when detected. */
 async function openProject(root: string, how?: { reopen?: boolean }) {
@@ -247,6 +264,13 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.installed": () => extensions.installed(),
   "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
+  "extensions.startHalf": ({ projectId, extension, trigger }) => extensions.startHalf(projectId, extension, trigger),
+  "extensions.callHalf": async ({ projectId, extension, method, args }) => {
+    const result = await extensions.callHalf(projectId, extension, method, args)
+
+    return result === undefined ? {} : { result }
+  },
+  "extensions.windowState": ({ projectId, extension, state }) => extensions.windowState(projectId, extension, state),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
   "extensions.selectionChanged": ({ projectId, refs }) => extensions.selectionChanged(projectId, refs),
   "extensions.routeMarksChanged": ({ projectId, marks }) => extensions.routeMarksChanged(projectId, marks),

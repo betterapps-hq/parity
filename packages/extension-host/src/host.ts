@@ -17,6 +17,12 @@ import type {
   State,
   StatusItem
 } from "@parity-app/extension"
+import {
+  type HalfState,
+  HalfUnavailableError,
+  type InternalParity,
+  type WindowLink
+} from "@parity-app/extension/internal"
 import { type HostFiles, hostFiles } from "./host-files.ts"
 import { type HostProcesses, hostProcesses } from "./host-processes.ts"
 import type {
@@ -97,6 +103,12 @@ interface Marks {
   listeners: Set<() => void>
 }
 
+/** Where its window module is, for an internal extension with one, and who's told when that changes. */
+interface WindowSide {
+  state: HalfState
+  listeners: Set<(state: HalfState) => void>
+}
+
 /** The extension's settings as the host keeps them, and who listens for each to change. */
 interface HostSettings {
   values: Map<string, SettingValue>
@@ -124,6 +136,7 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
   const selected: Selected = { refs: [], listeners: new Set() }
   const marks: Marks = { marks: {}, listeners: new Set() }
   const settings: HostSettings = { values: new Map(), listeners: new Map() }
+  const windowSide: WindowSide = { state: "stopped", listeners: new Set() }
   const processes = hostProcesses()
   const files = hostFiles()
   const calls = side.calls ?? noCalls
@@ -150,8 +163,9 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
       marks.marks = params.routeMarks
       settings.values = new Map(Object.entries(params.settings.values))
       processes.begin(params.extension.id, params.processes)
+      windowSide.state = params.window ?? "stopped"
       activated = calls.run(params.call, () =>
-        activate(params, channel, progress, selected, settings, side, calls, { processes, files, marks })
+        activate(params, channel, progress, selected, settings, side, calls, { processes, files, marks, windowSide })
       )
       const { api } = await activated
 
@@ -259,6 +273,21 @@ export function serveExtensionHost(side: HostSide): ExtensionHost {
         }
       }
     },
+    "window.state"({ state }) {
+      if (windowSide.state === state) {
+        return
+      }
+
+      windowSide.state = state
+
+      for (const listener of windowSide.listeners) {
+        try {
+          listener(state)
+        } catch (error) {
+          log("error", `A window state listener failed: ${message(error)}`, stackOf(error))
+        }
+      }
+    },
     cancel({ progress: id }) {
       progress.get(id)?.abort()
     },
@@ -323,7 +352,12 @@ async function activate(
   settings: HostSettings,
   side: HostSide,
   calls: CallContext,
-  { processes, files, marks }: { processes: HostProcesses; files: HostFiles; marks: Marks }
+  {
+    processes,
+    files,
+    marks,
+    windowSide
+  }: { processes: HostProcesses; files: HostFiles; marks: Marks; windowSide: WindowSide }
 ): Promise<Activated> {
   const exports = extensionOf(await side.load(params.main))
 
@@ -666,7 +700,11 @@ async function activate(
     }
   }
 
-  const api = apiOf(await exports.activate(parity))
+  // An internal extension with a window module gets it as `parity.window` (extensions-in-the-window.md).
+  const given: Parity | InternalParity =
+    params.window === undefined ? parity : { ...parity, window: windowLink(windowSide, send) }
+
+  const api = apiOf(await exports.activate(given))
 
   return { handlers, providers, forms, tools, subscriptions, module: exports, api }
 }
@@ -723,6 +761,50 @@ async function callStyles(
       return styles.classes(call.params)
     case "writeTokens":
       return styles.writeTokens(call.params)
+  }
+}
+
+/**
+ * The Node half's link to its window module: calls go to the project's tab through the service, and reject at once
+ * while the module isn't ready, rather than waiting.
+ */
+function windowLink(
+  windowSide: WindowSide,
+  send: (method: "window.call", params: HostServiceMethods["window.call"]["params"]) => Promise<Returned>
+): WindowLink {
+  const call = async (method: string, args: JsonValue[]) => {
+    const { state } = windowSide
+
+    if (state !== "ready") {
+      throw new HalfUnavailableError(state, "window")
+    }
+
+    return (await send("window.call", { method, args })).result
+  }
+
+  return {
+    get state() {
+      return windowSide.state
+    },
+    api<Api extends ExtensionApi>(): RemoteApi<Api> {
+      // Its methods aren't known here, so any name is a call, which the window refuses when it has no such method.
+      const methods = new Proxy(
+        {},
+        {
+          // Not `then`, so awaiting the API itself doesn't call the window.
+          get: (_target, method) =>
+            method === "then" ? undefined : (...args: JsonValue[]) => call(String(method), args)
+        }
+      )
+
+      // SAFETY: `Api` is the caller's word for what the window module returned as `node`; every name is a call to it.
+      return methods as RemoteApi<Api>
+    },
+    onStateChange(listener) {
+      windowSide.listeners.add(listener)
+
+      return once(() => windowSide.listeners.delete(listener))
+    }
   }
 }
 

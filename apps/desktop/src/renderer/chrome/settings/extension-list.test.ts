@@ -37,6 +37,13 @@ const portless: InstalledStatus = {
 /** Portless's host, running in the project, as the service tells the window. */
 const portlessRunning: ExtensionStatus = {
   ...portless,
+  version: "0.0.0",
+  internal: false,
+  window: false,
+  node: true,
+  capabilities: [],
+  extensionDependencies: [],
+  settings: {},
   state: "running",
   status: {},
   context: {},

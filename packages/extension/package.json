@@ -7,7 +7,8 @@
   "description": "What an extension is written against: its types, defineExtension, and the manifest check its tests run.",
   "exports": {
     ".": "./src/index.ts",
-    "./manifest": "./src/reader/index.ts"
+    "./manifest": "./src/reader/index.ts",
+    "./internal": "./src/internal.ts"
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",

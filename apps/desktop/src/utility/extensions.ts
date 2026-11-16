@@ -20,22 +20,21 @@ import {
   type ExtensionHosts,
   type ExtensionWindow,
   extensionHosts,
-  type InstalledExtension
+  type InstalledExtension,
+  type RecordExtensionEvent
 } from "@parity-app/extension-host"
-import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
-import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import rsbuildPackage from "@parity-app/extension-rsbuild/package.json" with { type: "json" }
 import rspackPackage from "@parity-app/extension-rspack/package.json" with { type: "json" }
-import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import turbopackPackage from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import webpackPackage from "@parity-app/extension-webpack/package.json" with { type: "json" }
-import { readExtension } from "@parity-app/extension/manifest"
+import type { ExtensionPackage } from "@parity-app/extension/manifest"
+import { readBuiltIns } from "../shared/built-in-extensions.ts"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
@@ -71,21 +70,20 @@ const hostScript = fileURLToPath(new URL("./extension-host.mjs", import.meta.url
 const detectPlace = { home: homedir(), variables: process.env, platform: process.platform, exists: existsSync }
 
 /**
- * A built-in extension: its `package.json` and its bundled code beside the service. Its manifest's `detect` finds its
- * tool, as every extension's does.
+ * A built-in extension: its manifest and its Node half's bundled code beside the service, when it has one. Its
+ * manifest's `detect` finds its tool, as every extension's does.
  */
-function builtIn(
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: a package.json, read by readExtension
-  packageJson: unknown,
-  bundle: string
-): InstalledExtension<ExtensionProject> {
-  const found = readExtension(packageJson)
-
-  return {
+function builtIn(found: ExtensionPackage, bundle: string): InstalledExtension<ExtensionProject> {
+  const installed: InstalledExtension<ExtensionProject> = {
     package: found,
-    main: fileURLToPath(new URL(`./extensions/${bundle}.mjs`, import.meta.url)),
     detect: (project) => detectByManifest(found, project, detectPlace)
   }
+
+  if (found.main !== undefined) {
+    installed.main = fileURLToPath(new URL(`./extensions/${bundle}.mjs`, import.meta.url))
+  }
+
+  return installed
 }
 
 /** The renderers Parity's own extensions describe, which read components through their hosts (PAR-1095). */
@@ -115,22 +113,20 @@ export const builtInTools: ExtensionTool[] = [tailwindPackage, routerPackage, re
   (found) => extensionTool(found) ?? []
 )
 
-/** Parity's own extensions, in the order the status bar shows their items: the builder, the renderer, then the rest. */
-const builtIns = (): InstalledExtension<ExtensionProject>[] => [
-  builtIn(vitePackage, "vite"),
-  builtIn(rspackPackage, "rspack"),
-  builtIn(rsbuildPackage, "rsbuild"),
-  builtIn(turbopackPackage, "turbopack"),
-  builtIn(webpackPackage, "webpack"),
-  builtIn(reactPackage, "react"),
-  builtIn(tailwindPackage, "tailwind"),
-  builtIn(routerPackage, "tanstack-router"),
-  builtIn(reactRouterPackage, "react-router"),
-  builtIn(nextjsPackage, "nextjs"),
-  builtIn(storybookPackage, "storybook"),
-  builtIn(accessibilityPackage, "storybook-a11y"),
-  builtIn(portlessPackage, "portless")
-]
+/**
+ * Parity's own extensions, from the one built-in list, in its order. One whose manifest breaks a rule is left out, and
+ * recorded with the rule.
+ */
+const builtIns = (record: RecordExtensionEvent): InstalledExtension<ExtensionProject>[] => {
+  const { read, refused } = readBuiltIns()
+
+  for (const each of refused) {
+    logNote(`[service] refused ${each.extension}: ${each.message}`)
+    record("extension.manifestRefused", each)
+  }
+
+  return read.map(({ found, bundle }) => builtIn(found, bundle))
+}
 
 /**
  * Reading, listing and watching files for extensions, once their `read` permission has allowed the path. A watch polls the
@@ -159,12 +155,17 @@ const providers = processProviders()
 
 /**
  * Every open project's extensions, telling `window` what changes and asking the person through it, with their changes
- * to designs and files going through `edits`.
+ * to designs and files going through `edits`, and their halves' lifecycle recorded through `record`.
  */
-export function startExtensions(window: ExtensionWindow, edits: ExtensionEdits): ExtensionHosts<ExtensionProject> {
+export function startExtensions(
+  window: ExtensionWindow,
+  edits: ExtensionEdits,
+  record: RecordExtensionEvent
+): ExtensionHosts<ExtensionProject> {
   return extensionHosts<ExtensionProject>({
     edits,
-    extensions: builtIns(),
+    record,
+    extensions: builtIns(record),
     start(extension, project) {
       logNote(`[service] starting ${extension.package.manifest.displayName} for ${project.name}`)
 

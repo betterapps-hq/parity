@@ -7,6 +7,7 @@ import { reportSent } from "./diagnostics.ts"
 import { documentEvents } from "./document-events.ts"
 import { editingEvents } from "./editing-events.ts"
 import type { EventDefinition } from "./events.ts"
+import { extensionEvents } from "./extension-events.ts"
 import { filesEvents } from "./files-events.ts"
 import { interfaceEvents } from "./interface-events.ts"
 import { processEvents } from "./process-events.ts"
@@ -34,6 +35,7 @@ export const registeredEvents = [
   ...filesEvents,
   ...projectEvents,
   ...processEvents,
+  ...extensionEvents,
   ...accountEvents,
   ...connectorEvents,
   dataInvalid,

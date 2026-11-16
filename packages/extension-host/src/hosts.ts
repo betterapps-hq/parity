@@ -22,9 +22,12 @@ import type {
   ViewData,
   ViewKind
 } from "@parity-app/extension"
+import type { Capability } from "@parity-app/extension"
+import type { HalfState } from "@parity-app/extension/internal"
 import { type ExtensionPackage, fits } from "@parity-app/extension/manifest"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import { readToolInput } from "./agents.ts"
+import type { RecordExtensionEvent } from "./events.ts"
 import { editsRefusal, type ReadPlace, readablePath, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
@@ -76,6 +79,19 @@ export interface ExtensionStatus {
   permissions: Permissions
   /** The activation events its code starts on. */
   activates: string[]
+  version: string
+  /** One of Parity's own internal extensions (docs/proposals/extensions-in-the-window.md). */
+  internal: boolean
+  /** Whether it has a window module, which the window loads into each project tab it's active for. */
+  window: boolean
+  /** Whether it has a Node half, which runs in a host of its own. An internal extension may have only a window module. */
+  node: boolean
+  /** What its window module may use beyond the basics. */
+  capabilities: Capability[]
+  /** The extensions whose APIs it uses, by id. */
+  extensionDependencies: string[]
+  /** Its settings' values now, by key, from the person's and the project's, each at its default when unset. */
+  settings: Record<string, SettingValue>
   state: HostState
   /** Why it's stuck or crashed. */
   reason?: string
@@ -122,8 +138,8 @@ export function installedStatus(found: ExtensionPackage): InstalledStatus {
 /** An extension Parity can run: its package, its code's entry module, and how it detects its tool. */
 export interface InstalledExtension<Project> {
   package: ExtensionPackage
-  /** Its code's entry module, as an absolute path. */
-  main: string
+  /** Its Node half's entry module, as an absolute path. None for an internal extension with only a window module. */
+  main?: string
   /** What it found of its tool in the project, as `parity.project.detected` gives it, or nothing when it isn't there. */
   detect(project: Project): { detected?: JsonValue } | undefined
 }
@@ -167,6 +183,11 @@ export interface ExtensionWindow {
   ): Promise<HostServiceMethods[M]["result"]>
   /** Opens the tab or page that holds one of an extension's views. */
   reveal(projectId: string, extension: string, view: string): void
+  /**
+   * Calls a function of what an internal extension's window module returned as `node`, in the project's tab, for its
+   * Node half. Rejects when the module isn't ready there.
+   */
+  callWindow?(projectId: string, extension: string, method: string, args: JsonValue[]): Promise<JsonValue | undefined>
 }
 
 /** Which extension asks the process manager for something, for which project, and what its manifest allows it. */
@@ -302,6 +323,8 @@ export interface ExtensionHostsOptions<Project extends OpenedProject> {
   files: ExtensionFiles
   edits: ExtensionEdits
   timing?: Partial<HostTiming>
+  /** Records Node halves' lifecycle events: activating, failing to, crashing and stopping. */
+  record?: RecordExtensionEvent
 }
 
 /** What hosts need of an open project. */
@@ -370,6 +393,15 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   setAppSettings(settings: StoredSettings): void
   /** A project's settings for its extensions, from its main `.par`'s `extensions` field, saved or not. */
   setProjectSettings(projectId: string, settings: StoredSettings): void
+  /**
+   * Starts an internal extension's Node half, as its window module activates in the project's tab. Nothing for one
+   * running already, or without a Node half.
+   */
+  startHalf(projectId: string, extension: string, trigger: string): void
+  /** Calls a function of what an internal extension's Node half returned from `activate`, for its window module. */
+  callHalf(projectId: string, extension: string, method: string, args: JsonValue[]): Promise<JsonValue | undefined>
+  /** Where an internal extension's window module is in the project's tab, which its Node half's `parity.window` gives. */
+  windowState(projectId: string, extension: string, state: HalfState): void
 }
 
 /** What the provider method a call names answers. */
@@ -407,6 +439,10 @@ interface Host<Project> {
   activatedIn?: number
   memory?: number
   running?: Running
+  /** When its current run activated, in milliseconds since 1970, for how long it ran. */
+  activatedAt?: number
+  /** The activation event that started its current run, for `extension.activated`. */
+  trigger?: string
 }
 
 /** A host's process while it runs. */
@@ -428,6 +464,8 @@ interface OpenProject<Project> {
   routeMarks: Record<string, RouteMark>
   /** The project's settings for its extensions, from its main `.par`. */
   settings: StoredSettings
+  /** Where each internal extension's window module is in the project's tab, by id, which its Node half is told. */
+  windows: Map<string, HalfState>
 }
 
 /** Every open project's extensions, each in a host of its own. */
@@ -463,6 +501,8 @@ export function extensionHosts<Project extends OpenedProject>(
       host.settings = settingsOf(open, host.extension)
       problems ||= before.problems.join() !== host.settings.problems.join()
       const values = changedValues(before.values, host.settings.values)
+      // A window module reads its settings from what the window is sent, as `onSetting` does.
+      problems ||= host.extension.package.manifest.window !== undefined && Object.keys(values).length > 0
 
       if (host.running && Object.keys(values).length > 0) {
         const { channel, activated } = host.running
@@ -486,6 +526,13 @@ export function extensionHosts<Project extends OpenedProject>(
       contributes: found.manifest.contributes,
       permissions: found.manifest.permissions ?? {},
       activates: found.manifest.activates,
+      version: found.version,
+      internal: found.manifest.internal === true,
+      window: found.manifest.window !== undefined,
+      node: host.extension.main !== undefined,
+      capabilities: found.manifest.capabilities ?? [],
+      extensionDependencies: found.manifest.extensionDependencies ?? [],
+      settings: { ...host.settings.values },
       state: host.state,
       status: { ...host.status },
       context: { ...host.context },
@@ -568,7 +615,7 @@ export function extensionHosts<Project extends OpenedProject>(
       projectId: open.project.id,
       extension: host.extension.package.id,
       permissions: { processes: permissions?.processes ?? [], observe: permissions?.observe ?? false },
-      main: host.extension.main
+      main: host.extension.main ?? ""
     }
   }
 
@@ -848,6 +895,19 @@ export function extensionHosts<Project extends OpenedProject>(
             known === undefined ? { method, args } : { method, args, call: known }
           )
         )
+      },
+      async "window.call"({ method, args }: HostServiceMethods["window.call"]["params"]) {
+        if (host.extension.package.manifest.window === undefined) {
+          throw new Error(`${displayName} has no window module`)
+        }
+
+        if (!options.window.callWindow) {
+          throw new Error("This window has no window modules")
+        }
+
+        const result = await options.window.callWindow(projectId, id, method, args)
+
+        return result === undefined ? {} : { result }
       }
     }
   }
@@ -865,6 +925,12 @@ export function extensionHosts<Project extends OpenedProject>(
   ) => {
     const { extension } = host
     const { package: found } = extension
+    const { main } = extension
+
+    if (main === undefined) {
+      throw new Error(`${found.manifest.displayName} has no Node half to start`)
+    }
+
     const link = options.start(extension, open.project)
     const releases = new Set<() => void>()
 
@@ -899,7 +965,7 @@ export function extensionHosts<Project extends OpenedProject>(
         displayName: found.manifest.displayName,
         prefix: found.manifest.prefix
       },
-      main: extension.main,
+      main,
       project: { root: open.project.root, name: open.project.name },
       commands: (found.manifest.contributes.commands ?? []).map((command) => command.id),
       statusItems: (found.manifest.contributes.statusItems ?? []).map((item) => item.id),
@@ -919,6 +985,10 @@ export function extensionHosts<Project extends OpenedProject>(
 
     if (host.detected !== undefined) {
       params.project.detected = host.detected
+    }
+
+    if (found.manifest.window !== undefined) {
+      params.window = open.windows.get(found.id) ?? "starting"
     }
 
     const tools = (found.manifest.contributes.agentTools ?? []).map((tool) => tool.name)
@@ -979,8 +1049,18 @@ export function extensionHosts<Project extends OpenedProject>(
         }
 
         host.activatedIn = Date.now() - began
+        host.activatedAt = Date.now()
         running.stopPinging = ping(open, host, running)
         setState(open, host, "running")
+        options.record?.("extension.activated", {
+          extension: found.id,
+          version: found.version,
+          half: "node",
+          internal: found.manifest.internal === true,
+          trigger: host.trigger ?? "onDetect",
+          durationMs: host.activatedIn,
+          capabilities: found.manifest.capabilities ?? []
+        })
       },
       (cause: unknown) => {
         if (host.running !== running) {
@@ -989,6 +1069,13 @@ export function extensionHosts<Project extends OpenedProject>(
 
         const reason = `Couldn't activate: ${messageOf(cause)}`
         log(open, host, withStack({ level: "error", text: reason }, cause))
+        options.record?.("extension.activateFailed", {
+          extension: found.id,
+          half: "node",
+          phase: "activate",
+          message: messageOf(cause),
+          stack: cause instanceof Error ? cause.stack : undefined
+        })
         detach(host)
         link.life.stop()
         setState(open, host, "crashed", reason)
@@ -1010,6 +1097,16 @@ export function extensionHosts<Project extends OpenedProject>(
     host.crashes = [...host.crashes.filter((at) => now - at < timing.crashWindow), now]
     const name = host.extension.package.manifest.displayName
     log(open, host, { level: "error", text: endedByItself(name, exit) })
+
+    options.record?.("extension.crashed", {
+      extension: host.extension.package.id,
+      uptimeMs: host.activatedAt === undefined ? 0 : now - host.activatedAt,
+      crashesInRow: host.crashes.length,
+      restarting: host.crashes.length < timing.crashLimit,
+      exitCode: exit.code,
+      signal: exit.signal
+    })
+    delete host.activatedAt
 
     if (host.crashes.length < timing.crashLimit) {
       log(open, host, { level: "info", text: "Starting it again" })
@@ -1246,7 +1343,15 @@ export function extensionHosts<Project extends OpenedProject>(
   return {
     open(project, settings = {}) {
       const known = projects.get(project.id)
-      const open: OpenProject<Project> = known ?? { project, hosts: new Map(), selection: [], routeMarks: {}, settings }
+
+      const open: OpenProject<Project> = known ?? {
+        project,
+        hosts: new Map(),
+        selection: [],
+        routeMarks: {},
+        settings,
+        windows: new Map()
+      }
 
       if (known) {
         known.project = project
@@ -1303,8 +1408,17 @@ export function extensionHosts<Project extends OpenedProject>(
       for (const host of open.hosts.values()) {
         const { activates } = host.extension.package.manifest
 
-        // One an earlier extension built on is running already.
-        if (!host.running && (activates.includes("onDetect") || activates.includes("onStartup"))) {
+        // One an earlier extension built on is running already. An internal extension's Node half starts with its
+        // window module instead, whose activation the window decides (`startHalf`).
+        const windowed = host.extension.package.manifest.window !== undefined
+
+        if (
+          !host.running &&
+          !windowed &&
+          host.extension.main !== undefined &&
+          (activates.includes("onDetect") || activates.includes("onStartup"))
+        ) {
+          host.trigger = activates.includes("onDetect") ? "onDetect" : "onStartup"
           start(open, host)
         }
       }
@@ -1317,6 +1431,19 @@ export function extensionHosts<Project extends OpenedProject>(
       }
 
       projects.delete(projectId)
+      const now = Date.now()
+
+      for (const host of open.hosts.values()) {
+        if (host.running && host.activatedAt !== undefined) {
+          options.record?.("extension.deactivated", {
+            extension: host.extension.package.id,
+            half: "node",
+            why: "quit",
+            uptimeMs: now - host.activatedAt
+          })
+        }
+      }
+
       await Promise.all([...open.hosts.values()].map((host) => stop(host)))
 
       for (const host of open.hosts.values()) {
@@ -1454,6 +1581,50 @@ export function extensionHosts<Project extends OpenedProject>(
       if (open) {
         open.settings = settings
         settingsChanged(open)
+      }
+    },
+    startHalf(projectId, extension, trigger) {
+      const open = projectOf(projectId)
+      const host = hostOf(open, extension)
+
+      if (host.extension.main === undefined || host.running || host.state === "crashed" || host.state === "stuck") {
+        return
+      }
+
+      host.trigger = trigger
+      void ensureRunning(open, host).catch(() => undefined)
+    },
+    async callHalf(projectId, extension, method, args) {
+      const host = hostOf(projectOf(projectId), extension)
+      const { running } = host
+      const name = host.extension.package.manifest.displayName
+
+      // The window module checks first; this is for a call that crossed a crash on its way.
+      if (!running || host.state !== "running") {
+        throw new Error(`${name}'s Node half isn't running`)
+      }
+
+      await running.activated
+
+      if (!host.api?.includes(method)) {
+        throw new Error(`${name}'s Node half has no ${method}`)
+      }
+
+      return readReturned(await running.channel.request("api.call", { method, args })).result
+    },
+    windowState(projectId, extension, state) {
+      const open = projects.get(projectId)
+      const host = open?.hosts.get(extension)
+
+      if (!open || !host) {
+        return
+      }
+
+      open.windows.set(extension, state)
+      const running = host.running
+
+      if (running) {
+        void running.activated.then(() => running.channel.request("window.state", { state })).catch(() => undefined)
       }
     },
     installed() {

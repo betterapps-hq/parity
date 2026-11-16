@@ -48,8 +48,13 @@ Across all of them:
   keep the country and drop the address, so both projects now have "Prevent storing of IP addresses" on. Sentry still
   derives the location when that's on: country, and also region and city where it can.
 - **Sentry's own sessions** come from main, so crash-free rates exist for the app. The CLI sends none.
-- **Nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their own, and
-  every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option.
+- **Extensions say which they are** (PAR-1235). Every error from an internal extension's window module carries the tags
+  `extension` (its id), `extension_half` (`window`) and `tab`, and both halves' lifecycle is recorded as `extension.*`
+  events: activating, failing to, stopping, crashing, failed calls into a window module, one stopped in a tab, calls to
+  a half that isn't ready, refused manifests and missing capabilities.
+- **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
+  own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. The one event
+  thinned is `extension.halfUnavailable`, which the window sends for the first call in a minute and then one in ten.
 
 ### Report a problem
 
@@ -173,8 +178,11 @@ are the gaps left. Each comes from the code or from Sentry, with the Linear issu
 
 ### Signals that never arrive
 
-| Gap | Evidence | Issue |
-| --- | -------- | ----- |
+| Gap                                                                                                            | Evidence                                                          | Issue    |
+| -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- | -------- |
+| Errors from the editor window don't attach `extensions.json`, and issues aren't titled by the extension's name | Only the tags are set (`renderer/window-modules.ts`)              | PAR-1233 |
+| A window module's time on the main thread isn't measured: no `extension.slow` or `extension.mainThread`        | Not in `extension-events.ts`                                      | PAR-1233 |
+| A Node half's call to its window module that isn't ready rejects without `extension.halfUnavailable`           | The host process records no events (`extension-host/src/host.ts`) | PAR-1233 |
 
 ### Privacy risks
 

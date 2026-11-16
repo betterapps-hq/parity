@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Know the extension lifecycle events Parity records, so their names check",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

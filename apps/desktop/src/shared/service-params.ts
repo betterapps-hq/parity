@@ -179,6 +179,16 @@ export const serviceParams = {
     value: z.union([z.string(), z.number(), z.boolean()])
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
+  "extensions.startHalf": project.extend({ extension: z.string(), trigger: z.string() }),
+  "extensions.callHalf": project.extend({
+    extension: z.string(),
+    method: z.string(),
+    args: z.array(z.json()).max(100)
+  }),
+  "extensions.windowState": project.extend({
+    extension: z.string(),
+    state: z.enum(["starting", "ready", "restarting", "stopped"])
+  }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
   "extensions.selectionChanged": project.extend({
     refs: z.array(z.strictObject({ owner: z.string(), type: z.string(), key: z.string() })).max(10_000)

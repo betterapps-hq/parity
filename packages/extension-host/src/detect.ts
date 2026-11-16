@@ -6,7 +6,7 @@ import { placedPath, type ReadPlace } from "./permissions.ts"
 /*
  * Finding an extension's tool in a project from its manifest's `detect` (PAR-1128), with no code of the extension's and
  * nothing Parity knows of the tool: its peer dependencies in the project's package.json, the files Parity's entities
- * detection found, or a path its `read` permission names.
+ * detection found, or a path its `read` permission names. An internal extension may be found in every project.
  */
 
 /** What detection reads of a project: its folder, its package.json, and the extensions whose files are its entities. */
@@ -32,6 +32,11 @@ export function detectByManifest(
   place: DetectPlace
 ): { detected?: JsonValue } | undefined {
   const { detect, prefix } = extension.manifest
+
+  // An internal extension can be found everywhere, as one that draws agents' pointers is.
+  if (detect?.always) {
+    return {}
+  }
 
   if (detect?.paths?.length) {
     // The first that names something, as a variable's folder while it's set, is the one that counts.

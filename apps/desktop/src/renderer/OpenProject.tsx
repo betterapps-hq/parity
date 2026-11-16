@@ -18,7 +18,9 @@ import { StatusBar } from "./chrome/StatusBar.tsx"
 import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { sendRouteMarks, followSelection } from "./extension-editor.ts"
+import { extensionsOf } from "./extensions.ts"
 import { useTool } from "./selection.ts"
+import { startWindowModules } from "./window-modules.ts"
 import { type ProjectSession, type Tab, workspace } from "./workspace.ts"
 
 /**
@@ -40,6 +42,8 @@ export function OpenProject({
   useEffect(() => followSelection(session), [session])
   // And the person's marks on its routes through `parity.routes` (PAR-1175, PAR-1176).
   useEffect(() => sendRouteMarks(session), [session])
+  // Internal extensions' window modules run in each project tab (extensions-in-the-window.md).
+  useEffect(() => startWindowModules(session, tab.id, extensionsOf(session)), [session, tab.id])
 
   return (
     <ProjectContext value={session}>

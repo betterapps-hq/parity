@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import type { JsonValue, Manifest } from "../index.ts"
-import { readExtension } from "./manifest.ts"
+import { type ExtensionPackage, ManifestRefused, readExtension, refuseSecondSync } from "./manifest.ts"
 
 const icon = { viewBox: "0 0 24 24", path: "M12 2L2 22h20z" }
 
@@ -239,5 +239,114 @@ describe("readExtension", () => {
     expect(
       read({ type: "string", enum: ["a", "b"], enumTitles: ["A", "B"], default: "b" }).manifest.contributes.settings
     ).toBeDefined()
+  })
+})
+
+describe("internal extensions (extensions-in-the-window.md)", () => {
+  /** An internal extension's manifest, with a window module that starts while its setting is on. */
+  const internal = {
+    internal: true,
+    window: "./window",
+    capabilities: ["canvas"],
+    detect: { always: true },
+    activates: ["onSetting:timings.live"],
+    contributes: {
+      ...contributes,
+      settings: { "timings.live": { type: "boolean", default: false, scope: "app", title: "Live" } }
+    }
+  }
+
+  /** The rule a manifest is refused under. */
+  const ruleOf = (read: () => ExtensionPackage) => {
+    try {
+      read()
+    } catch (error) {
+      return error instanceof ManifestRefused ? error.rule : "other"
+    }
+
+    return undefined
+  }
+
+  it("reads one in Parity's built-in list, with its window module, capabilities and detection", () => {
+    const { manifest } = readExtension(packageJson(internal), { builtIn: true })
+
+    expect(manifest).toMatchObject({ internal: true, window: "./window", capabilities: ["canvas"] })
+    expect(manifest.detect?.always).toBe(true)
+  })
+
+  it("refuses one outside the built-in list", () => {
+    expect(ruleOf(() => readExtension(packageJson(internal)))).toBe("internalOutsideBuiltIns")
+    expect(() => readExtension(packageJson(internal))).toThrow("/parity/internal")
+  })
+
+  it("refuses a window module, capabilities, detect.always, contributes.sync or onSetting on one that isn't internal", () => {
+    const { internal: _internal, ...external } = internal
+
+    expect(ruleOf(() => readExtension(packageJson({ window: "./window" }), { builtIn: true }))).toBe("internalOnly")
+    expect(ruleOf(() => readExtension(packageJson({ capabilities: ["camera"] }), { builtIn: true }))).toBe(
+      "internalOnly"
+    )
+    expect(ruleOf(() => readExtension(packageJson({ detect: { always: true } }), { builtIn: true }))).toBe(
+      "internalOnly"
+    )
+    expect(
+      ruleOf(() => readExtension(packageJson({ contributes: { ...contributes, sync: true } }), { builtIn: true }))
+    ).toBe("internalOnly")
+    expect(ruleOf(() => readExtension(packageJson(external), { builtIn: true }))).toBe("internalOnly")
+  })
+
+  it("refuses the sync capability without contributes.sync", () => {
+    const sync = { ...internal, capabilities: ["sync"] }
+
+    expect(ruleOf(() => readExtension(packageJson(sync), { builtIn: true }))).toBe("capabilityWithoutContribution")
+    expect(
+      readExtension(packageJson({ ...sync, contributes: { ...internal.contributes, sync: true } }), { builtIn: true })
+        .manifest.contributes.sync
+    ).toBe(true)
+  })
+
+  it("refuses onSetting without a window module, or naming what isn't a boolean app setting", () => {
+    const { window: _window, ...noWindow } = internal
+
+    expect(ruleOf(() => readExtension(packageJson(noWindow), { builtIn: true }))).toBe("windowEventWithoutWindow")
+    expect(
+      ruleOf(() =>
+        readExtension(packageJson({ ...internal, activates: ["onSetting:timings.runs"] }), { builtIn: true })
+      )
+    ).toBe("windowEventWithoutWindow")
+  })
+
+  it("takes a window module without a Node half, and refuses neither", () => {
+    const { main: _main, ...noMain } = packageJson(internal)
+
+    expect(readExtension(noMain, { builtIn: true }).main).toBeUndefined()
+    expect(
+      ruleOf(() =>
+        readExtension(
+          { ...noMain, parity: { ...noMain.parity, window: undefined, activates: ["onStartup"] } },
+          { builtIn: true }
+        )
+      )
+    ).toBe("noCode")
+  })
+
+  it("refuses every extension that brings the room when two do", () => {
+    const bringing = (name: string) =>
+      readExtension(
+        { ...packageJson({ ...internal, contributes: { ...internal.contributes, sync: true } }), name },
+        { builtIn: true }
+      )
+
+    const plain = readExtension(packageJson())
+
+    expect(refuseSecondSync([bringing("one"), plain]).refused).toEqual([])
+
+    const { kept, refused } = refuseSecondSync([bringing("one"), bringing("two"), plain])
+
+    expect(kept).toEqual([plain])
+    expect(refused.map((each) => [each.extension, each.rule])).toEqual([
+      ["one", "secondSync"],
+      ["two", "secondSync"]
+    ])
   })
 })

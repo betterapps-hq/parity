@@ -836,6 +836,7 @@ describe("extension hosts", () => {
         cancel: () => undefined,
         "selection.changed": () => undefined,
         "routes.changed": () => undefined,
+        "window.state": () => undefined,
         stop: () => undefined
       })
       channel.connect(host)
