@@ -253,6 +253,7 @@ export function layerPicture(
     // SAFETY: a deep clone of an element is an element of the same kind, and an HTML or SVG element has a style.
     const copy = layer.cloneNode(true) as HTMLElement
     keepLook(layer, copy, looks)
+    keepPlaced(layer, copy, toScreen)
 
     // Placed from its left and top, whichever way its text runs.
     const place = {
@@ -286,6 +287,99 @@ export function layerPicture(
   }
 
   return picture
+}
+
+/**
+ * Keeps what's placed absolutely, or fixed, inside a layer where it's drawn in its copy. Each is placed against a box,
+ * its containing block, which for a layer that isn't positioned or transformed is outside the layer; its copy is placed
+ * absolutely, so what's inside is placed against the copy instead. The layer is given a transform that moves nothing
+ * for a moment, which makes it what they're placed against too, and how far each moves on screen is how far its box was
+ * from the layer, turned back into the layer's own pixels by `toScreen`; each copy is placed that much the other way,
+ * from its left and top. A layer that transforms itself is what they're placed against already, in its copy too.
+ */
+function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
+  if (!(layer instanceof HTMLElement || layer instanceof SVGElement)) {
+    return
+  }
+
+  const own = getComputedStyle(layer)
+
+  if (transforms.some((name) => own.getPropertyValue(name) !== "none")) {
+    return
+  }
+
+  const placed = [...layer.querySelectorAll("*")].flatMap((element, index) => {
+    const style = getComputedStyle(element)
+
+    if (style.position !== "absolute" && style.position !== "fixed") {
+      return []
+    }
+
+    return [
+      { index, element, left: parseFloat(style.left), top: parseFloat(style.top), was: element.getBoundingClientRect() }
+    ]
+  })
+
+  if (placed.length === 0) {
+    return
+  }
+
+  const { style } = layer
+
+  const saved = (["transition", "transform"] as const).map((name) => ({
+    name,
+    value: style.getPropertyValue(name),
+    priority: style.getPropertyPriority(name)
+  }))
+
+  const put = ({ name, value, priority }: (typeof saved)[number]) => {
+    if (value) {
+      style.setProperty(name, value, priority)
+    } else {
+      style.removeProperty(name)
+    }
+  }
+
+  style.setProperty("transition", "none", "important")
+  style.setProperty("transform", "translate(0px)", "important")
+
+  const moves = placed.map(({ element, was }) => {
+    const now = element.getBoundingClientRect()
+
+    return { x: now.left - was.left, y: now.top - was.top }
+  })
+
+  put(saved[1]!)
+  // Placed as it was again before its transition comes back.
+  layer.getBoundingClientRect()
+  put(saved[0]!)
+
+  const back = new DOMMatrix([toScreen.a, toScreen.b, toScreen.c, toScreen.d, 0, 0]).inverse()
+  const parts = [...copy.querySelectorAll("*")]
+
+  // What's fixed is placed against the copy too, as it was measured against the layer, not against what holds it.
+  if (copy instanceof HTMLElement && placed.some(({ element }) => getComputedStyle(element).position === "fixed")) {
+    copy.style.setProperty("transform", "translate(0px)", "important")
+  }
+
+  placed.forEach(({ index, left, top }, at) => {
+    const move = moves[at]!
+    const part = parts[index]
+    const by = back.transformPoint(move)
+
+    if (
+      !(part instanceof HTMLElement || part instanceof SVGElement) ||
+      (Math.abs(move.x) < 0.01 && Math.abs(move.y) < 0.01) ||
+      ![by.x, by.y, left, top].every(Number.isFinite)
+    ) {
+      return
+    }
+
+    part.style.setProperty("left", `${left - by.x}px`, "important")
+    part.style.setProperty("top", `${top - by.y}px`, "important")
+    part.style.setProperty("right", "auto", "important")
+    part.style.setProperty("bottom", "auto", "important")
+  })
 }
 
 /** How a layer's drawn into what's behind it: how faint, and through which filters. */

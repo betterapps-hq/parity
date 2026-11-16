@@ -41,6 +41,7 @@ beforeAll(async () => {
         background: rgb(255, 165, 0); scale: 1.5; rotate: 30deg; translate: 10px 6px; transition: scale 1s, rotate 1s }
       [data-canvas-node="tilted"] { position: absolute; left: 60px; top: 260px; width: 300px; height: 120px;
         scale: 1.6; rotate: -12deg }
+      [data-canvas-node="tilted"] > [data-canvas-node="loose"] { margin: 8px 0 0 50px; width: 80px; height: 30px }
       [data-canvas-node="chip"] { position: relative; width: 140px; height: 50px; margin: 20px 0 0 30px;
         border: 2px solid rgb(0, 0, 0); background: rgb(200, 220, 255); font: 14px/20px sans-serif }
       [data-canvas-node="padded"] { padding: 10% 5%; background: rgb(240, 240, 200) }
@@ -54,7 +55,8 @@ beforeAll(async () => {
     frame.innerHTML = `<div data-canvas-body><div data-canvas-node="card"><p data-canvas-node="title">Plans</p></div>
       <div data-canvas-node="badge"></div>
       <div data-canvas-node="tilted"><div data-canvas-node="chip"><span class="mark" style="position: absolute;
-        left: 100px; top: 30px; width: 4px; height: 4px"></span>Chip</div></div>
+        left: 100px; top: 30px; width: 4px; height: 4px"></span>Chip</div><div data-canvas-node="loose"><span
+        class="pinned" style="position: absolute; left: 4px; top: 6px; width: 4px; height: 4px"></span></div></div>
       <div style="position: absolute; left: 380px; top: 20px; width: 200px">
         <div data-canvas-node="padded"><span class="inner"></span></div></div>
       <div class="panel" style="position: absolute; left: 380px; top: 200px">
@@ -66,7 +68,12 @@ beforeAll(async () => {
       <div data-canvas-node="field" style="position: absolute; left: 420px; top: 320px; width: 90px; height: 30px;
         background: rgb(0, 0, 0)"></div><span data-canvas-node="field" style="display: none"></span>
       <input data-canvas-node="field" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px;
-        clip: rect(0 0 0 0)"></div>`
+        clip: rect(0 0 0 0)">
+      <div style="position: absolute; left: 100px; top: 20px; width: 220px; height: 60px">
+        <div data-canvas-node="static" style="margin-left: 40px; width: 120px; height: 40px; border: 2px solid">
+          <span class="pinned" style="position: absolute; left: 10px; top: 5px; width: 6px; height: 6px"></span>
+          <span class="fixed" style="position: fixed; left: 30px; top: 12px; width: 6px; height: 6px"></span>
+        </div></div></div>`
   })
 })
 
@@ -115,7 +122,7 @@ describe("a picture of a layer the frame's rules draw", () => {
   })
 
   it("adds no layers where the canvas looks for them", () => {
-    expect(drawn.layers).toBe(11)
+    expect(drawn.layers).toBe(13)
     expect(drawn.found).toBe(0)
   })
 })
@@ -349,6 +356,50 @@ describe("a picture of a component that draws a hidden input and a part not disp
     expect(drawn.picture.height).toBeCloseTo(drawn.seen.height, 1)
     expect(drawn.copy.left - drawn.picture.left).toBeCloseTo(0, 1)
     expect(drawn.copy.top - drawn.picture.top).toBeCloseTo(0, 1)
+  })
+})
+
+describe("a picture of a layer that isn't positioned, with parts placed against what it's in", () => {
+  /** Where the parts of the layer `node` are drawn, and of its copy, each from its own layer's box. */
+  async function placed(node: string) {
+    return page.evaluate((node) => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const layer = host.shadowRoot!.querySelector(`[data-canvas-node="${node}"]`)!
+      const union = layer.getBoundingClientRect()
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const picture = pictures.layerPicture(host, [layer], 1, union) as HTMLElement
+      document.body.append(picture)
+      const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
+      const frame = picture.getBoundingClientRect()
+
+      const from = (element: Element, { left, top }: DOMRect) => {
+        const box = element.getBoundingClientRect()
+
+        return { x: box.left - left, y: box.top - top }
+      }
+
+      return [".pinned", ".fixed"].flatMap((selector) => {
+        const part = layer.querySelector(selector)
+
+        return part ? [{ layer: from(part, union), copy: from(copied.querySelector(selector)!, frame) }] : []
+      })
+    }, node)
+  }
+
+  it("keeps a part placed absolutely, and one fixed, where they're drawn", async () => {
+    for (const { layer, copy } of await placed("static")) {
+      expect(copy.x).toBeCloseTo(layer.x, 1)
+      expect(copy.y).toBeCloseTo(layer.y, 1)
+    }
+  })
+
+  it("keeps them there in something scaled and turned", async () => {
+    for (const { layer, copy } of await placed("loose")) {
+      expect(copy.x).toBeCloseTo(layer.x, 1)
+      expect(copy.y).toBeCloseTo(layer.y, 1)
+    }
   })
 })
 

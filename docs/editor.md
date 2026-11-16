@@ -2051,11 +2051,12 @@ stories show it (PAR-1188):
   or Escape puts it where it goes at once.
 - **Edge cases.** The picture copies the layers into a shadow root of its own, each part drawn as it's drawn now,
   property by property, `::before` and `::after` too, so rules about what a layer's in, what's beside it or its
-  container still show, and as faint and filtered as what it's in makes it (an SVG filter, `url()`, is left out); a
-  canvas element's drawing and scroll positions inside them aren't copied. Nothing in the picture is hit. The copy
-  holding a layer's place, and the moved layer until the picture lands, are hidden all the way through, so nothing
-  inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag, in Multiplayer's
-  drag previews, will reuse the same parts with their outline and color (not wired yet).
+  container still show, and as faint and filtered as what it's in makes it (an SVG filter, `url()`, is left out). What's
+  placed absolutely or fixed inside a layer that isn't positioned stays where it's drawn, though the copy is placed
+  absolutely. A canvas element's drawing and scroll positions inside them aren't copied. Nothing in the picture is hit.
+  The copy holding a layer's place, and the moved layer until the picture lands, are hidden all the way through, so
+  nothing inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag, in
+  Multiplayer's drag previews, will reuse the same parts with their outline and color (not wired yet).
 
 Code: the timings and looks are in one place, `apps/desktop/src/renderer/canvas/drag-motion.ts` (`liftMs`, `dropMs`,
 `cancelMs`, `makeRoomMs`, `settle`, `liftScale`, the shadows, `landingEdge`, `landingEdgeStyle` and `lift`). The
