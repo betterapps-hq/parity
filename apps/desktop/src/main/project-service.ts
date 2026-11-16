@@ -167,7 +167,9 @@ export function createProjectService<Process extends ServiceProcess, Window>({
         quitting: stopping
       })
 
-      if (exitCode === 0 || retired.has(service) || stopped === service) {
+      // The service never ends by itself, so any exit main didn't ask for is a crash, even with code 0: that's what
+      // Electron gives for a utility process V8 stopped for running out of memory (PAR-1184).
+      if (retired.has(service) || stopped === service) {
         return
       }
 

@@ -28,7 +28,8 @@ export interface ServiceExit {
 export interface ServiceRestarts {
   /**
    * How long to wait before starting a fresh service, in milliseconds, or nothing when it shouldn't be started: main
-   * ended it, it ended cleanly, or it keeps crashing soon after it starts.
+   * ended it, or it keeps crashing soon after it starts. The service never ends by itself, so any other exit is a
+   * crash, whatever its code: Electron gives 0 for a utility process V8 stopped for running out of memory (PAR-1184).
    */
   exited(exit: ServiceExit): number | undefined
 }
@@ -37,8 +38,8 @@ export function serviceRestarts(policy: ServiceRestartPolicy = serviceRestartPol
   let crashes = 0
 
   return {
-    exited({ exitCode, ranMs, expected }) {
-      if (expected || exitCode === 0) {
+    exited({ ranMs, expected }) {
+      if (expected) {
         return undefined
       }
 

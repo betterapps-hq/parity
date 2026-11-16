@@ -8412,6 +8412,35 @@ Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev ru
 `scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing automated starts the service
 from a freshly made copy and compares it with Electron as installed. That's the smoke check above.
 
+### The project service starts again after it runs out of memory (PAR-1184)
+
+The project service never exits by itself, so main takes any exit it didn't ask for as a crash and starts a fresh
+service, with the back-off PAR-788 set. That includes code 0, which is what Electron reports for a utility process V8
+stopped for running out of memory. Before, main read that 0 as a clean stop: after an out-of-memory crash it logged
+nothing and started no service, and the window kept going without one.
+
+Every thread in an Electron process shares one 4 GB V8 heap, so the type checker's worker is capped at 3 GB, or half the
+computer's memory when that's less. A program too big for that stops the worker, and components stay as the parse found
+them. The service doesn't run out of memory itself. With a cap above the shared heap, a large checker left the service's
+own thread no room, and the whole service crashed.
+
+Checked on Windows 11 on 2026-11-15 under Parity's Electron 45: a utility process that runs out of memory exits with
+code 0 and fires no `child-process-gone`. A worker capped at 3 GB stops with `ERR_WORKER_OUT_OF_MEMORY` while the main
+thread holds 700 MB, and the main thread then takes 300 MB more. With copacker open, the checker's heap peaked at about
+0.9 GB.
+
+The crash goes to Sentry as one issue, "The project service exited with code 0: JavaScript heap out of memory", wherever
+V8 failed.
+
+Code: `createProjectService` in `apps/desktop/src/main/project-service.ts`, `serviceRestarts` in
+`packages/processes/src/service-restarts.ts`, `serviceCrash` in `packages/telemetry/src/app-events.ts`, and
+`checkerHeapMb` in `apps/desktop/src/utility/props.ts`.
+
+Tests: `main/project-service.test.ts` (a service that exits with code 0 by itself is reported as a crash, with what it
+printed, and started again), `packages/processes/src/service-restarts.test.ts` (code 0 restarts; an exit main asked for
+doesn't) and `packages/telemetry/src/app-events.test.ts` (running out of memory is one cause, with code 0). Gap: nothing
+automated runs a real service out of memory. That's the check above.
+
 ## The window
 
 How the app's window holds the canvas and the panels around it.
