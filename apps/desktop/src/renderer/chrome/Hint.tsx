@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
 import type { ComponentProps, ReactElement, ReactNode } from "react"
 
 type HintProps = Omit<ComponentProps<typeof TooltipTrigger>, "children"> & {

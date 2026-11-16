@@ -10,6 +10,6 @@
   "dependencies": {
     "@parity-app/channel": "workspace:*",
     "@parity-app/core": "workspace:*",
-    "@parity-app/extension-api": "workspace:*"
+    "@parity-app/extension": "workspace:*"
   }
 }

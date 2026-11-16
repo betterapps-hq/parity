@@ -18,10 +18,11 @@
     "inspect": "node scripts/inspect.ts",
     "perf": "node scripts/perf.ts",
     "storybook": "storybook dev -p 6007",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "postinstall": "shadcn-sync sync --base base --icons lucide --style nova --theme neutral --css tailwind"
   },
   "dependencies": {
-    "@buildkitgg/shadcn-baseui-kit": "catalog:",
+    "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn",
     "@sentry/electron": "catalog:",
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",
@@ -31,12 +32,12 @@
     "package-manager-detector": "^1.9.0",
     "semver": "^7.8.5",
     "sharp": "catalog:",
-    "sonner": "2.0.8",
     "tldraw": "5.6.0",
     "typescript": "6.0.3",
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
+    "@buildkitgg/shadcn-sync": "catalog:",
     "@buildkitgg/storybook-config": "catalog:",
     "@parity-app/account": "workspace:*",
     "@parity-app/agent": "workspace:*",
@@ -49,7 +50,8 @@
     "@parity-app/multiplayer": "workspace:*",
     "@parity-app/multiplayer-local": "workspace:*",
     "@parity-app/multiplayer-loro": "workspace:*",
-    "@parity-app/extension-api": "workspace:*",
+    "@parity-app/extension": "workspace:*",
+    "@parity-app/extension-host": "workspace:*",
     "@parity-app/extension-nextjs": "workspace:*",
     "@parity-app/extension-portless": "workspace:*",
     "@parity-app/extension-react": "workspace:*",
@@ -63,7 +65,6 @@
     "@parity-app/extension-turbopack": "workspace:*",
     "@parity-app/extension-vite": "workspace:*",
     "@parity-app/extension-webpack": "workspace:*",
-    "@parity-app/extensions": "workspace:*",
     "@parity-app/icons": "workspace:*",
     "@parity-app/media-player": "workspace:*",
     "@parity-app/presence-colors": "workspace:*",

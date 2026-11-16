@@ -1,25 +1,23 @@
 import type { UpdateState } from "@parity-app/processes"
-import { toast } from "sonner"
 import { useStore, windowStore } from "../store.ts"
-import { type UpdateNotice, UpdateToast } from "./UpdateToast.tsx"
+import { notify } from "../toasts.tsx"
+import { type UpdateNotice, updateToast } from "./UpdateToast.tsx"
 
+const notificationId = "parity-update"
 const state = windowStore<UpdateState>(() => ({ phase: "disabled", beta: false }))
-let notificationId = "parity-update"
-let notificationSequence = 0
-let dismissed = false
 let hidden: string | undefined
+let closing = false
 let foreground = false
 let pending: Promise<void> | undefined
 
-function dismissNotification(id: string): void {
-  toast.dismiss(id)
-
-  if (id === notificationId) {
-    dismissed = true
-  }
+/** Closes the notice because there's nothing to say, which unlike the person closing it doesn't hide it. */
+function closeNotification(): void {
+  closing = true
+  notify.close(notificationId)
+  closing = false
 }
 
-/** A single store serves About, Settings and the notification; progress updates replace the same Sonner toast. */
+/** A single store serves About, Settings and the notification; progress updates replace the same toast. */
 export function receiveUpdate(next: UpdateState): void {
   state.set(next)
 
@@ -51,46 +49,30 @@ export function receiveUpdate(next: UpdateState): void {
 
   if (!notice) {
     hidden = undefined
-    dismissNotification(notificationId)
+    closeNotification()
 
     return
   }
 
-  const shown = notice
-  const key = "version" in shown ? `${shown.kind}:${shown.version}` : shown.kind
+  const key = "version" in notice ? `${notice.kind}:${notice.version}` : notice.kind
 
   if (hidden === key) {
     return
   }
 
-  // Sonner keeps a dismissed instance during its exit animation. Reusing that id can erase a restored notice.
-  if (dismissed) {
-    notificationId = `parity-update-${++notificationSequence}`
-    dismissed = false
-  }
-
-  const id = notificationId
-
-  const hide = () => {
-    if (id === notificationId) {
-      hidden = key
-      dismissed = true
+  // The same id replaces the notice in place, or shows it fresh when the last one is still animating out.
+  const { kind, title, options } = updateToast(notice, notice.kind === "error" ? checkForUpdates : actOnUpdate)
+  notify.show(kind, title, {
+    ...options,
+    id: notificationId,
+    timeout: 0,
+    // Closed by the person: this notice stays hidden until they check again or there's news.
+    onClose: () => {
+      if (!closing) {
+        hidden = key
+      }
     }
-  }
-
-  toast.custom(
-    () => (
-      <UpdateToast
-        notice={shown}
-        onAction={shown.kind === "error" ? checkForUpdates : actOnUpdate}
-        onDismiss={() => {
-          hide()
-          dismissNotification(id)
-        }}
-      />
-    ),
-    { id, duration: Infinity, onDismiss: hide }
-  )
+  })
 }
 
 export function useUpdates(): UpdateState {

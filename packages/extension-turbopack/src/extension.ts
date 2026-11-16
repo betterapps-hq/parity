@@ -1,4 +1,4 @@
-import type { Parity } from "@parity-app/extension-api"
+import { defineExtension, type Parity } from "@parity-app/extension"
 import { nextAppStyles } from "@parity-app/next-builders"
 import { detectTurbopack } from "./builder.ts"
 
@@ -9,7 +9,9 @@ import { detectTurbopack } from "./builder.ts"
  * runs in the builder process; the manifest also names the files whose changing means the project is detected again.
  */
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const { root } = parity.project
   const status = parity.status.item("turbopack.status")
   status.set({ value: "Turbopack", tooltip: "Builds the project" })

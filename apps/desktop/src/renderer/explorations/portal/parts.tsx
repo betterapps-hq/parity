@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 /**
  * The portal: Parity on the web, where a team sees what its people and agents are doing, finds what it's been tagged
  * in, and opens designs to see what changed. Opening a project goes straight to its canvas, in the browser or the

@@ -1,4 +1,4 @@
-import { Button, Label, Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Label, Switch } from "@buildkitgg/shadcn"
 import { MonitorPlay } from "lucide-react"
 import { useId } from "react"
 import type { Member } from "./member.ts"

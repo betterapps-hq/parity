@@ -180,10 +180,14 @@ function keepOutInherited(host: HTMLElement): void {
 }
 
 /**
- * Turns a host element into a frame: a shadow root with the project's styles and a body element that stands in for
- * `<body>`. Returns the element a guest renders into.
+ * Turns a host element into a frame: a shadow root with the project's styles, `sheets` in their order, and a body
+ * element that stands in for `<body>`. Returns the element a guest renders into.
  */
-export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environment: FrameEnvironment): HTMLElement {
+export function prepareFrame(
+  host: HTMLElement,
+  sheets: readonly CSSStyleSheet[],
+  environment: FrameEnvironment
+): HTMLElement {
   rewriteAddedRules()
   const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
@@ -194,7 +198,7 @@ export function prepareFrame(host: HTMLElement, sheet: CSSStyleSheet, environmen
   shadow.adoptedStyleSheets = [
     frameRootSheet(),
     ...(environment.touch ? [frameTouchSheet()] : []),
-    sheet,
+    ...sheets,
     ...(environment.sheets ?? []),
     own.rules,
     own.preview

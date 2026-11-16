@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs"
 import { join, relative } from "node:path"
-import type { Route } from "@parity-app/extension-api"
+import type { Route } from "@parity-app/extension"
 import { describe, expect, it } from "vite-plus/test"
 import { pageExtensions, pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
 

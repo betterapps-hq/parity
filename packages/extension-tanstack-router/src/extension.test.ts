@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs"
 import { readFile } from "node:fs/promises"
 import { join } from "node:path"
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
 import { isPage, projectRoutes, routeOf } from "./extension.ts"
@@ -12,10 +12,11 @@ describe("the TanStack Router extension", () => {
     const found = readExtension(packageJson)
 
     expect(found.manifest.activates).toEqual(["onDetect"])
-    // A router around every frame, so components with a link draw on their own (PAR-1152).
-    expect(found.manifest.contributes.providers?.router?.decorators?.map(({ wrap }) => wrap.component)).toEqual([
-      "RouterContextProvider"
-    ])
+    // A router around every frame, so components with a link draw on their own (PAR-1152), drawing the frame as its
+    // root route, so a layout's Outlet draws on its own too (PAR-1195).
+    const [router] = found.manifest.contributes.providers?.router?.decorators ?? []
+    expect(router?.wrap.component).toBe("RouterProvider")
+    expect(JSON.stringify(router?.wrap.props)).toContain('"component":{"$function":{"$frame":"content"}}')
     expect(found.manifest.contributes.nodeTypes?.map((type) => type.id)).toEqual(["route"])
     expect(found.versions).toEqual({ packages: ["@tanstack/react-router"], range: "^1.0.0" })
     // It reads the route tree and route files through Parity's files API, wherever the router's config puts them.

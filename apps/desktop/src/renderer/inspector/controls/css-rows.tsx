@@ -1,4 +1,4 @@
-import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Checkbox, Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { type Bezier, bezierCss, type EasingPlot, validate } from "@parity-app/style-schema"
 import { Minus, Plus } from "lucide-react"
 import { type ChangeEvent, type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from "react"

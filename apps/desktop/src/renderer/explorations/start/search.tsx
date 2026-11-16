@@ -8,7 +8,7 @@ import {
   CommandList,
   CommandShortcut,
   Kbd
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 /**
  * Search, from Ctrl K or the start page's field: designs, projects, components, people, templates and commands in one
  * list, with the matching part of each name marked.

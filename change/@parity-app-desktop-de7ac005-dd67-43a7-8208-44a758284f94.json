@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Route screens draw for Rspack, Rsbuild and webpack apps: the builder serves the app's own pages, reloaded after each change",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

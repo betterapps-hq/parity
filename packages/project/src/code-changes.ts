@@ -24,8 +24,14 @@ export interface StampedChange {
 /**
  * Gathers the changes a burst of saves makes, as an editor writing a file more than once does, into one `CodeChange`
  * a moment after the last, with a stamp that always goes up. Any builder adapter reports its changes through it.
+ *
+ * `preview` is the project's preview file (`ProjectConfig.preview`), which a builder looks for among the files a change
+ * reaches as it looks for components. The guest imports it itself, so a change reaching it makes the guest new, as a
+ * stylesheet's does, and it isn't passed on as a component's file (PAR-100).
  */
-export function gatherChanges(send: (change: CodeChange) => void, wait = 40) {
+export function gatherChanges(send: (change: CodeChange) => void, wait = 40, preview?: string) {
+  const previewPath = preview && withoutDot(preview)
+
   const paths = new Set<string>()
   let styles = false
   let stamp = 0
@@ -36,7 +42,11 @@ export function gatherChanges(send: (change: CodeChange) => void, wait = 40) {
     stamp: () => (stamp = Math.max(Date.now(), stamp + 1)),
     add(changed: StampedChange) {
       for (const path of changed.paths) {
-        paths.add(path)
+        if (withoutDot(path) === previewPath) {
+          styles = true
+        } else {
+          paths.add(path)
+        }
       }
 
       styles ||= changed.styles
@@ -54,4 +64,9 @@ export function gatherChanges(send: (change: CodeChange) => void, wait = 40) {
     },
     stop: () => clearTimeout(timer)
   }
+}
+
+/** A path from the root as the project lists it, without a leading `./`. */
+function withoutDot(path: string): string {
+  return path.replace(/^\.\//, "")
 }

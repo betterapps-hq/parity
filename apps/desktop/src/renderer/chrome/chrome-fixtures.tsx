@@ -1,4 +1,4 @@
-import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { addNote as addNoteTo, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"
@@ -14,7 +14,6 @@ import {
   openProjects,
   ProjectStage
 } from "../stories/fixtures.tsx"
-import { useResolvedTheme } from "../theme.ts"
 import { type AppDialog, openDialog } from "./app-dialogs.ts"
 import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
 
@@ -77,17 +76,10 @@ export function addNote(doc: ProjectDoc, text: string): void {
 export const Chrome: Decorator = (Story) => <ChromeAround story={<Story />} />
 
 function ChromeAround({ story }: { story: ReactNode }) {
-  const theme = useResolvedTheme()
-
   return (
     <TooltipProvider>
       <div className="flex h-screen flex-col bg-background text-foreground">{story}</div>
-      <SonnerToaster
-        theme={theme}
-        position="bottom-right"
-        offset={{ bottom: 40, right: 16 }}
-        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
-      />
+      <Toaster />
       <UnsavedPrompt />
     </TooltipProvider>
   )

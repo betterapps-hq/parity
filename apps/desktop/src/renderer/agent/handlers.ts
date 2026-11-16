@@ -2,7 +2,6 @@ import type { IconNames, IconSet } from "@parity-app/agent"
 import { activeTab, matchTab } from "@parity-app/agent/routing"
 import { type ChangeConflict, CodedError, errorDetails, type LibraryInfo, unknownReference } from "@parity-app/core"
 import { applyAgentChanges, applyOperations, containerEntries } from "@parity-app/multiplayer"
-import { toast } from "sonner"
 import type {
   AgentChanges,
   ServeAnswer,
@@ -21,6 +20,7 @@ import { editStatusOf, problemMessage, reloadFile, revisionOf } from "../project
 import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../project-settings.ts"
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
+import { notify } from "../toasts.tsx"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 
@@ -238,12 +238,12 @@ const handlers: Handlers = {
     // Unsaved changes here win until the person says otherwise.
     if (session && !reloadFile(session, path, document)) {
       track("document.conflicted", { file: path })
-      toast.warning(`${path} changed on disk`, {
-        description: "Your unsaved changes are kept. Saving writes them over it.",
-        duration: 15000,
+      notify.warning("A file changed outside Parity", {
+        description: `Reload ${path.split(/[\\/]/).at(-1)} to get its changes, or save to keep yours.`,
+        timeout: 15_000,
         action: {
-          label: "Load from disk",
-          onClick: () => {
+          label: "Reload",
+          run: () => {
             reloadFile(session, path, document, true)
             track("document.loadedFromDisk", { file: path })
           }

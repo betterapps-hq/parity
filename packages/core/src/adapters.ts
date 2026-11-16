@@ -197,6 +197,11 @@ export interface ToolVersions {
    * newer than it was tested with, and below is older than it supports.
    */
   range?: string
+  /**
+   * The ranges of the other packages in `packages`, where they differ from `range`, so a version read from one is checked
+   * against its own, as Next.js against `next`'s range when the webpack builder's main peer is `webpack`.
+   */
+  ranges?: Record<string, string>
   /** A scope every package of which is one of the tool's, as `@storybook/`, beside `packages`. */
   scope?: string
   /** How majors are written, such as Tailwind's `v4`. */
@@ -210,8 +215,9 @@ export type ToolVersionsExtra = Pick<ToolVersions, "scope" | "prefix" | "distrib
 
 /**
  * A tool's versions from an extension's `package.json`: its peer dependencies name the packages that carry the version,
- * the main one first, and the main one's range is what it supports. `extra` is the manifest's `versions`, for what peer
- * dependencies can't say. Nothing when it has no peer dependencies.
+ * the main one first, and the main one's range is what it supports. Another peer whose range differs keeps its own, for a
+ * version read from that package. `extra` is the manifest's `versions`, for what peer dependencies can't say. Nothing
+ * when it has no peer dependencies.
  */
 export function peerVersions(
   peerDependencies: Readonly<Record<string, string>> | undefined,
@@ -219,7 +225,14 @@ export function peerVersions(
 ): ToolVersions | undefined {
   const [main, ...rest] = Object.entries(peerDependencies ?? {})
 
-  return main ? { packages: [main[0], ...rest.map(([name]) => name)], range: main[1], ...extra } : undefined
+  if (!main) {
+    return undefined
+  }
+
+  const differing = rest.filter(([, range]) => range !== main[1])
+  const ranges = differing.length > 0 ? { ranges: Object.fromEntries(differing) } : {}
+
+  return { packages: [main[0], ...rest.map(([name]) => name)], range: main[1], ...ranges, ...extra }
 }
 
 /**
@@ -556,7 +569,8 @@ export interface CodeChange {
   stamp: number
   /**
    * One of the stylesheets the guest's compiled CSS is made from changed too, so the guest's CSS is new: the guest at
-   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821).
+   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821). A change to the project's preview file, or
+   * to a module it imports, sets it too, since that guest imports the file afresh as well (PAR-100).
    */
   styles?: boolean
 }
@@ -584,23 +598,10 @@ export interface GuestInit {
    * read for tokens: a library's tokens come from its `.lib.par`, and the rest are its components' own variables.
    */
   packageCss?: string
-  /**
-   * Stylesheets the project's modules import as they load, such as a component's own CSS or CSS modules, which a dev
-   * server would otherwise add to the page's head, where they'd restyle Parity's own window.
-   */
-  moduleStyles?: ModuleStyles
-  /** Libraries' decorators, outermost first, with the modules they import by specifier. */
+  /** Libraries' decorators, outermost first, with the modules they import by specifier, and the project's preview. */
   decorators?: GuestDecorators
   /** Categories for custom properties libraries describe, by name without `--`. */
   tokenCategories?: Record<string, TokenCategory>
-}
-
-/** The stylesheets a guest's modules imported, which frames draw with after the project's global stylesheets. */
-export interface ModuleStyles {
-  /** Each one's CSS as compiled, in the order they were first imported. */
-  sheets(): string[]
-  /** Calls `listener` when one is added, changed or taken away, and gives back what stops that. */
-  subscribe(listener: () => void): () => void
 }
 
 /** One icon package, and how its icons are drawn. */
@@ -621,6 +622,11 @@ export interface GuestDecorators {
   list: { library: string; decorator: LibraryDecorator }[]
   /** Modules by specifier; a module that failed to load is the error it failed with. */
   modules: Record<string, ModuleExports | { loadError: string }>
+  /**
+   * The project's preview file as it loaded (`ProjectConfig.preview`), or the error it failed with. Its decorators wrap
+   * inside the libraries'.
+   */
+  project?: ModuleExports | { loadError: string }
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
@@ -670,7 +676,6 @@ export interface Guest {
   iconAliases?(library: string, style?: string): Record<string, string[]>
   css: string
   packageCss?: string
-  moduleStyles?: ModuleStyles
   tokenCategories?: Record<string, TokenCategory>
   /** Renders a resolved design. Components the guest doesn't know render as a visible placeholder. */
   mount(target: HTMLElement, tree: RenderNode[], options?: MountOptions): MountHandle

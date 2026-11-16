@@ -1,5 +1,5 @@
-import type { Route } from "@parity-app/extension-api"
-import { readExtension } from "@parity-app/extensions"
+import type { Route } from "@parity-app/extension"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
 import { isPage, routeOf } from "./extension.ts"

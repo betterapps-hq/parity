@@ -1,4 +1,4 @@
-import { TabsContent } from "@buildkitgg/shadcn-baseui-kit"
+import { TabsContent } from "@buildkitgg/shadcn"
 import type { ComponentType } from "react"
 import { useProject } from "../canvas/context.ts"
 import { type PlacedView, type SectionTarget, sectionsFor, tabsAt } from "../extension-views.ts"

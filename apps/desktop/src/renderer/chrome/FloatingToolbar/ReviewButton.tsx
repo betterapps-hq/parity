@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuShortcut,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { annotationKinds, isReviewTool, type Review, type ReviewTool } from "@parity-app/editor"
 import { useProject } from "../../canvas/context.ts"
 import { reviewToolLook } from "../../collaboration/annotations/annotation-kinds.ts"

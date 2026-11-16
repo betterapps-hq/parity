@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { Check, Copy, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 

@@ -1,6 +1,5 @@
-import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { type ReactNode, useMemo, useRef, useState } from "react"
-import { toast } from "sonner"
 import type { SignInProvider } from "../../../shared/account.ts"
 import { TabBar } from "../../chrome/TabBar.tsx"
 import { ContinueCard, FirstTime } from "../../start/HomePage.tsx"
@@ -10,7 +9,7 @@ import { ProjectList } from "../../start/ProjectList.tsx"
 import { type KnownProject, knownProjects, type ProjectNote } from "../../start/projects.ts"
 import { StartActionsProvider } from "../../start/start-actions.ts"
 import { NewProjectButton, OpenMenu, SearchButton } from "../../start/StartControls.tsx"
-import { useResolvedTheme } from "../../theme.ts"
+import { notify } from "../../toasts.tsx"
 import {
   AccountMenu,
   AccountMenuLoading,
@@ -170,7 +169,6 @@ function accountFrom(provider: SignInProvider): Account {
  * organization dialogs this exploration proposes.
  */
 export function HomePrototype(start: Start) {
-  const theme = useResolvedTheme()
   const [accounts, setAccounts] = useState(() => startingAccounts(start))
   const [place, setPlace] = useState(() => startingPlace(start))
   // Where you were last in each account, so switching back or signing out of another returns you there.
@@ -257,7 +255,7 @@ export function HomePrototype(start: Start) {
       // Another account is a different you, so it says so where everyone sees it; the toast is announced too.
       if (elsewhere) {
         setStatus("")
-        toast(`Switched to ${email}`, { description: `You're in ${named} now.` })
+        notify.info(`Switched to ${email}`, { description: `You're in ${named} now.` })
       } else {
         setStatus(`You're in ${named}`)
       }
@@ -289,12 +287,12 @@ export function HomePrototype(start: Start) {
 
     if (!existing) {
       setAccounts((all) => [...all, added])
-      toast(`Added ${email}`, there)
+      notify.info(`Added ${email}`, there)
     } else if (existing.ended) {
       setAccounts((all) => all.map((each) => (each === existing ? { ...each, ended: false } : each)))
-      toast(`Signed in again as ${email}`, there)
+      notify.info(`Signed in again as ${email}`, there)
     } else {
-      toast(`${email} is already signed in`, email === place.email ? {} : there)
+      notify.info(`${email} is already signed in`, email === place.email ? {} : there)
     }
 
     go(to)
@@ -311,7 +309,7 @@ export function HomePrototype(start: Start) {
     setAccounts(rest)
 
     if (which !== place.email) {
-      toast(leaving?.ended ? `Removed ${which}` : `Signed out of ${which}`)
+      notify.info(leaving?.ended ? `Removed ${which}` : `Signed out of ${which}`)
 
       return
     }
@@ -322,14 +320,14 @@ export function HomePrototype(start: Start) {
 
     if (!next) {
       setAccounts([])
-      toast(`Signed out of ${email}`, { description: "Projects on this computer stay open." })
+      notify.info(`Signed out of ${email}`, { description: "Projects on this computer stay open." })
 
       return
     }
 
     const to = placeIn(next)
     go(to)
-    toast(`Signed out of ${email}`, { description: `You're in ${nameOf(to)} as ${to.email} now.` })
+    notify.info(`Signed out of ${email}`, { description: `You're in ${nameOf(to)} as ${to.email} now.` })
   }
 
   const join = () => {
@@ -355,16 +353,16 @@ export function HomePrototype(start: Start) {
       go({ email: you.email, team: joined.id })
       setInvitation(undefined)
       const as = place.email === you.email ? "" : ` as ${you.email}`
-      toast(`You joined ${joined.name}`, { description: `You're in ${joined.name}${as} now.` })
+      notify.info(`You joined ${joined.name}`, { description: `You're in ${joined.name}${as} now.` })
     }, 1200)
   }
 
   const decline = () => {
     const declined = invitation
     setInvitation(undefined)
-    toast(`${declined?.expired ? "Dismissed" : "Declined"} the invitation to ${declined?.organization.name}`, {
-      action: { label: "Undo", onClick: () => setInvitation(declined) },
-      duration: 10_000
+    notify.info(`${declined?.expired ? "Dismissed" : "Declined"} the invitation to ${declined?.organization.name}`, {
+      action: { label: "Undo", run: () => setInvitation(declined) },
+      timeout: 10_000
     })
   }
 
@@ -399,7 +397,7 @@ export function HomePrototype(start: Start) {
     }))
 
     if (say) {
-      toast(emails.length === 1 ? `Invited ${emails[0]}` : `Invited ${emails.length} people to ${team.name}`)
+      notify.info(emails.length === 1 ? `Invited ${emails[0]}` : `Invited ${emails.length} people to ${team.name}`)
     }
   }
 
@@ -485,7 +483,7 @@ export function HomePrototype(start: Start) {
         setInvitation(undefined)
 
         if (invitation) {
-          toast(`Asked ${invitation.from.name} for a new invitation`)
+          notify.info(`Asked ${invitation.from.name} for a new invitation`)
         }
       }}
     />
@@ -538,24 +536,24 @@ export function HomePrototype(start: Start) {
                 ...team,
                 members: team.members.filter((item) => item.email !== member.email)
               }))
-              toast(`Removed ${member.name} from ${current.name}`)
+              notify.info(`Removed ${member.name} from ${current.name}`)
             }}
             onLeave={() => {
               const left = current
               const { email } = account.person
               teamsOf(email, (all) => all.filter((team) => team.id !== left.id))
               go({ email, team: undefined })
-              toast(`You left ${left.name}`, {
+              notify.info(`You left ${left.name}`, {
                 description: "You're in Personal now.",
                 action: {
                   label: "Undo",
-                  onClick: () => {
+                  run: () => {
                     teamsOf(email, (all) => [...all, left])
                     go({ email, team: left.id })
                     setStatus(`You're in ${left.name}`)
                   }
                 },
-                duration: 10_000
+                timeout: 10_000
               })
             }}
             onResend={(email) => {
@@ -602,8 +600,7 @@ export function HomePrototype(start: Start) {
             onClose={() => setDialog(undefined)}
           />
         )}
-        {/* The kit follows the system's theme unless told, which in a light story is the wrong one. */}
-        <SonnerToaster theme={theme} position="bottom-right" />
+        <Toaster />
       </StartActionsProvider>
     </PictureSourceProvider>
   )

@@ -6,7 +6,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Eye } from "lucide-react"
 import type { ReactNode } from "react"
 import { GroupLabel } from "../chrome/PanelSection.tsx"

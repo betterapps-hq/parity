@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Keep a project's code from reloading Parity's window or changing its <html> and <body>",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

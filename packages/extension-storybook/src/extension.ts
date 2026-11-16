@@ -1,5 +1,11 @@
 import { containerSpec, parseData } from "@parity-app/core"
-import type { Candidate, Parity, ProcessHandle, ProcessInfo } from "@parity-app/extension-api"
+import {
+  type Candidate,
+  defineExtension,
+  type Parity,
+  type ProcessHandle,
+  type ProcessInfo
+} from "@parity-app/extension"
 import { projectSource } from "@parity-app/project"
 import { exportStoryScreen, importStories } from "./screens.ts"
 import {
@@ -52,7 +58,9 @@ export type StorybookApi = {
   storyPage(component?: string, kind?: PageKind): Promise<string>
 }
 
-export function activate(parity: Parity): StorybookApi {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): StorybookApi {
   const { root } = parity.project
 
   // What the last import read, kept with the project, so a host started again shows it before the next import. Until

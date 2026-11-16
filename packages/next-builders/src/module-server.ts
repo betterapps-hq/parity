@@ -120,6 +120,8 @@ export interface CodeWatch {
   /** A digest of the guest's compiled CSS as Next builds it now. */
   stylesDigest(): Promise<string>
   send(change: CodeChange): void
+  /** The project's preview file, whose changes make the guest new (`gatherChanges`). */
+  preview?: string
   /** How the folder is watched; `fs.watch` unless a test reports the changes itself. */
   watch?: WatchFolder
 }
@@ -131,7 +133,7 @@ export interface CodeWatch {
  */
 export async function watchCodeChanges(options: CodeWatch): Promise<() => void> {
   const imports = projectImports(options.root, options.tsconfig)
-  const changes = gatherChanges((change) => options.send(change))
+  const changes = gatherChanges((change) => options.send(change), undefined, options.preview)
   let digest = await options.stylesDigest().catch(() => "")
   const pending = new Set<string>()
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -144,7 +146,7 @@ export async function watchCodeChanges(options: CodeWatch): Promise<() => void> 
       imports.changed(file)
     }
 
-    const components = options.components()
+    const components = options.preview ? [...options.components(), options.preview] : options.components()
     const reached = (await Promise.all(files.map((file) => imports.reaching(components, file)))).flat()
 
     // Any file a component imports counts, as a JSON file of data; code and stylesheets may change the compiled CSS

@@ -13,13 +13,15 @@ const service = vi.hoisted(() => ({
 
 vi.mock("../service.ts", () => service)
 
-vi.mock("sonner", () => ({
-  toast: {
-    loading: vi.fn<() => string>(() => "progress"),
-    success: vi.fn<() => void>(),
-    warning: vi.fn<() => void>(),
-    error: vi.fn<() => void>()
-  }
+vi.mock("../toasts.tsx", () => ({
+  notify: {
+    progress: vi.fn<() => string>(() => "progress"),
+    done: vi.fn<() => string>(() => "done"),
+    warning: vi.fn<() => string>(() => "warning"),
+    failed: vi.fn<() => string>(() => "failed"),
+    close: vi.fn<() => void>()
+  },
+  lines: (items: string[]) => items.join("\n")
 }))
 
 // Exporting names layers as the canvas does, which there isn't one of here.

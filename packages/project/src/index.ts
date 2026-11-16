@@ -26,6 +26,7 @@ import { parseJsonc } from "@parity-app/registry"
 import { componentFor } from "./component-for.ts"
 import type { ProjectDetection } from "./detection.ts"
 import { describedTokens, findLibraries } from "./libraries.ts"
+import { findPreviewFile } from "./preview-file.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -122,6 +123,8 @@ export {
   splitSpecifier
 } from "./packages.ts"
 
+export { importFromPnp, type PnpProject, pnpNodeOptions, pnpProject } from "./pnp.ts"
+
 export { readStylesheet } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
@@ -160,8 +163,14 @@ export async function discoverProject(
 ): Promise<DiscoveredProject> {
   const notes: string[] = []
   const tsconfig = readTsconfig(root)
+
   // The builder answers while the app's files are read, which is the slow part.
-  const [loaded, app] = await Promise.all([options.styles, findAppComponents(root, renderer, tsconfig, notes)])
+  const [loaded, app, preview] = await Promise.all([
+    options.styles,
+    findAppComponents(root, renderer, tsconfig, notes),
+    findPreviewFile(root)
+  ])
+
   const { styles, packageStyles } = loaded ?? { styles: [], packageStyles: [] }
   notes.unshift(stylesNote(loaded))
   const libraries = await findLibraries(root, pkg, styles, renderer, packageStyles)
@@ -197,6 +206,11 @@ export async function discoverProject(
   }
 
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
+
+  if (preview) {
+    notes.push(`frames drawn inside ${preview}'s decorators`)
+  }
+
   const all = { ...components, ...libraries.components }
 
   return {
@@ -207,6 +221,7 @@ export async function discoverProject(
     documents,
     describedTokens: tokens.length > 0 ? tokens : undefined,
     namespace: namespace || undefined,
+    preview,
     notes,
     componentFiles: app.files
   }

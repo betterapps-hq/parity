@@ -1,4 +1,4 @@
-import { Switch } from "@buildkitgg/shadcn-baseui-kit"
+import { Switch } from "@buildkitgg/shadcn"
 import { GripVertical } from "lucide-react"
 import type { ReactNode } from "react"
 import { useSortable } from "../inspector/controls/sortable.ts"

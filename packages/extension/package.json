@@ -1,0 +1,16 @@
+{
+  "name": "@parity-app/extension",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "What an extension is written against: its types, defineExtension, and the manifest check its tests run.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./manifest": "./src/reader/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "zod": "catalog:"
+  }
+}

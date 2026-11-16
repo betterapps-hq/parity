@@ -1,4 +1,4 @@
-import { Input } from "@buildkitgg/shadcn-baseui-kit"
+import { Input } from "@buildkitgg/shadcn"
 import type { ComponentProps, ReactNode } from "react"
 
 /**

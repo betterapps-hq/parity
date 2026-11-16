@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, AvatarImage } from "@buildkitgg/shadcn-baseui-kit"
+import { Avatar, AvatarFallback, AvatarImage } from "@buildkitgg/shadcn"
 import { Sparkles } from "lucide-react"
 import { gradient, type Member } from "./member.ts"
 

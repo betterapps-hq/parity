@@ -12,7 +12,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
   Kbd
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 /**
  * Making a new project: from a template on a stack, or from something that exists already. Templates come from the
  * Scaffolder's catalog, so each one starts from a stack and asks only what's left.

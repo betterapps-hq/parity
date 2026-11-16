@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { CanvasBanner } from "./CanvasBanner.tsx"
 import { Face } from "./Face.tsx"
 import { type Member, shortName } from "./member.ts"

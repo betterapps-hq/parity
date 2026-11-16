@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * All projects: every project in Kestrel you can open, as a list grouped by team, so a 300-person org can find work
  * and see where each team's boards stand. Each team's line counts its boards by status and what it approved this week;

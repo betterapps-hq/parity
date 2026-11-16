@@ -1,5 +1,5 @@
 import { listInWords } from "@parity-app/editor"
-import type { Permissions } from "@parity-app/extension-api"
+import type { Permissions } from "@parity-app/extension"
 import type { Extension } from "./definitions.ts"
 
 /*

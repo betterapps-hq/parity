@@ -1,4 +1,4 @@
-import type { CommandTarget, NodeRef, Parity, Route } from "@parity-app/extension-api"
+import { type CommandTarget, defineExtension, type NodeRef, type Parity, type Route } from "@parity-app/extension"
 import { pageExtensions, pickFolders, readRoutes, routerFolders, sourceFiles } from "./routes.ts"
 
 /** Where Next.js looks for its config, in its order. */
@@ -11,7 +11,9 @@ const configFiles = ["next.config.js", "next.config.mjs", "next.config.ts", "nex
  * project. Open in browser is offered on each page, and the status bar counts the pages.
  */
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const count = parity.status.item("nextjs.routes")
   parity.subscriptions.push(count)
 

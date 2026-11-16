@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { ArrowRight, FileInput, FolderOpen, Inbox } from "lucide-react"
 import { useEffect, useId, useMemo } from "react"
 import { useAccount } from "../account/account.ts"

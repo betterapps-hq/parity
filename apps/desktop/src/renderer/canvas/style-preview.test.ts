@@ -77,7 +77,7 @@ export function draw(design, classed) {
     document.querySelector("#frames").append(host)
     // The preview finds the design's frames from the index ModeView registers them in.
     unregister.push(registerFrame(host, "app.par#card"))
-    const target = prepareFrame(host, project, { classNames: [], attributes: {}, sheets: [sheet] })
+    const target = prepareFrame(host, [project], { classNames: [], attributes: {}, sheets: [sheet] })
     const render = (node) => {
       if (node.kind === "text") return document.createTextNode(node.text)
       const element = document.createElement(node.kind === "element" ? node.tag : "div")

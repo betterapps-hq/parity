@@ -2,10 +2,12 @@ import { readFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { extname, isAbsolute, relative, resolve } from "node:path"
+import { pageVersionPath } from "./app-pages.ts"
 
 /*
- * Serves the guest's build to the canvas: the modules the builder writes for the page, and the files the bundler wrote,
- * on 127.0.0.1 only. Nothing else: no dev server of the tool's, no file system in memory.
+ * Serves the guest's build to the canvas: the modules the builder writes for the page, the files the bundler wrote, and
+ * the app's page at its routes' paths, on 127.0.0.1 only. Nothing else: no dev server of the tool's, no file system in
+ * memory.
  */
 
 const loopback = "127.0.0.1"
@@ -44,6 +46,16 @@ export interface GuestServerOptions {
   /** Settles once the build is done, so nothing half-written is served. */
   ready(): Promise<void>
   module: ServedModule
+  /** The app's page, served at a path that names no file, as a route's is (PAR-1076). */
+  page?: AppPage
+}
+
+/** The app's page, and what tells it to reload. */
+export interface AppPage {
+  /** The page as the canvas gets it, or nothing when the app has none. */
+  html(): Promise<string | undefined>
+  /** How many builds have changed something, which a page reloads when it grows. */
+  version(): number
 }
 
 /** Starts the server. Its origin is `http://127.0.0.1:<port>`. */
@@ -98,8 +110,18 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
     return
   }
 
-  await options.ready()
   const url = new URL(request.url ?? "/", `http://${loopback}`)
+
+  // Answered while a build runs, so a page asks again rather than waits.
+  if (options.page && url.pathname === pageVersionPath) {
+    response.setHeader("Content-Type", "text/plain")
+    response.setHeader("Cache-Control", "no-store")
+    response.end(String(options.page.version()))
+
+    return
+  }
+
+  await options.ready()
   const source = await options.module(url)
 
   if (source !== undefined) {
@@ -122,6 +144,18 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
     }
   }
 
+  // A page's own load with no file at its path is a route's (`/users/alice.smith` too): the app's page draws it, its
+  // router reading the path. A script or stylesheet that isn't there stays missing.
+  const page = !body && opensPage(request) ? await options.page?.html() : undefined
+
+  if (page !== undefined) {
+    response.setHeader("Content-Type", "text/html; charset=utf-8")
+    response.setHeader("Cache-Control", "no-store")
+    response.end(page)
+
+    return
+  }
+
   if (!body) {
     response.statusCode = 404
     response.end()
@@ -132,6 +166,15 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
   response.setHeader("Content-Type", types.get(extname(file!).toLowerCase()) ?? "application/octet-stream")
   response.setHeader("Cache-Control", "no-store")
   response.end(body)
+}
+
+/** Whether a request loads a page into a window or frame, as the browser says, rather than a file for a page. */
+function opensPage(request: IncomingMessage): boolean {
+  const destination = request.headers["sec-fetch-dest"]
+
+  return destination === undefined
+    ? (request.headers.accept ?? "").includes("text/html")
+    : destination === "document" || destination === "iframe"
 }
 
 /** The output file a request's path names, or nothing for one outside the output folder. */

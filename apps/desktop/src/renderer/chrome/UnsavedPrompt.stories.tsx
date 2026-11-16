@@ -124,7 +124,7 @@ export const SavingFails: Story = {
     await frameDesigns("Pricing (annual)", "Dashboard")
     await closeExampleTab()
     await userEvent.click(body().getByRole("button", { name: "Save" }))
-    await holdToast("Couldn't save shadcn-vite")
+    await holdToast("Couldn't save the project")
     await expect(workspace.getTab(roots.example)?.session?.saver.hasUnsaved()).toBe(true)
   }
 }

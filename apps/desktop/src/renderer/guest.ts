@@ -4,7 +4,6 @@ import {
   type FrameRulesOptions,
   frameRules,
   type Guest,
-  type ModuleStyles,
   prepareCanvasCss,
   previewRules,
   type RenderNode,
@@ -20,13 +19,17 @@ import {
   type Token,
   type TokenChange
 } from "@parity-app/tokens"
+import { guardPage, type PageStyles, pageStyles } from "./page-styles.ts"
 
 export interface LoadedGuest extends FrameCss {
   guest: Guest
   /** Adopted by every rendered mode's shadow root. */
   sheet: CSSStyleSheet
-  /** Adopted by every rendered mode's shadow root after `sheet`: the stylesheets the project's modules imported. */
-  moduleSheet: CSSStyleSheet
+  /**
+   * Adopted by every rendered mode's shadow root before `sheet`: the stylesheets the project's code added to the page,
+   * which the page leaves off (page-styles.ts).
+   */
+  addedSheet: CSSStyleSheet
   /** The project's design tokens: its compiled CSS's variables plus its styling framework's full theme. */
   tokens: Token[]
   /** The attributes that switch on each theme the project sets by attribute, which frames in its mode get. */
@@ -50,8 +53,8 @@ interface Loading {
   loaded: Promise<LoadedGuest>
   /** The stylesheet the document adopted for the guest's rules that can't go in a shadow root, once made. */
   global?: CSSStyleSheet
-  /** Stops showing the stylesheets the guest's modules import, once it shows them. */
-  stopModuleStyles?: () => void
+  /** Stops showing the stylesheets the project's code adds to the page, once it shows them. */
+  stopAddedStyles?: () => void
   released?: boolean
 }
 
@@ -94,7 +97,7 @@ export function releaseGuest(url: string): void {
 
   guests.delete(url)
   entry.released = true
-  entry.stopModuleStyles?.()
+  entry.stopAddedStyles?.()
   const { global } = entry
 
   if (global) {
@@ -103,24 +106,24 @@ export function releaseGuest(url: string): void {
 }
 
 async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
+  // What the project's code adds to the page from here on, its guest module's imports included, stays out of it.
+  guardPage()
+  const { origin } = new URL(url)
   const guest = await importWithRetry(url)
-  const css = prepareCanvasCss(guest.css, { baseUrl: new URL(url).origin })
+  const added = pageStyles(origin)
+  // The stylesheets its modules linked as they loaded are read before its frames first draw.
+  await added.settled()
+  const css = prepareCanvasCss(guest.css, { baseUrl: origin })
   // Packages' stylesheets draw first, as the app imports them first, and aren't tokens: see `GuestInit.packageCss`.
-  const packages = prepareCanvasCss(guest.packageCss ?? "", { baseUrl: new URL(url).origin })
+  const packages = prepareCanvasCss(guest.packageCss ?? "", { baseUrl: origin })
   const global = new CSSStyleSheet()
-  const moduleSheet = new CSSStyleSheet()
-  const sheets = { scoped: moduleSheet, global, before: packages.global + css.global }
+  const addedSheet = new CSSStyleSheet()
+  const stop = showAddedStyles(added, { scoped: addedSheet, global, before: packages.global + css.global })
 
-  if (guest.moduleStyles) {
-    const stop = showModuleStyles(guest.moduleStyles, sheets, new URL(url).origin)
-
-    if (entry.released) {
-      stop()
-    } else {
-      entry.stopModuleStyles = stop
-    }
+  if (entry.released) {
+    stop()
   } else {
-    global.replaceSync(sheets.before)
+    entry.stopAddedStyles = stop
   }
 
   if (!entry.released) {
@@ -144,7 +147,7 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
   return {
     guest,
     sheet,
-    moduleSheet,
+    addedSheet,
     tokens: extractTokens(written.scoped, theme, guest.tokenCategories),
     themeAttributes: themeAttributes(collectCustomProperties(written.scoped)),
     ...frameCss(guest.css, new URL(url).origin)
@@ -152,22 +155,24 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
 }
 
 /**
- * Shows the stylesheets a guest's modules import (PAR-1181), as they come: their rules for frames in `scoped`, and in
- * `global`, the document's, after `before`, the rules only the document can hold, `@font-face` and `@property`, as the
- * project's global stylesheets' are. Each stylesheet is prepared once while it stays the same. Gives back what stops it.
+ * Shows the stylesheets the project's code adds to the page (PAR-1181, PAR-1187), as they come: their rules for frames
+ * in `scoped`, and in `global`, the document's, after `before`, the rules only the document can hold, `@font-face` and
+ * `@property`, as the project's global stylesheets' are. Each stylesheet is prepared once while it stays the same.
+ * Gives back what stops it.
  */
-export function showModuleStyles(
-  styles: ModuleStyles,
-  sheets: { scoped: CSSStyleSheet; global: CSSStyleSheet; before: string },
-  origin: string
+export function showAddedStyles(
+  styles: Pick<PageStyles, "sheets" | "subscribe">,
+  sheets: { scoped: CSSStyleSheet; global: CSSStyleSheet; before: string }
 ): () => void {
   let prepared = new Map<string, ReturnType<typeof prepareCanvasCss>>()
 
   const show = () => {
     const next = new Map<string, ReturnType<typeof prepareCanvasCss>>()
 
-    for (const css of styles.sheets()) {
-      next.set(css, next.get(css) ?? prepared.get(css) ?? prepareCanvasCss(css, { baseUrl: origin }))
+    for (const { css, baseUrl } of styles.sheets()) {
+      const key = `${baseUrl}\n${css}`
+
+      next.set(key, next.get(key) ?? prepared.get(key) ?? prepareCanvasCss(css, { baseUrl }))
     }
 
     prepared = next

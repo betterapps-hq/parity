@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * Handoff, for developers: every board by where it stands between design and code, one row each, with the board you
  * pick open at the side. Statuses come from Parity's own versions, so they work without git: an approval is of one

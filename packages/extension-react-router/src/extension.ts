@@ -1,4 +1,4 @@
-import type { CommandTarget, NodeRef, Parity, Route } from "@parity-app/extension-api"
+import { type CommandTarget, defineExtension, type NodeRef, type Parity, type Route } from "@parity-app/extension"
 import type { ProjectFiles } from "./config.ts"
 import { type ReadRoutes, readRoutes } from "./routes.ts"
 
@@ -10,7 +10,9 @@ import { type ReadRoutes, readRoutes } from "./routes.ts"
  * supports, and finds the router in a project.
  */
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const count = parity.status.item("react-router.routes")
   parity.subscriptions.push(count)
 

@@ -281,8 +281,24 @@ describe("serviceCrash", () => {
     })
   })
 
-  it("reports nothing for an expected exit or a clean one", () => {
+  it("reports nothing for an expected exit", () => {
     expect(serviceCrash({ exitCode: 1, output, expected: true })).toBeUndefined()
-    expect(serviceCrash({ exitCode: 0, output, expected: false })).toBeUndefined()
+  })
+
+  it("groups running out of memory as one cause, wherever V8 failed, though Electron gives it code 0", () => {
+    const printed = (where: string) =>
+      `<--- Last few GCs --->\n[63336:1115/232325.695:ERROR:node_bindings.cc:208] OOM error in V8: ${where} Allocation failed - JavaScript heap out of memory`
+
+    expect(serviceCrash({ exitCode: 0, output: printed("CALL_AND_RETRY_LAST"), expected: false })).toMatchObject({
+      message: "The project service exited with code 0: JavaScript heap out of memory",
+      fingerprint: ["service-exited", "JavaScript heap out of memory"]
+    })
+    expect(
+      serviceCrash({
+        exitCode: 0,
+        output: printed("MarkCompactCollector: young object promotion failed"),
+        expected: false
+      })?.fingerprint
+    ).toEqual(["service-exited", "JavaScript heap out of memory"])
   })
 })

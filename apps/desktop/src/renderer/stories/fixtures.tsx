@@ -1,8 +1,7 @@
-import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity-app/core"
 import { containerEntries, containerEntry } from "@parity-app/multiplayer"
 import type { ReactNode } from "react"
-import { toast } from "sonner"
 import { userEvent, waitFor, within } from "storybook/test"
 import { Box } from "tldraw"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
@@ -13,7 +12,7 @@ import { getPreferences, type Preferences, setPreferences } from "../chrome/pref
 import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { resetWindowStores } from "../store.ts"
-import { useResolvedTheme } from "../theme.ts"
+import { notify } from "../toasts.tsx"
 import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../workspace.ts"
 import { answering, projectInfo, resetHost, roots } from "./host.ts"
 
@@ -33,7 +32,7 @@ export type ProjectName = keyof typeof roots
  * the first active, once their components' props have been read. A slow project is left opening.
  */
 export async function openProjects(...names: ProjectName[]): Promise<void> {
-  toast.dismiss()
+  notify.close()
   await workspace.flush().catch(() => undefined)
 
   for (const tab of workspace.getTabs()) {
@@ -238,7 +237,6 @@ export function ProjectStage({
   className?: string
 }) {
   const active = useActiveTabId()
-  const theme = useResolvedTheme()
   const id = project ? roots[project] : active
   const session = useTabs().find((tab) => tab.id === id)?.session
 
@@ -251,12 +249,7 @@ export function ProjectStage({
       <ProjectContext value={session}>
         <ProjectColors className={className}>{children}</ProjectColors>
       </ProjectContext>
-      <SonnerToaster
-        theme={theme}
-        position="bottom-right"
-        offset={{ bottom: 40, right: 16 }}
-        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
-      />
+      <Toaster />
     </TooltipProvider>
   )
 }
@@ -352,7 +345,7 @@ export function restore(): void {
 
 /** Dismisses every notification; ones nobody dismissed would show again in the next story. */
 export function clearNotifications(): void {
-  toast.dismiss()
+  notify.close()
 }
 
 /**
@@ -374,7 +367,7 @@ export async function typeInto(field: HTMLInputElement, text: string): Promise<v
 export async function holdToast(text: string | RegExp): Promise<void> {
   const shown = await waitFor(
     () => {
-      const toasts = [...document.querySelectorAll<HTMLElement>("[data-sonner-toast]")]
+      const toasts = [...document.querySelectorAll<HTMLElement>('[data-slot="toast"]')]
       const found = toasts.find((candidate) => within(candidate).queryByText(text))
 
       if (!found) {

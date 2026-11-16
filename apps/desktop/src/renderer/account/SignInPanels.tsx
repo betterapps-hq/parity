@@ -6,7 +6,7 @@ import {
   DialogDescription,
   DialogTitle,
   Input
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   ArrowRight,
   Ban,
@@ -20,7 +20,6 @@ import {
   X
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { toast } from "sonner"
 import icon from "../../../../../brand/parity-icon.svg?url"
 import type {
   AccountPerson,
@@ -31,6 +30,7 @@ import type {
 } from "../../shared/account.ts"
 import { reportError } from "../report-error.ts"
 import { GitHubMark } from "../start/marks.tsx"
+import { notify } from "../toasts.tsx"
 import { GoogleMark, MicrosoftMark } from "./marks.tsx"
 import { OrganizationBadge } from "./OrganizationBadge.tsx"
 import { PersonAvatar } from "./PersonAvatar.tsx"
@@ -205,10 +205,11 @@ function MarkRing({ turning, badge }: { turning?: boolean; badge?: { icon: React
   )
 }
 
-function copy(text: string, said: string, id: string): void {
+function copy(text: string, said: string, failed: string, id: string): void {
   void navigator.clipboard.writeText(text).then(
-    () => toast.success(said, { id, duration: 2000 }),
-    (cause: unknown) => reportError(cause, { operation: "clipboard.write", title: "Parity couldn't copy that", id })
+    () => notify.done(said, { id, timeout: 2000 }),
+    (cause: unknown) =>
+      reportError(cause, { operation: "clipboard.write", title: failed, id, retry: () => copy(text, said, failed, id) })
   )
 }
 
@@ -237,7 +238,7 @@ export function WaitingPanel({
       ? `We opened your browser to sign you in${as}.`
       : `We opened ${providerName(attempt.provider)} in your browser to sign you in${as}.`
 
-  const copyLink = () => copy(attempt.url, "Copied the link", "copied-link")
+  const copyLink = () => copy(attempt.url, "Copied the link", "Couldn't copy the link", "copied-link")
 
   return (
     <div className="flex flex-col items-center gap-8">
@@ -314,7 +315,7 @@ function Details({ text }: { text: string }) {
             size="icon-xs"
             aria-label="Copy the details"
             className="absolute top-2 right-2"
-            onClick={() => copy(text, "Copied the details", "copied-details")}
+            onClick={() => copy(text, "Copied the details", "Couldn't copy the details", "copied-details")}
           >
             <Copy />
           </Button>

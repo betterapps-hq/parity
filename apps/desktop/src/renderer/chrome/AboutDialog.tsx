@@ -6,12 +6,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Copy } from "lucide-react"
 import { useEffect, useState } from "react"
-import { toast } from "sonner"
 import icon from "../../../../../brand/parity-icon.svg?url"
 import type { BuildInfo } from "../../shared/protocol.ts"
+import { notify } from "../toasts.tsx"
 import { closeDialog, useOpenDialog } from "./app-dialogs.ts"
 import { telemetryLevelNames, useTelemetry } from "./telemetry-setting.ts"
 import { actOnUpdate, checkForUpdates, useUpdates } from "./updates.tsx"
@@ -122,7 +122,7 @@ export function AboutDialog({ build: preview }: { build?: BuildInfo } = {}) {
   const copy = () => {
     void navigator.clipboard
       .writeText(details.map(({ label, value }) => `${label}: ${value}`).join("\n"))
-      .then(() => toast.success("Copied the version details", { duration: 2000 }))
+      .then(() => notify.done("Copied the version details", { timeout: 2000 }))
   }
 
   return (

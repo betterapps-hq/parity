@@ -1,4 +1,4 @@
-import { Button, Slider } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Slider } from "@buildkitgg/shadcn"
 import type { Decorator } from "@storybook/react-vite"
 import { Pause, Play } from "lucide-react"
 import { Fragment, type ReactElement, type ReactNode, useEffect, useId, useState } from "react"

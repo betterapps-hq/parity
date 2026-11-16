@@ -2,12 +2,12 @@ import { findNode } from "@parity-app/core"
 import { type ExportSize, exportFiles, selectedDesigns, selectedNodes } from "@parity-app/editor"
 import { containerEntries, containerEntry, designsLabel } from "@parity-app/multiplayer"
 import type { EventAttributes, registeredEvents } from "@parity-app/telemetry"
-import { toast } from "sonner"
 import { layerLabel } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../project-doc.ts"
-import { errorCode, errorMessage, reportError, track } from "../report-error.ts"
+import { errorCode, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
+import { lines, notify } from "../toasts.tsx"
 import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { getPreferences } from "./preferences.ts"
 
@@ -27,13 +27,9 @@ export function activeSession(): ProjectSession | undefined {
 export async function clearBitmapCache(): Promise<void> {
   try {
     await request("frames.clearStored", undefined)
-    toast.success("Bitmap cache cleared", { duration: 2000 })
+    notify.done("Cleared the bitmap cache", { timeout: 2000 })
   } catch (error) {
-    reportError(error, {
-      operation: "frames.clearStored",
-      title: "The bitmap cache couldn't be cleared",
-      description: errorMessage(error)
-    })
+    reportError(error, { operation: "frames.clearStored", title: "Couldn't clear the cache" })
   }
 }
 
@@ -95,37 +91,42 @@ export async function exportLayers(
 
   const exported: Exported = { kind: "layers", ...writtenAt(sizes), designs: targets.length }
 
-  const answer = await serviceCall({
-    progress: files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`,
-    run: () =>
-      request("layers.export", {
-        projectId,
-        folder,
-        layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
-        files
-      }),
-    done({ files: written, warnings }, took) {
-      track("export.done", { ...exported, durationMs: took, files: written.length, warnings: warnings.length })
+  const run = async (): Promise<void> => {
+    const answer = await serviceCall({
+      // A layer's name could be any length, so the notification counts files.
+      progress: files.length === 1 ? "Exporting a file…" : `Exporting ${files.length} files…`,
+      run: () =>
+        request("layers.export", {
+          projectId,
+          folder,
+          layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
+          files
+        }),
+      done({ files: written, warnings }, took) {
+        track("export.done", { ...exported, durationMs: took, files: written.length, warnings: warnings.length })
 
-      return {
-        success: written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`,
-        description: folder,
-        action: written[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(written[0]!) } : undefined
+        return {
+          success: written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`,
+          description: folder,
+          action: written[0]
+            ? { label: "Open folder", run: () => void window.canvasHost.showItem(written[0]!) }
+            : undefined
+        }
+      },
+      failed: {
+        operation: "layers.export",
+        title: "Couldn't export",
+        retry: () => void run(),
+        track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
       }
-    },
-    failed: {
-      operation: "layers.export",
-      title: "Couldn't export",
-      track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
-    }
-  })
-
-  if (answer && answer.warnings.length > 0) {
-    toast.warning("Some layers couldn't be drawn", {
-      description: answer.warnings.join("\n"),
-      classNames: { description: "whitespace-pre-line" }
     })
+
+    if (answer && answer.warnings.length > 0) {
+      notify.warning("Some layers were left out", { description: lines(answer.warnings) })
+    }
   }
+
+  await run()
 }
 
 /** What an export wrote, for `export.done` and `export.failed`, which add how long it took. */
@@ -165,7 +166,7 @@ export async function exportAllImages(
   const designs = containerEntries(doc).map((entry) => entry.key)
 
   if (designs.length === 0) {
-    toast.info("There are no screens or components to export")
+    notify.info("Nothing to export", { description: "This project has no screens or components yet." })
 
     return
   }
@@ -177,36 +178,38 @@ export async function exportAllImages(
   }
 
   const sizes = getPreferences().exportSizes
-  const named = designs.length === 1 ? doc.design(designs[0]!)?.name : undefined
+  const label = designsLabel(doc, designs)
   const exported: Exported = { kind: "designs", ...writtenAt(sizes), designs: designs.length }
 
-  const answer = await serviceCall({
-    progress: `Exporting ${named ?? designsLabel(doc, designs)}…`,
-    // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
-    run: () => request("designs.export", { projectId: session.id, folder, designs, sizes }),
-    done({ files, warnings }, took) {
-      track("export.done", { ...exported, durationMs: took, files: files.length, warnings: warnings.length })
+  const run = async (): Promise<void> => {
+    const answer = await serviceCall({
+      // A design's name could be any length, so the notification names its kind.
+      progress: `Exporting ${designs.length === 1 ? `a ${label}` : label}…`,
+      // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
+      run: () => request("designs.export", { projectId: session.id, folder, designs, sizes }),
+      done({ files, warnings }, took) {
+        track("export.done", { ...exported, durationMs: took, files: files.length, warnings: warnings.length })
 
-      return {
-        success: files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`,
-        description: folder,
-        action: files[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(files[0]!) } : undefined
+        return {
+          success: files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`,
+          description: folder,
+          action: files[0] ? { label: "Open folder", run: () => void window.canvasHost.showItem(files[0]!) } : undefined
+        }
+      },
+      failed: {
+        operation: "designs.export",
+        title: "Couldn't export",
+        retry: () => void run(),
+        track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
       }
-    },
-    failed: {
-      operation: "designs.export",
-      title: "Couldn't export",
-      track: (error, took) => trackExportFailed({ ...exported, durationMs: took }, error)
-    }
-  })
-
-  if (answer && answer.warnings.length > 0) {
-    toast.warning("Some previews had problems", {
-      description: answer.warnings.join("\n"),
-      // One warning to a line.
-      classNames: { description: "whitespace-pre-line" }
     })
+
+    if (answer && answer.warnings.length > 0) {
+      notify.warning("Some images may be incomplete", { description: lines(answer.warnings) })
+    }
   }
+
+  await run()
 }
 
 export function exit(): void {

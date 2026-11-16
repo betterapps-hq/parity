@@ -1,6 +1,6 @@
 import type { AgentReport, ReportSent } from "@parity-app/agent"
 import type { Found, SearchAnswer } from "@parity-app/connectors"
-import type { StoredSettings } from "@parity-app/extensions/settings"
+import type { StoredSettings } from "@parity-app/extension-host/settings"
 import type { ConnectorFind, ConnectorPlaced } from "./connectors.ts"
 import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
 

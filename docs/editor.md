@@ -1161,7 +1161,7 @@ Code: `renderer/extensions.ts` (the store, `commandsAt`, `holdsFor`, `extensionK
 `renderer/extension-ui.ts`, `chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`;
 `extensions.*` in `shared/protocol.ts`; the service's side in `utility/extensions.ts`.
 
-Tests: `packages/extensions/src/hosts.test.ts`, `manifest.test.ts`, `when.test.ts` and `keys.test.ts`
+Tests: `packages/extension-host/src/hosts.test.ts`, `manifest.test.ts`, `when.test.ts` and `keys.test.ts`
 ([extensions.md](extensions.md)); `renderer/extensions.test.ts` (placements, greyed by `enablement`, over the node, the
 selection and the project's tools, and extensions' keys, which Parity's own win);
 `packages/editor/src/selection.test.ts` (the selection by `NodeRef`); and `chrome/layout.test.ts` (the bottom tab kept
@@ -1212,13 +1212,13 @@ bar.
   other (see "API routes in Layers").
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts`, `routes.ts`, `code-routes.ts` and
-`syntax.ts`); `providers` in `packages/extension-api/src/api.ts`; `provide` and `provider` in
-`packages/extensions/src/hosts.ts`, `readAnswer` in `protocol.ts` and `providers.register` in `host.ts`;
+`syntax.ts`); `providers` in `packages/extension/src/api.ts`; `provide` and `provider` in
+`packages/extension-host/src/hosts.ts`, `readAnswer` in `protocol.ts` and `providers.register` in `host.ts`;
 `projectProviders` and `byPeers` in `utility/extensions.ts`; `routes` and `tools` in `utility/projects.ts`; `pageOffers`
 in `renderer/chrome/command-offers.ts` and `pageItems` in `ActionsSearch.tsx`.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts` (with app H's code-based routes,
-and parents across files), and "providers (PAR-1095)" in `packages/extensions/src/hosts.test.ts`
+and parents across files), and "providers (PAR-1095)" in `packages/extension-host/src/hosts.test.ts`
 ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a route's page found by its design key
 gives the URL Open in browser opens). Gaps: the service's open path asking the router, and Open in browser's placements
 in the window, have no unit test of their own.
@@ -1268,15 +1268,15 @@ found, 20 routes in Layers and the status bar, each page drawn from the app at i
 path, params, file, component and whether it loads data in the Design tab.
 
 Code: `packages/extension-react-router` (its manifest, `extension.ts`, `routes.ts`, `routes-file.ts`, `flat-routes.ts`
-and `library.ts`); `files.list` in `packages/extension-api/src/api.ts`, in `host-files.ts`, `hosts.ts` and `protocol.ts`
-in `packages/extensions`, and in `utility/extensions.ts`; `builtIns` and `builtInTools` in `utility/extensions.ts`;
+and `library.ts`); `files.list` in `packages/extension/src/api.ts`, in `host-files.ts`, `hosts.ts` and `protocol.ts` in
+`packages/extension-host`, and in `utility/extensions.ts`; `builtIns` and `builtInTools` in `utility/extensions.ts`;
 React Router's missing-router error in `packages/core/src/render-status.ts`.
 
 Tests: `packages/extension-react-router/src/extension.test.ts` (its manifest and range, the pages counted, what the
 status item says, the page a command was run for), `routes.test.ts` (the validation project's routes, each parent before
 its children, with their kinds and their modules' components and loaders; `appDirectory`; library mode found from
 `index.html`; segments), `routes-file.test.ts`, `flat-routes.test.ts` and `library.test.ts`; "lists a folder the read
-permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh preamble in
+permission names" in `packages/extension-host/src/hosts.test.ts`; the Fast Refresh preamble in
 `packages/extension-vite/src/builder.test.ts`; the missing router in `packages/core/src/render-status.test.ts`; and the
 example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
 `routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
@@ -1299,19 +1299,82 @@ there.
   in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
   with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
   router (`useLoaderData`, `useFetcher`) still need their route's loader to run, which the canvas doesn't do.
-- **TanStack Router** wraps each frame in `RouterContextProvider`, with a router `createRouter` makes from an empty root
-  route and memory history at the frame's URL, so `Link` draws. `Outlet` draws nothing, as no route matches.
+- **TanStack Router** wraps each frame in `RouterProvider`, with a router `createRouter` makes from a root route and
+  memory history at the frame's URL, so `Link` draws. The root route draws the frame, through `{ "$frame": "content" }`,
+  so a layout's `Outlet` has the matched route it needs and draws nothing, as no child route matches (PAR-1195). The
+  root's not-found component draws nothing too, in place of TanStack Router's "Not Found".
+- **The frame's content as a value.** `{ "$frame": "content" }` is an element drawing what the decorator wraps, for a
+  component that draws it some way other than as its children, as a router draws its root route's component. It reads
+  the content from context, so a value made once, such as that router, draws the frame's latest content.
 
-Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
-`packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
-`packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
+Code: `RouterContribution` and `FrameDecorator` in `packages/extension/src/manifest.ts`; the manifest's schema in
+`packages/extension/src/reader/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
+`packages/extension-host/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
 `ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
 `packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
-`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`; each router's manifest.
+`packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`, which gives the `content` part from
+`FrameContentContext` too; each router's manifest.
 
-Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
-frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
-around the libraries'" in `packages/extension-vite/src/builder.test.ts`.
+Tests: "takes a router's frame decorators as data" in `packages/extension/src/reader/manifest.test.ts`; "gives the
+routers' frame decorators from their manifests" in `packages/extension-host/src/hosts.test.ts`; "puts the extensions'
+decorators around the libraries'" in `packages/extension-vite/src/builder.test.ts`; "draws it where the component puts
+it, once, and draws the frame's next content there too" in `packages/extension-react/src/guest.react-18.test.ts`; "has a
+manifest Parity accepts" in `packages/extension-tanstack-router/src/extension.test.ts`. Tried in the running app on
+2026-11-16 on a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its
+`Outlet`.
+
+### The project's preview file (PAR-100)
+
+A project's own providers, such as a styled-components theme built from the app's theme object, go around every frame
+from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity runs without Storybook.
+
+- **Storybook's exports.** `decorators`, `loaders`, `parameters`, `globalTypes` and `initialGlobals`, named or as the
+  default export's properties, as Storybook takes them. Moving to Storybook later means moving the file to
+  `.storybook/preview.tsx`. A project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with
+  several, `preview.tsx` is the one used.
+- **Inside the libraries' decorators,** so a project's provider overrides a library's default. In its list, as in
+  Storybook's, the last decorator wraps the ones before.
+- **Storybook's context.** A decorator gets `globals`, the frame's mode values over `globalTypes`' `defaultValue`s and
+  `initialGlobals`; `parameters`; `loaded`; empty `args` and `argTypes`; `viewMode`, always `"story"`; and
+  `canvasElement`, the frame's stand-in body. `Story` is the same function from one draw to the next, so a decorator can
+  draw `<Story />` and what's inside keeps its state.
+- **Loaders** run once, as a frame mounts, with that context. What they give joins `context.loaded`, and the frame draws
+  nothing until they're done; the guest's `loaded()` waits for them too. A loader that fails says why and the frame
+  stays empty.
+- **For every builder.** The file is one more of the shared guest module's imports, so Vite, Rspack, Rsbuild, webpack
+  and both Next.js builders compile it with the project's own config, as they compile its components. A file that
+  doesn't load is reported, and frames draw with the libraries' decorators alone.
+- **Saved, it redraws the frames.** Each builder looks for the file among what a change reaches, as it looks for
+  components, and `gatherChanges` reports a change that reaches it as making the guest new, as a stylesheet's change
+  does, so the canvas loads a guest that imports it afresh. Pictures kept for components and frames count the file and
+  what it imports as they count the stylesheets, and the code snapshot reads `.parity`, so a changed provider draws them
+  again.
+- **Building on Storybook's preview.** Parity doesn't read `.storybook/preview.*` yet, so the file is the project's
+  preview on the canvas. It can import Storybook's and spread its decorators to build on them:
+  `export const decorators = [...(storybook.decorators ?? []), withCanvasOnlyProviders]`.
+- **App F** (`fixtures/webpack-react-router`) has one, `.parity/preview.jsx`: it wraps frames in styled-components'
+  `ThemeProvider` with the app's light or dark theme from `src/theme.js`, picked by the `theme` global. The styles
+  styled-components adds to the page reach the frames as any project stylesheet does (PAR-1187).
+
+Not yet: global types as mode variables (PAR-105), a design's or state's parameters (PAR-106), `context.id`, and reading
+`.storybook/preview.*` when there's no Parity file (PAR-98).
+
+Code: `findPreviewFile` in `packages/project/src/preview-file.ts`, called by `discoverProject`; `gatherChanges` in
+`packages/project/src/code-changes.ts`, given the file by the Vite, webpack-compatible and Next builders; `keyFor` in
+`utility/previews.ts` and `trace` in `utility/frame-traces.ts`; `preview` in `ProjectConfig`
+(`packages/core/src/project.ts`); `guestModule` in `packages/project/src/guest-module.ts`, which gives the loaded file
+as `GuestDecorators.project`; `decorators`, `projectPreview` and `storyChain` in
+`packages/extension-react/src/guest.ts`.
+
+Tests: "the project's preview file" in `packages/project/src/preview-file.test.ts`; "the guest module with the project's
+preview file" in `packages/project/src/guest-module.test.ts`; "a project's preview file" in
+`packages/extension-react/src/guest-preview.test.ts`: the nesting inside the libraries' decorators, the context's
+globals, parameters and frame, `Story` kept from one draw to the next, loaders, and a file that didn't load; "makes the
+guest new for a change reaching the project's preview file" in `packages/project/src/code-changes.test.ts`; "the
+project's preview file" case in `code-fingerprint.test.ts`; "doesn't hold once what the project's preview file imports
+changes" in `utility/frame-traces.test.ts`; "are made again for every component once what the project's preview file
+imports changes" in `utility/previews.test.ts`. App F's file wasn't tried in the running app, since its fixture isn't
+installed locally.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1416,9 +1479,24 @@ A route that answers requests on the server and draws nothing is an API route: t
 leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
 `pages/api` files are API routes. One with pages inside it is their layout or group, as before.
 
-- **Layers** lists them in their own section, API routes, under the app's pages and before its screens, by path, in the
-  order the router gives them. A search finds them by path. A click selects one, and the Design tab shows its path and
-  file (`ApiRoutePanel`).
+- **Layers** lists them in their own section, API routes, under the app's pages and before its screens. A click selects
+  one, and the Design tab shows its path and file (`ApiRoutePanel`).
+- **Nested by URL** (PAR-1185). Router extensions give an API route its layout or the root as its parent, so API routes
+  have no tree among themselves. `routeOutline` in `@parity-app/core` nests routes by their `segments` alone, so they
+  nest the same way for TanStack Router, React Router and Next.js. A route whose URL starts another's holds it and
+  opens: `/api/projects` holds `$projectId`. A folder (`Folder` icon) stands for URL parts that two or more items share
+  but no route ends at, as `/api` holding `auth/callback` and `projects`. Parts only one item has are folded into its
+  label, so no folder holds a single item and a lone `/api/v1/users/[id]` is one row, not four. Each row shows the URL
+  parts it adds, as the router writes them, and is named by its whole path for screen readers. Items are in order by
+  label, and two routes at one URL are two rows. Folders and routes that hold others are open until closed, as a
+  layout's folder among the pages is; the arrow keys move through them with the pages' rows and folders. A search finds
+  API routes by path and shows them nested the same way, everything open. Pages still nest by layout, as the canvas
+  draws them.
+
+  Tests: `packages/core/src/route-outline.test.ts` (nesting, folding, params written as the router writes them, two
+  routes at one URL, keys that stay the same, a path without one part for each segment), and the stories Parity/Left
+  panel/API routes: Under The Pages (the nesting, labels, levels and names), Folder Closed, Route Closed and Searched.
+
 - **The canvas** never draws one (`drawnRoute`), and no Open in browser is offered. The status bar's route count and
   Settings' "Reads the app's routes as pages" count only pages; Settings counts API routes apart.
 - **Marks.** Parity can't always tell a route draws nothing without running the app, so a page's menu, in Layers or on
@@ -1433,8 +1511,9 @@ leaving it out. TanStack Start's server routes, React Router's resource routes, 
   extensions as they change (`sendRouteMarks` in `extension-editor.ts`), and each router counts its pages through
   `parity.routes.marked`, again on `parity.routes.onChange`.
 
-Code: `packages/core/src/routes.ts`, `apps/desktop/src/renderer/route-marks.ts`, `Routes` in `packages/extension-api`,
-`apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left panel/API routes).
+Code: `packages/core/src/routes.ts`, `packages/core/src/route-outline.ts`, `apps/desktop/src/renderer/route-marks.ts`,
+`Routes` in `packages/extension`, `apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left
+panel/API routes).
 
 ### Next's router on canvas (PAR-1160)
 
@@ -1469,7 +1548,7 @@ couldn't load a module the guest hadn't imported, as a stories file, which on le
   started, which the guest keeps by session, and asks the runtime for the client module. Every runtime registers chunks
   through the one `globalThis.TURBOPACK`, so the guest routes each chunk to the runtime its address names
   (`?parity-session=`), and others to the last started, for two projects open in one window. Its CSS modules'
-  stylesheets are linked and muted, as the guest's are.
+  stylesheets are linked, and reach frames as everything the project's code adds to the page does (PAR-1187).
 - **Loaded again after a change.** At `/<path>?t=<stamp>` the chunks load at the stamp too, after the page is rendered
   again, which has Next build the change. The runtime keeps the first factory it's given for a module, so the guest's
   runtime forgets the project's modules in a stamped chunk, factory and instance, before registering them; packages'
@@ -1505,7 +1584,7 @@ changed: the theme in the Tokens tab, frames drawn with the classes Parity write
   `extensions.test.ts`).
 
 Code: `packages/extension-tailwind` (its manifest, `extension.ts`, `printer.ts`, `design-system.ts` and `tokens.ts`);
-`StylesProvider` in `packages/extension-api/src/api.ts`; `callProvider` in `packages/extensions/src/host.ts`;
+`StylesProvider` in `packages/extension/src/api.ts`; `callProvider` in `packages/extension-host/src/host.ts`;
 `loadStyles`, `saveTokens` and `frameClasses` in `utility/projects.ts`.
 
 Tests: `packages/extension-tailwind/src/extension.test.ts` (its manifest and `handles`), `printer.test.ts`,
@@ -1529,12 +1608,12 @@ components found in the app and its libraries, frames drawn with the project's o
   its path.
 
 Code: `packages/extension-react` (its manifest, `extension.ts`, `components.ts` and the guest); `RendererProvider` in
-`packages/extension-api/src/api.ts`; `extensionRenderer` in `packages/core/src/adapters.ts`; `batched` in
-`packages/extensions/src/batch.ts`; `builtInRenderers` in `utility/extensions.ts` and `providedRenderer` in
+`packages/extension/src/api.ts`; `extensionRenderer` in `packages/core/src/adapters.ts`; `batched` in
+`packages/extension-host/src/batch.ts`; `builtInRenderers` in `utility/extensions.ts` and `providedRenderer` in
 `utility/projects.ts`.
 
 Tests: `packages/extension-react/src/extension.test.ts` (its manifest, its guest export and a batch of files read in
-order), `components.test.ts` (what's read as a component), `packages/extensions/src/batch.test.ts` (4: requests made
+order), `components.test.ts` (what's read as a component), `packages/extension-host/src/batch.test.ts` (4: requests made
 together in one batch, a long run split, a later request asked again, a failed or short batch failing its requests), and
 `apps/desktop/src/utility/projects.test.ts`, whose projects read their components through a renderer provider. Tried in
 the running app on 2026-11-14 on the example: 5 components in the app and 371 from Shadcn Nova read through the
@@ -1553,15 +1632,25 @@ status bar.
 - **Its host starts as soon as package.json is read,** found by its peer dependency or by Vite+, which ships Vite, so
   detection can ask it while the builder process starts beside it.
 - **Its versions** come from its peer dependency, Vite 6 to 8, with Vite+ named as a distribution.
+- **Its prebundled dependencies are kept between opens** (PAR-1196). While the prepared server finds the app's
+  stylesheets, before the project's config is known, it compiles without the dependency optimizer. Vite 6 and 7 would
+  otherwise bundle the packages those modules import at once, stored with the config as it was before the builder added
+  the libraries, and then delete and bundle them again as the server listened, on every open; the guest's warm-up could
+  wait on the bundle deleted under it. Vite 8 waits for the optimizer to start, so it never did.
 
 Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
-`packages/extension-api/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and
-`byPeers` in `utility/extensions.ts`; `detectBuilder` and `findBuilder` in `utility/projects.ts`.
+`packages/extension/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and `byPeers`
+in `utility/extensions.ts`; `detectBuilder` and `findBuilder` in `utility/projects.ts`.
 
 Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions and entry module), `detect.test.ts` (what
 Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
-provider. Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its config found through the provider,
-the guest served, the Pricing page drawn, and Vite first in the status bar.
+provider, and `prepare.test.ts` (a prepared server finding the stylesheets of an app that imports a package without
+asking the optimizer to bundle it, then importing it through the optimizer once started). Tried in the running app on
+2026-11-14 on the example: Vite 8.3.5 and its config found through the provider, the guest served, the Pricing page
+drawn, and Vite first in the status bar. The kept prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a
+`node_modules` project, prepared and started three times: before the change every start re-optimized, after it none did.
+Gaps: the test runs on Vite 8, which never re-optimized, so it checks that nothing is bundled early rather than Vite 7
+itself; ten opens of `vite-fluent-pnp` in a row in the app are untried.
 
 ### Rspack as an extension, through its builder provider (PAR-1147)
 
@@ -1572,11 +1661,18 @@ the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild bu
 - **Its builder provider says whether Rspack builds the project,** asked of the project's own Rspack, with its version
   and config file: the one the dev script names with `-c`, else `rspack.config.*`. A config that exports a function is
   called as Rspack's CLI calls it for `serve`. A project with an Rsbuild config is left to Rsbuild.
-- **The guest is the project's config, building the guest in place of the app.** Its entry is the guest module every
-  builder writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's
-  written as classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's
-  rules, loaders, aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with
-  the renderer's stand-in for its development JSX runtime.
+- **The guest is the project's config, building the guest beside the app.** Its entry is the guest module every builder
+  writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's written as
+  classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's rules, loaders,
+  aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with the renderer's
+  stand-in for its development JSX runtime.
+- **The app's pages draw its routes' screens** (PAR-1194). A route's screen loads the app at the builder's address and
+  the route's path, as Vite serves it, so the builder builds the app's own entries beside the guest's (`app-` before
+  their names) and makes its page with the project's first HTML plugin, made again with its options for those entries:
+  Rsbuild's comes with its template and title filled in. An app without one gets a page with a `root` to mount on. Any
+  path that names no file gets the page, with the script that gives it the frame's mode and tells the canvas its height
+  and where it landed first, and one that reloads it after each build that changes something. The app's entries' CSS is
+  the page's, not the components'. Code: `app-pages.ts`.
 - **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
   takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
   imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
@@ -1592,9 +1688,10 @@ Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`
 
 Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
-graph walks and the server's paths); the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy
-of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
-properties, and a component's code and a token edited together, both drawn afresh.
+graph walks, the server's paths, and the app's entries, page and reloads in `app-pages.test.ts` and `server.test.ts`);
+the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and
+its config found, its three components and Home drawn with the project's custom properties, and a component's code and a
+token edited together, both drawn afresh.
 
 ### Rsbuild as an extension, through its builder provider (PAR-1148)
 
@@ -1616,8 +1713,9 @@ Tests: `packages/extension-rsbuild/src/builder.test.ts` (detection, and the conf
 `extension.test.ts`; `packages/builder-webpack-compatible/src/guest-config.test.ts` (the extractor and HTML plugin).
 Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3.2 and its config found, Chakra UI's
 components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
-code since PAR-1156, and its root route's component, `AppShell`, draws inside the router TanStack Router's extension
-puts around every frame (PAR-1152).
+code since PAR-1156. Tried again on 2026-11-16 on a copy of it: it opens once (PAR-1193), its Home and Settings route
+screens draw the app's pages with `AppShell` around them, and an edit to Home reloads its screen (PAR-1194). `AppShell`
+on its own draws too, since TanStack Router's frame router draws the frame as its root route (PAR-1195).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 
@@ -1638,20 +1736,20 @@ sets out. What any Next.js builder needs is in `packages/next-builders`, for the
   project's root to look for class names from, since Next runs them from the guest app's folder.
 - **The canvas imports a module of the builder's own,** which loads Turbopack's runtime without what would start Next's
   router, then the guest page's chunks, and asks the runtime for the guest module by the id Next's page names. The
-  stylesheets come from the stylesheet pages. What the runtime links for a module's CSS stays in the page, muted, since
-  the runtime waits for it to load.
+  stylesheets come from the stylesheet pages. What the runtime links for a module's CSS stays in the page, since the
+  runtime waits for it to load, switched off there and drawn in frames (PAR-1187).
 - **A page or layout only a server can build** shows why on the canvas: one that exports `metadata` or a viewport, or
   imports `next/headers` or `server-only`, is imported from a stand-in that throws the reason, so the rest still builds.
 - **The global stylesheets** are the ones the root layout imports, or the Pages Router's `_app`, following the project's
   own modules through its path aliases until some import stylesheets, the choice the other builders make too
   (`chooseAppStyles`). CSS modules are left out.
-- **Not yet:** CSS modules don't reach frames. Code changes and modules found later load without a restart (PAR-1159),
-  Next's router is mounted around frames (PAR-1160) and elements know their sources (PAR-1161).
+- **Not yet:** Code changes and modules found later load without a restart (PAR-1159), Next's router is mounted around
+  frames (PAR-1160) and elements know their sources (PAR-1161).
 
 Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts` and `loader.ts`);
 `packages/next-builders` (`next.ts`, `bundler.ts`, `guest-app.ts`, `guest-runtime.ts`, `server-modules.ts`, `page.ts`,
 `app-styles.ts` and `server.ts`); the builder provider calls addressed to the serving builder's extension in
-`packages/extensions` and `apps/desktop/src/utility/projects.ts`.
+`packages/extension-host` and `apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/extension-turbopack/src/extension.test.ts` (its manifest) and `loader.test.ts` (the runtime chunk and
 the guest module); `packages/next-builders/src/*.test.ts` (detection, the bundler, the guest app, the runtime's copy,
@@ -1700,9 +1798,9 @@ the CSS change) and `next-loader.test.ts` (the chunks and the guest module);
 browser. On `webpack-react-router`: webpack 5.112.2 and its config found, React Aria's `Button` drawn, the app's own
 components compiled with its Babel config, and, in a copy with a global stylesheet and a CSS module, the module's class
 drawn with the stylesheet's custom property. On `nextjs-webpack`: Next.js 15.5.29 on webpack found, every component's
-module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components stop
-at their theme providers, styled-components' `ThemeProvider` and Mantine's `MantineProvider`, which the canvas doesn't
-render.
+module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components
+stopped at their theme providers. `nextjs-webpack` now uses Chakra UI, whose providers come from its library file
+(PAR-1168); `webpack-react-router`'s styled-components `ThemeProvider` comes from its preview file (PAR-100).
 
 ### Storybook's stories through its entities provider (PAR-1095)
 
@@ -1722,7 +1820,7 @@ args are written back to its file on Save.
   detection, from its peer dependencies and the config files its provider watches. Parity's core has no Storybook code.
 
 Code: `packages/extension-storybook` (`extension.ts`, `screens.ts`, `csf.ts` and `write.ts`); `EntitiesProvider` in
-`packages/extension-api/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
+`packages/extension/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
 `projectProviders` in `utility/extensions.ts`; `providedEntities` in `utility/projects.ts`.
 
 Tests: `packages/extension-storybook/src/stories.test.ts` (reading and writing story files) and
@@ -1755,9 +1853,9 @@ Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `a
 Tests: `packages/editor/src/design-operations.test.ts` (renaming, taking a field away, inserting, moving and removing,
 and what's refused), `renderer/project-doc.test.ts` "an extension's operations" (one step under the extension's name
 that Undo takes back, and refusing the whole change with the operation's number), `renderer/extensions.test.ts`
-"commandsAt for a layer", and `packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par`
-files). Gaps: no extension built into Parity changes designs yet, so the layer menu and the undo label weren't tried in
-the running app.
+"commandsAt for a layer", and `packages/extension-host/src/hosts.test.ts` and `permissions.test.ts` (permissions and
+`.par` files). Gaps: no extension built into Parity changes designs yet, so the layer menu and the undo label weren't
+tried in the running app.
 
 ### Extensions' views (PAR-1094)
 
@@ -1787,11 +1885,11 @@ Code: `renderer/extension-views.ts` (`tabsAt`, `sectionsFor`, `pageOf`, `shownIt
 `chrome/ExtensionLog.tsx`, and `Workspace.openPage` in `renderer/workspace.ts`.
 
 Tests: `renderer/extension-views.test.ts` (placing tabs, sections and pages, a section's items, a tree's rows and an
-item's actions) and `packages/extensions/src/views.test.ts`. Stories: `chrome/ExtensionView.stories.tsx` Kinds, with a
-play function for the tree's keys, and Page. Gaps: the panels, the page's tab and the form's round trip have no tests of
-their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow keys,
-Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at 390
-pixels, with the keyboard reaching its button after the tabs.
+item's actions) and `packages/extension-host/src/views.test.ts`. Stories: `chrome/ExtensionView.stories.tsx` Kinds, with
+a play function for the tree's keys, and Page. Gaps: the panels, the page's tab and the form's round trip have no tests
+of their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow
+keys, Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at
+390 pixels, with the keyboard reaching its button after the tabs.
 
 ### Previews in the Components panel and the insert picker (PAR-208)
 
@@ -1833,6 +1931,49 @@ in `chrome/QuickInsert.stories.tsx`. Gaps: the stories' play functions run in St
 card's variants on demand (`showVariants`) has no test of its own, as the rest of the window's store has none; it was
 tried in a debug copy of the app on 2026-11-05, where Button's card showed its six variants and pointing at outline
 showed it large. Component designs show their icon, not their board's picture.
+
+### The Components panel draws only the rows in view (PAR-1202)
+
+The Components tab draws only the lines in view, ten either side besides, with `@tanstack/react-virtual`, in every view:
+Names, List and Grid. Each source's heading, its styles notice, its families' headings and its rows are lines of one
+list, so a library of hundreds of components costs the panel what a few do. Before this, opening Copacker drew all 647
+of Base UI's, Shadcn Vega's and Recharts' entries, with about 1,950 buttons, each with its own card, hint and menu:
+10,659 of the window's 20,000 or so elements.
+
+- **A row is drawn again only when what it shows changes:** its name, why it's listed or hidden, how often the designs
+  use it, the view, its picture, or whether it fails to draw. A change to the project's designs or a new picture used to
+  draw the whole list again, 1.4 to 2 s a pass on the development build. Each row hears only of its own component's
+  picture and of whether it fails to draw; a card that's closed no longer hears of every new picture, as each row's did
+  for its variants' pictures.
+- **What extensions offer for a row is worked out when it's wanted.** A component's menu works out Open in Storybook and
+  View code as it opens; the buttons on its row, while the row is pointed at or has focus; its card's, while the card is
+  open. Before, every row worked out all three each time it was drawn.
+- **The keyboard keeps its place.** Tab moves down the rows, which scroll into view as they get focus, and the row with
+  focus stays drawn when the wheel scrolls it away. The right arrow still opens a row's card, and dragging a row inserts
+  it as before.
+- **Searching starts at the top** of what matches, and starting or clearing a search forgets which sources were opened
+  or closed by hand, as before.
+
+Code: which lines show is pure, in `packages/editor/src/asset-lines.ts` (`assetLines`). The panel is `ComponentsPanel`,
+`AssetList` and `AssetEntry` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`; `AssetMenu` and `RowOffers` work out
+a row's offers when they're shown. `useVariantPreviews` in `renderer/component-previews.ts` listens only while its card
+shows.
+
+Tests:
+
+- `packages/editor/src/asset-lines.test.ts` (5): a source's heading, its families' headings and one item to a row; the
+  count of a closed source; a closed source's notice without its items; items two to a row in Grid, marking each
+  family's first and last rows; and keys that differ across sources.
+- `chrome/ComponentsPanel.stories.tsx`: OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once
+  the list scrolls to its end; StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has
+  focus; ComponentMenu, its menu worked out as it opens; and SearchingAgain, a source closed in one search open again in
+  the next.
+
+Tried on Copacker in a development copy of the app on 2026-11-16: the panel held 212 to 348 elements, 24 to 35 lines, in
+every view, at 256 and 200 pixels wide; moving a design five times drew no rows again; searching "badge", Tab through a
+row's buttons to the next row, the right arrow opening a row's card, the context menu, and inserting Badge all worked.
+Gaps: that a change to the designs or a new picture draws only the rows it touches was checked by counting rows' renders
+in the app, not by a test. The stories' play functions run in Storybook, not in `pnpm verify`.
 
 ## Moving, reordering and resizing
 
@@ -2839,7 +2980,7 @@ mode, with one state, and isn't written to code.
   Export is at the foot, as for any design.
 - **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
   each kind's icon), and as Make component's Convert to component in the canvas and Object menus. A frame becomes a
-  screen or a component at once, keeping its size as its preview's, with a toast ("Plan card is a component") whose Undo
+  screen or a component at once, keeping its size as its preview's, with a toast ("Converted to a component") whose Undo
   makes it a frame again. A screen or component becomes a frame at once when it drops nothing; otherwise a dialog lists
   what goes (states after the first, previews beside the main one, params, and each design's instances, which become
   plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
@@ -2919,7 +3060,10 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   layer blue going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
   control or its first; the hidden side can't be reached by pointer, keyboard or screen reader. The toolbar is named for
   its side ("Toolbar", "Comments", "Behaviour annotations"). A focused button's ring shows whole at either end of the
-  bar.
+  bar. The hidden side takes no room, so a bar that hasn't measured its sides yet fits the side showing (PAR-1192).
+  Before, it took the hidden review bar's 400px around the tools' 315px whenever its ResizeObserver hadn't reported, as
+  in a window the system hides, leaving empty space at both ends. Checked on 2026-11-16 in a dev copy whose window was
+  covered: with the hidden side out of the flow, the bar measured 324px around the tools.
 - **Zoom floats at the top right:** Zoom out, the level, Zoom in and Zoom to fit, each with its keys in its tooltip. The
   level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on its own tab's canvas. Undo and Redo
   left the canvas for the Edit menu and their keys.
@@ -3955,8 +4099,8 @@ or design selected. The sizes are remembered for every export, not per layer.
   covering every pixel it touches. A PNG keeps what's see-through; a JPG has none, so those parts are white, which the
   section says when a JPG is asked for.
 - **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
-  left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
-  first.
+  left out with a warning toast, and the rest are written. A toast says how many files were written, with Open folder
+  for the first.
 - **File > Export all** writes every design at the same sizes, in every state and mode it shows, each drawn once at each
   scale. Its files are named by the design, with the state and mode when it has more than one
   (`Sign up Error Mobile Light@2x.jpg`), and numbered as layers' are. A design or frame that doesn't draw is left out
@@ -4616,7 +4760,8 @@ chips. Its box is drawn as the panel's text input is, with its border, fill and 
 it, but not while its list is open. A chip reads at the panel's 10px with an × that removes it, and the box grows onto
 more lines as chips are added. A chip too long for the box truncates. Backspace in the empty input removes the last
 chip. Given options, typing in the input lists the matches under the box in groups, and picking one adds it as a chip.
-When nothing matches, the list says No matches. Keyboard use, focus and names are Base UI's.
+When nothing matches, the list says No matches. Keyboard use, focus and names are Base UI's, and a chip's × has no name
+of its own, as in stock shadcn.
 
 Code: `AppChips`, `AppChip` and `AppChipsInput` in `apps/desktop/src/renderer/chrome/AppChips.tsx`, used by
 `ClassTagsField` in `inspector/controls/class-tags.tsx` and `SlotPickerField` in `inspector/controls/slot-picker.tsx`;
@@ -6208,7 +6353,7 @@ the same one; nothing between knows the framework.
 
 Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
 `packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/extension-tailwind/src/tokens.ts`; `StylesProvider`
-in `packages/extension-api/src/api.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
+in `packages/extension/src/api.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
 `packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
 `packages/editor/src/token-edits.ts`.
 
@@ -6378,6 +6523,25 @@ draws nothing and the sidebar's parent; a `Sidebar` alone throws naming the prov
 registry draws the sidebar). `packages/project/src/library-files.test.ts` (1: a part marked `visual: false` stays
 listed). Composing a Nova sidebar inside its provider through `parity exec` was checked in the running app on
 2026-11-04: `Problems` found nothing, and the same sidebar without the provider reported the provider's error.
+
+### A library older than every registry file (PAR-1168)
+
+The registry may describe only a library's newest major, as it does MUI 9. A project on a supported older version, such
+as MUI 7, still gets the oldest file made for a newer version rather than none, so it keeps the file's decorators,
+breakpoints and components: frames are wrapped in MUI's providers. Components the file lists that the installed package
+doesn't export are left out, and components it exports that the file doesn't list are found by name. A note says so and
+names `parity lib <package> --registry`, which makes a file for that version. A version newer than every file takes the
+newest older file the same way.
+
+Code: `registryEntryFor` in `packages/registry/src/index.ts`, which marks such a file `newer`; `findLibraries` in
+`packages/project/src/libraries.ts`, which checks its components against the package's declarations; `packageExports` in
+`packages/code/src/package-exports.ts`, which asks TypeScript what the package exports, so components made with a
+factory, as Mantine's are, aren't dropped.
+
+Tests: `packages/registry/src/index.test.ts` ("uses the oldest newer file for a version older than every file");
+`packages/project/src/library-files.test.ts` ("keeps a file made for a newer version, with its decorators");
+`packages/code/src/package-exports.test.ts` (each way a package exports a name). No example app is on an older version
+than its library's file.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
@@ -7507,8 +7671,8 @@ at the end of the strip. Both are the start page from the explorations:
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
 - **Stubs:** For you and Shared with you are empty; New project, cloning, Copy link, Invite people and New organization
-  show a toast saying they aren't ready yet. New project's toast also offers Open a folder. A project's menu has no New
-  project from this until projects can be made (PAR-284).
+  show a toast saying they aren't available yet. New project's and cloning's toasts also offer Open folder. A project's
+  menu has no New project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home and new tabs,
@@ -7956,6 +8120,36 @@ Code: `prunedView`, `withPrunedView` and `prunedDocument` in `packages/editor/sr
 previews kept, a page's params gone and a design's kept, and a view naming nothing gone left as it is). Gaps: neither
 step was tried in the app, and `openCodeDesigns` has no unit test.
 
+### A project Yarn installed with Plug'n'Play (PAR-1190)
+
+A project Yarn installed with Plug'n'Play has no `node_modules`: its packages are zip archives that its `.pnp.cjs` maps.
+Parity opens one as it opens any other, with its builder, tools, component library and icons found.
+
+- **Packages are found through the map.** `findPackage` asks the nearest `.pnp.cjs` whose map includes the folder where
+  a package is wanted, and only that, never a `node_modules` above it; a folder the map leaves out, such as a subproject
+  installed with `node_modules`, is read as before. A package kept outside the project, as in Yarn's global cache,
+  belongs to the project whose map has it. The runtime is loaded once per project, again once Yarn rewrites it
+  (installing a library does), and, where the process isn't Yarn's own, set up so Node's file functions read inside the
+  archives, with Yarn's loader registered so a package found this way can be imported as an ES module, as Tailwind's
+  extension imports `@tailwindcss/node`.
+- **Vite runs from the project.** The builder loads the project's Vite through the map, with Yarn's ESM loader
+  registered. A Vite plugin resolves what Parity's own guest modules import, since Yarn wouldn't resolve a file outside
+  the project, and resolves the renderer's runtime packages, such as React, as the project does, so the app and Parity
+  share one copy.
+- **The project's tools start with the runtime.** A tool run from the project's `bin`, such as Storybook, gets
+  `.pnp.cjs` and the loader in `NODE_OPTIONS`, as `yarn run` would give it.
+
+Code: `pnpProject`, `pnpNodeOptions` and `importFromPnp` in `packages/project/src/pnp.ts`, used by `findPackage` in
+`packages.ts`; `importsOutsidePnp` in `packages/extension-vite/src/pnp-imports.ts`, added by `builder.ts`; `binScript`
+and `launch` in `apps/desktop/src/utility/extension-processes.ts`. Tests: `packages/project/src/pnp.test.ts` (a package
+found through the map from any folder in the project, none from a `node_modules` above it, a subproject outside the map
+read from its `node_modules`, the map read again once rewritten, a dependency found for a package kept outside the
+project, and the Node options with and without the loader), `packages/extension-vite/src/pnp-imports.test.ts` (which
+imports come from outside the project, and their files found from the importer), and the `vite-fluent-pnp` detection
+snapshot in `packages/fixtures`, read in a separate Node process. Tried in the app on 2026-11-16 with `vite-fluent-pnp`:
+its five routes, its 12 components, Fluent's library and 2 screens from Storybook, with the Home design drawn in desktop
+and mobile frames. Gaps: the end-to-end tests don't open a Plug'n'Play project.
+
 ### Opening in seconds (PAR-179)
 
 Started again, Parity shows the example project's canvas, with every frame on its bitmap from last time, about 3.2
@@ -7999,11 +8193,15 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   (`BuilderAdapter.prepare`): Vite creates its server, says which stylesheets the app loads from it, and starts serving
   once the project's components are known. The modules it read the stylesheets with are compiled again once its
   dependency optimizer runs, so none keep its earlier hashes. A builder that doesn't prepare, or can't say, leaves it to
-  its extension, as before. Opening copacker went from about 36 seconds to between 26 and 32 seconds until it served,
-  timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts` (2: the stylesheets come from the
-  builder started early, and from its extension when it can't say) and `packages/processes/src/builder-process.test.ts`
-  (3: a prepared builder answers the stylesheets before its config comes, one whose config never comes is closed, and
-  one that doesn't prepare says nothing).
+  its extension, as before. That's the extension of the builder that serves the project (PAR-1193): a builder's config
+  file being there doesn't make it the project's, as Rspack's extension watches `rsbuild.config.*` and leaves the
+  project to Rsbuild's. Asking Rspack's gave no stylesheets, while the check after opening asked Rsbuild's, so every
+  Rsbuild project read as changed and opened again, endlessly. Opening copacker went from about 36 seconds to between 26
+  and 32 seconds until it served, timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts`
+  (3: the stylesheets come from the builder started early, from its extension when it can't say, and from the builder
+  that serves the project when the one started early leaves it to another) and
+  `packages/processes/src/builder-process.test.ts` (3: a prepared builder answers the stylesheets before its config
+  comes, one whose config never comes is closed, and one that doesn't prepare says nothing).
 - **A builder process waits ready before a project opens (PAR-1079).** Starting a builder's process and loading the
   builders' code took about 0.4 seconds before the builder itself began. The service starts one process as it starts,
   and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
@@ -8291,12 +8489,13 @@ app with no `index.html` whose root route imports `src/style.css?url`, and a Nex
   answered in 0.2 to 0.9 s for a Vite app with `index.html`, 2 to 3 s for TanStack Start apps, and 9 s for copacker,
   whose root level has 52 modules.
 
-Code: `styles` on `BuilderProvider` in `packages/extension-api/src/providers.ts` and on `BuilderAdapter` in
-`packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in `packages/extensions/src/protocol.ts`
-and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/app-styles.ts`, registered in
-`extension.ts` and `builder.ts`; `appStyles` in `openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in
-`DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
-`appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
+Code: `styles` on `BuilderProvider` in `packages/extension/src/providers.ts` and on `BuilderAdapter` in
+`packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in
+`packages/extension-host/src/protocol.ts` and `callBuilder` in `host.ts`; `viteAppStyles` in
+`packages/extension-vite/src/app-styles.ts`, registered in `extension.ts` and `builder.ts`; `appStyles` in
+`openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in `DiscoverOptions` and `stylesNote` in
+`packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which `appStylesheets` in
+`packages/cli/src/lib.ts` fills from the builder.
 
 Tests: `packages/extension-vite/src/app-styles.test.ts` (15; 13 with a real Vite: what `index.html`'s module imports and
 its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry, a plugin's virtual one
@@ -8316,41 +8515,63 @@ Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which `configInpu
 than a real Vite 7, and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects
 are compiled with a middleware-mode dev server, since Vite 5 has no environments.
 
-### A project's stylesheets stay in its frames (PAR-1181)
+### A project's stylesheets stay in its frames (PAR-1181, PAR-1187)
 
-A stylesheet one of the project's modules imports styles that project's frames and nothing else. Before, opening
-copacker turned Parity's own panels serif: its root route, error pages and marketing modules import the app's
-`globals.css`, Vite serves each imported stylesheet as a module that adds a `<style>` to the page's head through its
-client's `updateStyle`, and the canvas imports the guest into Parity's own window, so the app's Tailwind base styles
-came after Parity's and won.
+A stylesheet the project's code adds to the page styles that project's frames and nothing else, whichever builder or
+library added it. A project's code runs in Parity's own window, since frames are shadow roots in Parity's page. Before,
+opening copacker turned Parity's own panels serif: its modules import the app's `globals.css`, Vite's client added each
+imported stylesheet to the page's head, and the app's Tailwind base styles came after Parity's and won.
 
-- **Vite's builder hands them to the guest instead.** After Vite's CSS plugin, `canvas:module-styles-imports` points
-  each stylesheet module's `updateStyle` and `removeStyle` at the guest's collector, `virtual:canvas/module-styles`, a
-  module of the builder's own that keeps each stylesheet's CSS by its module id. The guest module passes it to
-  `createGuest` as `moduleStyles`. Plain stylesheets, CSS modules and vanilla-extract's `.css.ts` stylesheets all arrive
-  this way.
-- **The global stylesheets are left out,** since the guest already has them as text: copacker's `globals.css`, 441 KB,
-  isn't drawn twice. They're matched by path without case.
-- **Frames draw the rest after the global stylesheets.** The canvas prepares them as it does the project's CSS
-  (`showModuleStyles`) into a stylesheet every frame adopts after the guest's own and before Parity's layer classes, and
-  puts their `@font-face` and `@property` rules in the document, where a shadow root needs them, beside the global
-  stylesheets'. A stylesheet a module loads later, as when a component is first drawn, shows in every frame at once.
+- **The boundary is the canvas's, not each extension's.** The first guest the page loads sets it up (`guardPage`). Every
+  DOM method that puts a node in a parent (`appendChild`, `insertBefore`, `append`, `insertAdjacentElement` and the
+  rest) is wrapped. A `<style>` or `<link rel="stylesheet">` going into the document is told apart by the code that
+  added it: the first frame of its stack with an address. Code served from Parity's origin, or with no address, keeps
+  its stylesheet. Code from any other origin has it switched off with `media="not all"` before it's in the page, so the
+  page never draws with it. Its sheet still loads, and its code can still edit it.
+- **What's switched off goes to that origin's frames.** A style element's text, or its rules once its code inserts or
+  deletes some through the CSSOM, as CSS-in-JS does in production. A linked stylesheet is read by its address, and its
+  relative and root `url()`s are resolved against where it came from, after any redirect, as frames take it as a sheet
+  of Parity's page. What either `@import`s is read and put in place, in its layer, supports condition and media, since a
+  frame's sheet ignores `@import`. The media the project gave it is kept around its CSS, and one its code disables is
+  left out. A change to its text, rules, media or address, and its removal, reach frames in one update per task. A
+  guest's frames first draw once the stylesheets its modules linked as they loaded have been read.
+- **Frames draw them before the project's global stylesheets,** as packages' stylesheets come first. A global stylesheet
+  a module imports again, as copacker's root route imports `globals.css`, draws nothing new that way, and token edits to
+  the project's own stylesheets still win. Their `@font-face` and `@property` rules go in the document, where a shadow
+  root needs them (`showAddedStyles`).
+- **What it covers:** Vite's dev client (copacker's `globals.css`, its vanilla-extract `theme.css.ts` and CSS modules),
+  what Turbopack's and Next's webpack runtimes link for a module's CSS, a lazy component's included, and CSS-in-JS
+  without a decorator, as a copy of sonner in copacker writes its toast styles. Before, Vite's builder collected its
+  stylesheets itself, and the Next guests switched their runtime's links off themselves. Both are gone.
+- **Not covered:** a stylesheet inside an element the project adds whole, a sheet it adopts into the document
+  (`document.adoptedStyleSheets`), and a linked stylesheet whose server doesn't let Parity's page read it. What else a
+  project's code does to Parity's window is in [proposals/project-code-boundary.md](proposals/project-code-boundary.md).
 
-Code: `packages/extension-vite/src/module-styles.ts`, registered in `builder.ts`; `moduleStyles` in
-`GuestModuleOptions`, `packages/project/src/guest-module.ts`; `ModuleStyles` and `GuestInit.moduleStyles` in
-`packages/core/src/adapters.ts`, passed on by `createGuest` in `packages/extension-react/src/guest.ts`;
-`showModuleStyles` and `moduleSheet` in `apps/desktop/src/renderer/guest.ts`, adopted by `mountFrame` in
+Code: `apps/desktop/src/renderer/page-styles.ts`; what's done to a stylesheet's text in `packages/core/src/page-css.ts`;
+`showAddedStyles` and `addedSheet` in `guest.ts`, adopted before the guest's own sheet by `mountFrame` in
 `frame-host.ts`.
 
-Tests: `packages/extension-vite/src/module-styles.test.ts` (7; 4 with a real Vite: a plain stylesheet and a CSS module
-served to the collector rather than through Vite's client, the guest passing the collector on, and the collector keeping
-a stylesheet until it's taken away, hearing each change once and leaving out a global stylesheet named in other case;
-and 3 without: a module that adds no stylesheet left alone, Vite's client under a base path, the global stylesheets'
-paths without case). `apps/desktop/src/renderer/guest.test.ts` (1, in Chrome: a module's rules drawn for frames, its
-fonts and registered properties in the document after the global stylesheets', changed and removed ones shown, nothing
-after stopping). `apps/desktop/src/renderer/frame-host.test.ts` (1, in Chrome: the module stylesheet adopted after the
-guest's own and before the ones a frame is given). Gaps: the bundlers' builders don't pass `moduleStyles`; Turbopack's
-CSS modules still don't reach frames, and what its runtime links for a module's CSS stays in the page, muted.
+Tests: `apps/desktop/src/renderer/page-styles.test.ts` (20, in Chrome, with Parity's page and a project's code served
+from two origins: a project's stylesheet switched off in the page and kept for its frames; Parity's own and one in a
+frame's shadow root left alone; text, inserted rules and removal followed, with one update each; rules inserted straight
+after its text is set, in the same task, kept; a move within the page taken as a new place; the media kept when it's
+taken out and put back; media its code sets to `not all` taken as its own; the last of several media changes in one task
+kept, and one made after a link's address changes; a stylesheet taken out with the element around it, or moved into a
+frame's shadow root, or out of an element that moved first, let go of; a new order from moving the elements around them;
+a link its code disables left out until it's enabled; the media it was given, and changed, kept; a linked stylesheet
+read with its relative `url()`s resolved against its address, or where a redirect took it; rules its code inserts into
+and deletes from a readable linked stylesheet taken, until switching it off and on reads it again; everything caught
+forgotten when the window's stores are reset). `packages/core/src/page-css.test.ts` (11: a quoted `url()` with
+parentheses resolved whole; `url(` in a string or comment left alone; nested supports conditions and ones like
+`selector()` kept as written; the caller's origin from a stack, past an opaque one; relative `url()`s resolved;
+`@import`s put in place with their conditions, a quoted import address with semicolons read whole and an import's root
+resolved against its own origin, an import in a comment or a string left alone, the conditions' order, and media
+wrapping). `guest.test.ts` (1, in Chrome: added rules drawn for frames, fonts and registered properties in the document
+after the global stylesheets', changes shown, nothing after stopping). `frame-host.test.ts` (1, in Chrome: the added
+stylesheet adopted before the guest's own and the ones a frame is given). Checked in the running app with copacker open:
+Parity's body and Routes list keep `InterVariable`, copacker's `globals.css`, `theme.css.ts.vanilla.css` and sonner's
+styles sit in the head switched off, and every frame's added sheet has them. Gaps: styled-components and Turbopack's
+lazy CSS modules aren't checked against a fixture.
 
 ### Detected again when what detection reads changes (PAR-820)
 
@@ -8470,6 +8691,35 @@ Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev ru
 `main/project-service.test.ts` a crash that names the missing script. The app tests start Parity through
 `scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing automated starts the service
 from a freshly made copy and compares it with Electron as installed. That's the smoke check above.
+
+### The project service starts again after it runs out of memory (PAR-1184)
+
+The project service never exits by itself, so main takes any exit it didn't ask for as a crash and starts a fresh
+service, with the back-off PAR-788 set. That includes code 0, which is what Electron reports for a utility process V8
+stopped for running out of memory. Before, main read that 0 as a clean stop: after an out-of-memory crash it logged
+nothing and started no service, and the window kept going without one.
+
+Every thread in an Electron process shares one 4 GB V8 heap, so the type checker's worker is capped at 3 GB, or half the
+computer's memory when that's less. A program too big for that stops the worker, and components stay as the parse found
+them. The service doesn't run out of memory itself. With a cap above the shared heap, a large checker left the service's
+own thread no room, and the whole service crashed.
+
+Checked on Windows 11 on 2026-11-15 under Parity's Electron 45: a utility process that runs out of memory exits with
+code 0 and fires no `child-process-gone`. A worker capped at 3 GB stops with `ERR_WORKER_OUT_OF_MEMORY` while the main
+thread holds 700 MB, and the main thread then takes 300 MB more. With copacker open, the checker's heap peaked at about
+0.9 GB.
+
+The crash goes to Sentry as one issue, "The project service exited with code 0: JavaScript heap out of memory", wherever
+V8 failed.
+
+Code: `createProjectService` in `apps/desktop/src/main/project-service.ts`, `serviceRestarts` in
+`packages/processes/src/service-restarts.ts`, `serviceCrash` in `packages/telemetry/src/app-events.ts`, and
+`checkerHeapMb` in `apps/desktop/src/utility/props.ts`.
+
+Tests: `main/project-service.test.ts` (a service that exits with code 0 by itself is reported as a crash, with what it
+printed, and started again), `packages/processes/src/service-restarts.test.ts` (code 0 restarts; an exit main asked for
+doesn't) and `packages/telemetry/src/app-events.test.ts` (running out of memory is one cause, with code 0). Gap: nothing
+automated runs a real service out of memory. That's the check above.
 
 ## The window
 
@@ -8592,7 +8842,7 @@ changes at the same moment both kept, one copy told of another's, a reset, a fil
 with the change held, a held change saved once the file reads without undoing another copy's, a stale lock taken, a held
 lock waited for, and the lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to
 the shortcuts and to the project, and closing taken only from Settings, and the project's page only from the editor
-window. `packages/extensions/src/hosts.test.ts`: what the Extensions page shows of each extension's code, and every
+window. `packages/extension-host/src/hosts.test.ts`: what the Extensions page shows of each extension's code, and every
 installed extension listed from its manifest with no project open. `chrome/settings/extension-list.test.ts` (4): every
 installed extension listed with no project open, what detection found or that one found without it runs, one the project
 doesn't have, and each one's logo and settings from its manifest. `packages/editor/src/settings-search.test.ts` (6):
@@ -8608,14 +8858,41 @@ Storybook draws it. `chrome/SettingsDialog.stories.tsx` opens it over the exampl
 project's page; `chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and
 Updates.
 
+### Notifications (PAR-1186)
+
+Every toast is the kit's stock toast, at the window's bottom right, and goes through `notify` in
+`apps/desktop/src/renderer/toasts.tsx`. A lint rule in `vite.config.ts` stops any other renderer file importing the
+kit's toast or Sonner.
+
+- **Five kinds:** `done`, `info`, `warning`, `failed` and `progress`. Each has its icon, and success and warning icons
+  are colored like error's, from `--toast-success` and `--toast-warning` in `styles.css`. A result goes after 4 seconds,
+  info after 5 and a warning after 8; a failure, and progress, stay until they're replaced or closed. Failures and
+  warnings are announced to screen readers at once.
+- **How a toast reads:** the title says what happened in two to five words and holds no names from the person's project,
+  which can be any length. The description is at most one sentence: why a failure happened, or the one consequence that
+  changes what to do, and it carries those names. It's left out when it adds nothing. A button is a verb of one or two
+  words. Failures start with "Couldn't".
+- **Failures in plain words:** every failure goes through `reportError` in `report-error.ts`, which records it and shows
+  `notify.failed` with the error; lint keeps `notify.failed` out of other files. `plainReason` in
+  `packages/core/src/reasons.ts` puts common system failures (permission, disk full, file in use, missing file, no
+  connection) in words, falling back to the error's own message without Electron's prefix. `retry` adds Try again, and
+  `details` puts long output, such as a package manager's log, behind Details.
+- **A toast's button closes it** once pressed, since the stock toast leaves it open, unless the button changes the toast
+  itself, as Undo on a project file's change and the update notice's buttons do.
+- **The same id replaces a toast in place,** so progress becomes its result and repeated saves that fail say so once.
+
+Tests: `packages/core/src/reasons.test.ts` covers the plain reasons. Storybook, `chrome/Notifications.stories.tsx` shows
+the window's commands' toasts in place, and `chrome/ToastAudit.stories.tsx` Every toast lists each toast the app shows,
+numbered, as it read before PAR-1186 and as it reads now.
+
 ### Installed app updates (PAR-160)
 
 Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
 Automatic downloads stay silent in the background (PAR-498). Only an explicit menu check shows download progress. A
-completed download shows a persistent Restart to update / Later notice; About keeps the action available after Later.
-Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An installation failure
-resets the close decision, so closing later still checks for new unsaved work. Quitting normally never installs an
-update. Unsigned Macs check for newer releases and offer their download page instead of installing in place. The Mac
+completed download shows a persistent notice with Restart; closing it keeps the update, and About keeps the action
+available. Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An installation
+failure resets the close decision, so closing later still checks for new unsaved work. Quitting normally never installs
+an update. Unsigned Macs check for newer releases and offer their download page instead of installing in place. The Mac
 application menu includes the same check.
 
 Manual checks show checking, no-update and retryable-error feedback in the same toast, without opening About or
@@ -8638,10 +8915,15 @@ version saved as stable reports to Sentry as `production` (PAR-779). An unconfir
 its numeric version or the update preference. Confirmed empty stable feeds mean no update; connection, authorization and
 service failures remain retryable errors.
 
-`chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
-themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
-the beta setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered
-toast designs and the PAR-490 check-feedback and build-label stories before app integration.
+The notice is the kit's stock toast (PAR-1186): a spinner while checking or downloading, the version and a progress bar
+in its description, one action (Restart, Download or Try again) and the stock close button. Closing it hides that notice
+until a menu check or a new state; Parity closing it because there's nothing to say doesn't.
+
+`chrome/UpdateToast.stories.tsx` shows each notice in the app's toast host: downloading, unknown-size progress,
+checking, no update with and without beta, check failed, restart-ready and the Mac fallback, in both themes through the
+toolbar, and one notice changing in place. `chrome/UpdateDialogs.stories.tsx` covers About's update states and the beta
+setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered toast
+designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/processes/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts`
 serializes operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close
@@ -8658,9 +8940,10 @@ electron-updater's GitHub provider over a feed led by a package tag, finding the
 on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
 `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
 losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
-checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
-real packaged versions, built uncompressed since neither leaves the runner, checksum rejection, Later, unsaved-work
-cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
+checks, retry, a closed notice staying hidden until a check, one Parity closed itself not staying hidden, and closed
+progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions,
+built uncompressed since neither leaves the runner, checksum rejection, closing the notice, unsaved-work cancellation,
+Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 
@@ -8939,17 +9222,17 @@ Tried on 2026-11-13 in the running app on the example: the log above, and the st
 
 Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
 `detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
-and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
-each extension's renderer, builder and entities in its manifest, with `extensionEntities` finding an entities provider's
-tool; `detectContext`, `detectAdapters` and `detectProject` in `packages/project/src/detect.ts`; and the open path in
-`apps/desktop/src/utility/projects.ts`.
+and `packages/extension-tanstack-router/package.json`, read by `readExtension` in
+`packages/extension/src/reader/manifest.ts`; each extension's renderer, builder and entities in its manifest, with
+`extensionEntities` finding an entities provider's tool; `detectContext`, `detectAdapters` and `detectProject` in
+`packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
-`packages/extensions/src/manifest.test.ts`, each extension's own test of its range, `packages/core/src/adapters.test.ts`
-(an entities provider's detection, its config and not found), `packages/extension-tanstack-router/src/extension.test.ts`
-and `packages/extension-vite/src/detect.test.ts`. Gaps: no unit test runs the service's open path with several adapters
-of one kind.
+`packages/extension/src/reader/manifest.test.ts`, each extension's own test of its range,
+`packages/core/src/adapters.test.ts` (an entities provider's detection, its config and not found),
+`packages/extension-tanstack-router/src/extension.test.ts` and `packages/extension-vite/src/detect.test.ts`. Gaps: no
+unit test runs the service's open path with several adapters of one kind.
 
 ### Each tool's status bar item comes from its adapter
 
@@ -9021,8 +9304,8 @@ breathes almost all the time, and it mustn't cost the window anything while noth
   what it does or what a click does, such as "Storybook 10.6.5" over "Click to open it". An untested version adds
   "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since they can run long: a
   failed save's reason is in its notification.
-- **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
-  600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
+- **Notifications sit above the status bar** on a phone-sized window too, raised 40px by one rule on
+  `[data-slot="toast-viewport"]` in `styles.css`, since the kit's 16px covered the bar's buttons. See Notifications.
 
 Code: `Light` and `triggerLabel` in `apps/desktop/src/renderer/chrome/Processes.tsx`, `Words` in `chrome/StatusBar.tsx`,
 and the `process-*` keyframes in `styles.css`.
@@ -9124,18 +9407,19 @@ client ID and never its API key, and the window never sees a token.
   after 5 seconds, doubling to 5 minutes. The file is written whole, beside it then renamed over it, so a write cut
   short leaves the accounts it held. A copy that can't decrypt or read it, such as a build from another branch, starts
   signed out and leaves the file for the copies that can; signing out there leaves it too, and signing in replaces it.
-  On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts panel
-  keeps saying so, and both explain why.
+  On Linux without a keyring nothing is kept: a toast says "Signed in until you quit", the accounts panel keeps saying
+  so, and both explain why.
 - **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
   `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
-  in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
+  in joins the list and you're in it, with a toast, "Added an account", that names its email; the same account again
+  takes its own place.
 - **A refresh WorkOS refuses ends that account's session.** It stays in the panel, dimmed, until you sign in again or
   remove it. If you were in it, Session ended shows over whatever's open: Sign in again to keep working, with who it was
   and Continue with the way they signed in, which names the account to the provider. With another account signed in,
   you're in that one meanwhile, and it says so. Open projects and unsaved changes stay as they are.
 - **Your accounts are in a panel** from your picture at the end of the title bar. With one account it's your name and
   email; with several, each row is an email and where it opens, the organization or Personal, and the one you're in is
-  shaded. Choosing another switches at once, with a toast, "Switched to" and its email, since each account keeps its own
+  shaded. Choosing another switches at once, with a toast, "Switched accounts", since each account keeps its own
   session. Each row has its own Sign out, or Remove for an account whose session ended, whose row signs in again. Add
   another account is last. Signing out of the account you're in moves you to the one you used last, and the toast says
   where you are now; signing out of the last says "You're signed out". Open tabs stay. Signed out, the picture's an
@@ -9144,9 +9428,9 @@ client ID and never its API key, and the window never sees a token.
   Personal in none, in the account you're in. Signed out it's Sign in. Its menu lists Personal, then the organizations
   WorkOS named when you chose one, which main keeps with the session; with several accounts, the email above them says
   whose they are. Choosing one switches with a refresh naming it, in the background, so nothing open closes, and the
-  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says Parity couldn't switch organizations
-  and you stay where you were. A session can't leave an organization, so Personal and New organization say they aren't
-  ready yet, until Personal is an organization of your own (PAR-616).
+  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says it couldn't switch organizations and
+  you stay where you were, with Try again. A session can't leave an organization, so Personal and New organization say
+  they aren't ready yet, until Personal is an organization of your own (PAR-616).
 
 Code: main's side is `apps/desktop/src/main/account.ts` (`createAccount`: signing in, reading the link, trading the
 code, refreshing, the problems), `session-store.ts`, `loopback.ts` and `pass-link.ts`, wired up in `main/index.ts` (the

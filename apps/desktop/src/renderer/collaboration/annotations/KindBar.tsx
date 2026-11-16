@@ -1,11 +1,4 @@
-import {
-  Button,
-  ToggleGroup,
-  ToggleGroupItem,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Button, ToggleGroup, ToggleGroupItem, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
 import type { AnnotationKind } from "@parity-app/editor"
 import { Sparkles } from "lucide-react"
 import { useState } from "react"

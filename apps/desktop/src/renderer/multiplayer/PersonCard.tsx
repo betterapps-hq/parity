@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { Clock, Eye, EyeOff, LocateFixed, Sparkles } from "lucide-react"
 import { Face } from "./Face.tsx"
 import { type Member, type Presence, whoseAgent } from "./member.ts"

@@ -1,4 +1,4 @@
-import type { Address, ProcessErrorCode, ProcessInfo, ProcessSpec, Run } from "@parity-app/extension-api"
+import type { Address, ProcessErrorCode, ProcessInfo, ProcessSpec, Run } from "@parity-app/extension"
 
 /*
  * The rules for what a process may be, kept free of Node so they're tested on their own (docs/proposals/processes.md):
@@ -132,11 +132,6 @@ export function permissionFor(run: Run): string {
 /** Whether the manifest's `permissions.processes` allows a run. */
 export function permits(run: Run, allowed: readonly string[]): boolean {
   return allowed.includes(permissionFor(run))
-}
-
-/** Whether a `permissions.processes` entry is well formed: a kind of run, then what it names. */
-export function isProcessPermission(entry: string): boolean {
-  return /^(bin|script|exec|node):\S+$/.test(entry)
 }
 
 /** What kind of command a run is, as telemetry names it. */

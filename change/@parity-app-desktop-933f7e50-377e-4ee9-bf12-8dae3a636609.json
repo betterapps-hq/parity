@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Example app E uses Chakra UI instead of Mantine 8, which Parity doesn't support (PAR-1168)",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

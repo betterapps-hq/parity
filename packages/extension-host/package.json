@@ -1,0 +1,23 @@
+{
+  "name": "@parity-app/extension-host",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "The hosts each extension's code runs in, and what Parity keeps of extensions. Internal to Parity.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./settings": "./src/settings.ts"
+  },
+  "dependencies": {
+    "@parity-app/channel": "workspace:*",
+    "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*",
+    "@parity-app/processes": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@parity-app/extension-storybook": "workspace:*",
+    "@parity-app/extension-storybook-a11y": "workspace:*"
+  }
+}

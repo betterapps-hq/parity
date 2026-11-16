@@ -11,11 +11,11 @@ import {
   extensionRenderer,
   parseCanvasDocument
 } from "@parity-app/core"
+import type { ProviderCall, ProviderKind } from "@parity-app/extension-host"
 import { readComponents } from "@parity-app/extension-react"
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { importStoryScreens } from "@parity-app/extension-storybook/screens"
-import type { ProviderCall, ProviderKind } from "@parity-app/extensions"
 import type { BuilderProcessSession } from "@parity-app/processes"
 import { detectContext, projectSource } from "@parity-app/project"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
@@ -208,8 +208,15 @@ function memoryDetections(): DetectionCache & { kept: Map<string, SavedDetection
   }
 }
 
-function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: ProjectAdapters["unsupported"]) {
+function setUp(
+  environment: ProjectAdapters["environment"] = {},
+  unsupported?: ProjectAdapters["unsupported"],
+  /** Builders listed before the fake one, as Rspack's is before Rsbuild's. */
+  earlier: BuilderAdapter[] = []
+) {
   const builder = fakeBuilder()
+  const builders = [...earlier, builder.builder]
+  const builderOf = (extension?: string) => builders.find(({ id }) => id === (extension ?? builder.builder.id))
   const watcher = fakeWatcher()
   const detections = memoryDetections()
 
@@ -224,16 +231,19 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
   const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
-  // React's renderer reads components here, and the fake builder says it serves the project and which stylesheets the
-  // app loads, as their extensions' hosts do in the app.
-  const answer = async (project: ProviderProject, call: ProviderCall) => {
+  // React's renderer reads components here, and each builder says whether it serves the project and which stylesheets
+  // the app loads, as their extensions' hosts do in the app.
+  const answer = async (project: ProviderProject, call: ProviderCall, extension?: string) => {
     switch (call.kind) {
       case "renderer":
         return readComponents(call.params.files)
-      case "builder":
-        return call.method === "styles"
-          ? builder.builder.styles?.(detectContext(project.root, project.pkg))
-          : builder.builder.detect(detectContext(project.root, project.pkg))
+      case "builder": {
+        const asked = builderOf(extension)
+        const context = detectContext(project.root, project.pkg)
+
+        return call.method === "styles" ? asked?.styles?.(context) : asked?.detect(context)
+      }
+
       case "entities":
         return call.method === "import"
           ? importStoryScreens(projectSource(project.root, call.params.components))
@@ -251,8 +261,12 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
 
   const providers: ProjectProviders = {
     // SAFETY: each call is answered as its kind's provider answers it; the rest have no provider here.
-    call: (project, call) => answer(project, call) as never,
-    owner: (_project, kind) => owners[kind],
+    call: (project, call, extension) => answer(project, call, extension) as never,
+    owner: (_project, kind, extension) => {
+      const asked = kind === "builder" ? builderOf(extension) : undefined
+
+      return asked ? { id: asked.id, name: asked.name } : owners[kind]
+    },
     decorators: () => []
   }
 
@@ -260,7 +274,7 @@ function setUp(environment: ProjectAdapters["environment"] = {}, unsupported?: P
     renderers: [extensionRenderer(reactPackage)!],
     entities: [extensionEntities(storybookPackage)!],
     providers,
-    builders: [builder.builder],
+    builders,
     startBuilder: builder.startBuilder,
     watch: watcher.watch,
     checker,
@@ -640,6 +654,30 @@ describe("an open project's files", () => {
 
     await projects.open(root)
     await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+  })
+
+  it("open with the stylesheets of the builder that serves it, though one listed first watches its config too", async () => {
+    // As Rspack's extension watches rsbuild.config.ts, and is listed first, but leaves the project to Rsbuild.
+    const declines: BuilderAdapter = {
+      id: "declines",
+      name: "Declining builder",
+      watches: ["fake.config.ts"],
+      detect: () => Promise.resolve({ found: false, summary: "fake.config.ts is here, so the fake builder builds it" }),
+      start: () => Promise.reject(new Error("started in its own process"))
+    }
+
+    const { projects, builder, detectionChanged } = setUp({}, undefined, [declines])
+    await write("fake.config.ts", "export default {}")
+    await write("src/styles.css", ":root { --primary: red; }")
+    builder.loads.styles = { styles: ["src/styles.css"], packageStyles: [], from: ["src/main.tsx"] }
+
+    const info = await projects.open(root)
+    expect(info.builder.id).toBe("fake")
+    expect(info.notes).toContain("styles the builder found: src/styles.css")
+    expect(await projects.detectAgain(root)).toBe(false)
+    // Longer than the watcher waits after a change.
+    await new Promise((done) => setTimeout(done, 500))
+    expect(detectionChanged).toEqual([])
   })
 
   it("aren't saved outside the project, even in a sibling folder whose name starts with the root's", async () => {

@@ -23,7 +23,7 @@ import {
   MenubarShortcut,
   DropdownMenuShortcut,
   Kbd
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 /**
  * The start page's parts: what Home, a new tab and the first run are built from. The design is one page in three
  * contexts, so a person learns it once. It stays quiet: a render of each project and a few words about it, with the

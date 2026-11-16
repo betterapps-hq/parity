@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Build the app's shadcn components with shadcn-sync instead of the Base UI Nova kit",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -1,4 +1,4 @@
-import { Slider } from "@buildkitgg/shadcn-baseui-kit"
+import { Slider } from "@buildkitgg/shadcn"
 import {
   agentPalette,
   badgeContrast,

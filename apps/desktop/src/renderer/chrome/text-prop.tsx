@@ -7,7 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { bindText, type ContainerSpec, findNode, propFromText, textProps } from "@parity-app/core"
 import type { ContainerEntry } from "@parity-app/multiplayer"
 import { Link2, Plus, X } from "lucide-react"

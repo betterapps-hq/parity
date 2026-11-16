@@ -1,3 +1,4 @@
+import { installedStatus } from "@parity-app/extension-host"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
@@ -6,7 +7,7 @@ import storybookPackage from "@parity-app/extension-storybook/package.json" with
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerPackage from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
-import { installedStatus, readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { useEffect, useState } from "react"
 import { keymap } from "../keymap.ts"
 import { defaults, type Setting, settings, type Value } from "./definitions.ts"

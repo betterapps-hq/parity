@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import packageJson from "../package.json" with { type: "json" }
 import { detectWebpack, webpackBuilder, webpackConfigFiles } from "./builder.ts"
@@ -37,7 +37,11 @@ describe("the webpack extension", () => {
     expect(found.manifest.activates).toEqual(["onDetect"])
     expect(found.manifest.contributes.providers?.builder?.entry).toBe("./builder")
     expect(found.manifest.contributes.providers?.builder?.watches).toEqual(webpackBuilder.watches)
-    expect(found.versions).toEqual({ packages: ["webpack", "next"], range: "^5.90.0" })
+    expect(found.versions).toEqual({
+      packages: ["webpack", "next"],
+      range: "^5.90.0",
+      ranges: { next: "^15.0.0 || ^16.0.0" }
+    })
   })
 
   it("names an entry module its package exports, and watches webpack's config files", () => {

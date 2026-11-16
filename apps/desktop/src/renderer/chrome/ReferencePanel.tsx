@@ -1,4 +1,4 @@
-import { Button, Textarea } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Textarea } from "@buildkitgg/shadcn"
 import { moreFromApp } from "@parity-app/editor"
 import { updateReference } from "@parity-app/multiplayer"
 import { ExternalLink, Search, Telescope } from "lucide-react"

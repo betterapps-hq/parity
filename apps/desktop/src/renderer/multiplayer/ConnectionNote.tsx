@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { RefreshCw, WifiOff } from "lucide-react"
 import { CanvasBanner } from "./CanvasBanner.tsx"
 import { Face } from "./Face.tsx"

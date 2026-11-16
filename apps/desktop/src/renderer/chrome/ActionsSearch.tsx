@@ -8,7 +8,7 @@ import {
   CommandList,
   CommandShortcut,
   Kbd
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { designOwner, locateNode, type NodeRef } from "@parity-app/core"
 import { type FindItem, findAnything, layersSelection, rememberPick } from "@parity-app/editor"
 import { containerEntries, containerEntry } from "@parity-app/multiplayer"

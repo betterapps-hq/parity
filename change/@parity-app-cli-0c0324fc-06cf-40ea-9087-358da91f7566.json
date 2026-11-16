@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Check a version a builder reads from another peer against that peer's range, and keep two Next.js-on-webpack guests' chunks apart in one window",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

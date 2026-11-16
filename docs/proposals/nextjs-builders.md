@@ -156,10 +156,11 @@ The manifest watches the webpack config names, Next's, and `package.json`. Peer 
 Everything up to the guest module is `packages/next-builders`: the guest app in `.next/parity/`, Next's server started
 with webpack rather than Turbopack, and `styles()` from the root layout or `pages/_app`. Only the guest module loader is
 new. It reads the same page, then loads Next's webpack runtime chunk (`webpack.js`) and the page's chunks, which push
-onto `self.webpackChunk_N_E`, leaving out the entries that start Next's router (`main-app` for the App Router, `main`
-and `pages/_app` for the Pages Router). Then it requires the guest module by the id in the page's client reference, and
-fetches the page's CSS as the Turbopack loader does. The spike tried this only on Turbopack, so the first step is the
-same check on `nextjs-webpack`.
+onto `self.webpackChunk_N_E` (which hands each script the list of the session whose builder serves it, so two Next.js
+guests in one window keep their chunks apart), leaving out the entries that start Next's router (`main-app` for the App
+Router, `main` and `pages/_app` for the Pages Router). Then it requires the guest module by the id in the page's client
+reference, and fetches the page's CSS as the Turbopack loader does. The spike tried this only on Turbopack, so the first
+step is the same check on `nextjs-webpack`.
 
 Next's config isn't handed to the webpack-compatible core: Next makes several webpack configs (client, server, edge),
 runs its SWC transforms and `next/font` through them, and decides client boundaries itself, so only Next can build them.
@@ -190,7 +191,7 @@ The core does the work, given a `Bundler` for webpack:
 
 Both are in `fixtures/` (PR #677) and go through the validation snapshots:
 
-- **`nextjs-webpack`:** Next.js 15 on webpack, React 18, both `app/` and `pages/` routers, Sass CSS modules, Mantine 8
+- **`nextjs-webpack`:** Next.js 15 on webpack, React 18, both `app/` and `pages/` routers, Sass CSS modules, Chakra UI 3
   and Tabler icons, TypeScript and npm.
 - **`webpack-react-router`:** webpack 5, React 19, React Router's `<Routes>` in JSX, styled-components, React Aria
   Components and Lucide, JavaScript and pnpm. It has no stylesheets: styled-components makes its styles at run time,

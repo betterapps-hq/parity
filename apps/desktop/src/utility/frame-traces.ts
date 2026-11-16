@@ -136,7 +136,8 @@ export function frameTraces(projects: TraceProjects): FrameTraces {
         )
       )
 
-      const styles = await moduleClosure(project.stylesheets, scan)
+      // Every frame draws in the preview file's decorators, so it and what it imports count as the stylesheets do.
+      const styles = await moduleClosure([...project.stylesheets, ...(project.preview ? [project.preview] : [])], scan)
 
       const files = [
         ...new Set([...Object.values(components).flat(), ...styles, ...sharedPreviewFiles(snapshot)])

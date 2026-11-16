@@ -24,6 +24,8 @@ export { hasElementSources, type SourceMap, tagElementSources } from "./element-
 
 export { type ModuleExports, readModuleExports } from "./module-exports.ts"
 
+export { packageExports } from "./package-exports.ts"
+
 export { type ConfigChange, configChange, type ConfigInputs, configInputs, type ConfigStamps } from "./config-inputs.ts"
 
 export {

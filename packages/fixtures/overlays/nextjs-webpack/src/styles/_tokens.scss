@@ -1,15 +1,15 @@
 @use 'sass:math';
 
-// Mantine's breakpoints, as Sass variables for media queries.
-$breakpoint-xs: 36em;
-$breakpoint-sm: 48em;
-$breakpoint-md: 62em;
+// Chakra's breakpoints, as Sass variables for media queries.
+$breakpoint-sm: 30em;
+$breakpoint-md: 48em;
+$breakpoint-lg: 62em;
 
-$surface: var(--mantine-color-body);
-$radius: var(--mantine-radius-md);
-$gap: var(--mantine-spacing-md);
+$surface: var(--chakra-colors-bg-panel);
+$radius: var(--chakra-radii-l3);
+$gap: var(--chakra-spacing-4);
 
-// Mantine's rem(), scaled with its --mantine-scale, for Sass files, where PostCSS's rem() can't reach.
+// Pixels as rem, for Sass files.
 @function rem($value) {
-  @return calc(#{math.div($value, 16px)}rem * var(--mantine-scale));
+  @return #{math.div($value, 16px)}rem;
 }

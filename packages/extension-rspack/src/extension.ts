@@ -1,4 +1,4 @@
-import type { Parity } from "@parity-app/extension-api"
+import { defineExtension, type Parity } from "@parity-app/extension"
 import { detectRspack, rspackAppStyles } from "./builder.ts"
 
 /*
@@ -8,7 +8,9 @@ import { detectRspack, rspackAppStyles } from "./builder.ts"
  * process; the manifest also names the config files whose coming or going means the project is detected again.
  */
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const { root } = parity.project
   const status = parity.status.item("rspack.status")
   status.set({ value: "Rspack", tooltip: "Builds the project" })

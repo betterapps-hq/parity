@@ -153,8 +153,8 @@ export default defineConfig({
       "eslint/no-restricted-properties": [
         "error",
         {
-          object: "toast",
-          property: "error",
+          object: "notify",
+          property: "failed",
           message: "Use reportError from renderer/report-error.ts, which records the error as well as showing it."
         }
       ]
@@ -242,8 +242,9 @@ export default defineConfig({
       },
       {
         // Every select is AppSelect, which puts the kit's parts together as shadcn does. Selects built by hand kept
-        // missing a part, such as the SelectGroup that insets the items (PAR-1023). No earlier entry sets this rule
-        // for the apps, so it replaces nothing.
+        // missing a part, such as the SelectGroup that insets the items (PAR-1023). Every toast goes through
+        // renderer/toasts.tsx, which keeps their kinds, copy and buttons the same (PAR-1186). No earlier entry sets this
+        // rule for the apps, so it replaces nothing.
         files: ["apps/**"],
         rules: {
           "eslint/no-restricted-imports": [
@@ -251,7 +252,7 @@ export default defineConfig({
             {
               paths: [
                 {
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: [
                     "Select",
                     "SelectContent",
@@ -268,10 +269,29 @@ export default defineConfig({
                 },
                 {
                   // Fields of tags kept copying the chips' box and chip, as Selects did their parts (AppChips).
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: ["ComboboxChips", "ComboboxChip", "ComboboxChipsInput"],
                   message: "Use AppChips, AppChip and AppChipsInput from apps/desktop/src/renderer/chrome/AppChips.tsx."
-                }
+                },
+                {
+                  name: "@buildkitgg/shadcn",
+                  importNames: [
+                    "toast",
+                    "createToastManager",
+                    "useToastManager",
+                    "Toast",
+                    "ToastAction",
+                    "ToastClose",
+                    "ToastContent",
+                    "ToastDescription",
+                    "ToastPortal",
+                    "ToastProvider",
+                    "ToastTitle",
+                    "ToastViewport"
+                  ],
+                  message: "Show toasts with `notify` from apps/desktop/src/renderer/toasts.tsx."
+                },
+                { name: "sonner", message: "Show toasts with `notify` from apps/desktop/src/renderer/toasts.tsx." }
               ]
             }
           ]
@@ -288,12 +308,20 @@ export default defineConfig({
         rules: { "parity/shortcut-from-keymap": "off" }
       },
       {
-        files: ["apps/desktop/src/renderer/chrome/AppSelect.tsx", "apps/desktop/src/renderer/chrome/AppChips.tsx"],
+        // The toast module and the audit story, which draws each toast in place to compare its copy, use the kit's
+        // toast themselves.
+        files: [
+          "apps/desktop/src/renderer/chrome/AppSelect.tsx",
+          "apps/desktop/src/renderer/chrome/AppChips.tsx",
+          "apps/desktop/src/renderer/toasts.tsx",
+          "apps/desktop/src/renderer/chrome/ToastAudit.stories.tsx"
+        ],
         rules: { "eslint/no-restricted-imports": "off" }
       },
       {
-        // reportError is the one place that shows an error notification itself; everything else calls it.
-        files: ["apps/desktop/src/renderer/report-error.ts"],
+        // reportError is the one place that shows an error notification itself; everything else calls it. The toast
+        // module defines it.
+        files: ["apps/desktop/src/renderer/report-error.ts", "apps/desktop/src/renderer/toasts.tsx"],
         rules: { "eslint/no-restricted-properties": "off" }
       },
       {

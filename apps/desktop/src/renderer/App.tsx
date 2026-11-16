@@ -1,4 +1,4 @@
-import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { type ReactNode, useEffect } from "react"
 import { accountActions, startAccount, useAccount } from "./account/account.ts"
 import { SignInDialog, SignInScreen, UntilQuitDialog } from "./account/SignIn.tsx"
@@ -27,7 +27,6 @@ import { ProjectView } from "./ProjectView.tsx"
 import { SettingsBridge } from "./settings-project.ts"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
-import { useResolvedTheme } from "./theme.ts"
 import { useActiveTabId, useHomeActive, useTabs, workspace } from "./workspace.ts"
 
 let started = false
@@ -82,7 +81,6 @@ export function AppWindow() {
   const tabs = useTabs()
   const active = useActiveTabId()
   const home = useHomeActive()
-  const theme = useResolvedTheme()
   const account = useAccount()
   const signInScreen = account.place === "screen"
   useAppShortcuts()
@@ -137,12 +135,7 @@ export function AppWindow() {
           )
         })}
       </div>
-      <SonnerToaster
-        theme={theme}
-        position="bottom-right"
-        offset={{ bottom: 40, right: 16 }}
-        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
-      />
+      <Toaster />
       {/* Each dialog fails on its own, and closing what it shows closes it (PAR-667). */}
       <ErrorBoundary name="quick-insert" label="Insert" kind="dialog" onClose={closeQuickInsert}>
         <QuickInsert />

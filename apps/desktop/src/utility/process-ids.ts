@@ -1,5 +1,5 @@
-import type { ProcessInfo } from "@parity-app/extension-api"
-import type { ProcessCaller } from "@parity-app/extensions"
+import type { ProcessInfo } from "@parity-app/extension"
+import type { ProcessCaller } from "@parity-app/extension-host"
 import { visibleTo } from "@parity-app/processes"
 import { listedId, ownerOf } from "../shared/process-ids.ts"
 import type { ProjectProcess } from "../shared/protocol.ts"

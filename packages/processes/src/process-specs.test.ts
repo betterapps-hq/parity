@@ -1,4 +1,4 @@
-import type { ProcessInfo, ProcessSpec } from "@parity-app/extension-api"
+import type { ProcessInfo, ProcessSpec } from "@parity-app/extension"
 import { describe, expect, it } from "vite-plus/test"
 import {
   addressRefusal,
@@ -6,7 +6,6 @@ import {
   fillPort,
   isLocalHost,
   isPrivateHost,
-  isProcessPermission,
   opensAt,
   permissionFor,
   permits,
@@ -86,12 +85,6 @@ describe("permissions", () => {
   it("allows only the runs the manifest lists", () => {
     expect(permits({ bin: "storybook" }, ["bin:storybook"])).toBe(true)
     expect(permits({ exec: "storybook" }, ["bin:storybook"])).toBe(false)
-  })
-
-  it("tells a well-formed entry from a malformed one", () => {
-    expect(isProcessPermission("exec:cloudflared")).toBe(true)
-    expect(isProcessPermission("cloudflared")).toBe(false)
-    expect(isProcessPermission("exec:")).toBe(false)
   })
 })
 

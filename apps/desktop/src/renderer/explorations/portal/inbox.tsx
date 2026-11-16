@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /** The inbox: everything that needs you across Kestrel, and the open one beside its design, with its thread. */
 import { Check, ChevronRight, ExternalLink, Monitor } from "lucide-react"
 import type { ReactNode } from "react"

@@ -15,14 +15,14 @@ import {
   Label,
   RadioGroup,
   RadioGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { LibraryInfo } from "@parity-app/core"
 import { Download } from "lucide-react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { GuestIcon, type IconEntry, iconCatalog, iconLibraries, iconStyles, iconsOf } from "../../chrome/icons.tsx"
+import { notify } from "../../toasts.tsx"
 import { optionNamed } from "../parts.tsx"
 
 /*
@@ -277,7 +277,7 @@ function ExportChoices({
             disabled={icons.length === 0}
             onClick={() => {
               close()
-              toast.info(`Would export ${icons.length.toLocaleString()} icons at ${size} px`)
+              notify.info(`Would export ${icons.length.toLocaleString()} icons at ${size} px`)
             }}
           >
             <Download /> Export {icons.length === 1 ? "1 icon" : `${icons.length.toLocaleString()} icons`}

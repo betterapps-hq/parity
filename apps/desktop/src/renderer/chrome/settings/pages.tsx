@@ -9,7 +9,7 @@ import {
   EmptyContent,
   EmptyHeader,
   EmptyTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronRight, Plus } from "lucide-react"
 import type { KeyboardEvent } from "react"
 import { useKeybindings } from "../keybindings.ts"

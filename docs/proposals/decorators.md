@@ -1,7 +1,8 @@
 # Proposal: decorators and modes
 
-Status: you decided the contract, Storybook's, and on 2026-10-28 the questions below. Nothing here is built yet beyond
-`.lib.par` decorators.
+Status: you decided the contract, Storybook's, and on 2026-10-28 the questions below. Built: `.lib.par` decorators, and
+`.parity/preview.tsx` with its decorators, loaders, parameters and global types' defaults (PAR-100, in
+[editor.md](../editor.md)). The rest isn't built yet.
 
 ## In one line
 
@@ -85,7 +86,8 @@ reads from the project add to it.
    - `{ "$call": { "import": "pkg", "export": "name" }, "args": [...], "methods": [...] }`: what calling it returns,
      after its `methods` are called on it in order. A method that's missing or throws is passed over.
    - `{ "$global": "theme", "values": { "dark": ... }, "default": ... }`: the value for the frame's option.
-   - `{ "$frame": "root" }`: part of the frame. Also `host`, `body`, `document`, `dir`, `lang` and `selector`.
+   - `{ "$frame": "root" }`: part of the frame. Also `host`, `body`, `document`, `dir`, `lang`, `selector`, `url` and
+     `content`, an element drawing what the decorator wraps.
    - `{ "$function": ... }`: a function returning the value it holds.
 
    Any other object is plain JSON, and its values can be forms too. The forms are checked when the library file loads

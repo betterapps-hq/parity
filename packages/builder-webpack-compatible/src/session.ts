@@ -4,6 +4,7 @@ import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import type { BuilderSession, BuilderStartOptions, CodeChange } from "@parity-app/core"
 import { gatherChanges } from "@parity-app/project"
+import { type AppFiles, appEntryPrefix, appPageFile, builtAppFiles, plainAppPage, servedAppPage } from "./app-pages.ts"
 import { componentModuleSource, guestFiles, guestModuleSource } from "./browser-modules.ts"
 import type { Bundler, BundlerCompilation, BundlerConfig, BundlerStats } from "./bundler.ts"
 import { writeElementSourcesLoader, writeGuestAddressLoader } from "./element-sources.ts"
@@ -79,13 +80,21 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   const build = buildState()
   const listeners = new Set<(change: CodeChange) => void>()
 
-  const changes = gatherChanges((change) => {
-    for (const listener of listeners) {
-      listener(change)
-    }
-  })
+  const changes = gatherChanges(
+    (change) => {
+      for (const listener of listeners) {
+        listener(change)
+      }
+    },
+    undefined,
+    start.config.preview
+  )
 
   let cssDigest: string | undefined
+  /** The files the latest build wrote for the app's entries, for a page when its config makes none. */
+  let appFiles: AppFiles = { scripts: [], styles: [] }
+  /** How many builds have changed something, which the app's pages reload when it grows. */
+  let pageVersion = 0
 
   /** How many times the build has been invalidated: a build's results only count if no newer build has started. */
   let invalidations = 0
@@ -98,9 +107,13 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   compiler.hooks.done.tap("parity:guest", (stats) => {
     const first = build.compilation === undefined
 
-    const components = Object.values(start.config.components)
-      .filter((component) => !component.library)
-      .map((component) => component.path)
+    // The preview file is looked for as a component is; the gathered change makes the guest new for it.
+    const components = [
+      ...Object.values(start.config.components)
+        .filter((component) => !component.library)
+        .map((component) => component.path),
+      ...(start.config.preview ? [start.config.preview] : [])
+    ]
 
     // Each changed file's components, read now: the compilation is the bundler's to reuse once the next build starts.
     const reached = new Map(
@@ -111,12 +124,17 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
       )
     )
 
-    // The CSS of the components' chunks, as this build named them; earlier builds' files stay for pages behind.
-    const componentCss = [...stats.compilation.chunks].flatMap((chunk) =>
-      chunk.name === "styles" || chunk.name === "package-styles"
+    // The CSS of the components' chunks, as this build named them; earlier builds' files stay for pages behind. The
+    // app's entries' CSS is its page's.
+    const chunks = [...stats.compilation.chunks]
+
+    const componentCss = chunks.flatMap((chunk) =>
+      chunk.name === "styles" || chunk.name === "package-styles" || chunk.name?.startsWith(appEntryPrefix)
         ? []
         : [...chunk.files].filter((file) => file.endsWith(".css")).sort()
     )
+
+    appFiles = builtAppFiles(chunks)
 
     const at = invalidations
 
@@ -140,6 +158,11 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
         const paths = changed.flatMap((file) => reached.get(file)!)
         changes.stamp()
         changes.add({ paths: [...new Set(paths)], styles: restyled })
+
+        // The app's pages show what changed, whatever it was: a page's own file needn't be a component's.
+        if (changed.length > 0 || restyled) {
+          pageVersion++
+        }
       })
   })
 
@@ -213,6 +236,15 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
         ))
 
       return loadable || stampedSource ? component(path) : undefined
+    },
+    page: {
+      async html() {
+        const made = await readFile(join(output, appPageFile), "utf8").catch(() => undefined)
+        const html = made ?? (appFiles.scripts.length > 0 ? plainAppPage(appFiles) : undefined)
+
+        return html === undefined ? undefined : servedAppPage(html)
+      },
+      version: () => pageVersion
     }
   })
 

@@ -7,7 +7,7 @@ import {
   Switch,
   ToggleGroup,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { Filter, FilterValue } from "@parity-app/connectors"
 import { Monitor, RectangleHorizontal, RectangleVertical, SlidersHorizontal, Smartphone, Square } from "lucide-react"
 import { AppSelect } from "../chrome/AppSelect.tsx"

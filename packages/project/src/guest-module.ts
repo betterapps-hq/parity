@@ -24,11 +24,6 @@ export interface GuestModuleOptions {
    */
   styles: "inline" | "bundled"
   /**
-   * With `inline` styles, the specifier of a module whose `moduleStyles` export collects the stylesheets the project's
-   * modules import as they load (`GuestInit.moduleStyles`), which the dev server would otherwise add to the page.
-   */
-  moduleStyles?: string
-  /**
    * Decorators of the builder's own, outermost first, around the libraries': what its framework needs mounted around
    * every frame, as Next's router (PAR-1160). Each names the library it stands for, and its modules by their specifier.
    */
@@ -44,8 +39,8 @@ export interface GuestModule {
 
 /**
  * The module the canvas's guest comes from: the renderer's guest runtime, the project's styles and components, its icon
- * packages, and what its extensions' and libraries' decorators import. A decorator's module that fails to load is passed on as its
- * error, so one missing provider doesn't stop the project from rendering. The source and its eager imports share one
+ * packages, what its extensions' and libraries' decorators import, and its preview file. A decorator's module that fails
+ * to load is passed on as its error, so one missing provider doesn't stop the project from rendering. The source and its eager imports share one
  * declaration, so a builder can warm the same graph the browser will load.
  */
 export function guestModule(config: ProjectConfig, options: GuestModuleOptions): GuestModule {
@@ -163,10 +158,18 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     ref(id)
   }
 
+  // The project's preview file, inside the libraries' decorators. One that fails to load is passed on as its error, so
+  // the frames still draw and say why.
+  let previewRef: string | undefined
+
+  if (config.preview) {
+    const path = options.projectPath(config.preview)
+    optional.add(path)
+    previewRef = ref(path)
+  }
+
   const described = (config.describedTokens ?? []).flatMap((source) => source.tokens)
   const libraryCss = describedTokenCss(described)
-
-  const moduleStylesRef = inline && options.moduleStyles ? ref(options.moduleStyles) : undefined
 
   const loads = imports.map((id) =>
     optional.has(id)
@@ -186,7 +189,8 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     "  },",
     "  decorators: {",
     `    list: ${JSON.stringify(decorated)},`,
-    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }`,
+    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }${previewRef ? "," : ""}`,
+    ...(previewRef ? [`    project: ${previewRef}`] : []),
     "  },",
     `  tokenCategories: ${JSON.stringify(describedCategories(described))}`
   ]
@@ -197,7 +201,6 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
         // Tokens libraries only create at run time come first, so the project's own declarations still win.
         `  css: [${[...(libraryCss ? [JSON.stringify(libraryCss)] : []), ...styleRefs].join(", ")}].join("\\n"),`,
         ...(packageStyleRefs.length > 0 ? [`  packageCss: [${packageStyleRefs.join(", ")}].join("\\n"),`] : []),
-        ...(moduleStylesRef ? [`  moduleStyles: ${moduleStylesRef}.moduleStyles,`] : []),
         ...init,
         "})"
       ]

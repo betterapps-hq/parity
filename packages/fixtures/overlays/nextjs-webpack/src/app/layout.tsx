@@ -1,9 +1,7 @@
-import '@mantine/core/styles.css'
-import { ColorSchemeScript, MantineProvider, mantineHtmlProps } from '@mantine/core'
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { NavBar } from '@/components/NavBar'
-import { theme } from '@/theme'
+import { Provider } from '@/components/Provider'
 
 export const metadata: Metadata = {
   title: 'Acme',
@@ -11,15 +9,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" {...mantineHtmlProps}>
-      <head>
-        <ColorSchemeScript defaultColorScheme="auto" />
-      </head>
+    <html lang="en" suppressHydrationWarning>
       <body>
-        <MantineProvider theme={theme} defaultColorScheme="auto">
+        <Provider>
           <NavBar />
           {children}
-        </MantineProvider>
+        </Provider>
       </body>
     </html>
   )

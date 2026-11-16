@@ -242,7 +242,7 @@ async function mount(tree: RenderNode[]) {
     const components = Object.fromEntries(Object.entries(frame).filter(([name]) => /^[A-Z]/.test(name)))
     const guest = createGuest({ components, css: "" })
     const viewport = { width: 390, height: 844 }
-    const target = prepareFrame(host, new CSSStyleSheet(), { classNames: [], attributes: {}, viewport })
+    const target = prepareFrame(host, [new CSSStyleSheet()], { classNames: [], attributes: {}, viewport })
     showFrameRules(host, frameRules(tree))
     const handle = guest.mount(target, tree, { viewport })
     setDrawnNodes(host, () => handle.drawnNodes?.())

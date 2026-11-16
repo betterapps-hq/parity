@@ -4,12 +4,11 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { ProjectRoute } from "@parity-app/core"
-import { refsSelection, type Selection } from "@parity-app/editor"
-import { AppWindow, Server } from "lucide-react"
+import type { Selection } from "@parity-app/editor"
+import { AppWindow, ChevronRight, Server } from "lucide-react"
 import { useProject } from "../canvas/context.ts"
-import { routeRef } from "../canvas/route-pages.ts"
 import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { markRoute, useMarkedRoutes } from "../route-marks.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -39,11 +38,42 @@ export function selectedApiRoute(routes: readonly ProjectRoute[], selection: Sel
   return ref?.type === "route" ? routes.find((route) => route.id === ref.key && route.kind === "api") : undefined
 }
 
-/** An API route's row in Layers: its path. A click selects it; its menu marks it as a page. */
-export function ApiRouteLine({ route, selected }: { route: ProjectRoute; selected: boolean }) {
+/**
+ * An API route where Layers lists it, nested by URL (PAR-1185): its label, the URL parts it adds to the folder or route
+ * it's in; how deep it is and where among the items beside it; and, for one that holds the routes under its URL, the
+ * expansion id that opens it and whether it's open.
+ */
+export interface ApiLine {
+  route: ProjectRoute
+  label: string
+  level: number
+  position: number
+  siblings: number
+  /** The folder or API route it's in, by expansion id, or undefined at the top. */
+  parent?: string
+  opens?: { id: string; expanded: boolean }
+}
+
+/**
+ * An API route's row in Layers: the URL parts it adds, named by its whole path. A click selects it, and its arrow opens
+ * or closes one that holds others; its menu marks it as a page.
+ */
+export function ApiRouteLine({
+  line,
+  selected,
+  searching,
+  onSelect,
+  onToggle
+}: {
+  line: ApiLine
+  selected: boolean
+  searching: boolean
+  onSelect: () => void
+  onToggle: () => void
+}) {
+  const { route, level, opens } = line
   const session = useProject()
   const read = session.info.routes.find((each) => each.id === route.id)
-  const select = () => session.selection.set(refsSelection([routeRef(session.info, route.id)]))
 
   return (
     <ContextMenu>
@@ -54,22 +84,47 @@ export function ApiRouteLine({ route, selected }: { route: ProjectRoute; selecte
             role="treeitem"
             aria-label={route.path}
             aria-selected={selected}
-            aria-level={1}
+            aria-expanded={opens?.expanded}
+            aria-level={level + 1}
+            aria-posinset={line.position}
+            aria-setsize={line.siblings}
             tabIndex={-1}
-            onClick={select}
-            onContextMenu={select}
+            onClick={onSelect}
+            onContextMenu={onSelect}
             onKeyDown={(event) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault()
-                select()
+                event.stopPropagation()
+                onSelect()
               }
             }}
-            className={`flex h-7 cursor-default items-center gap-1.5 pr-2 pl-[30px] ${selected ? "bg-accent" : "hover:bg-accent/40"}`}
+            className={`relative flex h-7 cursor-default items-center gap-1.5 pr-2 ${selected ? "bg-accent" : "hover:bg-accent/40"}`}
+            style={{ paddingLeft: 8 + level * 14 }}
           />
         }
       >
+        {Array.from({ length: level }, (_, guide) => (
+          <span
+            key={guide}
+            aria-hidden
+            className="absolute inset-y-0 w-px bg-border/70"
+            style={{ left: 15 + guide * 14 }}
+          />
+        ))}
+        <span
+          aria-hidden
+          className={`grid size-4 shrink-0 place-items-center text-muted-foreground ${!opens || searching ? "invisible" : ""}`}
+          onClick={(event) => {
+            if (opens) {
+              event.stopPropagation()
+              onToggle()
+            }
+          }}
+        >
+          <ChevronRight className={`size-3.5 transition-transform ${opens?.expanded ? "rotate-90" : ""}`} />
+        </span>
         <Server className="size-3.5 shrink-0" style={{ color: apiColor }} />
-        <Name className="min-w-0 flex-1">{route.path}</Name>
+        <Name className="min-w-0 flex-1">{line.label}</Name>
       </ContextMenuTrigger>
       <ContextMenuContent className="w-52" aria-label={route.path}>
         <ContextMenuItem disabled={!read} onClick={() => read && markRoute(session.doc, read, "page")}>

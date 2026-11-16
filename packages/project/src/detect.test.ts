@@ -309,6 +309,26 @@ describe("detectProject", () => {
     expect(detection.tools[1]?.drops).toBeUndefined()
   })
 
+  it("checks a version against the range of the package it was read from", async () => {
+    const webpack: Tool = {
+      id: "webpack",
+      name: "webpack",
+      versions: { packages: ["webpack", "next"], range: "^5.90.0", ranges: { next: "^15.0.0 || ^16.0.0" } }
+    }
+
+    const pkg = { dependencies: { next: "15.5.29" } }
+    await fixture({ "package.json": pkg, ...installed("next", "15.5.29") })
+
+    const detection = await detectProject(
+      root,
+      pkg,
+      [{ adapter: webpack, detection: { found: true, summary: "next in package.json" } }],
+      today
+    )
+
+    expect(detection.tools).toMatchObject([{ id: "webpack", version: "15.5.29", status: "supported" }])
+  })
+
   it("reads Storybook 6 from its framework package", async () => {
     const pkg = { devDependencies: { "@storybook/react": "^6.5.0" } }
     await fixture({ "package.json": pkg, ...installed("@storybook/react", "6.5.16") })

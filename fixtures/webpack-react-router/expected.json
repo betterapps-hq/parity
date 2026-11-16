@@ -112,6 +112,7 @@
     "not read, since they mount the app: src/index.jsx",
     "0 components from Lucide (lucide-react)",
     "155 components from React Aria Components (react-aria-components)",
-    "no .par project file yet"
+    "no .par project file yet",
+    "frames drawn inside .parity/preview.jsx's decorators"
   ]
 }

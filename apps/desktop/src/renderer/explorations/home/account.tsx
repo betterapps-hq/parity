@@ -40,7 +40,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronDown, ChevronsUpDown, Mail, Plus, Search, X } from "lucide-react"
 import {
   type FormEvent,

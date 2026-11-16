@@ -1,4 +1,4 @@
-import { setCn } from "@buildkitgg/shadcn-baseui-kit"
+import { setCn } from "@buildkitgg/shadcn"
 import { createCn } from "cn/config"
 
 /** The wrapped-text roles in styles.css, each a size and a line height in one class (docs/typography.md). */

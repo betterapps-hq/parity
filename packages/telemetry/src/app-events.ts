@@ -367,11 +367,25 @@ export interface ServiceCrash {
 /** The first line of `output` that names a thrown error, as Node prints an uncaught one: `TypeError: …`. */
 const errorLine = /^\s*(?:Uncaught )?((?:[A-Z]\w*)?(?:Error|Exception)(?: \[\w+\])?: .+)$/m
 
+/** What V8 prints, after where it failed, when a process runs out of heap. */
+const outOfMemory = "JavaScript heap out of memory"
+
+/** What a crash that printed no error was: running out of memory, or the service's missing script. */
+function crashWithoutError(output: string, missing: string | undefined): string | undefined {
+  if (output.includes(outOfMemory)) {
+    return outOfMemory
+  }
+
+  return missing ? `${missing} doesn't exist` : undefined
+}
+
 /**
  * The report for a project service that exited with `exitCode` and printed `output`, or nothing when the exit is
- * expected: the app quitting, a service being replaced, or one ending cleanly (PAR-950). It's named and grouped by the
- * error it printed, so each cause is its own Sentry issue, and Linear gets a bug that says what went wrong. Without
- * one, `missing` names the script the service couldn't find, since a utility process prints nothing then (PAR-489).
+ * expected: the app quitting or a service being replaced (PAR-950). Any other exit is a crash, even with code 0, which
+ * Electron gives a service that ran out of memory (PAR-1184). It's named and grouped by the error it printed, so each
+ * cause is its own Sentry issue, and Linear gets a bug that says what went wrong; running out of memory is one cause,
+ * wherever V8 failed. Without either, `missing` names the script the service couldn't find, since a utility process
+ * prints nothing then (PAR-489).
  */
 export function serviceCrash({
   exitCode,
@@ -384,11 +398,12 @@ export function serviceCrash({
   expected: boolean
   missing?: string | undefined
 }): ServiceCrash | undefined {
-  if (expected || exitCode === 0) {
+  if (expected) {
     return undefined
   }
 
-  const cause = errorLine.exec(output)?.[1]?.trim() ?? (missing ? `${missing} doesn't exist` : undefined)
+  const cause = errorLine.exec(output)?.[1]?.trim() ?? crashWithoutError(output, missing)
+
   const exited = `The project service exited with code ${exitCode}`
 
   return {

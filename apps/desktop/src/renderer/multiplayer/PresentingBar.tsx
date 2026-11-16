@@ -1,4 +1,4 @@
-import { Button, Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Kbd } from "@buildkitgg/shadcn"
 import { MonitorPlay } from "lucide-react"
 import { shortcutOf } from "../chrome/keymap.ts"
 import { CanvasBanner } from "./CanvasBanner.tsx"

@@ -3,7 +3,7 @@ import { Columns3, Diamond, Rows3, Type } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import { expect, fn, userEvent, waitFor, within } from "storybook/test"
 import { kindColors } from "../../canvas/kinds.tsx"
-import { slowly } from "../../chrome/inspector-stories.tsx"
+import { chipRemove, slowly } from "../../chrome/inspector-stories.tsx"
 import { layersMime } from "../../chrome/LayerTree.tsx"
 import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field, FieldGrid } from "./field-row.tsx"
@@ -147,7 +147,7 @@ export const Filled: Story = {
     const box = within(canvasElement)
     await userEvent.click(box.getByText("Feature list"))
     await expect(args.onSelectLayer).toHaveBeenCalledWith("list")
-    await userEvent.click(box.getByRole("button", { name: "Clear Features" }))
+    await userEvent.click(chipRemove(box.getByText("Feature list")))
     await expect(args.onClear).toHaveBeenCalled()
     await expect(args.onSelectLayer).toHaveBeenCalledTimes(1)
     await expect(box.queryByText("Feature list")).toBeNull()
@@ -179,8 +179,8 @@ export const Picked: Story = {
   play: async ({ args, canvasElement }) => {
     await pick(canvasElement, "badge", /Badge$/)
     await expect(args.onPickLayer).toHaveBeenCalledWith("badge")
-    await expect(await within(canvasElement).findByRole("button", { name: "Clear Features" }, slowly)).toBeVisible()
-    await expect(within(canvasElement).getByText("Badge")).toBeVisible()
+    await expect(await within(canvasElement).findByText("Badge", {}, slowly)).toBeVisible()
+    await expect(chipRemove(within(canvasElement).getByText("Badge"))).toBeVisible()
   }
 }
 

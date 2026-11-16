@@ -121,3 +121,8 @@ export async function checkAgain(
 
 /** Waits for something a story's play function needs, longer than testing-library's default second. */
 export const slowly = { timeout: 8000 }
+
+/** The × of the chip that shows `content`. The stock chip gives it no name, so stories find it by its slot. */
+export function chipRemove(content: HTMLElement): HTMLElement {
+  return content.closest("[data-slot=combobox-chip]")!.querySelector<HTMLElement>("[data-slot=combobox-chip-remove]")!
+}

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { opendir, stat } from "node:fs/promises"
 import { join, relative, resolve } from "node:path"
 import { findLockfiles } from "./lockfile.ts"
+import { previewFolder } from "./preview-file.ts"
 
 /** Folders a project builds into or tools fill, which the app's code never comes from, with any tool's `*-static`. */
 const skippedFolders = new Set(["node_modules", "dist", "build", "out", "coverage"])
@@ -25,7 +26,7 @@ export interface CodeSnapshot {
 /**
  * A project's code as its builder serves it: the path, size and modification time of every file in the project, and of
  * the lockfiles above it (see `findLockfiles`), with `salt` for the code that draws it. It skips dependencies, build
- * output, dot-folders and designs (`.par`), which a frame's tree already says. Any edit, CSS and config included, gives
+ * output, dot-folders but the preview file's `.parity`, and designs (`.par`), which a frame's tree already says. Any edit, CSS and config included, gives
  * a new fingerprint; a file only touched does too, which costs a cache miss at most.
  */
 export async function codeSnapshot(root: string, salt: string): Promise<CodeSnapshot> {
@@ -70,7 +71,10 @@ async function list(root: string, folder: string, files: [string, string][]): Pr
     const absolute = join(folder, entry.name)
 
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith(".") && !skippedFolders.has(entry.name) && !entry.name.endsWith("-static")) {
+      // The preview file's folder is the project's own code, which every frame draws with (PAR-100).
+      const own = !entry.name.startsWith(".") || entry.name === previewFolder
+
+      if (own && !skippedFolders.has(entry.name) && !entry.name.endsWith("-static")) {
         await list(root, absolute, files)
       }
     } else if (entry.isFile() && !entry.name.endsWith(".par")) {

@@ -1,4 +1,4 @@
-import type { Route } from "@parity-app/extension-api"
+import type { Route } from "@parity-app/extension"
 import ts from "typescript"
 import { z } from "zod"
 import { codeRouteTree, readCodeRoutes } from "./code-routes.ts"

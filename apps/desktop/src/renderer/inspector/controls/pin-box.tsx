@@ -1,4 +1,4 @@
-import { DropdownMenuCheckboxItem } from "@buildkitgg/shadcn-baseui-kit"
+import { DropdownMenuCheckboxItem } from "@buildkitgg/shadcn"
 import { formatNumber } from "@parity-app/style-schema"
 import { AppWindow, ArrowUpToLine, Crosshair, Layers, Maximize, Move, MoveDiagonal2, Rows3 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useContext } from "react"

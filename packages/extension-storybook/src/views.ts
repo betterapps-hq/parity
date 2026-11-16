@@ -1,4 +1,4 @@
-import type { ViewItem, ViewOptions } from "@parity-app/extension-api"
+import type { ViewItem, ViewOptions } from "@parity-app/extension"
 import { componentsWithStories, type ProjectStorybook } from "./storybook.ts"
 
 /*

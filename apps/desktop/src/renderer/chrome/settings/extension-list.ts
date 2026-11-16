@@ -1,4 +1,4 @@
-import type { ExtensionStatus, InstalledStatus } from "@parity-app/extensions"
+import type { ExtensionStatus, InstalledStatus } from "@parity-app/extension-host"
 import { Puzzle } from "lucide-react"
 import type { SettingsExtension } from "../../../shared/settings-view.ts"
 import type { Extension } from "./definitions.ts"

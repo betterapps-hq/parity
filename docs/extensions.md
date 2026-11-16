@@ -8,16 +8,16 @@ later.
 
 An extension is an npm package whose `package.json` has a `parity` field. Parity reads it before any of the extension's
 code loads, so its commands, menu items and status bar items show straight away, and its code starts only when it's
-needed. [`readExtension`](../packages/extensions/src/manifest.ts) checks it, and refuses a package whose manifest breaks
-a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id`):
+needed. [`readExtension`](../packages/extension/src/reader/manifest.ts) checks it, and refuses a package whose manifest
+breaks a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id`):
 
 - **`displayName`, `prefix` and `icon`.** The icon is path data and a `viewBox`, drawn in the text's color, never a file
   or markup.
 - **`activates`:** `onDetect` (the project has the extension's tool), `onStartup`, `onCommand:<id>`, `onView:<id>` or
   `onNodeType:<type>`. An event naming a command, tab or page has to name one the manifest declares.
 - **`detect`** (PAR-1128) says how Parity finds the extension's tool, with no code of the extension's and nothing Parity
-  knows of the tool ([`detect.ts`](../packages/extensions/src/detect.ts)). It's found when any rule holds: `peers`, the
-  project's package.json declares a package its peer dependencies name (what an extension without `detect` gets, as
+  knows of the tool ([`detect.ts`](../packages/extension-host/src/detect.ts)). It's found when any rule holds: `peers`,
+  the project's package.json declares a package its peer dependencies name (what an extension without `detect` gets, as
   Vite, React, Tailwind, TanStack Router, Next.js and Storybook's accessibility checks are found); `entities`, Parity's
   entities detection found its files, for an extension with an entities provider (Storybook); or `paths`, the first of
   its paths that names something exists, from the home folder, a variable's folder or the project's root (Portless's
@@ -35,21 +35,25 @@ a rule, naming the field by its JSON pointer (`/parity/contributes/commands/0/id
   its extension's prefix or its adapter's id; and the extension's own context keys on their own, joined with `&&`, `||`,
   `!` and parentheses. A key on its own holds when it's true, or a list holding the key of what the command is shown
   for. One that doesn't read is refused, naming what's wrong, as is an extension key in one that doesn't start with the
-  prefix ([`when.ts`](../packages/extensions/src/when.ts)).
+  prefix ([`when.ts`](../packages/extension/src/reader/when.ts)).
 - **`keybindings`** write keys as VS Code does, `mod+shift+t`, with `mod` meaning Ctrl, or Cmd on a Mac. Keys Parity
   can't read are refused. Parity's own keys win a clash, with the person's changes, and a key two extensions ask for
-  goes to neither; Settings' Keyboard shortcuts page names who has it ([`keys.ts`](../packages/extensions/src/keys.ts)).
+  goes to neither; Settings' Keyboard shortcuts page names who has it
+  ([`keys.ts`](../packages/extension/src/reader/keys.ts)).
 
-The types are in [`@parity-app/extension-api`](../packages/extension-api), a package of types only.
+An extension's code and tests import one package, [`@parity-app/extension`](../packages/extension/README.md): the types,
+`defineExtension`, and `readExtension` from `@parity-app/extension/manifest`, so a test checks the manifest as Parity
+does. Parity's side, the hosts below, is [`@parity-app/extension-host`](../packages/extension-host/package.json), which
+no extension imports. Both are private until outside developers write extensions (PAR-1097, PAR-1098).
 
 ## The host
 
 The project service starts one host per extension per open project: a Node process of its own
 ([`utility/extension-host.ts`](../apps/desktop/src/utility/extension-host.ts)), which loads the extension's entry module
-and calls its `activate`. A crash, a loop or a leak in an extension's code stays in its host. The editor, the service
-and other extensions carry on.
+and calls the `activate` of its default export, the extension `defineExtension` typed. A crash, a loop or a leak in an
+extension's code stays in its host. The editor, the service and other extensions carry on.
 
-[`extensionHosts`](../packages/extensions/src/hosts.ts) keeps every host, and takes its processes, state store and
+[`extensionHosts`](../packages/extension-host/src/hosts.ts) keeps every host, and takes its processes, state store and
 window as arguments, so its tests run without Electron:
 
 - **Starting.** When a project opens, the extensions whose tool it has and which activate on detection start at once.
@@ -70,7 +74,7 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
 ## The `parity` object
 
 `activate(parity)` gets one object, which the host builds
-([`packages/extensions/src/host.ts`](../packages/extensions/src/host.ts)):
+([`packages/extension-host/src/host.ts`](../packages/extension-host/src/host.ts)):
 
 - **`project`:** its root, its name, and what detection found of the extension's tool.
 - **`commands.register(id, handler)`:** handles a command the manifest declares. The handler gets what it was run on,
@@ -192,7 +196,7 @@ which kind it is:
 - **`pages`:** a page in a tab at the top, after its project's tab, such as a setup guide. It closes with the project.
 
 The code fills one with `parity.views.table`, `tree`, `list`, `keyValue` or `form`, given the id of one whose `view` is
-that kind ([views.ts](../packages/extensions/src/views.ts)). A view holds items, or a form's fields, and options:
+that kind ([views.ts](../packages/extension-host/src/views.ts)). A view holds items, or a form's fields, and options:
 
 - **Items** have a `key`, a `label`, and optionally a `detail`, an `icon` with a `tone`, a table's `cells`, a tree's
   `parent`, a key-value pair's `value`, and a `target`, the component it's about.
@@ -303,24 +307,25 @@ out, as Portless does.
 
 ## Tests
 
-- [manifest.test.ts](../packages/extensions/src/manifest.test.ts): ids outside the prefix, undeclared commands, tabs and
-  activation events, context keys outside the prefix, unknown events, placements and keys, icons that aren't path data
-  or icon names, `when` expressions over Parity's keys and the extension's own, ones that don't read, and keys Parity
-  can't read.
-- [when.test.ts](../packages/extensions/src/when.test.ts): comparisons, `project.uses`, list keys, `&&`, `||`, `!` and
-  parentheses, what's wrong with one that doesn't read, and the keys one looks up.
-- [keys.test.ts](../packages/extensions/src/keys.test.ts): keys as the keymap writes them, keys it can't read, and
+- [manifest.test.ts](../packages/extension/src/reader/manifest.test.ts): ids outside the prefix, undeclared commands,
+  tabs and activation events, context keys outside the prefix, unknown events, placements and keys, icons that aren't
+  path data or icon names, `when` expressions over Parity's keys and the extension's own, ones that don't read, keys
+  Parity can't read, and process permissions that aren't a kind of run and what it names.
+- [when.test.ts](../packages/extension/src/reader/when.test.ts): comparisons, `project.uses`, list keys, `&&`, `||`, `!`
+  and parentheses, what's wrong with one that doesn't read, and the keys one looks up.
+- [keys.test.ts](../packages/extension/src/reader/keys.test.ts): keys as the keymap writes them, keys it can't read, and
   Parity's keys winning a clash, with two extensions on one key both named.
-- [hosts.test.ts](../packages/extensions/src/hosts.test.ts): starting on detection and on a command, what `activate`
-  gets, a command nobody handles, status items drawn before the code loads, undeclared ids, state between runs, logs and
-  `parity.ui`, restarting after a crash and stopping after 3, one extension's crash leaving another running, a failed
-  activation, a stuck host, stopping everything with the project, and (PAR-1092) the selection from the start and as it
-  changes, selecting, highlighting and navigating through the window, a route's page URL, Parity's commands run in the
-  window and an extension's in its host, and a node that isn't one refused. Hosts talk over in-memory ports there, and
-  load modules without a prototype, as Node's are. Settings: each read from its own scope with an undeclared key
-  refused, changes heard by the running code once each, a project setting's `update` sent to the window and an app
-  setting's refused, and a value that doesn't fit listed with its note, with the activation time and permissions.
-- [hosts.test.ts](../packages/extensions/src/hosts.test.ts) also: renaming a layer from a command as one labelled
+- [hosts.test.ts](../packages/extension-host/src/hosts.test.ts): starting on detection and on a command, a module whose
+  default export is its extension and one whose isn't refused, what `activate` gets, a command nobody handles, status
+  items drawn before the code loads, undeclared ids, state between runs, logs and `parity.ui`, restarting after a crash
+  and stopping after 3, one extension's crash leaving another running, a failed activation, a stuck host, stopping
+  everything with the project, and (PAR-1092) the selection from the start and as it changes, selecting, highlighting
+  and navigating through the window, a route's page URL, Parity's commands run in the window and an extension's in its
+  host, and a node that isn't one refused. Hosts talk over in-memory ports there, and load modules without a prototype,
+  as Node's are. Settings: each read from its own scope with an undeclared key refused, changes heard by the running
+  code once each, a project setting's `update` sent to the window and an app setting's refused, and a value that doesn't
+  fit listed with its note, with the activation time and permissions.
+- [hosts.test.ts](../packages/extension-host/src/hosts.test.ts) also: renaming a layer from a command as one labelled
   change, refusing design changes without the `edits` permission, and writing files while refusing a `.par`; and
   (PAR-1095) a provider's host started the first time it's asked, with its answer read, nothing without one, an answer
   that isn't a provider's refused and logged, a provider the manifest doesn't declare refused, and opening a project
@@ -343,30 +348,32 @@ out, as Portless does.
 - [extension.test.ts](../packages/extension-tailwind/src/extension.test.ts): Tailwind CSS's manifest, with its styles
   provider and status item, and the stylesheets it handles.
 - [extension.test.ts](../packages/extension-react/src/extension.test.ts): React's manifest, with its renderer's guest
-  and runtime, and a batch of files read in order; [batch.test.ts](../packages/extensions/src/batch.test.ts): requests
-  gathered into batches.
+  and runtime, and a batch of files read in order; [batch.test.ts](../packages/extension-host/src/batch.test.ts):
+  requests gathered into batches.
 - [extension.test.ts](../packages/extension-vite/src/extension.test.ts): Vite's manifest, with its builder's entry and
   config files, and its versions.
-- [permissions.test.ts](../packages/extensions/src/permissions.test.ts): the `edits` permission, write globs, `.par`
+- [permissions.test.ts](../packages/extension-host/src/permissions.test.ts): the `edits` permission, write globs, `.par`
   files and paths outside the project.
-- [views.test.ts](../packages/extensions/src/views.test.ts): a view drawing nothing until the code fills it, a run of
-  changes sent as one, disposing and restarting emptying views, undeclared views, kinds and actions refused, a form's
+- [views.test.ts](../packages/extension-host/src/views.test.ts): a view drawing nothing until the code fills it, a run
+  of changes sent as one, disposing and restarting emptying views, undeclared views, kinds and actions refused, a form's
   changes, and `reveal`.
-- [settings.test.ts](../packages/extensions/src/settings.test.ts): settings kept by the key after the prefix, read from
-  their own scope, a value that doesn't fit at its default with a note, types and choices, defaults, and what changed.
-  [manifest.test.ts](../packages/extensions/src/manifest.test.ts) also refuses choices on a number, titles that don't
-  match and a default that doesn't fit.
+- [settings.test.ts](../packages/extension-host/src/settings.test.ts): settings kept by the key after the prefix, read
+  from their own scope, a value that doesn't fit at its default with a note, defaults, and what changed. The extension
+  package's [settings.test.ts](../packages/extension/src/reader/settings.test.ts) takes a value only of its type and
+  choices, and [manifest.test.ts](../packages/extension/src/reader/manifest.test.ts) refuses choices on a number, titles
+  that don't match and a default that doesn't fit.
 - [storybook.test.ts](../packages/extension-storybook/src/storybook.test.ts): Storybook's manifest passes the checks,
   with its project and app settings, and a component's page is its docs first, or its first story when asked.
-- [agents.test.ts](../packages/extensions/src/agents.test.ts) (PAR-1096): the extension one builds on activated first
-  and its API called in its own host, one the manifest doesn't name refused, one whose dependency is missing left out, a
-  command run for an agent giving back what it returned with its change named after both, two agents' overlapping calls
-  each named after its own agent, an extension started by an agent's call activating as the agent's, the same through
-  another extension's API, a tool's input checked against its schema, questions failing while an agent runs it, and what
-  agents read of each extension.
+- [agents.test.ts](../packages/extension-host/src/agents.test.ts) (PAR-1096): the extension one builds on activated
+  first and its API called in its own host, one the manifest doesn't name refused, one whose dependency is missing left
+  out, a command run for an agent giving back what it returned with its change named after both, two agents' overlapping
+  calls each named after its own agent, an extension started by an agent's call activating as the agent's, the same
+  through another extension's API, a tool's input checked against its schema, questions failing while an agent runs it,
+  and what agents read of each extension.
 - [extension-storybook-a11y's extension.test.ts](../packages/extension-storybook-a11y/src/extension.test.ts): its
-  manifest, Check accessibility in Storybook opening the panel through the Storybook extension's API, and its agent
-  tool.
+  manifest and a story's accessibility page. [dependencies.test.ts](../packages/extension-host/src/dependencies.test.ts)
+  runs it with the Storybook extension in the real host code: Check accessibility in Storybook opening the panel through
+  the Storybook extension's API, its processes handed over once Storybook's extension has activated, and its agent tool.
 - `packages/agent/src/dispatch.test.ts` "extensions" and `packages/cli/src/operations.test.ts`: `get_extensions` and
   `run_extension`, as `parity extensions` and `parity run`, with the caller named.
 

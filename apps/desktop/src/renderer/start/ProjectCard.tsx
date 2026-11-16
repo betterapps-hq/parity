@@ -5,12 +5,12 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
 import { type CSSProperties, useId, useRef, useState } from "react"
-import { type ExternalToast, toast } from "sonner"
 import { Hint } from "../chrome/Hint.tsx"
 import { Name } from "../chrome/Name.tsx"
+import { notify, type ToastOptions } from "../toasts.tsx"
 import { ProjectArt, useScreenCount, useScreenName } from "./ProjectArt.tsx"
 import { type KnownProject, whenLabel } from "./projects.ts"
 import { notReady, useStartActions } from "./start-actions.ts"
@@ -37,15 +37,13 @@ function openedLine(project: KnownProject, now: number): string {
  * drive that isn't plugged in comes back.
  */
 export function folderMissing(project: KnownProject, remove?: () => void): void {
-  const options: ExternalToast = {
-    description: `Its folder isn't at ${project.root} any more. Put it back, or remove it from Recent.`
-  }
+  const shown: ToastOptions = { description: `${project.name} is no longer at ${project.root}.` }
 
   if (remove) {
-    options.action = { label: "Remove", onClick: remove }
+    shown.action = { label: "Remove", run: remove }
   }
 
-  toast(`Parity can't find ${project.name}`, options)
+  notify.warning("Can't find the project", shown)
 }
 
 /** What can be done with a project from the start page. */
@@ -78,7 +76,7 @@ function ProjectMenu({
         <DropdownMenuItem onClick={() => actions.star(project.root, !project.starred)}>
           <Star /> {project.starred ? "Unstar" : "Star"}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => notReady("Links to projects aren't ready yet")}>
+        <DropdownMenuItem onClick={() => notReady("Project links aren't available yet")}>
           <Link /> Copy link
         </DropdownMenuItem>
         {onRemove && (

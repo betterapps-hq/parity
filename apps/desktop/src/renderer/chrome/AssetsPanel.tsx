@@ -9,10 +9,9 @@ import {
   PopoverTrigger,
   ToggleGroup,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   type ComponentRef,
-  type ComponentRenderStatus,
   type ComponentRole,
   type ComponentSource,
   componentRole,
@@ -26,6 +25,8 @@ import {
   type LibraryInfo
 } from "@parity-app/core"
 import {
+  type AssetLine,
+  assetLines,
   compareRanked,
   componentLabel,
   componentUses,
@@ -41,7 +42,7 @@ import {
   searchOption
 } from "@parity-app/editor"
 import { applyDocuments, type ProjectDoc } from "@parity-app/multiplayer"
-import { useVirtualizer } from "@tanstack/react-virtual"
+import { defaultRangeExtractor, useVirtualizer } from "@tanstack/react-virtual"
 import {
   ChevronRight,
   CircleAlert,
@@ -61,6 +62,7 @@ import {
   type KeyboardEvent,
   type ReactElement,
   type ReactNode,
+  memo,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -96,15 +98,10 @@ import { type PreviewStatus, previewStatus } from "./preview-status.ts"
 import { announceEdit } from "./project-edits.tsx"
 import { revealSelection } from "./reveal.ts"
 
-const noStatus: Record<string, ComponentRenderStatus> = {}
 const noSubscription = () => () => undefined
 
-/** How each component drawn so far fares on the canvas, as the guest's boundaries saw it. */
-function useRenderStatus(loaded: LoadedGuest): Record<string, ComponentRenderStatus> {
-  const status = loaded.guest.renderStatus
-
-  return useSyncExternalStore(status?.subscribe ?? noSubscription, status?.get ?? (() => noStatus))
-}
+/** No source opened or closed by hand. */
+const noneOpened: Readonly<Record<string, boolean>> = {}
 
 /**
  * Puts an export on the component list, as an undoable change to the main project file, saved with it. The list follows
@@ -394,13 +391,51 @@ export function ComponentsPanel() {
 
   const needle = query.trim().toLowerCase()
 
-  const shown = needle
-    ? sources
-        .map((source) => ({ ...source, families: searchFamilies(source, needle) }))
-        .filter((source) => source.families.length > 0)
-    : sources.filter((source) => source.families.length > 0 || source.library)
+  const shown = useMemo(
+    () =>
+      needle
+        ? sources
+            .map((source) => ({ ...source, families: searchFamilies(source, needle) }))
+            .filter((source) => source.families.length > 0)
+        : sources.filter((source) => source.families.length > 0 || source.library),
+    [sources, needle]
+  )
 
   const leftOut = needle ? notListed(info).filter((entry) => entry.name.toLowerCase().includes(needle)) : []
+
+  // What was opened or closed by hand. Starting or clearing a search forgets it, so matches always show.
+  const [opened, setOpened] = useState<{ searching: boolean; by: Readonly<Record<string, boolean>> }>({
+    searching: false,
+    by: {}
+  })
+
+  const searching = !!needle
+
+  // Entering or leaving a search drops what was toggled, so the next search doesn't bring back the last one's.
+  if (opened.searching !== searching) {
+    setOpened({ searching, by: noneOpened })
+  }
+
+  const openedBy = opened.searching === searching ? opened.by : noneOpened
+
+  const toggle = (id: string, open: boolean) => setOpened({ searching, by: { ...openedBy, [id]: open } })
+
+  const lines = useMemo(
+    () =>
+      assetLines(
+        shown.map((source) => ({
+          id: source.id,
+          families: source.families,
+          // The app's components and pages can run to hundreds, so they start closed beside other sections.
+          open:
+            openedBy[source.id] ??
+            (!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3),
+          notice: !!source.library && !source.library.stylesImported
+        })),
+        view === "grid" ? 2 : 1
+      ),
+    [shown, openedBy, needle, view]
+  )
 
   return (
     <>
@@ -433,23 +468,12 @@ export function ComponentsPanel() {
           ))}
         </ToggleGroup>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto py-2 text-sm">
-        {shown.map((source) => (
-          <SourceSection
-            // Starting or clearing a search resets what was collapsed by hand, so matches always show.
-            key={`${source.id}${needle ? " search" : ""}`}
-            source={source}
-            view={view}
-            uses={uses}
-            // The app's components and pages can run to hundreds, so they start closed beside other sections.
-            open={!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3}
-          />
-        ))}
+      <AssetList key={needle} sources={shown} lines={lines} view={view} uses={uses} onToggle={toggle}>
         {leftOut.length > 0 && <NotListed entries={leftOut} />}
         {shown.length === 0 && leftOut.length === 0 && (
           <p className="px-4 py-6 text-center text-xs text-muted-foreground">Nothing matches.</p>
         )}
-      </div>
+      </AssetList>
     </>
   )
 }
@@ -525,64 +549,163 @@ function NotListed({ entries }: { entries: LeftOutExport[] }) {
   )
 }
 
-/** A source's components, open to begin with when `open` says so; after that the person decides. */
-function SourceSection({
-  source,
-  open,
+/** How tall each kind of line is before it's measured, in pixels. */
+function lineHeight(line: AssetLine<FamilyItem>, view: ComponentsView): number {
+  switch (line.type) {
+    case "source":
+      return 28
+    case "notice":
+      return 60
+    case "family":
+      return 20
+    case "items":
+      return rowHeights[view] + (line.last ? 4 : 0)
+  }
+}
+
+/** How tall a row of each view is before it's measured, in pixels: a grid row is about a picture's height and its name. */
+const rowHeights: Record<ComponentsView, number> = { names: 28, list: 44, grid: 112 }
+
+/**
+ * The sources' lines, drawn only while in view, ten either side besides (PAR-1202): a library of hundreds of components
+ * costs the panel what a few do. The row with focus stays drawn when it's scrolled away, so the keyboard keeps its
+ * place. `children` come after the lines, as the exports a search finds that aren't listed.
+ */
+function AssetList({
+  sources,
+  lines,
   view,
-  uses
+  uses,
+  onToggle,
+  children
 }: {
-  source: Source
-  open: boolean
+  sources: readonly Source[]
+  lines: readonly AssetLine<FamilyItem>[]
   view: ComponentsView
   uses: ReadonlyMap<string, number>
+  onToggle: (source: string, open: boolean) => void
+  children?: ReactNode
 }) {
-  const session = useProject()
-  const statuses = useRenderStatus(session.loaded)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const focused = useRef<string>(undefined)
 
-  const [expanded, setExpanded] = useState<boolean>()
-  const count = source.families.reduce((total, family) => total + family.items.length, 0)
-  const isOpen = expanded ?? open
+  const indexOf = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
+
+  // The app doesn't use the React Compiler, whose memoizing this rule guards against.
+  // oxlint-disable-next-line react/incompatible-library
+  const virtualizer = useVirtualizer({
+    count: lines.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (index) => lineHeight(lines[index]!, view),
+    getItemKey: (index) => lines[index]!.key,
+    paddingStart: 8,
+    overscan: 10,
+    // The panel's size before it's measured, so its first frame already draws the rows in view.
+    initialRect: { width: 256, height: 900 },
+    rangeExtractor: (range) => {
+      const shown = defaultRangeExtractor(range)
+      const kept = focused.current === undefined ? undefined : indexOf.get(focused.current)
+
+      return kept === undefined || shown.includes(kept) ? shown : [...shown, kept].sort((a, b) => a - b)
+    }
+  })
+
+  // Rows change height with the view, and in Grid with the panel's width; measuring again is cheap.
+  useLayoutEffect(() => virtualizer.measure(), [virtualizer, view])
 
   return (
-    <section className="mb-1">
-      <button
-        type="button"
-        onClick={() => setExpanded(!isOpen)}
-        aria-expanded={isOpen}
-        className="group/source flex h-7 w-full items-center gap-1.5 px-2 text-muted-foreground hover:text-foreground"
-      >
-        <ChevronRight className={`size-3.5 transition-transform ${isOpen ? "rotate-90" : ""}`} />
-        {source.icon}
-        <GroupLabel className="flex min-w-0 flex-1 items-center gap-1.5 group-hover/source:text-foreground">
-          <span className="min-w-0 flex-1 truncate text-left">{source.title}</span>
-          <span className="tabular-nums">{count}</span>
-        </GroupLabel>
-      </button>
-      {source.library && !source.library.stylesImported && <ImportStyles library={source.library} />}
-      {isOpen &&
-        source.families.map((family) => (
-          <div key={family.name} className="mb-1">
-            {family.name && (family.items.length > 1 || family.heading) && (
-              <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-2xs text-muted-foreground`}>
-                <Name className="block">{family.name}</Name>
-              </div>
-            )}
-            <div className={view === "grid" ? "grid grid-cols-2 gap-1 px-2 pt-1" : undefined}>
-              {family.items.map((entry) => (
-                <AssetEntry
-                  key={entry.key}
-                  entry={entry}
-                  source={source}
-                  view={view}
-                  uses={uses.get(entry.key) ?? 0}
-                  status={entry.item.kind === "component" ? statuses[entry.key] : undefined}
-                />
-              ))}
+    <div
+      ref={scrollRef}
+      className="min-h-0 flex-1 overflow-y-auto pb-2 text-sm"
+      onFocus={(event) => {
+        focused.current = event.target.closest<HTMLElement>("[data-line]")?.dataset.line
+      }}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          focused.current = undefined
+        }
+      }}
+    >
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((item) => {
+          const line = lines[item.index]!
+          const source = sources[line.source]!
+
+          return (
+            <div
+              key={item.key}
+              ref={virtualizer.measureElement}
+              data-index={item.index}
+              data-line={line.key}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${item.start}px)` }}
+            >
+              {line.type === "source" && (
+                <SourceHeading source={source} count={line.count} open={line.open} onToggle={onToggle} />
+              )}
+              {line.type === "notice" && source.library && <ImportStyles library={source.library} />}
+              {line.type === "family" && (
+                <div className={`${view === "names" ? "px-8" : "px-3"} pt-1 text-2xs text-muted-foreground`}>
+                  <Name className="block">{line.name}</Name>
+                </div>
+              )}
+              {line.type === "items" && (
+                <div className={itemsLayout(view, line.first, line.last)}>
+                  {line.items.map((entry) => (
+                    <AssetEntry
+                      key={entry.key}
+                      entry={entry}
+                      library={!!source.library}
+                      view={view}
+                      uses={uses.get(entry.key) ?? 0}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
-    </section>
+          )
+        })}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+/** A row of items: in Grid, laid out across, with room above a family's first row; room under a family's last. */
+function itemsLayout(view: ComponentsView, first: boolean, last: boolean): string | undefined {
+  if (view === "grid") {
+    return `grid grid-cols-2 gap-1 px-2 ${first ? "pt-1" : ""} ${last ? "pb-2" : "pb-1"}`
+  }
+
+  return last ? "pb-1" : undefined
+}
+
+/** A source's heading, with how many components it has; clicking it opens or closes the source. */
+function SourceHeading({
+  source,
+  count,
+  open,
+  onToggle
+}: {
+  source: Source
+  count: number
+  open: boolean
+  onToggle: (source: string, open: boolean) => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onToggle(source.id, !open)}
+      aria-expanded={open}
+      className="group/source flex h-7 w-full items-center gap-1.5 px-2 text-muted-foreground hover:text-foreground"
+    >
+      <ChevronRight className={`size-3.5 transition-transform ${open ? "rotate-90" : ""}`} />
+      {source.icon}
+      <GroupLabel className="flex min-w-0 flex-1 items-center gap-1.5 group-hover/source:text-foreground">
+        <span className="min-w-0 flex-1 truncate text-left">{source.title}</span>
+        <span className="tabular-nums">{count}</span>
+      </GroupLabel>
+    </button>
   )
 }
 
@@ -596,31 +719,12 @@ const thumbSizes = { list: { width: 52, height: 34 }, grid: { width: 104, height
  * project's extensions offer for components, as Open in Storybook, and View code in the person's editor, each greyed with
  * why when it can't. A library's design offers its two ways to insert.
  */
-function AssetEntry({
-  entry,
-  source,
-  view,
-  uses,
-  status
-}: {
-  entry: Family["items"][number]
-  source: Source
-  view: ComponentsView
-  uses: number
-  status: ComponentRenderStatus | undefined
-}) {
+const AssetEntry = memo(function AssetEntry({ entry, library, view, uses }: AssetEntryProps) {
   const session = useProject()
   const { item } = entry
   const component = item.kind === "component" ? entry.key : undefined
-
-  const placed: PlacedExtensions = {
-    session,
-    extensions: useExtensions(session).extensions,
-    placement: "componentCard"
-  }
-
-  const offers = componentOffers(component, placed)
-  const failing = status && "error" in status
+  const failure = useRenderFailure(session.loaded, component)
+  const failing = failure !== undefined
   const card = useHoverCard()
   const { pictured, about } = useComponentCard(session, component, card.open)
   const file = about.onOpenFile !== undefined
@@ -723,24 +827,8 @@ function AssetEntry({
     </button>
   )
 
-  const instance = source.library && item.kind === "instance"
-
-  const menu = (component || instance) && (
-    <ComponentMenu
-      offers={component ? menuOffers(component, placed) : undefined}
-      code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
-    >
-      {instance && (
-        // A library's design is placed linked, following the library, or as a copy to change freely.
-        <>
-          <ContextMenuItem onClick={() => addAtSelection(session, item)}>Insert linked instance</ContextMenuItem>
-          <ContextMenuItem onClick={() => addAtSelection(session, { ...item, detached: true })}>
-            Insert detached copy
-          </ContextMenuItem>
-        </>
-      )}
-    </ComponentMenu>
-  )
+  const instance = library && item.kind === "instance"
+  const menu = component !== undefined || instance
 
   const trigger = menu ? <ContextMenuTrigger render={button} /> : button
 
@@ -749,7 +837,7 @@ function AssetEntry({
       card={card}
       name={component}
       note={entry.evidence}
-      status={failing ? describeRenderStatus(status) : undefined}
+      status={failing ? describeRenderStatus({ error: failure }) : undefined}
       {...about}
       uses={uses}
       onInsert={() => {
@@ -760,52 +848,140 @@ function AssetEntry({
       {trigger}
     </ComponentPopover>
   ) : (
-    <Hint
-      label={entry.key}
-      detail={[status && describeRenderStatus(status), instance && "Right-click to insert a detached copy."]
-        .filter(Boolean)
-        .join("\n")}
-      wait
-    >
+    <Hint label={entry.key} detail={instance ? "Right-click to insert a detached copy." : undefined} wait>
       {trigger}
     </Hint>
   )
 
   return (
-    <AssetRow component={component}>
+    <AssetRow
+      component={component}
+      offers={component && <RowOffers component={component} label={entry.label} view={view} />}
+    >
       {menu ? (
         <ContextMenu>
           {row}
-          <ContextMenuContent className="w-auto min-w-56 whitespace-nowrap">{menu}</ContextMenuContent>
+          <ContextMenuContent className="w-auto min-w-56 whitespace-nowrap">
+            {/* Mounted only while the menu is open, so its offers are worked out then. */}
+            <AssetMenu component={component} design={instance ? item : undefined} file={file} />
+          </ContextMenuContent>
         </ContextMenu>
       ) : (
         row
       )}
-      {offers.length > 0 && (
-        <div
-          className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
-        >
-          {offers.map(({ command, unavailable }) => (
-            // One that can't act stays, faded and focusable, its hint saying why.
-            <Hint key={`${command.extension}:${command.id}`} label={unavailable ?? command.name}>
-              <button
-                type="button"
-                aria-label={
-                  unavailable === undefined
-                    ? `${command.name}: ${entry.label}`
-                    : `${command.name}: ${entry.label}, unavailable: ${unavailable}`
-                }
-                aria-disabled={unavailable !== undefined || undefined}
-                onClick={unavailable === undefined ? () => void command.run() : undefined}
-                className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
-              >
-                <AdapterLogo logo={command.icon} className="size-3.5" />
-              </button>
-            </Hint>
-          ))}
-        </div>
-      )}
     </AssetRow>
+  )
+}, sameRow)
+
+interface AssetEntryProps {
+  entry: FamilyItem
+  /** It's one of a library's, whose designs are inserted linked or as a copy. */
+  library: boolean
+  view: ComponentsView
+  uses: number
+}
+
+/** Whether a row shows what it showed: the list makes its items afresh whenever the project's designs change. */
+function sameRow(before: AssetEntryProps, after: AssetEntryProps): boolean {
+  const [a, b] = [before.entry, after.entry]
+
+  return (
+    before.library === after.library &&
+    before.view === after.view &&
+    before.uses === after.uses &&
+    a.key === b.key &&
+    a.label === b.label &&
+    a.evidence === b.evidence &&
+    a.hidden === b.hidden &&
+    a.item.kind === b.item.kind &&
+    (a.item.kind !== "instance" || (b.item.kind === "instance" && a.item.design === b.item.design))
+  )
+}
+
+/**
+ * Why a component fails to draw on the canvas, as the guest's boundaries saw it, or nothing. A row hears only of its own
+ * component, so the canvas drawing more doesn't draw every row again.
+ */
+function useRenderFailure(loaded: LoadedGuest, component: string | undefined): string | undefined {
+  const status = loaded.guest.renderStatus
+
+  return useSyncExternalStore(status?.subscribe ?? noSubscription, () => {
+    const now = component === undefined ? undefined : status?.get()[component]
+
+    return now && "error" in now ? now.error : undefined
+  })
+}
+
+/**
+ * A component's or a library design's right-click menu (PAR-527): what the project's extensions offer for components,
+ * as Open in Storybook, and View code, or a library design's two ways to insert, linked or as a copy to change freely.
+ * It's worked out as the menu opens.
+ */
+function AssetMenu({
+  component,
+  design,
+  file
+}: {
+  component?: string
+  design?: Extract<InsertItem, { kind: "instance" }>
+  file: boolean
+}) {
+  const session = useProject()
+  const { extensions } = useExtensions(session)
+
+  return (
+    <ComponentMenu
+      offers={component ? menuOffers(component, { session, extensions, placement: "componentCard" }) : undefined}
+      code={component ? { file, open: () => void viewCode(session.info, component) } : undefined}
+    >
+      {design && (
+        <>
+          <ContextMenuItem onClick={() => addAtSelection(session, design)}>Insert linked instance</ContextMenuItem>
+          <ContextMenuItem onClick={() => addAtSelection(session, { ...design, detached: true })}>
+            Insert detached copy
+          </ContextMenuItem>
+        </>
+      )}
+    </ComponentMenu>
+  )
+}
+
+/**
+ * The buttons on a component's row for what the project's extensions offer, as Open in Storybook. They show while the
+ * row is pointed at or has focus, so they're worked out only then.
+ */
+function RowOffers({ component, label, view }: { component: string; label: string; view: ComponentsView }) {
+  const session = useProject()
+  const { extensions } = useExtensions(session)
+  const offers = componentOffers(component, { session, extensions, placement: "componentCard" })
+
+  if (offers.length === 0) {
+    return null
+  }
+
+  return (
+    <div
+      className={`absolute ${view === "grid" ? "top-1.5 right-1.5" : "top-1/2 right-1.5 -translate-y-1/2"} flex gap-0.5`}
+    >
+      {offers.map(({ command, unavailable }) => (
+        // One that can't act stays, faded and focusable, its hint saying why.
+        <Hint key={`${command.extension}:${command.id}`} label={unavailable ?? command.name}>
+          <button
+            type="button"
+            aria-label={
+              unavailable === undefined
+                ? `${command.name}: ${label}`
+                : `${command.name}: ${label}, unavailable: ${unavailable}`
+            }
+            aria-disabled={unavailable !== undefined || undefined}
+            onClick={unavailable === undefined ? () => void command.run() : undefined}
+            className={`grid size-5 place-items-center rounded bg-background/80 text-muted-foreground opacity-0 focus-visible:opacity-100 ${unavailable === undefined ? "group-hover/asset:opacity-100 hover:bg-background hover:text-foreground" : "group-hover/asset:opacity-50"}`}
+          >
+            <AdapterLogo logo={command.icon} className="size-3.5" />
+          </button>
+        </Hint>
+      ))}
+    </div>
   )
 }
 
@@ -876,9 +1052,10 @@ export function useComponentCard(
     about.onOpenFile = () => void viewCode(session.info, component)
   }
 
+  // Its offers are worked out only while it shows; a row's closed card needs none.
   const placed: PlacedExtensions = { session, extensions, placement: "componentCard" }
 
-  const offers = componentOffers(component, placed).map(({ command, unavailable }) => ({
+  const offers = (shown ? componentOffers(component, placed) : []).map(({ command, unavailable }) => ({
     id: `${command.extension}:${command.id}`,
     name: command.name,
     logo: command.icon,
@@ -899,14 +1076,39 @@ export interface ComponentCard {
   about: Pick<ComponentCardProps, "path" | "preview" | "missing" | "variants" | "facts" | "onOpenFile" | "offers">
 }
 
-/** A row of the Components panel. A component's row on screen has its preview made first (PAR-207). */
-function AssetRow({ component, children }: { component: string | undefined; children: ReactNode }) {
+/**
+ * A row of the Components panel. A component's row on screen has its preview made first (PAR-207). `offers` show while
+ * the row is pointed at or has focus.
+ */
+function AssetRow({
+  component,
+  offers,
+  children
+}: {
+  component: string | undefined
+  offers: ReactNode
+  children: ReactNode
+}) {
   const session = useProject()
   const onScreen = usePreviewOnScreen(session, component)
+  const [pointed, setPointed] = useState(false)
+  const [focused, setFocused] = useState(false)
 
   return (
-    <div ref={onScreen} className="group/asset relative min-w-0">
+    <div
+      ref={onScreen}
+      className="group/asset relative min-w-0"
+      onPointerEnter={() => setPointed(true)}
+      onPointerLeave={() => setPointed(false)}
+      onFocus={() => setFocused(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setFocused(false)
+        }
+      }}
+    >
       {children}
+      {(pointed || focused) && offers}
     </div>
   )
 }
@@ -915,18 +1117,18 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 async function installLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
   await serviceCall({
     progress: `Installing ${library.name}…`,
-    shown: { description: "With the project's package manager" },
     run: () => request("library.add", { projectId, library: library.id }),
     done() {
       track("library.added", { package: library.id })
 
-      return { success: `${library.name} is ready`, description: undefined }
+      return { success: `Installed ${library.name}` }
     },
     after: () => workspace.reload(projectId, `Loading ${library.name}`),
     failed: {
       operation: "library.add",
       title: `Couldn't install ${library.name}`,
-      description: (error) => message(error).slice(-400),
+      description: () => "The package manager stopped with an error.",
+      details: (error) => message(error).slice(-2000),
       track(error) {
         const failed: Attributes<"library.failed"> = { package: library.id }
         const code = errorCode(error)
@@ -956,11 +1158,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
       onOpenChange={(open) => {
         if (open && !catalog) {
           void request("library.catalog", { projectId: session.id }).then(setCatalog, (cause: unknown) =>
-            reportError(cause, {
-              operation: "library.catalog",
-              title: "Couldn't list libraries",
-              description: message(cause)
-            })
+            reportError(cause, { operation: "library.catalog", title: "Couldn't load libraries" })
           )
         }
       }}
@@ -1061,8 +1259,8 @@ export async function importStyles(projectId: string, library: LibraryInfo): Pro
   } catch (error) {
     reportError(error, {
       operation: "library.importStyles",
-      title: "Couldn't import its styles",
-      description: message(error)
+      title: `Couldn't import ${library.name}'s styles`,
+      retry: () => void importStyles(projectId, library)
     })
   }
 }

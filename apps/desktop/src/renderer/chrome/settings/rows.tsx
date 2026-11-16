@@ -7,7 +7,7 @@ import {
   DropdownMenuTrigger,
   Input,
   Switch
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronDown, X } from "lucide-react"
 import { Fragment, type ReactNode, useEffect, useId, useRef } from "react"
 import { AppSelect } from "../AppSelect.tsx"

@@ -119,7 +119,11 @@ async function detectTool(
       continue
     }
 
-    return toolDetection(tool, version, { from, ...config }, today, via)
+    // A version read from one of the tool's other packages is checked against that package's range, as Next.js against
+    // `next`'s when the webpack builder finds no webpack of its own.
+    const range = tool.ranges?.[name] ?? tool.range
+
+    return toolDetection({ ...tool, range }, version, { from, ...config }, today, via)
   }
 
   if (found.version) {

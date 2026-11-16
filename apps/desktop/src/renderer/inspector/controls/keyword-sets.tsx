@@ -10,7 +10,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { AlignCenter, AlignJustify, AlignLeft, AlignRight, ChevronDown, Unlink } from "lucide-react"
 import { type ReactNode, useContext, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"

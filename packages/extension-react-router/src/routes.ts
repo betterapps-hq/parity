@@ -1,4 +1,4 @@
-import type { Route, RouteSegment } from "@parity-app/extension-api"
+import type { Route, RouteSegment } from "@parity-app/extension"
 import ts from "typescript"
 import { type ConfigRoute, joinFolder, type ProjectFiles } from "./config.ts"
 import { flatRoutes } from "./flat-routes.ts"

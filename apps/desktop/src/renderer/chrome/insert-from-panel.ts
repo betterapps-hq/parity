@@ -1,8 +1,8 @@
 import type { InsertItem } from "@parity-app/editor"
 import type { DragEvent } from "react"
-import { toast } from "sonner"
 import { insertDrag } from "../canvas/gesture.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 
 /*
@@ -19,7 +19,7 @@ export function addAtSelection(
   item: InsertItem
 ): void {
   if (!insertAtSelection(session, item)) {
-    toast.info("Select a layout, or a layer to add it after")
+    notify.info("Nowhere to add it", { description: "Select a layout, or a layer to add it after." })
   }
 }
 

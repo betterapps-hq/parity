@@ -11,7 +11,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { scrubSteps } from "@parity-app/core"
 import { formatNumber } from "@parity-app/style-schema"
 import type { PreviewKind } from "@parity-app/tokens"

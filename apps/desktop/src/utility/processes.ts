@@ -1,4 +1,4 @@
-import type { Address } from "@parity-app/extension-api"
+import type { Address } from "@parity-app/extension"
 import type { ProcessStatus, ProjectProcess } from "../shared/protocol.ts"
 import { track } from "../shared/tracing.ts"
 

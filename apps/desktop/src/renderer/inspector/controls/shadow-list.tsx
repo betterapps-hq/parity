@@ -1,4 +1,4 @@
-import { Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenuItem } from "@buildkitgg/shadcn-baseui-kit"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger, DropdownMenuItem } from "@buildkitgg/shadcn"
 import type { PreviewKind } from "@parity-app/tokens"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { useState } from "react"

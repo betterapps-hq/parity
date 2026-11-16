@@ -15,11 +15,10 @@
   "dependencies": {
     "@parity-app/code": "workspace:*",
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*",
     "@parity-app/project": "workspace:*"
   },
   "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*",
     "vite": "^8.3.5"
   },
   "peerDependencies": {
