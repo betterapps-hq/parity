@@ -228,6 +228,32 @@ describe("the project's Storybook preview, composed with its portable stories AP
     expect(events).toEqual(["ran: true", "cleaned"])
   })
 
+  it("takes a preview written with definePreview, with its addons' decorators around its own (PAR-97)", async () => {
+    const seen: Context[] = []
+    const addon = { decorators: [box("addon")], initialGlobals: { locale: "ar" } }
+
+    const withTheme = (Inner: Story, context: Context) => {
+      seen.push(context)
+
+      return createElement(Theme.Provider, { value: String(context.globals.theme) }, createElement(Inner))
+    }
+
+    const preview = portableStories.__definePreview({
+      addons: [addon],
+      // SAFETY: Storybook's types want its own decorator signature; these follow the same contract at run time.
+      decorators: [withTheme, box("own")] as never,
+      parameters: { layout: "centered" }
+    })
+
+    mount({ default: preview }, { globals: { theme: "dark" } })
+
+    await vi.waitFor(() => expect(target.textContent).toBe("theme: dark"))
+
+    expect(nesting()).toEqual(["main", "addon", "own"])
+    expect(seen[0]?.globals).toMatchObject({ theme: "dark", locale: "ar" })
+    expect(seen[0]?.parameters).toMatchObject({ layout: "centered" })
+  })
+
   it("says why when the preview's loaders fail, and the frame stays empty", async () => {
     const onError = vi.fn<NonNullable<MountOptions["onError"]>>()
     mount({ loaders: [() => Promise.reject(new Error("no messages"))] }, { onError })

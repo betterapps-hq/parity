@@ -1556,7 +1556,7 @@ function composedPreview(
   try {
     // Storybook keeps the project's annotations on the page's global, which every project's guest shares, and a story
     // takes them as it's composed. So they're set again for each frame, in case another project's guest set its own.
-    api.setProjectAnnotations([{ decorators: [withFrameCanvas] }, project])
+    api.setProjectAnnotations([{ decorators: [withFrameCanvas] }, projectAnnotations(project)])
 
     const story: FrameStory = { name: "Frame", render: () => createElement(StoryContent), globals: frame.globals }
     frameStories.set(story, frame)
@@ -1592,6 +1592,24 @@ function composedPreview(
   }
 }
 
+/**
+ * A preview's annotations as the portable stories API takes them: its exports, or for a preview written with
+ * `definePreview` (PAR-97), whose default export is Storybook's preview object, what that object composed of its own
+ * annotations, its addons' and its renderer's.
+ */
+function projectAnnotations(module: StoryValues): StoryValues {
+  const composed = definedPreview(module)?.composed
+
+  return isStoryValues(composed) ? composed : module
+}
+
+/** The preview object `definePreview` makes, when it's the module's default export. */
+function definedPreview(module: StoryValues): { composed?: unknown; input?: unknown } | undefined {
+  const preview = exportOf(module, "default")
+
+  return isStoryValues(preview) && preview._tag === "Preview" ? preview : undefined
+}
+
 /** The portable stories API from the package that composes the preview, if it has one. */
 function portableStories(module: GuestDecorators["composer"]): PortableStories | undefined {
   const set = exportOf(module, "setProjectAnnotations")
@@ -1603,10 +1621,16 @@ function portableStories(module: GuestDecorators["composer"]): PortableStories |
     : undefined
 }
 
-/** One of a preview's exports: named, or a property of its default export, as Storybook takes either. */
+/**
+ * One of a preview's exports: named, or a property of its default export, as Storybook takes either, or of the input of
+ * the preview object `definePreview` makes. Parity's runtime has no addons, so a `definePreview`'s `addons` are left out.
+ */
 // oxlint-disable-next-line anti-slop/no-unknown-returns -- a preview exports whatever its project writes
 function previewExport(module: NonNullable<GuestDecorators["project"]>, name: string): unknown {
-  return exportOf(module, name) ?? exportOf(module, `default.${name}`)
+  const input = definedPreview(module)?.input
+
+  // A file written with `definePreview` keeps its annotations in the preview object's input (PAR-97).
+  return exportOf(module, name) ?? (isStoryValues(input) ? input[name] : exportOf(module, `default.${name}`))
 }
 
 /** Whether a value is a function, as each decorator and loader in a preview's lists is by Storybook's contract. */
