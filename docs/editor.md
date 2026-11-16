@@ -1578,6 +1578,11 @@ status bar.
 - **Its host starts as soon as package.json is read,** found by its peer dependency or by Vite+, which ships Vite, so
   detection can ask it while the builder process starts beside it.
 - **Its versions** come from its peer dependency, Vite 6 to 8, with Vite+ named as a distribution.
+- **Its prebundled dependencies are kept between opens** (PAR-1196). While the prepared server finds the app's
+  stylesheets, before the project's config is known, it compiles without the dependency optimizer. Vite 6 and 7 would
+  otherwise bundle the packages those modules import at once, stored with the config as it was before the builder added
+  the libraries, and then delete and bundle them again as the server listened, on every open; the guest's warm-up could
+  wait on the bundle deleted under it. Vite 8 waits for the optimizer to start, so it never did.
 
 Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
 `packages/extension-api/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and
@@ -1585,8 +1590,13 @@ Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`);
 
 Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions and entry module), `detect.test.ts` (what
 Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
-provider. Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its config found through the provider,
-the guest served, the Pricing page drawn, and Vite first in the status bar.
+provider, and `prepare.test.ts` (a prepared server finding the stylesheets of an app that imports a package without
+asking the optimizer to bundle it, then importing it through the optimizer once started). Tried in the running app on
+2026-11-14 on the example: Vite 8.3.5 and its config found through the provider, the guest served, the Pricing page
+drawn, and Vite first in the status bar. The kept prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a
+`node_modules` project, prepared and started three times: before the change every start re-optimized, after it none did.
+Gaps: the test runs on Vite 8, which never re-optimized, so it checks that nothing is bundled early rather than Vite 7
+itself; ten opens of `vite-fluent-pnp` in a row in the app are untried.
 
 ### Rspack as an extension, through its builder provider (PAR-1147)
 
@@ -7983,8 +7993,7 @@ project, and the Node options with and without the loader), `packages/extension-
 imports come from outside the project, and their files found from the importer), and the `vite-fluent-pnp` detection
 snapshot in `packages/fixtures`, read in a separate Node process. Tried in the app on 2026-11-16 with `vite-fluent-pnp`:
 its five routes, its 12 components, Fluent's library and 2 screens from Storybook, with the Home design drawn in desktop
-and mobile frames. Gaps: Vite 7 re-bundles its dependencies on every open and sometimes stalls (PAR-1196), and the
-end-to-end tests don't open a Plug'n'Play project.
+and mobile frames. Gaps: the end-to-end tests don't open a Plug'n'Play project.
 
 ### Opening in seconds (PAR-179)
 

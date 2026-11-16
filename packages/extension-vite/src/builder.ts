@@ -143,7 +143,9 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
 
   return {
     styles() {
-      styles ??= serverAppStyles(vite, server, options.root)
+      styles ??= started
+        ? serverAppStyles(vite, server, options.root)
+        : beforeOptimizer(server, () => serverAppStyles(vite, server, options.root))
 
       return styles
     },
@@ -156,7 +158,7 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
       served = config
 
       try {
-        // Modules the stylesheets were found with were compiled before the optimizer ran, with its hashes from then.
+        // Modules the stylesheets were found with were compiled with discovery off, importing packages' own files.
         await styles?.catch(() => undefined)
         server.environments.client?.moduleGraph.invalidateAll()
         bundleFor(server, options.renderer.runtimeImports, appPage, config)
@@ -168,6 +170,34 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
       }
     },
     close: () => server.close()
+  }
+}
+
+/**
+ * Runs `work` with the dependency optimizer finding nothing new, for compiling modules before the server listens
+ * (PAR-1196). Vite 6 and 7 bundle a package a compiled module imports at once, even before the optimizer has started,
+ * and store the bundle with the config as it is then, before `bundleFor` adds the libraries. Starting the optimizer
+ * then finds the config changed, deletes that bundle and bundles again, on every open, and the guest's warm-up could
+ * wait on the bundle deleted under it. Vite 8 waits for the optimizer to start. With discovery off, which Vite reads on
+ * each import, the packages are served as their own files; those modules are compiled again once the optimizer runs.
+ */
+async function beforeOptimizer<T>(
+  server: { environments: { client?: { depsOptimizer?: { options: { noDiscovery?: boolean } } } } },
+  work: () => Promise<T>
+): Promise<T> {
+  const options = server.environments.client?.depsOptimizer?.options
+
+  if (!options || options.noDiscovery) {
+    return work()
+  }
+
+  const noDiscovery = options.noDiscovery
+  options.noDiscovery = true
+
+  try {
+    return await work()
+  } finally {
+    options.noDiscovery = noDiscovery
   }
 }
 
