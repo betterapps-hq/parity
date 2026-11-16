@@ -32,7 +32,9 @@ beforeAll(async () => {
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
   await page.setContent(`<body style="margin: 0">${layer("moving", 150)}${layer("still", 450)}
-    <div id="first" style="width: 60px; height: 60px"></div><div id="second" style="width: 60px; height: 60px"></div></body>`)
+    <div id="first" style="width: 60px; height: 60px"></div><div id="second" style="width: 60px; height: 60px"></div>
+    <div style="position: absolute; left: 640px; top: 260px; width: 300px; height: 200px; scale: 1.8; rotate: 25deg">
+      ${layer("nested", 30).replace("left: 200px", "left: 40px").replace("width: 160px", "width: 120px")}</div></body>`)
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
 })
 
@@ -147,5 +149,39 @@ describe("elements lifted together, one picked up again before they've settled",
     })
 
     expect(left).toBe("width: 60px; height: 60px;")
+  })
+})
+
+describe("an element inside something scaled and turned", () => {
+  it("keeps where it was grabbed under the pointer as it's lifted", async () => {
+    const lifted = await liftByMark("nested")
+
+    expect(Math.abs(lifted.markLifted.x - lifted.mark.x)).toBeLessThan(0.25)
+    expect(Math.abs(lifted.markLifted.y - lifted.mark.y)).toBeLessThan(0.25)
+  })
+
+  it("flies back, when a drag's called off, from where it was let go", async () => {
+    const at = await page.evaluate(() => {
+      const element = document.getElementById("nested")!
+      const box = ({ left, top }: DOMRect) => ({ left, top })
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const lift = lifts.liftElements([element], { scale: 1 })
+
+      for (const animation of element.getAnimations()) {
+        animation.finish()
+      }
+
+      // Dragged away, as a drag moves it by its insets.
+      element.style.left = "140px"
+      const letGo = box(element.getBoundingClientRect())
+      lift.cancel(() => element.style.setProperty("left", "40px"))
+
+      return { letGo, flying: box(element.getBoundingClientRect()) }
+    })
+
+    expect(Math.abs(at.flying.left - at.letGo.left)).toBeLessThan(0.25)
+    expect(Math.abs(at.flying.top - at.letGo.top)).toBeLessThan(0.25)
   })
 })
