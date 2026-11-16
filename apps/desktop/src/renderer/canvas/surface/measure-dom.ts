@@ -44,29 +44,64 @@ export function domMeasurePort(editor: Editor): MeasurePort {
     size: { width: (box.right - box.left) / scale, height: (box.bottom - box.top) / scale }
   })
 
-  const frameOf = (host: HTMLElement): MeasuredFrame => ({
-    mode: host.dataset.mode,
-    state: host.dataset.state,
-    primary: host.dataset.primary === "true",
-    asleep: host.closest("[data-asleep]") !== null,
-    measure: () => {
-      const geometry = frameGeometry(host)
+  /** Whether a client point is inside an element's box. */
+  const holds = (element: Element, at: Point) => {
+    const { x, y } = toClient(at)
+    const rect = element.getBoundingClientRect()
 
-      return drawnAt(geometry.rect, geometry.scale, host)
-    },
-    node: (id) => {
-      const node = frameGeometry(host).node(id)
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+  }
 
-      return node && drawnAt(node.box, node.scale, node.hasElement ? findNodeElement(host, id) : undefined)
-    },
-    contains: (at) => {
-      const { x, y } = toClient(at)
-      const rect = host.getBoundingClientRect()
+  /**
+   * A design's frame. A design narrower than its window lays out across the whole window and its `.mode-frame` shows
+   * only its own width (ModeView.tsx), so the box is the frame's, at the host's scale.
+   */
+  const frameOf = (host: HTMLElement): MeasuredFrame => {
+    const shown = host.closest(".mode-frame") ?? host
 
-      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
-    },
-    nodesAt: (at) => nodesAt(host, toClient(at))
-  })
+    return {
+      mode: host.dataset.mode,
+      state: host.dataset.state,
+      primary: host.dataset.primary === "true",
+      asleep: host.closest("[data-asleep]") !== null,
+      measure: () => drawnAt(shown.getBoundingClientRect(), frameGeometry(host).scale, shown),
+      node: (id) => {
+        const node = frameGeometry(host).node(id)
+
+        return node && drawnAt(node.box, node.scale, node.hasElement ? findNodeElement(host, id) : undefined)
+      },
+      contains: (at) => holds(shown, at),
+      nodesAt: (at) => nodesAt(host, toClient(at))
+    }
+  }
+
+  /**
+   * A page of the app in its frame (`PageFrame` in ContainerView.tsx): the app's own document in an iframe, scaled, in a
+   * box that clips it to the page's height. Its nodes are in another document, so it has none to measure.
+   */
+  const pageFrameOf = (tile: HTMLElement, page: HTMLIFrameElement): MeasuredFrame => {
+    const shown = page.parentElement ?? page
+
+    return {
+      mode: tile.dataset.mode,
+      state: undefined,
+      primary: tile.dataset.primary === "true",
+      asleep: page.closest("[data-asleep]") !== null,
+      measure: () =>
+        drawnAt(shown.getBoundingClientRect(), page.getBoundingClientRect().width / page.offsetWidth || 1, shown),
+      node: () => undefined,
+      contains: (at) => holds(shown, at),
+      nodesAt: () => []
+    }
+  }
+
+  /** The app's pages a design's board draws, which aren't in the frames' index. */
+  const pageFrames = (design: string): MeasuredFrame[] =>
+    [...(boardElement(design)?.querySelectorAll<HTMLElement>(".mode-tile") ?? [])].flatMap((tile) => {
+      const page = tile.querySelector("iframe")
+
+      return page && !tile.querySelector("[data-frame]") ? [pageFrameOf(tile, page)] : []
+    })
 
   return {
     board: (design) => {
@@ -88,7 +123,7 @@ export function domMeasurePort(editor: Editor): MeasurePort {
       }
     },
     boardDrawn: (design) => boardElement(design) !== undefined,
-    frames: (design) => findFrames(area(), design).map(frameOf),
+    frames: (design) => [...findFrames(area(), design).map(frameOf), ...pageFrames(design)],
     designAt: (at) => {
       const board = editor.getShapeAtPoint(at, { hitInside: true, filter: (item) => item.type === "canvas-container" })
 
