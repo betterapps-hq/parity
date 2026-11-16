@@ -2,6 +2,67 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 00:11:32 GMT",
+      "version": "0.96.0",
+      "tag": "@parity-app/desktop_v0.96.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "39c65c88897c16c0c9e742b8f4bae1de6ddcea47",
+            "comment": "Next.js components that read the router draw on canvas, inside a still router at the root."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "236047b66673804c60afab0dccd9bc35d96e4e9c",
+            "comment": "Components that render React Router's or TanStack Router's Link now draw on canvas on their own, inside a router at the frame's URL."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "b7b6893a539cc9399a20ee3c330be052a04b1181",
+            "comment": "Next.js projects draw their own App Router and Pages Router pages on canvas, in each frame's mode, on Turbopack and webpack"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e5eca2d977cc206672694f90115087916e72ee93",
+            "comment": "The editor's designs live in a project document on the local provider, with operation-based undo and a saver, in place of the design store."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "25dd174af779fd1a09f46d20a3e53f38286dc36e",
+            "comment": "A Next.js project's layers lead back to their code: the Next builders tag each element with its source."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6c8c2d9cb6e83790debc6754c7833eceb26529e6",
+            "comment": "TanStack Router apps that declare their routes in code, with createRootRoute and createRoute, now have their pages listed and drawn."
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2400fc323adfd72113b4db8bed7bba47d6cb6561",
+            "comment": "Test the React guest on React 18"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "73a42b9006025d9d9ca76489918ef0dd455955cc",
+            "comment": "The Components panel, component boards and the Home screen take pages from the project's routes, whatever its router calls its files"
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 22:03:29 GMT",
       "version": "0.95.0",
       "tag": "@parity-app/desktop_v0.95.0",
