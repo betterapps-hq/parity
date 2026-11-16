@@ -44,6 +44,13 @@ beforeAll(async () => {
         <div id="turned-first" style="width: 80px; height: 40px"></div>
         <div id="turned" style="width: 60px; height: 40px"></div>
       </div>
+    </div>
+    <div id="nest-column" style="display: flex; flex-direction: column; width: 300px">
+      <div id="nest-gone" style="height: 100px"></div>
+      <div id="nest" style="display: flex; gap: 10px; height: 40px">
+        <div id="nest-first" style="width: 50px; height: 40px"></div>
+        <div id="nest-second" style="width: 50px; height: 40px"></div>
+      </div>
     </div></body>`)
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
 })
@@ -183,3 +190,60 @@ describe("a slide of something scaled, or in something turned", () => {
     expect(Math.abs(sliding.top - was.top)).toBeLessThan(0.25)
   })
 })
+
+describe("a slide of a layout and what's in it", () => {
+  let drawn: { was: Corner[]; sliding: Corner[]; ended: Corner[] }
+
+  beforeAll(async () => {
+    drawn = await page.evaluate(() => {
+      const column = document.getElementById("nest-column")!
+      const nest = document.getElementById("nest")!
+      const gone = document.getElementById("nest-gone")!
+      const watched = [nest, ...nest.children]
+      const corner = ({ left, top }: DOMRect) => ({ left, top })
+      const corners = () => watched.map((element) => corner(element.getBoundingClientRect()))
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const { endSlides, slideElements } = edges
+      const was = corners()
+
+      // As a drop preview does: what's above the layout is hidden, so the layout moves up, and a copy goes in at its
+      // start, so what's in it moves along.
+      slideElements(
+        [...column.children, ...nest.children],
+        () => {
+          gone.style.display = "none"
+          const copy = document.createElement("div")
+          copy.style.cssText = "width: 30px; height: 40px; flex: none"
+          nest.prepend(copy)
+        },
+        false
+      )
+
+      const sliding = corners()
+      endSlides(watched)
+
+      return { was, sliding, ended: corners() }
+    })
+  })
+
+  it("starts the layout and what's in it from where they were drawn", () => {
+    drawn.sliding.forEach((box, index) => {
+      expect(Math.abs(box.left - drawn.was[index]!.left)).toBeLessThan(0.25)
+      expect(Math.abs(box.top - drawn.was[index]!.top)).toBeLessThan(0.25)
+    })
+  })
+
+  it("ends them where they're laid out", () => {
+    // Up by what was hidden, and what's in it along by the copy and its gap.
+    expect(drawn.ended[0]!.top - drawn.was[0]!.top).toBeCloseTo(-100, 1)
+    expect(drawn.ended[1]!.left - drawn.was[1]!.left).toBeCloseTo(40, 1)
+    expect(drawn.ended[1]!.top - drawn.was[1]!.top).toBeCloseTo(-100, 1)
+  })
+})
+
+/** Where an element's drawn from, its top-left on screen. */
+interface Corner {
+  left: number
+  top: number
+}
