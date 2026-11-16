@@ -3,7 +3,7 @@ import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import type * as pageStylesModule from "./page-styles.ts"
-import { callerOrigin, withMedia } from "./page-styles.ts"
+import { callerOrigin, relativeUrlsFrom, withMedia } from "./page-styles.ts"
 
 // docs/editor.md, A project's stylesheets stay in its frames (PAR-1187). The boundary wraps the page's own DOM methods
 // and tells code apart by where it was served from, so this runs in Chrome, with Parity's page and a project's code
@@ -340,7 +340,7 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
       media: "not all",
       sheets: [
         {
-          css: ".card { color: rgb(255, 0, 0); background: url(card.png); }",
+          css: ".card { color: rgb(255, 0, 0); background: url(http://project.test/card.png); }",
           baseUrl: "http://project.test/card.css"
         }
       ]
@@ -368,6 +368,21 @@ describe("callerOrigin", () => {
     ).toBe("http://localhost:5173")
     expect(callerOrigin(stack("http://localhost:5391/src/main.tsx:4:2"), "http://localhost:5391")).toBeUndefined()
     expect(callerOrigin(stack("eval (<anonymous>)"), "http://localhost:5391")).toBeUndefined()
+  })
+})
+
+describe("relativeUrlsFrom", () => {
+  it("resolves relative url()s against the stylesheet's address, leaving the rest", () => {
+    const address = "http://project.test/_next/static/css/app.css"
+
+    expect(
+      relativeUrlsFrom(
+        '.a { background: url("../media/a.png"); } @font-face { src: url(f.woff2); } .b { background: url(/b.png), url(data:image/png;base64,x), url(#c), url(https://cdn.test/d.png); }',
+        address
+      )
+    ).toBe(
+      '.a { background: url("http://project.test/_next/static/media/a.png"); } @font-face { src: url(http://project.test/_next/static/css/f.woff2); } .b { background: url(/b.png), url(data:image/png;base64,x), url(#c), url(https://cdn.test/d.png); }'
+    )
   })
 })
 

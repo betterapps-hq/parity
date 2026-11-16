@@ -109,6 +109,18 @@ export function callerOrigin(stack: string, pageOrigin: string): string | undefi
   return undefined
 }
 
+/**
+ * `css` with each relative `url()` resolved against `address`, the linked stylesheet it was read from, as a browser
+ * resolves them. Frames take it as a sheet of Parity's own, where they'd resolve against Parity's page. Addresses with
+ * a scheme, from the root, and fragments stay as they are.
+ */
+export function relativeUrlsFrom(css: string, address: string): string {
+  return css.replace(
+    /url\(\s*(["']?)(?![a-z][a-z\d+.-]*:|\/|#)([^"')]+)\1\s*\)/gi,
+    (_match, quote: string, path: string) => `url(${quote}${new URL(path, address).href}${quote})`
+  )
+}
+
 /** `css` as a stylesheet with `media` applies it, when that's narrower than every medium. */
 export function withMedia(css: string, media: string | null): string {
   const query = media?.trim()
@@ -118,7 +130,9 @@ export function withMedia(css: string, media: string | null): string {
 
 function sheetText(element: Element, entry: Caught): string | undefined {
   if (element instanceof HTMLLinkElement) {
-    return isStylesheet(element) && entry.read === element.href ? entry.linked : undefined
+    return isStylesheet(element) && entry.read === element.href && entry.linked !== undefined
+      ? relativeUrlsFrom(entry.linked, element.href)
+      : undefined
   }
 
   const sheet = element instanceof HTMLStyleElement ? element.sheet : null
