@@ -1,8 +1,8 @@
 import type { PickItem } from "@parity-app/extension-api"
-import { type ExternalToast, toast } from "sonner"
 import type { ExtensionUiAnswer, ExtensionUiRequest } from "../shared/protocol.ts"
 import { request } from "./service.ts"
 import { resetWithWindow, useStore, windowStore } from "./store.ts"
+import { notify, type ToastOptions } from "./toasts.tsx"
 
 /*
  * What extensions show the person and ask them through `parity.ui` (PAR-1089), drawn in Parity's own look: toasts for
@@ -53,7 +53,8 @@ export async function answerExtension(name: string, asked: ExtensionUiRequest): 
   switch (asked.method) {
     case "ui.notify": {
       const { message, detail, tone = "info", actions = [] } = asked.params
-      const [first, second] = actions
+      // The toast has room for one button, so an extension's first action is the one shown.
+      const [first] = actions
 
       return new Promise((resolve) => {
         let settled = false
@@ -65,22 +66,27 @@ export async function answerExtension(name: string, asked: ExtensionUiRequest): 
           }
         }
 
-        const options: ExternalToast = { description: detail, onDismiss: () => done(), onAutoClose: () => done() }
+        const id = crypto.randomUUID()
+        const options: ToastOptions = { id, description: detail, onClose: () => done() }
 
         if (first) {
-          options.action = { label: first, onClick: () => done(first) }
-        }
-
-        if (second) {
-          options.cancel = { label: second, onClick: () => done(second) }
+          // Closing a toast calls `onClose` at once, so the button answers before it closes the toast itself.
+          options.action = {
+            label: first,
+            keepOpen: true,
+            run: () => {
+              done(first)
+              notify.close(id)
+            }
+          }
         }
 
         if (tone === "success") {
-          toast.success(message, options)
+          notify.done(message, options)
         } else if (tone === "info") {
-          toast.info(message, options)
+          notify.info(message, options)
         } else {
-          toast.warning(message, options)
+          notify.warning(message, options)
         }
       })
     }
@@ -91,21 +97,19 @@ export async function answerExtension(name: string, asked: ExtensionUiRequest): 
 
       if (done) {
         progress.delete(key)
-        toast.dismiss(key)
+        notify.close(key)
 
         return undefined
       }
 
       const shown = title ?? progress.get(key) ?? name
       progress.set(key, shown)
-      toast.loading(shown, {
+      notify.progress(shown, {
         id: key,
         description: detail,
-        duration: Number.POSITIVE_INFINITY,
-        cancel: {
+        action: {
           label: "Cancel",
-          onClick: () =>
-            void request("extensions.cancel", { projectId, extension, progress: id }).catch(() => undefined)
+          run: () => void request("extensions.cancel", { projectId, extension, progress: id }).catch(() => undefined)
         }
       })
 

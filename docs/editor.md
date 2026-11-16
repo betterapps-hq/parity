@@ -2816,7 +2816,7 @@ mode, with one state, and isn't written to code.
   Export is at the foot, as for any design.
 - **Convert to,** in every design's title menu ("Convert to component", "Convert to screen", "Convert to frame", with
   each kind's icon), and as Make component's Convert to component in the canvas and Object menus. A frame becomes a
-  screen or a component at once, keeping its size as its preview's, with a toast ("Plan card is a component") whose Undo
+  screen or a component at once, keeping its size as its preview's, with a toast ("Converted to a component") whose Undo
   makes it a frame again. A screen or component becomes a frame at once when it drops nothing; otherwise a dialog lists
   what goes (states after the first, previews beside the main one, params, and each design's instances, which become
   plain layers), with Cancel and Convert to frame. Each is one undo step, and converting a component detaches its
@@ -3935,8 +3935,8 @@ or design selected. The sizes are remembered for every export, not per layer.
   covering every pixel it touches. A PNG keeps what's see-through; a JPG has none, so those parts are white, which the
   section says when a JPG is asked for.
 - **What can't be written:** a layer the shown state doesn't draw, one with no size, or a design that didn't draw is
-  left out with a warning toast, and the rest are written. A toast says how many files were written, with Show for the
-  first.
+  left out with a warning toast, and the rest are written. A toast says how many files were written, with Open folder
+  for the first.
 - **File > Export all** writes every design at the same sizes, in every state and mode it shows, each drawn once at each
   scale. Its files are named by the design, with the state and mode when it has more than one
   (`Sign up Error Mobile Light@2x.jpg`), and numbered as layers' are. A design or frame that doesn't draw is left out
@@ -7506,8 +7506,8 @@ at the end of the strip. Both are the start page from the explorations:
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
     the start page stops listing it.
 - **Stubs:** For you and Shared with you are empty; New project, cloning, Copy link, Invite people and New organization
-  show a toast saying they aren't ready yet. New project's toast also offers Open a folder. A project's menu has no New
-  project from this until projects can be made (PAR-284).
+  show a toast saying they aren't available yet. New project's and cloning's toasts also offer Open folder. A project's
+  menu has no New project from this until projects can be made (PAR-284).
 
 Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
 `StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home and new tabs,
@@ -8671,14 +8671,41 @@ Storybook draws it. `chrome/SettingsDialog.stories.tsx` opens it over the exampl
 project's page; `chrome/TelemetrySetting.stories.tsx` and `chrome/UpdateDialogs.stories.tsx` open it on Diagnostics and
 Updates.
 
+### Notifications (PAR-1186)
+
+Every toast is the kit's stock toast, at the window's bottom right, and goes through `notify` in
+`apps/desktop/src/renderer/toasts.tsx`. A lint rule in `vite.config.ts` stops any other renderer file importing the
+kit's toast or Sonner.
+
+- **Five kinds:** `done`, `info`, `warning`, `failed` and `progress`. Each has its icon, and success and warning icons
+  are colored like error's, from `--toast-success` and `--toast-warning` in `styles.css`. A result goes after 4 seconds,
+  info after 5 and a warning after 8; a failure, and progress, stay until they're replaced or closed. Failures and
+  warnings are announced to screen readers at once.
+- **How a toast reads:** the title says what happened in two to five words and holds no names from the person's project,
+  which can be any length. The description is at most one sentence: why a failure happened, or the one consequence that
+  changes what to do, and it carries those names. It's left out when it adds nothing. A button is a verb of one or two
+  words. Failures start with "Couldn't".
+- **Failures in plain words:** every failure goes through `reportError` in `report-error.ts`, which records it and shows
+  `notify.failed` with the error; lint keeps `notify.failed` out of other files. `plainReason` in
+  `packages/core/src/reasons.ts` puts common system failures (permission, disk full, file in use, missing file, no
+  connection) in words, falling back to the error's own message without Electron's prefix. `retry` adds Try again, and
+  `details` puts long output, such as a package manager's log, behind Details.
+- **A toast's button closes it** once pressed, since the stock toast leaves it open, unless the button changes the toast
+  itself, as Undo on a project file's change and the update notice's buttons do.
+- **The same id replaces a toast in place,** so progress becomes its result and repeated saves that fail say so once.
+
+Tests: `packages/core/src/reasons.test.ts` covers the plain reasons. Storybook, `chrome/Notifications.stories.tsx` shows
+the window's commands' toasts in place, and `chrome/ToastAudit.stories.tsx` Every toast lists each toast the app shows,
+numbered, as it read before PAR-1186 and as it reads now.
+
 ### Installed app updates (PAR-160)
 
 Windows NSIS and Linux AppImage installations check GitHub Releases on startup and through Help > Check for updates.
 Automatic downloads stay silent in the background (PAR-498). Only an explicit menu check shows download progress. A
-completed download shows a persistent Restart to update / Later notice; About keeps the action available after Later.
-Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An installation failure
-resets the close decision, so closing later still checks for new unsaved work. Quitting normally never installs an
-update. Unsigned Macs check for newer releases and offer their download page instead of installing in place. The Mac
+completed download shows a persistent notice with Restart; closing it keeps the update, and About keeps the action
+available. Restart uses the existing unsaved-work prompt, and Cancel leaves the app and update ready. An installation
+failure resets the close decision, so closing later still checks for new unsaved work. Quitting normally never installs
+an update. Unsigned Macs check for newer releases and offer their download page instead of installing in place. The Mac
 application menu includes the same check.
 
 Manual checks show checking, no-update and retryable-error feedback in the same toast, without opening About or
@@ -8701,10 +8728,15 @@ version saved as stable reports to Sentry as `production` (PAR-779). An unconfir
 its numeric version or the update preference. Confirmed empty stable feeds mean no update; connection, authorization and
 service failures remain retryable errors.
 
-`chrome/UpdateToast.stories.tsx` shows the download, restart-ready and Mac fallback designs, unknown-size progress, both
-themes through the toolbar, and the real toast host. `chrome/UpdateDialogs.stories.tsx` covers About's update states and
-the beta setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered
-toast designs and the PAR-490 check-feedback and build-label stories before app integration.
+The notice is the kit's stock toast (PAR-1186): a spinner while checking or downloading, the version and a progress bar
+in its description, one action (Restart, Download or Try again) and the stock close button. Closing it hides that notice
+until a menu check or a new state; Parity closing it because there's nothing to say doesn't.
+
+`chrome/UpdateToast.stories.tsx` shows each notice in the app's toast host: downloading, unknown-size progress,
+checking, no update with and without beta, check failed, restart-ready and the Mac fallback, in both themes through the
+toolbar, and one notice changing in place. `chrome/UpdateDialogs.stories.tsx` covers About's update states and the beta
+setting and beta/stable installed builds independently of the preference. The owner signed off on the rendered toast
+designs and the PAR-490 check-feedback and build-label stories before app integration.
 
 Code: `packages/processes/src/updates.ts` defines state transitions; `apps/desktop/src/main/update-session.ts`
 serializes operations and `main/updates.ts` adapts electron-updater. `main/close-flow.ts` owns the close
@@ -8721,9 +8753,10 @@ electron-updater's GitHub provider over a feed led by a package tag, finding the
 on the latest release; `main/updates.test.ts` covers the channel each check names and downgrades staying off.
 `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
 losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
-checks, retry and dismissed progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two
-real packaged versions, built uncompressed since neither leaves the runner, checksum rejection, Later, unsaved-work
-cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
+checks, retry, a closed notice staying hidden until a check, one Parity closed itself not staying hidden, and closed
+progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions,
+built uncompressed since neither leaves the runner, checksum rejection, closing the notice, unsaved-work cancellation,
+Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 
@@ -9084,8 +9117,8 @@ breathes almost all the time, and it mustn't cost the window anything while noth
   what it does or what a click does, such as "Storybook 10.6.5" over "Click to open it". An untested version adds
   "Parity doesn't test this version". Paths, discovery notes and error messages stay out, since they can run long: a
   failed save's reason is in its notification.
-- **Notifications sit above the status bar** on a phone-sized window too: sonner places them by `mobileOffset` below
-  600px, which is now 40px like `offset`, rather than its default 16px, which covered the bar's buttons.
+- **Notifications sit above the status bar** on a phone-sized window too, raised 40px by one rule on
+  `[data-slot="toast-viewport"]` in `styles.css`, since the kit's 16px covered the bar's buttons. See Notifications.
 
 Code: `Light` and `triggerLabel` in `apps/desktop/src/renderer/chrome/Processes.tsx`, `Words` in `chrome/StatusBar.tsx`,
 and the `process-*` keyframes in `styles.css`.
@@ -9187,18 +9220,19 @@ client ID and never its API key, and the window never sees a token.
   after 5 seconds, doubling to 5 minutes. The file is written whole, beside it then renamed over it, so a write cut
   short leaves the accounts it held. A copy that can't decrypt or read it, such as a build from another branch, starts
   signed out and leaves the file for the copies that can; signing out there leaves it too, and signing in replaces it.
-  On Linux without a keyring nothing is kept: a toast says "You're signed in until you quit Parity", the accounts panel
-  keeps saying so, and both explain why.
+  On Linux without a keyring nothing is kept: a toast says "Signed in until you quit", the accounts panel keeps saying
+  so, and both explain why.
 - **Adding another account asks which one.** Google, GitHub and Microsoft get `prompt=select_account` through WorkOS's
   `provider_query_params`, so a browser signed in to one of your accounts still offers the others. The account it signs
-  in joins the list and you're in it, with a toast, "Added" and its email; the same account again takes its own place.
+  in joins the list and you're in it, with a toast, "Added an account", that names its email; the same account again
+  takes its own place.
 - **A refresh WorkOS refuses ends that account's session.** It stays in the panel, dimmed, until you sign in again or
   remove it. If you were in it, Session ended shows over whatever's open: Sign in again to keep working, with who it was
   and Continue with the way they signed in, which names the account to the provider. With another account signed in,
   you're in that one meanwhile, and it says so. Open projects and unsaved changes stay as they are.
 - **Your accounts are in a panel** from your picture at the end of the title bar. With one account it's your name and
   email; with several, each row is an email and where it opens, the organization or Personal, and the one you're in is
-  shaded. Choosing another switches at once, with a toast, "Switched to" and its email, since each account keeps its own
+  shaded. Choosing another switches at once, with a toast, "Switched accounts", since each account keeps its own
   session. Each row has its own Sign out, or Remove for an account whose session ended, whose row signs in again. Add
   another account is last. Signing out of the account you're in moves you to the one you used last, and the toast says
   where you are now; signing out of the last says "You're signed out". Open tabs stay. Signed out, the picture's an
@@ -9207,9 +9241,9 @@ client ID and never its API key, and the window never sees a token.
   Personal in none, in the account you're in. Signed out it's Sign in. Its menu lists Personal, then the organizations
   WorkOS named when you chose one, which main keeps with the session; with several accounts, the email above them says
   whose they are. Choosing one switches with a refresh naming it, in the background, so nothing open closes, and the
-  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says Parity couldn't switch organizations
-  and you stay where you were. A session can't leave an organization, so Personal and New organization say they aren't
-  ready yet, until Personal is an organization of your own (PAR-616).
+  menu says Switching to it with a spinner meanwhile; if WorkOS won't, a toast says it couldn't switch organizations and
+  you stay where you were, with Try again. A session can't leave an organization, so Personal and New organization say
+  they aren't ready yet, until Personal is an organization of your own (PAR-616).
 
 Code: main's side is `apps/desktop/src/main/account.ts` (`createAccount`: signing in, reading the link, trading the
 code, refreshing, the problems), `session-store.ts`, `loopback.ts` and `pass-link.ts`, wired up in `main/index.ts` (the

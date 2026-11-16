@@ -6,13 +6,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  SonnerToaster
+  Toaster
 } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { LifeBuoy } from "lucide-react"
 import { useState } from "react"
-import { toast } from "sonner"
-import { useResolvedTheme } from "../theme.ts"
+import { notify } from "../toasts.tsx"
 import { me } from "./explore-data.ts"
 import type { MockTab } from "./parts.tsx"
 import { HomePage, kestrelMember, StartActionsProvider, StartWindow } from "./start/page.tsx"
@@ -124,13 +123,12 @@ function PrototypePanel({
 }
 
 function ImpersonationPrototype({ start }: { start: Phase }) {
-  const theme = useResolvedTheme()
   const [phase, setPhase] = useState<Phase>(start)
   const [active, setActive] = useState("home")
 
   const end = (why: "ended" | "expired") => {
     setPhase("ended")
-    toast(why === "expired" ? "Your support session ran out" : "Support session ended", {
+    notify.info(why === "expired" ? "Your support session ran out" : "Support session ended", {
       id: "impersonation-ended",
       description: `You're signed out of ${person.name}'s account. Sign in to use your own.`
     })
@@ -158,7 +156,7 @@ function ImpersonationPrototype({ start }: { start: Phase }) {
       </StartWindow>
       {phase === "confirm" && <StartDialog onStart={() => setPhase("on")} onCancel={() => setPhase("own")} />}
       <PrototypePanel phase={phase} onImpersonate={() => setPhase("confirm")} onRunOut={() => end("expired")} />
-      <SonnerToaster theme={theme} position="bottom-right" />
+      <Toaster />
     </StartActionsProvider>
   )
 }

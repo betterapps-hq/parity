@@ -1,34 +1,44 @@
-import { isValidElement, type ReactNode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import type { UpdateNotice } from "./UpdateToast.tsx"
 
-const notifications = vi.hoisted(() => ({
-  custom: vi.fn<(render: () => ReactNode, options: { id: string; duration: number; onDismiss: () => void }) => void>(),
-  dismiss: vi.fn<(id: string) => void>()
+interface Shown {
+  id: string
+  timeout: number
+  onClose: () => void
+  notice: UpdateNotice
+  onAction: () => void
+}
+
+/** The app's toasts, which call a toast's `onClose` however it closes, as Base UI's do. */
+const notifications = vi.hoisted(() => {
+  const add = vi.fn<(kind: string, title: string, options: Shown) => string>((_kind, _title, options) => options.id)
+  const close = vi.fn<(id: string) => void>(() => add.mock.lastCall?.[2].onClose())
+
+  return { add, close }
+})
+
+vi.mock("../toasts.tsx", () => ({ notify: { show: notifications.add, close: notifications.close } }))
+
+vi.mock("./UpdateToast.tsx", () => ({
+  updateToast: (notice: UpdateNotice, onAction: () => void) => ({
+    kind: "info",
+    title: "",
+    options: { notice, onAction }
+  })
 }))
-
-vi.mock("sonner", () => ({ toast: notifications }))
-
-vi.mock("./UpdateToast.tsx", () => ({ UpdateToast: () => null }))
 
 const dialogs = vi.hoisted(() => ({ openDialog: vi.fn<() => void>() }))
 
 vi.mock("./app-dialogs.ts", () => dialogs)
 
-function latest() {
-  const render = notifications.custom.mock.lastCall?.[0]
+function latest(): Shown {
+  const shown = notifications.add.mock.lastCall?.[2]
 
-  if (!render) {
+  if (!shown) {
     throw new Error("No update toast")
   }
 
-  const element: unknown = render()
-
-  if (!isValidElement<{ notice: UpdateNotice; onDismiss: () => void; onAction: () => void }>(element)) {
-    throw new Error("No update component")
-  }
-
-  return element.props
+  return shown
 }
 
 describe("update notifications", () => {
@@ -42,35 +52,40 @@ describe("update notifications", () => {
     const updates = await import("./updates.tsx")
     updates.receiveUpdate({ phase: "checking", beta: false })
     updates.receiveUpdate({ phase: "current", beta: false })
-    expect(notifications.custom).not.toHaveBeenCalled()
+    expect(notifications.add).not.toHaveBeenCalled()
     const check = vi.fn<() => Promise<void>>(async () => updates.receiveUpdate({ phase: "current", beta: false }))
     vi.stubGlobal("window", { canvasHost: { updates: { check } } })
     updates.checkForUpdates()
     expect(latest().notice).toEqual({ kind: "current", beta: false })
-    expect(notifications.custom.mock.calls[1]?.[1].id).toBe(notifications.custom.mock.calls[0]?.[1].id)
+    expect(notifications.add.mock.calls[1]?.[2].id).toBe(notifications.add.mock.calls[0]?.[2].id)
+    expect(latest().timeout).toBe(0)
     expect(dialogs.openDialog).not.toHaveBeenCalled()
     await vi.waitFor(() => expect(check).toHaveResolved())
   })
 
-  it("restores a dismissed notice without its pending removal hiding the new one", async () => {
+  it("keeps a notice the person closed hidden until they check again", async () => {
     const updates = await import("./updates.tsx")
     updates.receiveUpdate({ phase: "ready", beta: true, version: "0.4.0" })
-    const stale = latest()
-    const oldId = notifications.custom.mock.lastCall?.[1].id
-    stale.onDismiss()
-    updates.checkForUpdates()
-    const restoredId = notifications.custom.mock.lastCall?.[1].id
-    expect(restoredId).not.toBe(oldId)
-    expect(latest().notice.kind).toBe("ready")
-    stale.onDismiss()
-    expect(notifications.dismiss).toHaveBeenLastCalledWith(oldId)
-    const calls = notifications.custom.mock.calls.length
+    latest().onClose()
+    const calls = notifications.add.mock.calls.length
     updates.receiveUpdate({ phase: "ready", beta: true, version: "0.4.0" })
-    expect(notifications.custom).toHaveBeenCalledTimes(calls + 1)
-    expect(notifications.custom.mock.lastCall?.[1].id).toBe(restoredId)
+    expect(notifications.add).toHaveBeenCalledTimes(calls)
+    updates.checkForUpdates()
+    expect(notifications.add).toHaveBeenCalledTimes(calls + 1)
+    expect(latest().notice.kind).toBe("ready")
   })
 
-  it("keeps swiped progress hidden and gives the ready notice a fresh lifetime", async () => {
+  it("doesn't hide a notice it closed itself when there was nothing to say", async () => {
+    const updates = await import("./updates.tsx")
+    updates.receiveUpdate({ phase: "ready", beta: false, version: "0.4.0" })
+    updates.receiveUpdate({ phase: "installing", beta: false, version: "0.4.0" })
+    expect(notifications.close).toHaveBeenCalledWith(latest().id)
+    const calls = notifications.add.mock.calls.length
+    updates.receiveUpdate({ phase: "ready", beta: false, version: "0.4.0" })
+    expect(notifications.add).toHaveBeenCalledTimes(calls + 1)
+  })
+
+  it("keeps closed progress hidden and shows the ready notice", async () => {
     const updates = await import("./updates.tsx")
     updates.receiveUpdate({
       phase: "downloading",
@@ -81,14 +96,8 @@ describe("update notifications", () => {
       total: 10
     })
     updates.checkForUpdates()
-    const native = notifications.custom.mock.lastCall?.[1]
-
-    if (!native) {
-      throw new Error("No native toast callbacks")
-    }
-
-    native.onDismiss()
-    const calls = notifications.custom.mock.calls.length
+    latest().onClose()
+    const calls = notifications.add.mock.calls.length
     updates.receiveUpdate({
       phase: "downloading",
       beta: true,
@@ -97,14 +106,10 @@ describe("update notifications", () => {
       transferred: 2,
       total: 10
     })
-    expect(notifications.custom).toHaveBeenCalledTimes(calls)
+    expect(notifications.add).toHaveBeenCalledTimes(calls)
     updates.receiveUpdate({ phase: "ready", beta: true, version: "0.4.0" })
-    const readyId = notifications.custom.mock.lastCall?.[1].id
-    expect(readyId).not.toBe(native.id)
-    native.onDismiss()
-    updates.receiveUpdate({ phase: "ready", beta: true, version: "0.4.0" })
-    expect(notifications.custom).toHaveBeenCalledTimes(calls + 2)
-    expect(notifications.custom.mock.lastCall?.[1].id).toBe(readyId)
+    expect(notifications.add).toHaveBeenCalledTimes(calls + 1)
+    expect(latest().notice.kind).toBe("ready")
   })
 
   it("coalesces repeated checks, shows failure and retries from the same toast", async () => {
@@ -174,8 +179,8 @@ describe("update notifications", () => {
       transferred: 1,
       total: 10
     })
-    expect(notifications.custom).not.toHaveBeenCalled()
-    notifications.custom.mockClear()
+    expect(notifications.add).not.toHaveBeenCalled()
+    notifications.add.mockClear()
     updates.receiveUpdate({
       phase: "downloading",
       beta: true,
@@ -184,10 +189,10 @@ describe("update notifications", () => {
       transferred: 2,
       total: 10
     })
-    expect(notifications.custom).not.toHaveBeenCalled()
+    expect(notifications.add).not.toHaveBeenCalled()
     updates.receiveUpdate({ phase: "ready", beta: true, version: "0.3.1" })
     expect(latest().notice.kind).toBe("ready")
-    latest().onDismiss()
+    latest().onClose()
     updates.checkForUpdates()
     expect(latest().notice.kind).toBe("ready")
     expect(check).not.toHaveBeenCalled()
@@ -197,7 +202,7 @@ describe("update notifications", () => {
   it("turns rejected IPC into a retryable foreground error, but stays quiet for startup errors", async () => {
     const updates = await import("./updates.tsx")
     updates.receiveUpdate({ phase: "error", beta: false, message: "Offline" })
-    expect(notifications.custom).not.toHaveBeenCalled()
+    expect(notifications.add).not.toHaveBeenCalled()
     vi.stubGlobal("window", {
       canvasHost: {
         updates: {

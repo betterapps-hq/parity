@@ -1,6 +1,7 @@
+import { plainReason } from "@parity-app/core"
 import { useEffect, useState, useSyncExternalStore } from "react"
 import type { ProjectProcess } from "../../shared/protocol.ts"
-import { errorMessage, reportError } from "../report-error.ts"
+import { reportError } from "../report-error.ts"
 import { request } from "../service.ts"
 import { resetWithWindow, windowStore } from "../store.ts"
 
@@ -116,7 +117,7 @@ export function useNow(ticking: boolean): number {
 }
 
 export async function stopProcess(process: ProjectProcess): Promise<void> {
-  await act(process, "stopping", "processes.stop", `Couldn't stop ${process.name}`)
+  await act(process, "stopping", "processes.stop", "Couldn't stop a process")
 }
 
 export async function restartProcess(process: ProjectProcess): Promise<void> {
@@ -125,7 +126,7 @@ export async function restartProcess(process: ProjectProcess): Promise<void> {
     process,
     task ? "running" : "starting",
     "processes.restart",
-    task ? `Couldn't run ${process.name} again` : `Couldn't start ${process.name} again`
+    task ? "Couldn't run a task again" : "Couldn't restart a server"
   )
 }
 
@@ -170,7 +171,11 @@ async function act(
     await request(method, { id: process.id })
   } catch (error) {
     pending.delete(process.id)
-    reportError(error, { operation: method, title: failure, description: errorMessage(error) })
+    reportError(error, {
+      operation: method,
+      title: failure,
+      description: `${process.name}: ${plainReason(error) ?? "It didn't answer."}`
+    })
   }
 
   poll()

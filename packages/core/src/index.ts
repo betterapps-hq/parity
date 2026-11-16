@@ -263,6 +263,8 @@ export {
   unknownReference
 } from "./errors.ts"
 
+export { plainReason } from "./reasons.ts"
+
 export {
   applyFieldInput,
   type FieldRules,

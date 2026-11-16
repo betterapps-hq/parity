@@ -1,12 +1,12 @@
 import { type ContainerSpec, type DesignNode, defaultModeSettings, findNode } from "@parity-app/core"
 import type { ProjectDoc } from "@parity-app/multiplayer"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
-import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { ComponentStore } from "../components-store.ts"
 import { openTestSession } from "../doc-fixtures.ts"
 import { setWindowTelemetry } from "../report-error.ts"
 import { SelectionStore } from "../selection.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectSession } from "../workspace.ts"
 import { pasteClipboard, pasteOverSelection, pasteToReplace } from "./clipboard.ts"
 
@@ -28,13 +28,16 @@ vi.mock("./import-media.ts", () => ({
     })
 }))
 
-vi.mock("sonner", () => ({
-  toast: {
-    loading: vi.fn<() => string>(() => "progress"),
-    dismiss: vi.fn<() => void>(),
-    info: vi.fn<() => void>(),
-    error: vi.fn<() => void>()
-  }
+vi.mock("../toasts.tsx", () => ({
+  notify: {
+    progress: vi.fn<() => string>(() => "progress"),
+    close: vi.fn<() => void>(),
+    done: vi.fn<() => string>(() => "done"),
+    info: vi.fn<() => string>(() => "info"),
+    warning: vi.fn<() => string>(() => "warning"),
+    failed: vi.fn<() => string>(() => "failed")
+  },
+  list: (names: readonly string[]) => names.join(", ")
 }))
 
 // Pasting names designs as the canvas does, which there isn't one of here.
@@ -74,7 +77,7 @@ function children(doc: ProjectDoc): DesignNode[] {
 }
 
 /** Waits for the paste to read the clipboard and start saving the image. */
-const saveStarted = () => vi.waitFor(() => expect(toast.loading).toHaveBeenCalled())
+const saveStarted = () => vi.waitFor(() => expect(notify.progress).toHaveBeenCalled())
 
 beforeEach(() => {
   // An image on the clipboard, as after copying a screenshot, and no Parity copy or text.
@@ -127,7 +130,7 @@ describe("pasting an image over the selection", () => {
     await pasting
 
     expect(layers(doc)).toEqual(["title", "body", "footer"])
-    expect(toast.info).toHaveBeenCalledWith("No layers are selected, so nothing was pasted")
+    expect(notify.info).toHaveBeenCalledWith("Nothing pasted", { description: "No layers are selected." })
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "over", content: "image", reason: "noTarget" }
     ])
@@ -158,7 +161,9 @@ describe("replacing the selection with an image", () => {
     expect(layers(doc)).toEqual(["title", "body", "footer"])
     expect(selection.get()).toEqual({ design: "app.par#card", node: "body" })
     expect(doc.history().canUndo).toBe(false)
-    expect(toast.info).toHaveBeenCalledWith("The selection changed, so nothing was replaced")
+    expect(notify.info).toHaveBeenCalledWith("Nothing replaced", {
+      description: "The selection changed before the paste finished."
+    })
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "replace", content: "image", reason: "noTarget" }
     ])
@@ -180,7 +185,7 @@ describe("pasting from an empty clipboard", () => {
 
     expect(layers(doc)).toEqual(["title", "body", "footer"])
     expect(doc.history().canUndo).toBe(false)
-    expect(toast.info).not.toHaveBeenCalled()
+    expect(notify.info).not.toHaveBeenCalled()
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how: "paste", content: "empty", reason: "empty" }
     ])
@@ -207,7 +212,7 @@ describe("pasting from an empty clipboard", () => {
 
     expect(layers(doc)).toEqual(["title", "body", "footer"])
     expect(doc.history().canUndo).toBe(false)
-    expect(toast.info).toHaveBeenCalledWith("There's nothing on the clipboard to paste")
+    expect(notify.info).toHaveBeenCalledWith("Nothing to paste", {})
     expect(sink.named("clipboard.failed").map((event) => event.attributes)).toEqual([
       { how, content: "empty", reason: "empty" }
     ])

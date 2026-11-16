@@ -1,5 +1,5 @@
-import { toast } from "sonner"
 import { reportError } from "../report-error.ts"
+import { notify } from "../toasts.tsx"
 
 /**
  * Help > Install the Parity CLI (PAR-906): main puts a `parity` command on PATH that runs the CLI shipped with the
@@ -10,20 +10,13 @@ export async function installCliCommand(): Promise<void> {
     const { folder, onPath, newTerminal } = await window.canvasHost.installCli()
 
     if (!onPath) {
-      toast.success("Installed the Parity CLI", { description: `Add ${folder} to your PATH to run it.` })
+      notify.done("Installed the Parity CLI", { description: `Add ${folder} to your PATH to run it.` })
     } else if (newTerminal) {
-      toast.success("Installed the Parity CLI", { description: "Open a new terminal to run it." })
+      notify.done("Installed the Parity CLI", { description: "Open a new terminal to run it." })
     } else {
-      toast.success("Installed the Parity CLI")
+      notify.done("Installed the Parity CLI")
     }
   } catch (error) {
-    reportError(error, {
-      operation: "cli.install",
-      title: "Couldn't install the Parity CLI",
-      description: (error instanceof Error ? error.message : String(error)).replace(
-        /^Error invoking remote method '[^']+': (Error: )?/,
-        ""
-      )
-    })
+    reportError(error, { operation: "cli.install", title: "Couldn't install the Parity CLI" })
   }
 }

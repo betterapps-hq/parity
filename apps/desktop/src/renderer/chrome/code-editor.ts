@@ -1,6 +1,7 @@
 import type { ElementSource } from "@parity-app/core"
 import type { OpenInEditorRequest, ProjectInfo } from "../../shared/protocol.ts"
 import { reportError } from "../report-error.ts"
+import { openDialog } from "./app-dialogs.ts"
 import { getPreferences } from "./preferences.ts"
 
 /** The parts of a project's info that say where its components' code is. */
@@ -54,11 +55,8 @@ async function openFile(at: Omit<OpenInEditorRequest, "editor">): Promise<void> 
   } catch (error) {
     reportError(error, {
       operation: "editor.open",
-      title: "Couldn't open the code",
-      description: (error instanceof Error ? error.message : String(error)).replace(
-        /^Error invoking remote method '[^']+': (Error: )?/,
-        ""
-      )
+      title: "Couldn't open the code editor",
+      action: { label: "Change editor", run: () => openDialog("settings") }
     })
   }
 }

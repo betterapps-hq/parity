@@ -41,7 +41,8 @@ export async function openInEditor({
 
   if (chosen) {
     throw new Error(
-      `Couldn't find ${chosen.name}'s \`${chosen.command}\` command. Install it on your PATH from ${chosen.name}, or choose another editor in Settings.`
+      // The renderer's toast offers to choose another editor, so this only says what's wrong (PAR-1186).
+      `${chosen.name}'s ${chosen.command} command isn't on your PATH.`
     )
   }
 

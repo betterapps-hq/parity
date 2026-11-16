@@ -37,7 +37,6 @@ import {
   useState,
   useSyncExternalStore
 } from "react"
-import { toast } from "sonner"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
@@ -45,6 +44,7 @@ import { kindColors } from "../canvas/kinds.tsx"
 import { usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
 import { useStore, windowStore } from "../store.ts"
+import { notify } from "../toasts.tsx"
 import { type ProjectDesigns, type ProjectSession, workspace } from "../workspace.ts"
 import { componentSources, useComponentCard } from "./AssetsPanel.tsx"
 import { activeSession } from "./commands.ts"
@@ -678,7 +678,7 @@ function insert(
   setOpen(false)
 
   if (!insertAtSelection(session, item, "quickInsert")) {
-    toast.info("Select a layout, or a layer to add it after")
+    notify.info("Nowhere to add it", { description: "Select a layout, or a layer to add it after." })
   }
 }
 

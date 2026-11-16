@@ -150,7 +150,8 @@ export function skippedMessage(skipped: readonly SkippedFile[]): SkippedMessage 
     return undefined
   }
 
-  const title = skipped.length === 1 ? `Skipped ${skipped[0]!.name}` : `Skipped ${skipped.length} files`
+  // Names go in the description, since a title holds none from the person's project (PAR-1186).
+  const title = skipped.length === 1 ? "Skipped a file" : `Skipped ${skipped.length} files`
   const sentences: string[] = []
   const types = skipped.flatMap((file) => (file.reason === "type" ? [file.name] : []))
 

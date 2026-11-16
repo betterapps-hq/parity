@@ -6,6 +6,7 @@ import {
   guestChanges,
   type LayerFailure,
   markedRoutes,
+  plainReason,
   routeFiles,
   versionedSources,
   withProjectPreferences
@@ -32,7 +33,6 @@ import {
 } from "@parity-app/settings"
 import type { TokenWrite } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
-import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
 import { keepCodeDesigns, openCodeDesigns, withCodeDesigns } from "./canvas/code-designs.ts"
@@ -53,12 +53,13 @@ import { closeDocSession, type DocSession, openDocSession } from "./project-doc.
 import { keepProjectPicture } from "./project-picture.ts"
 import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
 import { holdRecording } from "./replay.ts"
-import { errorCode, errorMessage, reportError, track } from "./report-error.ts"
+import { errorCode, reportError, track } from "./report-error.ts"
 import { saved } from "./saved.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects } from "./start/projects.ts"
 import { signal, type Store, createStore } from "./store.ts"
+import { notify } from "./toasts.tsx"
 import { TokenStore } from "./tokens-store.ts"
 import { currentTraceContext, keepTrace } from "./tracing.ts"
 
@@ -802,8 +803,9 @@ export class Workspace {
 
           reportError(error, {
             operation: "project.reopen",
-            title: `Couldn't reopen ${session.info.name}`,
-            description: errorMessage(error)
+            title: "Couldn't reopen the project",
+            description: `${session.info.name}: ${plainReason(error) ?? "It didn't answer."}`,
+            retry: () => void this.reconnect()
           })
         }
       })
@@ -874,8 +876,9 @@ export class Workspace {
 
       reportError(error, {
         operation: "project.reload",
-        title: `Couldn't load ${tab.session.info.name} from its restarted builder`,
-        description: errorMessage(error)
+        title: "Couldn't reload the project",
+        description: `${tab.session.info.name}: ${plainReason(error) ?? "Its preview stopped responding."}`,
+        retry: () => void this.moveGuest(projectId, guestUrl)
       })
 
       return false
@@ -1234,9 +1237,9 @@ async function saveOrSay(session: ProjectSession): Promise<boolean> {
   } catch (error) {
     reportError(error, {
       operation: "project.save",
-      title: `Couldn't save ${session.info.name}`,
+      title: "Couldn't save the project",
       id: saveFailureToast(session.id),
-      description: errorMessage(error)
+      retry: () => void saveOrSay(session)
     })
 
     return false
@@ -1261,7 +1264,7 @@ function sayWhenSavesFail(session: ProjectSession): void {
 
     if (state.status === "saved" || state.status === "unsaved") {
       if (said) {
-        toast.dismiss(id)
+        notify.close(id)
       }
 
       said = false
@@ -1274,11 +1277,9 @@ function sayWhenSavesFail(session: ProjectSession): void {
     said = true
     reportError(state.error, {
       operation: "project.autosave",
-      title: `Couldn't save ${session.info.name}`,
+      title: "Couldn't save the project",
       id,
-      description: state.error,
-      duration: Infinity,
-      action: { label: "Retry", onClick: () => void saveOrSay(session) }
+      retry: () => void saveOrSay(session)
     })
   })
 }

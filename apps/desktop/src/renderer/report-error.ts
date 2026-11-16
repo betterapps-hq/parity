@@ -1,7 +1,7 @@
 import { errorDetails } from "@parity-app/core"
 import type { EventAttributes, EventName, registeredEvents, Telemetry, TraceContext } from "@parity-app/telemetry"
-import { type ExternalToast, toast } from "sonner"
 import type { Attributes } from "./chrome/event-attributes.ts"
+import { type FailureOptions, notify } from "./toasts.tsx"
 
 type Events = typeof registeredEvents
 
@@ -38,7 +38,7 @@ export function errorCode(cause: unknown): string | undefined {
   return errorDetails(cause)?.code
 }
 
-export interface ReportContext extends ExternalToast {
+export interface ReportContext extends Omit<FailureOptions, "error"> {
   /** What failed, as `document.save`; recorded as the event's `action`. */
   operation: string
   /** The notification's title. */
@@ -51,10 +51,11 @@ export interface ReportContext extends ExternalToast {
 
 /**
  * Shows a failure as an error notification and records it as `error.caught`, with its code, what failed and what it was
- * acting on (PAR-632). Every error notification goes through here.
+ * acting on (PAR-632). Every error notification goes through here. Without a description, the notification gives the
+ * failure's reason in plain words.
  */
 export function reportError(cause: unknown, { operation, title, context, span, ...shown }: ReportContext): void {
-  toast.error(title, shown)
+  notify.failed(title, { ...shown, error: cause })
   const caught: Attributes<"error.caught"> = { action: operation, title, message: errorMessage(cause) }
   const code = errorCode(cause)
 

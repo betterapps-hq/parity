@@ -1,12 +1,12 @@
-import { type ExternalToast, toast } from "sonner"
-import { errorMessage, type ReportContext, reportError } from "./report-error.ts"
+import { type ReportContext, reportError } from "./report-error.ts"
+import { notify, type ToastOptions } from "./toasts.tsx"
 
 /**
  * What a progress notification becomes once its call answers: a success; a failure the answer carries, reported as a
  * thrown one would be; `dismiss` to take it away; or `keep` to leave it for the caller, which replaces it by its id.
  */
 export type CallOutcome =
-  | ({ success: string } & ExternalToast)
+  | ({ success: string } & Omit<ToastOptions, "id">)
   | ({ failure: unknown } & Omit<ReportContext, "id">)
   | "dismiss"
   | "keep"
@@ -16,7 +16,7 @@ export interface ServiceCall<Answer> {
   /** What the notification says while the call runs. */
   progress: string
   /** The progress notification's options, such as a description, or the id of a notification it takes the place of. */
-  shown?: ExternalToast
+  shown?: ToastOptions
   run: () => Promise<Answer>
   /** Records how it went and says what the notification becomes. `took` is how long the call took, in milliseconds. */
   done: (answer: Answer, took: number) => CallOutcome
@@ -29,9 +29,11 @@ export interface ServiceCall<Answer> {
    * How a call that throws is reported, and what it records of its own beside `error.caught`. A call that reports its
    * own failures through `done` leaves it out, and one that throws anyway takes its notification away and throws on.
    */
-  failed?: Omit<ReportContext, "id" | "description"> & {
-    /** The failure's description; its message by default. */
+  failed?: Omit<ReportContext, "id" | "description" | "details"> & {
+    /** The failure's description; its reason in plain words by default. */
     description?: (cause: unknown) => string | undefined
+    /** Long output behind the failure's Details button, such as a package manager's log. */
+    details?: (cause: unknown) => string | undefined
     track?: (cause: unknown, took: number) => void
   }
 }
@@ -42,7 +44,7 @@ export interface ServiceCall<Answer> {
  */
 export async function serviceCall<Answer>(call: ServiceCall<Answer>): Promise<Answer | undefined> {
   const { progress, shown, run, done, after, failed } = call
-  const id = toast.loading(progress, shown)
+  const id = notify.progress(progress, shown)
   const began = performance.now()
 
   try {
@@ -50,12 +52,12 @@ export async function serviceCall<Answer>(call: ServiceCall<Answer>): Promise<An
     const outcome = done(answer, Math.round(performance.now() - began))
 
     if (outcome === "dismiss") {
-      toast.dismiss(id)
+      notify.close(id)
     } else if (outcome === "keep") {
       // The caller replaces it.
     } else if ("success" in outcome) {
       const { success, ...options } = outcome
-      toast.success(success, { ...options, id })
+      notify.done(success, { ...options, id })
     } else {
       const { failure, ...context } = outcome
       reportError(failure, { ...context, id })
@@ -66,14 +68,14 @@ export async function serviceCall<Answer>(call: ServiceCall<Answer>): Promise<An
     return answer
   } catch (error) {
     if (!failed) {
-      toast.dismiss(id)
+      notify.close(id)
 
       throw error
     }
 
-    const { description = errorMessage, track: trackFailure, ...report } = failed
+    const { description, details, track: trackFailure, ...report } = failed
     trackFailure?.(error, Math.round(performance.now() - began))
-    reportError(error, { ...report, id, description: description(error) })
+    reportError(error, { ...report, id, description: description?.(error), details: details?.(error) })
 
     return undefined
   }

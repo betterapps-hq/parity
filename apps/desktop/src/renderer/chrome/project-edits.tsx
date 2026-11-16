@@ -1,8 +1,8 @@
-import { type ExternalToast, toast } from "sonner"
 import type { ProjectEditResult } from "../../shared/protocol.ts"
-import { errorCode, reportError, track } from "../report-error.ts"
+import { errorCode, type ReportContext, reportError, track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
+import { notify, type ToastOptions } from "../toasts.tsx"
 import type { Attributes } from "./event-attributes.ts"
 
 /**
@@ -21,7 +21,8 @@ export function announceEdit(
 
   const id = options.id ?? edit.id
   track("projectEdit.applied", { files: paths(edit), outcome: "ok" })
-  showEdit(`Changed ${files(edit)}`, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
+  const title = edit.files.length === 1 ? "Changed a project file" : `Changed ${edit.files.length} project files`
+  showEdit(title, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
 }
 
 /**
@@ -29,17 +30,18 @@ export function announceEdit(
  * in place, since a notification takes its height when it's set. Shown, it stays until it's hidden, to be read.
  */
 function showEdit(title: string, edit: ProjectEditResult, id: string, undo?: () => void, open = false): void {
-  const shown: ExternalToast = {
+  const shown: ToastOptions = {
     id,
     description: <EditDetails edit={edit} open={open} toggle={() => showEdit(title, edit, id, undo, !open)} />,
-    duration: open ? Number.POSITIVE_INFINITY : 10_000
+    timeout: open ? 0 : 10_000
   }
 
   if (undo) {
-    shown.action = { label: "Undo", onClick: undo }
+    // Undo turns this toast into its progress, so it stays.
+    shown.action = { label: "Undo", run: undo, keepOpen: true }
   }
 
-  toast.success(title, shown)
+  notify.done(title, shown)
 }
 
 async function undo(
@@ -49,19 +51,18 @@ async function undo(
   afterUndo: (() => Promise<void>) | undefined
 ): Promise<void> {
   const undone = await serviceCall({
-    progress: `Putting back ${files(edit)}…`,
-    shown: { id, description: undefined, action: undefined },
+    progress: "Undoing the change…",
+    shown: { id },
     run: () => request("project.undoEdit", { projectId, id: edit.id }),
     done(answer) {
       track("projectEdit.undone", { files: paths(answer), outcome: "ok" })
 
-      // It says what was put back once the project has reloaded, below.
+      // It says what was undone once the project has reloaded, below.
       return "keep"
     },
     failed: {
       operation: "project.undoEdit",
-      title: "Couldn't undo it",
-      description: message,
+      title: "Couldn't undo the change",
       track(error) {
         const failed: Attributes<"projectEdit.undone"> = { files: paths(edit), outcome: "error" }
         const code = errorCode(error)
@@ -82,14 +83,20 @@ async function undo(
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {
     await afterUndo?.()
-    showEdit(`Put back ${files(undone)}`, undone, id)
+    showEdit("Undid the change", undone, id)
   } catch (error) {
-    reportError(error, {
+    const report: ReportContext = {
       operation: "project.reload",
-      title: `Put back ${files(undone)}, but couldn't reload the project`,
+      title: "Couldn't reload the project",
       id,
-      description: message(error)
-    })
+      description: "The change was undone, but the project didn't reload."
+    }
+
+    if (afterUndo) {
+      report.action = { label: "Reload", run: () => void afterUndo() }
+    }
+
+    reportError(error, report)
   }
 }
 
@@ -105,6 +112,7 @@ function files(edit: ProjectEditResult): string {
 export function EditDetails({ edit, open, toggle }: { edit: ProjectEditResult; open: boolean; toggle: () => void }) {
   return (
     <div className="flex min-w-0 flex-col items-start gap-1">
+      <span>{files(edit)}</span>
       <span>{edit.label}</span>
       <button
         type="button"
@@ -146,8 +154,4 @@ function lineClass(line: string): string | undefined {
   }
 
   return undefined
-}
-
-function message(cause: unknown): string {
-  return cause instanceof Error ? cause.message : String(cause)
 }
