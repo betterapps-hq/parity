@@ -30,7 +30,8 @@ beforeAll(async () => {
   })
 
   browser = await chromium.launch({ channel: "chrome", headless: true })
-  page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
+  // Motion as most people have it, whatever the machine running this asks for: a CI runner may ask for less.
+  page = await browser.newPage({ viewport: { width: 1200, height: 900 }, reducedMotion: "no-preference" })
   await page.setContent(`<body style="margin: 0">${layer("moving", 150)}${layer("still", 450)}
     <div id="first" style="width: 60px; height: 60px"></div><div id="second" style="width: 60px; height: 60px"></div>
     <div style="position: absolute; left: 640px; top: 260px; width: 300px; height: 200px; scale: 1.8; rotate: 25deg">
@@ -117,7 +118,8 @@ describe("an element with transforms of its own, lifted with reduced motion", ()
   })
 
   afterAll(async () => {
-    await page.emulateMedia({ reducedMotion: null })
+    // Back to motion as most people have it, not to the machine's own setting, which may be reduced.
+    await page.emulateMedia({ reducedMotion: "no-preference" })
   })
 
   it("doesn't grow or move at all", () => {
