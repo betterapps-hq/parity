@@ -768,7 +768,7 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
           expect(b.tokens()).toEqual(a.tokens())
         }
 
-        return { a, b, exchange, changesOfA, swap: () => pair.exchange() }
+        return { a, b, exchange, changesOfA }
       }
 
       const set = (node: string, path: string[], value: JsonValue) =>
@@ -776,7 +776,7 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
 
       const text = (id: string): DesignNode => ({ type: "text", id, text: id })
 
-      /** Shows the home screen in the small mode here, as picking a mode on its board does. */
+      /** Shows the home screen in the small mode, as picking a mode on its board does. */
       const showSmall = (doc: ProjectDoc) => {
         const view = {
           op: "setDesign",
@@ -966,23 +966,21 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         expect(b.tokens().get("accent default")?.value).toBe("blue")
       })
 
-      it("keeps which state and mode each design shows to each person, as their changes to it arrive", () => {
-        const { a, b, swap } = together(darkModes)
+      it("shares which state and mode each design shows, alongside the other person's edits to it", () => {
+        const { a, b, exchange } = together(darkModes)
         showSmall(a)
         apply(b, [{ op: "setDesign", design: "app.par#home", path: ["name"], value: "Start" }])
-        apply(b, [set("title", ["name"], "Theirs")])
-        swap()
+        exchange()
 
-        expect(a.design("app.par#home")).toMatchObject({ name: "Start", view: { mode: "small" } })
-        expect(layer(a, "app.par#home", "title")?.name).toBe("Theirs")
-        expect(b.design("app.par#home")?.view).toBeUndefined()
+        expect(b.design("app.par#home")).toMatchObject({ name: "Start", view: { mode: "small" } })
       })
 
-      it("drops a mode the other person took away from what each design shows here", () => {
-        const { a, b, swap } = together(darkModes)
+      it("drops a mode the other person took away from what each design shows", () => {
+        const { a, b, exchange } = together(darkModes)
         showSmall(a)
+        exchange()
         setModes(b, defaultModeSettings, "Remove small")
-        swap()
+        exchange()
 
         expect(a.modes()).toEqual(defaultModeSettings)
         expect(a.design("app.par#home")?.view).toBeUndefined()

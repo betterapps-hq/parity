@@ -6112,9 +6112,8 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
 - **A copy that doesn't write files has nothing to save.** It records nothing as saved, its tab shows no unsaved dot,
   closing it asks nothing, and Save says "Saved by the room". When the host leaves and it takes over, it writes every
   file that differs from what it read from disk when it opened, and the stylesheet when token values do.
-- **Each person picks their own state and mode** (PAR-1231). Which state and mode a design shows (its `view`) goes into
-  the room with the design, and changes to it after stay in that copy: they aren't sent, and a design someone else edits
-  keeps the view it has here, without a state or mode that's gone. The host's file saves the host's view.
+- **Everyone sees the same state and mode** (PAR-1231). Which state and mode a design shows (its `view`) is an edit like
+  any other: picking a state or turning a mode on shows it in every copy, and the host's file saves it.
 - **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
   a palette of the agents', named with the signed-in person's first name (`PARITY_ROOM_NAME` overrides it). It glides
   between the positions sent.
@@ -6128,7 +6127,7 @@ Without `PARITY_ROOM`, or in a packaged app, nothing changes: the window opens p
 Code: `apps/desktop/scripts/dev-room.ts` (the relay), `apps/desktop/src/renderer/live-room.ts`, `openDocSession` in
 `renderer/project-doc.ts` (the room's provider, and the saver writing files only while hosting), `setWritesFiles` and
 `written` in `packages/multiplayer`'s saver, `canvas/RoomCursor.tsx`, `onPush` in `agent/presence.ts`, and `openLoro`'s
-`snapshot`, `subscribeLocalUpdates`, tokens map and views in `packages/multiplayer-loro`.
+`snapshot`, `subscribeLocalUpdates` and tokens map in `packages/multiplayer-loro`.
 
 Tests:
 
@@ -6141,7 +6140,7 @@ Tests:
   stylesheet; letting go after the write in flight.
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: the other person's changes
   arrive as not yet written; token values shared, with undo taking back only this person's; which state and mode a
-  design shows kept to each person as the other's edits arrive, and a mode the other took away dropped from it.
+  design shows shared with the other's edits, and a mode the other took away dropped from it.
 - `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
   copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
   isn't one refused.

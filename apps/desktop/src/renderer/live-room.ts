@@ -15,9 +15,8 @@ import { reportError } from "./report-error.ts"
  * `scripts/dev-room.ts`. The first copy in opens the files and hosts; a later one opens on the host's snapshot. Each
  * copy sends the Loro updates of its commits and takes in the others'. People's cursors are tldraw presence records,
  * drawn by `RoomCursor`; an agent's steps are passed on as they are to the agent presence queue, so the other copies
- * play its cursor as this one does. Only the host writes files, others' edits included, and token values sync with the
- * rest; which state and mode a design shows stays each person's own (docs/proposals/extensions-in-the-window.md:
- * Saving in a room).
+ * play its cursor as this one does. Only the host writes files, others' edits included, and token values and which state
+ * and mode a design shows sync with the rest (docs/proposals/extensions-in-the-window.md: Saving in a room).
  */
 
 /** Where someone's cursor is, in page coordinates, or nowhere when it's off the canvas. */

@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "In a live room, the copy that writes files saves everyone's edits, token values sync, and which state and mode a design shows stays each person's own.",
+  "comment": "In a live room, the copy that writes files saves everyone's edits, token values sync, and so does which state and mode a design shows.",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"
