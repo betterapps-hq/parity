@@ -267,17 +267,23 @@ export function ModeView({
         height: height === undefined ? undefined : Math.round(height * scale)
       }}
     >
-      <div
-        ref={hostRef}
-        data-frame=""
-        data-design={design}
-        data-mode={mode.id}
-        data-state={state}
-        data-primary={primary}
-        data-viewport={mode.viewport}
-        inert={!interactive}
-        style={{ width: narrower ? viewportWidth : width, height, zoom: scale }}
-      />
+      {/*
+       * Left out of replays around the frame, not on it: Session Replay watches the shadow root of every element it
+       * records, a left-out one included, and keeps what it watched for the whole session (replay.ts, PAR-1169).
+       */}
+      <div data-frame-box="">
+        <div
+          ref={hostRef}
+          data-frame=""
+          data-design={design}
+          data-mode={mode.id}
+          data-state={state}
+          data-primary={primary}
+          data-viewport={mode.viewport}
+          inert={!interactive}
+          style={{ width: narrower ? viewportWidth : width, height, zoom: scale }}
+        />
+      </div>
       {/* Across the top, so whatever the frame still drew, as when a decorator failed, stays in view below it. */}
       {message && (
         <div

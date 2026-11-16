@@ -265,14 +265,18 @@ Storybook or the CLI.
   the window is idle, or a minute at most. Each frame of a zoom restyles every board's gutters, captions and labels, and
   recording those was the largest share of the window's JavaScript while zooming. The replay jumps from the canvas
   before the zoom to a snapshot after it. Panning is still recorded, as are clicks and requests during a zoom.
-- **Recording doesn't grow the window's memory over a session.** Over an hour of zooming, selecting and editing, the JS
-  heap and the window's private memory stayed level with Replay on, as with it off. The page counts about 21,000 more
-  DOM nodes while recording: one for each attribute of each element the recorder reads, which go with their elements.
-  `pnpm perf --soak <minutes>` measures it again.
+- **Recording keeps the window's DOM level over a session.** The page counts about 21,000 more DOM nodes while
+  recording: one for each attribute of each element the recorder reads, which go with their elements. Before PAR-1169,
+  each frame the recorder saw added about 11,000 nodes a round of zooming, waking boards and editing that never went, 8
+  MB of heap with them: 867,000 nodes and 2.3 GB after an hour. The JS heap still grows by about 8 MB a round with
+  Replay on, and not with it off, which PAR-1169 goes on with. `pnpm perf --soak <minutes>` measures it again.
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
-shadow roots: it kept every one it saw, and with a frame's the closed project's canvas. The offscreen windows that draw
-their bitmaps aren't recorded either, so failures carry the frames themselves:
+shadow roots: it keeps every one it sees for the whole session, and with a frame's its whole drawing. It sees one as
+it's attached, which `shadow.ts` hides, and on every element it records, a left-out one included, so each shadow host
+sits inside an element left out (`[data-frame-box]`, and the icon's own) and is never recorded itself
+(`replay-block.ts`). The offscreen windows that draw their bitmaps aren't recorded either, so failures carry the frames
+themselves:
 
 - **Every error from the editor window** has `frames.json` attached, listing the frames on the canvas: the project,
   design, state and mode of each, its size and whether it has a bitmap.

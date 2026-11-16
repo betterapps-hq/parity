@@ -3,6 +3,7 @@ import type { ContainerSpec } from "@parity-app/core"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
+import { replayBlock } from "./replay-block.ts"
 
 // Focus, Tab and inertness are the browser's, so this renders frames in Chrome as the canvas does: ModeView, a project's
 // components through the React guest, and the canvas's own readers of a frame. It needs Chrome installed.
@@ -208,6 +209,20 @@ function focused() {
     return document.activeElement === document.body ? "nothing" : `#${document.activeElement!.id}`
   })
 }
+
+describe("a frame and Session Replay", () => {
+  it("sits inside an element replays leave out, so the recorder never watches its shadow root (PAR-1169)", async () => {
+    await show(form)
+
+    const kept = await page.evaluate((blocked) => {
+      const host = document.querySelector("[data-frame]")!
+
+      return { shadow: host.shadowRoot !== null, outside: host.parentElement?.closest(blocked) !== null }
+    }, replayBlock.join(", "))
+
+    expect(kept).toEqual({ shadow: true, outside: true })
+  })
+})
 
 describe("a frame outside Interact", () => {
   it("is inert, so a design asking for focus as it mounts doesn't take it", async () => {
