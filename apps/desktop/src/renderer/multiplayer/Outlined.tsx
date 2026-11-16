@@ -43,7 +43,7 @@ export function Outlined({
       })}
       <span
         className="pointer-events-none absolute flex gap-px"
-        style={{ top: spread - 16, ...(tagAt === "start" ? { left: spread } : { right: spread }) }}
+        style={{ top: spread - 18, ...(tagAt === "start" ? { left: spread } : { right: spread }) }}
       >
         {by.map((member) => (
           <NameTag key={member.name} member={member} />

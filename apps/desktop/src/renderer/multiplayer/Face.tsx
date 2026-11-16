@@ -1,20 +1,22 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@buildkitgg/shadcn-baseui-kit"
-import { Eye, Sparkles } from "lucide-react"
+import { Sparkles } from "lucide-react"
 import { gradient, type Member } from "./member.ts"
 
-function initials(member: Member): string {
+/** Someone's initials: two from a face big enough to hold them, else one. */
+function initials(member: Member, size: number): string {
   return member.name
     .split(/\s+/)
-    .slice(0, 2)
+    .slice(0, size < 22 ? 1 : 2)
     .map((word) => word[0] ?? "")
     .join("")
     .toUpperCase()
 }
 
 /**
- * Someone's face: a person's is round, their picture or their initials on their color; an agent's is a rounded square,
- * a sparkle on its gradient. Either matches their pointer. Faded while they're away; ringed in their color, with an
- * eye, while you follow them.
+ * Someone's face, round for everyone: a person's picture, or their initials on their gradient; an agent's sparkle on
+ * its gradient. Either matches their pointer, and the gradient's style says which they are. It's cut out of whatever
+ * it sits on by a ring of `--face-cutout` (the background, unless its surface sets it), so overlapping faces stay
+ * apart. Faded while they're away; ringed in their color while you follow them.
  */
 export function Face({
   member,
@@ -28,36 +30,29 @@ export function Face({
   following?: boolean
 }) {
   const { palette } = member
-  const ring = following ? `0 0 0 2px var(--background), 0 0 0 4px ${palette.color}` : "0 0 0 2px var(--background)"
-  const corners = member.agent ? "rounded-[30%]" : "rounded-full"
-  const avatarCorners = member.agent ? "rounded-[30%] after:rounded-[30%]" : ""
+  const cutout = "0 0 0 2px var(--face-cutout, var(--background))"
+  const edge = `color-mix(in oklch, ${palette.ink} 30%, transparent)`
+  const ring = following ? `${cutout}, 0 0 0 3.5px ${palette.color}, 0 0 0 4.5px ${edge}` : cutout
+  const type = size > 32 ? "text-sm" : "text-2xs"
 
   return (
-    <span className={`relative inline-flex shrink-0 ${corners}`} style={{ boxShadow: ring }}>
+    <span className="relative inline-flex shrink-0 rounded-full" style={{ boxShadow: ring }}>
       <Avatar
-        className={`${avatarCorners} transition-[opacity,filter] duration-300 ${away ? "opacity-40 grayscale-[0.6]" : ""}`}
+        className={`transition-[opacity,filter] duration-300 ${away ? "opacity-45 grayscale" : ""}`}
         style={{ width: size, height: size }}
       >
-        {member.photo && <AvatarImage src={member.photo} alt="" className={corners} />}
+        {member.photo && <AvatarImage src={member.photo} alt="" />}
         <AvatarFallback
-          className={`${corners} font-semibold`}
-          style={{
-            background: gradient(palette, 135),
-            color: palette.ink,
-            fontSize: Math.round(size * 0.38)
-          }}
+          className={`${type} leading-none font-semibold`}
+          style={{ background: gradient(palette, 135), color: palette.ink }}
         >
-          {member.agent ? <Sparkles style={{ width: size * 0.5, height: size * 0.5 }} /> : initials(member)}
+          {member.agent ? (
+            <Sparkles style={{ width: size * 0.5, height: size * 0.5 }} strokeWidth={size < 22 ? 2.5 : 2} />
+          ) : (
+            initials(member, size)
+          )}
         </AvatarFallback>
       </Avatar>
-      {following && (
-        <span
-          className="absolute -right-1 -bottom-1 grid size-3.5 place-items-center rounded-full ring-2 ring-background"
-          style={{ background: palette.color, color: palette.ink }}
-        >
-          <Eye className="size-2.5" strokeWidth={2.5} />
-        </span>
-      )}
     </span>
   )
 }

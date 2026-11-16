@@ -7,8 +7,8 @@ import { RemotePointer } from "./RemotePointer.tsx"
 import { members, presences } from "./story-kit.tsx"
 
 /**
- * One room, all together, to judge the system as a whole: three people and two agents on the canvas. Mia has a stat
- * card selected, Jonas is typing on Pricing, and Priya is dragging out a marquee. Claude Code is changing the heading
+ * One room, all together, to judge the system as a whole: three people and two agents on the canvas. Mia has the chart
+ * selected, Jonas is typing on Pricing, and Priya is dragging out a marquee. Claude Code is changing the heading
  * and Codex is reading Pricing. Everyone is in the stack, top-right.
  */
 const meta = {
@@ -24,8 +24,12 @@ type Story = StoryObj<typeof meta>
 const { mia, jonas, priya, claude, codex } = members
 
 const mark: Marker = (id, element) => {
-  if (id === "stat-revenue") {
-    return <Outlined by={[mia]}>{element}</Outlined>
+  if (id === "chart") {
+    return (
+      <Outlined by={[mia]} radius={8}>
+        {element}
+      </Outlined>
+    )
   }
 
   if (id === "heading") {
@@ -51,14 +55,14 @@ function Room() {
           <PricingDesign />
         </Outlined>
       </CanvasBoard>
-      <RemotePointer member={mia} at={{ x: 112, y: 150 }} />
+      <RemotePointer member={mia} at={{ x: 196, y: 214 }} />
       <RemotePointer member={claude} at={{ x: 150, y: 84 }} kind="write" detail="Tighten spacing" />
-      <RemotePointer member={jonas} at={{ x: pricing.x + 150, y: pricing.y + 70 }} detail="Typing…" />
+      <RemotePointer member={jonas} at={{ x: pricing.x + 150, y: pricing.y + 70 }} />
       <RemotePointer member={codex} at={{ x: pricing.x + 60, y: pricing.y + 150 }} kind="read" detail="Check plans" />
       <Marquee member={priya} rect={{ x: marquee.x - 160, y: marquee.y - 60, w: 160, h: 60 }} />
       <RemotePointer member={priya} at={marquee} />
       <div className="absolute top-3 right-3">
-        <FaceStack here={here} />
+        <FaceStack here={here} you={members.you} />
       </div>
     </>
   )

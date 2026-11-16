@@ -1,50 +1,64 @@
+import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import { RefreshCw, WifiOff } from "lucide-react"
+import { CanvasBanner } from "./CanvasBanner.tsx"
 import { Face } from "./Face.tsx"
 import { type Member, shortName } from "./member.ts"
 
+/** Names in a sentence: "Mia", "Mia and Claude Code", "Mia, Jonas and Claude Code". */
+function listed(names: string[]): string | undefined {
+  return names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]
+}
+
 /**
- * When the connection to the room drops, at the top of the canvas: work carries on and is kept on this computer, and
- * everyone else's pointers and selections are hidden until it's back. While it reconnects, whose changes it's catching
- * up on.
+ * When the connection to the room drops, on the canvas's banner: work carries on and is kept on this computer, and
+ * everyone else's pointers and selections are hidden until it's back. Offline, it tries again by itself, and Try now
+ * doesn't wait. Reconnecting, it says how many changes it's catching up on, and whose.
  */
 export function ConnectionNote({
   state,
   catchingUp = [],
-  changes = 0
+  changes = 0,
+  onRetry
 }: {
   state: "offline" | "reconnecting"
   /** Whose changes are on their way in, while reconnecting. */
   catchingUp?: Member[]
   changes?: number
+  onRetry?: () => void
 }) {
-  const names = catchingUp.map(shortName)
-  const who = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : names[0]
+  if (state === "offline") {
+    return (
+      <CanvasBanner
+        lead={<WifiOff className="size-4 text-amber-600 dark:text-amber-400" />}
+        title="Offline"
+        hint="Your changes are kept on this computer"
+      >
+        <Button size="xs" variant="secondary" onClick={onRetry}>
+          Try now
+        </Button>
+      </CanvasBanner>
+    )
+  }
 
   return (
-    <output className="absolute top-2.5 left-1/2 z-10 flex w-max max-w-[calc(100%-24px)] -translate-x-1/2 items-center gap-2 rounded-full border border-amber-500/40 bg-popover py-1 pr-3 pl-2 text-xs text-popover-foreground shadow-md">
-      {state === "offline" ? (
-        <>
-          <WifiOff className="size-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <span className="truncate">
-            <span className="font-semibold">Offline.</span> Your changes are kept here until you&apos;re back.
-          </span>
-        </>
-      ) : (
-        <>
-          <RefreshCw className="size-3.5 shrink-0 animate-spin text-amber-600 [animation-duration:2s] dark:text-amber-400" />
-          <span className="truncate">
-            <span className="font-semibold">Reconnecting.</span> Catching up on {changes} changes from
-            <span className="sr-only"> {who}</span>
-          </span>
-          <span className="flex shrink-0" aria-hidden>
+    <CanvasBanner
+      lead={
+        <RefreshCw className="size-4 animate-spin text-amber-600 [animation-duration:2s] motion-reduce:animate-none dark:text-amber-400" />
+      }
+      title="Reconnecting"
+      hint={
+        <span className="flex items-center gap-1.5">
+          Catching up on {changes} changes
+          <span className="sr-only"> from {listed(catchingUp.map(shortName))}</span>
+          <span className="flex" aria-hidden>
             {catchingUp.map((member, index) => (
               <span key={member.name} className={index > 0 ? "-ml-1" : ""}>
                 <Face member={member} size={16} />
               </span>
             ))}
           </span>
-        </>
-      )}
-    </output>
+        </span>
+      }
+    />
   )
 }

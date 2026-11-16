@@ -67,7 +67,7 @@ export function CanvasPane({
   return (
     <div
       className={`${theme} @container relative overflow-hidden rounded-xl border text-foreground`}
-      style={{ width, maxWidth: "100%", minHeight: height, background: canvasBackground[theme] }}
+      style={{ width, maxWidth: "100%", minHeight: height, background: canvasBackground[theme], colorScheme: theme }}
     >
       {children}
     </div>
@@ -90,7 +90,7 @@ export function CanvasBoard({
 }) {
   return (
     <div className="absolute flex flex-col gap-1.5" style={{ left: x, top: y }}>
-      <span className="text-[11px] font-medium text-muted-foreground">{name}</span>
+      <span className="text-2xs font-medium text-muted-foreground">{name}</span>
       <DragLift up={Boolean(lifted)}>
         <div className="rounded-sm shadow-[0_4px_16px_rgb(0_0_0/0.12)]">{children}</div>
       </DragLift>

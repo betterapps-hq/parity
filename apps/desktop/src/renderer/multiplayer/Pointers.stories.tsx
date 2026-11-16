@@ -14,10 +14,10 @@ import { RemotePointer } from "./RemotePointer.tsx"
 import { members } from "./story-kit.tsx"
 
 /**
- * Other people's pointers: the agents' arrow and pill, in the person's flat color, with their first name and, when
- * there's something to say, what they're doing. Agents keep their gradient and glow, and their badge leads with the
- * icon for their call, so the two never read alike. When
- * someone leaves the canvas, their pointer stays where they left it, faded; when they come back, it glides from there.
+ * Other people's pointers: one arrow for everyone, on their gradient, with a badge under it. A person's badge is their
+ * first name and nothing more, since what they're doing isn't guessed at. An agent's arrow glows, and its badge leads
+ * with the icon for its step and says what it's doing, in its own words. When someone leaves the canvas, their pointer
+ * stays where they left it, faded; when they come back, it glides from there.
  */
 const meta = {
   title: "Parity/Multiplayer/Pointers",
@@ -29,7 +29,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** People and agents together: a name alone, a name with what they're doing, agents at work, and one off the canvas. */
+/** People and agents together: people by name, agents at work saying what they're doing, and one person off the canvas. */
 export const Badges: Story = {
   render: () => (
     <Themes width={560} height={340}>
@@ -39,8 +39,8 @@ export const Badges: Story = {
             <DashboardDesign />
           </CanvasBoard>
           <RemotePointer member={members.mia} at={{ x: 120, y: 96 }} />
-          <RemotePointer member={members.jonas} at={{ x: 250, y: 190 }} detail="Typing…" />
-          <RemotePointer member={members.priya} at={{ x: 380, y: 60 }} detail="Viewing Dashboard" offCanvas />
+          <RemotePointer member={members.jonas} at={{ x: 250, y: 190 }} />
+          <RemotePointer member={members.priya} at={{ x: 380, y: 60 }} offCanvas />
           <RemotePointer member={members.claude} at={{ x: 150, y: 250 }} kind="write" detail="Tighten spacing" />
           <RemotePointer member={members.codex} at={{ x: 370, y: 150 }} kind="read" detail="Check the chart" />
         </>
@@ -113,7 +113,7 @@ function LeavingAndComingBackStory() {
             <CanvasBoard name="Dashboard" x={40} y={40}>
               <DashboardDesign />
             </CanvasBoard>
-            <RemotePointer member={members.mia} at={at} offCanvas={offCanvas} detail="Viewing Dashboard" />
+            <RemotePointer member={members.mia} at={at} offCanvas={offCanvas} />
           </>
         )}
       </Themes>

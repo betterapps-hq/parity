@@ -34,38 +34,44 @@ function portrait({
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+const mia: Member = {
+  name: "Mia Rossi",
+  palette: palette(0),
+  photo: portrait({ background: "#e9d8c8", skin: "#e2b08e", hair: "#3b2418", shirt: "#2f4858", long: true })
+}
+
+const jonas: Member = { name: "Jonas Weber", palette: palette(1) }
+
 /** The room: people and agents, each with the palette the room handed them, in the order they joined. */
 export const members = {
-  mia: {
-    name: "Mia Rossi",
-    palette: palette(0),
-    photo: portrait({ background: "#e9d8c8", skin: "#e2b08e", hair: "#3b2418", shirt: "#2f4858", long: true })
-  },
-  jonas: { name: "Jonas Weber", palette: palette(1) },
+  mia,
+  jonas,
   priya: {
     name: "Priya Raman",
     palette: palette(2),
     photo: portrait({ background: "#cfd8e3", skin: "#a8714f", hair: "#1c1210", shirt: "#b8475a", long: true })
   },
-  claude: { name: "Claude Code", palette: agentPalette(3), agent: true },
-  codex: { name: "Codex", palette: agentPalette(4), agent: true },
+  claude: { name: "Claude Code", palette: agentPalette(3), agent: true, runBy: mia },
+  codex: { name: "Codex", palette: agentPalette(4), agent: true, runBy: jonas },
   sam: {
     name: "Sam Okafor",
     palette: palette(3),
     photo: portrait({ background: "#d9e4d0", skin: "#6e4632", hair: "#16110f", shirt: "#e0a43c" })
   },
   lena: { name: "Lena Fischer", palette: palette(4) },
-  theo: { name: "Theo Martin", palette: palette(5) }
+  theo: { name: "Theo Martin", palette: palette(5) },
+  /** You, in the stories where you're in the room too. */
+  you: { name: "Ana Costa", palette: palette(6) }
 } satisfies Record<string, Member>
 
-/** What everyone in the room is doing. */
+/** Where everyone in the room is: the board each one's view is on, and what each agent says it's doing. */
 export const presences = {
-  mia: { member: members.mia, activity: "Viewing Dashboard in dark mode" },
-  jonas: { member: members.jonas, activity: "Editing Pricing on mobile" },
-  priya: { member: members.priya, activity: "Viewing Dashboard in light mode" },
-  claude: { member: members.claude, activity: "Tightening the dashboard's spacing" },
-  codex: { member: members.codex, activity: "Checking Pricing" },
-  sam: { member: members.sam, activity: "Viewing Settings" },
-  lena: { member: members.lena, activity: "Viewing Sign in", away: "12 min" },
-  theo: { member: members.theo, activity: "Viewing Dashboard on mobile" }
+  mia: { member: members.mia, on: "Dashboard" },
+  jonas: { member: members.jonas, on: "Pricing" },
+  priya: { member: members.priya, on: "Dashboard" },
+  claude: { member: members.claude, on: "Dashboard", doing: "Tightening the dashboard's spacing" },
+  codex: { member: members.codex, on: "Pricing", doing: "Checking the plans' prices" },
+  sam: { member: members.sam, on: "Settings" },
+  lena: { member: members.lena, on: "Sign in", away: "12 min" },
+  theo: { member: members.theo, on: "Dashboard" }
 } satisfies Record<string, Presence>

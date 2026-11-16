@@ -42,8 +42,8 @@ function FollowedCanvas({ pointer = { x: 236, y: 150 } }: { pointer?: { x: numbe
         <DashboardDesign />
       </CanvasBoard>
       <RemotePointer member={members.mia} at={pointer} />
-      <div className="absolute top-3 right-3 @max-[460px]:top-12">
-        <FaceStack here={[jonas, mia, priya]} following={members.mia} size={24} />
+      <div className="absolute top-3 right-3 @max-[700px]:top-15">
+        <FaceStack here={[jonas, mia, priya]} following={members.mia} you={members.you} />
       </div>
     </>
   )
@@ -52,11 +52,11 @@ function FollowedCanvas({ pointer = { x: 236, y: 150 } }: { pointer?: { x: numbe
 /** Following Mia: the frame in Mia's color, the banner, and Mia's face first in the stack, ringed. */
 export const Following: Story = {
   render: () => (
-    <Themes width={560} height={340}>
+    <Themes width={760} height={340}>
       {() => (
         <>
           <FollowedCanvas />
-          <FollowLayer leader={members.mia} state="following" />
+          <FollowLayer leader={members.mia} on="Dashboard" state="following" />
         </>
       )}
     </Themes>
@@ -72,12 +72,12 @@ const endings = [
 function Ended({ theme, label, state }: { theme: Theme; label: string; state: FollowState }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <span className="text-2xs text-muted-foreground">{label}</span>
       <CanvasPane theme={theme} width={340} height={170}>
         <CanvasBoard name="Dashboard" x={24} y={52}>
           <DashboardDesign />
         </CanvasBoard>
-        <FollowLayer leader={members.mia} state={state} />
+        <FollowLayer leader={members.mia} on="Dashboard" state={state} />
       </CanvasPane>
     </div>
   )
@@ -114,10 +114,10 @@ function TryItStory() {
 
   return (
     <div className="flex min-h-screen flex-col items-start gap-4 bg-background p-6 text-foreground">
-      <div className="w-full max-w-[560px]" onWheel={follow.stop}>
-        <CanvasPane theme={theme} width={560} height={340}>
+      <div className="w-full max-w-[760px]" onWheel={follow.stop}>
+        <CanvasPane theme={theme} width={760} height={340}>
           <FollowedCanvas pointer={pointer} />
-          <FollowLayer leader={members.mia} state={follow.state} onStop={follow.stop} />
+          <FollowLayer leader={members.mia} on="Dashboard" state={follow.state} onStop={follow.stop} />
         </CanvasPane>
       </div>
       <div className="flex gap-2">

@@ -1,15 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import type { ReactNode } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { CanvasBoard, CanvasPane, DashboardDesign, Themes, scrolls } from "../stories/canvas-kit.tsx"
 import { useResolvedTheme } from "../theme.ts"
 import { FaceStack } from "./FaceStack.tsx"
-import type { Presence } from "./member.ts"
 import { PersonCard } from "./PersonCard.tsx"
 import { members, presences } from "./story-kit.tsx"
+import { YouCard } from "./YouCard.tsx"
 
 /**
- * Someone's card, opened from their face in the avatar stack: their name, where they are and what they're looking at,
- * and buttons to follow them or go to where they are. It opens with Enter or Space from a focused face, takes focus,
+ * Someone's card, opened from their face in the avatar stack: their name over a wash of their color, the board they're
+ * on (never a guess at what they're doing), and buttons to follow them or go to where they are. An agent's says whose
+ * it is and what it says it's doing. Your own card, from your face, offers to present. It opens with Enter or Space from a focused face, takes focus,
  * and closes with Escape back to the face. On a narrow window the cards keep their width and stack; try the toolbar's
  * viewport menu.
  */
@@ -26,27 +28,38 @@ type Story = StoryObj<typeof meta>
 const { mia, jonas, priya, claude } = presences
 
 /** A card as its popover draws it, out of its popover so several can sit side by side. */
-function Card({ presence, following }: { presence: Presence; following?: boolean }) {
+function Card({ children }: { children: ReactNode }) {
   return (
-    <div className="w-72 rounded-lg bg-popover p-3 text-sm shadow-md ring-1 ring-foreground/10">
-      <PersonCard presence={presence} following={following} />
+    <div className="w-72 self-start overflow-hidden rounded-lg bg-popover text-sm shadow-md ring-1 ring-foreground/10">
+      {children}
     </div>
   )
 }
 
 const cards = (
   <>
-    <Card presence={mia} />
-    <Card presence={jonas} following />
-    <Card presence={{ ...priya, away: "12 min" }} />
-    <Card presence={claude} />
+    <Card>
+      <PersonCard presence={mia} />
+    </Card>
+    <Card>
+      <PersonCard presence={jonas} following />
+    </Card>
+    <Card>
+      <PersonCard presence={{ ...priya, away: "12 min" }} />
+    </Card>
+    <Card>
+      <PersonCard presence={claude} />
+    </Card>
+    <Card>
+      <YouCard you={members.you} others={4} />
+    </Card>
   </>
 )
 
-/** Someone viewing, someone you're following, someone away (who can't be followed), and an agent at work. */
+/** Someone on a board, someone you're following, someone away (who can't be followed), an agent at work, and you. */
 export const Cards: Story = {
   render: () => (
-    <Themes width={640} height={270}>
+    <Themes width={640} height={440}>
       {() => <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4 p-4">{cards}</div>}
     </Themes>
   )
@@ -63,7 +76,7 @@ function FromAFaceStory() {
           <DashboardDesign />
         </CanvasBoard>
         <div className="absolute top-3 right-3">
-          <FaceStack here={[mia, jonas, priya, claude]} following={members.jonas} />
+          <FaceStack here={[mia, jonas, priya, claude]} following={members.jonas} you={members.you} />
         </div>
       </CanvasPane>
     </div>

@@ -46,7 +46,7 @@ function Verdict({ value, needs, label }: { value: number; needs: number; label:
 
   return (
     <span
-      className={`flex items-center gap-1 text-[11px] tabular-nums ${passes ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}`}
+      className={`flex items-center gap-1 text-2xs tabular-nums ${passes ? "text-muted-foreground" : "text-amber-600 dark:text-amber-400"}`}
       title={`${label}: ${value.toFixed(2)} to 1, needs ${needs} to 1`}
     >
       {passes ? <Check className="size-3" /> : <X className="size-3" />}
@@ -87,7 +87,7 @@ function Row({ member }: { member: Member }) {
       <div className="flex w-28 flex-col gap-1 pt-0.5">
         <span className="h-2.5 rounded-full" style={{ background: gradient(member.palette) }} />
         <span className="text-xs font-medium">{member.palette.name}</span>
-        <span className="text-[10px] text-muted-foreground tabular-nums">
+        <span className="text-2xs text-muted-foreground tabular-nums">
           L {l.toFixed(2)} C {c.toFixed(2)} H {Math.round(h)}
         </span>
       </div>
