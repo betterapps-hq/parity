@@ -1,6 +1,6 @@
 import { type Box, countMedia, dropHint, mayBeMedia, readInsertItem } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
+import { notify } from "../toasts.tsx"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
 import { insertDrag } from "./gesture.ts"
@@ -204,7 +204,7 @@ export function CanvasDrop() {
       } else if (canvas) {
         insertDrag.dropped(addFrameOfItem(session, item, canvas))
       } else {
-        toast.info("There's no layout here to drop into")
+        notify.info("Can't drop here", { description: "Drop onto a layout or the empty canvas." })
       }
     }
 

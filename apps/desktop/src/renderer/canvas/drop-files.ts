@@ -1,3 +1,4 @@
+import { plainReason } from "@parity-app/core"
 import type { DesignNode } from "@parity-app/core"
 import {
   countMedia,
@@ -17,10 +18,10 @@ import {
   type TakenFile
 } from "@parity-app/editor"
 import { addContainer, containerEntries, editFrame, updateContainer } from "@parity-app/multiplayer"
-import { toast } from "sonner"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import { track } from "../report-error.ts"
 import { serviceCall } from "../service-call.ts"
+import { lines, notify } from "../toasts.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { type Hit, pickedIn } from "./hit.ts"
 import { importMedia } from "./import-media.ts"
@@ -90,7 +91,7 @@ function takenFrom(files: readonly DroppedFile[]): TakenFile[] {
   const message = skippedMessage(skipped)
 
   if (message) {
-    toast.warning(message.title, { description: message.description })
+    notify.warning(message.title, { description: message.description })
   }
 
   return taken
@@ -108,18 +109,18 @@ async function saveImages(
 ): Promise<SavedImage[]> {
   const words = mediaWords(countMedia(taken.map(({ medium }) => medium)))
   const added: SavedImage[] = []
-  const failed: { name: string; error: unknown }[] = []
+  const failed: { name: string; medium: FileMedium; error: unknown }[] = []
 
   await serviceCall({
     progress: `Adding ${words}…`,
     async run() {
-      for (const { index, type } of taken) {
+      for (const { index, type, medium } of taken) {
         const file = files[index]!
 
         try {
           added.push({ node: await importMedia(projectId, file, fileBaseName(file.name), type), name: file.name })
         } catch (error) {
-          failed.push({ name: file.name, error })
+          failed.push({ name: file.name, medium, error })
         }
       }
     },
@@ -128,17 +129,15 @@ async function saveImages(
         return "dismiss"
       }
 
-      const reason = (cause: unknown) => (cause instanceof Error ? cause.message : String(cause))
+      const first = failed[0]!
+      const one = first.medium === "video" ? "a video" : "an image"
 
       return {
-        failure: failed[0]!.error,
+        failure: first.error,
         operation: "images.import",
-        title: failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} files`,
+        title: `Couldn't add ${failed.length === 1 ? one : mediaWords(countMedia(failed.map(({ medium }) => medium)))}`,
         context: { images: failed.length },
-        description:
-          failed.length === 1
-            ? reason(failed[0]!.error)
-            : failed.map((file) => `${file.name}: ${reason(file.error)}`).join("\n")
+        description: lines(failed.map((file) => `${file.name}: ${plainReason(file.error) ?? "It couldn't be saved."}`))
       }
     }
   })
@@ -180,7 +179,7 @@ export async function dropFiles(
   }
 
   if (target.kind === "none") {
-    toast.info("There's no layout here to drop into")
+    notify.info("Can't drop here", { description: "Drop onto a layout or the empty canvas." })
 
     return
   }
@@ -225,7 +224,11 @@ export async function dropFiles(
 
   // The layout went while the files were saved, by an undo or an agent.
   if (copies.length === 0) {
-    toast.info("The layout they were dropped on is gone, so they weren't placed")
+    const one = nodes.length === 1
+    const placed = `${mediaWords(countMedia(nodes.map(mediumOfNode)))} ${one ? "wasn't" : "weren't"} placed`
+    notify.warning(placed.charAt(0).toUpperCase() + placed.slice(1), {
+      description: `The layout ${one ? "it was" : "they were"} dropped on was deleted.`
+    })
 
     return
   }

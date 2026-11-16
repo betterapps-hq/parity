@@ -8,10 +8,10 @@ import { serveAgents } from "./handlers.ts"
 const mocks = vi.hoisted(() => ({
   session: { id: "project" },
   reloadFile: vi.fn<typeof reloadFile>(),
-  warning: vi.fn<(title: string, options: { action: { onClick: () => void } }) => void>()
+  warning: vi.fn<(title: string, options: { action: { run: () => void } }) => void>()
 }))
 
-vi.mock("sonner", () => ({ toast: { warning: mocks.warning } }))
+vi.mock("../toasts.tsx", () => ({ notify: { warning: mocks.warning } }))
 
 vi.mock("../project-doc.ts", () => ({ reloadFile: mocks.reloadFile }))
 
@@ -79,7 +79,7 @@ describe("a design file changed on disk", () => {
     ])
     expect(sink.named("document.loadedFromDisk")).toEqual([])
 
-    mocks.warning.mock.calls[0]![1].action.onClick()
+    mocks.warning.mock.calls[0]![1].action.run()
     expect(mocks.reloadFile).toHaveBeenLastCalledWith(mocks.session, "src/Card.canvas.json", document, true)
     expect(sink.named("document.loadedFromDisk").map((event) => event.attributes)).toEqual([
       { file: "src/Card.canvas.json" }

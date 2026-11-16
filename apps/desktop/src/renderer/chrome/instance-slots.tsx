@@ -16,7 +16,6 @@ import { slotPreviewTree } from "@parity-app/editor"
 import type { ContainerEntry } from "@parity-app/multiplayer"
 import { ArrowLeft, SquareDashed } from "lucide-react"
 import type { ReactElement, ReactNode } from "react"
-import { toast } from "sonner"
 import { useProject } from "../canvas/context.ts"
 import { kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
@@ -25,6 +24,7 @@ import { Field, FieldGrid } from "../inspector/controls/field-row.tsx"
 import { shownName, TypeTile } from "../inspector/controls/instance-section.tsx"
 import { type LayersDrag, SlotPickerField } from "../inspector/controls/slot-picker.tsx"
 import { useContainerEntries } from "../project-doc.ts"
+import { notify } from "../toasts.tsx"
 import { useHoverCard } from "./hover-card.ts"
 import { updateAndRecord } from "./inspector-events.ts"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -215,15 +215,16 @@ function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: I
     const allowed = candidates.find((candidate) => ids.includes(candidate.node.id))
 
     if (design !== entry.key) {
-      toast.info(`Only layers in this design can go in ${label}`)
+      notify.info("Can't drop that here", { description: `Only layers in this design can go in ${label}.` })
     } else if (allowed) {
       fillWith(allowed.node.id)
     } else if (dropped) {
-      toast.info(
-        first === instance.id
-          ? `${named(dropped)} can't go in its own slot`
-          : `${named(dropped)} can't go in ${label}, which is inside it`
-      )
+      notify.info("Can't drop that here", {
+        description:
+          first === instance.id
+            ? `${named(dropped)} can't go in its own slot.`
+            : `${named(dropped)} can't go in ${label}, which is inside it.`
+      })
     }
   }
 

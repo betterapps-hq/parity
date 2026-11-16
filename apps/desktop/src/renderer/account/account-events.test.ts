@@ -1,10 +1,12 @@
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
-import { toast } from "sonner"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { setWindowTelemetry } from "../report-error.ts"
+import { notify } from "../toasts.tsx"
 import { accountActions, receiveAccount, startAccount } from "./account.ts"
 
-vi.mock("sonner", () => ({ toast: Object.assign(vi.fn<() => void>(), { error: vi.fn<() => void>() }) }))
+vi.mock("../toasts.tsx", () => ({
+  notify: { done: vi.fn<() => void>(), info: vi.fn<() => void>(), failed: vi.fn<() => void>() }
+}))
 
 vi.mock("../chrome/actions.ts", () => ({ actions: {} }))
 
@@ -67,7 +69,7 @@ describe("account telemetry in the window", () => {
     expect(sink.named("error.caught").map((event) => event.attributes)).toEqual([
       {
         action: "account",
-        title: "Parity couldn't sign you out",
+        title: "Couldn't sign out",
         message: "Main went away"
       }
     ])
@@ -107,7 +109,10 @@ describe("finishing a sign-in after choosing an organization (PAR-1143)", () => 
       ended: null
     })
 
-    expect(toast).toHaveBeenCalledWith("Added grace@example.com", { id: "account-joined" })
+    expect(notify.done).toHaveBeenCalledWith("Added an account", {
+      id: "account-joined",
+      description: "You're signed in as grace@example.com."
+    })
   })
 
   it("says nothing when the question is put away and the accounts stay as they were", () => {
@@ -118,9 +123,11 @@ describe("finishing a sign-in after choosing an organization (PAR-1143)", () => 
     }
 
     receiveAccount({ ...signedIn, attempt: choosing })
-    vi.mocked(toast).mockClear()
+    vi.mocked(notify.done).mockClear()
+    vi.mocked(notify.info).mockClear()
     receiveAccount({ ...signedIn, attempt: null })
 
-    expect(toast).not.toHaveBeenCalled()
+    expect(notify.done).not.toHaveBeenCalled()
+    expect(notify.info).not.toHaveBeenCalled()
   })
 })

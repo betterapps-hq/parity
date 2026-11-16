@@ -302,25 +302,37 @@ async function checkFromMenu(page: Page): Promise<void> {
 }
 
 /**
- * The update notice that's staying on screen. Sonner keeps a dismissed toast in the page, marked data-removed, while it
+ * The update notice that's staying on screen. A closed toast stays in the page, marked data-ending-style, while it
  * animates out: its buttons move, then go. Waiting on or clicking one of those times out ("element is not stable",
  * then "detached from the DOM"), as it did on Ubuntu when a restored notice reused the leaving toast's id (PAR-494).
  */
 function updateToast(page: Page): Locator {
   return page
-    .locator('[data-sonner-toast][data-removed="false"]')
-    .filter({ has: page.locator('[data-slot="update-toast"]') })
+    .locator('[data-slot="toast"]:not([data-ending-style])')
+    .filter({ hasText: /update|Downloading Parity|up to date/i })
 }
 
-/** Later keeps the update. The leaving toast is gone before this returns, so the next notice is a toast of its own. */
+/**
+ * A button on the update notice. Base UI hides a failure's toast from the accessibility tree until it's focused, since
+ * a live region announces it, and a toast's close button until the stack is hovered or focused, so the role query
+ * includes hidden elements. Clicking hovers first, as a person would.
+ */
+function toastButton(page: Page, name: string): Locator {
+  return updateToast(page).getByRole("button", { name, exact: true, includeHidden: true })
+}
+
+/** Closing the notice keeps the update. The leaving toast is gone before this returns. */
 async function later(page: Page): Promise<void> {
-  await updateToast(page).getByRole("button", { name: "Later", exact: true }).click()
-  await page.locator('[data-slot="update-toast"]').waitFor({ state: "detached" })
+  await toastButton(page, "Close toast").click()
+  await page
+    .locator('[data-slot="toast"]')
+    .filter({ hasText: /update|Downloading Parity|up to date/i })
+    .waitFor({ state: "detached" })
 }
 
 async function openUpdate(page: Page): Promise<void> {
   await checkFromMenu(page)
-  await updateToast(page).getByRole("button", { name: "Restart to update", exact: true }).waitFor()
+  await toastButton(page, "Restart").waitFor()
 
   if (await page.getByRole("dialog", { name: "Parity", exact: true }).count()) {
     throw new Error("Check for updates opened About instead of a toast.")
@@ -513,12 +525,12 @@ try {
   corrupt = false
   stage = "downloading a valid update"
   print(stage)
-  await updateToast(page).getByRole("button", { name: "Try again", exact: true }).click()
+  await toastButton(page, "Try again").click()
   await waitForUpdate(page, "ready")
   await later(page)
 
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready") {
-    throw new Error("Later discarded the update.")
+    throw new Error("Closing the notice discarded the update.")
   }
 
   await page.getByRole("application", { name: "tldraw", exact: true }).waitFor()
@@ -639,7 +651,7 @@ try {
   }
 
   print(
-    "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
+    "Real installed update passed: corrupt download rejected, closing the notice kept it, Cancel respected, work saved, version 999.0.1 relaunched."
   )
 } catch (error) {
   failed = true

@@ -1,4 +1,4 @@
-import { type MadeKind, findNode } from "@parity-app/core"
+import { findNode, type MadeKind, plainReason } from "@parity-app/core"
 import { type Alignment, arrowOf, type Order, reviewToolFor, selectedDesigns, selectedNodes } from "@parity-app/editor"
 import {
   containerEntries,
@@ -8,7 +8,6 @@ import {
   updateNote,
   updateReference
 } from "@parity-app/multiplayer"
-import { toast } from "sonner"
 import type { ServiceMethods } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import {
@@ -28,10 +27,11 @@ import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/s
 import { type DocSession, mergedFile, projectLibrary, redo as redoStep, undo as undoStep } from "../project-doc.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { findReferences, referenceLibrary } from "../references/find-references.ts"
-import { errorMessage, reportError } from "../report-error.ts"
+import { reportError } from "../report-error.ts"
 import type { Tool } from "../selection.ts"
 import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
+import { lines, notify } from "../toasts.tsx"
 import { spacingUnit } from "../tokens-store.ts"
 import { homeTab, type ProjectDesigns, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import { openDialog } from "./app-dialogs.ts"
@@ -139,22 +139,21 @@ async function openProjectFile(): Promise<void> {
   }
 }
 
-/** Writes every file with unsaved changes and says which ones it wrote. */
-async function save(session: Pick<ProjectSession, "id" | "doc" | "saver"> | undefined): Promise<void> {
+/** Writes every file with unsaved changes and says so. */
+async function save(session: Pick<ProjectSession, "id" | "saver"> | undefined): Promise<void> {
   if (!session) {
     return
   }
 
   try {
-    const paths = session.saver.unsaved()
     await session.saver.flush()
-    toast.success("Saved", { description: paths.join(", ") || session.doc.main, duration: 2000 })
+    notify.done("Saved the project", { timeout: 2000 })
   } catch (error) {
     reportError(error, {
       operation: "project.save",
-      title: "Couldn't save",
+      title: "Couldn't save the project",
       id: saveFailureToast(session.id),
-      description: errorMessage(error)
+      retry: () => void save(session)
     })
   }
 }
@@ -184,15 +183,15 @@ async function saveCopy(session: (DocSession & Pick<ProjectSession, "info">) | u
   try {
     await session.saver.flush()
     await request("document.saveCopy", { path, document: mergedFile(session) })
-    toast.success("Saved a copy", {
+    notify.done("Saved a copy", {
       description: path,
-      action: { label: "Show", onClick: () => void window.canvasHost.showItem(path) }
+      action: { label: "Show file", run: () => void window.canvasHost.showItem(path) }
     })
   } catch (error) {
     reportError(error, {
       operation: "document.saveCopy",
       title: "Couldn't save the copy",
-      description: errorMessage(error)
+      description: `${plainReason(error) ?? ""} Try another folder.`.trim()
     })
   }
 }
@@ -215,7 +214,7 @@ async function exportSelected(
   const targets = selectedTargets(session)
 
   if (targets.length === 0) {
-    toast.info("Select a screen, a component or a layer to export it")
+    notify.info("Nothing selected", { description: "Select what to export." })
 
     return
   }
@@ -238,7 +237,7 @@ async function copySelectedAsPng(
   const targets = selectedTargets(session)
 
   if (targets.length === 0) {
-    toast.info("Select a screen, a component or a layer to copy it as a PNG")
+    notify.info("Nothing selected", { description: "Select what to copy as a PNG." })
 
     return
   }
@@ -272,22 +271,18 @@ async function copySelectedAsPng(
     },
     done: ({ drawn, warnings }) =>
       drawn
-        ? { success: "Copied as PNG", duration: 2000 }
+        ? { success: "Copied as PNG", timeout: 2000 }
         : {
             failure: new Error(warnings.join("\n") || "Nothing was drawn"),
             operation: "layers.picture",
             title: "Couldn't copy as PNG",
-            description: warnings.join("\n") || undefined,
-            classNames: { description: "whitespace-pre-line" }
+            description: warnings.length > 0 ? lines(warnings) : undefined
           },
     failed: { operation: "layers.picture", title: "Couldn't copy as PNG" }
   })
 
   if (copied?.drawn && copied.warnings.length > 0) {
-    toast.warning("Some layers couldn't be drawn", {
-      description: copied.warnings.join("\n"),
-      classNames: { description: "whitespace-pre-line" }
-    })
+    notify.warning("Some layers were left out", { description: lines(copied.warnings) })
   }
 }
 
@@ -483,8 +478,9 @@ function nudge(
   )
 
   if (blocked) {
-    toast.info(`Its ${blocked.side} is the ${String(blocked.token)} token, so it doesn't nudge that way`, {
-      id: "nudge-token"
+    notify.info("Can't nudge that way", {
+      id: "nudge-token",
+      description: `Its ${blocked.side} edge is set by the ${String(blocked.token)} token.`
     })
   }
 
@@ -733,7 +729,11 @@ function makeComponent(session: (ProjectDesigns & Pick<ProjectSession, "editor" 
     session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
     revealSelection(session)
   } catch (error) {
-    toast.info(errorMessage(error))
+    reportError(error, {
+      operation: "component.extract",
+      title: "Couldn't make a component",
+      retry: () => makeComponent(session)
+    })
   }
 }
 

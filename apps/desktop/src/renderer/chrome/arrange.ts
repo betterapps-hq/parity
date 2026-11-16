@@ -38,8 +38,9 @@ import {
   updateContainer,
   updateContainers
 } from "@parity-app/multiplayer"
-import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
+import { reportError } from "../report-error.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 
 /**
@@ -173,7 +174,7 @@ export function wrapLayers(session: ProjectDesigns): boolean {
       return wrapped.container
     })
   } catch (error) {
-    toast.info(error instanceof Error ? error.message : String(error))
+    reportError(error, { operation: "layers.wrap", title: "Couldn't wrap these layers" })
 
     return false
   }
@@ -205,7 +206,7 @@ export function unwrapLayer(session: ProjectDesigns): boolean {
   })
 
   if (!children) {
-    toast.info("Select a layout to unwrap it")
+    notify.info("Select a layout to unwrap it")
 
     return false
   }

@@ -10,10 +10,10 @@ import {
   updateContainer,
   updateContainers
 } from "@parity-app/multiplayer"
-import { toast } from "sonner"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
 import { libraryOf, undo } from "../project-doc.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { droppedStatesLine, dropLines, frameDrops } from "./convert-to-frame.ts"
 import { askToConvertToFrame } from "./ConvertToFrameDialog.tsx"
@@ -71,12 +71,6 @@ export function duplicateDesign(
   return key
 }
 
-/** What the toast after converting a frame to a heavier kind says next. */
-const convertedHints: Record<Exclude<MadeKind, "frame">, string> = {
-  component: "Place it in screens from Components.",
-  screen: "Show it in more modes from its board's menu."
-}
-
 /**
  * Converts a design to another kind, from its title's menu, the canvas's and Object menus and the inspector (PAR-545).
  * A screen and a component become each other at once. A frame becomes either at once too, dropping nothing, with a
@@ -121,16 +115,16 @@ export function setDesignKind(session: ProjectDesigns, entry: ContainerEntry, ki
 
   // Only a component has states, so a component made a screen keeps its first state's look and loses the others.
   if (dropped.states.length > 0) {
-    toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
-      description: droppedStatesLine(dropped.states.map((state) => state.name)),
-      action: { label: "Undo", onClick: () => undo(session) }
+    notify.done(`Converted to a ${kindName(kind)}`, {
+      description: `${droppedStatesLine(dropped.states.map((state) => state.name))}.`,
+      action: { label: "Undo", run: () => undo(session) }
     })
   }
 
   if (from === "frame") {
-    toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
-      description: convertedHints[kind],
-      action: { label: "Undo", onClick: () => undo(session) }
+    notify.done(`Converted to a ${kindName(kind)}`, {
+      description: `${entry.container.name} is now a ${kindName(kind)}.`,
+      action: { label: "Undo", run: () => undo(session) }
     })
   }
 }
