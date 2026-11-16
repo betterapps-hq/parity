@@ -206,6 +206,46 @@ export default function App() {
     expect(offer?.text.match(/const config/g)).toHaveLength(1)
   })
 
+  it("imports a name a prop uses even where a callback in it names its parameter the same", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { SessionProvider } from "./session"
+import { user } from "./fixtures"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <SessionProvider value={{ user, nameOf: (user) => user.name }}><App /></SessionProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.text).toContain(`import { user } from "../src/fixtures"`)
+  })
+
+  it("imports a default export by every name the providers' files give it", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import OuterProvider from "./provider"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(<OuterProvider><App /></OuterProvider>)
+`,
+        "src/App.jsx": `import InnerProvider from "./provider"
+
+export default function App() {
+  return <InnerProvider><Home /></InnerProvider>
+}
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["OuterProvider", "InnerProvider"])
+    expect(offer?.text).toContain(`import OuterProvider, { default as InnerProvider } from "../src/provider"`)
+  })
+
   it("offers nothing when the entry renders no providers", async () => {
     const offer = await offerPreviewFile(
       files({

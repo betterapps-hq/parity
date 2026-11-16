@@ -696,54 +696,72 @@ function declaredAnywhere(name: string, source: ts.SourceFile): boolean {
   return found
 }
 
-/** The names an expression or declaration uses from around it: not property names, keys or its own parameters. */
+/**
+ * The names an expression or declaration uses from around it: not property names or keys, and not what a function in
+ * it declares, which counts only inside that function, as `user => user.name` binds `user` only for its own body.
+ */
 function freeNames(node: ts.Node): string[] {
   const names = new Set<string>()
-  const bound = new Set<string>()
 
-  const visit = (each: ts.Node) => {
+  const mention = (name: string, bound: ReadonlySet<string>) => {
+    if (!bound.has(name)) {
+      names.add(name)
+    }
+  }
+
+  const visit = (each: ts.Node, bound: ReadonlySet<string>): void => {
+    if (ts.isFunctionLike(each)) {
+      const inner = new Set([...bound, ...declaredIn(each)])
+
+      ts.forEachChild(each, (child) => {
+        // A function's or method's own name isn't something it uses.
+        if (child !== each.name) {
+          visit(child, inner)
+        }
+      })
+
+      return
+    }
+
     if (ts.isParameter(each) || ts.isBindingElement(each) || ts.isVariableDeclaration(each)) {
-      if (ts.isIdentifier(each.name)) {
-        bound.add(each.name.text)
+      // What it declares is counted by the function around it; its default or value is what it uses.
+      if (each.initializer) {
+        visit(each.initializer, bound)
       }
 
-      if (each.initializer) {
-        visit(each.initializer)
+      if (!ts.isIdentifier(each.name)) {
+        visit(each.name, bound)
       }
 
       return
     }
 
-    if (ts.isFunctionDeclaration(each) && each.name) {
-      bound.add(each.name.text)
-    }
-
     if (ts.isPropertyAccessExpression(each)) {
-      visit(each.expression)
+      visit(each.expression, bound)
 
       return
     }
 
     if (ts.isPropertyAssignment(each)) {
       if (ts.isComputedPropertyName(each.name)) {
-        visit(each.name.expression)
+        visit(each.name.expression, bound)
       }
 
-      visit(each.initializer)
+      visit(each.initializer, bound)
 
       return
     }
 
     if (ts.isJsxAttribute(each)) {
       if (each.initializer) {
-        visit(each.initializer)
+        visit(each.initializer, bound)
       }
 
       return
     }
 
     if (ts.isIdentifier(each)) {
-      names.add(each.text)
+      mention(each.text, bound)
 
       return
     }
@@ -752,10 +770,10 @@ function freeNames(node: ts.Node): string[] {
       const tag = each.tagName.getText()
 
       if (/^[A-Z]/.test(tag) || tag.includes(".")) {
-        names.add(firstPart(tag))
+        mention(firstPart(tag), bound)
       }
 
-      visit(each.attributes)
+      visit(each.attributes, bound)
 
       return
     }
@@ -764,12 +782,51 @@ function freeNames(node: ts.Node): string[] {
       return
     }
 
-    ts.forEachChild(each, visit)
+    ts.forEachChild(each, (child) => visit(child, bound))
   }
 
-  visit(node)
+  // A declaration being copied declares its own name, which it may use, as a recursive function does.
+  const own =
+    (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) && node.name && ts.isIdentifier(node.name)
 
-  return [...names].filter((name) => !bound.has(name))
+  visit(node, new Set(own ? [node.name.text] : []))
+
+  return [...names]
+}
+
+/**
+ * The names a function declares for its own body: its parameters, and the variables, functions and classes in it,
+ * leaving those of the functions inside it to them.
+ */
+function declaredIn(fn: ts.SignatureDeclaration): string[] {
+  const names: string[] = []
+
+  const collect = (node: ts.Node) => {
+    if (
+      (ts.isParameter(node) ||
+        ts.isBindingElement(node) ||
+        ts.isVariableDeclaration(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isClassDeclaration(node)) &&
+      node.name &&
+      ts.isIdentifier(node.name)
+    ) {
+      names.push(node.name.text)
+    }
+
+    // A function inside declares its name here, and the rest for itself.
+    if (!ts.isFunctionLike(node)) {
+      ts.forEachChild(node, collect)
+    }
+  }
+
+  ts.forEachChild(fn, (child) => {
+    if (child !== fn.name) {
+      collect(child)
+    }
+  })
+
+  return names
 }
 
 /** The preview file: its imports, what it copies from the app, one decorator nesting the providers, and its globals. */
@@ -834,15 +891,16 @@ function previewText({
 
 /** One import line per module, its default first: the packages first, each in the order the providers need it. */
 function importLines(imports: Map<string, Imported>, quote: string): string[] {
-  const modules = new Map<string, { default?: string; namespace?: string; named: string[] }>()
+  const modules = new Map<string, { defaults: string[]; namespaces: string[]; named: string[] }>()
 
   for (const [local, { specifier, imported }] of imports) {
-    const entry = modules.get(specifier) ?? { named: [] }
+    const entry = modules.get(specifier) ?? { defaults: [], namespaces: [], named: [] }
 
+    // Each provider's file can call the same export by its own name, so every name is kept.
     if (imported === "default") {
-      entry.default = local
+      entry.defaults.push(local)
     } else if (imported === "*") {
-      entry.namespace = local
+      entry.namespaces.push(local)
     } else {
       entry.named.push(imported === local ? local : `${imported} as ${local}`)
     }
@@ -856,15 +914,16 @@ function importLines(imports: Map<string, Imported>, quote: string): string[] {
   return ordered.flatMap(([specifier, entry]) => {
     const from = `from ${quote}${specifier}${quote}`
     const lines: string[] = []
-    const named = entry.named.length > 0 ? `{ ${entry.named.toSorted().join(", ")} }` : undefined
-    const first = [entry.default, named].filter(Boolean).join(", ")
+    const [first, ...others] = entry.defaults
+    const named = [...others.map((local) => `default as ${local}`), ...entry.named.toSorted()]
+    const bindings = [first, named.length > 0 ? `{ ${named.join(", ")} }` : undefined].filter(Boolean).join(", ")
 
-    if (first) {
-      lines.push(`import ${first} ${from}`)
+    if (bindings) {
+      lines.push(`import ${bindings} ${from}`)
     }
 
-    if (entry.namespace) {
-      lines.push(`import * as ${entry.namespace} ${from}`)
+    for (const namespace of entry.namespaces) {
+      lines.push(`import * as ${namespace} ${from}`)
     }
 
     return lines
