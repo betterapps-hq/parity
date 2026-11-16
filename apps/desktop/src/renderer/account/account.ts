@@ -169,6 +169,11 @@ export function startAccount(): void {
     })
 }
 
+/** The signed-in person's first name, or nothing when no one is signed in or their account has no name. */
+export function firstName(): string | undefined {
+  return account.get().state.account?.name?.trim().split(/\s+/)[0] || undefined
+}
+
 export function useAccount(): AccountView {
   return useStore(account)
 }

@@ -39,12 +39,13 @@ import {
 } from "@parity-app/multiplayer"
 import { localProvider } from "@parity-app/multiplayer-local"
 import { useSyncExternalStore } from "react"
+import type { LiveRoom } from "./live-room.ts"
 import { track } from "./report-error.ts"
 
 /*
  * The project document an open project's designs live in (docs/proposals/multiplayer.md: How the session moves onto
  * it). This is the one place that picks the provider: the window stays on the local provider, and Loro comes in only
- * for a live room, later. Everything else edits through `@parity-app/multiplayer`'s functions for callers with
+ * for a live room: today, the one `pnpm dev` opens with `PARITY_ROOM=1` (live-room.ts). Everything else edits through `@parity-app/multiplayer`'s functions for callers with
  * `session.doc`, reads through its lookups, and saves through `session.saver`.
  */
 
@@ -67,6 +68,8 @@ export interface DocSession {
   readonly autosave: () => boolean
   /** Tells this session's revisions apart from another's, such as the same project's after it's reopened. */
   readonly epoch: string
+  /** The live room the project is open in, in development, or nothing. */
+  readonly room?: LiveRoom | undefined
 }
 
 export interface OpenOptions {
@@ -79,6 +82,8 @@ export interface OpenOptions {
   main: string
   persistence: Persistence
   libraryDesigns?: readonly ContainerSpec[]
+  /** A live room to open the project in, on its provider, saving only while this copy hosts it. */
+  room?: LiveRoom | undefined
 }
 
 /** What a document has done, for `projectDoc.closed`. */
@@ -104,10 +109,12 @@ const revisions = new WeakMap<ProjectDoc, { count: number }>()
 export function openDocSession(options: OpenOptions): DocSession {
   const started = performance.now()
   const files = [...options.files, ...options.drawn].map(({ path }) => path)
+  const { room } = options
+  const opener = room?.provider ?? provider
 
   try {
     // The modes are the document's own state, so a main file that still carries them is opened without.
-    const backend = provider.open({
+    const backend = opener.open({
       files: [
         ...options.files.map((file) => ({ ...file, document: withoutModes(file.document) })),
         ...options.drawn.map((file) => ({ ...file, drawn: true }))
@@ -122,11 +129,11 @@ export function openDocSession(options: OpenOptions): DocSession {
     doc.subscribe(() => {
       revision.count += 1
     })
-    const saver = createProjectSaver(doc, options.persistence)
+    const saver = createProjectSaver(doc, room ? roomPersistence(room, options.persistence) : options.persistence)
     const entries = containerEntries(doc)
 
     track("projectDoc.opened", {
-      provider: provider.name,
+      provider: opener.name,
       files,
       designs: entries.length,
       layers: entries.reduce((count, entry) => count + layerCount(entry.container.root), 0),
@@ -138,11 +145,13 @@ export function openDocSession(options: OpenOptions): DocSession {
       saver,
       libraryDesigns: options.libraryDesigns ?? [],
       autosave: () => options.persistence.autosave(),
-      epoch: Math.random().toString(36).slice(2, 10).padEnd(8, "0")
+      epoch: Math.random().toString(36).slice(2, 10).padEnd(8, "0"),
+      room
     }
   } catch (error) {
+    room?.leave()
     track("projectDoc.openFailed", {
-      provider: provider.name,
+      provider: opener.name,
       files,
       message: error instanceof Error ? error.message : String(error)
     })
@@ -170,8 +179,19 @@ export function closeDocSession(session: DocSession): void {
     })
   }
 
+  session.room?.leave()
   session.saver.dispose()
   doc.dispose()
+}
+
+/** Writes only while this copy hosts the room, so copies don't write the same files over each other. */
+function roomPersistence(room: LiveRoom, persistence: Persistence): Persistence {
+  return {
+    ...persistence,
+    saveDocument: (path, document, timing) =>
+      room.saves() ? persistence.saveDocument(path, document, timing) : Promise.resolve(),
+    deleteDocument: (path) => (room.saves() ? persistence.deleteDocument(path) : Promise.resolve())
+  }
 }
 
 /**
@@ -364,6 +384,11 @@ function recordStep(name: "edit.undone" | "edit.redone", change: DocChange | und
  * choose which to keep.
  */
 export function reloadFile(session: DocSession, path: string, document: CanvasDocument, force = false): boolean {
+  // In a live room the copy that saves takes a changed file in, and the others get it from there.
+  if (session.room && !session.room.saves()) {
+    return true
+  }
+
   if (!force && session.saver.unsaved().includes(path)) {
     return false
   }

@@ -46,6 +46,7 @@ import { sizeWhileShown } from "./overlay-canvas.ts"
 import { PageLinksUtil } from "./PageLinksUtil.tsx"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
+import { RoomCursor } from "./RoomCursor.tsx"
 import { routePageLinks } from "./route-pages.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
@@ -81,7 +82,8 @@ export function canvasIdFor(key: string): CanvasId {
  * tldraw's own context menu acts on tldraw shapes (copy as SVG, paste); designs have their own menus instead. Design
  * titles draw in a layer of their own, above every board.
  */
-const components: TLComponents = { ContextMenu: null, OnTheCanvas: TitleLayer }
+// Other people's cursors in a live room in development look like agents' (live-room.ts).
+const components: TLComponents = { ContextMenu: null, OnTheCanvas: TitleLayer, CollaboratorCursor: RoomCursor }
 
 /**
  * tldraw's selection box is a square around the shape, drawn over a design's own rounded outline, so it only shows
