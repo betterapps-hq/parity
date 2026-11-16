@@ -180,8 +180,9 @@ function byPoints(element: HTMLElement): LaidOut | undefined {
  * root is laid out as the frame is, its size and the custom properties its host sets, so the project's media queries,
  * which ask the frame's size, still match; the frame's body is copied without its children, for the classes and
  * attributes the design's rules ask for; and each copy takes what its layer inherits from its parent. Each is drawn
- * where its layer is, at its size, so one that fills its layout keeps its size: scaled and turned as whatever the layer
- * is in is, and by its own transforms, which it keeps, from there. The copies keep their `data-canvas-node`,
+ * where its layer is, at its size and with its padding as it's laid out, so one that fills its layout, or is padded by
+ * a share of it, keeps its size and what's inside it keeps its place: scaled and turned as whatever the layer is in is,
+ * and by its own transforms, which it keeps, from there. The copies keep their `data-canvas-node`,
  * which the frame's own rules are written against (`nodeSelector`), yet aren't layers: hit testing and outlines look
  * for layers in a frame's shadow root, never in the picture's. What can't be copied this way, such as a canvas
  * element's drawing or a scroll position, is left out.
@@ -257,6 +258,9 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
 
     // SAFETY: a deep clone of an element is an element of the same kind, and an HTML or SVG element has a style.
     const copy = layer.cloneNode(true) as HTMLElement
+    // A percentage of padding is of the width of what the layer's laid out in, which its copy isn't: it's given what
+    // that comes to.
+    const drawn = getComputedStyle(layer)
 
     const place = {
       position: "absolute",
@@ -265,6 +269,10 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
       width: `${width}px`,
       height: `${height}px`,
       margin: "0",
+      "padding-top": drawn.paddingTop,
+      "padding-right": drawn.paddingRight,
+      "padding-bottom": drawn.paddingBottom,
+      "padding-left": drawn.paddingLeft,
       "box-sizing": "border-box",
       "max-width": "none",
       "max-height": "none",
