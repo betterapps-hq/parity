@@ -135,20 +135,28 @@ export function liftElements(
     }
   }
 
+  /**
+   * What this lift still holds: an element lifted again since, as by someone else's drag of the same board, is the
+   * newer lift's, which putting this one down leaves alone.
+   */
+  const live = () => lifted.filter(({ element, restore }) => settling.get(element) === restore)
+
   /** Puts them down, as `drawn` says for each, and takes everything off once `ms` have passed. */
   const putDown = (ms: number, drawn: (entry: (typeof lifted)[number]) => Written) => {
+    const held = live()
+
     if (reduced) {
-      lifted.forEach(({ restore }) => restore())
+      held.forEach(({ restore }) => restore())
 
       return
     }
 
-    for (const entry of lifted) {
+    for (const entry of held) {
       write(entry.style, drawn(entry))
       grown.delete(entry.element)
     }
 
-    lifted.forEach(({ settle }) => settle(ms))
+    held.forEach(({ settle }) => settle(ms))
   }
 
   return {
@@ -179,10 +187,13 @@ export function liftElements(
         })
 
         // Where it was let go, at once, then back to where it was, settling as it goes.
-        lifted.forEach(({ element, style, held }, index) => {
-          const from = translated(held, away[index]!)
+        const held = live()
 
-          if (!reduced && from) {
+        lifted.forEach((entry, index) => {
+          const from = translated(entry.held, away[index]!)
+
+          if (!reduced && from && held.includes(entry)) {
+            const { element, style } = entry
             write(style, { transition: "none", translate: from })
             element.getBoundingClientRect()
           }
