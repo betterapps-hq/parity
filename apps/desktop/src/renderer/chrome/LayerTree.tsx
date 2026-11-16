@@ -873,9 +873,12 @@ export function LayerTree() {
     }
   }
 
+  // Selecting an API route, by a click or the keys, keeps focus on the tree, as a folder's click does, so the keys act
+  // on what's highlighted rather than on the row last clicked.
   const selectApi = (route: ProjectRoute) => {
     setActiveFolder(undefined)
     selection.set(refsSelection([routeRef(session.info, route.id)]))
+    treeRef.current?.focus()
   }
 
   const onKeyDown = (event: KeyboardEvent) => {
