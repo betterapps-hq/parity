@@ -59,7 +59,10 @@ beforeAll(async () => {
         <div data-canvas-node="padded"><span class="inner"></span></div></div>
       <div class="panel" style="position: absolute; left: 380px; top: 200px">
         <span class="lead">Lead</span><div class="label" data-canvas-node="label"><span class="note">Note</span></div>
-      </div></div>`
+      </div>
+      <div style="opacity: 0.8; filter: url(#missing)"><div style="filter: brightness(0.5)">
+        <div style="opacity: 0.5; filter: grayscale(1)"><div data-canvas-node="dimmed" style="width: 40px; height: 40px;
+          background: rgb(255, 0, 0)"></div></div></div></div></div>`
   })
 })
 
@@ -108,7 +111,7 @@ describe("a picture of a layer the frame's rules draw", () => {
   })
 
   it("adds no layers where the canvas looks for them", () => {
-    expect(drawn.layers).toBe(7)
+    expect(drawn.layers).toBe(8)
     expect(drawn.found).toBe(0)
   })
 })
@@ -281,6 +284,34 @@ describe("a picture of a layer drawn by rules about what it's in", () => {
 
   it("is never hit", () => {
     expect(drawn.hit).toBe(false)
+  })
+})
+
+describe("a picture of a layer in something dimmed and filtered", () => {
+  let blended: { opacity: string; filter: string }
+
+  beforeAll(async () => {
+    blended = await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const dimmed = host.shadowRoot!.querySelector('[data-canvas-node="dimmed"]')!
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const picture = pictures.layerPicture(host, [dimmed], 1) as HTMLElement
+      document.body.append(picture)
+      const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
+      const holder = getComputedStyle(copied.parentElement!)
+
+      return { opacity: holder.opacity, filter: holder.filter }
+    })
+  })
+
+  it("is as faint as everything it's in makes it", () => {
+    expect(Number(blended.opacity)).toBeCloseTo(0.4, 5)
+  })
+
+  it("is filtered by what it's in, the nearest first, but for a filter the picture can't draw", () => {
+    expect(blended.filter).toBe("grayscale(1) brightness(0.5)")
   })
 })
 

@@ -233,9 +233,10 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
   layers.forEach((layer) => {
     // Where the layer's drawn, through what it's in but without its own transforms, which its copy keeps.
     const { width, height, toScreen } = laidOut(layer, scale)
-    // Holds the copy where the layer is drawn, scaled and turned as what the layer's in is.
+    // Holds the copy where the layer is drawn, scaled and turned as what the layer's in is, and blended as it blends it.
     const context = document.createElement("div")
-    context.style.cssText = `position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transform: ${fromScreen.multiply(toScreen).toString()}`
+    const { opacity, filter } = blendedBy(layer)
+    context.style.cssText = `position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transform: ${fromScreen.multiply(toScreen).toString()}; opacity: ${opacity}; filter: ${filter}`
 
     // SAFETY: a deep clone of an element is an element of the same kind, and an HTML or SVG element has a style.
     const copy = layer.cloneNode(true) as HTMLElement
@@ -273,6 +274,35 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
   }
 
   return picture
+}
+
+/** How a layer's drawn into what's behind it: how faint, and through which filters. */
+interface Blend {
+  opacity: number
+  filter: string
+}
+
+/**
+ * How what a layer's in blends it, which isn't inherited, so its copy wouldn't carry it: every opacity it's in, which
+ * multiply, and every filter, the nearest first, as each one's applied to what's drawn inside it. A filter's lengths,
+ * such as a blur's, are taken in the layer's own pixels, which is how they're drawn unless something between scales
+ * it. A filter drawn by an SVG element (`url()`) is left out, as the picture doesn't have the element.
+ */
+function blendedBy(layer: Element): Blend {
+  let opacity = 1
+  const filters: string[] = []
+
+  for (let at = layer.parentElement; at; at = at.parentElement) {
+    const style = getComputedStyle(at)
+    const own = parseFloat(style.opacity)
+    opacity *= Number.isFinite(own) ? own : 1
+
+    if (style.filter !== "none" && !style.filter.includes("url(")) {
+      filters.push(style.filter)
+    }
+  }
+
+  return { opacity, filter: filters.join(" ") || "none" }
 }
 
 /** How a copied part is drawn: its declarations, and its `pseudos`' (empty for one that isn't drawn). */
