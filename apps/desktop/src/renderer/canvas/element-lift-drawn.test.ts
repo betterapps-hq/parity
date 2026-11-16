@@ -31,7 +31,8 @@ beforeAll(async () => {
 
   browser = await chromium.launch({ channel: "chrome", headless: true })
   page = await browser.newPage({ viewport: { width: 1200, height: 900 } })
-  await page.setContent(`<body style="margin: 0">${layer("moving", 150)}${layer("still", 450)}</body>`)
+  await page.setContent(`<body style="margin: 0">${layer("moving", 150)}${layer("still", 450)}
+    <div id="first" style="width: 60px; height: 60px"></div><div id="second" style="width: 60px; height: 60px"></div></body>`)
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
 })
 
@@ -121,5 +122,30 @@ describe("an element with transforms of its own, lifted with reduced motion", ()
     expect(lifted.widthLifted).toBe(lifted.width)
     expect(lifted.markLifted).toEqual(lifted.mark)
     expect(lifted.originLifted).toBe(lifted.origin)
+  })
+})
+
+describe("elements lifted together, one picked up again before they've settled", () => {
+  it("lets the other settle and takes everything off it", async () => {
+    const left = await page.evaluate(async () => {
+      const first = document.getElementById("first")!
+      const second = document.getElementById("second")!
+      const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const { liftElements } = lifts
+      liftElements([first, second]).drop()
+      // Dropped, they settle from the next frame.
+      await frame()
+      await frame()
+      liftElements([first])
+      // Longer than settling takes.
+      await new Promise((resolve) => setTimeout(resolve, 400))
+
+      return second.getAttribute("style")
+    })
+
+    expect(left).toBe("width: 60px; height: 60px;")
   })
 })

@@ -48,7 +48,6 @@ export function liftElements(
   { origin, scale }: { origin?: { x: number; y: number }; scale?: number } = {}
 ): ElementLift {
   const reduced = reducedMotion()
-  let timer = 0
 
   const lifted = elements.flatMap((element) => {
     settling.get(element)?.()
@@ -71,7 +70,12 @@ export function liftElements(
     const size = element instanceof HTMLElement ? element.offsetWidth : 0
     const ratio = scale ?? (size > 0 ? rect.width / size : 1)
 
+    // Each settles on a timer of its own, so one picked up again before the rest have settled leaves theirs running.
+    let timer = 0
+
     const restore = () => {
+      window.clearTimeout(timer)
+
       for (const { name, value, priority } of saved) {
         if (value) {
           style.setProperty(name, value, priority)
@@ -84,13 +88,22 @@ export function liftElements(
       grown.delete(element)
     }
 
-    settling.set(element, () => {
-      window.clearTimeout(timer)
-      restore()
-    })
+    settling.set(element, restore)
 
     // The translate it's lifted with: its own, unless it's moved to keep the grab point under the pointer.
-    return [{ element, style, own, ratio, restore, held: own.translate }]
+    return [
+      {
+        element,
+        style,
+        own,
+        ratio,
+        restore,
+        held: own.translate,
+        settle: (ms: number) => {
+          timer = window.setTimeout(restore, ms)
+        }
+      }
+    ]
   })
 
   const write = (style: CSSStyleDeclaration, values: Written) => {
@@ -131,7 +144,7 @@ export function liftElements(
       grown.delete(entry.element)
     }
 
-    timer = window.setTimeout(() => lifted.forEach(({ restore }) => restore()), ms)
+    lifted.forEach(({ settle }) => settle(ms))
   }
 
   return {

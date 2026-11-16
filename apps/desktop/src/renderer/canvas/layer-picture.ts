@@ -61,19 +61,37 @@ const bleed = 32
 /** The properties that transform an element where it's drawn, without moving where it's laid out. */
 const transforms = ["transform", "translate", "rotate", "scale"] as const
 
-/**
- * Where an element is laid out, on screen, leaving out its own transforms: its box as it'd be drawn without its own
- * scale, rotation or translation, which are switched off for as long as it takes to measure it. They're put back before
- * its transition is, so putting them back doesn't animate.
- */
-function laidOut(element: Element): DOMRect {
-  const drawn = getComputedStyle(element)
+/** Where an element is drawn, leaving out its own transforms (see `laidOut`). */
+interface LaidOut {
+  /** Its border box's size, in its own pixels. */
+  width: number
+  height: number
+  /** What takes a point in its border box, in its own pixels from the top-left, to the screen. */
+  toScreen: DOMMatrix
+}
 
-  if (
-    !(element instanceof HTMLElement || element instanceof SVGElement) ||
-    transforms.every((name) => drawn.getPropertyValue(name) === "none")
-  ) {
-    return element.getBoundingClientRect()
+/** How far apart the points that find an element's matrix are, in its own pixels. */
+const reach = 100
+
+/**
+ * Where an element is drawn on screen, through every transform around it but leaving out its own: what takes a point in
+ * its box to the screen, whatever scales or turns what it's in. Its own transforms are switched off for as long as it
+ * takes to measure, and put back before its transition is, so putting them back doesn't animate. Three points are put
+ * in it, at its corner and a way along each side, and where they're drawn gives the matrix. An element that can't draw
+ * what it holds, such as an image, is measured by its box instead, which leaves out a rotation of what it's in.
+ */
+function laidOut(element: Element, scale: number): LaidOut {
+  const byBox = (rect: DOMRect): LaidOut => {
+    const width = element instanceof HTMLElement ? element.offsetWidth : rect.width / scale
+    const height = element instanceof HTMLElement ? element.offsetHeight : rect.height / scale
+    const across = width > 0 ? rect.width / width : scale
+    const down = height > 0 ? rect.height / height : scale
+
+    return { width, height, toScreen: new DOMMatrix([across, 0, 0, down, rect.left, rect.top]) }
+  }
+
+  if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
+    return byBox(element.getBoundingClientRect())
   }
 
   const { style } = element
@@ -98,13 +116,59 @@ function laidOut(element: Element): DOMRect {
     style.setProperty(name, "none", "important")
   }
 
-  const rect = element.getBoundingClientRect()
+  // A transform that moves nothing, so the points put in it are placed from its own box.
+  style.setProperty("transform", "translate(0px)", "important")
+  const laid = (element instanceof HTMLElement && byPoints(element)) || byBox(element.getBoundingClientRect())
   saved.slice(1).forEach(put)
   // Drawn transformed again before its transition comes back.
   element.getBoundingClientRect()
   put(saved[0]!)
 
-  return rect
+  return laid
+}
+
+/** An element's matrix, from where three points put in it are drawn (see `laidOut`). Nothing if it can't draw them. */
+function byPoints(element: HTMLElement): LaidOut | undefined {
+  const drawn = getComputedStyle(element)
+  // The points are placed from inside its border, so they're moved out to its corner.
+  const corner = { x: -(parseFloat(drawn.borderLeftWidth) || 0), y: -(parseFloat(drawn.borderTopWidth) || 0) }
+
+  const points = [
+    { x: 0, y: 0 },
+    { x: reach, y: 0 },
+    { x: 0, y: reach }
+  ].map(({ x, y }) => {
+    const point = document.createElement("span")
+    point.style.cssText = `position: absolute !important; display: block !important; left: ${corner.x + x}px !important; top: ${corner.y + y}px !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important`
+    element.append(point)
+
+    return point
+  })
+
+  const at = points.map((point) => (point.getClientRects().length > 0 ? point.getBoundingClientRect() : undefined))
+
+  for (const point of points) {
+    point.remove()
+  }
+
+  const [o, x, y] = at
+
+  if (!o || !x || !y) {
+    return undefined
+  }
+
+  return {
+    width: element.offsetWidth,
+    height: element.offsetHeight,
+    toScreen: new DOMMatrix([
+      (x.left - o.left) / reach,
+      (x.top - o.top) / reach,
+      (y.left - o.left) / reach,
+      (y.top - o.top) / reach,
+      o.left,
+      o.top
+    ])
+  }
 }
 
 /**
@@ -115,9 +179,9 @@ function laidOut(element: Element): DOMRect {
  * styled as the layers are: a frame's styles live in its shadow root, and plain copies outside it would lose them. The
  * root is laid out as the frame is, its size and the custom properties its host sets, so the project's media queries,
  * which ask the frame's size, still match; the frame's body is copied without its children, for the classes and
- * attributes the design's rules ask for; and each copy takes what its layer inherits from its parent. Each sits where
- * its layer is laid out, at its size, so one that fills its layout keeps its size, and keeps its own transforms, so
- * it's scaled, turned or moved from there just as its layer is. The copies keep their `data-canvas-node`,
+ * attributes the design's rules ask for; and each copy takes what its layer inherits from its parent. Each is drawn
+ * where its layer is, at its size, so one that fills its layout keeps its size: scaled and turned as whatever the layer
+ * is in is, and by its own transforms, which it keeps, from there. The copies keep their `data-canvas-node`,
  * which the frame's own rules are written against (`nodeSelector`), yet aren't layers: hit testing and outlines look
  * for layers in a frame's shadow root, never in the picture's. What can't be copied this way, such as a canvas
  * element's drawing or a scroll position, is left out.
@@ -172,12 +236,16 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
 
   shadow.append(stand)
 
+  // The screen, as the stand-in's pixels: the frame's, from its top-left.
+  const fromScreen = new DOMMatrix().scale(1 / scale).translate(-origin.left, -origin.top)
+
   layers.forEach((layer) => {
-    // Where the layer's laid out, without its own transforms, which its copy keeps.
-    const rect = laidOut(layer)
-    // Inherits what the layer does from its parent, without being laid out itself.
+    // Where the layer's drawn, through what it's in but without its own transforms, which its copy keeps.
+    const { width, height, toScreen } = laidOut(layer, scale)
+    // Holds the copy where the layer is drawn, scaled and turned as what the layer's in is, and inherits what the layer
+    // does from its parent.
     const context = document.createElement("div")
-    context.style.display = "contents"
+    context.style.cssText = `position: absolute; left: 0; top: 0; width: 0; height: 0; transform-origin: 0 0; transform: ${fromScreen.multiply(toScreen).toString()}`
 
     if (layer.parentElement) {
       const from = getComputedStyle(layer.parentElement)
@@ -192,10 +260,10 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
 
     const place = {
       position: "absolute",
-      left: own(rect.left - origin.left),
-      top: own(rect.top - origin.top),
-      width: own(rect.width),
-      height: own(rect.height),
+      left: "0",
+      top: "0",
+      width: `${width}px`,
+      height: `${height}px`,
       margin: "0",
       "box-sizing": "border-box",
       "max-width": "none",
