@@ -131,7 +131,8 @@ export function prepareCanvasCss(css: string, options: PrepareCssOptions): Canva
     ...options,
     uncopiedCustomProperties: uncopiedCustomProperties(css),
     bodyCopies,
-    declaredCopyLayers: new Set<string>()
+    declaredCopyLayers: new Set<string>(),
+    anonymousLayers: { count: 0 }
   }
 
   let scoped = ""
@@ -160,6 +161,8 @@ type SerializeOptions = PrepareCssOptions & {
   bodyCopies?: string[]
   /** The layers for those copies declared so far, in the order the project's own were. */
   declaredCopyLayers?: Set<string>
+  /** How many anonymous layers there have been so far, which name their copies' layers. */
+  anonymousLayers?: { count: number }
 }
 
 function uncopiedCustomProperties(css: string): Set<string> {
@@ -360,7 +363,7 @@ function declareCopyLayerNames(names: string[], options: SerializeOptions, conte
   const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
   const { bodyCopies, declaredCopyLayers } = options
 
-  if (!bodyCopies || !declaredCopyLayers || options.qualifiedRoots === false || context.inRule || layers.includes("")) {
+  if (!bodyCopies || !declaredCopyLayers || options.qualifiedRoots === false || context.inRule) {
     return
   }
 
@@ -423,11 +426,16 @@ function serialize(
       } else {
         const drawnPrelude = /^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude
         const layer = /^@layer\b\s*([^{]*)$/i.exec(prelude)?.[1]?.trim()
-        const around = layer === undefined ? { condition: drawnPrelude } : { layer }
+
+        // An anonymous layer is a layer of its own, after those before it: its copies' layer gets a name of its own.
+        const named =
+          layer === "" ? `anonymous-${options.anonymousLayers ? options.anonymousLayers.count++ : 0}` : layer
+
+        const around = named === undefined ? { condition: drawnPrelude } : { layer: named }
         const enclosing = context.inRule ? context.enclosing : [...(context.enclosing ?? []), around]
 
-        if (layer) {
-          declareCopyLayerNames([layer], options, context)
+        if (named) {
+          declareCopyLayerNames([named], options, context)
         }
 
         const body = serialize(node.children, options, globals, { ...context, enclosing })
@@ -514,7 +522,7 @@ function serialize(
       if (referencing && layers.length === 0) {
         // In the qualified roots' layer, so a theme's root, as `:root.dark`, still overrides the copy on the body.
         output += ` @layer ${qualifiedRootLayer} { ${copy} }`
-      } else if (referencing && !layers.includes("") && options.bodyCopies) {
+      } else if (referencing && options.bodyCopies) {
         // A layered root's copy goes in a layer of the qualified roots' named after its own, under its conditions, so
         // it ranks below an unlayered theme's root as the root's own rule does, and below an unlayered root's copy.
         const conditions = (context.enclosing ?? []).flatMap((around) => around.condition ?? [])
