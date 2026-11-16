@@ -117,8 +117,9 @@ describe("the app's page", () => {
     )
 
     expect(served).toMatch(/^<!doctype html><html><head lang="en"><script>\(\(\) => \{/)
-    expect(served).toContain('new EventSource("/@parity/page-events").onmessage = () => window.location.reload()')
-    expect(served.indexOf("<title>")).toBeGreaterThan(served.indexOf("EventSource"))
+    expect(served).toContain('fetch("/@parity/page-version", { cache: "no-store" })')
+    expect(served).toContain("else if (version !== seen) window.location.reload()")
+    expect(served.indexOf("<title>")).toBeGreaterThan(served.indexOf("page-version"))
     expect(servedAppPage("<p>No head</p>")).toMatch(/^<script>.*<p>No head<\/p>$/s)
   })
 })

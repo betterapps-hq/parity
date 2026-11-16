@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { extname, isAbsolute, relative, resolve } from "node:path"
-import { pageEventsPath } from "./app-pages.ts"
+import { pageVersionPath } from "./app-pages.ts"
 
 /*
  * Serves the guest's build to the canvas: the modules the builder writes for the page, the files the bundler wrote, and
@@ -54,8 +54,8 @@ export interface GuestServerOptions {
 export interface AppPage {
   /** The page as the canvas gets it, or nothing when the app has none. */
   html(): Promise<string | undefined>
-  /** Calls `reload` after each build that changes something, until the function it gives back is called. */
-  listen(reload: () => void): () => void
+  /** How many builds have changed something, which a page reloads when it grows. */
+  version(): number
 }
 
 /** Starts the server. Its origin is `http://127.0.0.1:<port>`. */
@@ -112,9 +112,11 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
 
   const url = new URL(request.url ?? "/", `http://${loopback}`)
 
-  // Opened before the build is done, so a page loaded during the first build hears about the next.
-  if (options.page && url.pathname === pageEventsPath) {
-    listenForReloads(options.page, request, response)
+  // Answered while a build runs, so a page asks again rather than waits.
+  if (options.page && url.pathname === pageVersionPath) {
+    response.setHeader("Content-Type", "text/plain")
+    response.setHeader("Cache-Control", "no-store")
+    response.end(String(options.page.version()))
 
     return
   }
@@ -142,8 +144,9 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
     }
   }
 
-  // A route's path names no file: the app's page draws it, its router reading the path.
-  const page = !body && extname(url.pathname) === "" ? await options.page?.html() : undefined
+  // A page's own load with no file at its path is a route's (`/users/alice.smith` too): the app's page draws it, its
+  // router reading the path. A script or stylesheet that isn't there stays missing.
+  const page = !body && opensPage(request) ? await options.page?.html() : undefined
 
   if (page !== undefined) {
     response.setHeader("Content-Type", "text/html; charset=utf-8")
@@ -165,16 +168,13 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
   response.end(body)
 }
 
-/** Keeps a page's event stream open, sending a message each time a build changes something, until the page goes. */
-function listenForReloads(page: AppPage, request: IncomingMessage, response: ServerResponse): void {
-  response.writeHead(200, {
-    "Content-Type": "text/event-stream",
-    "Cache-Control": "no-store",
-    Connection: "keep-alive"
-  })
-  response.write(": listening\n\n")
-  const stop = page.listen(() => response.write("data: reload\n\n"))
-  request.once("close", stop)
+/** Whether a request loads a page into a window or frame, as the browser says, rather than a file for a page. */
+function opensPage(request: IncomingMessage): boolean {
+  const destination = request.headers["sec-fetch-dest"]
+
+  return destination === undefined
+    ? (request.headers.accept ?? "").includes("text/html")
+    : destination === "document" || destination === "iframe"
 }
 
 /** The output file a request's path names, or nothing for one outside the output folder. */

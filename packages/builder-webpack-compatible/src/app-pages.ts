@@ -15,8 +15,11 @@ export const appEntryPrefix = "app-"
 /** The page the project's HTML plugin writes for the app, in the build's output folder. */
 export const appPageFile = "app-page.html"
 
-/** Where a page listens for builds that change something, to reload. */
-export const pageEventsPath = "/@parity/page-events"
+/**
+ * Where a page reads how many builds have changed something, to reload when that grows. A short request each time,
+ * since an open stream from every route's frame would take all the browser's connections to the builder.
+ */
+export const pageVersionPath = "/@parity/page-version"
 
 /** An entry as a config gives one, read as the modules it imports: a module, a list of them, or a description. */
 const entryModules = z.union([
@@ -124,8 +127,20 @@ export function plainAppPage(files: AppFiles): string {
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${links}</head><body><div id="root"></div>${scripts}</body></html>`
 }
 
-/** What a page runs to reload after a build that changes something. */
-const reloadScript = `new EventSource(${JSON.stringify(pageEventsPath)}).onmessage = () => window.location.reload()`
+/** What a page runs to reload after a build that changes something: it checks the builds' count each second. */
+const reloadScript = `(() => {
+  let seen
+  const check = () =>
+    fetch(${JSON.stringify(pageVersionPath)}, { cache: "no-store" })
+      .then((response) => response.text())
+      .then((version) => {
+        if (seen === undefined) seen = version
+        else if (version !== seen) window.location.reload()
+      })
+      .catch(() => {})
+  check()
+  setInterval(check, 1000)
+})()`
 
 /**
  * The app's page as the canvas gets it: with what tells it the frame's mode and how tall it is (`appPageModeScript`),

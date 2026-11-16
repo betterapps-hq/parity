@@ -89,8 +89,8 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   let cssDigest: string | undefined
   /** The files the latest build wrote for the app's entries, for a page when its config makes none. */
   let appFiles: AppFiles = { scripts: [], styles: [] }
-  /** The app's pages open on the canvas, each told to reload after a build that changes something. */
-  const pageReloads = new Set<() => void>()
+  /** How many builds have changed something, which the app's pages reload when it grows. */
+  let pageVersion = 0
 
   /** How many times the build has been invalidated: a build's results only count if no newer build has started. */
   let invalidations = 0
@@ -153,9 +153,7 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
 
         // The app's pages show what changed, whatever it was: a page's own file needn't be a component's.
         if (changed.length > 0 || restyled) {
-          for (const reload of pageReloads) {
-            reload()
-          }
+          pageVersion++
         }
       })
   })
@@ -238,11 +236,7 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
 
         return html === undefined ? undefined : servedAppPage(html)
       },
-      listen(reload) {
-        pageReloads.add(reload)
-
-        return () => pageReloads.delete(reload)
-      }
+      version: () => pageVersion
     }
   })
 
@@ -257,8 +251,6 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
       return () => listeners.delete(listener)
     },
     async close() {
-      // The app's pages hold their event streams open.
-      server.closeAllConnections()
       await new Promise<void>((resolve) => server.close(() => resolve()))
       await close()
     }

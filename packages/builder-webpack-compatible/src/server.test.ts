@@ -9,17 +9,16 @@ let folder: string
 let server: Server | undefined
 
 afterEach(async () => {
-  server?.closeAllConnections()
   await new Promise<void>((done) => (server ? server.close(() => done()) : done()))
   await rm(folder, { recursive: true, force: true })
 })
 
-/** Serves a build folder with `main.js` in it, and the app's page, which `reload` tells to reload. */
+/** Serves a build folder with `main.js` in it, and the app's page, at the build count `builds` gives. */
 async function served() {
   folder = await mkdtemp(join(tmpdir(), "parity-guest-server-"))
   await writeFile(join(folder, "main.js"), "window.main = true")
   const port = await freePort()
-  const reloads = new Set<() => void>()
+  const builds = { changed: 0 }
 
   server = await serveGuest({
     port,
@@ -29,43 +28,42 @@ async function served() {
     module: () => Promise.resolve(undefined),
     page: {
       html: () => Promise.resolve('<html><head></head><body><div id="root"></div></body></html>'),
-      listen(reload) {
-        reloads.add(reload)
-
-        return () => reloads.delete(reload)
-      }
+      version: () => builds.changed
     }
   })
 
-  return { origin: `http://127.0.0.1:${port}`, reload: () => reloads.forEach((reload) => reload()), reloads }
+  return { origin: `http://127.0.0.1:${port}`, builds }
 }
 
+/** How a frame loads a page, as Chromium says. */
+const frameLoad = { headers: { "Sec-Fetch-Dest": "iframe", Accept: "text/html,*/*" } }
+
 describe("serveGuest", () => {
-  it("serves the app's page at a route's path, and the build's files by name", async () => {
+  it("serves the app's page where a frame loads a route's path, a dot in its last part or not", async () => {
     const { origin } = await served()
 
-    for (const path of ["/", "/settings", "/projects/42"]) {
-      const page = await fetch(`${origin}${path}`)
+    for (const path of ["/", "/settings", "/projects/42", "/users/alice.smith"]) {
+      const page = await fetch(`${origin}${path}`, frameLoad)
       expect(page.headers.get("content-type")).toBe("text/html; charset=utf-8")
       expect(await page.text()).toContain('<div id="root"></div>')
     }
 
-    expect(await (await fetch(`${origin}/main.js`)).text()).toBe("window.main = true")
-    expect((await fetch(`${origin}/missing.js`)).status).toBe(404)
+    expect((await fetch(`${origin}/reports/v1.2`, { headers: { Accept: "text/html" } })).status).toBe(200)
   })
 
-  it("tells an open page to reload, until it goes", async () => {
-    const { origin, reload, reloads } = await served()
-    const events = await fetch(`${origin}/@parity/page-events`)
-    expect(events.headers.get("content-type")).toBe("text/event-stream")
-    const reader = events.body!.getReader()
-    const text = new TextDecoder()
-    expect(text.decode((await reader.read()).value)).toBe(": listening\n\n")
+  it("serves the build's files by name, and a missing script as missing", async () => {
+    const { origin } = await served()
 
-    reload()
-    expect(text.decode((await reader.read()).value)).toBe("data: reload\n\n")
+    expect(await (await fetch(`${origin}/main.js`, frameLoad)).text()).toBe("window.main = true")
+    expect((await fetch(`${origin}/missing.js`, { headers: { "Sec-Fetch-Dest": "script" } })).status).toBe(404)
+    expect((await fetch(`${origin}/settings`)).status).toBe(404)
+  })
 
-    await reader.cancel()
-    await expect.poll(() => reloads.size).toBe(0)
+  it("says how many builds have changed something, for a page to reload when it grows", async () => {
+    const { origin, builds } = await served()
+    expect(await (await fetch(`${origin}/@parity/page-version`)).text()).toBe("0")
+
+    builds.changed = 2
+    expect(await (await fetch(`${origin}/@parity/page-version`)).text()).toBe("2")
   })
 })
