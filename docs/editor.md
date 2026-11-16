@@ -1691,6 +1691,18 @@ status bar.
   that batch in a loop that never let Vite's next run, set on a timer, go ahead, so about one open in eight of
   `vite7-js` stopped at "Starting the project's builder". The warm-up now lets timers run once every listed batch has
   settled, and fails naming the dependencies if the optimizer still hasn't finished them after 2 minutes.
+- **Each copy of Parity keeps its own prebundle** (PAR-1203), in `node_modules/.vite-parity/<copy>`, named after where
+  that copy's builder code is, so each worktree and each installed version has one. Copies built from other commits add
+  other plugins and bundle other libraries, which Vite's config hash covers: sharing one folder, opening the project in
+  one copy after another re-optimized, about 20 s on copacker. A copy's folder that hasn't opened the project for two
+  weeks is deleted, in the background.
+- **Pages' imports are bundled before any page loads** (PAR-1203). The optimizer looks through the files the app's
+  routes are made of, as the router's extension reads them, besides the components and `index.html`. An app with no
+  `index.html`, as a TanStack Start app, gave it no way to find what only pages import, such as
+  `nuqs/adapters/tanstack-router` on copacker: it bundled again once pages ran and reloaded every frame.
+- **The warm-up compiles the guest's graph all at once** (PAR-1203): each module's imports start as soon as it's
+  compiled. It keeps what it compiled unless the optimizer changed the hash modules import its bundle with, rather than
+  dropping it all and having the browser ask for every module again.
 
 Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
 `packages/extension/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and `byPeers`
@@ -1700,15 +1712,17 @@ Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions a
 Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
 provider, and `prepare.test.ts` (a prepared server finding the stylesheets of an app that imports a package without
 asking the optimizer to bundle it, nor letting Vite's background compiles do so, then importing it through the optimizer
-once started), and `warmup.test.ts` (the warm-up finishing when Vite clears a settled batch on a timer, and failing with
-the dependencies' names when it never does). Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its
-config found through the provider, the guest served, the Pricing page drawn, and Vite first in the status bar. The kept
-prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a `node_modules` project, prepared and started three
-times: before the change every start re-optimized, after it none did. The hang was reproduced on 2026-11-16 with
-`vite7-js` (Vite 7.3.7) by preparing, finding the stylesheets and starting outside the app: before the change, 1 start
-in about 8 never finished; after it, none of 35 hung. Gaps: the tests run on Vite 8, which never re-optimized, so they
-check that nothing is bundled early rather than Vite 7 itself; ten opens of `vite-fluent-pnp` in a row in the app are
-untried.
+once started, and looking through the route files), `warmup.test.ts` (the warm-up finishing when Vite clears a settled
+batch on a timer, and failing with the dependencies' names when it never does; compiling side by side; keeping what it
+compiled unless the optimizer's hash changed), `builder.test.ts` (a cache folder per copy, and old ones deleted), and
+`packages/core/src/grouping.test.ts` (the route files a builder is given). Tried in the running app on 2026-11-14 on the
+example: Vite 8.3.5 and its config found through the provider, the guest served, the Pricing page drawn, and Vite first
+in the status bar. The kept prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a `node_modules` project,
+prepared and started three times: before the change every start re-optimized, after it none did. The hang was reproduced
+on 2026-11-16 with `vite7-js` (Vite 7.3.7) by preparing, finding the stylesheets and starting outside the app: before
+the change, 1 start in about 8 never finished; after it, none of 35 hung. Gaps: the tests run on Vite 8, which never
+re-optimized, so they check that nothing is bundled early rather than Vite 7 itself; ten opens of `vite-fluent-pnp` in a
+row in the app are untried.
 
 ### Rspack as an extension, through its builder provider (PAR-1147)
 
