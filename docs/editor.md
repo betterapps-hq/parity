@@ -5472,12 +5472,24 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
   stays where the person is typing. Where both changed the same characters, what either removed goes and the typing
   follows what the other wrote. Their change isn't in this person's undo. While an input method is composing, the change
   waits until it's done.
+- **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
+  it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
+  person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
+  draw their caret, a 2px line in that color, before the character it's at, in every frame drawing the text. It goes
+  when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
+- **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
+  used to draw a thick 2px outline over it.
+- **Letters aren't cut off.** The editor leaves room above and below its lines (0.3em) for letters that reach past them,
+  as a heading set solid has, so their tops and descenders show and the text doesn't shift up when the caret moves; the
+  text stays where the frame draws it.
 - **A frame named after its text** follows each write, as it did the closing one.
 - Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
 
 Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (the batching, the gesture per pause and taking in
 others' changes), `rebaseText` in `packages/editor/src/text-editing.ts` (merging the two changes and moving the
-selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes.
+selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room
+where the caret is. In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx`
+(the outline, name and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
 
 Tests:
 
@@ -5488,12 +5500,17 @@ Tests:
 - `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
   the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
   characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
+- `apps/desktop/src/renderer/canvas/text-caret-drawn.test.ts` (3), in Chrome: a caret at the left of the character it's
+  before, across text nodes and onto a wrapped line; at the right of the last character at the end and past it; and none
+  in an element without text.
 
-Gaps: the `text` gesture that would show others where someone's typing (the proposal's start, caret and end) isn't sent
-yet. Two people typing in the same text within the same 150 ms each write the whole text, so one of those writes can win
-over the other's before either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`:
-" today" typed into Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed
-after a pause came off with one Undo, " today" with the next, in both copies.
+Gaps: a selection someone else makes is drawn as their caret at its end, not as a highlight. Two people typing in the
+same text within the same 150 ms each write the whole text, so one of those writes can win over the other's before
+either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`: " today" typed into
+Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed after a pause came off
+with one Undo, " today" with the next, in both copies. Checked again the same day, after the first try in a room: in the
+typing copy one outline and the whole two-line heading, unclipped; in the other, Ana's outline, name and caret before
+"and" where hers was, in each of Pricing's three frames.
 
 ### Auto width, auto height and fixed text (PAR-175)
 

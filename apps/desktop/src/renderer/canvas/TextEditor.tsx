@@ -9,14 +9,18 @@ import {
 import { updateContainer } from "@parity-app/multiplayer"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Attributes } from "../chrome/event-attributes.ts"
+import type { Typing } from "../live-room.ts"
 import { libraryOf } from "../project-doc.ts"
 import { track } from "../report-error.ts"
 import { useProject } from "./context.ts"
 import { type AreaSpace, areaSpace, type ElementGeometry, frameGeometry } from "./frame-geometry.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
-import { kindColors } from "./kinds.tsx"
 import { LiveText } from "./live-text.ts"
 import { scheduleOverlay } from "./overlay-scheduler.ts"
+import { drawnText, textNodes } from "./text-caret.ts"
+
+/** How far letters can reach past their line, above and below, in the text's own size. */
+const glyphRoom = "0.3em"
 
 /** What closed the editor: Enter, Escape, or clicking away. */
 type TextEditEnd = "enter" | "escape" | "blur"
@@ -192,8 +196,31 @@ export function TextEditor() {
       hidden.restore()
       // Closed some other way than `commit`, as when the layer goes: what's typed is kept.
       writer.close()
+      session.room?.setTyping(undefined)
     }
   }, [editing, selection, doc, session])
+
+  // Where this person is typing, for the others in a live room to draw in their color (see `RoomTyping`).
+  const tellRoom = () => {
+    const textarea = ref.current
+
+    if (textarea && !done.current) {
+      const forward = textarea.selectionDirection !== "backward"
+
+      const typing: Typing = {
+        design: editing.design,
+        node: editing.node,
+        anchor: forward ? textarea.selectionStart : textarea.selectionEnd,
+        focus: forward ? textarea.selectionEnd : textarea.selectionStart
+      }
+
+      if (editing.state !== undefined) {
+        typing.state = editing.state
+      }
+
+      session.room?.setTyping(typing)
+    }
+  }
 
   const shown = layout !== undefined
   useEffect(() => {
@@ -206,6 +233,8 @@ export function TextEditor() {
 
     textarea.focus({ preventScroll: true })
     textarea.setSelectionRange(range.start, range.end)
+    tellRoom()
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- Once it shows; `tellRoom` reads the textarea as it is.
   }, [shown])
 
   const commit = (how: TextEditEnd) => {
@@ -218,6 +247,7 @@ export function TextEditor() {
     // What's typed and not yet written is written, to the state it was read from by the same rule (see `textToEdit`),
     // and the last pause's step ends.
     live.current?.close(text)
+    session.room?.setTyping(undefined)
     selection.setEditing(undefined)
     const original = opened.current?.text
 
@@ -234,24 +264,30 @@ export function TextEditor() {
       aria-label="Edit text"
       rows={1}
       spellCheck={false}
-      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-hidden border-0 bg-transparent p-0 outline-2 outline-offset-2 field-sizing-content"
+      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-hidden border-0 bg-transparent p-0 outline-none field-sizing-content"
       style={
         layout
           ? {
               ...layout.style,
               left: layout.box.x,
-              top: layout.box.y,
+              // Room above and below the lines for letters taller than them, as a heading set solid has, which the
+              // textarea would otherwise cut off and scroll to the caret; the text stays where the frame draws it.
+              top: `calc(${layout.box.y}px - ${glyphRoom})`,
+              paddingBlock: glyphRoom,
               ...(layout.grows ? { minWidth: layout.box.w } : { width: layout.box.w }),
-              minHeight: layout.box.h,
-              outlineColor: kindColors.text,
-              outlineStyle: "solid"
+              minHeight: `calc(${layout.box.h}px + 2 * ${glyphRoom})`
             }
           : { display: "none" }
       }
       onBlur={() => commit("blur")}
+      // A caret moved by a key or a click, as well as a selection made, since `select` fires only for the latter.
+      onSelect={tellRoom}
+      onKeyUp={tellRoom}
+      onMouseUp={tellRoom}
       onInput={(event) => {
         if (!composing.current) {
           live.current?.input(event.currentTarget.value)
+          tellRoom()
         }
       }}
       onCompositionStart={() => {
@@ -374,17 +410,6 @@ function editorLayout(
   }
 }
 
-/** The text an element draws, from its text nodes in order. */
-function drawnText(element: Element): string {
-  let text = ""
-
-  for (const node of textNodes(element)) {
-    text += node.data
-  }
-
-  return text
-}
-
 /** The box around the characters an element draws, leaving out icons beside them. */
 function textBounds(element: Element): DOMRect | undefined {
   const range = document.createRange()
@@ -432,17 +457,4 @@ function offsetAt(element: Element, point: Point): number | undefined {
   }
 
   return undefined
-}
-
-function textNodes(element: Element): Text[] {
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
-  const nodes: Text[] = []
-
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (node instanceof Text) {
-      nodes.push(node)
-    }
-  }
-
-  return nodes
 }
