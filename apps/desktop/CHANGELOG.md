@@ -1,8 +1,16 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 20:42:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 21:30:31 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.98.1
+
+Mon, 16 Nov 2026 21:30:31 GMT
+
+### Patches
+
+- Recognize the components shadcn-sync generates as the Buildkit style they're made in (ajcraswell@gmail.com)
 
 ## 0.98.0
 
