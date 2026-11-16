@@ -132,7 +132,7 @@ export function prepareCanvasCss(css: string, options: PrepareCssOptions): Canva
     uncopiedCustomProperties: uncopiedCustomProperties(css),
     bodyCopies,
     declaredCopyLayers: new Set<string>(),
-    anonymousLayers: { count: 0 }
+    anonymousLayers: { count: 0, stylesheet: textHash(css) }
   }
 
   let scoped = ""
@@ -161,8 +161,22 @@ type SerializeOptions = PrepareCssOptions & {
   bodyCopies?: string[]
   /** The layers for those copies declared so far, in the order the project's own were. */
   declaredCopyLayers?: Set<string>
-  /** How many anonymous layers there have been so far, which name their copies' layers. */
-  anonymousLayers?: { count: number }
+  /**
+   * How many anonymous layers there have been so far, and what this stylesheet's are named after, which name their
+   * copies' layers: distinct from another stylesheet's, whose anonymous layers are distinct layers too.
+   */
+  anonymousLayers?: { count: number; stylesheet: string }
+}
+
+/** A short name for a text, the same each time: a polynomial hash of its characters. */
+function textHash(text: string): string {
+  let hash = 7
+
+  for (let index = 0; index < text.length; index++) {
+    hash = (hash * 31 + text.charCodeAt(index)) % 2_147_483_647
+  }
+
+  return hash.toString(36)
 }
 
 function uncopiedCustomProperties(css: string): Set<string> {
@@ -429,7 +443,9 @@ function serialize(
 
         // An anonymous layer is a layer of its own, after those before it: its copies' layer gets a name of its own.
         const named =
-          layer === "" ? `anonymous-${options.anonymousLayers ? options.anonymousLayers.count++ : 0}` : layer
+          layer === "" && options.anonymousLayers
+            ? `anonymous-${options.anonymousLayers.stylesheet}-${options.anonymousLayers.count++}`
+            : layer
 
         const around = named === undefined ? { condition: drawnPrelude } : { layer: named }
         const enclosing = context.inRule ? context.enclosing : [...(context.enclosing ?? []), around]

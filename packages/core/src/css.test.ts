@@ -315,12 +315,20 @@ describe("prepareCanvasCss", () => {
       "@layer base {} @layer canvas-qualified-root.base; @layer theme { :host { --fg: blue } } " +
         "@layer canvas-qualified-root.theme; @layer canvas-qualified-root.theme { :where([data-canvas-body]) { --fg: blue; } }"
     )
+
     // An anonymous layer's copies rank after those of the layers before it, as its own rules do.
-    expect(
-      prepareCanvasCss("@layer named { :root { --fg: red } } @layer { :root { --fg: blue } }", options).scoped
-    ).toContain(
-      "@layer canvas-qualified-root.anonymous-0; @layer canvas-qualified-root.anonymous-0 { :where([data-canvas-body]) { --fg: blue; } }"
+    const anonymous = prepareCanvasCss(
+      "@layer named { :root { --fg: red } } @layer { :root { --fg: blue } }",
+      options
+    ).scoped
+
+    const copyLayer = /canvas-qualified-root\.(anonymous-[\w-]+)/.exec(anonymous)?.[1]
+
+    expect(anonymous).toContain(
+      `@layer canvas-qualified-root.${copyLayer}; @layer canvas-qualified-root.${copyLayer} { :where([data-canvas-body]) { --fg: blue; } }`
     )
+    // Another stylesheet's anonymous layer is another layer.
+    expect(prepareCanvasCss("@layer { :root { --fg: green } }", options).scoped).not.toContain(`${copyLayer};`)
     // A semicolon in a string doesn't end a declaration.
     expect(prepareCanvasCss(':root { --a: "one;two"; --b: "three;four" }', options).scoped).toContain(
       bodyCopy('--a: "one;two"; --b: "three;four";')
