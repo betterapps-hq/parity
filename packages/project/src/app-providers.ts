@@ -642,6 +642,12 @@ function carryName(
     return undefined
   }
 
+  // A path relative to the file, as a dynamic `import("./locale")` or `import.meta.url` takes one, would point
+  // elsewhere from `.parity/`, so a declaration with one isn't copied.
+  if (declared && refersRelatively(declared)) {
+    return name
+  }
+
   if (declared) {
     for (const used of freeNames(declared)) {
       const needs = carryName(used, scope, carried, seen, true)
@@ -786,6 +792,34 @@ function namesOnly(node: ts.Identifier): boolean {
       ts.isImportClause(parent)) &&
     parent.name === node
   )
+}
+
+/** Whether a declaration uses `import.meta` or imports a module by a relative path as it runs. */
+function refersRelatively(declaration: ts.Node): boolean {
+  let found = false
+
+  const visit = (node: ts.Node) => {
+    if (found) {
+      return
+    }
+
+    const dynamicImport =
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      !(node.arguments[0] && ts.isStringLiteralLike(node.arguments[0]) && !node.arguments[0].text.startsWith("."))
+
+    if (dynamicImport || (ts.isMetaProperty(node) && node.keywordToken === ts.SyntaxKind.ImportKeyword)) {
+      found = true
+
+      return
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(declaration)
+
+  return found
 }
 
 /** `const`, `let` or `var`, as the file declares it, so a binding the app reassigns can still be reassigned. */
