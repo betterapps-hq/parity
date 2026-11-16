@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 16 Nov 2026 21:30:56 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 22:20:21 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.73.3
+
+Mon, 16 Nov 2026 22:20:21 GMT
+
+### Patches
+
+- Draw what CSS-in-JS writes into a frame as the project's stylesheets are: root, body, media queries, colour scheme and
+  fonts, so Chakra's solid buttons fill (PAR-1210) (ajcraswell@gmail.com)
 
 ## 0.73.2
 
