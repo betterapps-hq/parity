@@ -17,7 +17,8 @@ from the agency monorepo's guidelines on 2026-10-29, keeping what fits Parity; w
   it's for and what it replaces.
 - **A change to a versioned package carries a change file** in the same commit, written by `pnpm changefile`. Its
   message is a line in the changelog people read, so say what changed for them: "Snap layers to the spacing scale", not
-  "Refactor snap.ts".
+  "Refactor snap.ts". A bump to a catalog entry in `pnpm-workspace.yaml` needs one for each released package that uses
+  that entry, or bundles a package that does, just as Beachball's check in CI counts it.
 
 ## Code
 
