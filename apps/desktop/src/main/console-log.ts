@@ -4,8 +4,8 @@ import type { ConsoleChange, ConsoleContext, ConsoleEntry, LoggedEntry } from ".
 /** A message as a window wrote it, before it's kept. */
 export type WrittenMessage = Pick<ConsoleEntry, "level" | "text" | "source" | "line" | "where"> & ConsoleContext
 
-/** Messages every dev build writes, which say nothing about the project. */
-const chatter = [/^\[vite\]/, /Download the React DevTools/]
+/** What React writes in every development build, which says nothing about the project. A builder's own is its to say. */
+const chatter = [/Download the React DevTools/]
 
 /** How long a window's word on where its next message comes from holds, in milliseconds. */
 const contextHolds = 1000
@@ -13,7 +13,7 @@ const contextHolds = 1000
 /**
  * What the projects' own code writes to the console, in every window, so agents can read it through the CLI and MCP
  * and the editor's Console panel shows it (PAR-147): the last `limit` messages, oldest first. A message that repeats
- * the last one, in the same frame, is counted on it. Chatter such as Vite's about hot updates isn't kept.
+ * the last one, in the same frame, is counted on it. React's DevTools notice isn't kept.
  */
 export function createConsoleLog({ limit = 500, now = Date.now }: { limit?: number; now?: () => number } = {}) {
   const entries: LoggedEntry[] = []

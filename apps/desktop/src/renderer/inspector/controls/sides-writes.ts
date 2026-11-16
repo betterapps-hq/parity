@@ -1,13 +1,13 @@
 /*
  * Four sides (PAR-652's Four sides type): padding, margin, stroke width and insets, each side in its own form, and
  * what they're stored as and write. Layer order shares the side's forms, as a count. What's typed is read with the
- * app's maths and units from typing.ts; what's written is the fewest classes, shorthand first (`p-4`, `px-4 py-2`,
- * `p-4 pb-6`), in css-values.ts's forms. The tokens a side can hold are the project's, which the field passes in, so a
- * token made with Create token reads and steps as any other.
+ * app's maths and units from typing.ts; what's written is the fewest declarations, shorthand first (`padding`, then
+ * `padding-inline` and `padding-block`), in css-values.ts's forms. The tokens a side can hold are the project's, which
+ * the field passes in, so a token made with Create token reads and steps as any other.
  */
 import { formatNumber, lengthForm, type ReadFailure, readFailure } from "@parity-app/style-schema"
 import type { PreviewKind } from "@parity-app/tokens"
-import { arbitrary, fraction, lengthClass, lengthCss, sameValue, stepCount, stepSpacing } from "./css-values.ts"
+import { lengthCss, sameValue, stepCount, stepSpacing } from "./css-values.ts"
 import { stepToken } from "./token-scale.ts"
 import type { LengthToken } from "./tokens.ts"
 import { readLength, readNumber } from "./typing.ts"
@@ -313,23 +313,7 @@ type Slot = "all" | "x" | "y" | "t" | "r" | "b" | "l"
 const slotOrder: Slot[] = ["all", "x", "y", "t", "r", "b", "l"]
 const sideSlots = ["t", "r", "b", "l"] as const
 
-const prefixes: Record<SidesKind, Record<Slot, string>> = {
-  padding: { all: "p", x: "px", y: "py", t: "pt", r: "pr", b: "pb", l: "pl" },
-  margin: { all: "m", x: "mx", y: "my", t: "mt", r: "mr", b: "mb", l: "ml" },
-  border: {
-    all: "border",
-    x: "border-x",
-    y: "border-y",
-    t: "border-t",
-    r: "border-r",
-    b: "border-b",
-    l: "border-l"
-  },
-  inset: { all: "inset", x: "inset-x", y: "inset-y", t: "top", r: "right", b: "bottom", l: "left" },
-  layer: { all: "z", x: "z", y: "z", t: "z", r: "z", b: "z", l: "z" }
-}
-
-/** What each slot's class compiles to in Tailwind v4: `px-4` is `padding-inline`, as the panel spec says. */
+/** The property each slot writes: `x` is `padding-inline` for padding, as the panel spec says. */
 const properties: Record<SidesKind, Record<Slot, string>> = {
   padding: {
     all: "padding",
@@ -364,51 +348,6 @@ const properties: Record<SidesKind, Record<Slot, string>> = {
 
 /** A number of pixels that isn't a spacing step's length: a stroke width, or an off-step value, as `13.5px`. */
 const pixels = (number: number) => `${formatNumber(number)}px`
-
-/** One side's class: `pt-4`, `-mt-2`, `pt-3.25`, `pt-[13.3px]`, `p-gutter`, `mx-auto`, `top-1/2`, `border-b`. */
-export function sideClass(kind: SideKind, prefix: string, side: SideValue): string {
-  if (side === "auto") {
-    return `${prefix}-auto`
-  }
-
-  if ("token" in side) {
-    if (kind === "border") {
-      return `${prefix}-(length:--${side.token})`
-    }
-
-    if (kind === "layer") {
-      return `${prefix}-(--${side.token})`
-    }
-
-    return `${prefix}-${side.token.replace(/^spacing-/, "")}`
-  }
-
-  if ("percent" in side) {
-    const share = kind === "inset" ? fraction(Math.abs(side.percent)) : undefined
-
-    if (share === undefined) {
-      return `${prefix}-[${arbitrary(`${side.percent}%`)}]`
-    }
-
-    return side.percent < 0 ? `-${prefix}-${share}` : `${prefix}-${share}`
-  }
-
-  const number = side.number
-
-  if (kind === "layer") {
-    return number < 0 ? `-${prefix}-${-number}` : `${prefix}-${number}`
-  }
-
-  if (!onStep(number)) {
-    return `${prefix}-[${pixels(number)}]`
-  }
-
-  if (kind === "border") {
-    return number === 1 ? prefix : `${prefix}-${number}`
-  }
-
-  return number < 0 ? `-${prefix}-${lengthClass(-number)}` : `${prefix}-${lengthClass(number)}`
-}
 
 /** One side as CSS writes it: a step is `calc(var(--spacing) * 4)`, as Tailwind compiles it. */
 export function sideCss(kind: SideKind, side: SideValue): string {
@@ -512,7 +451,7 @@ const sameSide = (a: Side, b: Side) => a !== undefined && b !== undefined && sam
 const isZero = (side: Side) => side !== undefined && side !== "auto" && "number" in side && side.number === 0
 
 /**
- * The fewest classes for four sides, shorthand first: a pair for each axis, one for every side with the others
+ * The fewest declarations for four sides, shorthand first: a pair for each axis, one for every side with the others
  * after it, or each side on its own, whichever is fewest. A zero side writes nothing where preflight already zeroes
  * it (padding, margin, border width), but an inset's 0 is a value. A Mixed side writes nothing, since each layer keeps
  * its own.
@@ -531,7 +470,8 @@ function plan(kind: SidesKind, sides: Sides): [Slot, SideValue][] {
     return skip(sides[first]) ? [] : [[slot, sides[first]!]]
   }
 
-  // Pairs first, so a tie goes to classes that don't override one another (`px-4 py-2` over `p-2 px-4`).
+  // Pairs first, so a tie goes to declarations that don't override one another: `padding-inline` and `padding-block`
+  // over `padding` then `padding-inline`.
   const candidates: [Slot, SideValue][][] = [[...pair("x", 1, 3), ...pair("y", 0, 2)]]
 
   if (sides.every((side) => side !== undefined)) {
@@ -564,9 +504,8 @@ export function sidesWrites(kind: SidesKind, sides: Sides, mixed: readonly boole
   const [top, right, bottom, left] = sides.map((side, index) => (mixed[index] ? undefined : side))
   const chosen = plan(kind, [top, right, bottom, left])
   const css = chosen.map(([slot, side]) => `${properties[kind][slot]}: ${sideCss(kind, side)}`)
-  const tailwind = chosen.map(([slot, side]) => sideClass(kind, prefixes[kind][slot], side))
 
-  if (kind === "border" && tailwind.length > 0) {
+  if (kind === "border" && chosen.length > 0) {
     css.push("border-style: solid")
   }
 
@@ -585,5 +524,5 @@ export function sidesWrites(kind: SidesKind, sides: Sides, mixed: readonly boole
     stored = allSame ? forms[0] : forms
   }
 
-  return { stored, css, tailwind }
+  return { stored, css }
 }

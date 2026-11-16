@@ -6,7 +6,7 @@ import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { NumberField } from "./number-field.tsx"
 import { Playground } from "./playground.tsx"
-import { type Side, sideClass, sideCss, sideRules, sideStored } from "./sides-writes.ts"
+import { type Side, sideCss, sideRules, sideStored } from "./sides-writes.ts"
 import { SideField } from "./sides.tsx"
 import { lengthWrites, type Writes } from "./writes.ts"
 
@@ -84,15 +84,9 @@ function StoryField({
   )
 }
 
-/** Outline offset in pixels, as Tailwind writes it: a number of pixels, not a spacing step. */
+/** Outline offset in pixels: a number of pixels, not a spacing step. */
 const outlineOffsetWrites = (px: number | undefined): Writes =>
-  px === undefined
-    ? { stored: undefined, css: [], tailwind: [] }
-    : {
-        stored: { value: `${px}px` },
-        css: [`outline-offset: ${px}px`],
-        tailwind: [Number.isInteger(px) ? `outline-offset-${px}` : `outline-offset-[${px}px]`]
-      }
+  px === undefined ? { stored: undefined, css: [] } : { stored: { value: `${px}px` }, css: [`outline-offset: ${px}px`] }
 
 /** Gap on the side field, which offers the spacing tokens. */
 function GapField({ start, tokensOnly = false }: { start: Side; tokensOnly?: boolean }) {
@@ -100,12 +94,8 @@ function GapField({ start, tokensOnly = false }: { start: Side; tokensOnly?: boo
 
   const writes: Writes =
     value === undefined
-      ? { stored: undefined, css: [], tailwind: [] }
-      : {
-          stored: sideStored("gap", value),
-          css: [`gap: ${sideCss("gap", value)}`],
-          tailwind: [sideClass("gap", "gap", value)]
-        }
+      ? { stored: undefined, css: [] }
+      : { stored: sideStored("gap", value), css: [`gap: ${sideCss("gap", value)}`] }
 
   return (
     <Playground writes={writes}>
@@ -124,19 +114,15 @@ function GapField({ start, tokensOnly = false }: { start: Side; tokensOnly?: boo
 
 const columnsWrites = (count: number | undefined): Writes =>
   count === undefined
-    ? { stored: undefined, css: [], tailwind: [] }
-    : {
-        stored: { value: count },
-        css: [`grid-template-columns: repeat(${count}, minmax(0, 1fr))`],
-        tailwind: [`grid-cols-${count}`]
-      }
+    ? { stored: undefined, css: [] }
+    : { stored: { value: count }, css: [`grid-template-columns: repeat(${count}, minmax(0, 1fr))`] }
 
 /** A length a property takes in pixels alone, with no tokens: Outline offset at 2. Up makes it 3, Shift+Up 12. */
 export const Plain: Story = {
   render: () => <StoryField label="Outline offset" start={2} pixels writes={outlineOffsetWrites} />
 }
 
-/** Plain, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Plain, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Plain, parameters: { demo: true } }
 
 /**
@@ -158,7 +144,7 @@ export const LockedToTokens: Story = { render: () => <GapField start={{ number: 
 /** The selected layers differ: it says Mixed, and what's typed sets them all. */
 export const Mixed: Story = {
   render: () => (
-    <Playground writes={{ stored: undefined, css: [], tailwind: [] }}>
+    <Playground writes={{ stored: undefined, css: [] }}>
       <Field label="Outline offset">
         <PixelField label="Outline offset" mixed value={undefined} onChange={() => undefined} />
       </Field>
@@ -168,9 +154,7 @@ export const Mixed: Story = {
 
 /** Shown in rem, 40rem: rem chosen from the unit's menu, and the value kept in pixels either way. */
 export const InRem: Story = {
-  render: () => (
-    <StoryField label="Max width" start={640} pixels writes={(px) => lengthWrites("max-width", "max-w", px)} />
-  ),
+  render: () => <StoryField label="Max width" start={640} pixels writes={(px) => lengthWrites("max-width", px)} />,
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Max width unit: px" }))
     // The menu opens in a portal, outside the story's canvas.
@@ -189,8 +173,8 @@ export const Narrow: Story = {
       narrow
       writes={(px) =>
         px === undefined
-          ? { stored: undefined, css: [], tailwind: [] }
-          : { stored: { value: `${px}px` }, css: [`border-top-width: ${px}px`], tailwind: [`border-t-${px}`] }
+          ? { stored: undefined, css: [] }
+          : { stored: { value: `${px}px` }, css: [`border-top-width: ${px}px`] }
       }
     />
   )
@@ -209,7 +193,7 @@ export const Unset: Story = {
       start={undefined}
       pixels
       placeholder="None"
-      writes={(px) => lengthWrites("max-height", "max-h", px)}
+      writes={(px) => lengthWrites("max-height", px)}
     />
   )
 }
@@ -240,9 +224,7 @@ export const TypingMaths: Story = {
 
 /** A length on the spacing scale, Row gap at 16: Up steps a whole spacing step, to 20, and Shift+Up ten, to 60. */
 export const SpacingLength: Story = {
-  render: () => (
-    <StoryField label="Row gap" start={16} pixels spacing writes={(px) => lengthWrites("row-gap", "gap-y", px)} />
-  ),
+  render: () => <StoryField label="Row gap" start={16} pixels spacing writes={(px) => lengthWrites("row-gap", px)} />,
   play: async ({ canvasElement }) => {
     const field = within(canvasElement).getByRole("textbox", { name: "Row gap" })
     await userEvent.click(field)

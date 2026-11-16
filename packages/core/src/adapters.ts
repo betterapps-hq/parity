@@ -378,12 +378,35 @@ export const scriptConfigExtensions = ["ts", "mts", "cts", "js", "mjs", "cjs"] a
 export interface BuilderAdapter extends Adapter {
   /** Its config files, relative to the project root, which say whether it serves the project (PAR-826). */
   watches: readonly string[]
+  /** What its dev build writes to the console and serves that isn't the project's own, from its manifest. */
+  console?: BuilderConsole
   start(options: BuilderStartOptions): Promise<BuilderSession>
   /**
    * The global stylesheets the app loads, as the build tool resolves the app's imports from its entries: the only
    * source Parity has for them. Empty when the app loads none, as with CSS-in-JS.
    */
   styles?(project: DetectContext): Promise<AppStyles>
+}
+
+/**
+ * What a builder's dev build adds that isn't the project's own, as regular expressions: the messages it writes to the
+ * console, such as Vite's about hot updates, and the paths of modules it makes, such as Vite's `@vite/client`.
+ */
+export interface BuilderConsole {
+  /** Messages it writes, which the Console panel and agents leave out. */
+  chatter?: string[]
+  /** Paths, from the server's root without the leading slash, of modules it makes rather than serves from the project. */
+  generatedPaths?: string[]
+}
+
+/** Whether a console message is the builder's own chatter, as its manifest describes it. */
+export function isBuilderChatter(text: string, builder: BuilderConsole | undefined): boolean {
+  return (builder?.chatter ?? []).some((pattern) => new RegExp(pattern).test(text))
+}
+
+/** Whether a path the builder serves, from its root without the leading slash, is a module it made. */
+export function isGeneratedPath(path: string, builder: BuilderConsole | undefined): boolean {
+  return (builder?.generatedPaths ?? []).some((pattern) => new RegExp(pattern).test(path))
 }
 
 /** The global stylesheets an app loads, as its builder reports them (`BuilderAdapter.styles`). */
@@ -410,7 +433,7 @@ export interface BuilderPackage {
     displayName: string
     icon?: AdapterIcon
     versions?: ToolVersionsExtra
-    contributes: { providers?: { builder?: { entry: string; watches: string[] } } }
+    contributes: { providers?: { builder?: { entry: string; watches: string[]; console?: BuilderConsole } } }
   }
 }
 
@@ -432,6 +455,10 @@ export function extensionBuilder(pkg: BuilderPackage): BuilderDescription | unde
 
   if (versions) {
     description.versions = versions
+  }
+
+  if (builder.console) {
+    description.console = builder.console
   }
 
   return description

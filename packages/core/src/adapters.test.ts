@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type DetectContext, detectPeers, extensionEntities, extensionTool, peerVersions } from "./adapters.ts"
+import {
+  type DetectContext,
+  detectPeers,
+  extensionBuilder,
+  extensionEntities,
+  extensionTool,
+  isBuilderChatter,
+  isGeneratedPath,
+  peerVersions
+} from "./adapters.ts"
 
 describe("peerVersions", () => {
   it("names the packages that carry the version, the main one first, with its range and what the manifest adds", () => {
@@ -112,5 +121,39 @@ describe("extensionEntities (PAR-1131)", () => {
       summary: "No docs-kit or @docs-kit/* package in package.json"
     })
     expect(extensionEntities({ ...docs, parity: { ...docs.parity, contributes: {} } })).toBeUndefined()
+  })
+})
+
+describe("a builder's console (PAR-1158)", () => {
+  const vite = extensionBuilder({
+    parity: {
+      prefix: "vite",
+      displayName: "Vite",
+      contributes: {
+        providers: {
+          builder: {
+            entry: "./builder",
+            watches: ["vite.config.ts"],
+            console: { chatter: ["^\\[vite\\]"], generatedPaths: ["^@"] }
+          }
+        }
+      }
+    }
+  })
+
+  it("takes the builder's chatter and generated paths from its manifest", () => {
+    expect(vite?.console).toEqual({ chatter: ["^\\[vite\\]"], generatedPaths: ["^@"] })
+  })
+
+  it("tells the builder's own messages from the project's", () => {
+    expect(isBuilderChatter("[vite] hot updated: /src/App.tsx", vite?.console)).toBe(true)
+    expect(isBuilderChatter("Saved the cart", vite?.console)).toBe(false)
+    expect(isBuilderChatter("[vite] hot updated", undefined)).toBe(false)
+  })
+
+  it("tells modules the builder made from the project's files", () => {
+    expect(isGeneratedPath("@vite/client", vite?.console)).toBe(true)
+    expect(isGeneratedPath("src/App.tsx", vite?.console)).toBe(false)
+    expect(isGeneratedPath("@vite/client", undefined)).toBe(false)
   })
 })

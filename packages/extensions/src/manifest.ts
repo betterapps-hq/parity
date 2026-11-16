@@ -147,6 +147,19 @@ const frameDecorator = z
     }
   })
 
+/** A regular expression's source, which has to compile. */
+const pattern = z
+  .string()
+  .min(1)
+  .max(200)
+  .refine((source) => {
+    try {
+      return new RegExp(source).source !== ""
+    } catch {
+      return false
+    }
+  }, "isn't a regular expression")
+
 const providers = z.strictObject({
   renderer: z
     .strictObject({
@@ -157,7 +170,18 @@ const providers = z.strictObject({
       componentExtensions: z.array(z.string())
     })
     .optional(),
-  builder: z.strictObject({ entry: z.string(), watches: z.array(z.string()) }).optional(),
+  builder: z
+    .strictObject({
+      entry: z.string(),
+      watches: z.array(z.string()),
+      console: z
+        .strictObject({
+          chatter: z.array(pattern).max(20).optional(),
+          generatedPaths: z.array(pattern).max(20).optional()
+        })
+        .optional()
+    })
+    .optional(),
   styles: empty.optional(),
   router: z.strictObject({ decorators: z.array(frameDecorator).max(20).optional() }).optional(),
   entities: z

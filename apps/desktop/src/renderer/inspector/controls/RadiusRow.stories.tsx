@@ -41,7 +41,7 @@ function Radius({ start, hover = false }: { start: Draft; hover?: boolean }) {
 /** One radius for every corner, radius-lg. */
 export const OneRadius: Story = { render: () => <Radius start={{ radius: "radius-lg" }} /> }
 
-/** One radius, with what the row stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** One radius, with what the row stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...OneRadius, parameters: { demo: true } }
 
 /** Each corner its own, laid out where it is: the top two at 2xl, the bottom two at sm. */

@@ -76,7 +76,7 @@ export const SpanAndStart: Story = {
   }
 }
 
-/** SpanAndStart, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** SpanAndStart, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...SpanAndStart, parameters: { demo: true } }
 
 /** Across every column: Span is All, a chip, `col-span-full`, `1 / -1` in CSS. Start says 1, faintly. */

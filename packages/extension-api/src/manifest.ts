@@ -247,6 +247,16 @@ export interface BuilderContribution {
   entry: string
   /** Its config files, from the project root, whose coming or going means the project is detected again. */
   watches: string[]
+  /** What its dev build adds that isn't the project's own, which the Console panel and agents leave out. */
+  console?: BuilderConsole
+}
+
+/** What a builder's dev build adds that isn't the project's own, as regular expressions' source. */
+export interface BuilderConsole {
+  /** Messages it writes to the console, as Vite's about hot updates: `^\[vite\]`. */
+  chatter?: string[]
+  /** Paths of modules it makes, from the server's root without the leading slash, as Vite's `@vite/client`: `^@`. */
+  generatedPaths?: string[]
 }
 
 /** What Parity needs of a router before its code runs. */

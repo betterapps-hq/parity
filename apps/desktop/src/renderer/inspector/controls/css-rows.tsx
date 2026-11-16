@@ -44,7 +44,8 @@ export interface Owned {
   property: string
   value: string
   control: string
-  tailwind: string
+  /** The class it came in as, or the one its control writes for it: `p-4`, `hover:bg-primary/90`. */
+  className: string
 }
 
 /** The layer's CSS: the rows, what went to the controls, and classes Parity can't read, kept as From the code. */
@@ -291,14 +292,14 @@ export function sortIn(text: string, model: CssModel) {
   let given = 0
   let kept = 0
 
-  const take = (property: string, value: string, tailwind?: string) => {
+  const take = (property: string, value: string, className?: string) => {
     const control = owners.get(property)
 
     if (control) {
-      const name = tailwind ?? ownedClass(property, value)
+      const name = className ?? ownedClass(property, value)
       // A new value replaces the control's value in the same state; another state's stays.
-      const others = owned.filter((each) => each.property !== property || stateOf(each.tailwind) !== stateOf(name))
-      owned.splice(0, owned.length, ...others, { property, value, control, tailwind: name })
+      const others = owned.filter((each) => each.property !== property || stateOf(each.className) !== stateOf(name))
+      owned.splice(0, owned.length, ...others, { property, value, control, className: name })
       given += 1
 
       return
@@ -357,19 +358,22 @@ export function sortIn(text: string, model: CssModel) {
   return { model: { rows, owned, fromCode }, summary: parts.join(", ") }
 }
 
+/** Whether a row is written: on, with a property, and a declaration that reads. */
+const isWritten = (row: CssRow) => !row.off && row.property !== "" && rowReason(row) === undefined
+
 /** What the section writes: what each control was given, the rows that are on, and From the code's classes. */
 export function cssWrites(model: CssModel): Writes {
-  const on = model.rows.filter((row) => !row.off && row.property !== "" && rowReason(row) === undefined)
+  const on = model.rows.filter(isWritten)
   const empty = model.owned.length === 0 && model.rows.length === 0 && model.fromCode.length === 0
 
   if (empty) {
-    return { stored: undefined, css: [], tailwind: [] }
+    return { stored: undefined, css: [] }
   }
 
   const stored: StoredObject = {}
 
   if (model.owned.length > 0) {
-    stored.controls = Object.fromEntries(model.owned.map((each) => [each.tailwind, { [each.property]: each.value }]))
+    stored.controls = Object.fromEntries(model.owned.map((each) => [each.className, { [each.property]: each.value }]))
   }
 
   stored.css = model.rows.flatMap((row) => {
@@ -395,16 +399,23 @@ export function cssWrites(model: CssModel): Writes {
     css: [
       ...model.owned.map(
         (each) =>
-          `${stateOf(each.tailwind) ? `&:${stateOf(each.tailwind)} { ` : ""}${each.property}: ${each.value}${stateOf(each.tailwind) ? " }" : ""}`
+          `${stateOf(each.className) ? `&:${stateOf(each.className)} { ` : ""}${each.property}: ${each.value}${stateOf(each.className) ? " }" : ""}`
       ),
       ...on.map((row) => `${row.property}: ${row.value}`)
-    ],
-    tailwind: [
-      ...model.owned.map((each) => each.tailwind),
-      ...on.map((row) => `[${row.property}:${arbitrary(row.value)}]`),
-      ...model.fromCode
     ]
   }
+}
+
+/**
+ * The section's keys as Classes shows them: each control's class, each written row as an arbitrary property, then From
+ * the code's.
+ */
+function classesOf(model: CssModel): string {
+  return [
+    ...model.owned.map((each) => each.className),
+    ...model.rows.filter(isWritten).map((row) => `[${row.property}:${arbitrary(row.value)}]`),
+    ...model.fromCode
+  ].join(" ")
 }
 
 /**
@@ -789,7 +800,7 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
   const [focusId, setFocusId] = useState<number>()
   const [classes, setClasses] = useState<string>()
   const [summary, setSummary] = useState<string>()
-  const written = cssWrites(model).tailwind.join(" ")
+  const written = classesOf(model)
 
   const paste = (text: string): boolean => {
     const looksSorted = text.includes(";") || /\s/.test(text.trim())
@@ -909,10 +920,10 @@ export function CssSection({ model, onChange }: { model: CssModel; onChange: (mo
           <div className="flex flex-col gap-0.5 pt-1">
             <GroupLabel>In their controls</GroupLabel>
             {model.owned.map((each) => (
-              <div key={each.tailwind} className="flex items-start justify-between gap-2 px-0.5 text-xs">
-                <span className="min-w-0 font-mono [overflow-wrap:anywhere]">{each.tailwind}</span>
+              <div key={each.className} className="flex items-start justify-between gap-2 px-0.5 text-xs">
+                <span className="min-w-0 font-mono [overflow-wrap:anywhere]">{each.className}</span>
                 <span className="shrink-0 text-muted-foreground">
-                  {stateOf(each.tailwind) ? `${each.control}, ${stateName(stateOf(each.tailwind)!)}` : each.control}
+                  {stateOf(each.className) ? `${each.control}, ${stateName(stateOf(each.className)!)}` : each.control}
                 </span>
               </div>
             ))}

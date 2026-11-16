@@ -1,6 +1,7 @@
 import type { ComponentList } from "@parity-app/code"
 import {
   type AdapterStatusItem,
+  type BuilderConsole,
   type CanvasDocument,
   type ComponentSource,
   defaultModeSettings,
@@ -27,7 +28,7 @@ export interface ProjectInfo {
   root: string
   name: string
   renderer: { id: string; name: string }
-  builder: { id: string; name: string; toolVersion: string }
+  builder: { id: string; name: string; toolVersion: string; console?: BuilderConsole }
   /** The router adapter that read `routes`, when the app has one; their owner among the project's nodes. */
   router?: { id: string; name: string }
   /** The styling framework whose theme the tokens include, when one was recognized. */
@@ -78,7 +79,7 @@ export interface OpenedProject {
   root: string
   name: string
   renderer: { id: string; name: string }
-  builder: { id: string; name: string; toolVersion: string }
+  builder: { id: string; name: string; toolVersion: string; console?: BuilderConsole }
   router?: { id: string; name: string } | undefined
   styles: { info?: ProjectInfo["styles"]; theme: ThemeVariable[] }
   guestUrl: string

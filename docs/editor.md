@@ -1064,8 +1064,12 @@ selecting a group's design. The panel's height is dragged at its top edge and ke
   window's developer tools still point at the lines that wrote each message. What a frame writes as it first draws on
   the canvas, or later on its own, is the project's, unless its offscreen draw wrote it too.
 - **Where it was written:** the message's own line when that's in the project's files, or else the first call in its
-  stack that is, as React's warnings name the component in their stack. Vite's own modules and installed packages are
-  never a place.
+  stack that is, as React's warnings name the component in their stack. The builder's own modules and installed packages
+  are never a place.
+- **The builder's own chatter:** what a builder's dev build writes of its own, as Vite's lines about hot updates, and
+  the modules it makes, as `@vite/client`, come from its manifest's `providers.builder.console` (PAR-1158): `chatter`
+  and `generatedPaths`, each a list of regular expressions. The panel and agents leave out its chatter, and its modules
+  are never a place. Main still drops React's DevTools notice itself.
 - **For agents:** each entry `parity console` and `get_console` give has the design's key, state and mode when known,
   and the text says `from design pricing (yearly, desktop-light)`. Agents' frames name the state they draw.
 
@@ -1074,20 +1078,25 @@ Code: `createConsoleLog`, `announcedContexts`, `recordConsole` and `batchedChang
 and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `shared/ipc-checks.ts`, and
 `window.canvasHost.console` in the preload script; the job's `design` in `shared/render-job.ts` and
 `shared/protocol.ts`; `captureConsole` and `frameContext` in `renderer/canvas/console-capture.ts`; `consoleMessages`,
-`projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, fed by `startConsole` in
+`projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, with `BuilderConsole`,
+`isBuilderChatter` and `isGeneratedPath` in `packages/core/src/adapters.ts`, fed by `startConsole` in
 `renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, its filter in `chrome/console-filter.ts`, kept for
 each tab with `projectPart` in `renderer/project-part.ts`, the count in `chrome/StatusBar.tsx` and the board's in
-`canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`
-and `FrameRequest.state` in `packages/agent/src/types.ts` and `describeConsole` in `packages/cli/src/client.ts`.
+`canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`,
+`FrameRequest.state` and `TabSnapshot.builderConsole` in `packages/agent/src/types.ts`, the chatter left out by
+`dispatch`'s `console`, and `describeConsole` in `packages/cli/src/client.ts`.
 
 Tests: `apps/desktop/src/main/console-log.test.ts` (8: an id each and a repeat in the same frame counted, another
-frame's kept apart; no design when none is known; chatter and the oldest past the limit dropped; one builder's read and
-cleared, with listeners told; an announcement held for the next message of its level alone, briefly; a frame's message
-through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes batched, each once as
-it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (6: one message for several
-frames with each frame and every time; the place from the stack when a library wrote it, with the stack apart and short;
-counts by message, of one design or all; a project file's place without Vite's query; none for a library's, Vite's or
-another server's; each project given its builder's messages and cleared with it).
+frame's kept apart; no design when none is known; React's DevTools notice and the oldest past the limit dropped; one
+builder's read and cleared, with listeners told; an announcement held for the next message of its level alone, briefly;
+a frame's message through the window's wrapper kept at the frame's own call, and Parity's own still dropped; changes
+batched, each once as it is then; a clear sent at once after what's waiting). `renderer/console-store.test.ts` (8: one
+message for several frames with each frame and every time; the place from the stack when a library wrote it, with the
+stack apart and short; counts by message, of one design or all; a project file's place without Vite's query; none for a
+library's, Vite's or another server's; which modules a builder made left to its manifest; each project given its
+builder's messages and cleared with it; a builder's chatter left out). `packages/core/src/adapters.test.ts` (a builder's
+console from its manifest; its chatter and generated paths told apart from the project's) and
+`packages/agent/src/dispatch.test.ts` (the builder's chatter left out of what agents read).
 `renderer/canvas/console-capture.test.ts` (4: the frame from an event's path; an announcement before each message while
 a frame handles an event and none after its task; the frame code's call found past the wrapper in the stack; the console
 left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears the console before each end-to-end test,

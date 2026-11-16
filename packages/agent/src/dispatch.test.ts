@@ -398,6 +398,14 @@ describe("dispatch", () => {
     expect(answer.tab).toEqual({ id: "tab-1", name: "App" })
   })
 
+  it("leaves out the builder's chatter, as its manifest describes it (PAR-1158)", async () => {
+    const { host } = fixtureHost()
+    const snapshot = await host.snapshot(undefined)
+    host.snapshot = async () => ({ ...snapshot, builderConsole: { chatter: ["^Boom$"] } })
+    const answer = await dispatch("console", {}, host, caller)
+    expect(answer).toMatchObject({ entries: [] })
+  })
+
   it("applies a snippet's changes in its tab as one step, under its label", async () => {
     const { answer, asked } = await ask("exec", {
       label: "Outline the button",

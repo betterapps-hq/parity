@@ -49,7 +49,7 @@ function Radius({ start, tokensOnly, mixed }: { start?: RadiusValue; tokensOnly?
 /** A token, `radius-lg`, as a pill named lg, whose hint says radius-lg and what it comes to. */
 export const Token: Story = { render: () => <Radius start="radius-lg" /> }
 
-/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Token, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Token, parameters: { demo: true } }
 
 /** A value of its own, 12px, with no mark: Tokens offers the nearest (radius-lg) first, then Create token. */

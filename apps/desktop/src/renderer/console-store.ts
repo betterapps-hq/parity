@@ -1,3 +1,4 @@
+import { type BuilderConsole, isBuilderChatter, isGeneratedPath } from "@parity-app/core"
 import { useSyncExternalStore } from "react"
 import type { ConsoleChange, ConsoleEntry, LoggedEntry } from "../shared/protocol.ts"
 import { resetWithWindow, createStore, useStore } from "./store.ts"
@@ -47,15 +48,18 @@ class ConsoleLog {
   subscribe = this.#messages.subscribe
 
   /**
-   * Takes in what the main process kept or counted again, by id, from the project's builder at `guestUrl`. A message
-   * written in several frames of a design is one, with each frame.
+   * Takes in what the main process kept or counted again, by id, from the project's builder at `guestUrl`, less the
+   * builder's own chatter, as `builder` describes it. A message written in several frames of a design is one, with each
+   * frame.
    */
-  update(entries: readonly LoggedEntry[], guestUrl: string): void {
-    if (entries.length === 0) {
+  update(entries: readonly LoggedEntry[], guestUrl: string, builder?: BuilderConsole): void {
+    const own = entries.filter((entry) => !isBuilderChatter(entry.text, builder))
+
+    if (own.length === 0) {
       return
     }
 
-    for (const entry of entries) {
+    for (const entry of own) {
       this.#entries.set(entry.id, entry)
     }
 
@@ -67,7 +71,7 @@ class ConsoleLog {
       this.#entries.delete(id)
     }
 
-    this.#logged = consoleMessages([...this.#entries.values()], guestUrl)
+    this.#logged = consoleMessages([...this.#entries.values()], guestUrl, builder)
     this.#join()
   }
 
@@ -126,7 +130,7 @@ export function consoleLog(projectId: string): ConsoleLog {
 /** An open project, as the console's feed routes messages to it: by the address its builder serves its code from. */
 export interface FedProject {
   id: string
-  info: { guestUrl: string }
+  info: { guestUrl: string; builder?: { console?: BuilderConsole } }
 }
 
 /** Gives each project the change's messages from its builder, or clears its log when its builder's was cleared. */
@@ -148,7 +152,8 @@ export function routeConsoleChange(change: ConsoleChange, projects: readonly Fed
 
     consoleLog(project.id).update(
       change.entries.filter((entry) => origin(entry.source) === from),
-      project.info.guestUrl
+      project.info.guestUrl,
+      project.info.builder?.console
     )
   }
 }
@@ -171,7 +176,11 @@ export function useConsole(projectId: string): readonly ConsoleMessage[] {
  * The panel's messages from the main process's entries, oldest first: one for each message a design wrote, whatever
  * frames it was written in, with each frame and how often it came in all, and its text apart from its stack.
  */
-export function consoleMessages(entries: readonly LoggedEntry[], guestUrl: string): ConsoleMessage[] {
+export function consoleMessages(
+  entries: readonly LoggedEntry[],
+  guestUrl: string,
+  builder?: BuilderConsole
+): ConsoleMessage[] {
   const messages = new Map<string, ConsoleMessage>()
 
   for (const entry of entries) {
@@ -180,7 +189,7 @@ export function consoleMessages(entries: readonly LoggedEntry[], guestUrl: strin
     const found = messages.get(key)
 
     if (!found) {
-      messages.set(key, messageOf(entry, guestUrl, frame))
+      messages.set(key, messageOf(entry, guestUrl, frame, builder))
       continue
     }
 
@@ -201,7 +210,8 @@ export function consoleMessages(entries: readonly LoggedEntry[], guestUrl: strin
 function messageOf(
   entry: LoggedEntry,
   guestUrl: string,
-  frame: { state: string; mode: string } | undefined
+  frame: { state: string; mode: string } | undefined,
+  builder: BuilderConsole | undefined
 ): ConsoleMessage {
   const lines = entry.text.split("\n")
   const calls = lines.map((line) => line.trim()).filter((line) => line.startsWith("at "))
@@ -214,11 +224,11 @@ function messageOf(
   const { id, ...rest } = entry
 
   const at =
-    projectPlace(entry.source, entry.line, 1, guestUrl) ??
+    projectPlace(entry.source, entry.line, 1, guestUrl, builder) ??
     calls
       .map((call) => readCall(call))
       .flatMap((call) => {
-        const place = call && projectPlace(call.url, call.line, call.column, guestUrl)
+        const place = call && projectPlace(call.url, call.line, call.column, guestUrl, builder)
 
         return place ? [place] : []
       })[0]
@@ -234,7 +244,7 @@ function messageOf(
   }
 
   if (calls.length > 0) {
-    message.stack = calls.map((call) => shortCall(call, guestUrl))
+    message.stack = calls.map((call) => shortCall(call, guestUrl, builder))
   }
 
   return message
@@ -266,14 +276,14 @@ function readCall(call: string): StackCall | undefined {
 }
 
 /** A call with its address short: a project file from the project's root, a library's by its file's name. */
-function shortCall(call: string, guestUrl: string): string {
+function shortCall(call: string, guestUrl: string, builder: BuilderConsole | undefined): string {
   const read = readCall(call)
 
   if (!read) {
     return call
   }
 
-  const place = projectPlace(read.url, read.line, read.column, guestUrl)
+  const place = projectPlace(read.url, read.line, read.column, guestUrl, builder)
   const file = place?.path ?? read.url.split("?")[0]!.split("/").at(-1)
   const where = `${file}:${read.line}:${read.column}`
 
@@ -282,13 +292,15 @@ function shortCall(call: string, guestUrl: string): string {
 
 /**
  * Where in the project's own files an address is, as the builder at `guestUrl` serves them: its path from the root,
- * without the query Vite adds. A library's module, one Vite made, or another server's is none.
+ * without a query the builder adds. A library's module, one the builder made, as `builder` describes them, or another
+ * server's is none.
  */
 export function projectPlace(
   url: string,
   line: number,
   column: number,
-  guestUrl: string
+  guestUrl: string,
+  builder?: BuilderConsole
 ): { path: string; line: number; column: number } | undefined {
   let address: URL
   let guest: URL
@@ -306,7 +318,7 @@ export function projectPlace(
 
   const path = decodeURIComponent(address.pathname).replace(/^\/+/, "")
 
-  if (!path || path.startsWith("@") || path.startsWith("node_modules/") || path.includes("/node_modules/")) {
+  if (!path || isGeneratedPath(path, builder) || path.startsWith("node_modules/") || path.includes("/node_modules/")) {
     return undefined
   }
 

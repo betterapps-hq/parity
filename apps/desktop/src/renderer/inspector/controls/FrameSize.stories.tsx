@@ -34,7 +34,7 @@ function Frame({ width, height }: { width: FrameWidth; height?: number }) {
 
   return (
     <Playground
-      writes={{ stored, css: [], tailwind: [] }}
+      writes={{ stored, css: [] }}
       preview={<FramePreview width={framePx(frame.width, breakpoints)} height={frame.height} onHug={setHugged} />}
     >
       <FrameSection frame={frame} hugged={hugged} onChange={setFrame} />
@@ -45,7 +45,7 @@ function Frame({ width, height }: { width: FrameWidth; height?: number }) {
 /** At the xl breakpoint, 1280 wide, hugging the design's height. */
 export const Desktop: Story = { render: () => <Frame width={{ token: "breakpoint-xl" }} /> }
 
-/** Desktop, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Desktop, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Desktop, parameters: { demo: true } }
 
 /** A width and height of its own, 1100 by 720. */

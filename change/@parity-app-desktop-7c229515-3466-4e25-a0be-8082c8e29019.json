@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Leave the builder's own console chatter to its manifest, and drop the inspector's dead Tailwind readouts",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
