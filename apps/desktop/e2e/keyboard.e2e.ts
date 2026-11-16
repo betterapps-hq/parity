@@ -12,33 +12,6 @@ let app: App
 
 beforeAll(async () => {
   app = await App.connect()
-
-  // PAR-1209 diagnostics, to be removed: every child frame's comings, goings and navigations, with the test running.
-  const log = (what: string) => (frame: Frame) => {
-    if (frame !== app.page.mainFrame()) {
-      const test = expect.getState().currentTestName ?? "(between tests)"
-      process.stderr.write(`[PAR-1209] ${new Date().toISOString()} ${what} ${frame.url()} in ${test}\n`)
-    }
-  }
-
-  app.page.on("frameattached", log("attached"))
-  app.page.on("framedetached", log("detached"))
-  app.page.on("framenavigated", log("navigated"))
-  app.page.on("console", (message) => {
-    if (message.text().includes("[vite]") || message.text().startsWith("[PAR-1209]")) {
-      process.stderr.write(`[PAR-1209] ${new Date().toISOString()} console ${message.text()}\n`)
-    }
-  })
-  // Who puts an iframe in the page, with where from.
-  await app.page.evaluate(`{
-    const append = Node.prototype.appendChild
-    Node.prototype.appendChild = function (child) {
-      if (child instanceof HTMLIFrameElement && !child.src) {
-        console.warn("[PAR-1209] iframe into " + this.nodeName + ": " + new Error().stack)
-      }
-      return append.call(this, child)
-    }
-  }`)
 })
 
 afterEach(() => app?.reset())
@@ -347,8 +320,8 @@ describe("paste over selection and paste to replace", () => {
   })
 
   it("replaces the selected layer in its place with Ctrl+Shift+R, without reloading the window", async () => {
-    // Only the window's own page counts (PAR-1209). The example's route pages are frames on the canvas, and each save
-    // of shadcn-vite.par, which Tailwind scans but Vite doesn't import, makes Tailwind's Vite plugin reload them all.
+    // Only the window's own page counts (PAR-1209). Sentry's renderer SDK now and then puts a hidden blank frame in the
+    // page's head for a moment, to borrow functions nothing has wrapped, and that frame's navigation isn't a reload.
     const reloads: string[] = []
 
     const count = (frame: Frame) => {
