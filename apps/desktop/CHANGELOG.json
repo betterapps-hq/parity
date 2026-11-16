@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 01:53:02 GMT",
+      "version": "0.96.3",
+      "tag": "@parity-app/desktop_v0.96.3",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "3dbb9a36e70745431c5a800548a92091e138b80f",
+            "comment": "Session Replay no longer keeps a snapshot of the page each time it pauses and resumes, which grew the window's memory with every zoom"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 01:24:28 GMT",
       "version": "0.96.2",
       "tag": "@parity-app/desktop_v0.96.2",

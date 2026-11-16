@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Session Replay no longer keeps a snapshot of the page each time it pauses and resumes, which grew the window's memory with every zoom",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

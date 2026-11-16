@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 01:24:28 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 01:53:02 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.3
+
+Mon, 16 Nov 2026 01:53:02 GMT
+
+### Patches
+
+- Session Replay no longer keeps a snapshot of the page each time it pauses and resumes, which grew the window's memory
+  with every zoom (ajcraswell@gmail.com)
 
 ## 0.96.2
 
