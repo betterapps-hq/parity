@@ -42,6 +42,11 @@ export interface ProjectConfig {
    */
   preview?: string
   /**
+   * The files the app's routes are made of, relative to the root, as its router's extension reads them: what a builder
+   * looks through for the packages pages import before any page loads (PAR-1203). Unset for an app without a router.
+   */
+  routeFiles?: string[]
+  /**
    * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
    * by (`nova/Button`), as the apps that install it name them.
    */

@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Keep Vite's prebundled dependencies per copy of Parity, bundle what only pages import before any page loads, and keep the warm-up's compiled modules",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
