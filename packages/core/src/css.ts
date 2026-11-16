@@ -471,7 +471,7 @@ function referencingCustomProperties(written: string, drawn: string): string {
   )
 
   // As they're drawn, lengths and all, picked by what the project wrote: Parity's own `var()`s don't count.
-  const found = declarationsIn(drawn).filter((declaration) => names.has(customPropertyName(declaration)))
+  const found = declarationsIn(drawn).filter((declaration) => names.has(customPropertyName(declaration) ?? ""))
 
   return found.length > 0 ? ` ${found.join("; ")}; ` : ""
 }

@@ -263,6 +263,7 @@ describe("prepareCanvasCss", () => {
   it("declares the root's custom properties made from others on the frame's body too, where its theme is (PAR-1210)", () => {
     const css =
       ":root { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * 2rem) } .a { color: red }"
+
     expect(prepareCanvasCss(css, options).scoped).toBe(
       ":host { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))) } " +
         ":where([data-canvas-body]) { --palette: var(--gray-solid); --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))); } " +
