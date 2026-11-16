@@ -94,7 +94,7 @@ describe("prepareCanvasCss with prefers-color-scheme", () => {
 
   it("keeps a block under a layer in its layer, and leaves a query that asks for more alone", () => {
     expect(scoped("@layer base { @media (prefers-color-scheme: dark) { :root { --c: #000; } } }")).toBe(
-      `@layer base {  ${dark} { --c: #000; }  }`
+      `@layer base {  ${dark} { --c: #000; }  } @layer canvas-qualified-root.base;`
     )
     const both = "@media screen and (prefers-color-scheme: dark) { :host { --c: #000; } }"
     expect(scoped(both)).toBe(
@@ -296,19 +296,24 @@ describe("prepareCanvasCss", () => {
     ).toContain(bodyCopy("--a: var(--b);"))
     // A layered root's copy goes in a layer of the qualified roots' named after its own, below an unlayered theme's root.
     expect(prepareCanvasCss("@layer base { :root { --fg: red } } :root.dark { --fg: blue }", options).scoped).toBe(
-      "@layer base { :host { --fg: red } } @layer canvas-qualified-root.base { :where([data-canvas-body]) { --fg: red; } } " +
+      "@layer base { :host { --fg: red } } @layer canvas-qualified-root.base; @layer canvas-qualified-root.base { :where([data-canvas-body]) { --fg: red; } } " +
         ":host(.dark) { --fg: blue } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --fg: blue } }"
     )
     expect(
       prepareCanvasCss("@layer theme { @media (width >= 40rem) { :root { --a: var(--b) } } }", options).scoped
     ).toBe(
       "@layer theme { @container canvas-viewport (width >= 40rem) { :host { --a: var(--b) } } } " +
-        "@layer canvas-qualified-root.theme { @container canvas-viewport (width >= 40rem) { :where([data-canvas-body]) { --a: var(--b); } } }"
+        "@layer canvas-qualified-root.theme; @layer canvas-qualified-root.theme { @container canvas-viewport (width >= 40rem) { :where([data-canvas-body]) { --a: var(--b); } } }"
     )
     // In the order the project's layer statement declares its own.
     expect(prepareCanvasCss("@layer base, theme; @layer theme { :root { --fg: blue } }", options).scoped).toBe(
       "@layer base, theme; @layer canvas-qualified-root.base, canvas-qualified-root.theme; " +
         "@layer theme { :host { --fg: blue } } @layer canvas-qualified-root.theme { :where([data-canvas-body]) { --fg: blue; } }"
+    )
+    // Or the order its layers' first blocks declare them in.
+    expect(prepareCanvasCss("@layer base {} @layer theme { :root { --fg: blue } }", options).scoped).toBe(
+      "@layer base {} @layer canvas-qualified-root.base; @layer theme { :host { --fg: blue } } " +
+        "@layer canvas-qualified-root.theme; @layer canvas-qualified-root.theme { :where([data-canvas-body]) { --fg: blue; } }"
     )
     // A semicolon in a string doesn't end a declaration.
     expect(prepareCanvasCss(':root { --a: "one;two"; --b: "three;four" }', options).scoped).toContain(

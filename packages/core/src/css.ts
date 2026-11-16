@@ -126,7 +126,14 @@ export function colorSchemeQuery(query: string): ColorScheme | undefined {
 export function prepareCanvasCss(css: string, options: PrepareCssOptions): CanvasCss {
   const globals: string[] = []
   const bodyCopies: string[] = []
-  const serializing = { ...options, uncopiedCustomProperties: uncopiedCustomProperties(css), bodyCopies }
+
+  const serializing = {
+    ...options,
+    uncopiedCustomProperties: uncopiedCustomProperties(css),
+    bodyCopies,
+    declaredCopyLayers: new Set<string>()
+  }
+
   let scoped = ""
 
   // Each top-level rule in turn, with the body's copies of layered roots' custom properties after it, out of its layer.
@@ -151,6 +158,8 @@ type SerializeOptions = PrepareCssOptions & {
   uncopiedCustomProperties?: ReadonlySet<string>
   /** The body's copies of layered roots' custom properties, put after the top-level rule they're in. */
   bodyCopies?: string[]
+  /** The layers for those copies declared so far, in the order the project's own were. */
+  declaredCopyLayers?: Set<string>
 }
 
 function uncopiedCustomProperties(css: string): Set<string> {
@@ -338,18 +347,35 @@ interface SerializeContext {
 
 /**
  * Declares the layers the body's copies of layered roots' custom properties go in (see `rootCustomProperties`) in the
- * order a layer statement (`@layer base, theme;`) declares the project's own, so they rank as those do.
+ * order the project's own are declared, by a layer statement (`@layer base, theme;`) or a layer's first block, so they
+ * rank as those do.
  */
 function declareCopyLayers(text: string, options: SerializeOptions, context: SerializeContext): void {
-  const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
+  for (const statement of text.matchAll(/@layer\s+([^;{}]+);/gi)) {
+    declareCopyLayerNames(statement[1]!.split(","), options, context)
+  }
+}
 
-  if (!options.bodyCopies || context.inRule || layers.includes("")) {
+function declareCopyLayerNames(names: string[], options: SerializeOptions, context: SerializeContext): void {
+  const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
+  const { bodyCopies, declaredCopyLayers } = options
+
+  if (!bodyCopies || !declaredCopyLayers || options.qualifiedRoots === false || context.inRule || layers.includes("")) {
     return
   }
 
-  for (const statement of text.matchAll(/@layer\s+([^;{}]+);/gi)) {
-    const names = statement[1]!.split(",").map((name) => [...layers, name.trim()].join("."))
-    options.bodyCopies.push(`@layer ${names.map((name) => `${qualifiedRootLayer}.${name}`).join(", ")};`)
+  const declaring = names.flatMap((name) => {
+    const path = [...layers, name.trim()].join(".")
+
+    return declaredCopyLayers.has(path) ? [] : [path]
+  })
+
+  for (const name of declaring) {
+    declaredCopyLayers.add(name)
+  }
+
+  if (declaring.length > 0) {
+    bodyCopies.push(`@layer ${declaring.map((name) => `${qualifiedRootLayer}.${name}`).join(", ")};`)
   }
 }
 
@@ -399,6 +425,11 @@ function serialize(
         const layer = /^@layer\b\s*([^{]*)$/i.exec(prelude)?.[1]?.trim()
         const around = layer === undefined ? { condition: drawnPrelude } : { layer }
         const enclosing = context.inRule ? context.enclosing : [...(context.enclosing ?? []), around]
+
+        if (layer) {
+          declareCopyLayerNames([layer], options, context)
+        }
+
         const body = serialize(node.children, options, globals, { ...context, enclosing })
 
         if (/^@(property|font-face)\b/i.test(prelude)) {
