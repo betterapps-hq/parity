@@ -513,21 +513,34 @@ export interface Placed extends Disposable {
 ## `parity.colors`: colors for people and agents
 
 People and agents share one set of colors, so they look like one system and work in both themes. There are only 12
-palettes today, which a room with a few people each running agents uses up fast. So the set grows to 24. The new ones
-fill the gaps in hue between today's, with a lighter and a deeper step where hues are far apart. They're designed in
-Storybook first (`Parity/Multiplayer/Colors`), each with a contrast check for its badge text in both themes.
+palettes today, which a room with a few people each running agents uses up fast. Colors must never run out, so the
+set is a list that goes on as far as it's asked to:
+
+- **Hand-tuned first.** The first palettes are designed by hand: today's 12, plus about 12 more filling the gaps in hue
+  between them, with a lighter and a deeper step where hues are far apart.
+- **Generated after.** Past the hand-tuned ones, `palette(n)` makes palette `n` when it's first asked for:
+  - its hue comes from a golden-angle sequence in OKLCH, skipping hues too close to the hand-tuned ones, at a fixed
+    lightness and chroma per theme
+  - its gradient stops sit either side of that hue, as the hand-tuned ones do
+  - its ink is whichever of dark or light passes the contrast check against it
+- **The same everywhere.** Generation is a pure function of `n`, so every copy makes the same palette for the same
+  number, and the room only has to send numbers.
+- **Further apart is better.** Colors handed out later are closer to ones already in use. Names on badges tell people
+  apart once there are many.
+- **Designed first.** Both the hand-tuned set and the generator are designed in Storybook before they're built
+  (`Parity/Multiplayer/Colors`), each palette with a contrast check for its badge text in both themes.
 
 **Keys, not colors.** Extensions pass a `ColorKey`, never a color. Keys must be unique across copies of a room: a person
 by their peer id, an agent as `${peer}:${agentId}`.
 
-**Within one copy,** `claim` hands out colors so two keys never share one while one's free. A key keeps its color while
-it's claimed.
+**Within one copy,** `claim` gives a key the lowest-numbered palette no other key in the tab holds. There's always one,
+so a claim never fails. A key keeps its color while it's claimed, and a released number is handed out again first.
 
 **Across copies,** the same person should be the same color for everyone. Claiming in each copy can't promise that,
 since each copy claims in its own order. So the room decides:
-- The extension that brings the room assigns palettes for its members and their agents, and sends them with presence.
-- Each copy applies them with `colors.assign(key, palette)`.
-- `claim` respects assigned colors and gives other keys what's left.
+- The extension that brings the room numbers its members and their agents, and sends the numbers with presence.
+- Each copy applies them with `colors.assign(key, n)`.
+- `claim` respects assigned numbers and gives other keys the lowest free one.
 - Without a room, `claim` is all there is.
 
 ```ts
@@ -535,18 +548,23 @@ since each copy claims in its own order. So the room decides:
 export type ColorKey = string
 
 export interface Colors {
-  /** The palette for `key`: its assigned one, or one claimed now that no other key in this tab has. */
+  /** The palette for `key`: its assigned one, or the lowest-numbered one no other key in this tab holds. Never fails. */
   claim(key: ColorKey): Palette
   /** Gives `key`'s color back, when its person or agent has gone. */
   release(key: ColorKey): void
-  /** Sets `key`'s palette, as the room decided. It wins over a claim. */
-  assign(key: ColorKey, palette: string): void
-  /** Every palette, by name, for the room to choose from. */
-  readonly palettes: readonly Palette[]
+  /** Sets `key`'s palette by number, as the room decided. It wins over a claim. */
+  assign(key: ColorKey, n: number): void
+  /** Palette `n`: hand-tuned below `tuned`, generated from `n` above it. The same in every copy. */
+  palette(n: number): Palette
+  /** How many palettes are hand-tuned. */
+  readonly tuned: number
 }
 
 /** A gradient for pointers, a solid color for outlines, and the ink that reads on it. */
 export interface Palette {
+  /** Its number in the list. */
+  n: number
+  /** A hand-tuned palette's name, as `Ember`; a generated one's is its hue, as `Hue 137`. */
   name: string
   stops: [string, string, string]
   color: string
@@ -888,7 +906,7 @@ export const activateWindow: WindowModule["activateWindow"] = async (parity) => 
   room.on("host", () => void parity.sync.setWritesFiles(room.host === room.peer))
 
   // Colors: the host assigns, everyone applies.
-  room.on("colors", ({ assigned }) => assigned.forEach(([key, palette]) => parity.colors.assign(key, palette)))
+  room.on("colors", ({ assigned }) => assigned.forEach(([key, n]) => parity.colors.assign(key, n)))
   room.on("left", ({ peer }) => parity.colors.release(peer))
 
   // What I'm doing, and what my agents are doing.
@@ -1098,7 +1116,7 @@ frame. `extension.slow` is the spike that makes someone notice.
 | `dragPreview.settled`    | info  | renderer | A preview ends. Sampled to one in ten when it ends by its write | `extension`, `kind` (`board`, `layout`, `absolute`), `items`, `how` (`write`, `timeout`, `cancel`, `disposed`), `durationMs`, `concurrent` (previews open at once) |
 | `hold.released`          | info  | renderer | A hold ends                                             | `extension`, `how` (`released`, `timeout`, `grabbed`, `disposed`), `heldMs`                                      |
 | `follow.ended`           | info  | renderer | Following ends                                          | `extension`, `why`, `durationMs`                                                                                 |
-| `colors.exhausted`       | info  | renderer | A claim finds every palette taken, once per tab          | `keys`, `assigned` (how many the room assigned)                                                                  |
+| `colors.generated`      | info  | renderer | A claim or assignment needs a generated palette, once per tab and number | `n`, `keys` (holding a color in the tab)                                                                         |
 
 - **A preview settled by `timeout`** means the write never arrived, or came after the gesture's end. That's the
   ordering the event tables promise, so it's the first sign the promise broke.
@@ -1199,7 +1217,7 @@ In short:
 **Phase 0, decide**
 - approve this proposal
 - the Storybook designs: the avatar stack and person card, the follow frame, other people's selections, a pointer
-  going away and coming back, drag previews, the 24 palettes
+  going away and coming back, drag previews, the hand-tuned palettes and the generator
 
 **Phase 1, core fixes for sync**
 - saving in a room
@@ -1220,7 +1238,7 @@ In short:
 - boxes and hits
 - several previews at once
 - holds
-- colors by key, with assignment
+- colors by key, with assignment and generated palettes past the hand-tuned ones
 
 **Phase 4, agent presence**
 - `presence-ui`
