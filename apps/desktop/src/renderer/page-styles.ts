@@ -140,12 +140,110 @@ function sheetText(element: Element, entry: Caught): string | undefined {
   }
 
   const sheet = element instanceof HTMLStyleElement ? element.sheet : null
+  const text = entry.edited && sheet ? [...sheet.cssRules].map((rule) => rule.cssText).join("\n") : element.textContent
 
-  if (entry.edited && sheet) {
-    return [...sheet.cssRules].map((rule) => rule.cssText).join("\n")
+  return styleWithImports(text ?? "", entry.origin)
+}
+
+/** The CSS of each style element's text with its `@import`s in it, once read, by origin and text. */
+const imported = new Map<string, string>()
+
+/**
+ * A style element's CSS with what it `@import`s in place, once read. Until then it's its own CSS, whose imports a
+ * frame's stylesheet ignores; reading them starts here, and tells the origin's listeners once they're in.
+ */
+function styleWithImports(css: string, origin: string): string {
+  if (!importPattern().test(css)) {
+    return css
   }
 
-  return element.textContent ?? ""
+  const key = `${origin}\n${css}`
+  const done = imported.get(key)
+
+  if (done !== undefined) {
+    return done
+  }
+
+  imported.set(key, css)
+  reading(
+    origin,
+    withImports(css, `${origin}/`).then((expanded) => {
+      imported.set(key, expanded)
+      tell(origin)
+    })
+  )
+
+  return css
+}
+
+/** `@import` statements: the address, plain or in `url()`, and what follows it (layer, supports, media). */
+function importPattern(): RegExp {
+  return /@import\s+(?:url\(\s*)?(["']?)([^"')\s;]+)\1\s*\)?\s*([^;]*);/g
+}
+
+/** A stylesheet's text by its address, and where it came from in the end, after any redirect. */
+async function fetchStylesheet(address: string): Promise<{ text: string; from: string } | undefined> {
+  try {
+    const response = await fetch(address)
+
+    return response.ok ? { text: await response.text(), from: response.url || address } : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * `css`, read from `address`, with each `@import` replaced by what it imports, read the same way and wrapped in its
+ * layer, supports condition and media, as a browser applies it. A frame's stylesheet ignores `@import`, so what a
+ * stylesheet imports would otherwise be lost. One that can't be read is left out. Imports nest five deep at most.
+ */
+export async function withImports(
+  css: string,
+  address: string,
+  readSheet: (address: string) => Promise<{ text: string; from: string } | undefined> = fetchStylesheet,
+  depth = 0
+): Promise<string> {
+  const statements = [...css.matchAll(importPattern())]
+
+  if (statements.length === 0 || depth > 5) {
+    return css
+  }
+
+  const contents = await Promise.all(
+    statements.map(async ([, , path = ""]) => {
+      const answer = await readSheet(new URL(path, address).href)
+
+      return answer ? withImports(relativeUrlsFrom(answer.text, answer.from), answer.from, readSheet, depth + 1) : ""
+    })
+  )
+
+  let index = 0
+
+  return css.replace(importPattern(), (_statement, _quote, _path, conditions: string) =>
+    importConditions(contents[index++] ?? "", conditions)
+  )
+}
+
+/** Imported CSS wrapped in the layer, supports condition and media its `@import` names, in that order outward. */
+export function importConditions(css: string, conditions: string): string {
+  let rest = conditions.trim()
+  let wrapped = css
+  const layer = /^layer(?:\(\s*([^)]*?)\s*\))?/.exec(rest)
+
+  if (layer) {
+    wrapped = `@layer${layer[1] ? ` ${layer[1]}` : ""} {\n${wrapped}\n}`
+    rest = rest.slice(layer[0].length).trim()
+  }
+
+  const supports = /^supports\(((?:[^()]|\([^()]*\))*)\)/.exec(rest)
+
+  if (supports) {
+    const condition = supports[1]?.trim() ?? ""
+    wrapped = `@supports ${condition.startsWith("(") ? condition : `(${condition})`} {\n${wrapped}\n}`
+    rest = rest.slice(supports[0].length).trim()
+  }
+
+  return withMedia(wrapped, rest)
 }
 
 function baseUrl(element: Element, entry: Caught, origin: string): string {
@@ -186,23 +284,25 @@ function readLink(link: HTMLLinkElement, entry: Caught): void {
   delete entry.linked
   delete entry.linkedFrom
 
-  const reading = fetch(address)
-    .then(async (response) =>
-      response.ok ? { text: await response.text(), from: response.url || address } : undefined
-    )
-    .catch(() => undefined)
-    .then((answer) => {
-      if (entry.read === address && answer) {
-        entry.linked = answer.text
+  reading(
+    entry.origin,
+    fetchStylesheet(address).then(async (answer) => {
+      const text = answer ? await withImports(answer.text, answer.from) : undefined
+
+      if (answer && text !== undefined && entry.read === address) {
+        entry.linked = text
         entry.linkedFrom = answer.from
         tell(entry.origin)
       }
     })
+  )
+}
 
-  // Settles once this one and every one read before it for the origin have.
+/** Adds what's being read for an origin's stylesheets to what `settled` waits for: it and all before it. */
+function reading(origin: string, done: Promise<void>): void {
   read.set(
-    entry.origin,
-    Promise.all([read.get(entry.origin), reading]).then(() => undefined)
+    origin,
+    Promise.all([read.get(origin), done]).then(() => undefined)
   )
 }
 
@@ -316,7 +416,10 @@ function followRemovals(records: MutationRecord[]): void {
   }
 
   for (const [element, entry] of caught) {
-    if (!inPage(element)) {
+    if (inPage(element)) {
+      // Still in the page, perhaps moved with an element around it: watch what's around it now.
+      watchAncestors(element)
+    } else {
       caught.delete(element)
       // It leaves with the media the project gave it, so it's caught with that again if it comes back.
       setOwnMedia(element, entry.media)
@@ -340,7 +443,11 @@ function watch(element: Element): void {
     subtree: true
   })
 
-  // Its parent and every element around it, so it's let go of however it leaves the page.
+  watchAncestors(element)
+}
+
+/** Watches an element's parent and every element around it, so it's let go of however it leaves the page. */
+function watchAncestors(element: Element): void {
   for (let node = element.parentNode; node; node = node.parentNode) {
     if (!parents.has(node)) {
       parents.add(node)

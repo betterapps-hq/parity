@@ -5,7 +5,7 @@ import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vite-plus/test"
 import type * as pageStylesModule from "./page-styles.ts"
-import { callerOrigin, relativeUrlsFrom, withMedia } from "./page-styles.ts"
+import { callerOrigin, importConditions, relativeUrlsFrom, withImports, withMedia } from "./page-styles.ts"
 
 // docs/editor.md, A project's stylesheets stay in its frames (PAR-1187). The boundary wraps the page's own DOM methods
 // and tells code apart by where it was served from, so this runs in Chrome, with Parity's page and a project's code
@@ -313,6 +313,28 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     expect(steps).toEqual({ css: "@media screen {", media: "not all" })
   })
 
+  it("lets go of a stylesheet taken out of an element around it that moved first", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const styles = parity.pageStyles(origin)
+      const settle = () => new Promise((resolve) => setTimeout(resolve))
+      const box = document.createElement("div")
+      const shelf = document.createElement("section")
+      document.body.append(box, shelf)
+      project.addInto(box, ".boxed {}")
+      await settle()
+      shelf.append(box)
+      await settle()
+      const moved = styles.sheets().length
+      box.remove()
+      await settle()
+      shelf.remove()
+
+      return { moved, after: styles.sheets().length }
+    }, origin)
+
+    expect(steps).toEqual({ moved: 1, after: 0 })
+  })
+
   it("lets go of a stylesheet taken out with the element around it, telling listeners", async () => {
     const steps = await page.evaluate(async (origin) => {
       const styles = parity.pageStyles(origin)
@@ -444,6 +466,47 @@ describe("callerOrigin", () => {
     ).toBe("http://localhost:5173")
     expect(callerOrigin(stack("http://localhost:5391/src/main.tsx:4:2"), "http://localhost:5391")).toBeUndefined()
     expect(callerOrigin(stack("eval (<anonymous>)"), "http://localhost:5391")).toBeUndefined()
+  })
+})
+
+describe("withImports", () => {
+  it("puts what each @import reads in its place, nested, with its own url()s resolved and its conditions kept", async () => {
+    const sheets = new Map([
+      ["http://project.test/css/base.css", '@import "fonts/body.css"; body { margin: 0; }'],
+      ["http://project.test/css/fonts/body.css", "@font-face { src: url(body.woff2); }"],
+      ["http://project.test/print.css", ".no-print { display: none; }"]
+    ])
+
+    const read = async (address: string) => {
+      const text = sheets.get(address)
+
+      return text === undefined ? undefined : { text, from: address }
+    }
+
+    const css = await withImports(
+      '@import url("css/base.css") layer(base); @import "/print.css" print; @import "missing.css"; .a {}',
+      "http://project.test/app.css",
+      read
+    )
+
+    expect(css).toBe(
+      [
+        "@layer base {",
+        "@font-face { src: url(http://project.test/css/fonts/body.woff2); } body { margin: 0; }",
+        "} @media print {",
+        ".no-print { display: none; }",
+        "}  .a {}"
+      ].join("\n")
+    )
+  })
+})
+
+describe("importConditions", () => {
+  it("wraps in the layer, then supports, then media, outward", () => {
+    expect(importConditions(".a {}", "layer supports(display: grid) screen")).toBe(
+      "@media screen {\n@supports (display: grid) {\n@layer {\n.a {}\n}\n}\n}"
+    )
+    expect(importConditions(".a {}", "")).toBe(".a {}")
   })
 })
 
