@@ -236,14 +236,18 @@ describe("createProjectService", () => {
     )
   })
 
-  it("leaves a service that ended cleanly stopped until a window connects", () => {
+  it("takes a service that exits by itself with code 0 for a crash, as Electron reports one out of memory", () => {
     const { service, forked, telemetry } = setup()
     service.start()
+    forked[0]?.print("OOM error in V8: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory\n")
     forked[0]?.exit(0)
-    vi.runAllTimers()
-    expect(forked).toHaveLength(1)
-    expect(telemetry.crashed).not.toHaveBeenCalled()
-    service.connect({ name: "window", loading: false })
+    expect(telemetry.crashed).toHaveBeenCalledWith({
+      exitCode: 0,
+      output: "OOM error in V8: CALL_AND_RETRY_LAST Allocation failed - JavaScript heap out of memory",
+      expected: false,
+      missing: undefined
+    })
+    vi.advanceTimersByTime(0)
     expect(forked).toHaveLength(2)
   })
 

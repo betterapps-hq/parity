@@ -36,12 +36,15 @@ describe("serviceRestarts", () => {
     expect(restarts.exited(crash)).toBe(1000)
   })
 
-  it("doesn't start a service main ended, or one that ended cleanly", () => {
+  it("doesn't start a service main ended", () => {
     const restarts = serviceRestarts(policy)
 
     expect(restarts.exited({ ...crash, expected: true })).toBeUndefined()
-    expect(restarts.exited({ ...crash, exitCode: 0 })).toBeUndefined()
     expect(restarts.exited(crash)).toBe(0)
+  })
+
+  it("restarts a service that ended by itself with code 0, as Electron reports one out of memory", () => {
+    expect(serviceRestarts(policy).exited({ ...crash, exitCode: 0 })).toBe(0)
   })
 
   it("restarts after a crash with any other code, such as a kill's", () => {
