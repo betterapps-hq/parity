@@ -210,9 +210,6 @@ function catchElement(element: HTMLStyleElement | HTMLLinkElement, origin: strin
 /** The elements `changes` watches, which it goes on watching after they leave the page. */
 const watched = new WeakSet<Element>()
 
-/** How many of the boundary's own media changes to each caught element are still to be heard, in order. */
-const ownChanges = new WeakMap<Element, number>()
-
 function mute(element: Element): void {
   // A link that isn't a stylesheet keeps its media: a preload with none that matches isn't loaded, and its code may wait.
   if (element.getAttribute("media") !== muted && (!(element instanceof HTMLLinkElement) || isStylesheet(element))) {
@@ -220,10 +217,15 @@ function mute(element: Element): void {
   }
 }
 
-/** Sets an element's media as the boundary, so a watched element's change isn't taken for the project's. */
+/**
+ * Sets an element's media as the boundary. The project's changes queued before it are followed first, and its own
+ * change, queued as it's made, is dropped, so it's never taken for the project's.
+ */
 function setOwnMedia(element: Element, media: string | null): void {
-  if (watched.has(element)) {
-    ownChanges.set(element, (ownChanges.get(element) ?? 0) + 1)
+  const watching = changes && watched.has(element) ? changes : undefined
+
+  if (watching) {
+    followChanges(watching.takeRecords())
   }
 
   if (media === null) {
@@ -231,6 +233,8 @@ function setOwnMedia(element: Element, media: string | null): void {
   } else {
     element.setAttribute("media", media)
   }
+
+  watching?.takeRecords()
 }
 
 /** Follows caught elements' text and attributes, set up with the guard: Node has no `MutationObserver`. */
@@ -240,18 +244,20 @@ let changes: MutationObserver | undefined
 let removals: MutationObserver | undefined
 
 function followChanges(records: MutationRecord[]): void {
+  // Of several media changes to one element, its media now says what the last left.
+  const lastMedia = new Map<Node, MutationRecord>()
+
+  for (const record of records) {
+    if (record.attributeName === "media") {
+      lastMedia.set(record.target, record)
+    }
+  }
+
   for (const record of records) {
     const element = record.target instanceof Element ? record.target : record.target.parentElement
-    const own = element && record.attributeName === "media" ? (ownChanges.get(element) ?? 0) : 0
-
-    if (element && own > 0) {
-      ownChanges.set(element, own - 1)
-      continue
-    }
-
     const entry = element ? caught.get(element) : undefined
 
-    if (!element || !entry) {
+    if (!element || !entry || (record.attributeName === "media" && lastMedia.get(element) !== record)) {
       continue
     }
 

@@ -257,6 +257,20 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     expect(css).toBe("@media not all {\n.off { color: red; }\n}")
   })
 
+  it("takes the last of several media changes its code makes in one task", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const style = project.addStyle(".twice { color: red; }")
+      await new Promise((resolve) => setTimeout(resolve))
+      style.media = "screen"
+      style.media = "print"
+      await new Promise((resolve) => setTimeout(resolve))
+
+      return { css: parity.pageStyles(origin).sheets()[0]?.css, media: style.getAttribute("media") }
+    }, origin)
+
+    expect(steps).toEqual({ css: "@media print {\n.twice { color: red; }\n}", media: "not all" })
+  })
+
   it("lets go of a stylesheet taken out with the element around it, telling listeners", async () => {
     const steps = await page.evaluate(async (origin) => {
       const styles = parity.pageStyles(origin)
