@@ -280,10 +280,13 @@ describe("prepareCanvasCss", () => {
         ".a { color: red }"
     )
 
-    // Without importance, so the body's own rules still win.
-    expect(prepareCanvasCss(":root { --fg: var(--base) !important }", options).scoped).toContain(
-      ":where([data-canvas-body]) { --fg: var(--base); }"
+    // One whose value depends on importance or a condition is left to inherit from the host, whose cascade decides it.
+    expect(prepareCanvasCss(":root { --fg: red !important; --a: var(--b) } :root { --fg: blue }", options).scoped).toBe(
+      `:host { --fg: red !important; --a: var(--b) } ${bodyCopy("--a: var(--b);")} :host { --fg: blue }`
     )
+    expect(
+      prepareCanvasCss(":root { --fg: red; --a: var(--b); @supports (display: grid) { --fg: blue; } }", options).scoped
+    ).toContain(bodyCopy("--a: var(--b);"))
     // Tokens read the root as written.
     expect(prepareCanvasCss(css, { ...options, qualifiedRoots: false }).scoped).not.toContain("data-canvas-body")
     // A root in a theme is already drawn on the body in it.

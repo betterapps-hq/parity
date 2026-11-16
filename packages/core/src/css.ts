@@ -125,9 +125,24 @@ export function colorSchemeQuery(query: string): ColorScheme | undefined {
  */
 export function prepareCanvasCss(css: string, options: PrepareCssOptions): CanvasCss {
   const globals: string[] = []
-  const scoped = serialize(parse(css), options, globals)
+
+  const scoped = serialize(
+    parse(css),
+    { ...options, importantCustomProperties: importantCustomProperties(css) },
+    globals
+  )
 
   return { scoped, global: globals.join("\n") }
+}
+
+/** What `serialize` works with: the caller's options, and what it read from the whole stylesheet first. */
+type SerializeOptions = PrepareCssOptions & {
+  /** Custom properties declared with `!important` anywhere in the stylesheet (see `rootCustomProperties`). */
+  importantCustomProperties?: ReadonlySet<string>
+}
+
+function importantCustomProperties(css: string): Set<string> {
+  return new Set([...css.matchAll(/(--[\w-]+)\s*:[^;{}]*!\s*important/gi)].map((match) => match[1]!))
 }
 
 /** An at-rule a declaration sits under, such as `@media (prefers-color-scheme: dark)`. */
@@ -304,7 +319,7 @@ interface SerializeContext {
 /** Serializes rules for a frame. */
 function serialize(
   nodes: CssNode[],
-  options: PrepareCssOptions,
+  options: SerializeOptions,
   globals: string[],
   context: SerializeContext = {}
 ): string {
@@ -412,9 +427,12 @@ function serialize(
     ) {
       const declarations = children.filter((child) => child.kind === "text")
 
+      const conditional = new Set(customPropertiesIn(children.filter((child) => child.kind === "block")))
+
       const referencing = rootCustomProperties(
         declarations.map((child) => (child.kind === "text" ? child.text : "")).join(""),
-        serialize(declarations, options, [], { root: true, inRule: true })
+        serialize(declarations, options, [], { root: true, inRule: true }),
+        (name) => conditional.has(name) || options.importantCustomProperties?.has(name) === true
       )
 
       if (referencing) {
@@ -466,20 +484,33 @@ const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${
  * is its host, and the mode's class and theme attributes are on its body (see `splitQualifiedRoots`), so the host would
  * work it out with the default theme's value and the body would inherit that. Every one is declared on the body, not
  * only those made from others, so a later root rule's value still wins over an earlier one's there, as on the host,
- * from whichever stylesheet. Without importance and specificity, and in the qualified roots' layer, so a theme's root and
- * whatever the project sets on the body still win, as they win over what a page's body inherits.
+ * from whichever stylesheet. Without specificity, and in the qualified roots' layer, so a theme's root and whatever the
+ * project sets on the body still win, as they win over what a page's body inherits.
+ *
+ * Left to inherit from the host, as before: one whose root value depends on more than the rules' order, because the
+ * stylesheet declares it `!important` somewhere or the root rule sets it again under a condition (`@supports`, a width
+ * query). A copy on the body would win there where the host's cascade wouldn't.
  */
-function rootCustomProperties(written: string, drawn: string): string {
+function rootCustomProperties(written: string, drawn: string, inherited: (name: string) => boolean): string {
   const names = new Set(declarationsIn(written).map(customPropertyName))
 
   // As they're drawn, lengths and all, but only those the project wrote: Parity's own stay on the host.
-  const found = declarationsIn(drawn)
-    .filter(
-      (declaration) => customPropertyName(declaration) !== undefined && names.has(customPropertyName(declaration))
-    )
-    .map((declaration) => declaration.replace(importance, ""))
+  const found = declarationsIn(drawn).filter((declaration) => {
+    const name = customPropertyName(declaration)
+
+    return name !== undefined && names.has(name) && !inherited(name)
+  })
 
   return found.length > 0 ? ` ${found.join("; ")}; ` : ""
+}
+
+/** The custom properties declared anywhere in these nodes, nested blocks and all. */
+function customPropertiesIn(nodes: CssNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.kind === "text"
+      ? declarationsIn(node.text).flatMap((declaration) => customPropertyName(declaration) ?? [])
+      : customPropertiesIn(node.children)
+  )
 }
 
 function customPropertyName(declaration: string): string | undefined {
