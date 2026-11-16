@@ -2,6 +2,33 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 07:27:47 GMT",
+      "version": "0.96.6",
+      "tag": "@parity-app/desktop_v0.96.6",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c88ca6acfa9647db7ce129d1c64b73794367c1e8",
+            "comment": "Keep the stylesheets a project's modules import out of Parity's own window, and draw them in its frames instead (PAR-1181)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "373fabbad0162d5900865db3b33374bb04b9c9b5",
+            "comment": "Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into the browser"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d67f143f899d66046d6774ff5f07ee51944be359",
+            "comment": "Rsbuild's supported range starts at 1.4, matching Rspack's"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 04:19:41 GMT",
       "version": "0.96.5",
       "tag": "@parity-app/desktop_v0.96.5",

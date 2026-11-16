@@ -1,8 +1,20 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 04:19:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 07:27:47 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.6
+
+Mon, 16 Nov 2026 07:27:47 GMT
+
+### Patches
+
+- Keep the stylesheets a project's modules import out of Parity's own window, and draw them in its frames instead
+  (PAR-1181) (ajcraswell@gmail.com)
+- Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into
+  the browser (ajcraswell@gmail.com)
+- Rsbuild's supported range starts at 1.4, matching Rspack's (ajcraswell@gmail.com)
 
 ## 0.96.5
 
