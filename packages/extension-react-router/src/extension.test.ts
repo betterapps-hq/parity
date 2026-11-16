@@ -37,8 +37,9 @@ const route: Omit<Route, "id" | "path"> = {
 }
 
 describe("isPage", () => {
-  it("counts every route but the root, which only holds the others", () => {
+  it("counts every route but the root, which only holds the others, and an API route, which draws nothing", () => {
     expect(isPage({ ...route, kind: "root", id: "root", path: "/" })).toBe(false)
+    expect(isPage({ ...route, kind: "api", id: "routes/report", path: "/report", parent: "root" })).toBe(false)
     expect(isPage({ ...route, kind: "group", id: "settings/_secure", path: "/settings", parent: "root" })).toBe(true)
     expect(isPage({ ...route, id: "routes/project", path: "/projects/:projectId", parent: "root" })).toBe(true)
   })

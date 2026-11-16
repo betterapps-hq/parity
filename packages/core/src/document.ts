@@ -907,6 +907,11 @@ export const canvasDocument = fileObject({
   /** The source each lens reads, where the person switched from the one Parity picked. */
   sources: lensSources.optional(),
   /**
+   * Routes the person marked as API routes or as pages, by route id, where Parity read them otherwise: a server route it
+   * couldn't be sure of, or one the app gives a page while it runs (PAR-1175, PAR-1176). Unset while there are none.
+   */
+  routeKinds: z.record(z.string().min(1), z.enum(["api", "page"])).optional(),
+  /**
    * What the project knows about its image files that the files don't say, by each file's path from the root: what a
    * stock picture shows and who made it, kept as it's added to the project, so the Media tab can credit it before any
    * layer shows it.

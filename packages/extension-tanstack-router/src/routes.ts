@@ -3,15 +3,17 @@ import ts from "typescript"
 import { z } from "zod"
 import { codeRouteTree, readCodeRoutes } from "./code-routes.ts"
 import {
-  pagesOnly,
+  constantsOf,
   parentRouteName,
   propertyValue,
   resolvePath,
+  routeChain,
   scriptExtensions,
   segmentsOf,
   serverOnly,
   stringProperty,
-  unwrap
+  unwrap,
+  withApiRoutes
 } from "./syntax.ts"
 
 /** The root route's id, as TanStack Router names it. */
@@ -56,7 +58,7 @@ const routerConfig = z.looseObject({ generatedRouteTree: z.string().optional() }
  * It reads the route tree the router's tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` says),
  * which names each route's id, path, parent and file, then each route's file for what it draws, whether it loads data
  * and whether it guards the page. Without a route tree, the routes the app declares in code with `createRootRoute` and
- * `createRoute` (PAR-1156). Empty when it has neither. Server routes, which draw nothing, are left out (PAR-1173).
+ * `createRoute` (PAR-1156). Empty when it has neither. Server routes, which draw nothing, are API routes (PAR-1174).
  */
 export function readRoutes(read: (path: string) => string | undefined): Route[] {
   const treeFile = routeTreeFile(read("tsr.config.json"))
@@ -69,13 +71,13 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
       readCodeRoutes(read),
       (route) => optionsSaid(route.options),
       (route, id) => {
-        if (serverOnly(route.options, route.lazy)) {
+        if (route.serverOnly) {
           server.add(id)
         }
       }
     )
 
-    return pagesOnly(routes, server)
+    return withApiRoutes(routes, server)
   }
 
   const { root, routes } = parseRouteTree(tree, treeFile)
@@ -90,10 +92,10 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
 
   const add = (route: Pick<Route, "id" | "kind" | "path" | "parent" | "index">, module: string, lazy = false) => {
     const { file, text } = resolveModule(module, read)
-    const options = text === undefined ? undefined : exportedRouteOptions(text)
-    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(options) })
+    const exported = text === undefined ? undefined : exportedRoute(text)
+    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(exported?.options) })
 
-    if (serverOnly(options, lazy)) {
+    if (!lazy && exported?.serverOnly) {
       server.add(route.id)
     }
   }
@@ -119,7 +121,7 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
     visit(route, { id: rootId, path: "/" })
   }
 
-  return pagesOnly(found, server)
+  return withApiRoutes(found, server)
 }
 
 /** The route tree's path from the project root, as `tsr.config.json` names it or the router's default. */
@@ -344,8 +346,11 @@ function alwaysRedirects(option: ts.Node | undefined): string | undefined {
     : undefined
 }
 
-/** The options object of the call `export const Route = …` ends with. */
-function exportedRouteOptions(text: string): ts.ObjectLiteralExpression | undefined {
+/**
+ * What `export const Route = …` says: the options of the call that makes it, and whether it only answers requests on the
+ * server (see `serverOnly`).
+ */
+function exportedRoute(text: string): { options?: ts.ObjectLiteralExpression; serverOnly: boolean } | undefined {
   const source = ts.createSourceFile("route.tsx", text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
 
   for (const statement of source.statements) {
@@ -362,10 +367,16 @@ function exportedRouteOptions(text: string): ts.ObjectLiteralExpression | undefi
         continue
       }
 
-      const call = unwrap(declaration.initializer)
-      const argument = ts.isCallExpression(call) && call.arguments[0] ? unwrap(call.arguments[0]) : undefined
+      const chain = routeChain(declaration.initializer)
 
-      return argument && ts.isObjectLiteralExpression(argument) ? argument : undefined
+      if (!chain) {
+        return undefined
+      }
+
+      const argument = chain.call.arguments[0] && unwrap(chain.call.arguments[0])
+      const said = { serverOnly: serverOnly(chain, constantsOf(source)) }
+
+      return argument && ts.isObjectLiteralExpression(argument) ? { ...said, options: argument } : said
     }
   }
 

@@ -35,6 +35,7 @@ export type FileField =
   | "objects"
   | "links"
   | "sources"
+  | "routeKinds"
   | "images"
   | "preferences"
   | "extensions"
@@ -45,6 +46,7 @@ export const fileFields: readonly FileField[] = [
   "objects",
   "links",
   "sources",
+  "routeKinds",
   "images",
   "preferences",
   "extensions",

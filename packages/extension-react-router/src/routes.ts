@@ -40,7 +40,7 @@ const libraryFileLimit = 40
  * first, in the folder `react-router.config` names (`app` by default), with the routes `flatRoutes()` makes from file
  * names. Without it, library mode's routes are looked for from the app's entry: its route objects, or its `<Route>`
  * elements. What can only be known by running the app is left out and named in `unread`, and resource routes, which
- * draw nothing, are left out too (PAR-1173).
+ * draw nothing, are API routes (PAR-1174).
  */
 export async function readRoutes(files: ProjectFiles): Promise<ReadRoutes> {
   const appDirectory = appDirectoryOf(await firstOf(files, configNames))
@@ -123,7 +123,7 @@ async function frameworkRoutes(
     await visit(route, { id: rootId, path: "/" })
   }
 
-  return { routes: pagesOnly(routes, resources), mode: "framework", unread }
+  return { routes: withApiRoutes(routes, resources), mode: "framework", unread }
 }
 
 /**
@@ -159,32 +159,30 @@ function isResourceRoute(text: string | undefined): boolean {
 }
 
 /**
- * Routes without the ones given, which draw nothing. One with routes still inside it stays, so they keep their parent,
- * and a layout or group left with nothing inside is a page.
+ * Routes with the ones given as API routes, which draw nothing (PAR-1174). One with pages still inside it stays their
+ * layout or group, so they keep their parent, and a layout or group left with no page inside is a page.
  */
-function pagesOnly(routes: readonly Route[], drawNothing: ReadonlySet<string>): Route[] {
-  const kept = new Set<string>()
-  const parents = new Set<string>()
+function withApiRoutes(routes: readonly Route[], api: ReadonlySet<string>): Route[] {
+  const drawn = new Set<string>()
+  const holders = new Set<string>()
 
   // Children come after their parents, so going backwards each route's children are decided before it.
   for (const route of routes.toReversed()) {
-    if (route.kind === "root" || parents.has(route.id) || !drawNothing.has(route.id)) {
-      kept.add(route.id)
+    if (route.kind === "root" || holders.has(route.id) || !api.has(route.id)) {
+      drawn.add(route.id)
 
       if (route.parent !== undefined) {
-        parents.add(route.parent)
+        holders.add(route.parent)
       }
     }
   }
 
-  return routes.flatMap((route) => {
-    if (!kept.has(route.id)) {
-      return []
+  return routes.map((route) => {
+    if (!drawn.has(route.id)) {
+      return { ...route, kind: "api" }
     }
 
-    return route.kind !== "root" && route.kind !== "page" && !parents.has(route.id)
-      ? [{ ...route, kind: "page" }]
-      : [route]
+    return route.kind !== "root" && route.kind !== "page" && !holders.has(route.id) ? { ...route, kind: "page" } : route
   })
 }
 

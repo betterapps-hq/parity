@@ -280,9 +280,11 @@ export type RouteSegment =
 /**
  * What a route is in the app's tree: the root, which holds every other route; a layout, which adds to the URL and draws
  * the routes inside it at its outlet; a group, which gathers routes without adding to the URL, as Next.js's
- * `(marketing)` or TanStack Router's pathless `_auth`; or a page, with no routes inside it.
+ * `(marketing)` or TanStack Router's pathless `_auth`; a page, with no pages inside it; or an API route, which answers
+ * requests on the server and draws nothing, as a TanStack Start server route, a React Router resource route, or a
+ * Next.js route handler or `pages/api` file (PAR-1174). An API route with pages inside it is their layout or group.
  */
-export type RouteKind = "root" | "layout" | "group" | "page"
+export type RouteKind = "root" | "layout" | "group" | "page" | "api"
 
 /** One route of an app, as its router declares it, in Parity's terms. */
 export interface Route {

@@ -38,7 +38,16 @@ export function checkDraft(before: DocState, after: DocState, recorder: Recorder
       continue
     }
 
-    for (const field of ["notes", "references", "detection", "objects", "links", "sources", "images"] as const) {
+    for (const field of [
+      "notes",
+      "references",
+      "detection",
+      "objects",
+      "links",
+      "sources",
+      "routeKinds",
+      "images"
+    ] as const) {
       if (document[field] !== previous?.[field] && document[field] !== undefined) {
         const read = canvasDocument.shape[field].safeParse(document[field])
 

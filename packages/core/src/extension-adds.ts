@@ -1,3 +1,5 @@
+import type { RouteKind } from "./routes.ts"
+
 /** What an extension's package contributes, as far as Settings lists it: its commands and status items. */
 export interface ContributingExtension {
   contributes: {
@@ -12,8 +14,8 @@ export interface AdapterFacts {
   builder: { id: string }
   router?: { id: string }
   styles?: { id: string }
-  /** The app's routes; the root has no parent. */
-  routes: readonly { parent?: string }[]
+  /** The app's routes; the root has no parent, and an API route draws nothing. */
+  routes: readonly { parent?: string; kind?: RouteKind }[]
   /** The screens adapters read, by the adapter that read each. */
   entities: { screens?: readonly { adapter: string }[] }
   /** The status bar items adapters show, by adapter. */
@@ -61,9 +63,14 @@ function rolesOf(id: string, project: AdapterFacts): string[] {
   }
 
   if (project.router?.id === id) {
-    const pages = project.routes.filter((route) => route.parent !== undefined).length
+    const pages = project.routes.filter((route) => route.parent !== undefined && route.kind !== "api").length
+    const api = project.routes.filter((route) => route.kind === "api").length
 
     roles.push(`Reads the app's routes as pages (${pages.toLocaleString()})`)
+
+    if (api > 0) {
+      roles.push(`Reads its API routes (${api.toLocaleString()})`)
+    }
   }
 
   const screens = project.entities.screens?.filter((screen) => screen.adapter === id).length ?? 0

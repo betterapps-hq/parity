@@ -18,9 +18,11 @@ export type RouteSegment =
 /**
  * What a route is in the app's tree: the root, which holds every other route; a layout, which adds to the URL and draws
  * the routes inside it at its outlet; a group, which gathers routes without adding to the URL, as Next.js's
- * `(marketing)` or TanStack Router's pathless `_auth`; or a page, with no routes inside it.
+ * `(marketing)` or TanStack Router's pathless `_auth`; a page, with no pages inside it; or an API route, which answers
+ * requests on the server and draws nothing, as a TanStack Start server route, a React Router resource route, or a
+ * Next.js route handler or `pages/api` file (PAR-1174). An API route with pages inside it is their layout or group.
  */
-export type RouteKind = "root" | "layout" | "group" | "page"
+export type RouteKind = "root" | "layout" | "group" | "page" | "api"
 
 /** One route of an app, as its router declares it: what a router extension's provider gives (PAR-1095). */
 export interface ProjectRoute {
@@ -98,7 +100,34 @@ export function lastStaticSegment(route: Pick<ProjectRoute, "segments">): string
   return undefined
 }
 
-/** Whether the canvas draws a route: every route but a parallel route's slot and an intercepting route, for now. */
-export function drawnRoute(route: Pick<ProjectRoute, "slot" | "intercepts">): boolean {
-  return route.slot === undefined && route.intercepts === undefined
+/**
+ * Whether the canvas draws a route: every route but an API route, which draws nothing, and, for now, a parallel route's
+ * slot and an intercepting route.
+ */
+export function drawnRoute(route: Pick<ProjectRoute, "kind" | "slot" | "intercepts">): boolean {
+  return route.kind !== "api" && route.slot === undefined && route.intercepts === undefined
+}
+
+/** How the person marked a route, where Parity read it otherwise: as an API route, or as a page (PAR-1175, PAR-1176). */
+export type RouteMark = "api" | "page"
+
+/**
+ * A project's routes with the person's marks: a page marked as an API route is one, and an API route marked as a page
+ * is one. A mark on a route that's now read as it says, or on a layout, group or the root, changes nothing.
+ */
+export function markedRoutes(
+  routes: readonly ProjectRoute[],
+  marks: Readonly<Record<string, RouteMark>> | undefined
+): ProjectRoute[] {
+  if (!marks) {
+    return [...routes]
+  }
+
+  return routes.map((route) => {
+    const mark = marks[route.id]
+
+    return mark !== undefined && route.kind !== mark && (route.kind === "page" || route.kind === "api")
+      ? { ...route, kind: mark }
+      : route
+  })
 }

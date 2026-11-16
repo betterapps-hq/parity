@@ -1,12 +1,15 @@
 import type { Route } from "@parity-app/extension-api"
 import ts from "typescript"
 import {
+  constantsOf,
   folderOf,
   parentRouteName,
   propertyValue,
   resolvePath,
+  routeChain,
   scriptExtensions,
   segmentsOf,
+  serverOnly,
   stringProperty,
   unwrap
 } from "./syntax.ts"
@@ -39,8 +42,8 @@ export interface CodeRoute {
   /** The component its `component` names, and the file that's imported from, when it's imported. */
   component?: { name: string; file?: string }
   options: ts.ObjectLiteralExpression | undefined
-  /** Whether it has a lazy part, as `createRoute({…}).lazy(…)`, which may draw its component. */
-  lazy: boolean
+  /** Whether it only answers requests on the server, as a TanStack Start server route does (PAR-1173). */
+  serverOnly: boolean
 }
 
 /** A name a file imports from a relative path: the specifier, and the export's name, `default` for a default. */
@@ -75,6 +78,7 @@ export function readCodeRoutes(read: (path: string) => string | undefined): Code
 
     const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
     const imports = importsOf(source)
+    const constants = constantsOf(source)
     const resolve = (specifier: string) => resolveModule(read, folderOf(file), specifier)
 
     // The route a name in this file stands for, by its key: one of the file's own, or one it imports.
@@ -91,7 +95,7 @@ export function readCodeRoutes(read: (path: string) => string | undefined): Code
     }
 
     for (const declaration of variableDeclarations(source)) {
-      const made = routeCall(declaration.initializer)
+      const made = routeCall(declaration.initializer, constants)
 
       if (made) {
         const route = codeRoute(made, `${file}#${declaration.name}`, file, keyOf, (name) => {
@@ -120,14 +124,14 @@ export function readCodeRoutes(read: (path: string) => string | undefined): Code
 
 /** A route a call makes, with its parent's key and its component's file, or nothing when its parent can't be found. */
 function codeRoute(
-  made: { root: boolean; options: ts.ObjectLiteralExpression | undefined; lazy: boolean },
+  made: { root: boolean; options: ts.ObjectLiteralExpression | undefined; serverOnly: boolean },
   key: string,
   file: string,
   keyOf: (name: string) => string | undefined,
   fileOf: (name: string) => string | undefined
 ): CodeRoute | undefined {
   const { options } = made
-  const route: CodeRoute = { key, root: made.root, file, options, lazy: made.lazy }
+  const route: CodeRoute = { key, root: made.root, file, options, serverOnly: made.serverOnly }
 
   if (!made.root) {
     const parent = options && parentRouteName(options)
@@ -257,22 +261,27 @@ function fullPath(parent: string, own: string): string {
   return joined.length > 1 ? joined.replace(/\/$/, "") : joined
 }
 
-/** The calls that make a route: the root's, with or without context, and every other's. */
+/**
+ * The calls that make a route: the root's, with or without context, and every other's, through what's chained after,
+ * as `.update(…)` or `.lazy(…)`, with whether it only answers requests on the server.
+ */
 function routeCall(
-  expression: ts.Expression
-): { root: boolean; options: ts.ObjectLiteralExpression | undefined; lazy: boolean } | undefined {
-  const call = unwrap(expression)
+  expression: ts.Expression,
+  constants: ReadonlyMap<string, ts.Expression>
+): { root: boolean; options: ts.ObjectLiteralExpression | undefined; serverOnly: boolean } | undefined {
+  const chain = routeChain(expression)
 
-  if (!ts.isCallExpression(call)) {
+  if (!chain) {
     return undefined
   }
 
-  const callee = unwrap(call.expression)
-  const argument = call.arguments[0] && unwrap(call.arguments[0])
+  const callee = unwrap(chain.call.expression)
+  const argument = chain.call.arguments[0] && unwrap(chain.call.arguments[0])
   const options = argument && ts.isObjectLiteralExpression(argument) ? argument : undefined
+  const made = { options, serverOnly: serverOnly(chain, constants) }
 
   if (ts.isIdentifier(callee) && (callee.text === "createRootRoute" || callee.text === "createRoute")) {
-    return { root: callee.text === "createRootRoute", options, lazy: false }
+    return { ...made, root: callee.text === "createRootRoute" }
   }
 
   // `createRootRouteWithContext<Context>()({…})`.
@@ -281,14 +290,7 @@ function routeCall(
     ts.isIdentifier(callee.expression) &&
     callee.expression.text === "createRootRouteWithContext"
   ) {
-    return { root: true, options, lazy: false }
-  }
-
-  // A route made then changed, as `createRoute({…}).lazy(…)`. Not `addChildren`, whose tree `getParentRoute` already says.
-  if (ts.isPropertyAccessExpression(callee) && callee.name.text !== "addChildren") {
-    const inner = routeCall(callee.expression)
-
-    return inner && callee.name.text === "lazy" ? { ...inner, lazy: true } : inner
+    return { ...made, root: true }
   }
 
   return undefined

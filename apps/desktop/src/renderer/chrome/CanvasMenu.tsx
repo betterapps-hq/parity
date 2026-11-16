@@ -26,6 +26,7 @@ import { useContainerEntries, useNotes } from "../project-doc.ts"
 import { useInteracting, useSelection } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
+import { MarkAsApiItem } from "./ApiRoutes.tsx"
 import { canvasMenu, type LayerChoice, type MenuAction, type MenuTarget, rightClickSelection } from "./canvas-menu.ts"
 import { openSource } from "./code-editor.ts"
 import { iconFor } from "./command-icons.ts"
@@ -268,6 +269,7 @@ export function CanvasMenuItems({ opened }: { opened: Opened }) {
     <>
       {items}
       <OfferMenuItems offers={offers} page={page !== undefined} />
+      {page && <MarkAsApiItem route={page.route} />}
     </>
   )
 }

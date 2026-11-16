@@ -1,4 +1,5 @@
-import { commandOption, scriptRunning } from "@parity-app/project"
+// The scripts module alone: the package's index reads files, and stories draw this module's views in the browser.
+import { commandOption, scriptRunning } from "@parity-app/project/scripts"
 import { z } from "zod"
 
 /*

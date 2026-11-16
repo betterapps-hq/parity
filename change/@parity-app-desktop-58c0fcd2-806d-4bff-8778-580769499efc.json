@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Storybook's stories load again: the Storybook extension's views no longer pull the project package's file reading into the browser",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

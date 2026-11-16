@@ -66,8 +66,10 @@ export {
 export {
   drawnRoute,
   lastStaticSegment,
+  markedRoutes,
   type ProjectRoute,
   type RouteKind,
+  type RouteMark,
   routeParams,
   type RouteSegment,
   sameSegments

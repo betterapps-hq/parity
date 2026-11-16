@@ -14,6 +14,7 @@ import { FieldTarget, FirstStateName } from "../inspector/controls/field-row.tsx
 import { PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { type ContainerEntry, useContainerEntry, useModeSettings, useNotes } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
+import { ApiRoutePanel, selectedApiRoute, useProjectRoutes } from "./ApiRoutes.tsx"
 import { componentOffers, pageOffers } from "./command-offers.ts"
 import { ComponentSourceSection } from "./ComponentSourceSection.tsx"
 import { ComponentsSection } from "./ComponentsSection.tsx"
@@ -71,6 +72,8 @@ function SelectedPanel() {
   const pickedGroup = selectedPageGroup(id, selected)
   // A layout group isn't a design: the selection holds its route by ref.
   const group = routePageGroups(id).find(({ key }) => key === pickedGroup)
+  // Nor is an API route, which draws nothing (PAR-1174).
+  const api = selectedApiRoute(useProjectRoutes(session), selected)
 
   if (selected.note) {
     return <NotePanel noteKey={selected.note} />
@@ -82,6 +85,10 @@ function SelectedPanel() {
 
   if (group) {
     return <PageGroupPanel group={group} />
+  }
+
+  if (api) {
+    return <ApiRoutePanel route={api} />
   }
 
   const node = selected.refs?.at(-1)

@@ -175,7 +175,7 @@ describe("readRoutes", () => {
     ])
   })
 
-  it("leaves out resource routes, which have no default export, but keeps one with pages inside (PAR-1173)", async () => {
+  it("reads resource routes, which have no default export, whichever way one is written, as API routes, but keeps one with pages inside as their layout (PAR-1173, PAR-1174)", async () => {
     const found = await readRoutes(
       recordFiles({
         "app/root.tsx": `export default function Root() {}`,
@@ -188,7 +188,12 @@ describe("readRoutes", () => {
             route("feeds", "feeds.ts", [route("rss", "rss.ts")]),
             route("account", "account.ts", [route("profile", "profile.tsx")]),
             route("about", "about.tsx"),
-            route("legal", "legal.tsx")
+            route("legal", "legal.tsx"),
+            route("help", "help.tsx"),
+            route("faq", "faq.tsx"),
+            route("blog", "blog.tsx"),
+            route("missing", "missing.tsx"),
+            route("cjs", "cjs.ts")
           ]
         `,
         "app/home.tsx": `export default function Home() {}`,
@@ -199,17 +204,33 @@ describe("readRoutes", () => {
         "app/account.ts": `export async function loader() {}`,
         "app/profile.tsx": `export default function Profile() {}`,
         "app/about.tsx": `function About() {}\nexport { About as default }`,
-        "app/legal.tsx": `export default () => null`
+        "app/legal.tsx": `export default () => null`,
+        "app/help.tsx": `export { default } from "./pages/help"`,
+        "app/faq.tsx": `export default class Faq {}`,
+        // `export *` never passes a default on, so React Router finds none and serves it as a resource route.
+        "app/blog.tsx": `export * from "./pages/blog"`,
+        "app/cjs.ts": `export = { loader }`
       })
     )
 
     expect(found.routes.map((route) => [route.id, route.kind])).toEqual([
       ["root", "root"],
       ["home", "page"],
+      ["report", "api"],
+      ["sitemap", "api"],
+      // A resource route with only resource routes inside is one too.
+      ["feeds", "api"],
+      ["rss", "api"],
       ["account", "layout"],
       ["profile", "page"],
       ["about", "page"],
-      ["legal", "page"]
+      ["legal", "page"],
+      ["help", "page"],
+      ["faq", "page"],
+      ["blog", "api"],
+      // A module that can't be read isn't known to be a resource route, so it's a page.
+      ["missing", "page"],
+      ["cjs", "api"]
     ])
   })
 
