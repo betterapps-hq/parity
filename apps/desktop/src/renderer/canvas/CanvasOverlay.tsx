@@ -28,7 +28,7 @@ import {
 } from "@parity-app/editor"
 import { containerEntries, containerEntry, editFrame, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import { SquareDashed } from "lucide-react"
-import { type PointerEvent as ReactPointerEvent, useEffect, useRef, useState } from "react"
+import { type PointerEvent as ReactPointerEvent, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { Editor } from "tldraw"
 import { gestures as held } from "../chrome/keymap.ts"
 import { holds } from "../chrome/keys.ts"
@@ -39,7 +39,9 @@ import { getEffectivePreferences } from "../project-settings.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
+import { CarriedPicture } from "./CarriedPicture.tsx"
 import { useProject } from "./context.ts"
+import { liftOf } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
 import { followPress, gestures } from "./gesture.ts"
@@ -87,6 +89,9 @@ import { TextEditor } from "./TextEditor.tsx"
 export function CanvasOverlay() {
   const session = useProject()
   const rootRef = useRef<HTMLDivElement>(null)
+  // The canvas area, which a picture carried over it is drawn over.
+  const [area, setArea] = useState<HTMLElement>()
+  useLayoutEffect(() => setArea(rootRef.current?.parentElement ?? undefined), [])
   const [model, setModel] = useState<OverlayMarks>(noMarks)
   const pointer = useRef<{ point?: Point; alt: boolean; deep: boolean }>({ alt: false, deep: false })
   const editing = useEditing(session.selection)
@@ -413,36 +418,20 @@ export function CanvasOverlay() {
       {model.redlines.map((line, index) => (
         <RedlineView key={index} line={line} />
       ))}
-      {model.drag && (
-        <>
-          {model.drag.ghost && (
-            <div
-              className="absolute rounded-[2px]"
-              style={{
-                left: model.drag.ghost.x,
-                top: model.drag.ghost.y,
-                width: model.drag.ghost.w,
-                height: model.drag.ghost.h,
-                outline: `1px dashed ${kindColors.layer}`,
-                background: `color-mix(in oklch, ${kindColors.layer} 12%, transparent)`
-              }}
-            />
-          )}
-          {model.drag.line && (
-            <div
-              className="absolute rounded-full"
-              style={{
-                left: model.drag.line.x,
-                top: model.drag.line.y,
-                width: model.drag.line.w,
-                height: model.drag.line.h,
-                background: kindColors.layer,
-                boxShadow: `0 0 0 1px white`
-              }}
-            />
-          )}
-        </>
+      {model.drag?.line && (
+        <div
+          className="absolute rounded-full"
+          style={{
+            left: model.drag.line.x,
+            top: model.drag.line.y,
+            width: model.drag.line.w,
+            height: model.drag.line.h,
+            background: kindColors.layer,
+            boxShadow: `0 0 0 1px white`
+          }}
+        />
       )}
+      <CarriedPicture area={area} />
       {!editing && model.spacingHandles && (
         <SpacingHandlesFor
           session={session}
@@ -589,7 +578,7 @@ function readScene(
 
   // While layers are dragged they are hidden where they were, so they have no outline there. An absolutely placed layer
   // moves itself, so its outline follows it.
-  const layers = entry && !drag?.ghost ? selectedNodes(current) : []
+  const layers = entry && !drag?.carried ? selectedNodes(current) : []
   scene.locked = layers.some((id) => isLocked(entry!.container, id))
 
   for (const id of layers) {
@@ -608,10 +597,12 @@ function readScene(
       name: node ? layerLabel(node, containerEntries(doc), projectLibrary(session), session.info.libraries) : id,
       color,
       inner: isInnerPath(id),
-      boxes: nodeInFrames(area, entry!.key, id, picked).map(({ host, rect, picked: isPicked }) => ({
-        ...frameBox(host, rect),
-        picked: isPicked
-      }))
+      // A layer picked up is drawn a little bigger (`liftOf`): its outline follows it, but its size is its own.
+      boxes: nodeInFrames(area, entry!.key, id, picked).map(({ host, rect, element, picked: isPicked }) => {
+        const box = frameBox(host, rect)
+
+        return { ...box, scale: box.scale * liftOf(element), picked: isPicked }
+      })
     })
   }
 

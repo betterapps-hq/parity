@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { landingEdge } from "./drag-motion.ts"
 import { kindColors } from "./kinds.tsx"
 
 interface LandingSpotProps {
@@ -8,17 +9,20 @@ interface LandingSpotProps {
 }
 
 /**
- * Where something carried out of a layout would land: a faded copy of it with a dashed edge, which the layout makes room
- * for as it will once it's dropped. It's what the canvas's own layer drag draws today, in the layer color; someone
- * else's drag draws it in their color.
+ * Where something carried out of a layout would land: an empty dashed outline the size of what it holds, which the
+ * layout makes room for as it will once it's dropped. What it holds takes its place but isn't drawn, so what's carried
+ * reads as moved rather than copied. The canvas's own layer drag draws its places the same way (`landingEdgeStyle`), in
+ * the layer color; someone else's drag draws it in their color.
  */
 export function LandingSpot({ color = kindColors.layer, radius = 8, children }: LandingSpotProps) {
+  const out = landingEdge.width + landingEdge.gap
+
   return (
-    <div className="pointer-events-none relative h-full opacity-55">
-      {children}
+    <div className="pointer-events-none relative h-full">
+      <div className="invisible h-full">{children}</div>
       <span
-        className="absolute -inset-[2.5px]"
-        style={{ borderRadius: radius + 2.5, border: `1.5px dashed ${color}` }}
+        className="absolute"
+        style={{ inset: -out, borderRadius: radius + out, border: `${landingEdge.width}px dashed ${color}` }}
       />
     </div>
   )

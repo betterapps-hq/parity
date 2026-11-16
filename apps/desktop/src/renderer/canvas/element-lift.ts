@@ -1,0 +1,214 @@
+import { cancelMs, dropMs, lift, liftScale, settle, translated } from "./drag-motion.ts"
+
+/** What lifting writes on an element, which is put back as it was once it's settled. */
+const written = ["scale", "filter", "transition", "translate", "transform-origin"] as const
+
+/** Values for what lifting writes. */
+type Written = Partial<Record<(typeof written)[number], string>>
+
+/** Elements still lifted or settling, and what puts each back at once, so a new lift starts from how it's drawn. */
+const settling = new WeakMap<Element, () => void>()
+
+/** How much bigger each element picked up is drawn while it's carried, so what measures it can leave that out. */
+const grown = new WeakMap<Element, number>()
+
+/** How much bigger an element is drawn because it's picked up: 1 when it isn't, or once it's put down. */
+export function liftOf(element: Element | undefined): number {
+  return (element && grown.get(element)) ?? 1
+}
+
+/** Something picked up on the canvas (see `liftElements`). */
+export interface ElementLift {
+  /** Dropped where it is: it settles there. */
+  drop(): void
+  /**
+   * Called off: `moveBack` puts it back where it was, and it flies there from where it was let go, settling as it goes.
+   * It's measured before and after, so it flies however far it went.
+   */
+  cancel(moveBack: () => void): void
+}
+
+/** Whether the person asked for less motion, which the canvas's drags respect (see `drag-motion.ts`). */
+export function reducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches
+}
+
+/**
+ * Lifts the canvas's own elements as they're picked up, as `DragLift` does for what React draws: an absolutely placed
+ * layer, or a board dragged by its name. They grow from `origin` (where they were grabbed, in client pixels), so it
+ * stays under the pointer, and lift onto the shadow; dropped, they settle where they are; cancelled, they fly back.
+ * `scale` is screen pixels per pixel of their own, for an element whose layout size can't be read (an SVG's). The
+ * styles go on the elements themselves, composed with any scale, shadow or translate of their own, and come off once
+ * they've settled. With reduced motion nothing grows or flies, and the shadow comes off as soon as they're put down.
+ */
+export function liftElements(
+  elements: readonly Element[],
+  { origin, scale }: { origin?: { x: number; y: number }; scale?: number } = {}
+): ElementLift {
+  const reduced = reducedMotion()
+  let timer = 0
+
+  const lifted = elements.flatMap((element) => {
+    settling.get(element)?.()
+
+    if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
+      return []
+    }
+
+    const style = element.style
+
+    const saved = written.map((name) => ({
+      name,
+      value: style.getPropertyValue(name),
+      priority: style.getPropertyPriority(name)
+    }))
+
+    const drawn = getComputedStyle(element)
+    const own = { scale: drawn.scale, filter: drawn.filter, translate: drawn.translate }
+    const rect = element.getBoundingClientRect()
+    const size = element instanceof HTMLElement ? element.offsetWidth : 0
+    const ratio = scale ?? (size > 0 ? rect.width / size : 1)
+
+    const restore = () => {
+      for (const { name, value, priority } of saved) {
+        if (value) {
+          style.setProperty(name, value, priority)
+        } else {
+          style.removeProperty(name)
+        }
+      }
+
+      settling.delete(element)
+      grown.delete(element)
+    }
+
+    settling.set(element, () => {
+      window.clearTimeout(timer)
+      restore()
+    })
+
+    return [{ element, style, own, ratio, restore }]
+  })
+
+  const write = (style: CSSStyleDeclaration, values: Written) => {
+    for (const [name, value] of Object.entries(values)) {
+      style.setProperty(name, value, "important")
+    }
+  }
+
+  for (const { element, style, own, ratio } of lifted) {
+    if (origin) {
+      const rect = element.getBoundingClientRect()
+      write(style, { "transform-origin": `${(origin.x - rect.left) / ratio}px ${(origin.y - rect.top) / ratio}px` })
+    }
+
+    const up = lift(true, { reduced, scale: own.scale, filter: own.filter })
+    write(style, up)
+
+    if (up.scale !== own.scale) {
+      grown.set(element, liftScale)
+    }
+  }
+
+  /** Puts them down, as `drawn` says for each, and takes everything off once `ms` have passed. */
+  const putDown = (ms: number, drawn: (entry: (typeof lifted)[number]) => Written) => {
+    if (reduced) {
+      lifted.forEach(({ restore }) => restore())
+
+      return
+    }
+
+    for (const entry of lifted) {
+      write(entry.style, drawn(entry))
+      grown.delete(entry.element)
+    }
+
+    timer = window.setTimeout(() => lifted.forEach(({ restore }) => restore()), ms)
+  }
+
+  return {
+    drop() {
+      // A frame draws a dropped layer again as the move is written, which can take it out and put it back, and that
+      // would end a transition as it starts; so it settles from the next frame.
+      window.requestAnimationFrame(() =>
+        putDown(dropMs, ({ own }) => lift(false, { reduced, ms: dropMs, scale: own.scale, filter: own.filter }))
+      )
+    },
+    cancel(moveBack) {
+      const before = lifted.map(({ element }) => element.getBoundingClientRect())
+      moveBack()
+
+      const fly = () => {
+        const away = lifted.map(({ element, ratio }, index) => {
+          const after = element.getBoundingClientRect()
+
+          return { x: (before[index]!.left - after.left) / ratio, y: (before[index]!.top - after.top) / ratio }
+        })
+
+        // Where it was let go, at once, then back to where it was, settling as it goes.
+        lifted.forEach(({ element, style, own }, index) => {
+          const from = translated(own.translate, away[index]!)
+
+          if (!reduced && from) {
+            write(style, { transition: "none", translate: from })
+            element.getBoundingClientRect()
+          }
+        })
+
+        putDown(cancelMs, ({ own }) => ({
+          ...lift(false, { reduced, ms: cancelMs, scale: own.scale, filter: own.filter }),
+          translate: own.translate,
+          transition: ["scale", "filter", "translate"].map((name) => `${name} ${cancelMs}ms ${settle}`).join(", ")
+        }))
+      }
+
+      // tldraw moves a board in its own animation frame, so one that hasn't moved yet is measured once it has.
+      const moved = lifted.some(({ element }, index) => {
+        const after = element.getBoundingClientRect()
+
+        return after.left !== before[index]!.left || after.top !== before[index]!.top
+      })
+
+      if (moved || reduced) {
+        fly()
+      } else {
+        window.requestAnimationFrame(fly)
+      }
+    }
+  }
+}
+
+/**
+ * Writes `values` on elements of the canvas's own, such as the look of where layers landed, until what it gives back is
+ * called, which puts back what was there.
+ */
+export function styleElements(elements: readonly Element[], values: Readonly<Record<string, string>>): () => void {
+  const saved = elements.flatMap((element) => {
+    if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
+      return []
+    }
+
+    const { style } = element
+
+    return Object.keys(values).map((name) => ({
+      style,
+      name,
+      value: style.getPropertyValue(name),
+      priority: style.getPropertyPriority(name)
+    }))
+  })
+
+  for (const { style, name } of saved) {
+    style.setProperty(name, values[name]!, "important")
+  }
+
+  return () => {
+    for (const { style, name, value, priority } of saved) {
+      if (value) {
+        style.setProperty(name, value, priority)
+      } else {
+        style.removeProperty(name)
+      }
+    }
+  }
+}
