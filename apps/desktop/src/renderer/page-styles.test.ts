@@ -57,10 +57,10 @@ window.project = {
     rules.forEach((rule) => style.sheet.insertRule(rule, style.sheet.cssRules.length))
     return style
   },
-  addToShadow(root, css) {
+  addInto(parent, css) {
     const style = document.createElement("style")
     style.textContent = css
-    root.append(style)
+    parent.append(style)
     return style
   },
   call(fn) {
@@ -135,7 +135,7 @@ declare const project: {
   addLink(href: string): HTMLLinkElement
   addRules(rules: string[]): HTMLStyleElement
   addTextThenRules(text: string, rules: string[]): HTMLStyleElement
-  addToShadow(root: ShadowRoot, css: string): HTMLStyleElement
+  addInto(parent: ParentNode, css: string): HTMLStyleElement
   call<T>(fn: () => T): T
 }
 
@@ -165,7 +165,7 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
       const own = parity.addOwnStyle("body { outline-color: rgb(0, 0, 255); }")
       const host = document.createElement("div")
       document.body.append(host)
-      const framed = project.addToShadow(host.attachShadow({ mode: "open" }), ".frame { color: red; }")
+      const framed = project.addInto(host.attachShadow({ mode: "open" }), ".frame { color: red; }")
 
       return {
         own: own.getAttribute("media"),
@@ -242,6 +242,40 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     }, origin)
 
     expect(steps).toEqual({ css: [".second {}", ".first {}"], heard: 1 })
+  })
+
+  it("takes media its code sets to not all as the project's, leaving it off in frames too", async () => {
+    const css = await page.evaluate(async (origin) => {
+      const style = project.addStyle(".off { color: red; }")
+      await new Promise((resolve) => setTimeout(resolve))
+      style.media = "not all"
+      await new Promise((resolve) => setTimeout(resolve))
+
+      return parity.pageStyles(origin).sheets()[0]?.css
+    }, origin)
+
+    expect(css).toBe("@media not all {\n.off { color: red; }\n}")
+  })
+
+  it("lets go of a stylesheet taken out with the element around it, telling listeners", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const styles = parity.pageStyles(origin)
+      const settle = () => new Promise((resolve) => setTimeout(resolve))
+      const box = document.createElement("div")
+      document.body.append(box)
+      project.addInto(box, ".boxed {}")
+      await settle()
+      const before = styles.sheets().length
+      let heard = 0
+      const stop = styles.subscribe(() => heard++)
+      box.remove()
+      await settle()
+      stop()
+
+      return { before, after: styles.sheets().length, heard }
+    }, origin)
+
+    expect(steps).toEqual({ before: 1, after: 0, heard: 1 })
   })
 
   it("keeps the media the project gave it when its code takes it out and puts it back later", async () => {

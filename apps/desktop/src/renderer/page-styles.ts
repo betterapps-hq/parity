@@ -207,10 +207,29 @@ function catchElement(element: HTMLStyleElement | HTMLLinkElement, origin: strin
   tell(origin)
 }
 
+/** The elements `changes` watches, which it goes on watching after they leave the page. */
+const watched = new WeakSet<Element>()
+
+/** How many of the boundary's own media changes to each caught element are still to be heard, in order. */
+const ownChanges = new WeakMap<Element, number>()
+
 function mute(element: Element): void {
   // A link that isn't a stylesheet keeps its media: a preload with none that matches isn't loaded, and its code may wait.
   if (element.getAttribute("media") !== muted && (!(element instanceof HTMLLinkElement) || isStylesheet(element))) {
-    element.setAttribute("media", muted)
+    setOwnMedia(element, muted)
+  }
+}
+
+/** Sets an element's media as the boundary, so a watched element's change isn't taken for the project's. */
+function setOwnMedia(element: Element, media: string | null): void {
+  if (watched.has(element)) {
+    ownChanges.set(element, (ownChanges.get(element) ?? 0) + 1)
+  }
+
+  if (media === null) {
+    element.removeAttribute("media")
+  } else {
+    element.setAttribute("media", media)
   }
 }
 
@@ -223,6 +242,13 @@ let removals: MutationObserver | undefined
 function followChanges(records: MutationRecord[]): void {
   for (const record of records) {
     const element = record.target instanceof Element ? record.target : record.target.parentElement
+    const own = element && record.attributeName === "media" ? (ownChanges.get(element) ?? 0) : 0
+
+    if (element && own > 0) {
+      ownChanges.set(element, own - 1)
+      continue
+    }
+
     const entry = element ? caught.get(element) : undefined
 
     if (!element || !entry) {
@@ -230,14 +256,8 @@ function followChanges(records: MutationRecord[]): void {
     }
 
     if (record.attributeName === "media") {
-      const media = element.getAttribute("media")
-
-      // The project changed its media, which it means for the stylesheet, not for Parity's page.
-      if (media === muted) {
-        continue
-      }
-
-      entry.media = media
+      // The project changed its media, which it means for the stylesheet, not for Parity's page, even to `not all`.
+      entry.media = element.getAttribute("media")
       mute(element)
     } else if (element instanceof HTMLLinkElement) {
       mute(element)
@@ -250,32 +270,29 @@ function followChanges(records: MutationRecord[]): void {
   }
 }
 
+/** Lets go of every caught element no longer in the page, taken out itself or with an element around it. */
 function followRemovals(records: MutationRecord[]): void {
-  for (const record of records) {
-    for (const node of record.removedNodes) {
-      const entry = node instanceof Element ? caught.get(node) : undefined
-
-      if (node instanceof Element && entry && !node.isConnected) {
-        caught.delete(node)
-        // It leaves with the media the project gave it, so it's caught with that again if it comes back.
-        restoreMedia(node, entry.media)
-        tell(entry.origin)
-      }
-    }
+  if (!records.some((record) => record.removedNodes.length > 0)) {
+    return
   }
-}
 
-function restoreMedia(element: Element, media: string | null): void {
-  if (media === null) {
-    element.removeAttribute("media")
-  } else {
-    element.setAttribute("media", media)
+  for (const [element, entry] of caught) {
+    if (!element.isConnected) {
+      caught.delete(element)
+      // It leaves with the media the project gave it, so it's caught with that again if it comes back.
+      setOwnMedia(element, entry.media)
+      tell(entry.origin)
+    }
   }
 }
 
 const parents = new WeakSet<Node>()
 
 function watch(element: Element): void {
+  if (changes) {
+    watched.add(element)
+  }
+
   changes?.observe(element, {
     attributes: true,
     attributeFilter: ["media", "href", "rel"],
@@ -284,11 +301,12 @@ function watch(element: Element): void {
     subtree: true
   })
 
-  const parent = element.parentNode
-
-  if (parent && !parents.has(parent)) {
-    parents.add(parent)
-    removals?.observe(parent, { childList: true })
+  // Its parent and every element around it, so it's let go of however it leaves the page.
+  for (let node = element.parentNode; node; node = node.parentNode) {
+    if (!parents.has(node)) {
+      parents.add(node)
+      removals?.observe(node, { childList: true })
+    }
   }
 }
 
