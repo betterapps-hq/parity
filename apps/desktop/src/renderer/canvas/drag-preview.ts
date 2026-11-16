@@ -5,7 +5,7 @@ import { findFrames, findNodeElements, nodeBox } from "../frame.ts"
 import { type CarriedPictures, carriedPictureSet, type Dragger } from "./carried.ts"
 import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
-import { corner, DropPreview } from "./layer-drag.ts"
+import { corner, DropPreview, showHidden } from "./layer-drag.ts"
 import { layerPicture } from "./layer-picture.ts"
 import { type Placement, placedBoards, type Point } from "./placed-boards.ts"
 import { coversDesigns, lives, type PreviewEnd, type PreviewKind, type PreviewLife } from "./preview-life.ts"
@@ -245,6 +245,8 @@ function layersPart(
     return undefined
   }
 
+  // Layers another preview has hidden are drawn for a moment, to be measured and pictured as they are.
+  const hideAgain = showHidden(elements)
   const rects = ids.flatMap((id) => nodeBox(host, id) ?? [])
 
   const union = {
@@ -266,6 +268,7 @@ function layersPart(
   const pictures: CarriedPictures<HTMLElement> = carriedPictureSet.of(key)
   // The picture is taken before the layers are hidden.
   const picture = layerPicture(host, elements, scale, union)
+  hideAgain()
 
   if (picture) {
     pictures.pickUp({

@@ -594,6 +594,32 @@ function showOriginal(original: HTMLElement): void {
 }
 
 /**
+ * Draws layers other drop previews hid as they are, for a moment, so another preview can measure and picture them;
+ * what it gives back hides them again.
+ */
+export function showHidden(elements: readonly HTMLElement[]): () => void {
+  const hidden = elements.flatMap((element) => {
+    const was = hiddenOriginals.get(element)
+
+    return was ? [{ element, display: was.display }] : []
+  })
+
+  for (const { element, display } of hidden) {
+    if (display) {
+      element.style.setProperty("display", display)
+    } else {
+      element.style.removeProperty("display")
+    }
+  }
+
+  return () => {
+    for (const { element } of hidden) {
+      element.style.setProperty("display", "none", "important")
+    }
+  }
+}
+
+/**
  * Moves layers to a target as one undo step, in the drag's gesture when given. Within a design they keep their ids,
  * and every state's changes to them; into another design they go as they're shown, with fresh ids. Returns whether
  * they moved.

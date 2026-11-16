@@ -260,7 +260,7 @@ interface FrameSheets {
   shown: string
   previewed: string
   /** Other previews' rules, by key, after the local one: someone else's drag shows while this person edits. */
-  others: Map<string, { sheet: CSSStyleSheet; css: string }>
+  others: Map<string, { sheet: CSSStyleSheet; css: string; settled?: boolean }>
 }
 
 /** Each frame's own stylesheets, by its host element. */
@@ -284,6 +284,26 @@ export function showFrameRules(host: Element, css: string): void {
   }
 
   previewFrameRules(host, "")
+
+  // Other previews' rules handed to their change go now, since the tree drawn carries it.
+  for (const [key, other] of sheets.others) {
+    if (other.settled) {
+      dropFrameSheet(host, other.sheet)
+      sheets.others.delete(key)
+    }
+  }
+}
+
+/**
+ * Leaves another preview's rules, by `key`, for the change that makes them: they're taken away the next time the
+ * frame's rules are drawn, as the local preview's are.
+ */
+export function settleFrameRules(host: Element, key: string): void {
+  const other = frameSheets.get(host)?.others.get(key)
+
+  if (other) {
+    other.settled = true
+  }
 }
 
 /**
@@ -325,6 +345,7 @@ export function previewFrameRules(host: Element, css: string, key?: string): voi
     shown.css = css
   }
 
+  shown.settled = false
   sheets.others.set(key, shown)
   adoptFrameSheet(host, shown.sheet)
 }

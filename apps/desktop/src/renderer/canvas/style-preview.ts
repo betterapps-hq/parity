@@ -2,7 +2,7 @@ import { boardRoot, type ContainerSpec, designStates, type RenderNode, resolveDe
 import { styleChanges } from "@parity-app/editor"
 import { containerEntry } from "@parity-app/multiplayer"
 import { useEffect, useMemo } from "react"
-import { findFrames, findNodeElement, previewFrameRules } from "../frame.ts"
+import { findFrames, findNodeElement, previewFrameRules, settleFrameRules } from "../frame.ts"
 import { type DocSession, libraryOf } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { localDrag } from "./carried.ts"
@@ -160,6 +160,14 @@ export class StylePreview {
     }
 
     this.written.clear()
+
+    // The local preview's rules go as the frame draws the change; another's are left to go then too.
+    if (this.key !== localDrag) {
+      for (const host of this.previewed) {
+        settleFrameRules(host, this.key)
+      }
+    }
+
     this.previewed.clear()
   }
 
