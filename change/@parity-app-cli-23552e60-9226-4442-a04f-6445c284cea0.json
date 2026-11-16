@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Open projects Yarn installed with Plug'n'Play: packages, Vite and the project's tools are found through .pnp.cjs",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
