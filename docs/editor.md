@@ -2122,13 +2122,13 @@ uses previews yet, and extensions can't reach either until the canvas surface is
   elements, so taking one back leaves the others shown.
 
 Code: `canvas/drag-preview.ts` (`preview`), `canvas/preview-life.ts` (settling, the 2 s wait and telemetry),
-`canvas/holds.ts` (`boardHolds`, `holds`), `canvas/placed-boards.ts` (`placedBoards`, which `CanvasEditor` draws from
-and skips writing), `canvas/carried.ts` (`carriedSet`, `carriedPictureSet`), `canvas/style-layers.ts` and
+`canvas/board-holds.ts` (`boardHolds`, `holds`), `canvas/placed-boards.ts` (`placedBoards`, which `CanvasEditor` draws
+from and skips writing), `canvas/carried.ts` (`carriedSet`, `carriedPictureSet`), `canvas/style-layers.ts` and
 `previewFrameRules` in `frame.ts` (a style preview's values and rules by key). Agent presence holds boards through
 `holds` (`agent/presence.ts`). `CarriedPicture` draws every drag's picture, with the dragger's outline and name.
 
-Tests: `canvas/holds.test.ts`: a hold drawn along a drag and let go, a second hold keeping the board where it's drawn,
-the 10 s limit, grabbing, disposing and tabs kept apart, and placed boards' newest placement winning.
+Tests: `canvas/board-holds.test.ts`: a hold drawn along a drag and let go, a second hold keeping the board where it's
+drawn, the 10 s limit, grabbing, disposing and tabs kept apart, and placed boards' newest placement winning.
 `canvas/preview-life.test.ts`: settling on the write, one in ten of those recorded, giving up after 2 s, counting
 previews open at once, and which writes cover a preview. `canvas/style-layers.test.ts`: two previews' values on one
 property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.

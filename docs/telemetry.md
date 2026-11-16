@@ -392,9 +392,9 @@ multiplayer and agent presence extensions draw through:
   by its write is recorded one time in ten, since nearly all should; a `timeout`, a `cancel` or a `disposed` always is.
   A `timeout` means the write covering the drop never came within 2 s, the first sign that activity and writes arrive
   out of order. `concurrent` counts the previews open at once, this one among them.
-- **`hold.released` comes from `canvas/holds.ts`** as each hold on a board ends: let go, after the 10 s limit, grabbed
-  by the person, or disposed. A `timeout` means an agent's write never came, or agent presence's queue outlasted the
-  limit. `extension` is `agent-presence` for agents' holds.
+- **`hold.released` comes from `canvas/board-holds.ts`** as each hold on a board ends: let go, after the 10 s limit,
+  grabbed by the person, or disposed. A `timeout` means an agent's write never came, or agent presence's queue outlasted
+  the limit. `extension` is `agent-presence` for agents' holds.
 
 ## Signing in
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { boardHolds, type HoldReleased, holdLimitMs } from "./holds.ts"
+import { boardHolds, type HoldReleased, holdLimitMs } from "./board-holds.ts"
 import { PlacedBoards } from "./placed-boards.ts"
 import { clock } from "./test-clock.ts"
 

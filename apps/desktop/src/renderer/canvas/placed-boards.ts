@@ -19,7 +19,7 @@ interface Placed {
 
 /**
  * Boards drawn somewhere other than where the document puts them, without writing anything: held while an agent moves
- * them (`holds.ts`), or moved by someone else's drag (`drag-preview.ts`). The canvas draws a board where its latest
+ * them (`board-holds.ts`), or moved by someone else's drag (`drag-preview.ts`). The canvas draws a board where its latest
  * placement says, and never writes a placed board's shape back to the document.
  */
 export class PlacedBoards {

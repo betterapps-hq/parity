@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
-import { type Held, holds } from "../canvas/holds.ts"
+import { type Held, holds } from "../canvas/board-holds.ts"
 import { signal } from "../store.ts"
 
 /**
