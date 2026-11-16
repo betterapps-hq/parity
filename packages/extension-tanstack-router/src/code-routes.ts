@@ -39,6 +39,8 @@ export interface CodeRoute {
   /** The component its `component` names, and the file that's imported from, when it's imported. */
   component?: { name: string; file?: string }
   options: ts.ObjectLiteralExpression | undefined
+  /** Whether it has a lazy part, as `createRoute({…}).lazy(…)`, which may draw its component. */
+  lazy: boolean
 }
 
 /** A name a file imports from a relative path: the specifier, and the export's name, `default` for a default. */
@@ -118,14 +120,14 @@ export function readCodeRoutes(read: (path: string) => string | undefined): Code
 
 /** A route a call makes, with its parent's key and its component's file, or nothing when its parent can't be found. */
 function codeRoute(
-  made: { root: boolean; options: ts.ObjectLiteralExpression | undefined },
+  made: { root: boolean; options: ts.ObjectLiteralExpression | undefined; lazy: boolean },
   key: string,
   file: string,
   keyOf: (name: string) => string | undefined,
   fileOf: (name: string) => string | undefined
 ): CodeRoute | undefined {
   const { options } = made
-  const route: CodeRoute = { key, root: made.root, file, options }
+  const route: CodeRoute = { key, root: made.root, file, options, lazy: made.lazy }
 
   if (!made.root) {
     const parent = options && parentRouteName(options)
@@ -164,7 +166,8 @@ function codeRoute(
  */
 export function codeRouteTree(
   declared: readonly CodeRoute[],
-  said: (route: CodeRoute) => Pick<Route, "loads" | "guards" | "redirect">
+  said: (route: CodeRoute) => Pick<Route, "loads" | "guards" | "redirect">,
+  placed?: (route: CodeRoute, id: string) => void
 ): Route[] {
   const root = declared.find((route) => route.root)
 
@@ -178,7 +181,7 @@ export function codeRouteTree(
   )
 
   const found: Route[] = []
-  const placed = new Set<string>()
+  const added = new Set<string>()
 
   const add = (route: CodeRoute, fields: Pick<Route, "id" | "kind" | "path" | "index"> & { parent?: string }) => {
     const made: Route = {
@@ -193,12 +196,13 @@ export function codeRouteTree(
     }
 
     found.push(made)
-    placed.add(route.key)
+    added.add(route.key)
+    placed?.(route, made.id)
   }
 
   const visit = (route: CodeRoute, parent: { id: string; path: string }) => {
     // A route whose parent is itself, through others, is placed once.
-    if (placed.has(route.key)) {
+    if (added.has(route.key)) {
       return
     }
 
@@ -256,7 +260,7 @@ function fullPath(parent: string, own: string): string {
 /** The calls that make a route: the root's, with or without context, and every other's. */
 function routeCall(
   expression: ts.Expression
-): { root: boolean; options: ts.ObjectLiteralExpression | undefined } | undefined {
+): { root: boolean; options: ts.ObjectLiteralExpression | undefined; lazy: boolean } | undefined {
   const call = unwrap(expression)
 
   if (!ts.isCallExpression(call)) {
@@ -268,7 +272,7 @@ function routeCall(
   const options = argument && ts.isObjectLiteralExpression(argument) ? argument : undefined
 
   if (ts.isIdentifier(callee) && (callee.text === "createRootRoute" || callee.text === "createRoute")) {
-    return { root: callee.text === "createRootRoute", options }
+    return { root: callee.text === "createRootRoute", options, lazy: false }
   }
 
   // `createRootRouteWithContext<Context>()({…})`.
@@ -277,12 +281,14 @@ function routeCall(
     ts.isIdentifier(callee.expression) &&
     callee.expression.text === "createRootRouteWithContext"
   ) {
-    return { root: true, options }
+    return { root: true, options, lazy: false }
   }
 
   // A route made then changed, as `createRoute({…}).lazy(…)`. Not `addChildren`, whose tree `getParentRoute` already says.
   if (ts.isPropertyAccessExpression(callee) && callee.name.text !== "addChildren") {
-    return routeCall(callee.expression)
+    const inner = routeCall(callee.expression)
+
+    return inner && callee.name.text === "lazy" ? { ...inner, lazy: true } : inner
   }
 
   return undefined

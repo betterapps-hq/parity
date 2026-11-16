@@ -249,6 +249,54 @@ describe("readRoutes", () => {
     ])
   })
 
+  it("leaves out server routes, but keeps one with a component, a lazy part, or pages inside it (PAR-1173)", () => {
+    const routes = readRoutes(
+      recordReader({
+        "src/routeTree.gen.ts": `
+          import { Route as rootRouteImport } from './routes/__root'
+          import { Route as IndexRouteImport } from './routes/index'
+          import { Route as ApiActionRouteImport } from './routes/api.action'
+          import { Route as LogoutRouteImport } from './routes/logout'
+          import { Route as ExportRouteImport } from './routes/export'
+          import { Route as TeamRouteImport } from './routes/team'
+          import { Route as AccountRouteImport } from './routes/account'
+          import { Route as AccountProfileRouteImport } from './routes/account.profile'
+          import { Route as HooksRouteImport } from './routes/hooks'
+          import { Route as HooksStripeRouteImport } from './routes/hooks.stripe'
+
+          const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
+          const ApiActionRoute = ApiActionRouteImport.update({ id: '/api/action', path: '/api/action', getParentRoute: () => rootRouteImport } as any)
+          const LogoutRoute = LogoutRouteImport.update({ id: '/logout', path: '/logout', getParentRoute: () => rootRouteImport } as any)
+          const ExportRoute = ExportRouteImport.update({ id: '/export', path: '/export', getParentRoute: () => rootRouteImport } as any)
+          const TeamRoute = TeamRouteImport.update({ id: '/team', path: '/team', getParentRoute: () => rootRouteImport } as any).lazy(() => import('./routes/team.lazy').then((d) => d.Route))
+          const AccountRoute = AccountRouteImport.update({ id: '/account', path: '/account', getParentRoute: () => rootRouteImport } as any)
+          const AccountProfileRoute = AccountProfileRouteImport.update({ id: '/profile', path: '/profile', getParentRoute: () => AccountRoute } as any)
+          const HooksRoute = HooksRouteImport.update({ id: '/hooks', path: '/hooks', getParentRoute: () => rootRouteImport } as any)
+          const HooksStripeRoute = HooksStripeRouteImport.update({ id: '/stripe', path: '/stripe', getParentRoute: () => HooksRoute } as any)
+        `,
+        "src/routes/index.tsx": `export const Route = createFileRoute("/")({ component: Home })`,
+        "src/routes/api.action.ts": `export const Route = createFileRoute("/api/action")({ server: { handlers: { POST } } })`,
+        "src/routes/logout.ts": `export const Route = createFileRoute("/logout")({ server: { handlers: apiHandlers(handlers) } })`,
+        "src/routes/export.tsx": `export const Route = createFileRoute("/export")({ server: { handlers: { GET } }, component: Export })`,
+        "src/routes/team.tsx": `export const Route = createFileRoute("/team")({ server: { handlers: { GET } } })`,
+        "src/routes/account.ts": `export const Route = createFileRoute("/account")({ server: { handlers: { GET } } })`,
+        "src/routes/account.profile.tsx": `export const Route = createFileRoute("/account/profile")({ component: Profile })`,
+        "src/routes/hooks.ts": `export const Route = createFileRoute("/hooks")({ server: { handlers: { GET } } })`,
+        "src/routes/hooks.stripe.ts": `export const Route = createFileRoute("/hooks/stripe")({ server: { handlers: { POST } } })`
+      })
+    )
+
+    // A server route with only server routes inside goes with them; one with a page inside stays, as a layout still.
+    expect(routes.map(({ id, kind }) => [id, kind])).toEqual([
+      ["__root__", "root"],
+      ["/", "page"],
+      ["/export", "page"],
+      ["/team", "page"],
+      ["/account", "layout"],
+      ["/account/profile", "page"]
+    ])
+  })
+
   it("reads where a route always redirects, but not a redirect that runs only sometimes", () => {
     const route = (options: string) =>
       readRoutes(
@@ -361,6 +409,33 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
     expect(routes.find((route) => route.id === "/_auth")?.guards).toBe(true)
     expect(routes.find((route) => route.id === "/dashboard")?.loads).toBe(true)
     expect(routes.find((route) => route.id === "/$")?.segments).toEqual([{ type: "catchAll", name: "_splat" }])
+  })
+
+  it("leaves out server routes declared in code, keeping a lazy one, one with spread options, and one with pages inside (PAR-1173)", () => {
+    const routes = readRoutes(
+      recordReader({
+        "src/main.tsx": `
+          const rootRoute = createRootRoute({ component: Shell })
+          const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Home })
+          const healthRoute = createRoute({ getParentRoute: () => rootRoute, path: "health", server: { handlers: { GET } } })
+          const teamRoute = createRoute({ getParentRoute: () => rootRoute, path: "team", server: { handlers } }).lazy(
+            () => import("./team.lazy").then((d) => d.Route)
+          )
+          const reportRoute = createRoute({ ...pageOptions, getParentRoute: () => rootRoute, path: "report", server: { handlers } })
+          const apiRoute = createRoute({ getParentRoute: () => rootRoute, path: "api", server: { handlers } })
+          const docsRoute = createRoute({ getParentRoute: () => apiRoute, path: "docs", component: Docs })
+        `
+      })
+    )
+
+    expect(routes.map(({ id, kind }) => [id, kind])).toEqual([
+      ["__root__", "root"],
+      ["/", "page"],
+      ["/team", "page"],
+      ["/report", "page"],
+      ["/api", "layout"],
+      ["/api/docs", "page"]
+    ])
   })
 
   it("lists nothing when the app makes no root route", () => {
