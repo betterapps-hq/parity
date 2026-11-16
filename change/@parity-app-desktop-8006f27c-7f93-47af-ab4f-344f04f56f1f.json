@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Session Replay no longer keeps every frame it records for the whole session, which grew the window's memory without end",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

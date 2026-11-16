@@ -1,8 +1,19 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 00:29:30 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 01:24:28 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.2
+
+Mon, 16 Nov 2026 01:24:28 GMT
+
+### Patches
+
+- Server and API routes no longer show up as pages: TanStack Start server routes and React Router resource routes are
+  left out of a project's routes. (ajcraswell@gmail.com)
+- Session Replay no longer keeps every frame it records for the whole session, which grew the window's memory without
+  end (ajcraswell@gmail.com)
 
 ## 0.96.1
 

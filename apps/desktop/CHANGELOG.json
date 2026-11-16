@@ -2,6 +2,35 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 01:24:28 GMT",
+      "version": "0.96.2",
+      "tag": "@parity-app/desktop_v0.96.2",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "03b86b826b4ffeb50573e002b6736329f5873506",
+            "comment": "Lockfile updated for the webpack extension's peers"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "249800fa38681ca31ba0c2f2948f7ef97b76c768",
+            "comment": "Server and API routes no longer show up as pages: TanStack Start server routes and React Router resource routes are left out of a project's routes."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "0255cfe1a0ba1c2a58a15d6a29c0cb8243e33669",
+            "comment": "Session Replay no longer keeps every frame it records for the whole session, which grew the window's memory without end"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 00:29:30 GMT",
       "version": "0.96.1",
       "tag": "@parity-app/desktop_v0.96.1",

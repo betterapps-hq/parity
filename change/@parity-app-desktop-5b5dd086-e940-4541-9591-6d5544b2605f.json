@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Server and API routes no longer show up as pages: TanStack Start server routes and React Router resource routes are left out of a project's routes.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
