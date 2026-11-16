@@ -24,7 +24,7 @@ export function startConsole(host: ConsoleHost = window.canvasHost.console): voi
 
       read.add(key)
       host.read(guestUrl).then(
-        (entries) => consoleLog(session.id).update(entries, guestUrl),
+        (entries) => consoleLog(session.id).update(entries, guestUrl, session.info.builder?.console),
         // What comes next still shows.
         () => undefined
       )

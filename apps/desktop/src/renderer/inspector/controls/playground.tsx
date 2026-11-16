@@ -13,10 +13,10 @@ import type { Writes } from "./writes.ts"
 
 /*
  * Where each control is tried on its own: the control at the inspector's width. A file's Demo story also shows beside
- * it what it stores and what it writes as CSS and as Tailwind, updated as it's used, with a preview of the result where
- * it helps and other tools' screenshots for review. Each story gives
- * its fields the stand-ins through `ProjectData`, as the Design tab gives the project's own, and holds its own tokens,
- * so a token made with Create token is there for the story's fields and preview only.
+ * it what it stores and what it writes as CSS, updated as it's used, with a preview of the result where it helps and
+ * other tools' screenshots for review. Each story gives its fields the stand-ins through `ProjectData`, as the Design
+ * tab gives the project's own, and holds its own tokens, so a token made with Create token is there for the story's
+ * fields and preview only.
  */
 
 /** Whether the story shows what the control writes beside it, as a Demo story does (`parameters: { demo: true }`). */
@@ -85,7 +85,6 @@ export function Readout({ writes }: { writes: Writes }) {
   const blocks = [
     { title: "Stored", text: writes.stored === undefined ? "Unset" : JSON.stringify(writes.stored, null, 2) },
     { title: "CSS", text: writes.css.length > 0 ? writes.css.map((line) => `${line};`).join("\n") : "Nothing" },
-    { title: "Tailwind", text: writes.tailwind.length > 0 ? writes.tailwind.join(" ") : "Nothing" },
     ...(writes.markup === undefined ? [] : [{ title: "Markup", text: writes.markup }])
   ]
 

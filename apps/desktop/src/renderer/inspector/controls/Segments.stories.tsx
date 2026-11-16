@@ -35,9 +35,7 @@ function TextWrap({ start, fit = false }: { start: Wrap | undefined; fit?: boole
   return (
     <Playground
       writes={
-        wrap === undefined
-          ? { stored: undefined, css: [], tailwind: [] }
-          : { stored: { value: wrap }, css: [`text-wrap: ${wrap}`], tailwind: [`text-${wrap}`] }
+        wrap === undefined ? { stored: undefined, css: [] } : { stored: { value: wrap }, css: [`text-wrap: ${wrap}`] }
       }
     >
       <FieldGrid>
@@ -52,7 +50,7 @@ function TextWrap({ start, fit = false }: { start: Wrap | undefined; fit?: boole
 /** Balance chosen. */
 export const Set: Story = { render: () => <TextWrap start="balance" /> }
 
-/** Set, with what it stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Set, with what it stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Set, parameters: { demo: true } }
 
 /** Unset: Wrap, what it comes to anyway, shows faintly. */

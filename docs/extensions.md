@@ -111,18 +111,19 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `components({ files })` reads which components each file exports, a batch of files at a time, while the manifest's
   `providers.renderer` names its guest module, runtime packages and imports, development stand-ins and component file
   extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's
-  `providers.builder` names its entry module, which the builder process runs, and the config files it watches. An
-  `entities` provider's `import({ components })` reads a tool's files as screens and
-  `export({ screen, edited, components })` writes an edited one back, as Storybook's stories, while the manifest's
-  `providers.entities` names the config files it watches, which also say where its tool's config is, and how Parity
-  shows its screens (PAR-1131): `group`, what Layers lists them under; `states`, what a screen's states are called
-  (`one` and `many`); and `color`, its screens' icons in a light and a dark theme. Its tool is found when the project
-  declares one of its peer dependencies or a package in its versions' scope. An `addresses` provider says where else
-  each server is reached, as a name Portless routes to it; a `discovery` provider offers servers Parity didn't start to
-  `processes.find`. The handle's `changed()` makes Parity ask those two again. Each of their calls has 2 seconds
-  (addresses) or 5 (discovery); an answer that's late, throws or doesn't fit is left out, as is an address that isn't on
-  this machine, with `processes.providerFailed`. The processes list opens a server at a name, then a proxy, then a
-  container's address, else its endpoint.
+  `providers.builder` names its entry module, which the builder process runs, the config files it watches, and in
+  `console`, what its dev build adds that isn't the project's: `chatter`, the messages it writes, and `generatedPaths`,
+  the modules it makes, each a list of regular expressions, which the Console panel and agents leave out. An `entities`
+  provider's `import({ components })` reads a tool's files as screens and `export({ screen, edited, components })`
+  writes an edited one back, as Storybook's stories, while the manifest's `providers.entities` names the config files it
+  watches, which also say where its tool's config is, and how Parity shows its screens (PAR-1131): `group`, what Layers
+  lists them under; `states`, what a screen's states are called (`one` and `many`); and `color`, its screens' icons in a
+  light and a dark theme. Its tool is found when the project declares one of its peer dependencies or a package in its
+  versions' scope. An `addresses` provider says where else each server is reached, as a name Portless routes to it; a
+  `discovery` provider offers servers Parity didn't start to `processes.find`. The handle's `changed()` makes Parity ask
+  those two again. Each of their calls has 2 seconds (addresses) or 5 (discovery); an answer that's late, throws or
+  doesn't fit is left out, as is an address that isn't on this machine, with `processes.providerFailed`. The processes
+  list opens a server at a name, then a proxy, then a container's address, else its endpoint.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.

@@ -115,7 +115,6 @@ function Instance({
           props.flatMap((prop) => (prop.type === "shown" || prop.value === undefined ? [] : [[prop.name, prop.value]]))
         ),
         css: [],
-        tailwind: [],
         markup: markup(component, props)
       }}
     >
@@ -156,7 +155,7 @@ function Instance({
 /** A stat card: text props in the field's box, the two on-or-off props as switch rows. */
 export const StatCard: Story = { render: () => <Instance component="Stat card" start={statCard} /> }
 
-/** StatCard, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** StatCard, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...StatCard, parameters: { demo: true } }
 
 /** Overridden: two layers inside differ, so the menu's Reset overrides says 2, and value changed in this state. */

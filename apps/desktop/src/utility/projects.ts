@@ -816,7 +816,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       root,
       name,
       renderer: { id: renderer.id, name: renderer.name },
-      builder: { id: builder.id, name: builder.name, toolVersion: session.toolVersion },
+      builder: {
+        id: builder.id,
+        name: builder.name,
+        toolVersion: session.toolVersion,
+        ...(builder.console && { console: builder.console })
+      },
       router: routed?.router,
       styles,
       guestUrl: session.guestUrl,

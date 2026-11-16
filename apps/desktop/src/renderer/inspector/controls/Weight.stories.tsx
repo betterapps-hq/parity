@@ -44,8 +44,7 @@ function together(font: Writes, weight: Writes): Writes {
 
   return {
     stored: Object.keys(stored).length > 0 ? stored : undefined,
-    css: [...font.css, ...weight.css],
-    tailwind: [...font.tailwind, ...weight.tailwind]
+    css: [...font.css, ...weight.css]
   }
 }
 
@@ -116,7 +115,7 @@ function Weight({
 /** Semibold in Geist, `font-semibold`, as its chip. Up and Down step to Medium and Bold. */
 export const Named: Story = { render: () => <Weight font={{ token: "sans" }} start={{ token: "semibold" }} /> }
 
-/** Named, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Named, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Named, parameters: { demo: true } }
 
 /** Unset: Regular, muted, inherited. Nothing is written. */

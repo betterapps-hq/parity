@@ -6,6 +6,9 @@ const guestUrl = "http://127.0.0.1:5173/@id/virtual:parity/guest"
 const guest = "http://127.0.0.1:5173"
 const react = `${guest}/node_modules/.vite/deps/react-dom_client.js?v=4f2a`
 
+/** What Vite's manifest says its dev build adds. */
+const vite = { chatter: [String.raw`^\[vite\]`], generatedPaths: ["^@"] }
+
 function entry(fields: Partial<LoggedEntry> = {}): LoggedEntry {
   return {
     id: 1,
@@ -95,7 +98,7 @@ describe("the console's messages", () => {
 
 describe("where in the project an address is", () => {
   it("is its path from the root, without Vite's query, for the project's own files on its builder", () => {
-    expect(projectPlace(`${guest}/src/App.tsx?t=1`, 3, 0, guestUrl)).toEqual({
+    expect(projectPlace(`${guest}/src/App.tsx?t=1`, 3, 0, guestUrl, vite)).toEqual({
       path: "src/App.tsx",
       line: 3,
       column: 1
@@ -103,10 +106,14 @@ describe("where in the project an address is", () => {
   })
 
   it("is nowhere for a library's module, one Vite made, or another server's", () => {
-    expect(projectPlace(react, 3, 1, guestUrl)).toBeUndefined()
-    expect(projectPlace(`${guest}/@vite/client`, 3, 1, guestUrl)).toBeUndefined()
-    expect(projectPlace("http://127.0.0.1:5174/src/App.tsx", 3, 1, guestUrl)).toBeUndefined()
-    expect(projectPlace("not a url", 3, 1, guestUrl)).toBeUndefined()
+    expect(projectPlace(react, 3, 1, guestUrl, vite)).toBeUndefined()
+    expect(projectPlace(`${guest}/@vite/client`, 3, 1, guestUrl, vite)).toBeUndefined()
+    expect(projectPlace("http://127.0.0.1:5174/src/App.tsx", 3, 1, guestUrl, vite)).toBeUndefined()
+    expect(projectPlace("not a url", 3, 1, guestUrl, vite)).toBeUndefined()
+  })
+
+  it("leaves which modules a builder made to its manifest", () => {
+    expect(projectPlace(`${guest}/@vite/client`, 3, 1, guestUrl)).toEqual({ path: "@vite/client", line: 3, column: 1 })
   })
 })
 
@@ -139,5 +146,20 @@ describe("routing the main process's changes", () => {
     routeConsoleChange({ cleared: guest }, projects)
     expect(consoleLog("D:/shop").get()).toEqual([])
     expect(consoleLog("D:/admin").get()).toHaveLength(1)
+  })
+
+  it("leaves out a builder's chatter, as its manifest describes it", () => {
+    const projects = [{ id: "D:/shop", info: { guestUrl, builder: { console: vite } } }]
+
+    consoleLog("D:/shop").clear()
+    routeConsoleChange(
+      { entries: [entry({ id: 1, text: "[vite] hot updated: /src/App.tsx" }), entry({ id: 2 })] },
+      projects
+    )
+    expect(
+      consoleLog("D:/shop")
+        .get()
+        .map((message) => message.id)
+    ).toEqual(["2"])
   })
 })

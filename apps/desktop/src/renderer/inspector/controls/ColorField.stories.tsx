@@ -14,7 +14,7 @@ import { colorWrites, inState, mixedWrites, type Writes } from "./writes.ts"
  * form with no mark, as every field takes one (call 1). It types like a text field with the chip in it: click beside the
  * chip to type a hex or a token's name, and Backspace removes it. A click on the chip focuses the field, and once
  * it's focused opens the picker, as the swatch does.
- * Beside it, what it stores and what it writes as CSS and as Tailwind.
+ * Beside it, what it stores and what it writes as CSS.
  */
 const meta = {
   title: "Parity/Fields/Color field",
@@ -54,8 +54,7 @@ function ColorField({ value, alpha, allowed, tokensOnly, mixed, theme, hover = f
     writes = {
       // SAFETY: a color that's set stores an object (`{ token }` or `{ value }`), and so does its Hover state.
       stored: { ...(writes.stored as object), themes: { dark: { token: theme.value } } },
-      css: [...writes.css, `.dark & { background-color: var(--color-${theme.value}) }`],
-      tailwind: [...writes.tailwind, `dark:bg-${theme.value}`]
+      css: [...writes.css, `.dark & { background-color: var(--color-${theme.value}) }`]
     }
   }
 
@@ -92,7 +91,7 @@ function ColorField({ value, alpha, allowed, tokensOnly, mixed, theme, hover = f
 /** A token, `primary`, as a chip. Click beside it and press Backspace, or use its ×, to remove it, then type `2f6fed`. */
 export const Token: Story = { render: () => <ColorField value="primary" /> }
 
-/** Token, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Token, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Token, parameters: { demo: true } }
 
 /** A token with its opacity after it, `bg-card/70`: the % field is the token's alpha, written after its name. */

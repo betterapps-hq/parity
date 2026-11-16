@@ -79,7 +79,7 @@ export const Unset: Story = { render: () => <Appearance /> }
 /** 50%, a step: `opacity-50`. Up makes it 51%; drag the icon to scrub. */
 export const Step: Story = { render: () => <Appearance opacity={{ percent: 50 }} /> }
 
-/** Step, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Step, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Step, parameters: { demo: true } }
 
 /** An opacity token, `disabled`, as a chip with 50% in its hint. Up steps to `muted`; the chevron lists them. */

@@ -28,7 +28,6 @@ function ClassNames({ start }: { start: string[] }) {
       writes={{
         stored: written === "" ? undefined : written,
         css: [],
-        tailwind: classes,
         markup: written === "" ? "<Button />" : `<Button className="${written}" />`
       }}
     >
@@ -44,7 +43,7 @@ function ClassNames({ start }: { start: string[] }) {
 /** Button's two classes: `w-full`, and `sm:w-auto` with its variant faint. */
 export const Classes: Story = { render: () => <ClassNames start={["w-full", "sm:w-auto"]} /> }
 
-/** Classes, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Classes, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Classes, parameters: { demo: true } }
 
 /** Changed in the state being edited, or set over what it comes from (PAR-1020): the change mark on its corner. */

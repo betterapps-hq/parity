@@ -1,26 +1,13 @@
 /*
- * How the styling controls write values as CSS and as Tailwind, in one place, so every writer agrees: numbers, spacing
- * steps, Tailwind's fractions and arbitrary values, colors with their alpha, shadows and gradients, and the nine
- * spots' keywords. Each takes data and returns text; none knows about fields or tokens.
+ * How the styling controls write values as CSS, in one place, so every writer agrees: numbers, spacing steps, Tailwind's
+ * arbitrary values, colors with their alpha, shadows and gradients, and the nine spots' keywords. Each takes data and
+ * returns text; none knows about fields or tokens.
  */
 import { stepFieldValue } from "@parity-app/core"
 import { formatNumber, lengthForm, spacingPx } from "@parity-app/style-schema"
 
 /** A number brought within `min` and `max`. */
 export const clamp = (value: number, min: number, max: number): number => Math.min(max, Math.max(min, value))
-
-/** Tailwind's fraction for a percentage, where it has one (50% is `1/2`), or `full` for 100%, as call 10 writes them. */
-export function fraction(percent: number): string | undefined {
-  for (const denominator of [2, 3, 4, 5, 6, 12]) {
-    for (let numerator = 1; numerator < denominator; numerator++) {
-      if (Math.abs((numerator / denominator) * 100 - percent) < 0.01) {
-        return `${numerator}/${denominator}`
-      }
-    }
-  }
-
-  return percent === 100 ? "full" : undefined
-}
 
 /**
  * A CSS value as the inside of a Tailwind arbitrary value (`[…]`), as Tailwind reads one back: the spaces CSS doesn't
@@ -36,13 +23,6 @@ export function arbitrary(css: string): string {
     .replaceAll(/\s+([+\-*/])\s+/g, "$1")
     .replaceAll("_", String.raw`\_`)
     .replaceAll(/\s+/g, "_")
-}
-
-/** A length after a utility's prefix: `130` for a step, `[13.3px]` otherwise. */
-export function lengthClass(px: number): string {
-  const form = lengthForm(px)
-
-  return "step" in form ? String(form.step) : `[${form.value}]`
 }
 
 /** A length as CSS: `calc(var(--spacing) * 130)` for a step, the value otherwise. */

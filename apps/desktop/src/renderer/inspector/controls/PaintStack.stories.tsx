@@ -98,7 +98,7 @@ export const Empty: Story = { render: () => <Paints start={[]} /> }
 /** One solid, a token: `bg-card`, written as the background color. Its alpha is the % after the chip. */
 export const Solid: Story = { render: () => <Paints start={[solid("fill", "card")]} /> }
 
-/** Solid, with what the control stores and writes as CSS and Tailwind beside it, updated as it's used. */
+/** Solid, with what the control stores and writes as CSS beside it, updated as it's used. */
 export const Demo: Story = { ...Solid, parameters: { demo: true } }
 
 /**
