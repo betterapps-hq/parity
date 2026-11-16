@@ -20,8 +20,9 @@ function write(path: string, content: string): void {
   writeFileSync(at(path), content)
 }
 
+// The native call gives the long name of a folder Windows shortens (RUNNER~1), as the resolver returns it.
 beforeAll(() => {
-  root = realpathSync(mkdtempSync(join(tmpdir(), "parity-pnp-imports-")))
+  root = realpathSync.native(mkdtempSync(join(tmpdir(), "parity-pnp-imports-")))
   write("app/package.json", JSON.stringify({ name: "app" }))
   write(
     "app/.pnp.cjs",
