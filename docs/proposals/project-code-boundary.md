@@ -1,6 +1,7 @@
 # Proposal: what a project's code can do to Parity's window
 
-Status: draft for discussion. Only stylesheets are handled (PAR-1187); nothing else here is built.
+Status: draft for discussion. Stylesheets (PAR-1187), reloads and Parity's `<html>` and `<body>` (PAR-1207) are handled;
+nothing else here is built.
 
 ## In one line
 
@@ -19,17 +20,17 @@ document, a copy of the project's code and a React. So one realm holds Parity's 
 
 Each of these has been seen, or follows from code that projects commonly run:
 
-| Reach                       | Example                                                                                                                                                                                                       | Today                                                                           |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Stylesheets in the document | Vite's client, a bundler's runtime, CSS-in-JS, a library's own styles                                                                                                                                         | Contained: switched off in the page and drawn in frames (`page-styles.ts`)      |
-| Reloading the window        | The project's Vite client is imported by its modules for hot updates. It reconnects to its server and calls `location.reload()` after a restart or a full-reload update, which reloads Parity's whole window. | Not contained                                                                   |
-| Parity's own `<html>`       | A theme toggle such as `next-themes` or shadcn's sets the `dark` class or a `data-theme` on `document.documentElement`. Parity's theme is the `dark` class on that same element (`theme.ts`).                 | Not contained                                                                   |
-| Window and document events  | A command palette's `keydown` listener on `document` hears Parity's keys; a `resize` listener measures Parity's window.                                                                                       | Viewport size given to the guest through mount options; listeners not contained |
-| History and the address     | A router outside the frame's own router calls `history.pushState`.                                                                                                                                            | Each frame has a router of its own (PAR-1152); direct calls not contained       |
-| Portals into the page       | Dialogs, popovers and menus portal into `document.body`, outside the frame's styles.                                                                                                                          | Moved into the frame for component previews only (`inline-portals.ts`)          |
-| Globals and prototypes      | Polyfills patch built-ins; `customElements.define` takes a tag name for the whole page; code sets `window` properties.                                                                                        | Not contained                                                                   |
-| Errors                      | An unhandled rejection in the project's code reaches the window's `error` and `unhandledrejection` handlers.                                                                                                  | The guest reports render errors per frame; others reach Parity's handlers       |
-| The main thread             | A loop in a component's effect freezes Parity's interface with it.                                                                                                                                            | Not contained, and can't be while they share a thread                           |
+| Reach                       | Example                                                                                                                                                                                                       | Today                                                                                              |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Stylesheets in the document | Vite's client, a bundler's runtime, CSS-in-JS, a library's own styles                                                                                                                                         | Contained: switched off in the page and drawn in frames (`page-styles.ts`)                         |
+| Reloading the window        | The project's Vite client is imported by its modules for hot updates. It reconnects to its server and calls `location.reload()` after a restart or a full-reload update, which reloads Parity's whole window. | Contained: another origin's reload is cancelled (`page-window.ts`, PAR-1207)                       |
+| Parity's own `<html>`       | A theme toggle such as `next-themes` or shadcn's sets the `dark` class or a `data-theme` on `document.documentElement`. Parity's theme is the `dark` class on that same element (`theme.ts`).                 | Contained: another origin's change to `<html>` or `<body>` is dropped (`page-window.ts`, PAR-1207) |
+| Window and document events  | A command palette's `keydown` listener on `document` hears Parity's keys; a `resize` listener measures Parity's window.                                                                                       | Viewport size given to the guest through mount options; listeners not contained                    |
+| History and the address     | A router outside the frame's own router calls `history.pushState`.                                                                                                                                            | Each frame has a router of its own (PAR-1152); direct calls not contained                          |
+| Portals into the page       | Dialogs, popovers and menus portal into `document.body`, outside the frame's styles.                                                                                                                          | Moved into the frame for component previews only (`inline-portals.ts`)                             |
+| Globals and prototypes      | Polyfills patch built-ins; `customElements.define` takes a tag name for the whole page; code sets `window` properties.                                                                                        | Not contained                                                                                      |
+| Errors                      | An unhandled rejection in the project's code reaches the window's `error` and `unhandledrejection` handlers.                                                                                                  | The guest reports render errors per frame; others reach Parity's handlers                          |
+| The main thread             | A loop in a component's effect freezes Parity's interface with it.                                                                                                                                            | Not contained, and can't be while they share a thread                                              |
 
 ## Option 1: contain it where it runs
 
@@ -38,11 +39,12 @@ that called it (the first frame of the stack with an address), and redirects wha
 extension takes part. In order of the harm seen:
 
 1. **Reloads.** `location.reload` can't be wrapped, but in Electron a `beforeunload` handler that returns a value
-   cancels the unload without a dialog. Parity marks its own reloads, and cancels any other, logging which project
-   asked.
+   cancels the unload without a dialog. Built (PAR-1207): the unload runs the handler in the same call as the
+   `location.reload()` that started it, so the caller's origin is on the stack, and no reload needs marking.
 2. **`<html>` and `<body>` attributes.** Wrap `setAttribute`, `removeAttribute`, `toggleAttribute` and `DOMTokenList`'s
    methods where the element is Parity's root or body, and send another origin's change to the body of that project's
-   frames instead, where its theme classes belong.
+   frames instead, where its theme classes belong. Built (PAR-1207), but dropped rather than moved: a frame's body takes
+   its classes from its modes, which a toggle would override in every frame.
 3. **Window and document listeners.** Wrap `addEventListener` on `window` and `document`, and pass another origin's
    listener only events whose target is in that project's frames, or, for keys, only while focus is in one of them.
 4. **History.** Wrap `pushState` and `replaceState`, and send another origin's calls to the frame's router, or drop
