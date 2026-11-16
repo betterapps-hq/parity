@@ -1484,9 +1484,6 @@ interface ComposedStory {
   load: () => Promise<void>
 }
 
-/** The preview modules set as the project's annotations, so each is set once however many frames draw. */
-const annotatedPreviews = new WeakSet<object>()
-
 /** Each frame's story, by the annotations it was composed from, so the outermost decorator can find its frame. */
 const frameStories = new WeakMap<object, Frame>()
 
@@ -1534,10 +1531,9 @@ function composedPreview(
   }
 
   try {
-    if (!annotatedPreviews.has(project)) {
-      api.setProjectAnnotations([{ decorators: [withFrameCanvas] }, project])
-      annotatedPreviews.add(project)
-    }
+    // Storybook keeps the project's annotations on the page's global, which every project's guest shares, and a story
+    // takes them as it's composed. So they're set again for each frame, in case another project's guest set its own.
+    api.setProjectAnnotations([{ decorators: [withFrameCanvas] }, project])
 
     const story: FrameStory = { name: "Frame", render: () => createElement(StoryContent), globals: frame.globals }
     frameStories.set(story, frame)

@@ -174,6 +174,34 @@ describe("the project's Storybook preview, composed with its portable stories AP
     expect(mounts).toBe(1)
   })
 
+  it("composes each frame with its own project's preview, though another project's guest set its own since", async () => {
+    const first = { decorators: [box("first")] }
+    mount(first)
+    await vi.waitFor(() => expect(nesting()).toEqual(["main", "first"]))
+
+    // Another project's guest on the same page, which sets Storybook's annotations to its own preview.
+    const other = document.createElement("div")
+    document.body.append(other)
+
+    const otherGuest = createGuest({
+      components: { Themed },
+      css: "",
+      decorators: { list: [], modules: {}, project: { decorators: [box("second")] }, composer: portableStories }
+    })
+
+    mounted.push(otherGuest.mount(other, [themed]))
+    await vi.waitFor(() => expect(other.querySelector("[data-box=second]")).not.toBeNull())
+
+    for (const handle of mounted.splice(0)) {
+      handle.unmount()
+    }
+
+    mount(first)
+
+    await vi.waitFor(() => expect(nesting()).toEqual(["main", "first"]))
+    other.remove()
+  })
+
   it("says why when the preview's loaders fail, and the frame stays empty", async () => {
     const onError = vi.fn<NonNullable<MountOptions["onError"]>>()
     mount({ loaders: [() => Promise.reject(new Error("no messages"))] }, { onError })
