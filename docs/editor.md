@@ -1344,6 +1344,11 @@ from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity 
 - **For every builder.** The file is one more of the shared guest module's imports, so Vite, Rspack, Rsbuild, webpack
   and both Next.js builders compile it with the project's own config, as they compile its components. A file that
   doesn't load is reported, and frames draw with the libraries' decorators alone.
+- **Saved, it redraws the frames.** Each builder looks for the file among what a change reaches, as it looks for
+  components, and `gatherChanges` reports a change that reaches it as making the guest new, as a stylesheet's change
+  does, so the canvas loads a guest that imports it afresh. Pictures kept for components and frames count the file and
+  what it imports as they count the stylesheets, and the code snapshot reads `.parity`, so a changed provider draws them
+  again.
 - **Building on Storybook's preview.** Parity doesn't read `.storybook/preview.*` yet, so the file is the project's
   preview on the canvas. It can import Storybook's and spread its decorators to build on them:
   `export const decorators = [...(storybook.decorators ?? []), withCanvasOnlyProviders]`.
@@ -1354,16 +1359,22 @@ from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity 
 Not yet: global types as mode variables (PAR-105), a design's or state's parameters (PAR-106), `context.id`, and reading
 `.storybook/preview.*` when there's no Parity file (PAR-98).
 
-Code: `findPreviewFile` in `packages/project/src/preview-file.ts`, called by `discoverProject`; `preview` in
-`ProjectConfig` (`packages/core/src/project.ts`); `guestModule` in `packages/project/src/guest-module.ts`, which gives
-the loaded file as `GuestDecorators.project`; `decorators`, `projectPreview` and `storyChain` in
+Code: `findPreviewFile` in `packages/project/src/preview-file.ts`, called by `discoverProject`; `gatherChanges` in
+`packages/project/src/code-changes.ts`, given the file by the Vite, webpack-compatible and Next builders; `keyFor` in
+`utility/previews.ts` and `trace` in `utility/frame-traces.ts`; `preview` in `ProjectConfig`
+(`packages/core/src/project.ts`); `guestModule` in `packages/project/src/guest-module.ts`, which gives the loaded file
+as `GuestDecorators.project`; `decorators`, `projectPreview` and `storyChain` in
 `packages/extension-react/src/guest.ts`.
 
 Tests: "the project's preview file" in `packages/project/src/preview-file.test.ts`; "the guest module with the project's
 preview file" in `packages/project/src/guest-module.test.ts`; "a project's preview file" in
 `packages/extension-react/src/guest-preview.test.ts`: the nesting inside the libraries' decorators, the context's
-globals, parameters and frame, `Story` kept from one draw to the next, loaders, and a file that didn't load. App F's
-file wasn't tried in the running app, since its fixture isn't installed locally.
+globals, parameters and frame, `Story` kept from one draw to the next, loaders, and a file that didn't load; "makes the
+guest new for a change reaching the project's preview file" in `packages/project/src/code-changes.test.ts`; "the
+project's preview file" case in `code-fingerprint.test.ts`; "doesn't hold once what the project's preview file imports
+changes" in `utility/frame-traces.test.ts`; "are made again for every component once what the project's preview file
+imports changes" in `utility/previews.test.ts`. App F's file wasn't tried in the running app, since its fixture isn't
+installed locally.
 
 ### Pages are the routes' files (PAR-1163)
 

@@ -230,6 +230,8 @@ export interface OpenProject {
   info: OpenedProjectInfo
   /** Stylesheets token edits may write to, relative to the root. */
   stylesheets: string[]
+  /** Its preview file, relative to the root, whose decorators every frame draws in (PAR-100). */
+  preview?: string
   /** What each project file last held, as read or written here, so the watcher only reports changes from outside. */
   known: Map<string, string>
   /** Its package.json, as it was when it opened. */
@@ -384,13 +386,14 @@ export interface OpenProjects {
 }
 
 /**
- * What a component preview's key needs of an open project (PAR-207): its root, where its components come from, and the
- * stylesheets its compiled CSS is made from.
+ * What a component preview's key needs of an open project (PAR-207): its root, where its components come from, the
+ * stylesheets its compiled CSS is made from, and its preview file, whose decorators every frame draws in (PAR-100).
  */
 export interface PreviewProject {
   root: string
   sources: Record<string, ComponentSource>
   stylesheets: string[]
+  preview?: string
 }
 
 /** Kept bitmaps carry their frame's height, and are named by the components their frames draw (PAR-179). */
@@ -901,6 +904,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       drawnGuestUrl: session.guestUrl,
       fingerprints: new Map([[session.guestUrl, servedCode(root, startOptions)]]),
       stylesheets: config.styles,
+      preview: config.preview,
       known,
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
@@ -2013,7 +2017,12 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         ? [project.info.styles.stylesheet, ...project.stylesheets]
         : project.stylesheets
 
-      return { root: project.info.root, sources: project.list.sources, stylesheets: [...new Set(stylesheets)] }
+      return {
+        root: project.info.root,
+        sources: project.list.sources,
+        stylesheets: [...new Set(stylesheets)],
+        preview: project.preview
+      }
     },
 
     loadedFiles: (projectId, files) => projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined)

@@ -207,7 +207,8 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     tsconfig: readTsconfig(root),
     components: () => [...new Set([...componentFiles.keys(), ...modules.served()])],
     stylesDigest: () => guestStylesDigest(server),
-    send: (change) => listeners.forEach((listener) => listener(change))
+    send: (change) => listeners.forEach((listener) => listener(change)),
+    preview: options.config.preview
   })
 
   return {

@@ -80,11 +80,15 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   const build = buildState()
   const listeners = new Set<(change: CodeChange) => void>()
 
-  const changes = gatherChanges((change) => {
-    for (const listener of listeners) {
-      listener(change)
-    }
-  })
+  const changes = gatherChanges(
+    (change) => {
+      for (const listener of listeners) {
+        listener(change)
+      }
+    },
+    undefined,
+    start.config.preview
+  )
 
   let cssDigest: string | undefined
   /** The files the latest build wrote for the app's entries, for a page when its config makes none. */
@@ -103,9 +107,13 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   compiler.hooks.done.tap("parity:guest", (stats) => {
     const first = build.compilation === undefined
 
-    const components = Object.values(start.config.components)
-      .filter((component) => !component.library)
-      .map((component) => component.path)
+    // The preview file is looked for as a component is; the gathered change makes the guest new for it.
+    const components = [
+      ...Object.values(start.config.components)
+        .filter((component) => !component.library)
+        .map((component) => component.path),
+      ...(start.config.preview ? [start.config.preview] : [])
+    ]
 
     // Each changed file's components, read now: the compilation is the bundler's to reuse once the next build starts.
     const reached = new Map(

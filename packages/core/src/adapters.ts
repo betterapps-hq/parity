@@ -556,7 +556,8 @@ export interface CodeChange {
   stamp: number
   /**
    * One of the stylesheets the guest's compiled CSS is made from changed too, so the guest's CSS is new: the guest at
-   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821).
+   * `BuilderSession.restyledGuestUrl(stamp)` imports them afresh (PAR-821). A change to the project's preview file, or
+   * to a module it imports, sets it too, since that guest imports the file afresh as well (PAR-100).
    */
   styles?: boolean
 }
