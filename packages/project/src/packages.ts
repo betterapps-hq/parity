@@ -455,6 +455,11 @@ async function namesOf(file: string, read: Map<string, Set<string>>): Promise<Se
     }
   }
 
+  // `export default Card`, or a default declaration, so `export { default as Card } from "./card.js"` finds it.
+  if (/export\s+(?:declare\s+)?default\b/.test(source)) {
+    found.add("default")
+  }
+
   // `export * as Dialog from "@radix-ui/react-dialog"` exports the namespace, wherever it comes from.
   for (const match of source.matchAll(/export\s+\*\s+as\s+([\w$]+)\s+from/g)) {
     found.add(match[1]!)
