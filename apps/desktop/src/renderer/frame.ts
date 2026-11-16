@@ -191,7 +191,7 @@ export function prepareFrame(
   rewriteAddedRules()
   const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
-  const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "" }
+  const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "", others: new Map() }
   frameSheets.set(host, own)
   // The project's styles, then the classes Parity writes for its layers, then the frame's own rules, with a style
   // edit's preview last, so each wins over the ones before it where they rank the same.
@@ -236,6 +236,8 @@ interface FrameSheets {
   preview: CSSStyleSheet
   shown: string
   previewed: string
+  /** Other previews' rules, by key, after the local one: someone else's drag shows while this person edits. */
+  others: Map<string, { sheet: CSSStyleSheet; css: string }>
 }
 
 /** Each frame's own stylesheets, by its host element. */
@@ -261,14 +263,47 @@ export function showFrameRules(host: Element, css: string): void {
   previewFrameRules(host, "")
 }
 
-/** Lays `css` over a frame's rules, as a style edit's preview (core's `previewRules`), in place of the one before. */
-export function previewFrameRules(host: Element, css: string): void {
+/**
+ * Lays `css` over a frame's rules, as a style edit's preview (core's `previewRules`), in place of the one before. Each
+ * preview has its own, by `key`: none is the local edit's, which drawing the frame's rules again takes away; another's
+ * stays until it's taken away with empty `css`.
+ */
+export function previewFrameRules(host: Element, css: string, key?: string): void {
   const sheets = frameSheets.get(host)
 
-  if (sheets && sheets.previewed !== css) {
-    sheets.preview.replaceSync(css)
-    sheets.previewed = css
+  if (!sheets) {
+    return
   }
+
+  if (key === undefined || key === "local") {
+    if (sheets.previewed !== css) {
+      sheets.preview.replaceSync(css)
+      sheets.previewed = css
+    }
+
+    return
+  }
+
+  const other = sheets.others.get(key)
+
+  if (css === "") {
+    if (other) {
+      dropFrameSheet(host, other.sheet)
+      sheets.others.delete(key)
+    }
+
+    return
+  }
+
+  const shown = other ?? { sheet: new CSSStyleSheet(), css: "" }
+
+  if (shown.css !== css) {
+    shown.sheet.replaceSync(css)
+    shown.css = css
+  }
+
+  sheets.others.set(key, shown)
+  adoptFrameSheet(host, shown.sheet)
 }
 
 /** Adds a stylesheet after a frame's own, once. A host that isn't a frame yet takes none. */
@@ -293,7 +328,7 @@ export function dropFrameSheet(host: Element, sheet: CSSStyleSheet): void {
 export function frameRuleSheets(host: Element): CSSStyleSheet[] {
   const sheets = frameSheets.get(host)
 
-  return sheets ? [sheets.rules, sheets.preview] : []
+  return sheets ? [sheets.rules, sheets.preview, ...[...sheets.others.values()].map(({ sheet }) => sheet)] : []
 }
 
 /** Sizes the window a frame stands for: the project's viewport units measure it. */

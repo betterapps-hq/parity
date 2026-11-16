@@ -5,14 +5,11 @@ import { useEffect, useMemo } from "react"
 import { findFrames, findNodeElement, previewFrameRules } from "../frame.ts"
 import { type DocSession, libraryOf } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
+import { localDrag } from "./carried.ts"
+import { leaveLayer, takeLayer, writeLayer } from "./style-layers.ts"
 
 /** A root-relative `url()`. */
 const rootUrl = /url\(\s*(["']?)(\/(?!\/)[^"')]*)\1\s*\)/g
-
-interface Written {
-  /** Each property's inline value before the preview wrote it, empty when it had none. */
-  was: Map<string, string>
-}
 
 /**
  * A style edit shown on a design's frames before it's made, as the inspector's fields preview what's typed or scrubbed.
@@ -24,17 +21,22 @@ interface Written {
  * frame takes away when it draws the change. A component takes its design's style as its `style` prop, so its edit is
  * written straight onto its element, and it shows a preview only when it renders the design's props on its root, as
  * it then does the style the edit sets; one that doesn't (CAN-45) shows the change once it's made, as before.
+ *
+ * Several can show at once, each under its own `key`: the local edit's, and each drag preview's. Each has its own rules
+ * over a frame's (`previewFrameRules`) and writes its own values onto components' elements (`writeLayer`), and taking
+ * one back leaves the others shown.
  */
 export class StylePreview {
-  /** What's written onto components' elements. */
-  private readonly written = new Map<HTMLElement, Written>()
+  /** The properties written onto components' elements. */
+  private written = new Map<HTMLElement, Set<string>>()
 
   /** The frames a rule is laid over. */
   private previewed = new Set<HTMLElement>()
 
   constructor(
     private readonly session: DocSession & Pick<ProjectSession, "editor" | "info" | "loaded">,
-    private readonly design: string
+    private readonly design: string,
+    private readonly key = localDrag
   ) {}
 
   /** Shows `update` of the design as the document holds it now, in place of what this preview showed before. */
@@ -86,53 +88,33 @@ export class StylePreview {
     // What this preview showed before and doesn't now goes back first, so a smaller edit doesn't leave a bigger one's.
     for (const host of this.previewed) {
       if (!rules.has(host)) {
-        previewFrameRules(host, "")
+        previewFrameRules(host, "", this.key)
       }
     }
 
     for (const [host, css] of rules) {
-      previewFrameRules(host, css)
+      previewFrameRules(host, css, this.key)
     }
 
     this.previewed = new Set(rules.keys())
 
-    for (const [element, { was }] of this.written) {
+    for (const [element, names] of this.written) {
       const values = now.get(element)
 
-      for (const [name, value] of was) {
+      for (const name of names) {
         if (!values?.has(name)) {
-          write(element, name, value)
+          takeLayer(element, name, this.key)
         }
       }
     }
 
     for (const [element, values] of now) {
-      const record = this.written.get(element) ?? { was: new Map<string, string>() }
-
       for (const [name, value] of values) {
-        if (!record.was.has(name)) {
-          record.was.set(name, element.style.getPropertyValue(name))
-        }
-
-        write(element, name, value)
-      }
-
-      this.written.set(element, record)
-    }
-
-    for (const [element, record] of this.written) {
-      const values = now.get(element)
-
-      for (const name of record.was.keys()) {
-        if (!values?.has(name)) {
-          record.was.delete(name)
-        }
-      }
-
-      if (record.was.size === 0) {
-        this.written.delete(element)
+        writeLayer(element, name, this.key, value)
       }
     }
+
+    this.written = new Map([...now].map(([element, values]) => [element, new Set(values.keys())]))
   }
 
   /**
@@ -151,14 +133,14 @@ export class StylePreview {
   /** Puts every frame back as it was before the preview. */
   cancel(): void {
     for (const host of this.previewed) {
-      previewFrameRules(host, "")
+      previewFrameRules(host, "", this.key)
     }
 
     this.previewed.clear()
 
-    for (const [element, { was }] of this.written) {
-      for (const [name, value] of was) {
-        write(element, name, value)
+    for (const [element, names] of this.written) {
+      for (const name of names) {
+        takeLayer(element, name, this.key)
       }
     }
 
@@ -171,6 +153,12 @@ export class StylePreview {
    * away as it draws the change. Show the change itself first.
    */
   release(): void {
+    for (const [element, names] of this.written) {
+      for (const name of names) {
+        leaveLayer(element, name, this.key)
+      }
+    }
+
     this.written.clear()
     this.previewed.clear()
   }
@@ -232,12 +220,4 @@ export function cssName(name: string): string {
   }
 
   return name.replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
-}
-
-function write(element: HTMLElement, name: string, value: string): void {
-  if (value === "") {
-    element.style.removeProperty(name)
-  } else {
-    element.style.setProperty(name, value)
-  }
 }

@@ -291,7 +291,7 @@ export function pressLayers(
 }
 
 /** The top-left corner of boxes, or nothing without any. */
-function corner(boxes: readonly DOMRect[]): Point | undefined {
+export function corner(boxes: readonly DOMRect[]): Point | undefined {
   if (boxes.length === 0) {
     return undefined
   }
@@ -347,9 +347,10 @@ export function moveTarget(
  * of them go where they'd be dropped, so every layout around them reflows exactly as it will. The copies aren't
  * drawn, only a dashed outline round each, as `LandingSpot` draws it (`drawLandingEdge`), so the layers read as moved
  * rather than copied. They're plain DOM, outside React, and gone before the move is made. As the copies move, they and
- * the layers around them slide to their new places (`slideElements`), rather than jumping there.
+ * the layers around them slide to their new places (`slideElements`), rather than jumping there. Each drag has its own,
+ * the local one's and each preview's of someone else's (`drag-preview.ts`), with its own copies and rules.
  */
-class DropPreview {
+export class DropPreview {
   private readonly templates: HTMLElement[]
   private readonly displays: string[]
   /** Each layer's corners, in its own pixels, which its outline follows. */

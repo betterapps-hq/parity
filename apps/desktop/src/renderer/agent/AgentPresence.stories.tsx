@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { ProjectContext } from "../canvas/context.ts"
+import { placedBoards } from "../canvas/placed-boards.ts"
 import { ComponentStore } from "../components-store.ts"
 import { openTestSession } from "../doc-fixtures.ts"
 import { registerFrame } from "../frame.ts"
@@ -10,7 +11,6 @@ import { keepRecovery } from "../recovery.ts"
 import { SelectionStore } from "../selection.ts"
 import { ProjectSession, type SessionParts } from "../workspace.ts"
 import { AgentPresence } from "./AgentPresence.tsx"
-import { heldBoards } from "./held-boards.ts"
 import { presence } from "./presence.ts"
 
 interface MockNode {
@@ -154,7 +154,7 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const [run, replay] = useReducer((count: number) => count + 1, 0)
   const [, redraw] = useReducer((count: number) => count + 1, 0)
 
-  useEffect(() => heldBoards.subscribe(redraw), [])
+  useEffect(() => placedBoards.subscribe(redraw), [])
 
   useEffect(() => {
     let at = 0
@@ -193,7 +193,7 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
     <ProjectContext.Provider value={session}>
       <div className="relative h-[600px] w-full overflow-hidden bg-[#0e0e10] font-sans text-foreground">
         {[...positions.values()].map((board) => {
-          const at = heldBoards.at(tab, board.key) ?? board
+          const at = placedBoards.at(tab, board.key) ?? board
 
           return (
             <div
