@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Things dragged on the canvas lift as they're picked up, follow the pointer, settle where they're dropped, and fly back when Escape calls a drag off",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

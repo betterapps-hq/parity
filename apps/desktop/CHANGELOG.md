@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 18:04:00 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 20:42:41 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.98.0
+
+Mon, 16 Nov 2026 20:42:41 GMT
+
+### Minor changes
+
+- Things dragged on the canvas lift as they're picked up, follow the pointer, settle where they're dropped, and fly back
+  when Escape calls a drag off (ajcraswell@gmail.com)
 
 ## 0.97.1
 

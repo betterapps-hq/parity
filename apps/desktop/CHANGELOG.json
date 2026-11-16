@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 20:42:41 GMT",
+      "version": "0.98.0",
+      "tag": "@parity-app/desktop_v0.98.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "6206eefff804d29cb22026c8ecb225885f53f215",
+            "comment": "Things dragged on the canvas lift as they're picked up, follow the pointer, settle where they're dropped, and fly back when Escape calls a drag off"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 18:04:00 GMT",
       "version": "0.97.1",
       "tag": "@parity-app/desktop_v0.97.1",
