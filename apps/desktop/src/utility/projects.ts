@@ -173,8 +173,13 @@ export interface ProjectProviders {
    * which own what it gives.
    */
   owner(project: ProviderProject, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
-  /** What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152). */
-  decorators(project: ProviderProject): ExtensionDecorator[]
+  /**
+   * What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152), or with
+   * `page`, around a page's frame instead (PAR-1205).
+   */
+  decorators(project: ProviderProject, of?: "frame" | "page"): ExtensionDecorator[]
+  /** The window properties the routers hide while their page decorators' modules load (PAR-1205). */
+  pageLoadHides(project: ProviderProject): string[]
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
@@ -666,6 +671,19 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
     if (frameDecorators.length > 0) {
       config.frameDecorators = frameDecorators
+    }
+
+    // And its router made from the app's own routes around a page's frame, so the canvas can draw pages as frames
+    // (PAR-1205).
+    const pageDecorators = adapters.providers?.decorators({ root, name, pkg }, "page") ?? []
+
+    if (pageDecorators.length > 0) {
+      config.pageDecorators = pageDecorators
+      const hides = adapters.providers?.pageLoadHides({ root, name, pkg }) ?? []
+
+      if (hides.length > 0) {
+        config.pageLoadHides = hides
+      }
     }
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.

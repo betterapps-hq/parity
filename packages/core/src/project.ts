@@ -36,6 +36,17 @@ export interface ProjectConfig {
    */
   frameDecorators?: ExtensionDecorator[]
   /**
+   * What the router's extension puts around a page's frame in place of its frame decorators (PAR-1205): its router made
+   * from the app's own routes. Their modules load the first time a page is drawn, since the app's route tree imports
+   * every route. A specifier starting `./` is a project file, from the root.
+   */
+  pageDecorators?: ExtensionDecorator[]
+  /**
+   * Window properties that read as unset while the page decorators' modules load, as TanStack Router's
+   * `__TSR_ROUTER__`, which its route modules read in development to find the app's router (PAR-1205).
+   */
+  pageLoadHides?: string[]
+  /**
    * The project's preview file for Parity, `.parity/preview.tsx` or another script extension, relative to the root: its
    * Storybook preview exports (`decorators`, `loaders`, `parameters`, `globalTypes`, `initialGlobals`) apply to every
    * frame, inside the libraries' decorators (PAR-100).

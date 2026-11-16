@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Draw TanStack Router pages as frames from the app's route tree in memory, behind the Draw pages directly setting",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -208,6 +208,17 @@ export const settings: Setting[] = [
     default: false
   },
   {
+    id: "directPages",
+    page: "canvas",
+    label: "Draw pages directly",
+    detail:
+      "Pages share one copy of your app with components and sleep out of view. Page code that navigates can reload Parity.",
+    keywords: ["routes", "iframe", "router"],
+    scope: "app",
+    control: { kind: "switch" },
+    default: false
+  },
+  {
     id: "exportSizes",
     page: "export",
     label: "Export sizes",

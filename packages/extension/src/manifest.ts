@@ -277,6 +277,20 @@ export interface RouterContribution {
    * memory router, say, at the frame's URL. They wrap the libraries' own decorators.
    */
   decorators?: FrameDecorator[]
+  /**
+   * What goes around a page's frame in place of `decorators`, outermost first: the same router, made from the app's own
+   * routes, at the page's URL (PAR-1205). A module the project builds is named by its path from the project's root,
+   * starting `./`, as the route tree its tooling generates. With them, the canvas can draw the app's pages in its own
+   * window, as it draws other frames, rather than each in an iframe. `{ "$frame": "landed" }` is what the router calls
+   * with where it landed, as a redirect sends it.
+   */
+  pageDecorators?: FrameDecorator[]
+  /**
+   * Window properties the router's development code reads to find the app's router, as TanStack Router's
+   * `__TSR_ROUTER__`. They read as unset while the page decorators' modules load, so a route's module doesn't take a
+   * frame's router for the app's and update it as if its code had changed.
+   */
+  pageLoadHides?: string[]
 }
 
 /**

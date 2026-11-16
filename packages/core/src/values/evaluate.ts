@@ -17,7 +17,18 @@ export const sampleForms = ["$call", "$date"] as const
 export type ValueKind = "decorator" | "sample"
 
 /** The parts of a frame a `$frame` value can name. */
-export const frameParts = ["root", "host", "body", "document", "dir", "lang", "selector", "url", "content"] as const
+export const frameParts = [
+  "root",
+  "host",
+  "body",
+  "document",
+  "dir",
+  "lang",
+  "selector",
+  "url",
+  "content",
+  "landed"
+] as const
 
 export type FramePart = FrameValue["$frame"]
 

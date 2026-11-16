@@ -9,6 +9,7 @@ import {
   pageLinkLine,
   pageLinksLit,
   pageName,
+  pageRouterPath,
   type PageNode,
   pageTree,
   placePages,
@@ -333,6 +334,13 @@ describe("landedElsewhere", () => {
   it("gives nothing for the page's own path, with or without a trailing slash", () => {
     expect(landedElsewhere("http://localhost:5173/projects/", "/projects")).toBeUndefined()
     expect(landedElsewhere("http://localhost:5173/", "/")).toBeUndefined()
+  })
+})
+
+describe("pageRouterPath", () => {
+  it("gives the path, query and hash a page's router starts at, without the dev server's origin", () => {
+    expect(pageRouterPath("http://localhost:5173/projects/1?tab=files#top")).toBe("/projects/1?tab=files#top")
+    expect(pageRouterPath("http://localhost:5173/")).toBe("/")
   })
 })
 

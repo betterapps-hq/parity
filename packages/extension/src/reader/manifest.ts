@@ -191,7 +191,16 @@ const providers = z.strictObject({
     })
     .optional(),
   styles: empty.optional(),
-  router: z.strictObject({ decorators: z.array(frameDecorator).max(20).optional() }).optional(),
+  router: z
+    .strictObject({
+      decorators: z.array(frameDecorator).max(20).optional(),
+      pageDecorators: z.array(frameDecorator).max(20).optional(),
+      pageLoadHides: z
+        .array(z.string().regex(/^[A-Za-z_$][\w$]*$/, "expected a property's name, as __TSR_ROUTER__"))
+        .max(20)
+        .optional()
+    })
+    .optional(),
   entities: z
     .strictObject({
       watches: z.array(z.string()).optional(),

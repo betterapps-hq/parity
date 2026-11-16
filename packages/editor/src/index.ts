@@ -488,6 +488,7 @@ export {
   pageLandedMessage,
   landedElsewhere,
   type PageLayout,
+  pageRouterPath,
   pageLinkLine,
   pageLinksLit,
   type PageMode,

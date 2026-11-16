@@ -180,6 +180,18 @@ describe("readExtension", () => {
     const wrap = { import: "react-router", component: "MemoryRouter", props: { initialEntries: [{ $frame: "url" }] } }
 
     expect(readExtension(router([{ wrap }])).manifest.contributes.providers?.router?.decorators).toEqual([{ wrap }])
+
+    // A page's, in place of them, with where its router landed (PAR-1205).
+    const page = { import: "react-router", component: "Router", props: { onLand: { $frame: "landed" } } }
+
+    const paged = packageJson({
+      contributes: {
+        ...contributes,
+        providers: { router: { decorators: [{ wrap }], pageDecorators: [{ wrap: page }] } }
+      }
+    })
+
+    expect(readExtension(paged).manifest.contributes.providers?.router?.pageDecorators).toEqual([{ wrap: page }])
     expect(() =>
       readExtension(router([{ wrap: { ...wrap, props: { initialEntries: [{ $frame: "window" }] } } }]))
     ).toThrow("/parity/contributes/providers/router/decorators/0")

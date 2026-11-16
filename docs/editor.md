@@ -1294,8 +1294,8 @@ there.
   extension's code runs, so they're in the guest module the builder writes as the project opens, for every builder.
 - **Outside the libraries' decorators,** as an app puts its router around its theme's provider.
 - **At the frame's URL.** `{ "$frame": "url" }` is the URL the frame stands for, `/` unless a frame says otherwise
-  through the mount's `url`. No frame does yet: pages are drawn from the app at their URL, so the frames the guest
-  draws, components and designs, all start at `/`.
+  through the mount's `url`. Only a page drawn by the guest does (PAR-1205, below), with its router's page decorator in
+  place of these; components and designs all start at `/`.
 - **React Router** wraps each frame in its `MemoryRouter`, so `Link`, `NavLink`, `useNavigate` and `useLocation` work,
   in React Router 7 and 8, library and framework mode. A component that renders a router of its own, as an app's root
   with `<BrowserRouter>`, fails inside it, as React Router refuses a router inside a router. Hooks that need a data
@@ -7907,7 +7907,8 @@ A screen is named for the component its route draws, else its path.
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
-  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
+  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window. With Draw pages
+  directly on, a TanStack Router page is drawn by the guest instead (see PAR-1205, below).
 - **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
   view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, and an unset
@@ -7996,6 +7997,67 @@ its page's top edge. Each page frame was checked on the example at 1280 wide: Ap
 rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
 opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
 hovering Projects.
+
+### Pages drawn by the project's one instance (PAR-1205)
+
+With **Draw pages directly** on, in Settings › Canvas, a page whose router extension declares a page decorator is drawn
+as other frames are: by the guest in Parity's window, in a shadow root with its own React root, rather than by the app's
+`index.html` in an iframe. It's step 1 of [shared-app-instance.md](proposals/shared-app-instance.md), and off by default
+until page code's navigation is contained in Parity's window (step 2), since an auth guard that sets `window.location`
+would move Parity's own.
+
+- **The router's page decorator.** `providers.router.pageDecorators`, beside its frame decorators, says what goes around
+  a page's frame in their place, as data. TanStack Router's is the same `RouterProvider`, with a router made from the
+  app's generated `routeTree`, imported from `./src/routeTree.gen.ts`, and memory history at the page's path, so
+  layouts, loaders, `beforeLoad` and redirects run in the router as in a tab. A specifier starting `./` is a project
+  file, from the root, which the guest module imports by the builder's own path for it.
+- **Loaded with the first page.** The route tree imports every route, so the page decorators' modules aren't in the
+  guest module's imports: they load the first time a page is drawn, once for every page, and the frame draws nothing
+  until then. A component frame never loads them. A module that fails says so over the frame, as a decorator's does.
+- **Where it landed.** `{ "$frame": "landed" }` is a function the router calls with where it went, which TanStack
+  Router's decorator gives its memory history's `subscribe`. It takes a path, a location's `pathname`, or the
+  `{ location }` a history's listener gets, and the frame notes it for Layers and the "Lands on" warning, as the
+  iframe's `page-landed` message does.
+- **A frame like the rest.** It's drawn by `ModeView` with the page's path from `routePageUrl`, so it sleeps out of
+  view, shows bitmaps and skeletons, and grows to its content. Its render job carries the path (`page`), so the
+  offscreen window draws it the same way, and its bitmap is named by it.
+- **Its development code kept off the frames' routers.** In development, TanStack Router's plugin adds code to each
+  route's module that finds the app's router at `window.__TSR_ROUTER__` and updates its route as if the module's code
+  had changed. Every frame's router sets it, so the app's root route took a frame's empty root for its own and failed to
+  load. The manifest names such globals in `providers.router.pageLoadHides`, and they read as unset while the page
+  decorators' modules load, keeping what a router sets on them meanwhile.
+- **Where it falls back.** Off, without a page decorator, or with a guest that can't draw pages (`Guest.drawsPages`), a
+  page keeps its iframe (`PageFrame`). TanStack Router routes written in code, or a route tree generated somewhere other
+  than `src/routeTree.gen.ts`, fail to load the route tree and say so over the frame. A TanStack Start route whose
+  loader calls a server function fails over the frame, as the server function's request gets no answer it can read.
+
+Code: `pageDecorators` in `RouterContribution` (`packages/extension/src/manifest.ts`) and its schema in
+`packages/extension/src/reader/manifest.ts`; `decorators(projectId, "page")` in `packages/extension-host/src/hosts.ts`;
+`pageDecorators` in `ProjectConfig`, filled in `readProject` in `utility/projects.ts`; `pages` in `GuestDecorators`,
+`page` and `onLanded` in `MountOptions`, and `drawsPages` in `Guest` (`packages/core/src/adapters.ts`); the `landed`
+frame part in `packages/core/src/values/evaluate.ts`; `guestModule` in `packages/project/src/guest-module.ts`;
+`pageDecorators`, `hidingWhile` and `landedPath` in `packages/extension-react/src/guest.ts`; `pageLoadHides` in the
+manifest, `hosts.ts` and `ProjectConfig`; `pageRouterPath` in `packages/editor/src/route-boards.ts`; `page` in
+`frame-host.ts`, `ModeView.tsx`, `render.ts`, `render-job.ts` and `useFrameShows`; `FrameTile` in `ContainerView.tsx`;
+the `directPages` setting; the TanStack Router extension's manifest.
+
+Tests: `packages/extension-react/src/guest-pages.test.ts` (6: the page's router drawn at its URL in place of the
+frame's, where it landed after a redirect, the route tree loaded once for every page, a frame that isn't a page keeping
+the frame's router and never loading it, the router's global hidden while the route tree loads and kept as a frame set
+it, and why the route tree didn't load); "with a router's page decorators" in
+`packages/project/src/guest-module.test.ts`; "pageRouterPath" in `packages/editor/src/route-boards.test.ts`; "takes a
+router's frame decorators as data" in `packages/extension/src/reader/manifest.test.ts`; "gives the routers' frame
+decorators from their manifests" in `packages/extension-host/src/hosts.test.ts`; "has a manifest Parity accepts" in
+`packages/extension-tanstack-router/src/extension.test.ts`.
+
+Tried in a development build on 2026-11-16, with the setting on. On the example, the eight pages drew as frames with no
+iframes: Profile with the root's header and the Settings layout's menu, Dashboard on the login page with "Lands on
+/login" under it and a warning on its row in Layers, and every page from its bitmap at 3%. On Copacker, all 41 pages
+were frames with no iframes, but none drew: its root route's loader reads its document through a TanStack Start server
+function, which failed with "expected content-type header to be set". Waking the first of its pages held the window for
+89 seconds. Copacker's open wasn't measured against loading.md's table, since its pages didn't draw and seven other
+copies of Parity were running. Gaps: no end-to-end test; a route module's code change isn't drawn until the guest is
+made again.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

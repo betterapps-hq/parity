@@ -19,6 +19,11 @@ export interface FrameMount {
   tree?: RenderNode[]
   onError?: MountOptions["onError"]
   onFailures?: MountOptions["onFailures"]
+  /**
+   * The app's page the frame draws (PAR-1205): its URL's path, which the router's page decorator starts at, and what
+   * hears where the router landed.
+   */
+  page?: { url: string; onLanded?: (path: string) => void }
 }
 
 /** A design mounted in a frame, from `mountFrame`. */
@@ -76,6 +81,15 @@ export function mountFrame(host: HTMLElement, mount: FrameMount): MountedFrame {
 
   if (mount.onFailures) {
     mountOptions.onFailures = mount.onFailures
+  }
+
+  if (mount.page) {
+    mountOptions.page = true
+    mountOptions.url = mount.page.url
+
+    if (mount.page.onLanded) {
+      mountOptions.onLanded = mount.page.onLanded
+    }
   }
 
   const handle: MountHandle = loaded.guest.mount(target, tree, mountOptions)

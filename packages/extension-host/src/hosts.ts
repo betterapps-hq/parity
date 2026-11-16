@@ -347,9 +347,12 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   provider(projectId: string, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
   /**
    * What the project's extensions put around every frame, from their manifests, so it's known before their code runs:
-   * each router's decorators, with its prefix, in the order the extensions were given.
+   * each router's decorators, with its prefix, in the order the extensions were given. With `page`, those that go around
+   * a page's frame instead (PAR-1205).
    */
-  decorators(projectId: string): { extension: string; decorator: FrameDecorator }[]
+  decorators(projectId: string, of?: "frame" | "page"): { extension: string; decorator: FrameDecorator }[]
+  /** The window properties the routers' manifests hide while their page decorators' modules load (PAR-1205). */
+  pageLoadHides(projectId: string): string[]
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -1332,15 +1335,28 @@ export function extensionHosts<Project extends OpenedProject>(
 
       return manifest && { id: manifest.prefix, name: manifest.displayName }
     },
-    decorators(projectId) {
+    decorators(projectId, of = "frame") {
       const open = projects.get(projectId)
 
-      return [...(open?.hosts.values() ?? [])].flatMap(({ extension: { package: found } }) =>
-        (found.manifest.contributes.providers?.router?.decorators ?? []).map((decorator) => ({
+      return [...(open?.hosts.values() ?? [])].flatMap(({ extension: { package: found } }) => {
+        const router = found.manifest.contributes.providers?.router
+
+        return ((of === "page" ? router?.pageDecorators : router?.decorators) ?? []).map((decorator) => ({
           extension: found.manifest.prefix,
           decorator
         }))
-      )
+      })
+    },
+    pageLoadHides(projectId) {
+      const open = projects.get(projectId)
+
+      return [
+        ...new Set(
+          [...(open?.hosts.values() ?? [])].flatMap(
+            ({ extension: { package: found } }) => found.manifest.contributes.providers?.router?.pageLoadHides ?? []
+          )
+        )
+      ]
     },
     async provide(projectId, call, extension) {
       const open = projectOf(projectId)

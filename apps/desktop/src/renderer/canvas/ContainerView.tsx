@@ -52,6 +52,7 @@ import {
   landedElsewhere,
   pageHeightMessage,
   pageLandedMessage,
+  pageRouterPath,
   stateLabelSpace,
   titleReach
 } from "@parity-app/editor"
@@ -77,6 +78,7 @@ import { deleteDesign, duplicateDesign, renameDesign, setDesignKind } from "../c
 import { Hint } from "../chrome/Hint.tsx"
 import { shortcutOf } from "../chrome/keymap.ts"
 import { Name, NameInput } from "../chrome/Name.tsx"
+import { usePreferences } from "../chrome/preferences.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findNodeElement, frameHeightProperty } from "../frame.ts"
 import { ModeView } from "../ModeView.tsx"
@@ -1371,8 +1373,26 @@ const FrameTile = memo(function FrameTile({
   const tile = useRef<HTMLDivElement>(null)
   // Its header's pointed at, so it's outlined faintly.
   const [pointed, setPointed] = useState(false)
+  // A page of the app draws the app itself at its URL, rather than a design (PAR-1076): by the project's one instance,
+  // as other frames are, when the router's extension can and the person turned it on (PAR-1205), else in an iframe.
+  const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
+  const { directPages } = usePreferences()
+  const pagePath = page !== undefined && directPages && loaded.guest.drawsPages ? pageRouterPath(page) : undefined
+  const iframePage = pagePath === undefined ? page : undefined
+
+  // Layers and the board note where a page drawn as a frame landed, as an iframe's page says.
+  const pageLanded = useMemo(
+    () => (page === undefined ? undefined : (path: string) => setPageLanding(entry.key, landedElsewhere(page, path))),
+    [page, entry.key]
+  )
+
+  const pageMount = useMemo(
+    () => (pagePath === undefined ? undefined : { url: pagePath, ...(pageLanded && { onLanded: pageLanded }) }),
+    [pagePath, pageLanded]
+  )
+
   // What the frame shows, worked out once, which the live frame, its bitmap, its skeleton and its sleep all go by.
-  const shows = useFrameShows(session, tree, drawn, frame, scale, { key: entry.key, state: state.id })
+  const shows = useFrameShows(session, tree, drawn, frame, scale, { key: entry.key, state: state.id }, pagePath)
   const { key } = shows
   // Whether the frame changed since it was first looked at, which its board adds up (PAR-997).
   useFrameChange({ project: session.id, design: entry.key, state: state.id, mode: mode.id }, shows.job, key)
@@ -1462,8 +1482,6 @@ const FrameTile = memo(function FrameTile({
   }, [waiting])
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
-  // A page of the app draws the app itself at its URL, rather than a design (PAR-1076).
-  const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
   const tileStyle: CSSProperties = {}
 
   // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has noted its
@@ -1495,8 +1513,15 @@ const FrameTile = memo(function FrameTile({
         data-measured={height === undefined ? undefined : ""}
         data-asleep={awake && !waiting ? undefined : ""}
       >
-        {page ? (
-          <PageFrame url={page} design={entry.key} frame={frame} mode={drawn} scale={scale} interactive={interactive} />
+        {iframePage ? (
+          <PageFrame
+            url={iframePage}
+            design={entry.key}
+            frame={frame}
+            mode={drawn}
+            scale={scale}
+            interactive={interactive}
+          />
         ) : (
           <ModeView
             project={session.id}
@@ -1513,12 +1538,15 @@ const FrameTile = memo(function FrameTile({
             asleep={!awake || waiting}
             shows={shows.drawn}
             {...(firstFrame ? { onDrawn: drawnLive } : {})}
+            {...(pageMount ? { page: pageMount } : {})}
           />
         )}
-        {!page && skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
+        {!iframePage && skeleton && !showing && <FrameSkeleton skeleton={skeleton} />}
         {(selected || pointed) && <PreviewRing selected={selected} />}
-        {!page && placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
-        {!page && showing && <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />}
+        {!iframePage && placeholder && <div className="frame-placeholder" data-placeholder aria-hidden />}
+        {!iframePage && showing && (
+          <img ref={shownBitmap} className="frame-bitmap" src={showing} alt="" draggable={false} />
+        )}
         {resize}
       </div>
     </figure>

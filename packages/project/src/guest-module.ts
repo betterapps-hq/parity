@@ -168,6 +168,27 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     previewRef = ref(path)
   }
 
+  // A page's decorators import the app's route tree, which imports every route, so they load the first time a page is
+  // drawn rather than with the guest (PAR-1205). One that fails to load is passed on as its error.
+  const pageDecorators = config.pageDecorators ?? []
+
+  const pageModules = libraryImports({ decorators: pageDecorators.map(({ decorator }) => decorator) }).map((id) => {
+    const load = `import(${JSON.stringify(projectSpecifier(id, options.projectPath))})`
+
+    return `${JSON.stringify(id)}: () => ${load}.catch((error) => ({ loadError: String(error?.message ?? error) }))`
+  })
+
+  const pages =
+    pageDecorators.length === 0
+      ? []
+      : [
+          "    pages: {",
+          `      list: ${JSON.stringify(pageDecorators.map(({ extension, decorator }) => ({ library: extension, decorator })))},`,
+          `      modules: { ${pageModules.join(", ")} },`,
+          `      hides: ${JSON.stringify(config.pageLoadHides ?? [])}`,
+          "    },"
+        ]
+
   const described = (config.describedTokens ?? []).flatMap((source) => source.tokens)
   const libraryCss = describedTokenCss(described)
 
@@ -189,6 +210,7 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     "  },",
     "  decorators: {",
     `    list: ${JSON.stringify(decorated)},`,
+    ...pages,
     `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }${previewRef ? "," : ""}`,
     ...(previewRef ? [`    project: ${previewRef}`] : []),
     "  },",
@@ -228,6 +250,14 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
   ].join("\n")
 
   return { source, imports, optional }
+}
+
+/**
+ * The specifier a decorator's module is imported by: a package's as it's written, and a project file's, written from
+ * the root as `./src/routeTree.gen.ts`, as the builder imports project files.
+ */
+function projectSpecifier(id: string, projectPath: (path: string) => string): string {
+  return id.startsWith("./") ? projectPath(id.slice(2)) : id
 }
 
 /** An export path as property access: `Button` is `["Button"]`, and `Dialog.Root` reads into the namespace. */

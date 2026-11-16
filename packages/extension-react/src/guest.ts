@@ -472,6 +472,8 @@ export function createGuest(init: GuestInit): Guest {
   /** Components drawn on demand whose modules have loaded: until then, a boundary drawing one draws nothing. */
   const loadedOnDemand = new Set<string>()
   const statuses = renderStatuses((name) => registry.loader(name) !== undefined && !loadedOnDemand.has(name))
+  /** The page decorators' modules, loaded the first time a page is drawn (PAR-1205). */
+  let pageModules: Promise<GuestDecorators["modules"]> | undefined
   const report = statuses.report
   /** Where each component puts the style it's given, once a layer of it has drawn with one, in any frame. */
   const placements = new Map<string, StylePlacement>()
@@ -846,14 +848,29 @@ export function createGuest(init: GuestInit): Guest {
     css: init.css,
     mount(target, tree, options = {}): MountHandle {
       const report = (cause: unknown) => options.onError?.(cause)
-      const frame = frameOf(target, options.globals ?? {}, options.url ?? "/")
+      const frame = frameOf(target, options.globals ?? {}, options.url ?? "/", options.onLanded)
 
-      const decorate = options.bare
-        ? (content: ReactNode) => content
-        : decorators(init.decorators, frame, report, (loading) => {
-            inFlight.add(loading)
-            void loading.finally(() => inFlight.delete(loading))
-          })
+      const track = (loading: Promise<void>) => {
+        inFlight.add(loading)
+        void loading.finally(() => inFlight.delete(loading))
+      }
+
+      const pages = options.page ? init.decorators?.pages : undefined
+
+      if (pages) {
+        pageModules ??= hidingWhile(pages.hides ?? [], () => loadModules(pages.modules))
+        // It starts on its own path, until its router says it went elsewhere.
+        options.onLanded?.(new URL(options.url ?? "/", "http://page").pathname)
+      }
+
+      let decorate = (content: ReactNode): ReactNode => content
+
+      if (!options.bare) {
+        decorate =
+          init.decorators && pages && pageModules
+            ? pageDecorators(init.decorators, pages, pageModules, frame, report, track)
+            : decorators(init.decorators, frame, report, track)
+      }
 
       const failing = frameFailures(options.onFailures && ((failures) => options.onFailures?.(failures)))
 
@@ -974,6 +991,10 @@ export function createGuest(init: GuestInit): Guest {
 
   if (init.packageCss) {
     guest.packageCss = init.packageCss
+  }
+
+  if (init.decorators?.pages) {
+    guest.drawsPages = true
   }
 
   if (init.tokenCategories) {
@@ -1195,6 +1216,8 @@ interface Frame {
   globals: Record<string, string>
   /** The URL the frame stands for, `/` unless it's a page's. */
   url: string
+  /** Hears where a page's router landed, as a path. */
+  landed?: (path: string) => void
   /** The frame's shadow root, where its styles live. */
   root: ShadowRoot | Document
   /** The element standing in for the frame's `<body>`. */
@@ -1206,12 +1229,18 @@ interface Frame {
   undo(): void
 }
 
-function frameOf(target: HTMLElement, globals: Record<string, string>, url: string): Frame {
+function frameOf(
+  target: HTMLElement,
+  globals: Record<string, string>,
+  url: string,
+  landed?: (path: string) => void
+): Frame {
   const undos: (() => void)[] = []
 
   return {
     globals,
     url,
+    ...(landed && { landed }),
     root: shadowOf(target) ?? target.ownerDocument,
     body: target.parentElement ?? target,
     made: new Map(),
@@ -1353,15 +1382,19 @@ function StoryContent() {
   return createElement(Fragment, null, useContext(StoryContentContext))
 }
 
-/** The outermost `Story` once the preview's loaders are done, and what tells the frame it's there. */
-interface Ready {
-  get: () => (() => ReactNode) | undefined
-  set: (story: () => ReactNode) => void
+/** A value set once it's ready, as the outermost `Story` once the preview's loaders are done, and who hears it is. */
+interface Ready<Value = () => ReactNode> {
+  get: () => Value | undefined
+  set: (value: Value) => void
   subscribe: (listener: () => void) => () => void
 }
 
 function readyStory(): Ready {
-  let story: (() => ReactNode) | undefined
+  return readyValue<() => ReactNode>()
+}
+
+function readyValue<Value>(): Ready<Value> {
+  let story: Value | undefined
   const listeners = new Set<() => void>()
 
   return {
@@ -1582,10 +1615,126 @@ function frameHost(setup: GuestDecorators, frame: Frame): ValueHost {
           return frame.url
         case "content":
           return createElement(FrameContent)
+        // What a page's router calls with where it landed, as its history's listener (PAR-1205).
+        case "landed":
+          // oxlint-disable-next-line anti-slop/no-unknown-parameters -- a router calls its listener with whatever its history gives
+          return (where: unknown) => {
+            const path = landedPath(where)
+
+            if (path !== undefined) {
+              frame.landed?.(path)
+            }
+          }
       }
     },
     made: frame.made
   }
+}
+
+/**
+ * Where a router says it landed, as a path: a path as it is, a location's `pathname`, or the location a history's
+ * listener is given (`{ location, action }`). Undefined for anything else.
+ */
+// oxlint-disable-next-line anti-slop/no-unknown-parameters -- a router calls its listener with whatever its history gives
+function landedPath(where: unknown): string | undefined {
+  if (isText(where)) {
+    return where
+  }
+
+  if (!isComposite(where)) {
+    return undefined
+  }
+
+  if ("pathname" in where && isText(where.pathname)) {
+    return where.pathname
+  }
+
+  return "location" in where ? landedPath(where.location) : undefined
+}
+
+/**
+ * Wraps a page's frame in the router's page decorators in place of its frame decorators (PAR-1205), once their modules
+ * have loaded: it draws nothing until then, and `track` hears of the wait so the guest's `loaded()` waits for it too.
+ */
+function pageDecorators(
+  setup: GuestDecorators,
+  pages: NonNullable<GuestDecorators["pages"]>,
+  modules: Promise<GuestDecorators["modules"]>,
+  frame: Frame,
+  report: (cause: unknown) => void,
+  track: (loading: Promise<void>) => void
+): (content: ReactNode) => ReactNode {
+  const replaced = new Set(pages.list.map(({ library }) => library))
+  const ready = readyValue<(content: ReactNode) => ReactNode>()
+
+  const loading = modules.then((loaded) => {
+    const list = [...pages.list, ...setup.list.filter(({ library }) => !replaced.has(library))]
+    ready.set(decorators({ ...setup, list, modules: { ...setup.modules, ...loaded } }, frame, report, track))
+  })
+
+  track(loading)
+
+  return (content) => createElement(ReadyPage, { ready, content })
+}
+
+function ReadyPage({ ready, content }: { ready: Ready<(content: ReactNode) => ReactNode>; content: ReactNode }) {
+  const decorate = useSyncExternalStore(ready.subscribe, ready.get, ready.get)
+
+  return decorate ? decorate(content) : null
+}
+
+/**
+ * Runs `load` with the window's `names` reading as unset until it's done, keeping what's set on them meanwhile, as a
+ * frame's router sets TanStack Router's `__TSR_ROUTER__` when it's made. Each is as it was, or as last set, after.
+ */
+async function hidingWhile<T>(names: readonly string[], load: () => Promise<T>): Promise<T> {
+  const restores = names.map((name) => {
+    const own = Object.getOwnPropertyDescriptor(window, name)
+
+    if (own && !own.configurable) {
+      return () => undefined
+    }
+
+    let latest: unknown = own && "value" in own ? own.value : undefined
+    let set = false
+
+    Object.defineProperty(window, name, {
+      configurable: true,
+      get: () => undefined,
+      // oxlint-disable-next-line anti-slop/no-unknown-parameters -- whatever the page's code sets is kept as it is
+      set: (value: unknown) => {
+        latest = value
+        set = true
+      }
+    })
+
+    return () => {
+      if (own && !set) {
+        Object.defineProperty(window, name, own)
+      } else {
+        Object.defineProperty(window, name, { configurable: true, enumerable: true, writable: true, value: latest })
+      }
+    }
+  })
+
+  try {
+    return await load()
+  } finally {
+    for (const restore of restores) {
+      restore()
+    }
+  }
+}
+
+/** Loads modules by specifier, each as its exports or the error it failed with. */
+async function loadModules(
+  loaders: NonNullable<GuestDecorators["pages"]>["modules"]
+): Promise<GuestDecorators["modules"]> {
+  const entries = await Promise.all(
+    Object.entries(loaders).map(async ([specifier, load]) => [specifier, await load()] as const)
+  )
+
+  return Object.fromEntries(entries)
 }
 
 /** An export of a decorator's module, following dots into namespaces (`Tooltip.Provider`). */

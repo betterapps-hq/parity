@@ -26,6 +26,11 @@ export const settingValues = {
   autosave: z.boolean(),
   /** Frame rate, memory and CPU in the status bar, for spotting what slows the app down. */
   performanceStats: z.boolean(),
+  /**
+   * The app's pages are drawn by the project's one instance, as other frames are, rather than each in an iframe, where
+   * its router extension can (PAR-1205). Off until page code's navigation is contained in Parity's window.
+   */
+  directPages: z.boolean(),
   /** The editor View code opens a component's file in: one, the first installed, or the system's default app. */
   codeEditor: z.enum(["vscode", "cursor", "windsurf", "zed", "auto", "system"])
 } as const
@@ -43,6 +48,7 @@ export const defaultSettings: AppSettings = {
   layoutGrid: false,
   autosave: false,
   performanceStats: false,
+  directPages: false,
   codeEditor: "auto"
 }
 

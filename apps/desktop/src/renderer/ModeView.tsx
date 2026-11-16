@@ -49,6 +49,11 @@ interface ModeViewProps {
    * back is called when the frame is taken apart.
    */
   onDrawn?: (drawn: HTMLElement) => (() => void) | undefined
+  /**
+   * The app's page the frame draws, by its URL's path, with the router's page decorator around it (PAR-1205), and what
+   * hears where the router landed. The frame is mounted afresh at another page.
+   */
+  page?: { url: string; onLanded?: (path: string) => void }
 }
 
 /** What the canvas and tldraw would otherwise act on too, when the pointer or keys are the design's. */
@@ -82,7 +87,8 @@ export function ModeView({
   interactive = false,
   asleep = false,
   shows,
-  onDrawn
+  onDrawn,
+  page
 }: ModeViewProps) {
   const frameRef = useRef<HTMLDivElement>(null)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -108,6 +114,11 @@ export function ModeView({
   useLayoutEffect(() => {
     onDrawnRef.current = onDrawn
   }, [onDrawn])
+  const pageUrl = page?.url
+  const onLandedRef = useRef(page?.onLanded)
+  useLayoutEffect(() => {
+    onLandedRef.current = page?.onLanded
+  }, [page?.onLanded])
 
   // The frame's failing layers show in the console and mark Layers. Asleep, it keeps the ones it last drew with; gone, it
   // takes them back.
@@ -189,6 +200,10 @@ export function ModeView({
       loaded,
       mode: { ...environment, viewport: viewportRef.current },
       sheets: [classes.sheet],
+      // Where the router lands is heard after the guest's render, never inside it.
+      ...(pageUrl !== undefined && {
+        page: { url: pageUrl, onLanded: (path: string) => queueMicrotask(() => onLandedRef.current?.(path)) }
+      }),
       // A component's boundary draws its own error in its place, and the layer is marked, so only an error that stopped
       // the frame drawing is shown over it.
       onError: (reason, layer) => {
@@ -237,7 +252,7 @@ export function ModeView({
       // The guest lets go just after, so never inside one of the canvas's commits, should the two share a React.
       mounted.unmount({ soon: true })
     }
-  }, [loaded, classes, environmentKey, interactions, asleep, failuresKey])
+  }, [loaded, classes, environmentKey, interactions, asleep, failuresKey, pageUrl])
 
   useEffect(() => {
     currentKey.current = renderKey

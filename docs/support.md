@@ -313,7 +313,11 @@ folders and files as segments, `[id]`, `[...slug]` and `[[...slug]]`, nested lay
 intercepting `(.)`, `(..)` and `(...)` routes are read with their slot and the route they intercept, and left off the
 canvas. Private `_folders`, route handlers, `_document` and `api/` aren't routes. Its pages draw once a builder serves
 the app. Each page is a screen, laid out in the router's tree, whose frames load the app itself at the page's URL (see
-editor.md), with each path param's value set in Props.
+editor.md), with each path param's value set in Props. With Draw pages directly on, in Settings, TanStack Router's pages
+are drawn by the project's one instance instead, as other frames are, from the app's generated route tree in memory
+(PAR-1205, see [editor.md](editor.md#pages-drawn-by-the-projects-one-instance-par-1205)). Routes written in code, a
+route tree generated somewhere other than `src/routeTree.gen.ts`, and TanStack Start routes whose loaders call server
+functions aren't drawn that way yet, nor are React Router's and Next.js's pages.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.

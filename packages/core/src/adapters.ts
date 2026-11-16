@@ -629,12 +629,30 @@ export interface GuestDecorators {
    * inside the libraries'.
    */
   project?: ModuleExports | { loadError: string }
+  /**
+   * What goes around a page's frame in place of the frame decorators of the extensions they come from (PAR-1205),
+   * outermost first, and their modules by specifier, each loaded the first time a page is drawn.
+   */
+  pages?: {
+    list: { library: string; decorator: LibraryDecorator }[]
+    modules: Record<string, () => Promise<ModuleExports | { loadError: string }>>
+    /**
+     * Window properties that read as unset while the modules load, as a router's development code reads one to find
+     * the app's router, which would otherwise be a frame's. What's set on one meanwhile is kept for after.
+     */
+    hides?: string[]
+  }
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
 export interface Guest {
   renderer: string
   components: string[]
+  /**
+   * Whether it can draw one of the app's pages as a frame (`MountOptions.page`): the router's extension gave decorators
+   * for pages (PAR-1205).
+   */
+  drawsPages?: boolean
   /** Whether a component, or an icon from one of its icon sets, exists. */
   hasComponent(name: string): boolean
   /**
@@ -706,6 +724,16 @@ export interface MountOptions {
    * extension starts its router there. `/` when unset.
    */
   url?: string
+  /**
+   * The frame is one of the app's pages, at `url`: the page decorators go around it in place of the frame decorators of
+   * the extensions that declare them, so their router draws the app's own routes (PAR-1205).
+   */
+  page?: boolean
+  /**
+   * Where a page's router landed, as a path, each time it goes somewhere: the page's own path, or where a redirect sent
+   * it.
+   */
+  onLanded?: (path: string) => void
   /**
    * The window the frame stands for. The project's code that asks the window its size (`matchMedia`, `innerWidth`,
    * resize events) gets this instead of Parity's window while it renders the frame or handles its events.

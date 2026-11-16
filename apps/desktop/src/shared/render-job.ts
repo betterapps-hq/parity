@@ -46,6 +46,8 @@ export interface JobFrame {
   colorTokens?: string[]
   /** Draw what the frame's components portal out of it inside it, as a component preview does (PAR-517). */
   inlinePortals?: boolean
+  /** The app's page it draws, by its URL's path, as a page's frame does (PAR-1205). */
+  page?: string
   /** The design it draws, for the console messages it writes (PAR-147). */
   design?: RenderJob["design"]
   /**
@@ -85,6 +87,10 @@ export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
 
   if (frame.inlinePortals) {
     job.inlinePortals = true
+  }
+
+  if (frame.page !== undefined) {
+    job.page = frame.page
   }
 
   if (tokens?.length) {
@@ -158,7 +164,8 @@ export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
     JSON.stringify(drawnComponents(job.tree, {}, job.components)),
     job.guestUrl,
     JSON.stringify([mode.classNames, mode.attributes, mode.globals, mode.touch]),
-    JSON.stringify(job.tree)
+    JSON.stringify(job.tree),
+    job.page ?? ""
   ].join("|")
 
   const key = [
@@ -191,7 +198,8 @@ export function bitmapName(
     mode: drawnMode(job.mode),
     scale: job.scale,
     inlinePortals: job.inlinePortals,
-    previews: job.previews
+    previews: job.previews,
+    page: job.page
   }
 
   return `${JSON.stringify(drawn)}\0${JSON.stringify(drawnComponents(job.tree, served, job.components))}`

@@ -71,6 +71,11 @@ export const renderJob = z.object({
    */
   inlinePortals: z.literal(true).optional(),
   /**
+   * The app's page it draws, by its URL's path, with the router's page decorator around it, as a page's frame does
+   * (PAR-1205).
+   */
+  page: z.string().optional(),
+  /**
    * Every token value that differs from the project's compiled CSS, such as unsaved edits: the complete set, not
    * changes. Each frame starts from the compiled stylesheet and lays these over it, so no frame inherits another's.
    */

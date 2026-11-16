@@ -505,6 +505,16 @@ export function landedElsewhere(url: string, landed: string): string | undefined
   return trim(new URL(url).pathname) === trim(landed) ? undefined : landed
 }
 
+/**
+ * Where a page drawn as a frame starts its router (PAR-1205): its URL's path, query and hash, since the router's memory
+ * history is on no origin.
+ */
+export function pageRouterPath(url: string): string {
+  const { pathname, search, hash } = new URL(url)
+
+  return `${pathname}${search}${hash}`
+}
+
 /** The mode a page's frame draws in, as the app's own page reads it from the frame's name (PAR-1076). */
 export interface PageMode {
   classes: string[]

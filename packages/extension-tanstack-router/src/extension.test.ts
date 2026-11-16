@@ -17,6 +17,15 @@ describe("the TanStack Router extension", () => {
     const [router] = found.manifest.contributes.providers?.router?.decorators ?? []
     expect(router?.wrap.component).toBe("RouterProvider")
     expect(JSON.stringify(router?.wrap.props)).toContain('"component":{"$function":{"$frame":"content"}}')
+    // Around a page, the same router made from the app's generated route tree, at the page's URL, saying where it
+    // landed (PAR-1205).
+    const [page] = found.manifest.contributes.providers?.router?.pageDecorators ?? []
+    expect(page?.wrap.component).toBe("RouterProvider")
+    expect(JSON.stringify(page?.wrap.props)).toContain('"routeTree":{"$import":"./src/routeTree.gen.ts"')
+    expect(JSON.stringify(page?.wrap.props)).toContain('"initialEntries":[{"$frame":"url"}]')
+    expect(JSON.stringify(page?.wrap.props)).toContain('"args":[{"$frame":"landed"}]')
+    // Its route modules look for the app's router there in development, and would take a frame's for it.
+    expect(found.manifest.contributes.providers?.router?.pageLoadHides).toEqual(["__TSR_ROUTER__"])
     expect(found.manifest.contributes.nodeTypes?.map((type) => type.id)).toEqual(["route"])
     expect(found.versions).toEqual({ packages: ["@tanstack/react-router"], range: "^1.0.0" })
     // It reads the route tree and route files through Parity's files API, wherever the router's config puts them.

@@ -148,6 +148,58 @@
                 }
               }
             }
+          ],
+          "pageDecorators": [
+            {
+              "wrap": {
+                "import": "@tanstack/react-router",
+                "component": "RouterProvider",
+                "props": {
+                  "router": {
+                    "$call": {
+                      "import": "@tanstack/react-router",
+                      "export": "createRouter"
+                    },
+                    "args": [
+                      {
+                        "routeTree": {
+                          "$import": "./src/routeTree.gen.ts",
+                          "export": "routeTree"
+                        },
+                        "history": {
+                          "$call": {
+                            "import": "@tanstack/react-router",
+                            "export": "createMemoryHistory"
+                          },
+                          "args": [
+                            {
+                              "initialEntries": [
+                                {
+                                  "$frame": "url"
+                                }
+                              ]
+                            }
+                          ],
+                          "methods": [
+                            {
+                              "method": "subscribe",
+                              "args": [
+                                {
+                                  "$frame": "landed"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ],
+          "pageLoadHides": [
+            "__TSR_ROUTER__"
           ]
         }
       }

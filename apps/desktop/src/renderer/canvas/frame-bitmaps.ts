@@ -89,7 +89,9 @@ export function useFrameShows(
   frame: FrameGeometry,
   scale: number,
   /** The design and state drawn, by key and id, for what the frame writes to the console while it's drawn offscreen. */
-  drawn: { key: string; state: string }
+  drawn: { key: string; state: string },
+  /** The app's page it draws, by its URL's path, as a page's frame does (PAR-1205). */
+  page?: string
 ): FrameShows {
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
   const { guest } = session.loaded
@@ -113,7 +115,8 @@ export function useFrameShows(
           scale: bitmapScale * scale,
           tokens: previews,
           design: { key: drawn.key, state: drawn.state, mode: mode.id },
-          canvas: true
+          canvas: true,
+          ...(page !== undefined && { page })
         }
       ),
     [
@@ -130,7 +133,8 @@ export function useFrameShows(
       scale,
       previews,
       drawn.key,
-      drawn.state
+      drawn.state,
+      page
     ]
   )
 

@@ -96,7 +96,11 @@ const router = readExtension({
     contributes: {
       nodeTypes: [{ id: "route", name: "Route" }],
       providers: {
-        router: { decorators: [{ wrap: { import: "@tanstack/react-router", component: "RouterContextProvider" } }] }
+        router: {
+          decorators: [{ wrap: { import: "@tanstack/react-router", component: "RouterContextProvider" } }],
+          pageDecorators: [{ wrap: { import: "@tanstack/react-router", component: "RouterProvider" } }],
+          pageLoadHides: ["__TSR_ROUTER__"]
+        }
       }
     }
   }
@@ -1305,6 +1309,11 @@ describe("providers (PAR-1095)", () => {
     expect(hosts.decorators("shop").map(({ extension, decorator }) => [extension, decorator.wrap.component])).toEqual([
       ["tanstack-router", "RouterContextProvider"]
     ])
+    // And those around a page's frame in their place (PAR-1205).
+    expect(
+      hosts.decorators("shop", "page").map(({ extension, decorator }) => [extension, decorator.wrap.component])
+    ).toEqual([["tanstack-router", "RouterProvider"]])
+    expect(hosts.pageLoadHides("shop")).toEqual(["__TSR_ROUTER__"])
     expect(started).toEqual([])
     expect(hosts.decorators("elsewhere")).toEqual([])
   })

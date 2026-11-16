@@ -113,6 +113,7 @@ window.canvasRender = async (job) => {
       loaded,
       mode: job.mode,
       tree,
+      ...(job.page !== undefined && { page: { url: job.page } }),
       onError: (error) => {
         errors.push(error instanceof Error ? error.message : String(error))
 
