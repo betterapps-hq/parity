@@ -64,12 +64,23 @@ function without(layout: Layout, lens: LensId, except?: string): LensWindow[] {
     .filter((each): each is LensWindow => each.groups.length > 0 && each.focused !== undefined)
 }
 
+/** Whether a lens is the main window's only one, which can't leave it: the main window always keeps a lens. */
+function anchorsMain(layout: Layout, lens: LensId): boolean {
+  const main = layout.windows[0]!
+
+  return main.groups.length === 1 && main.groups[0]!.lens === lens
+}
+
 /** Shows a lens in a group, in place of the lens it showed. If the lens showed elsewhere, that group closes. */
 export function showIn(layout: Layout, lens: LensId, groupId: string): Layout {
   const there = find(layout, lens)
 
   if (there?.group.id === groupId) {
     return focus(layout, groupId)
+  }
+
+  if (anchorsMain(layout, lens)) {
+    return layout
   }
 
   // Shown in a group of its own somewhere else, move it rather than show it twice; the group it leaves closes.
@@ -114,6 +125,11 @@ export function splitRight(layout: Layout, lens: LensId, windowId: string, besid
     return layout
   }
 
+  // Moving the main window's only lens elsewhere would leave it empty, so it stays.
+  if (windowId !== layout.windows[0]!.id && anchorsMain(layout, lens)) {
+    return layout
+  }
+
   const fresh = group(lens)
 
   const windows = without(layout, lens).map((each) => {
@@ -133,9 +149,7 @@ export function splitRight(layout: Layout, lens: LensId, windowId: string, besid
 
 /** Moves a lens into a window of its own. The main window keeps at least one lens. */
 export function toNewWindow(layout: Layout, lens: LensId): Layout {
-  const there = find(layout, lens)
-
-  if (there && there.window === layout.windows[0] && there.window.groups.length === 1) {
+  if (anchorsMain(layout, lens)) {
     return layout
   }
 
