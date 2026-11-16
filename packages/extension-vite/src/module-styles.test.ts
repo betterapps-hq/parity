@@ -73,19 +73,21 @@ async function served(url: string): Promise<string> {
 }
 
 /** The collector's source as served, imported on its own, as the page imports it once for the guest and every stylesheet. */
-async function collector(): Promise<
-  ModuleStyles & { updateStyle(id: string, css: string): void; removeStyle(id: string): void }
-> {
+async function collector(): Promise<ModuleStyles & CollectorFunctions> {
   const source = await served("/@id/__x00__virtual:canvas/module-styles")
 
   // SAFETY: the collector's module exports these, as moduleStylesSource writes it.
   const module = (await import(`data:text/javascript,${encodeURIComponent(source)}`)) as {
     moduleStyles: ModuleStyles
-    updateStyle(id: string, css: string): void
-    removeStyle(id: string): void
-  }
+  } & CollectorFunctions
 
   return { ...module.moduleStyles, updateStyle: module.updateStyle, removeStyle: module.removeStyle }
+}
+
+/** What a served stylesheet module calls on the collector, as Vite's client would be called. */
+interface CollectorFunctions {
+  updateStyle: (id: string, css: string) => void
+  removeStyle: (id: string) => void
 }
 
 describe("a stylesheet a project's module imports", () => {
