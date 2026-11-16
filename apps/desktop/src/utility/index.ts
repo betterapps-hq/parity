@@ -145,6 +145,14 @@ const extensions = startExtensions(
       }
 
       return (await editor.request("extensions.windowCall", { projectId, extension, method, args })).result
+    },
+    // A command an internal extension's window module registered runs in the tab, when one has the project open.
+    async runInWindow(projectId, command, target) {
+      if (!editor) {
+        return { handled: false }
+      }
+
+      return editor.request("extensions.windowRun", target ? { projectId, command, target } : { projectId, command })
     }
   },
   {

@@ -21,7 +21,7 @@ import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../pro
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
 import { notify } from "../toasts.tsx"
-import { windowModulesFor } from "../window-modules.ts"
+import { runWindowCommand, windowModulesFor } from "../window-modules.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 
@@ -200,6 +200,11 @@ const handlers: Handlers = {
     const result = await modules.callFromNode(extension, method, args)
 
     return result === undefined ? {} : { result }
+  },
+  "extensions.windowRun": async ({ projectId, command, target }) => {
+    const session = sessionOf(projectId)
+
+    return session ? runWindowCommand(session, command, target) : { handled: false }
   },
   "extensions.transact": ({ projectId, label, operations }) => {
     const session = sessionOf(projectId)

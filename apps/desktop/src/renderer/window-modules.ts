@@ -98,7 +98,7 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions):
 
       return load()
     },
-    editor: editorOf(session),
+    editor: editorOf(session, extensions),
     halves: {
       start: (extension, trigger) =>
         void request("extensions.startHalf", { projectId, extension, trigger }).catch(() => undefined),
@@ -137,7 +137,7 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions):
 }
 
 /** The tab's selection, navigation and commands, as a window module reaches them, answered as an extension's asks are. */
-function editorOf(session: ProjectSession): WindowEditor {
+function editorOf(session: ProjectSession, extensions: TabExtensions): WindowEditor {
   const ask = async (asked: EditorRequest) => {
     // It reaches into the canvas and the panels, so it loads with the first such request.
     const { answerEditor } = await import("./extension-editor.ts")
@@ -182,8 +182,23 @@ function editorOf(session: ProjectSession): WindowEditor {
       openSettings: async (id) => void (await go({ kind: "openSettings", id: id ?? "" })),
       pageUrl: (ref) => go({ kind: "pageUrl", ref })
     },
-    execute: async (command, target) =>
-      void (await ask({ ...asking, method: "commands.execute", params: target ? { command, target } : { command } }))
+    execute: async (command, target) => {
+      const declared = extensions.store
+        .get()
+        .extensions.some((extension) => extension.contributes.commands?.some((each) => each.id === command))
+
+      // An extension's command goes to the service, which runs it in its window module or its Node half.
+      if (declared) {
+        await request(
+          "extensions.run",
+          target ? { projectId: session.id, command, target } : { projectId: session.id, command }
+        )
+
+        return
+      }
+
+      await ask({ ...asking, method: "commands.execute", params: target ? { command, target } : { command } })
+    }
   }
 }
 

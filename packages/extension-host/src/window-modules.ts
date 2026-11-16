@@ -198,6 +198,11 @@ interface Entry {
   surfaces: Map<string, object>
   /** `extension.halfUnavailable` sent this minute, for its sampling. */
   unavailable: { since: number; count: number }
+  /**
+   * Its activations and teardowns, one after another: an activation that's been overtaken finishes and tears itself
+   * down before the next starts, so it never disposes of what its replacement set up.
+   */
+  settled: Promise<void>
 }
 
 const json: z.ZodType<JsonValue> = z.json()
@@ -387,7 +392,19 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             }
           })
         },
-        execute: (command, target) => options.editor.execute(command, target)
+        // One a window module in this tab registered runs here; any other goes to the window, which runs Parity's own
+        // commands and sends other extensions' to the service.
+        execute: async (command, target) => {
+          const registered = commands.get(command)
+
+          if (registered && registered.entry.state === "active") {
+            await answered(registered.entry, `command:${command}`, () => registered.handler(target))
+
+            return
+          }
+
+          await options.editor.execute(command, target)
+        }
       },
       selection: {
         get: () => options.editor.selection.get(),
@@ -481,7 +498,15 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       return event.startsWith("onSetting:") && extension.settings[event.slice("onSetting:".length)] === true
     })
 
-  const activate = async (entry: Entry, trigger: string) => {
+  /** Runs work on an entry's module after whatever it's still doing: an activation, or a teardown. */
+  const queued = (entry: Entry, work: () => Promise<void>) => {
+    const next = entry.settled.then(work)
+    entry.settled = next.catch(() => undefined)
+
+    return next
+  }
+
+  const activate = (entry: Entry, trigger: string) => {
     const { extension } = entry
     entry.run += 1
     const run = entry.run
@@ -494,6 +519,17 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
 
     options.halves.state(extension.id, "starting")
+
+    return queued(entry, () => activateRun(entry, trigger, run))
+  }
+
+  const activateRun = async (entry: Entry, trigger: string, run: number) => {
+    const { extension } = entry
+
+    // Turned off or stopped while an earlier run finished.
+    if (entry.run !== run) {
+      return
+    }
 
     let module: WindowModule
 
@@ -624,22 +660,24 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       return
     }
 
-    const hadApi = entry.activated?.window !== undefined
-    await teardown(entry)
-    options.record?.("extension.deactivated", {
-      extension: entry.extension.id,
-      half: "window",
-      why,
-      uptimeMs: now() - entry.began
-    })
+    await queued(entry, async () => {
+      const hadApi = entry.activated?.window !== undefined
+      await teardown(entry)
+      options.record?.("extension.deactivated", {
+        extension: entry.extension.id,
+        half: "window",
+        why,
+        uptimeMs: now() - entry.began
+      })
 
-    if (hadApi) {
-      for (const watcher of entries.values()) {
-        for (const listener of watcher.watching.get(entry.extension.id)?.gone ?? []) {
-          guarded(watcher, "extensions.onGone", () => listener())
+      if (hadApi) {
+        for (const watcher of entries.values()) {
+          for (const listener of watcher.watching.get(entry.extension.id)?.gone ?? []) {
+            guarded(watcher, "extensions.onGone", () => listener())
+          }
         }
       }
-    }
+    })
   }
 
   /** The Node half's state as its window module sees it: starting again once it has been ready is restarting. */
@@ -719,7 +757,8 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             settingListeners: new Map(),
             watching: new Map(),
             surfaces: new Map(),
-            unavailable: { since: 0, count: 0 }
+            unavailable: { since: 0, count: 0 },
+            settled: Promise.resolve()
           })
         }
       }

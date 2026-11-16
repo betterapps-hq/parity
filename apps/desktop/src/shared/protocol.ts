@@ -29,7 +29,7 @@ import type {
   RecoveryCopy,
   ReferenceAdded
 } from "@parity-app/editor"
-import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension"
+import type { CommandTarget, ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension"
 import type {
   ExtensionStatus,
   HostServiceMethods,
@@ -417,6 +417,11 @@ export interface WindowMethods {
     params: { projectId: string; extension: string; method: string; args: JsonValue[] }
     result: { result?: JsonValue }
   }
+  /** Runs a command an internal extension's window module registered in the project's tab; `handled` is false otherwise. */
+  "extensions.windowRun": {
+    params: { projectId: string; command: string; target?: CommandTarget }
+    result: { handled: boolean; result?: JsonValue }
+  }
 }
 
 /** What an extension asks of the window, by method, with what the host sent. */
@@ -469,7 +474,8 @@ export const windowMethods = Object.keys({
   "extensions.edited": true,
   "extensions.setting": true,
   "extensions.reveal": true,
-  "extensions.windowCall": true
+  "extensions.windowCall": true,
+  "extensions.windowRun": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }

@@ -188,6 +188,15 @@ export interface ExtensionWindow {
    * Node half. Rejects when the module isn't ready there.
    */
   callWindow?(projectId: string, extension: string, method: string, args: JsonValue[]): Promise<JsonValue | undefined>
+  /**
+   * Runs a command an internal extension's window module registered, in the project's tab. `handled` is false when no
+   * window module there has it, as while it's off.
+   */
+  runInWindow?(
+    projectId: string,
+    command: string,
+    target?: CommandTarget
+  ): Promise<{ handled: boolean; result?: JsonValue }>
 }
 
 /** Which extension asks the process manager for something, for which project, and what its manifest allows it. */
@@ -1194,8 +1203,8 @@ export function extensionHosts<Project extends OpenedProject>(
   ): Promise<Dependency[]> {
     const ids = host.extension.package.manifest.extensionDependencies ?? []
 
-    return Promise.all(
-      ids.map(async (id) => {
+    const found = await Promise.all(
+      ids.map(async (id): Promise<Dependency[]> => {
         if (chain.includes(id)) {
           throw new Error(`It depends on itself, through ${[...chain, id].join(", ")}`)
         }
@@ -1206,12 +1215,19 @@ export function extensionHosts<Project extends OpenedProject>(
           throw new Error(`It needs ${id}, which isn't in ${open.project.name}`)
         }
 
-        await ensureRunning(open, other, chain, call)
-        const { package: found } = other.extension
+        // An internal extension with only a window module has nothing here to start: window modules reach it in the tab.
+        if (other.extension.main === undefined) {
+          return []
+        }
 
-        return { id, version: found.version, displayName: found.manifest.displayName, api: other.api ?? [] }
+        await ensureRunning(open, other, chain, call)
+        const { package: dependency } = other.extension
+
+        return [{ id, version: dependency.version, displayName: dependency.manifest.displayName, api: other.api ?? [] }]
       })
     )
+
+    return found.flat()
   }
 
   /** A host's process once it has activated, starting it first when it isn't running. */
@@ -1286,6 +1302,21 @@ export function extensionHosts<Project extends OpenedProject>(
 
     if (!host) {
       throw new Error(`No extension running for ${open.project.name} declares ${command}`)
+    }
+
+    const { manifest } = host.extension.package
+
+    // An internal extension's window module may have registered it, so the tab is asked first.
+    if (manifest.window !== undefined && options.window.runInWindow) {
+      const ran = await options.window.runInWindow(open.project.id, command, target)
+
+      if (ran.handled) {
+        return ran.result
+      }
+    }
+
+    if (host.extension.main === undefined) {
+      throw new Error(`${manifest.displayName} isn't running in ${open.project.name}, so ${command} can't run`)
     }
 
     try {

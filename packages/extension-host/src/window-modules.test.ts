@@ -427,6 +427,44 @@ describe("window modules in a project tab", () => {
     expect(stopped).toEqual(["Window test"])
     expect(Object.values(runtime.states())).toEqual(["inactive"])
   })
+
+  it("lets a slow activation that's been overtaken finish without undoing the one after it", async () => {
+    const first = Promise.withResolvers<void>()
+    let runs = 0
+
+    const slow = defineWindowModule({
+      async activateWindow(parity) {
+        runs += 1
+        const run = runs
+        parity.subscriptions.push(parity.commands.register("wtest.fail", () => `run ${run}`))
+
+        if (run === 1) {
+          await first.promise
+        }
+
+        return {}
+      }
+    })
+
+    const { runtime } = tab({ "@parity-app/extension-window-test": slow })
+
+    runtime.update([extension()])
+    await settle()
+    runtime.update([extension({ settings: { "wtest.on": false } })])
+    runtime.update([extension()])
+    await settle()
+
+    // The second waits for the first, still activating, to finish and tear itself down.
+    expect(runs).toBe(1)
+
+    first.resolve()
+    await settle()
+    await settle()
+
+    expect(runs).toBe(2)
+    expect(Object.values(runtime.states())).toEqual(["active"])
+    await expect(runtime.run("wtest.fail")).resolves.toEqual({ handled: true, result: "run 2" })
+  })
 })
 
 describe("an internal extension's two halves (the window test extension, in the real host code)", () => {
@@ -474,7 +512,9 @@ describe("an internal extension's two halves (the window test extension, in the 
         ui: () => Promise.reject(new Error("Not in this test")),
         reveal: () => undefined,
         callWindow: (_projectId, extension, method, args) =>
-          link.get("runtime")?.callFromNode(extension, method, args) ?? Promise.reject(new Error("No tab"))
+          link.get("runtime")?.callFromNode(extension, method, args) ?? Promise.reject(new Error("No tab")),
+        runInWindow: (_projectId, command, target) =>
+          link.get("runtime")?.run(command, target) ?? Promise.resolve({ handled: false })
       },
       processes: {
         start: () => Promise.reject(new Error("Not in this test")),
@@ -601,6 +641,17 @@ describe("an internal extension's two halves (the window test extension, in the 
 
     // The Node half calls its window module, through `parity.window`.
     await expect(hosts.callHalf("shop", id, "windowStatus", [])).resolves.toEqual({ tab: "tab-1", selections: 0 })
+  })
+
+  it("runs a command the window module registered in the tab, for its own module, the service and an agent", async () => {
+    const { hosts, parities, ready } = setUp()
+
+    await ready()
+
+    // `wtest.fail` is the window module's, and fails on purpose: the Node half has no handler for it.
+    await expect(parities.get(id)?.commands.execute("wtest.fail")).rejects.toThrow("Failing on purpose")
+    await expect(hosts.run("shop", "wtest.fail")).rejects.toThrow("Failing on purpose")
+    await expect(hosts.runForAgent("shop", { name: "wtest.fail" }, "Claude")).rejects.toThrow("Failing on purpose")
   })
 
   it("deactivates the window module once the Node half has crashed three times in a row", async () => {
