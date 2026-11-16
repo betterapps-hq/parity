@@ -1,5 +1,5 @@
 import { connect } from "node:net"
-import type { Endpoint, ProcessEnd, ProcessOwner, ReadyCheck } from "@parity-app/extension-api"
+import type { Endpoint, ProcessEnd, ProcessOwner, ReadyCheck } from "@parity-app/extension"
 import {
   type ChildEnd,
   type ChildExit,

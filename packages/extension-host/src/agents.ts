@@ -1,4 +1,4 @@
-import type { AgentToolContribution, Fact, JsonSchema, JsonValue } from "@parity-app/extension-api"
+import type { AgentToolContribution, Fact, JsonSchema, JsonValue } from "@parity-app/extension"
 import { z } from "zod"
 import type { ExtensionStatus, HostState } from "./hosts.ts"
 

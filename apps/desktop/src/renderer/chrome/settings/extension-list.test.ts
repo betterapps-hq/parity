@@ -1,4 +1,4 @@
-import type { ExtensionStatus, InstalledStatus } from "@parity-app/extensions"
+import type { ExtensionStatus, InstalledStatus } from "@parity-app/extension-host"
 import { describe, expect, it } from "vite-plus/test"
 import { extensionList, extensionsOfProject } from "./extension-list.ts"
 

@@ -13,6 +13,15 @@ import {
   type PackageManifest,
   type RendererDescription
 } from "@parity-app/core"
+import {
+  detectByManifest,
+  type ExtensionEdits,
+  type ExtensionFiles,
+  type ExtensionHosts,
+  type ExtensionWindow,
+  extensionHosts,
+  type InstalledExtension
+} from "@parity-app/extension-host"
 import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
@@ -26,16 +35,7 @@ import routerPackage from "@parity-app/extension-tanstack-router/package.json" w
 import turbopackPackage from "@parity-app/extension-turbopack/package.json" with { type: "json" }
 import vitePackage from "@parity-app/extension-vite/package.json" with { type: "json" }
 import webpackPackage from "@parity-app/extension-webpack/package.json" with { type: "json" }
-import {
-  detectByManifest,
-  type ExtensionEdits,
-  type ExtensionFiles,
-  type ExtensionHosts,
-  type ExtensionWindow,
-  extensionHosts,
-  type InstalledExtension,
-  readExtension
-} from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { logNote } from "../shared/log.ts"
 import { forkChild } from "./children.ts"
 import { environment } from "./environment.ts"
@@ -45,7 +45,7 @@ import { processProviders } from "./process-providers.ts"
 import type { OpenProject, ProjectProviders, ProviderProject } from "./projects.ts"
 
 /*
- * The extensions Parity runs, each in a host of its own for each open project (see `@parity-app/extensions`). Each host
+ * The extensions Parity runs, each in a host of its own for each open project (see `@parity-app/extension-host`). Each host
  * is a forked Node process started through the service's one child lifecycle, with the service's key-free environment,
  * so main ends it should the service crash. Parity's own extensions are built in: their manifests are read from their
  * packages as the service starts, and their code is bundled beside the service, loaded only when a host activates.

@@ -14,11 +14,10 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/extension": "workspace:*",
     "typescript": "6.0.3"
   },
   "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "happy-dom": "catalog:",

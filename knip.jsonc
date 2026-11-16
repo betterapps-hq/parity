@@ -102,11 +102,6 @@
       "entry": ["src/**/*.test.ts"],
       "project": ["src/**/*.ts"]
     },
-    "packages/extension-api": {
-      // Types only: its exports come from package.json, and it has no tests.
-      "entry": [],
-      "project": ["src/**/*.ts"]
-    },
     "packages/*": {
       // Each package's exports and scripts come from its package.json.
       "entry": ["src/**/*.test.ts"],

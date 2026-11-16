@@ -1,6 +1,6 @@
-import type { ViewData, ViewItem } from "@parity-app/extension-api"
+import type { ViewData, ViewItem } from "@parity-app/extension"
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
-import { readExtension } from "@parity-app/extensions"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import type { ExtensionStatus } from "../shared/protocol.ts"
 import { actionsFor, isField, pageOf, sectionsFor, shownItems, tabsAt, treeRows } from "./extension-views.ts"

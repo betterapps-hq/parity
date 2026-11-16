@@ -355,9 +355,12 @@ importers:
       '@parity-app/editor':
         specifier: workspace:*
         version: link:../../packages/editor
-      '@parity-app/extension-api':
+      '@parity-app/extension':
         specifier: workspace:*
-        version: link:../../packages/extension-api
+        version: link:../../packages/extension
+      '@parity-app/extension-host':
+        specifier: workspace:*
+        version: link:../../packages/extension-host
       '@parity-app/extension-nextjs':
         specifier: workspace:*
         version: link:../../packages/extension-nextjs
@@ -397,9 +400,6 @@ importers:
       '@parity-app/extension-webpack':
         specifier: workspace:*
         version: link:../../packages/extension-webpack
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../../packages/extensions
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../../packages/icons
@@ -816,46 +816,70 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
 
-  packages/extension-api: {}
-
-  packages/extension-nextjs:
+  packages/extension:
     dependencies:
-      next:
-        specifier: ^16.0.0
-        version: 16.4.6(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-    devDependencies:
-      '@parity-app/extension-api':
+      '@parity-app/core':
         specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
+        version: link:../core
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
-  packages/extension-portless:
+  packages/extension-host:
     dependencies:
+      '@parity-app/channel':
+        specifier: workspace:*
+        version: link:../channel
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      '@parity-app/processes':
+        specifier: workspace:*
+        version: link:../processes
       zod:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
-      '@parity-app/extension-api':
+      '@parity-app/extension-storybook':
         specifier: workspace:*
-        version: link:../extension-api
+        version: link:../extension-storybook
+      '@parity-app/extension-storybook-a11y':
+        specifier: workspace:*
+        version: link:../extension-storybook-a11y
+
+  packages/extension-nextjs:
+    dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      next:
+        specifier: ^16.0.0
+        version: 16.4.6(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+
+  packages/extension-portless:
+    dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/extension-react:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       typescript:
         specifier: 6.0.3
         version: 6.0.3
     devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
       '@types/react':
         specifier: ^19.3.0
         version: 19.3.0
@@ -880,19 +904,15 @@ importers:
 
   packages/extension-react-router:
     dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       react-router:
         specifier: ^7.0.0 || ^8.0.0
         version: 8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       typescript:
         specifier: 6.0.3
         version: 6.0.3
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-rsbuild:
     dependencies:
@@ -902,6 +922,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
@@ -911,13 +934,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-rspack:
     dependencies:
@@ -927,22 +943,21 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@rspack/core':
         specifier: ^1.4.0 || ^2.0.0
         version: 2.3.2(@swc/helpers@0.5.24)
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-storybook:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
@@ -961,16 +976,12 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-storybook-a11y:
     dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@storybook/addon-a11y':
         specifier: ^9.0.0 || ^10.0.0
         version: 10.6.5(storybook@10.6.5(@types/react@19.3.0)(prettier@3.9.10)(react@19.3.1)(vite-plus@1.4.0(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(@vitest/ui@5.0.5)(esbuild@0.28.2)(happy-dom@21.0.4)(jiti@2.7.0)(terser@5.51.2)(typescript@7.0.2)(yaml@2.9.1)))
@@ -978,27 +989,18 @@ importers:
         specifier: 'catalog:'
         version: 4.6.7
     devDependencies:
-      '@parity-app/channel':
-        specifier: workspace:*
-        version: link:../channel
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../extension-storybook
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
-      '@parity-app/processes':
-        specifier: workspace:*
-        version: link:../processes
 
   packages/extension-tailwind:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
@@ -1011,16 +1013,12 @@ importers:
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.3
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-tanstack-router:
     dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@tanstack/react-router':
         specifier: ^1.0.0
         version: 1.170.46(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -1030,19 +1028,15 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-turbopack:
     dependencies:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@parity-app/next-builders':
         specifier: workspace:*
         version: link:../next-builders
@@ -1052,13 +1046,6 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
 
   packages/extension-vite:
     dependencies:
@@ -1068,16 +1055,13 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@parity-app/project':
         specifier: workspace:*
         version: link:../project
     devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
       vite:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
@@ -1090,6 +1074,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       '@parity-app/next-builders':
         specifier: workspace:*
         version: link:../next-builders
@@ -1099,31 +1086,6 @@ importers:
       webpack:
         specifier: ^5.90.0
         version: 5.112.2(esbuild@0.28.2)(lightningcss@1.33.0)(postcss@8.5.32)(sharp@0.35.5(@types/node@24.19.2))
-      zod:
-        specifier: 'catalog:'
-        version: 4.6.7
-    devDependencies:
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/extensions':
-        specifier: workspace:*
-        version: link:../extensions
-
-  packages/extensions:
-    dependencies:
-      '@parity-app/channel':
-        specifier: workspace:*
-        version: link:../channel
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../core
-      '@parity-app/extension-api':
-        specifier: workspace:*
-        version: link:../extension-api
-      '@parity-app/processes':
-        specifier: workspace:*
-        version: link:../processes
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -1289,9 +1251,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
-      '@parity-app/extension-api':
+      '@parity-app/extension':
         specifier: workspace:*
-        version: link:../extension-api
+        version: link:../extension
 
   packages/project:
     dependencies:

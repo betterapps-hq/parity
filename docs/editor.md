@@ -1161,7 +1161,7 @@ Code: `renderer/extensions.ts` (the store, `commandsAt`, `holdsFor`, `extensionK
 `renderer/extension-ui.ts`, `chrome/ExtensionLog.tsx`, `chrome/ExtensionQuestion.tsx` and `chrome/ExtensionIcons.tsx`;
 `extensions.*` in `shared/protocol.ts`; the service's side in `utility/extensions.ts`.
 
-Tests: `packages/extensions/src/hosts.test.ts`, `manifest.test.ts`, `when.test.ts` and `keys.test.ts`
+Tests: `packages/extension-host/src/hosts.test.ts`, `manifest.test.ts`, `when.test.ts` and `keys.test.ts`
 ([extensions.md](extensions.md)); `renderer/extensions.test.ts` (placements, greyed by `enablement`, over the node, the
 selection and the project's tools, and extensions' keys, which Parity's own win);
 `packages/editor/src/selection.test.ts` (the selection by `NodeRef`); and `chrome/layout.test.ts` (the bottom tab kept
@@ -1212,13 +1212,13 @@ bar.
   other (see "API routes in Layers").
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts`, `routes.ts`, `code-routes.ts` and
-`syntax.ts`); `providers` in `packages/extension-api/src/api.ts`; `provide` and `provider` in
-`packages/extensions/src/hosts.ts`, `readAnswer` in `protocol.ts` and `providers.register` in `host.ts`;
+`syntax.ts`); `providers` in `packages/extension/src/api.ts`; `provide` and `provider` in
+`packages/extension-host/src/hosts.ts`, `readAnswer` in `protocol.ts` and `providers.register` in `host.ts`;
 `projectProviders` and `byPeers` in `utility/extensions.ts`; `routes` and `tools` in `utility/projects.ts`; `pageOffers`
 in `renderer/chrome/command-offers.ts` and `pageItems` in `ActionsSearch.tsx`.
 
 Tests: `packages/extension-tanstack-router/src/extension.test.ts` and `routes.test.ts` (with app H's code-based routes,
-and parents across files), and "providers (PAR-1095)" in `packages/extensions/src/hosts.test.ts`
+and parents across files), and "providers (PAR-1095)" in `packages/extension-host/src/hosts.test.ts`
 ([extensions.md](extensions.md)), and `renderer/canvas/route-pages.test.ts` (a route's page found by its design key
 gives the URL Open in browser opens). Gaps: the service's open path asking the router, and Open in browser's placements
 in the window, have no unit test of their own.
@@ -1268,15 +1268,15 @@ found, 20 routes in Layers and the status bar, each page drawn from the app at i
 path, params, file, component and whether it loads data in the Design tab.
 
 Code: `packages/extension-react-router` (its manifest, `extension.ts`, `routes.ts`, `routes-file.ts`, `flat-routes.ts`
-and `library.ts`); `files.list` in `packages/extension-api/src/api.ts`, in `host-files.ts`, `hosts.ts` and `protocol.ts`
-in `packages/extensions`, and in `utility/extensions.ts`; `builtIns` and `builtInTools` in `utility/extensions.ts`;
+and `library.ts`); `files.list` in `packages/extension/src/api.ts`, in `host-files.ts`, `hosts.ts` and `protocol.ts` in
+`packages/extension-host`, and in `utility/extensions.ts`; `builtIns` and `builtInTools` in `utility/extensions.ts`;
 React Router's missing-router error in `packages/core/src/render-status.ts`.
 
 Tests: `packages/extension-react-router/src/extension.test.ts` (its manifest and range, the pages counted, what the
 status item says, the page a command was run for), `routes.test.ts` (the validation project's routes, each parent before
 its children, with their kinds and their modules' components and loaders; `appDirectory`; library mode found from
 `index.html`; segments), `routes-file.test.ts`, `flat-routes.test.ts` and `library.test.ts`; "lists a folder the read
-permission names" in `packages/extensions/src/hosts.test.ts`; the Fast Refresh preamble in
+permission names" in `packages/extension-host/src/hosts.test.ts`; the Fast Refresh preamble in
 `packages/extension-vite/src/builder.test.ts`; the missing router in `packages/core/src/render-status.test.ts`; and the
 example's detection snapshot, `fixtures/react-router-framework/expected.json`. Gaps: `relative()` helpers in
 `routes.ts`, `ignoredRouteFiles`, and library mode's routes behind a path alias (`@/routes`) aren't read.
@@ -1307,20 +1307,21 @@ there.
   component that draws it some way other than as its children, as a router draws its root route's component. It reads
   the content from context, so a value made once, such as that router, draws the frame's latest content.
 
-Code: `RouterContribution` and `FrameDecorator` in `packages/extension-api/src/manifest.ts`; the manifest's schema in
-`packages/extensions/src/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
-`packages/extensions/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
+Code: `RouterContribution` and `FrameDecorator` in `packages/extension/src/manifest.ts`; the manifest's schema in
+`packages/extension/src/reader/manifest.ts`, checked against core's `libraryDecorator`; `decorators` in
+`packages/extension-host/src/hosts.ts` and `projectProviders` in `utility/extensions.ts`; `frameDecorators` in
 `ProjectConfig` (`packages/core/src/project.ts`), filled in `readProject` in `utility/projects.ts`; `guestModule` in
 `packages/project/src/guest-module.ts`; `url` in `MountOptions` and the `url` frame part in
 `packages/core/src/values/evaluate.ts`, given by the guest's `frameHost`, which gives the `content` part from
 `FrameContentContext` too; each router's manifest.
 
-Tests: "takes a router's frame decorators as data" in `packages/extensions/src/manifest.test.ts`; "gives the routers'
-frame decorators from their manifests" in `packages/extensions/src/hosts.test.ts`; "puts the extensions' decorators
-around the libraries'" in `packages/extension-vite/src/builder.test.ts`; "draws it where the component puts it, once,
-and draws the frame's next content there too" in `packages/extension-react/src/guest.react-18.test.ts`; "has a manifest
-Parity accepts" in `packages/extension-tanstack-router/src/extension.test.ts`. Tried in the running app on 2026-11-16 on
-a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its `Outlet`.
+Tests: "takes a router's frame decorators as data" in `packages/extension/src/reader/manifest.test.ts`; "gives the
+routers' frame decorators from their manifests" in `packages/extension-host/src/hosts.test.ts`; "puts the extensions'
+decorators around the libraries'" in `packages/extension-vite/src/builder.test.ts`; "draws it where the component puts
+it, once, and draws the frame's next content there too" in `packages/extension-react/src/guest.react-18.test.ts`; "has a
+manifest Parity accepts" in `packages/extension-tanstack-router/src/extension.test.ts`. Tried in the running app on
+2026-11-16 on a copy of `examples/rsbuild-chakra`: `AppShell` on its own draws its header and links, with nothing in its
+`Outlet`.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1458,7 +1459,7 @@ leaving it out. TanStack Start's server routes, React Router's resource routes, 
   `parity.routes.marked`, again on `parity.routes.onChange`.
 
 Code: `packages/core/src/routes.ts`, `packages/core/src/route-outline.ts`, `apps/desktop/src/renderer/route-marks.ts`,
-`Routes` in `packages/extension-api`, `apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left
+`Routes` in `packages/extension`, `apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left
 panel/API routes).
 
 ### Next's router on canvas (PAR-1160)
@@ -1530,7 +1531,7 @@ changed: the theme in the Tokens tab, frames drawn with the classes Parity write
   `extensions.test.ts`).
 
 Code: `packages/extension-tailwind` (its manifest, `extension.ts`, `printer.ts`, `design-system.ts` and `tokens.ts`);
-`StylesProvider` in `packages/extension-api/src/api.ts`; `callProvider` in `packages/extensions/src/host.ts`;
+`StylesProvider` in `packages/extension/src/api.ts`; `callProvider` in `packages/extension-host/src/host.ts`;
 `loadStyles`, `saveTokens` and `frameClasses` in `utility/projects.ts`.
 
 Tests: `packages/extension-tailwind/src/extension.test.ts` (its manifest and `handles`), `printer.test.ts`,
@@ -1554,12 +1555,12 @@ components found in the app and its libraries, frames drawn with the project's o
   its path.
 
 Code: `packages/extension-react` (its manifest, `extension.ts`, `components.ts` and the guest); `RendererProvider` in
-`packages/extension-api/src/api.ts`; `extensionRenderer` in `packages/core/src/adapters.ts`; `batched` in
-`packages/extensions/src/batch.ts`; `builtInRenderers` in `utility/extensions.ts` and `providedRenderer` in
+`packages/extension/src/api.ts`; `extensionRenderer` in `packages/core/src/adapters.ts`; `batched` in
+`packages/extension-host/src/batch.ts`; `builtInRenderers` in `utility/extensions.ts` and `providedRenderer` in
 `utility/projects.ts`.
 
 Tests: `packages/extension-react/src/extension.test.ts` (its manifest, its guest export and a batch of files read in
-order), `components.test.ts` (what's read as a component), `packages/extensions/src/batch.test.ts` (4: requests made
+order), `components.test.ts` (what's read as a component), `packages/extension-host/src/batch.test.ts` (4: requests made
 together in one batch, a long run split, a later request asked again, a failed or short batch failing its requests), and
 `apps/desktop/src/utility/projects.test.ts`, whose projects read their components through a renderer provider. Tried in
 the running app on 2026-11-14 on the example: 5 components in the app and 371 from Shadcn Nova read through the
@@ -1585,8 +1586,8 @@ status bar.
   wait on the bundle deleted under it. Vite 8 waits for the optimizer to start, so it never did.
 
 Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
-`packages/extension-api/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and
-`byPeers` in `utility/extensions.ts`; `detectBuilder` and `findBuilder` in `utility/projects.ts`.
+`packages/extension/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and `byPeers`
+in `utility/extensions.ts`; `detectBuilder` and `findBuilder` in `utility/projects.ts`.
 
 Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions and entry module), `detect.test.ts` (what
 Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
@@ -1695,7 +1696,7 @@ sets out. What any Next.js builder needs is in `packages/next-builders`, for the
 Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts` and `loader.ts`);
 `packages/next-builders` (`next.ts`, `bundler.ts`, `guest-app.ts`, `guest-runtime.ts`, `server-modules.ts`, `page.ts`,
 `app-styles.ts` and `server.ts`); the builder provider calls addressed to the serving builder's extension in
-`packages/extensions` and `apps/desktop/src/utility/projects.ts`.
+`packages/extension-host` and `apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/extension-turbopack/src/extension.test.ts` (its manifest) and `loader.test.ts` (the runtime chunk and
 the guest module); `packages/next-builders/src/*.test.ts` (detection, the bundler, the guest app, the runtime's copy,
@@ -1767,7 +1768,7 @@ args are written back to its file on Save.
   detection, from its peer dependencies and the config files its provider watches. Parity's core has no Storybook code.
 
 Code: `packages/extension-storybook` (`extension.ts`, `screens.ts`, `csf.ts` and `write.ts`); `EntitiesProvider` in
-`packages/extension-api/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
+`packages/extension/src/providers.ts`; `extensionEntities` in `packages/core/src/adapters.ts`; `builtInEntities` and
 `projectProviders` in `utility/extensions.ts`; `providedEntities` in `utility/projects.ts`.
 
 Tests: `packages/extension-storybook/src/stories.test.ts` (reading and writing story files) and
@@ -1800,9 +1801,9 @@ Code: `designOperationChanges` in `packages/editor/src/design-operations.ts`, `a
 Tests: `packages/editor/src/design-operations.test.ts` (renaming, taking a field away, inserting, moving and removing,
 and what's refused), `renderer/project-doc.test.ts` "an extension's operations" (one step under the extension's name
 that Undo takes back, and refusing the whole change with the operation's number), `renderer/extensions.test.ts`
-"commandsAt for a layer", and `packages/extensions/src/hosts.test.ts` and `permissions.test.ts` (permissions and `.par`
-files). Gaps: no extension built into Parity changes designs yet, so the layer menu and the undo label weren't tried in
-the running app.
+"commandsAt for a layer", and `packages/extension-host/src/hosts.test.ts` and `permissions.test.ts` (permissions and
+`.par` files). Gaps: no extension built into Parity changes designs yet, so the layer menu and the undo label weren't
+tried in the running app.
 
 ### Extensions' views (PAR-1094)
 
@@ -1832,11 +1833,11 @@ Code: `renderer/extension-views.ts` (`tabsAt`, `sectionsFor`, `pageOf`, `shownIt
 `chrome/ExtensionLog.tsx`, and `Workspace.openPage` in `renderer/workspace.ts`.
 
 Tests: `renderer/extension-views.test.ts` (placing tabs, sections and pages, a section's items, a tree's rows and an
-item's actions) and `packages/extensions/src/views.test.ts`. Stories: `chrome/ExtensionView.stories.tsx` Kinds, with a
-play function for the tree's keys, and Page. Gaps: the panels, the page's tab and the form's round trip have no tests of
-their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow keys,
-Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at 390
-pixels, with the keyboard reaching its button after the tabs.
+item's actions) and `packages/extension-host/src/views.test.ts`. Stories: `chrome/ExtensionView.stories.tsx` Kinds, with
+a play function for the tree's keys, and Page. Gaps: the panels, the page's tab and the form's round trip have no tests
+of their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow
+keys, Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at
+390 pixels, with the keyboard reaching its button after the tabs.
 
 ### Previews in the Components panel and the insert picker (PAR-208)
 
@@ -6198,7 +6199,7 @@ the same one; nothing between knows the framework.
 
 Code: `writeTokenChanges` and `writeCustomProperty` in `packages/tokens/src/stylesheet.ts`; `withTokenChanges` in
 `packages/tokens/src/tokens.ts`; `writeTailwindTokens` in `packages/extension-tailwind/src/tokens.ts`; `StylesProvider`
-in `packages/extension-api/src/api.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
+in `packages/extension/src/api.ts`; `saveTokens` in `apps/desktop/src/utility/projects.ts`; `tokensNow` in
 `packages/agent/src/workspace.ts` and `notAToken` in `packages/agent/src/lint.ts`; `tokensWithEdits` in
 `packages/editor/src/token-edits.ts`.
 
@@ -8334,12 +8335,13 @@ app with no `index.html` whose root route imports `src/style.css?url`, and a Nex
   answered in 0.2 to 0.9 s for a Vite app with `index.html`, 2 to 3 s for TanStack Start apps, and 9 s for copacker,
   whose root level has 52 modules.
 
-Code: `styles` on `BuilderProvider` in `packages/extension-api/src/providers.ts` and on `BuilderAdapter` in
-`packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in `packages/extensions/src/protocol.ts`
-and `callBuilder` in `host.ts`; `viteAppStyles` in `packages/extension-vite/src/app-styles.ts`, registered in
-`extension.ts` and `builder.ts`; `appStyles` in `openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in
-`DiscoverOptions` and `stylesNote` in `packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which
-`appStylesheets` in `packages/cli/src/lib.ts` fills from the builder.
+Code: `styles` on `BuilderProvider` in `packages/extension/src/providers.ts` and on `BuilderAdapter` in
+`packages/core/src/adapters.ts`, with `AppStyles`; the `builder.styles` call in
+`packages/extension-host/src/protocol.ts` and `callBuilder` in `host.ts`; `viteAppStyles` in
+`packages/extension-vite/src/app-styles.ts`, registered in `extension.ts` and `builder.ts`; `appStyles` in
+`openProjects`, `apps/desktop/src/utility/projects.ts`; `styles` in `DiscoverOptions` and `stylesNote` in
+`packages/project/src/index.ts`; `styles` in libgen's `GenerateOptions`, which `appStylesheets` in
+`packages/cli/src/lib.ts` fills from the builder.
 
 Tests: `packages/extension-vite/src/app-styles.test.ts` (15; 13 with a real Vite: what `index.html`'s module imports and
 its `<link>`, a package's by its specifier, and nothing deeper or scoped; a config's own entry, a plugin's virtual one
@@ -8686,7 +8688,7 @@ changes at the same moment both kept, one copy told of another's, a reset, a fil
 with the change held, a held change saved once the file reads without undoing another copy's, a stale lock taken, a held
 lock waited for, and the lock let go when the work fails. `main/host-methods.test.ts`: extensions' settings, changes to
 the shortcuts and to the project, and closing taken only from Settings, and the project's page only from the editor
-window. `packages/extensions/src/hosts.test.ts`: what the Extensions page shows of each extension's code, and every
+window. `packages/extension-host/src/hosts.test.ts`: what the Extensions page shows of each extension's code, and every
 installed extension listed from its manifest with no project open. `chrome/settings/extension-list.test.ts` (4): every
 installed extension listed with no project open, what detection found or that one found without it runs, one the project
 doesn't have, and each one's logo and settings from its manifest. `packages/editor/src/settings-search.test.ts` (6):
@@ -9066,17 +9068,17 @@ Tried on 2026-11-13 in the running app on the example: the log above, and the st
 
 Code: `Adapter.detect`, `DetectContext`, `AdapterDetection`, `ToolVersions`, `declares`, `peerVersions` and
 `detectPeers` in `packages/core/src/adapters.ts`; the peer dependencies in `packages/extension-storybook/package.json`
-and `packages/extension-tanstack-router/package.json`, read by `readExtension` in `packages/extensions/src/manifest.ts`;
-each extension's renderer, builder and entities in its manifest, with `extensionEntities` finding an entities provider's
-tool; `detectContext`, `detectAdapters` and `detectProject` in `packages/project/src/detect.ts`; and the open path in
-`apps/desktop/src/utility/projects.ts`.
+and `packages/extension-tanstack-router/package.json`, read by `readExtension` in
+`packages/extension/src/reader/manifest.ts`; each extension's renderer, builder and entities in its manifest, with
+`extensionEntities` finding an entities provider's tool; `detectContext`, `detectAdapters` and `detectProject` in
+`packages/project/src/detect.ts`; and the open path in `apps/desktop/src/utility/projects.ts`.
 
 Tests: `packages/project/src/detect.test.ts` (versions, cutoff, an extension's range and summaries from the tools
 adapters give), `packages/core/src/adapters.test.ts` (peer versions and the default detector),
-`packages/extensions/src/manifest.test.ts`, each extension's own test of its range, `packages/core/src/adapters.test.ts`
-(an entities provider's detection, its config and not found), `packages/extension-tanstack-router/src/extension.test.ts`
-and `packages/extension-vite/src/detect.test.ts`. Gaps: no unit test runs the service's open path with several adapters
-of one kind.
+`packages/extension/src/reader/manifest.test.ts`, each extension's own test of its range,
+`packages/core/src/adapters.test.ts` (an entities provider's detection, its config and not found),
+`packages/extension-tanstack-router/src/extension.test.ts` and `packages/extension-vite/src/detect.test.ts`. Gaps: no
+unit test runs the service's open path with several adapters of one kind.
 
 ### Each tool's status bar item comes from its adapter
 

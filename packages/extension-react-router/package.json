@@ -11,11 +11,8 @@
     "./package.json": "./package.json"
   },
   "dependencies": {
+    "@parity-app/extension": "workspace:*",
     "typescript": "6.0.3"
-  },
-  "devDependencies": {
-    "@parity-app/extension-api": "workspace:*",
-    "@parity-app/extensions": "workspace:*"
   },
   "peerDependencies": {
     "react-router": "^7.0.0 || ^8.0.0"

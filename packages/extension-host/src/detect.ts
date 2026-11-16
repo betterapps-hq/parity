@@ -1,6 +1,6 @@
 import { detectPeers, type PackageManifest } from "@parity-app/core"
-import type { JsonValue } from "@parity-app/extension-api"
-import type { ExtensionPackage } from "./manifest.ts"
+import type { JsonValue } from "@parity-app/extension"
+import type { ExtensionPackage } from "@parity-app/extension/manifest"
 import { placedPath, type ReadPlace } from "./permissions.ts"
 
 /*

@@ -1,8 +1,8 @@
 import { constants } from "node:fs"
 import { access, readFile, stat } from "node:fs/promises"
 import { dirname, isAbsolute, join, relative, resolve } from "node:path"
-import type { Candidate, ProcessSpec, Run } from "@parity-app/extension-api"
-import type { ExtensionProcesses, ProcessCaller, ProcessListener } from "@parity-app/extensions"
+import type { Candidate, ProcessSpec, Run } from "@parity-app/extension"
+import type { ExtensionProcesses, ProcessCaller, ProcessListener } from "@parity-app/extension-host"
 import {
   batchCommandLine,
   checkSpec,

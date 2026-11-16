@@ -289,7 +289,7 @@ decision. Detail is in `proposals/web-and-backend.md`, `proposals/app-lenses.md`
 | Deploy          | Better Apps' capability manifest                 | Cloudflare first, through Better Apps      | ⏳     |
 
 **Routes are read (PAR-1073), and each page is drawn as a screen (PAR-1076).** A router extension's provider gives the
-routes (PAR-1095), as `Route` in `@parity-app/extension-api` describes them, in Parity's terms rather than the router's
+routes (PAR-1095), as `Route` in `@parity-app/extension` describes them, in Parity's terms rather than the router's
 (PAR-1132): each route's id, kind (root, layout, group or page), URL as segments (fixed, param, catch-all or optional
 catch-all), parent, file, whether it's an index, the component it draws, and whether it loads data or guards the page.
 Parallel routes' slots and intercepting routes have room in the shape but aren't drawn yet. The TanStack Router

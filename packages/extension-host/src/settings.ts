@@ -1,5 +1,5 @@
-import type { JsonValue, SettingContribution, SettingValue } from "@parity-app/extension-api"
-import { z } from "zod"
+import type { JsonValue, SettingContribution, SettingValue } from "@parity-app/extension"
+import { fits } from "@parity-app/extension/manifest"
 
 /*
  * Extensions' settings as data (PAR-1090). A manifest declares each setting as a small JSON Schema with a `scope`: the
@@ -42,16 +42,6 @@ export function defaultOf(setting: SettingContribution): SettingValue {
     case "boolean":
       return false
   }
-}
-
-/** Each type a setting can be, as the value it takes. */
-const valueOfType = { string: z.string(), number: z.number(), boolean: z.boolean() } as const
-
-/** Whether a value fits a setting's schema: its type, and one of its choices when it has them. */
-export function fits(setting: SettingContribution, value: JsonValue | undefined): value is SettingValue {
-  const read = valueOfType[setting.type].safeParse(value)
-
-  return read.success && (!setting.enum || setting.enum.some((choice) => choice === read.data))
 }
 
 /**

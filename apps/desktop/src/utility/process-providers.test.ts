@@ -1,5 +1,5 @@
-import type { DiscoveredServer, ServerFacts } from "@parity-app/extension-api"
-import type { ProcessCaller, ProviderAsk } from "@parity-app/extensions"
+import type { DiscoveredServer, ServerFacts } from "@parity-app/extension"
+import type { ProcessCaller, ProviderAsk } from "@parity-app/extension-host"
 import { createTelemetry, createTestSink, registeredEvents, type TestSink } from "@parity-app/telemetry"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { traceWith } from "../shared/tracing.ts"

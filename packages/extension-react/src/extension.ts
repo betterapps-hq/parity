@@ -1,4 +1,4 @@
-import type { ComponentExport, Parity, SourceFile } from "@parity-app/extension-api"
+import { type ComponentExport, defineExtension, type Parity, type SourceFile } from "@parity-app/extension"
 import { findComponents } from "./components.ts"
 
 /*
@@ -14,7 +14,9 @@ export function readComponents(files: readonly SourceFile[]): ComponentExport[][
   return files.map(({ file, source }) => findComponents(source, file))
 }
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const status = parity.status.item("react.status")
   status.set({ value: "React", tooltip: "Renders the project's components" })
   parity.subscriptions.push(status)

@@ -1,5 +1,6 @@
 import { memoryPorts } from "@parity-app/channel"
-import type { ExtensionModule, FormView, View, ViewItem } from "@parity-app/extension-api"
+import type { ExtensionModule, FormView, View, ViewItem } from "@parity-app/extension"
+import { readExtension } from "@parity-app/extension/manifest"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
@@ -10,7 +11,6 @@ import {
   extensionHosts,
   type OpenedProject
 } from "./hosts.ts"
-import { readExtension } from "./manifest.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
 
@@ -51,7 +51,7 @@ function setUp(module: ExtensionModule) {
 
       serveExtensionHost({
         port: host,
-        load: () => Promise.resolve(Object.assign(Object.create(null), module)),
+        load: () => Promise.resolve(Object.assign(Object.create(null), { default: module })),
         exit: () => end({ code: 0 })
       })
 

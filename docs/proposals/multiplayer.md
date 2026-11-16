@@ -43,8 +43,8 @@ and `@parity-app/multiplayer-loro` is the first provider that can merge, on [Lor
   the document is `ProjectDoc`, not a node store.
 - **`DesignStore` is folded away** into `ProjectDoc`, a `ProjectSaver`, lookups and free functions for callers (How the
   session moves onto it).
-- **Extensions' operations are the document's.** `DesignOperation` in `@parity-app/extension-api` (PAR-1093) is the
-  layer operations below with the same shape, so an extension's `transact` becomes the document's.
+- **Extensions' operations are the document's.** `DesignOperation` in `@parity-app/extension` (PAR-1093) is the layer
+  operations below with the same shape, so an extension's `transact` becomes the document's.
 - **Three packages now and room for a fourth,** each data in, data out and tested without Electron, as
   [packages.md](packages.md) asks.
 

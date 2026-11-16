@@ -21,10 +21,10 @@ import type {
   SettingValue,
   ViewData,
   ViewKind
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
+import { type ExtensionPackage, fits } from "@parity-app/extension/manifest"
 import { type ChildExit, endedByItself, type Lifecycle } from "@parity-app/processes"
 import { readToolInput } from "./agents.ts"
-import type { ExtensionPackage } from "./manifest.ts"
 import { editsRefusal, type ReadPlace, readablePath, writeRefusal } from "./permissions.ts"
 import {
   type ActivateParams,
@@ -42,7 +42,7 @@ import {
   type StateValues,
   type StatusValue
 } from "./protocol.ts"
-import { changedValues, fits, readExtensionSettings, type StoredSettings, storedKey } from "./settings.ts"
+import { changedValues, readExtensionSettings, type StoredSettings, storedKey } from "./settings.ts"
 
 /*
  * The project service's side of extensions' hosts. Each extension whose tool is in an open project gets a host of its

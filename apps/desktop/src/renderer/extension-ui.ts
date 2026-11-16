@@ -1,4 +1,4 @@
-import type { PickItem } from "@parity-app/extension-api"
+import type { PickItem } from "@parity-app/extension"
 import type { ExtensionUiAnswer, ExtensionUiRequest } from "../shared/protocol.ts"
 import { request } from "./service.ts"
 import { resetWithWindow, useStore, windowStore } from "./store.ts"

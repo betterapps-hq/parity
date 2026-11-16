@@ -38,7 +38,7 @@ import type {
   Tone,
   ViewData,
   ViewKind
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
 import { z } from "zod"
 
 /*

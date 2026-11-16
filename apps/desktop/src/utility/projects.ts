@@ -37,7 +37,7 @@ import {
   type ThemeVariable,
   withLibraryCanvas
 } from "@parity-app/core"
-import { batched, type ProviderCall, type ProviderKind, type ProviderResult } from "@parity-app/extensions"
+import { batched, type ProviderCall, type ProviderKind, type ProviderResult } from "@parity-app/extension-host"
 import {
   type BuilderLaunchOptions,
   builderProcessOptions,

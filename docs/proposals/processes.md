@@ -591,8 +591,8 @@ Parity sets these context keys, which `when` and `enablement` test as `key` or `
 | `process.isMine`      | was started or adopted by the extension the menu item is from |
 | `process.isParitys`   | is one of Parity's own                                        |
 
-The manifest check (`contextNeedsPrefix` in `packages/extensions/src/manifest.ts`) refuses a `when` key without the
-extension's prefix today, so it learns Parity's own keys, starting with these.
+The manifest check (`contextNeedsPrefix` in `packages/extension/src/reader/manifest.ts`) refuses a `when` key without
+the extension's prefix today, so it learns Parity's own keys, starting with these.
 
 ### Settings
 
@@ -954,7 +954,7 @@ parity.processes.onDidChange((changed) => {
   `parity.processes.get(id)` gives back each process it owns, and `processes.reattached` records it. While a host is
   left stopped, its processes stay in the list with Stop, and its commands on them are hidden. This changes
   developer-api.md, and today's code: `extensionHosts` calls `servers.stopAll` whenever a host stops (`detach` in
-  `packages/extensions/src/hosts.ts`), which moves to the project's closing and the extension's removal.
+  `packages/extension-host/src/hosts.ts`), which moves to the project's closing and the extension's removal.
 - **An adopted server is let go, never stopped,** by Stop, the project's closing or the extension's stopping.
 - **An adopted server that goes away** is noticed: every 5 seconds Parity checks its pid when it knows one, as
   Portless's dead-route check does, or else connects to its endpoint. After two failed checks in a row it's `stopped`,
@@ -1047,9 +1047,9 @@ and `kind`.
   already has `commandPaths` and `batchCommandLine`. Its tests cover each.
 - **The project service** keeps spawning, ports, ready checks, adopted servers' checks and output (`process-manager.ts`,
   `processes.ts`), taking a resolved command line from the model, and answers the host's process and provider methods.
-- **`@parity-app/extension-api`** gains `Processes`, `ProcessHandle`, `ProcessInfo`, `ProviderHandle` and the four
+- **`@parity-app/extension`** gains `Processes`, `ProcessHandle`, `ProcessInfo`, `ProviderHandle` and the four
   providers, `observe` and `publish` in `Permissions`, the `process` placement and target, and loses `Servers`.
-- **`@parity-app/extensions`** routes `parity.processes`, `parity.providers` and provider calls between host and
+- **`@parity-app/extension-host`** routes `parity.processes`, `parity.providers` and provider calls between host and
   service, drops `servers.*`, and stops processes only on the project's closing and the extension's removal.
 - **The window** draws its `ProcessInfo` in `Processes.tsx`, adds the `process` placement and its context keys, and the
   settings.

@@ -1,14 +1,16 @@
 import { createChannel, memoryPorts } from "@parity-app/channel"
-import type {
-  ExtensionModule,
-  FolderEntry,
-  JsonValue,
-  Parity,
-  ProcessHandle,
-  ProcessInfo,
-  ProviderHandle,
-  Route
-} from "@parity-app/extension-api"
+import {
+  defineExtension,
+  type ExtensionModule,
+  type FolderEntry,
+  type JsonValue,
+  type Parity,
+  type ProcessHandle,
+  type ProcessInfo,
+  type ProviderHandle,
+  type Route
+} from "@parity-app/extension"
+import { readExtension } from "@parity-app/extension/manifest"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
 import { serveExtensionHost } from "./host.ts"
@@ -25,7 +27,6 @@ import {
   type OpenedProject,
   type ProcessListener
 } from "./hosts.ts"
-import { readExtension } from "./manifest.ts"
 import type { HostMethods, HostServiceMethods, LogLine, ProcessSnapshot } from "./protocol.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
@@ -187,7 +188,7 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
       serveExtensionHost({
         port: host,
         // Like a real module namespace, what the host loads has no prototype.
-        load: (main) => Promise.resolve(Object.assign(Object.create(null), modules[main])),
+        load: (main) => Promise.resolve(Object.assign(Object.create(null), { default: modules[main] })),
         exit: () => end({ code: 0 })
       })
 
@@ -306,6 +307,31 @@ describe("extension hosts", () => {
     expect(activate).toHaveBeenCalledOnce()
     expect(latest("@parity-app/extension-storybook")?.state).toBe("running")
     expect(latest("parity-route-timings")).toBeUndefined()
+  })
+
+  it("runs a module's default export, as defineExtension makes it", async () => {
+    const activate = vi.fn<() => void>()
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": defineExtension({ activate }) })
+
+    hosts.open(project)
+    await settle()
+
+    expect(activate).toHaveBeenCalledOnce()
+    expect(latest("@parity-app/extension-storybook")?.state).toBe("running")
+  })
+
+  it("refuses a module whose default export isn't an extension", async () => {
+    // A default export without an `activate`.
+    const { hosts, latest } = setUp({ "@parity-app/extension-storybook": Object.create(null) })
+
+    hosts.open(project)
+    await settle()
+
+    expect(latest("@parity-app/extension-storybook")).toMatchObject({
+      state: "crashed",
+      reason:
+        "Couldn't activate: @parity-app/extension-storybook doesn't export an extension: export default defineExtension({ activate })"
+    })
   })
 
   it("lists every installed extension from its manifest, with no project open (PAR-1129)", () => {
@@ -1391,7 +1417,7 @@ describe("providers (PAR-1095)", () => {
 
           serveExtensionHost({
             port: host,
-            load: () => Promise.resolve({ activate }),
+            load: () => Promise.resolve({ default: { activate } }),
             exit: () => end({ code: 0 })
           })
           started.push(extension.package.id)

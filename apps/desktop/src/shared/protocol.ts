@@ -29,8 +29,14 @@ import type {
   RecoveryCopy,
   ReferenceAdded
 } from "@parity-app/editor"
-import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension-api"
-import type { ExtensionStatus, HostServiceMethods, InstalledStatus, LogLine, WindowAsk } from "@parity-app/extensions"
+import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension"
+import type {
+  ExtensionStatus,
+  HostServiceMethods,
+  InstalledStatus,
+  LogLine,
+  WindowAsk
+} from "@parity-app/extension-host"
 import type { UpdateState } from "@parity-app/processes"
 import type { ProjectInfo } from "@parity-app/project"
 import type {

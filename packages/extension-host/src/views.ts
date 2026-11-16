@@ -8,7 +8,7 @@ import type {
   ViewItem,
   ViewKind,
   ViewOptions
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
 
 /*
  * `parity.views` in an extension's host (PAR-1094): the tabs, sections and pages its manifest declares, each filled with

@@ -1,4 +1,4 @@
-import type { PathIcon } from "@parity-app/extension-api"
+import type { PathIcon } from "@parity-app/extension"
 import type { ComponentType } from "react"
 
 /** An icon a page or extension shows: a Lucide icon, or an extension's logo drawn as one. */

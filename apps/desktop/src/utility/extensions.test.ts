@@ -1,4 +1,4 @@
-import type { ExtensionHosts } from "@parity-app/extensions"
+import type { ExtensionHosts } from "@parity-app/extension-host"
 import { describe, expect, it } from "vite-plus/test"
 import { closeExtensions, type ExtensionProject, projectProviders } from "./extensions.ts"
 import type { ProviderProject } from "./projects.ts"

@@ -1,4 +1,4 @@
-import type { Parity } from "@parity-app/extension-api"
+import { defineExtension, type Parity } from "@parity-app/extension"
 import { viteAppStyles } from "./app-styles.ts"
 import { detectVite } from "./builder.ts"
 
@@ -9,7 +9,9 @@ import { detectVite } from "./builder.ts"
  * whose coming or going means the project is detected again. The status bar names it.
  */
 
-export function activate(parity: Parity): void {
+export default defineExtension({ activate })
+
+function activate(parity: Parity): void {
   const { root } = parity.project
   const status = parity.status.item("vite.status")
   status.set({ value: "Vite", tooltip: "Builds the project" })

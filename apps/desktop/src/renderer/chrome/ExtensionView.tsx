@@ -31,7 +31,7 @@ import type {
   Tone,
   ViewData,
   ViewItem
-} from "@parity-app/extension-api"
+} from "@parity-app/extension"
 import { ChevronRight, Inbox, RotateCw, TriangleAlert } from "lucide-react"
 import { DynamicIcon } from "lucide-react/dynamic"
 import { type KeyboardEvent, useEffect, useId, useRef, useState } from "react"
