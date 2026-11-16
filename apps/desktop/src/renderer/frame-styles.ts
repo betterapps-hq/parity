@@ -130,18 +130,18 @@ export function frameRulesEdited(sheet: CSSStyleSheet): void {
 function follow(entry: FrameEntry, records: MutationRecord[]): void {
   let changed = false
 
+  // The media the project left each element it changed, read before anything here switches one off again: of several
+  // changes, only the last counts. Parity's own changes are never queued (see `setOwnMedia`).
+  const projectMedia = new Map<HTMLStyleElement, string | null>()
+
+  for (const record of records) {
+    if (record.type === "attributes" && record.target instanceof HTMLStyleElement) {
+      projectMedia.set(record.target, record.target.getAttribute("media"))
+    }
+  }
+
   for (const record of records) {
     if (record.type === "attributes") {
-      const element = record.target
-
-      // The project changed its media, which it means for the stylesheet, even to `not all`. Read now, before it's
-      // switched off again: Parity's own changes are never queued (see `setOwnMedia`).
-      if (element instanceof HTMLStyleElement && owners.get(element) === entry) {
-        entry.media.set(element, element.getAttribute("media"))
-        setOwnMedia(entry, element)
-        changed = true
-      }
-
       continue
     }
 
@@ -173,6 +173,15 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
     }
 
     if (record.removedNodes.length > 0) {
+      changed = true
+    }
+  }
+
+  for (const [element, media] of projectMedia) {
+    // The project changed its media, which it means for the stylesheet, even to `not all`.
+    if (owners.get(element) === entry) {
+      entry.media.set(element, media)
+      setOwnMedia(entry, element)
       changed = true
     }
   }

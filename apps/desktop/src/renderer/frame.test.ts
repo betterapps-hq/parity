@@ -698,19 +698,29 @@ describe("styles written while the project runs", () => {
       shadow.append(style)
       await tick()
       const printed = getComputedStyle(box).color
+      // Changed twice before the frame sees either: the last counts.
+      style.media = "screen"
       style.media = "all"
       await tick()
       const all = [getComputedStyle(box).color, style.getAttribute("media")]
+      // Given its media before the frame sees it go in.
+      const late = document.createElement("style")
+      late.textContent = ".font { background-color: rgb(2, 2, 2) }"
+      shadow.append(late)
+      late.media = "print"
+      late.media = "all"
       const importing = document.createElement("style")
       importing.textContent = '@import url("data:text/css,.font%7Bcolor:rgb(6,6,6)%7D");'
       shadow.append(importing)
       await tick()
       await tick()
 
-      return [printed, ...all, getComputedStyle(shadow.querySelector(".font")!).color]
+      const font = getComputedStyle(shadow.querySelector(".font")!)
+
+      return [printed, ...all, font.color, font.backgroundColor]
     })
 
-    expect(drawn).toEqual(["rgb(0, 0, 0)", "rgb(1, 1, 1)", "not all", "rgb(6, 6, 6)"])
+    expect(drawn).toEqual(["rgb(0, 0, 0)", "rgb(1, 1, 1)", "not all", "rgb(6, 6, 6)", "rgb(2, 2, 2)"])
   })
 
   it("follow rules the project's code deletes and text it replaces", async () => {
