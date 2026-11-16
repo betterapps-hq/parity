@@ -224,6 +224,42 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     expect(css).toEqual([".base { color: red; }\n.added { color: blue; }"])
   })
 
+  it("takes a move within the page as a new place in the cascade, telling listeners", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const styles = parity.pageStyles(origin)
+      const css = () => styles.sheets().map((sheet) => sheet.css)
+      const settle = () => new Promise((resolve) => setTimeout(resolve))
+      const first = project.addStyle(".first {}")
+      project.addStyle(".second {}")
+      await settle()
+      let heard = 0
+      const stop = styles.subscribe(() => heard++)
+      project.call(() => document.head.appendChild(first))
+      await settle()
+      stop()
+
+      return { css: css(), heard }
+    }, origin)
+
+    expect(steps).toEqual({ css: [".second {}", ".first {}"], heard: 1 })
+  })
+
+  it("keeps the media the project gave it when its code takes it out and puts it back later", async () => {
+    const steps = await page.evaluate(async (origin) => {
+      const settle = () => new Promise((resolve) => setTimeout(resolve))
+      const style = project.addStyle(".print { color: red; }", "print")
+      await settle()
+      style.remove()
+      await settle()
+      const away = style.getAttribute("media")
+      project.call(() => document.head.appendChild(style))
+
+      return { away, back: parity.pageStyles(origin).sheets()[0]?.css, media: style.getAttribute("media") }
+    }, origin)
+
+    expect(steps).toEqual({ away: "print", back: "@media print {\n.print { color: red; }\n}", media: "not all" })
+  })
+
   it("keeps the media the project gave it for its frames, when it's given or changed", async () => {
     const steps = await page.evaluate((origin) => {
       const style = project.addStyle(".print { color: red; }", "print")

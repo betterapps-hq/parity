@@ -186,7 +186,13 @@ function readLink(link: HTMLLinkElement, entry: Caught): void {
 
 /** Switches a stylesheet another origin's code adds off in the page, and keeps it for that origin's frames. */
 function catchElement(element: HTMLStyleElement | HTMLLinkElement, origin: string, media: string | null): void {
-  if (caught.has(element)) {
+  const known = caught.get(element)
+
+  // Moved within the page: its frames take it in its new place.
+  if (known) {
+    watch(element)
+    tell(known.origin)
+
     return
   }
 
@@ -251,9 +257,19 @@ function followRemovals(records: MutationRecord[]): void {
 
       if (node instanceof Element && entry && !node.isConnected) {
         caught.delete(node)
+        // It leaves with the media the project gave it, so it's caught with that again if it comes back.
+        restoreMedia(node, entry.media)
         tell(entry.origin)
       }
     }
+  }
+}
+
+function restoreMedia(element: Element, media: string | null): void {
+  if (media === null) {
+    element.removeAttribute("media")
+  } else {
+    element.setAttribute("media", media)
   }
 }
 
