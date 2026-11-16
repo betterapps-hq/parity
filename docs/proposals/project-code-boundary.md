@@ -78,3 +78,7 @@ Take Option 1's first two items now. Every Vite project's modules bring its clie
 and most shadcn projects have a theme toggle that would change Parity's theme. Keep the rest as it's met. Prototype
 Option 2 on one renderer, with the fixtures that portal and use positioning libraries, before deciding whether to move
 every guest to it. Its costs fall on every library a project uses, so it shouldn't be decided from a design alone.
+
+Update, PAR-1217: wrapping page APIs one at a time was tried for reloads and `<html>` (PAR-1207) and taken out
+(PAR-1216). The direction now is a real window for the frame being used and frozen copies for the rest; see
+[frame-isolation-spike.md](frame-isolation-spike.md).
