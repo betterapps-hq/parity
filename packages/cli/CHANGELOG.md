@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 16 Nov 2026 18:04:35 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 21:30:56 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.73.2
+
+Mon, 16 Nov 2026 21:30:56 GMT
+
+### Patches
+
+- Recognize the components shadcn-sync generates as the Buildkit style they're made in (ajcraswell@gmail.com)
 
 ## 0.73.1
 
