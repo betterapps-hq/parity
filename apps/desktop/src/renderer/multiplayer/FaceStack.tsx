@@ -218,7 +218,10 @@ export function FaceStack({
       {everyone.length > 0 && (
         <ul aria-label="People here" className="group/stack flex items-center px-1.5">
           {shown.map((presence, index) => (
-            <li key={presence.member.name} className={`flex h-8 items-center ${index > 0 ? overlap : ""}`}>
+            <li
+              key={presence.member.name}
+              className={`flex h-8 items-center ${index > 0 ? overlap : ""} ${presence.member === following ? "mr-1.5" : ""}`}
+            >
               <StackFace
                 presence={presence}
                 size={size}
