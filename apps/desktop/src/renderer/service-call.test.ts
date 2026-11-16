@@ -69,7 +69,7 @@ describe("a service call", () => {
     })
   })
 
-  it("gives a call that throws the description it makes of the failure", async () => {
+  it("gives a call that throws the description and details it makes of the failure", async () => {
     await serviceCall({
       progress: "Saving a copy…",
       run: () => Promise.reject(new Error("EACCES")),
@@ -77,13 +77,15 @@ describe("a service call", () => {
       failed: {
         operation: "document.saveCopy",
         title: "Couldn't save the copy",
-        description: () => "Try another folder."
+        description: () => "Try another folder.",
+        details: (cause) => `log: ${String(cause)}`
       }
     })
 
     expect(toasts.failed).toHaveBeenCalledWith("Couldn't save the copy", {
       id: "progress",
       description: "Try another folder.",
+      details: "log: Error: EACCES",
       error: new Error("EACCES")
     })
   })

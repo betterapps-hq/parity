@@ -76,8 +76,8 @@ import { useExtensions } from "../extensions.ts"
 import type { LoadedGuest } from "../guest.ts"
 import { type ContainerEntry, useContainerEntries } from "../project-doc.ts"
 import { errorCode, reportError, track } from "../report-error.ts"
+import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
-import { notify } from "../toasts.tsx"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
@@ -913,30 +913,32 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 
 /** Installs a catalog library with the project's package manager, then reopens the tab to load it. */
 async function installLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
-  const id = notify.progress(`Installing ${library.name}…`)
+  await serviceCall({
+    progress: `Installing ${library.name}…`,
+    run: () => request("library.add", { projectId, library: library.id }),
+    done() {
+      track("library.added", { package: library.id })
 
-  try {
-    await request("library.add", { projectId, library: library.id })
-    track("library.added", { package: library.id })
-    notify.done(`Installed ${library.name}`, { id })
-    await workspace.reload(projectId, `Loading ${library.name}`)
-  } catch (error) {
-    const failed: Attributes<"library.failed"> = { package: library.id }
-    const code = errorCode(error)
-
-    if (code) {
-      failed.code = code
-    }
-
-    track("library.failed", failed)
-    reportError(error, {
+      return { success: `Installed ${library.name}` }
+    },
+    after: () => workspace.reload(projectId, `Loading ${library.name}`),
+    failed: {
       operation: "library.add",
       title: `Couldn't install ${library.name}`,
-      id,
-      description: "The package manager stopped with an error.",
-      details: message(error).slice(-2000)
-    })
-  }
+      description: () => "The package manager stopped with an error.",
+      details: (error) => message(error).slice(-2000),
+      track(error) {
+        const failed: Attributes<"library.failed"> = { package: library.id }
+        const code = errorCode(error)
+
+        if (code) {
+          failed.code = code
+        }
+
+        track("library.failed", failed)
+      }
+    }
+  })
 }
 
 /** The icon set each project's Icons tab shows, kept while the tab reopens to load a set just added. */

@@ -29,9 +29,11 @@ export interface ServiceCall<Answer> {
    * How a call that throws is reported, and what it records of its own beside `error.caught`. A call that reports its
    * own failures through `done` leaves it out, and one that throws anyway takes its notification away and throws on.
    */
-  failed?: Omit<ReportContext, "id" | "description"> & {
+  failed?: Omit<ReportContext, "id" | "description" | "details"> & {
     /** The failure's description; its reason in plain words by default. */
     description?: (cause: unknown) => string | undefined
+    /** Long output behind the failure's Details button, such as a package manager's log. */
+    details?: (cause: unknown) => string | undefined
     track?: (cause: unknown, took: number) => void
   }
 }
@@ -71,9 +73,9 @@ export async function serviceCall<Answer>(call: ServiceCall<Answer>): Promise<An
       throw error
     }
 
-    const { description, track: trackFailure, ...report } = failed
+    const { description, details, track: trackFailure, ...report } = failed
     trackFailure?.(error, Math.round(performance.now() - began))
-    reportError(error, { ...report, id, description: description?.(error) })
+    reportError(error, { ...report, id, description: description?.(error), details: details?.(error) })
 
     return undefined
   }
