@@ -726,6 +726,38 @@ describe("styles written while the project runs", () => {
     expect(drawn).toEqual(["rgb(0, 0, 0)", "rgb(1, 1, 1)", "not all", "rgb(6, 6, 6)", "rgb(2, 2, 2)"])
   })
 
+  it("keep a written stylesheet's media as the project's code moves it to another frame", async () => {
+    await frameWith("", '<div class="box"></div>')
+
+    const color = await page.evaluate(async () => {
+      const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+      const other = document.createElement("div")
+      document.querySelector("#frames")!.append(other)
+
+      const target = frame.prepareFrame(other, [new CSSStyleSheet()], {
+        classNames: [],
+        attributes: {},
+        viewport: { width: 390, height: 844 }
+      })
+
+      target.innerHTML = '<div class="box"></div>'
+      const style = document.createElement("style")
+      style.media = "all"
+      style.textContent = ".box { color: rgb(3, 2, 1) }"
+      other.shadowRoot!.append(style)
+      await tick()
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      shadow.append(style)
+      await tick()
+      const moved = getComputedStyle(shadow.querySelector(".box")!).color
+      other.remove()
+
+      return moved
+    })
+
+    expect(color).toBe("rgb(3, 2, 1)")
+  })
+
   it("follow rules the project's code deletes and text it replaces", async () => {
     await frameWith("", '<div class="box"></div>')
 

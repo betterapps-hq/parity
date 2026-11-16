@@ -345,8 +345,18 @@ function catchElement(entry: FrameEntry, element: HTMLStyleElement): void {
     return
   }
 
+  // Moved from another frame, it's already switched off: it keeps the media the project gave it, and its edits.
+  const previous = owners.get(element)
+  const media = previous ? (previous.media.get(element) ?? null) : element.getAttribute("media")
+
+  if (previous?.edited.has(element)) {
+    entry.edited.add(element)
+  }
+
+  previous?.media.delete(element)
+  previous?.edited.delete(element)
   owners.set(element, entry)
-  entry.media.set(element, element.getAttribute("media"))
+  entry.media.set(element, media)
   setOwnMedia(entry, element)
 }
 
