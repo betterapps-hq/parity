@@ -35,7 +35,13 @@ setInterval(() => {
  * called.
  */
 export function endWithParent(parent = process.ppid, interval = 250): () => void {
-  const watcher = new Worker(parentWatchSource, { eval: true, workerData: { parent, interval } })
+  const watcher = new Worker(parentWatchSource, {
+    eval: true,
+    // Its source is CommonJS: flags the process was started with, as `--input-type=module`, would read it as a module.
+    execArgv: [],
+    workerData: { parent, interval }
+  })
+
   watcher.unref()
 
   return () => void watcher.terminate()
