@@ -427,18 +427,23 @@ export interface Preview extends Disposable {
 }
 ```
 
-**What each kind of node does,** following what the local drag does today:
+**What each kind of node does.** Local drags already have the look a preview reuses: the lift, carry and settle from
+PAR-1199 (#741), drawn by `DragLift`, `CarriedPicture` / `DragPicture` and `LandingSpot`, with the timing in
+`drag-motion.ts`. A preview draws the same pieces from another copy's gesture, in that person's color:
 
-| Node                     | The person dragging sees                                                                                         | Another copy's preview shows                                                                                                  |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| A board                  | It moves; the drag writes its position each frame in a gesture (`CanvasEditor`'s translate handler)              | It moves with their pointer. The board's tldraw shape is moved locally with history ignored, as `ContainerUtil`'s title drag places it, and doesn't write to the document |
-| A layer in a layout      | The original is hidden, a copy sits where it would land, and a ghost picture follows the pointer (`layer-drag.ts`) | The same three things: the original hidden, a copy at `drop`, and a ghost picture following their pointer                    |
-| An absolutely placed layer | It moves through a style preview, and the drag writes as it goes                                               | The ghost picture follows their pointer. The receiver never writes; the sender's writes arrive through the document          |
+| Node                       | The person dragging sees                                                                                                   | Another copy's preview shows                                                                                                                     |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A board                    | It lifts and moves; the drag writes its position each frame in a gesture (`CanvasEditor`'s translate handler)              | It lifts and moves with their pointer. The board's tldraw shape is moved locally with history ignored, as `ContainerUtil`'s title drag places it, and doesn't write to the document |
+| A layer in a layout        | It lifts; the spot it left shows an empty dashed outline, a `LandingSpot` marks where it would land, and its picture is carried with the pointer (`layer-drag.ts`) | The same: the empty outline where it was, a landing spot at `drop`, and its picture carried with their pointer                                     |
+| An absolutely placed layer | It lifts and moves through a style preview, and the drag writes as it goes                                                | Its picture is carried with their pointer. The receiver never writes; the sender's writes arrive through the document                            |
 
-**Several at once.** Today there's one ghost, one preview stylesheet and one record of what a style preview wrote,
-because only one person drags at a time. Previews need one of each per preview, keyed by the preview, so two people
-can drag at once and a person can drag while seeing someone else's. That's new work in `layer-drag.ts`, `getDragView`
-and `StylePreview`, and it's budgeted in the tasks.
+When the drop's write arrives, the preview settles with the same motion a local drop uses, so both copies see one
+landing.
+
+**Several at once.** Today there's one carried picture, one preview stylesheet and one record of what a style preview
+wrote, because only one person drags at a time. Previews need one of each per preview, keyed by the preview, so two
+people can drag at once and a person can drag while seeing someone else's. That's new work in `layer-drag.ts`,
+`carried.ts`, `getDragView` and `StylePreview`, and it's budgeted in the tasks.
 
 ### Holds
 
@@ -1216,8 +1221,9 @@ In short:
 
 **Phase 0, decide**
 - approve this proposal
-- the Storybook designs: the avatar stack and person card, the follow frame, other people's selections, a pointer
-  going away and coming back, drag previews, the hand-tuned palettes and the generator
+- the Storybook designs (done: PAR-1188, #732): the avatar stack and person card, the follow frame, other people's
+  selections, a pointer going away and coming back, drag previews, the hand-tuned palettes and the generator. The
+  local drag look they designed is in the app too (PAR-1199, #741)
 
 **Phase 1, core fixes for sync**
 - saving in a room
