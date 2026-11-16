@@ -344,14 +344,16 @@ export default defineConfig({
     maxWorkers: process.env.CI ? availableParallelism() : 12,
     // Closing Chrome after the browser tests takes more than the default 10 seconds on CI's macOS runners, and starting
     // it with a bundle (frame.test.ts, frame-nodes.test.ts) took more than 30 on its macOS and Windows runners (PAR-533).
-    // A hook that passes a timeout of its own skips this, so the browser tests' hooks don't (PAR-645).
-    hookTimeout: process.env.CI ? 60_000 : 30_000,
+    // A hook that passes a timeout of its own skips this, so the browser tests' hooks don't (PAR-645). A runner that
+    // stalls for 20 seconds or more on top of that took them past 60 on CI's Ubuntu runner too, so CI gives 120 (PAR-1221).
+    hookTimeout: process.env.CI ? 120_000 : 30_000,
     // CI's Windows runner sometimes stalls for 30 seconds or more, and whichever tests are waiting on the disk or a
-    // process then fail, though their work takes milliseconds (PAR-1215), so a test there gets as long as a hook.
-    // Locally a slow test still fails at 5.
+    // process then fail, though their work takes milliseconds (PAR-1215), so a test there gets 60. Locally a slow test
+    // still fails at 5.
     testTimeout: process.env.CI ? 60_000 : 5_000,
-    // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533).
-    expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } },
+    // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533), and more than 5
+    // when the runner stalls (PAR-1221). Short of a test's 60, so a poll that never passes still says what it waited for.
+    expect: { poll: { timeout: process.env.CI ? 45_000 : 1_000 } },
     // The React guest's React 18 tests run as a project of their own, with React 18 for `react` (PAR-1157).
     projects: [
       { extends: true, test: { name: "unit", exclude: [...configDefaults.exclude, reactEighteenTests] } },
