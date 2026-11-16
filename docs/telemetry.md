@@ -265,11 +265,13 @@ Storybook or the CLI.
   the window is idle, or a minute at most. Each frame of a zoom restyles every board's gutters, captions and labels, and
   recording those was the largest share of the window's JavaScript while zooming. The replay jumps from the canvas
   before the zoom to a snapshot after it. Panning is still recorded, as are clicks and requests during a zoom.
-- **Recording keeps the window's DOM level over a session.** The page counts about 21,000 more DOM nodes while
-  recording: one for each attribute of each element the recorder reads, which go with their elements. Before PAR-1169,
-  each frame the recorder saw added about 11,000 nodes a round of zooming, waking boards and editing that never went, 8
-  MB of heap with them: 867,000 nodes and 2.3 GB after an hour. The JS heap still grows by about 8 MB a round with
-  Replay on, and not with it off, which PAR-1169 goes on with. `pnpm perf --soak <minutes>` measures it again.
+- **Recording keeps the window's memory level over a session.** Over 13 rounds of zooming, waking boards and editing,
+  the JS heap stayed between 134 and 149 MB with Replay on, as with it off. The page counts about 21,000 more DOM nodes
+  while recording: one for each attribute of each element the recorder reads, which go with their elements. Before
+  PAR-1169 it grew without end, to 867,000 nodes, 799 MB of heap and 2.3 GB for the window after an hour, for two
+  reasons: the recorder kept every frame it saw (see below), and each time it stopped and started again, as a hold does,
+  it kept its last snapshot of the page, about 2.3 MB here. `@sentry/electron` 8.4.0 brings Sentry 11.10, which lets go
+  of it. `pnpm perf --soak <minutes>` measures it again.
 
 A project's frames and icons are left out of replays, shown as boxes their size, and the recorder never sees their
 shadow roots: it keeps every one it sees for the whole session, and with a frame's its whole drawing. It sees one as
