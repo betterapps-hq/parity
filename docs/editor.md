@@ -1849,10 +1849,12 @@ stories show it (PAR-1188):
   flies back to where it was in 260 ms, a little slower, so it reads as going back.
 - **A layer in a layout (flex or grid)** stays where it is, hidden, and a picture of it is carried, lifted. A faded copy
   with a dashed edge in the layer color shows where it would land, and the layout makes room for it as it moves (see
-  "Where a dragged layer lands", below). Dropped, the picture flies into the copy's place, where the moved layer looks
-  like the copy until the picture gets there and goes. Cancelled, or dropped where nothing takes it, the row closes and
-  the picture flies back to where the layer is, which stays empty until then. The layer's outline is left out until the
-  picture lands.
+  "Where a dragged layer lands", below): what's around it slides aside in 180 ms, with the same easing, and the copy
+  slides from slot to slot, rather than either jumping. A slide turned around mid-way carries on from where it's drawn.
+  Dropped, the picture flies into the copy's place, where the moved layer looks like the copy until the picture gets
+  there and goes. Cancelled, or dropped where nothing takes it, the row closes and the picture flies back to where the
+  layer is, which stays empty until then, as the row slides closed. The layer's outline is left out until the picture
+  lands.
 - **An absolutely placed layer** lifts itself, follows the pointer and settles where it's dropped; nothing marks where
   it was. Its outline follows it, a little bigger while it's carried, but its size label says its own size. Cancelled,
   it flies back from where it was let go.
@@ -1866,13 +1868,14 @@ stories show it (PAR-1188):
   drag previews, will reuse the same parts with their outline and color (not wired yet).
 
 Code: the timings and looks are in one place, `apps/desktop/src/renderer/canvas/drag-motion.ts` (`liftMs`, `dropMs`,
-`cancelMs`, `settle`, `liftScale`, the shadows, `landingLook` and `lift`). The design's parts draw them: `DragLift`
-lifts what React draws, `DragPicture` carries a picture and flies it, and `LandingSpot` is the faded copy. The canvas's
-own drags use them: `canvas/carried.ts` (`carriedPictures`) keeps the carried picture from pick-up until it lands, which
-the overlay draws as a `DragPicture` (`canvas/CarriedPicture.tsx`); `canvas/layer-picture.ts` (`layerPicture`) takes the
-picture; `canvas/element-lift.ts` (`liftElements`) lifts the canvas's own elements, an absolutely placed layer or a
-board, settles them and flies them back, and `liftOf` tells the overlay how much bigger one is drawn;
-`canvas/layer-drag.ts` (`pressLayers`) and `canvas/ContainerUtil.tsx` (`dragByTitle`) drive them.
+`cancelMs`, `makeRoomMs`, `settle`, `liftScale`, the shadows, `landingLook` and `lift`). The design's parts draw them:
+`DragLift` lifts what React draws, `DragPicture` carries a picture and flies it, and `LandingSpot` is the faded copy.
+The canvas's own drags use them: `canvas/carried.ts` (`carriedPictures`) keeps the carried picture from pick-up until it
+lands, which the overlay draws as a `DragPicture` (`canvas/CarriedPicture.tsx`); `canvas/layer-picture.ts`
+(`layerPicture`) takes the picture; `canvas/make-room.ts` (`slideElements`) slides what makes room;
+`canvas/element-lift.ts` (`liftElements`) lifts the canvas's own elements, an absolutely placed layer or a board,
+settles them and flies them back, and `liftOf` tells the overlay how much bigger one is drawn; `canvas/layer-drag.ts`
+(`pressLayers`) and `canvas/ContainerUtil.tsx` (`dragByTitle`) drive them.
 
 Tests: `canvas/drag-motion.test.ts`: lifting and settling, with reduced motion, from a scale and filter of the element's
 own, growing and moving computed `scale` and `translate` values, the flights' times and the landing look.

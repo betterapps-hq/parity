@@ -7,7 +7,8 @@
  *
  * - Picking up: what's picked up grows 3% and lifts onto a shadow, in 120 ms (`DragLift`).
  * - Carrying: it follows the pointer exactly. From a layout, a picture of it is carried (`DragPicture`) while a faded
- *   copy shows where it would land (`LandingSpot`), and the layout makes room as it will.
+ *   copy shows where it would land (`LandingSpot`), and the layout makes room as it will: what's around it slides
+ *   aside, and back when the copy moves on, in 180 ms (`make-room.ts`).
  * - Dropping: the picture flies from the pointer into its landing spot and settles, in 180 ms.
  * - Cancelling, with Esc: it flies back to where it was, a little slower, in 260 ms, so it reads as going back.
  * - With reduced motion, nothing grows or flies: what's picked up keeps its shadow, and lands or goes back at once.
@@ -24,6 +25,9 @@ export const dropMs = 180
 
 /** How long a cancelled drag takes to fly back to where it was. */
 export const cancelMs = 260
+
+/** How long what's around a carried layer takes to slide aside, or back, as its copy moves. */
+export const makeRoomMs = 180
 
 /** How lifted things settle: quick to start, gentle to land. */
 export const settle = "cubic-bezier(0.2, 0, 0, 1)"

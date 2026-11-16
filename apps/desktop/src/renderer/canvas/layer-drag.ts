@@ -38,6 +38,7 @@ import { kindColors } from "./kinds.tsx"
 import { insetSteps } from "./layer-measure.ts"
 import { layerPicture } from "./layer-picture.ts"
 import { LayerSnapping } from "./layer-snap.ts"
+import { slideElements } from "./make-room.ts"
 import { StylePreview } from "./style-preview.ts"
 
 /**
@@ -178,7 +179,7 @@ export function pressLayers(
         })
       }
 
-      preview = new DropPreview(elements, landingColor(area))
+      preview = new DropPreview(elements, landingColor(area), reducedMotion())
       view = { carried: true }
     },
     move(event) {
@@ -219,7 +220,8 @@ export function pressLayers(
       }
 
       const copies = preview?.box()
-      preview?.end()
+      // Called off, the row closes around where the layers come back; dropped, the move lays it out as it's shown.
+      preview?.end(!kept || !target)
       const reduced = reducedMotion()
 
       // Once the picture has landed, the layers' outlines come back, unless another drag has begun.
@@ -334,17 +336,20 @@ export function moveTarget(
 /**
  * Shows where dragged layers would land, before anything changes: the layers are hidden where they are, and faded
  * copies of them go where they'd be dropped, so every layout around them reflows exactly as it will. The copies look
- * like `LandingSpot` (`landingLook`). They're plain DOM, outside React, and gone before the move is made.
+ * like `LandingSpot` (`landingLook`). They're plain DOM, outside React, and gone before the move is made. As the copies
+ * move, they and the layers around them slide to their new places (`slideElements`), rather than jumping there.
  */
 class DropPreview {
   private readonly templates: HTMLElement[]
   private readonly displays: string[]
   private copies: HTMLElement[] = []
+  private hidden = false
   private at = ""
 
   constructor(
     private readonly originals: HTMLElement[],
-    color: string
+    color: string,
+    private readonly reduced: boolean
   ) {
     this.templates = originals.map((original) => {
       // SAFETY: a deep clone of an element is an element of the same kind.
@@ -366,10 +371,34 @@ class DropPreview {
       return copy
     })
     this.displays = originals.map((original) => original.style.getPropertyValue("display"))
+  }
 
-    for (const original of originals) {
+  /**
+   * Hides the layers where they are, the first time the copies are put somewhere, inside what's measured, so what's
+   * beside them is measured with them still there and slides only as far as the copies move it.
+   */
+  private hide(): void {
+    if (this.hidden) {
+      return
+    }
+
+    this.hidden = true
+
+    for (const original of this.originals) {
       original.style.setProperty("display", "none", "important")
     }
+  }
+
+  /** What's beside the layers where they are, until they're hidden there. */
+  private home(): Element[] {
+    return this.hidden ? [] : this.beside(this.originals)
+  }
+
+  /** What's in the layouts elements are in: them and what's beside them. */
+  private beside(elements: readonly Element[]): Element[] {
+    return [...new Set(elements.map((element) => element.parentElement))].flatMap((parent) => [
+      ...(parent?.children ?? [])
+    ])
   }
 
   /** Puts the copies at a target. Returns false when the layout isn't in the frame, so nothing could be shown. */
@@ -380,10 +409,11 @@ class DropPreview {
       return true
     }
 
-    this.clear()
     const parent = findNodeElement(host, target.parent)
 
     if (!parent) {
+      this.clear()
+
       return false
     }
 
@@ -392,12 +422,24 @@ class DropPreview {
       .map((id) => findNodeElement(host, id))
       .find((element) => element && element.parentElement === parent && !this.originals.includes(element))
 
-    // SAFETY: a deep clone of an element is an element of the same kind.
-    this.copies = this.templates.map((template) => template.cloneNode(true) as HTMLElement)
+    // The copies move from where they were, so they slide along with what makes room for them.
+    slideElements(
+      [...this.beside(this.copies), ...this.home(), ...parent.children],
+      () => {
+        this.hide()
 
-    for (const copy of this.copies) {
-      parent.insertBefore(copy, before ?? null)
-    }
+        // SAFETY: a deep clone of an element is an element of the same kind.
+        const copies =
+          this.copies.length > 0 ? this.copies : this.templates.map((t) => t.cloneNode(true) as HTMLElement)
+
+        for (const copy of copies) {
+          parent.insertBefore(copy, before ?? null)
+        }
+
+        this.copies = copies
+      },
+      this.reduced
+    )
 
     this.at = key
 
@@ -409,26 +451,50 @@ class DropPreview {
     return corner(this.copies.map((copy) => copy.getBoundingClientRect()))
   }
 
+  /** Takes the copies away, and what was beside them slides back together. */
   clear(): void {
+    slideElements(
+      [...this.beside(this.copies), ...this.home()],
+      () => {
+        this.hide()
+        this.remove()
+      },
+      this.reduced
+    )
+  }
+
+  /**
+   * Takes the copies away and shows the layers again. `close` slides what's around them to where they leave it, as when
+   * the drag is called off; dropped, the move lays it out just as the copies did, so nothing slides.
+   */
+  end(close: boolean): void {
+    const show = () => {
+      this.remove()
+      this.originals.forEach((original, index) => {
+        const display = this.displays[index]
+
+        if (display) {
+          original.style.setProperty("display", display)
+        } else {
+          original.style.removeProperty("display")
+        }
+      })
+    }
+
+    if (close) {
+      slideElements([...this.beside(this.copies), ...this.beside(this.originals)], show, this.reduced)
+    } else {
+      show()
+    }
+  }
+
+  private remove(): void {
     for (const copy of this.copies) {
       copy.remove()
     }
 
     this.copies = []
     this.at = ""
-  }
-
-  end(): void {
-    this.clear()
-    this.originals.forEach((original, index) => {
-      const display = this.displays[index]
-
-      if (display) {
-        original.style.setProperty("display", display)
-      } else {
-        original.style.removeProperty("display")
-      }
-    })
   }
 }
 
