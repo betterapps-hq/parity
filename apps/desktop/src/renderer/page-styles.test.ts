@@ -570,6 +570,9 @@ describe("importConditions", () => {
       "@media screen {\n@supports (display: grid) {\n@layer {\n.a {}\n}\n}\n}"
     )
     expect(importConditions(".a {}", "")).toBe(".a {}")
+    expect(importConditions(".a {}", "supports((display: grid) and (not (color: red))) print")).toBe(
+      "@media print {\n@supports (display: grid) and (not (color: red)) {\n.a {}\n}\n}"
+    )
   })
 })
 
@@ -584,6 +587,14 @@ describe("relativeUrlsFrom", () => {
       )
     ).toBe(
       '.a { background: url("http://project.test/_next/static/media/a.png"); } @font-face { src: url(http://project.test/_next/static/css/f.woff2); } .b { background: url(http://project.test/b.png), url(data:image/png;base64,x), url(#c), url(https://cdn.test/d.png); }'
+    )
+  })
+
+  it("reads a quoted address whole, parentheses and all", () => {
+    expect(
+      relativeUrlsFrom(".a { background: url(\"card(1).png\"), url('b (2).png'); }", "http://project.test/css/")
+    ).toBe(
+      ".a { background: url(\"http://project.test/css/card(1).png\"), url('http://project.test/css/b%20(2).png'); }"
     )
   })
 })

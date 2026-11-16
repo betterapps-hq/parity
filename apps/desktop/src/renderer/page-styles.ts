@@ -132,9 +132,15 @@ export function callerOrigin(stack: string, pageOrigin: string): string | undefi
  * they are.
  */
 export function relativeUrlsFrom(css: string, address: string): string {
+  // A quoted address is read whole, parentheses and all; an unquoted one ends at whitespace or `)`.
   return css.replace(
-    /url\(\s*(["']?)(?![a-z][a-z\d+.-]*:|#)([^"')]+)\1\s*\)/gi,
-    (_match, quote: string, path: string) => `url(${quote}${new URL(path, address).href}${quote})`
+    /url\(\s*(?:"([^"]*)"|'([^']*)'|([^"'\s)]+))\s*\)/gi,
+    (match, double?: string, single?: string, bare?: string) => {
+      const path = double ?? single ?? bare ?? ""
+      const quote = [double === undefined ? "" : '"', single === undefined ? "" : "'"].join("")
+
+      return /^(?:[a-z][a-z\d+.-]*:|#)/i.test(path) ? match : `url(${quote}${new URL(path, address).href}${quote})`
+    }
   )
 }
 
@@ -262,15 +268,30 @@ export function importConditions(css: string, conditions: string): string {
     rest = rest.slice(layer[0].length).trim()
   }
 
-  const supports = /^supports\(((?:[^()]|\([^()]*\))*)\)/.exec(rest)
+  const supports = rest.startsWith("supports(") ? balanced(rest, "supports".length) : undefined
 
-  if (supports) {
-    const condition = supports[1]?.trim() ?? ""
+  if (supports !== undefined) {
+    const condition = rest.slice("supports(".length, supports).trim()
     wrapped = `@supports ${condition.startsWith("(") ? condition : `(${condition})`} {\n${wrapped}\n}`
-    rest = rest.slice(supports[0].length).trim()
+    rest = rest.slice(supports + 1).trim()
   }
 
   return withMedia(wrapped, rest)
+}
+
+/** Where the parenthesis that opens at `open` in `text` closes, however deep what's inside nests. */
+function balanced(text: string, open: number): number | undefined {
+  let depth = 0
+
+  for (let index = open; index < text.length; index++) {
+    if (text[index] === "(") {
+      depth++
+    } else if (text[index] === ")" && --depth === 0) {
+      return index
+    }
+  }
+
+  return undefined
 }
 
 function baseUrl(element: Element, entry: Caught, origin: string): string {
