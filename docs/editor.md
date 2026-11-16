@@ -1700,9 +1700,10 @@ the CSS change) and `next-loader.test.ts` (the chunks and the guest module);
 browser. On `webpack-react-router`: webpack 5.112.2 and its config found, React Aria's `Button` drawn, the app's own
 components compiled with its Babel config, and, in a copy with a global stylesheet and a CSS module, the module's class
 drawn with the stylesheet's custom property. On `nextjs-webpack`: Next.js 15.5.29 on webpack found, every component's
-module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components stop
-at their theme providers, styled-components' `ThemeProvider` and Mantine's `MantineProvider`, which the canvas doesn't
-render.
+module loaded with its CSS module, and `layout.tsx` and `_document.tsx` failing with why. The apps' own components
+stopped at their theme providers, styled-components' `ThemeProvider` and Mantine's `MantineProvider`. Mantine's now
+comes from its library file (PAR-1168); styled-components' needs the app's own theme, so it waits for the project's
+preview file (PAR-100).
 
 ### Storybook's stories through its entities provider (PAR-1095)
 
@@ -6320,6 +6321,22 @@ draws nothing and the sidebar's parent; a `Sidebar` alone throws naming the prov
 registry draws the sidebar). `packages/project/src/library-files.test.ts` (1: a part marked `visual: false` stays
 listed). Composing a Nova sidebar inside its provider through `parity exec` was checked in the running app on
 2026-11-04: `Problems` found nothing, and the same sidebar without the provider reported the provider's error.
+
+### A library older than every registry file (PAR-1168)
+
+The registry may describe only a library's newest major, as it does Mantine 9. A project on an older version, such as
+Mantine 8 on the `nextjs-webpack` example app, still gets the oldest file made for a newer version rather than none, so
+it keeps the file's decorators, breakpoints and components: frames are wrapped in `MantineProvider`. Components the file
+lists that the installed package doesn't export are left out, and components it exports that the file doesn't list are
+found by name. A note says so and names `parity lib <package> --registry`, which makes a file for that version. A
+version newer than every file takes the newest older file the same way.
+
+Code: `registryEntryFor` in `packages/registry/src/index.ts`, which marks such a file `newer`; `findLibraries` in
+`packages/project/src/libraries.ts`, which checks its components against the package's declarations.
+
+Tests: `packages/registry/src/index.test.ts` ("uses the oldest newer file for a version older than every file");
+`packages/project/src/library-files.test.ts` ("keeps a file made for a newer version, with its decorators"); the
+`nextjs-webpack` validation project, which lists Mantine as a library.
 
 ### Placing a library's design, linked or detached (PAR-126)
 

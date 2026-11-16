@@ -45,7 +45,13 @@
     "semantic": {}
   },
   "themes": [],
-  "breakpoints": {},
+  "breakpoints": {
+    "mantine/xs": "576px",
+    "mantine/sm": "768px",
+    "mantine/md": "992px",
+    "mantine/lg": "1200px",
+    "mantine/xl": "1408px"
+  },
   "components": {
     "App": {
       "path": "src/pages/_app.tsx",
@@ -96,7 +102,15 @@
       "lazy": true
     }
   },
-  "libraries": [],
+  "libraries": [
+    {
+      "id": "mantine",
+      "package": "@mantine/core",
+      "version": "8.3.18",
+      "stylesImported": true,
+      "components": 0
+    }
+  ],
   "icons": [
     {
       "id": "tabler",
@@ -107,6 +121,8 @@
   "notes": [
     "styles the builder found: @mantine/core/styles.css",
     "8 components in 9 files from tsconfig.json",
+    "@mantine/core 8.3.18 is older than Parity's file for it (9.7.3): 0 components it doesn't list found by name, 0 it doesn't have yet. `parity lib @mantine/core --registry` makes one for this version.",
+    "0 components from Mantine (@mantine/core)",
     "0 components from Tabler Icons (@tabler/icons-react)",
     "no .par project file yet"
   ]

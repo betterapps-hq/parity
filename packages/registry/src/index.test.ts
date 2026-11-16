@@ -48,8 +48,15 @@ describe("registryEntryFor", () => {
     expect((await registryEntryFor("@mui/material", "9.1.0", dir))?.older).toBeUndefined()
   })
 
-  it("matches nothing for a version older than every file, or an unknown version", async () => {
-    expect(await registryEntryFor("@mui/material", "6.4.0", dir)).toBeUndefined()
+  it("uses the oldest newer file for a version older than every file, marked as newer (PAR-1168)", async () => {
+    const entry = await registryEntryFor("@mui/material", "6.4.0", dir)
+    expect(entry?.file).toBe("@mui+material@7.lib.par")
+    expect(entry?.newer).toBe(true)
+    expect(entry?.older).toBeUndefined()
+    expect((await registryEntryFor("@mui/material", "7.0.0", dir))?.newer).toBeUndefined()
+  })
+
+  it("matches nothing for an unknown version, or a package without a file", async () => {
     expect(await registryEntryFor("@mui/material", undefined, dir)).toBeUndefined()
     expect(await registryEntryFor("@chakra-ui/react", "3.0.0", dir)).toBeUndefined()
   })

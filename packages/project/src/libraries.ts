@@ -96,7 +96,7 @@ export interface FoundLibraries {
   components: Record<string, ComponentSource>
   /** The tokens libraries describe in their `.lib.par`. */
   describedTokens: DescribedTokens[]
-  /** What the person may want to know: a file older than its package, or hand edits for exports that have gone. */
+  /** What the person may want to know: a file made for another version, or hand edits for exports that have gone. */
   notes: string[]
 }
 
@@ -204,17 +204,21 @@ export async function findLibraries(
     const listed = manifest?.components
 
     if (listed) {
-      // A file made for an older version still describes it: components the package no longer exports are left
-      // out, and ones it has gained are listed by name until the file is updated.
-      const older = fromRegistry?.older ? await newerExports(entry, renderer, listed.list) : undefined
+      // A file made for another version still describes it: components the package doesn't export are left out,
+      // and ones it has that the file doesn't list are found by name until the file is updated.
+      const mismatched = fromRegistry?.older || fromRegistry?.newer
+      const differs = mismatched ? await otherExports(entry, renderer, listed.list) : undefined
 
-      if (older && fromRegistry) {
-        const made = fromRegistry.manifest.package?.version ?? "an older version"
-        result.notes.push(
-          `${packageName} ${version ?? ""} is newer than Parity's file for it (${made}): ${older.added.length} new components found by name, ${older.gone.size} gone. \`parity lib ${packageName} --registry\` updates it.`
-        )
+      if (differs && fromRegistry) {
+        const made = fromRegistry.manifest.package?.version ?? "another version"
 
-        for (const component of older.added) {
+        const about = fromRegistry.older
+          ? `newer than Parity's file for it (${made}): ${differs.added.length} new components found by name, ${differs.gone.size} gone. \`parity lib ${packageName} --registry\` updates it.`
+          : `older than Parity's file for it (${made}): ${differs.added.length} components it doesn't list found by name, ${differs.gone.size} it doesn't have yet. \`parity lib ${packageName} --registry\` makes one for this version.`
+
+        result.notes.push(`${packageName} ${version ?? ""} is ${about}`)
+
+        for (const component of differs.added) {
           result.components[`${definition.id}/${component.name}`] = declaredSource(
             root,
             importName,
@@ -225,7 +229,7 @@ export async function findLibraries(
       }
 
       for (const [name, component] of Object.entries(listed.list)) {
-        if (older?.gone.has(name)) {
+        if (differs?.gone.has(name)) {
           continue
         }
 
@@ -279,11 +283,11 @@ function designsOf(manifest: LibraryManifest | undefined, id: string): { designs
 }
 
 /**
- * For a package newer than its file: the exports the file lists that its declarations no longer have, and the
+ * For a package newer or older than its file: the exports the file lists that its declarations don't have, and the
  * components they have that the file doesn't list, found by name as packages without a file are. Namespaced parts
  * (`Dialog.Root`) are checked by their namespace.
  */
-async function newerExports(
+async function otherExports(
   entry: string,
   renderer: RendererAdapter,
   list: LibraryComponents["list"]
