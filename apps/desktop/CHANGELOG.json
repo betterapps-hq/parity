@@ -2,6 +2,163 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 17:18:05 GMT",
+      "version": "0.97.0",
+      "tag": "@parity-app/desktop_v0.97.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d17de894dfd4347a4e3dbdf16f847eda77db11aa",
+            "comment": "A library older than every registry file uses the oldest newer one, so Mantine 8 gets MantineProvider around its frames (PAR-1168)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4b645d8a0f0c7de8bb92255d3f11168aec70d01a",
+            "comment": "Use Simple Icons logos for the status bar's tools, and color a logo with its brand on hover (an icon's new optional color)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e2e1ccc965c8fcebba3c74e96f946bb7eb176a87",
+            "comment": "The router extensions' route count in the status bar follows routes marked as pages or API routes, through a new parity.routes API."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "e3a942357bb88a962dab6cbae7f471f943bfe3f1",
+            "comment": "Vite 6 and 7 projects keep their prebundled dependencies between opens instead of bundling them again, which sometimes stalled the builder"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "677d9c6fcc67e1e5c9fd5e08d407d0005191c8f4",
+            "comment": "Build the app's shadcn components with shadcn-sync instead of the Base UI Nova kit"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9992a0232e7473b7b6993b02315f6580c5e3ea77",
+            "comment": "Draw a TanStack Router layout on its own: the frame's router draws the frame as its root route, so its Outlet draws nothing in place of failing"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "25197903e7a69243369bb0327d2d4880afe26eb7",
+            "comment": "Take out the guards that kept a project's code from reloading Parity's window or changing its <html> and <body>"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1415155f60f08857850709a50d9e4e837f1eed49",
+            "comment": "Draw only the Components panel's rows in view, and draw a row again only when what it shows changes"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "981e3e7b708e4f25d940002df0d566079a4ee371",
+            "comment": "Keep any stylesheet a project's code adds to Parity's window out of it and draw it in that project's frames, whichever builder or library adds it"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5e16085af7d35e547fc224b5fb30110e6c9d63f6",
+            "comment": "Check a version a builder reads from another peer against that peer's range, and keep two Next.js-on-webpack guests' chunks apart in one window"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4e629a7e19f2de19b59f61be3004d404e75396d7",
+            "comment": "Start the project service again after it runs out of memory, report that crash, and cap the type checker so it can't take the service's heap"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9a5cb3defbbf547d17b4ff25972a1b5e7e18395e",
+            "comment": "Keep the floating toolbar as wide as its tools before it has measured itself"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "dfd03d01e1fea662e0b7d3a3a87b9aba4ce8e7bb",
+            "comment": "Rsbuild projects open once, rather than over and over: the builder that serves a project says which stylesheets it loads"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "38a2dc80f6d201ef4d7b21fa24ba815e56bb102d",
+            "comment": "Offer to write a project's preview file from the providers its app's entry renders"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "5e495ac92b878ea7ae1a3d28d07ff61c4b251695",
+            "comment": "Toasts use the stock shadcn toast instead of Sonner, through one module, with clearer copy, plain-language failure reasons and colored success and warning icons"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4f2ee03afcd749dbd2d99af0d96979deb566c256",
+            "comment": "Route screens draw for Rspack, Rsbuild and webpack apps: the builder serves the app's own pages, reloaded after each change"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "eaf66c3a5d1bf566b44877415011a33a03ce8a85",
+            "comment": "Run a project's .parity/preview.tsx, with Storybook's preview exports, around every frame on every builder"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1cf5095a332c5cd4c67b20d22b00d6d08405f233",
+            "comment": "Open projects Yarn installed with Plug'n'Play: packages, Vite and the project's tools are found through .pnp.cjs"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "98e79e4fd5e1b345b29436979dc8d9772ead72d3",
+            "comment": "Keep a project's code from reloading Parity's window or changing its <html> and <body>"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9439d071312eebc4db863a639b8ef590b37aa758",
+            "comment": "Layers nests API routes by URL, from routeOutline in core, the same for every router (PAR-1185)"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7125a5b2137cf8d9cee1f68268c0f469fc676fac",
+            "comment": "Extensions import one package, @parity-app/extension, and are written with defineExtension"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "86e0f843696a87f4864d449039f121edc8bb9265",
+            "comment": "Import the preview offer's and lens exploration's components from the generated shadcn package"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a4a44e667894a3a1e88e6905c41f3d59f258d57d",
+            "comment": "Count only the window's own navigations in the paste-to-replace test"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9138d889e0eace75102a312dbd4cbbf0f4e2a23e",
+            "comment": "Example app E uses Chakra UI instead of Mantine 8, which Parity doesn't support (PAR-1168)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 07:27:47 GMT",
       "version": "0.96.6",
       "tag": "@parity-app/desktop_v0.96.6",

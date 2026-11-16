@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Keep the floating toolbar as wide as its tools before it has measured itself",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

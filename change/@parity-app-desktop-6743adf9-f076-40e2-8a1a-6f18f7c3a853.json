@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Start the project service again after it runs out of memory, report that crash, and cap the type checker so it can't take the service's heap",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

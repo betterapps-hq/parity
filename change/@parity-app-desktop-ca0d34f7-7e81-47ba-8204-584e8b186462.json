@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Offer to write a project's preview file from the providers its app's entry renders",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Rsbuild projects open once, rather than over and over: the builder that serves a project says which stylesheets it loads",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
