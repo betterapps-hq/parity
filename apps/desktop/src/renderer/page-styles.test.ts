@@ -475,6 +475,26 @@ describe("a stylesheet a project's code adds to Parity's page", () => {
     })
   })
 
+  it("takes the rules its code inserts into and deletes from a readable linked stylesheet", async () => {
+    const result = await page.evaluate(async (origin) => {
+      const link = document.createElement("link")
+      const loaded = new Promise((resolve) => link.addEventListener("load", resolve))
+
+      link.rel = "stylesheet"
+      link.crossOrigin = "anonymous"
+      link.href = "http://project.test/card.css?edited"
+      project.call(() => document.head.append(link))
+      await loaded
+      await parity.pageStyles(origin).settled()
+      project.call(() => link.sheet?.insertRule(".added { background: url(added.png); }", 1))
+      project.call(() => link.sheet?.deleteRule(0))
+
+      return parity.pageStyles(origin).sheets()[0]?.css
+    }, origin)
+
+    expect(result).toBe('.added { background: url("http://project.test/added.png"); }')
+  })
+
   it("resolves a redirected stylesheet's url()s against where it came from in the end", async () => {
     const sheet = await page.evaluate(
       async ({ origin, assetsOrigin }) => {

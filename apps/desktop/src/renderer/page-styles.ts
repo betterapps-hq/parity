@@ -163,9 +163,17 @@ export function withMedia(css: string, media: string | null): string {
  */
 function sheetText(element: Element, entry: Caught): string | undefined {
   if (element instanceof HTMLLinkElement) {
-    return isStylesheet(element) && !element.disabled && entry.read === element.href && entry.linked !== undefined
-      ? relativeUrlsFrom(entry.linked, entry.linkedFrom ?? element.href)
-      : undefined
+    if (!isStylesheet(element) || element.disabled || entry.read !== element.href || entry.linked === undefined) {
+      return undefined
+    }
+
+    // Rules its code inserted or deleted are only in its CSSOM, which it could edit because it can read it.
+    const rules = entry.edited ? element.sheet?.cssRules : undefined
+    const from = entry.linkedFrom ?? element.href
+
+    return rules
+      ? styleWithImports(relativeUrlsFrom([...rules].map((rule) => rule.cssText).join("\n"), from), entry.origin)
+      : relativeUrlsFrom(entry.linked, from)
   }
 
   const sheet = element instanceof HTMLStyleElement ? element.sheet : null
@@ -464,11 +472,14 @@ function followChanges(records: MutationRecord[]): void {
       // The project changed its media, which it means for the stylesheet, not for Parity's page, even to `not all`.
       entry.media = media.media
       mute(element)
-    } else if (element instanceof HTMLLinkElement) {
-      mute(element)
-      readLink(element, entry)
     } else {
+      // A new address or text replaces its rules, edits and all.
       entry.edited = false
+
+      if (element instanceof HTMLLinkElement) {
+        mute(element)
+        readLink(element, entry)
+      }
     }
 
     tell(entry.origin)
