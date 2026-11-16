@@ -73,6 +73,10 @@ beforeAll(async () => {
         <div data-canvas-node="static" style="margin-left: 40px; width: 120px; height: 40px; border: 2px solid">
           <span class="pinned" style="position: absolute; left: 10px; top: 5px; width: 6px; height: 6px"></span>
           <span class="fixed" style="position: fixed; left: 30px; top: 12px; width: 6px; height: 6px"></span>
+          <span class="outer" style="position: absolute; left: 60px; top: 8px; width: 30px; height: 20px">
+            <span class="nested" style="position: absolute; left: 3px; top: 4px; width: 4px; height: 4px"></span>
+            <span class="fixed-in" style="position: fixed; left: 50px; top: 2px; width: 4px; height: 4px"></span>
+          </span>
         </div></div></div>`
   })
 })
@@ -380,18 +384,25 @@ describe("a picture of a layer that isn't positioned, with parts placed against 
         return { x: box.left - left, y: box.top - top }
       }
 
-      return [".pinned", ".fixed"].flatMap((selector) => {
+      return [".pinned", ".fixed", ".outer", ".nested", ".fixed-in"].flatMap((selector) => {
         const part = layer.querySelector(selector)
 
-        return part ? [{ layer: from(part, union), copy: from(copied.querySelector(selector)!, frame) }] : []
+        return part ? [{ selector, layer: from(part, union), copy: from(copied.querySelector(selector)!, frame) }] : []
       })
     }, node)
   }
 
-  it("keeps a part placed absolutely, and one fixed, where they're drawn", async () => {
-    for (const { layer, copy } of await placed("static")) {
-      expect(copy.x).toBeCloseTo(layer.x, 1)
-      expect(copy.y).toBeCloseTo(layer.y, 1)
+  it("keeps parts placed absolutely or fixed where they're drawn, and those placed inside them", async () => {
+    const parts = await placed("static")
+
+    expect(parts.map(({ selector }) => selector)).toEqual([".pinned", ".fixed", ".outer", ".nested", ".fixed-in"])
+
+    for (const { selector, layer, copy } of parts) {
+      expect({ selector, x: copy.x, y: copy.y }).toEqual({
+        selector,
+        x: expect.closeTo(layer.x, 1),
+        y: expect.closeTo(layer.y, 1)
+      })
     }
   })
 

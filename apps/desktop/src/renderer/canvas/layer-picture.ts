@@ -295,7 +295,9 @@ export function layerPicture(
  * absolutely, so what's inside is placed against the copy instead. The layer is given a transform that moves nothing
  * for a moment, which makes it what they're placed against too, and how far each moves on screen is how far its box was
  * from the layer, turned back into the layer's own pixels by `toScreen`; each copy is placed that much the other way,
- * from its left and top. A layer that transforms itself is what they're placed against already, in its copy too.
+ * from its left and top. Only those placed against something outside the layer are: one inside something in the layer
+ * that holds it (`holds`), such as another placed part, is placed against that, and goes wherever that goes. A layer
+ * that transforms itself is what they're placed against already, in its copy too.
  */
 function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
   if (!(layer instanceof HTMLElement || layer instanceof SVGElement)) {
@@ -310,13 +312,21 @@ function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
 
   const placed = [...layer.querySelectorAll("*")].flatMap((element, index) => {
     const style = getComputedStyle(element)
+    const fixed = style.position === "fixed"
 
-    if (style.position !== "absolute" && style.position !== "fixed") {
+    if ((style.position !== "absolute" && !fixed) || heldWithin(element, layer, fixed)) {
       return []
     }
 
     return [
-      { index, element, left: parseFloat(style.left), top: parseFloat(style.top), was: element.getBoundingClientRect() }
+      {
+        index,
+        element,
+        fixed,
+        left: parseFloat(style.left),
+        top: parseFloat(style.top),
+        was: element.getBoundingClientRect()
+      }
     ]
   })
 
@@ -358,7 +368,7 @@ function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
   const parts = [...copy.querySelectorAll("*")]
 
   // What's fixed is placed against the copy too, as it was measured against the layer, not against what holds it.
-  if (copy instanceof HTMLElement && placed.some(({ element }) => getComputedStyle(element).position === "fixed")) {
+  if (copy instanceof HTMLElement && placed.some(({ fixed }) => fixed)) {
     copy.style.setProperty("transform", "translate(0px)", "important")
   }
 
@@ -380,6 +390,38 @@ function keepPlaced(layer: Element, copy: Element, toScreen: DOMMatrix): void {
     part.style.setProperty("right", "auto", "important")
     part.style.setProperty("bottom", "auto", "important")
   })
+}
+
+/** Whether something between `element` and `layer` holds it, so it's placed against that, inside the layer. */
+function heldWithin(element: Element, layer: Element, fixed: boolean): boolean {
+  for (let at = element.parentElement; at && at !== layer; at = at.parentElement) {
+    if (holds(getComputedStyle(at), fixed)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Whether an element is what's placed absolutely inside it is placed against, its containing block: one that's
+ * positioned, or anything that also holds what's fixed, as transforming, filtering or containing its layout does.
+ */
+function holds(style: CSSStyleDeclaration, fixed: boolean): boolean {
+  if (!fixed && style.position !== "static") {
+    return true
+  }
+
+  return (
+    transforms.some((name) => style.getPropertyValue(name) !== "none") ||
+    style.perspective !== "none" ||
+    style.filter !== "none" ||
+    style.backdropFilter !== "none" ||
+    /layout|paint|strict|content/.test(style.contain) ||
+    style.containerType !== "normal" ||
+    style.contentVisibility === "auto" ||
+    /transform|perspective|filter/.test(style.willChange)
+  )
 }
 
 /** How a layer's drawn into what's behind it: how faint, and through which filters. */
