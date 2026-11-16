@@ -65,14 +65,16 @@ interface SideProps {
 
 /**
  * One side of the bar, stacked over the other in the middle. The side that isn't showing goes once its parts have flown
- * out, and can't be reached by pointer, keyboard or screen reader.
+ * out, and can't be reached by pointer, keyboard or screen reader. It's out of the flow too, centered where it was, so a
+ * bar that hasn't measured its sides yet, as in a window the system hides, fits the side that's showing rather than the
+ * wider one (PAR-1192).
  */
 function Side({ ref, shown, children }: SideProps) {
   return (
     <div
       ref={ref}
       inert={!shown}
-      className={`col-start-1 row-start-1 flex w-max items-stretch gap-0.5 [justify-self:unsafe_center] ${shown ? "opacity-100 motion-reduce:transition-opacity motion-reduce:duration-150" : "pointer-events-none opacity-0 transition-opacity delay-[400ms] duration-0 motion-reduce:delay-0 motion-reduce:duration-150"}`}
+      className={`col-start-1 row-start-1 flex w-max items-stretch gap-0.5 [justify-self:unsafe_center] ${shown ? "opacity-100 motion-reduce:transition-opacity motion-reduce:duration-150" : "pointer-events-none absolute inset-y-0 opacity-0 transition-opacity delay-[400ms] duration-0 motion-reduce:delay-0 motion-reduce:duration-150"}`}
     >
       {children}
     </div>
