@@ -108,7 +108,7 @@
       "package": "@mantine/core",
       "version": "8.3.18",
       "stylesImported": true,
-      "components": 292
+      "components": 234
     }
   ],
   "icons": [
@@ -121,8 +121,8 @@
   "notes": [
     "styles the builder found: @mantine/core/styles.css",
     "8 components in 9 files from tsconfig.json",
-    "@mantine/core 8.3.18 is older than Parity's file for it (9.7.3): 1 components it doesn't list found by name, 0 it doesn't have yet. `parity lib @mantine/core --registry` makes one for this version.",
-    "292 components from Mantine (@mantine/core)",
+    "@mantine/core 8.3.18 is older than Parity's file for it (9.7.3): 1 components it doesn't list found by name, 58 it doesn't have yet. `parity lib @mantine/core --registry` makes one for this version.",
+    "234 components from Mantine (@mantine/core)",
     "0 components from Tabler Icons (@tabler/icons-react)",
     "no .par project file yet"
   ]
