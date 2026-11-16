@@ -1035,6 +1035,144 @@ External extensions can't be installed yet (PAR-1098), so this part waits. What'
   - Parity's theme reaches them as CSS variables, whose names are listed and versioned with the extension API.
 - **No runtime sharing** of Parity's kit or React.
 
+## Telemetry and debugging
+
+Extensions move code out of core, and that makes failures harder to place. A pointer that doesn't show could be agent
+presence, a layer, `box()`, the room, or core's activity events. So every seam this proposal adds records what crosses
+it. Extensions today record nothing of their own beyond `processes.*`.
+
+**How events are defined.** They follow docs/telemetry.md:
+- Each is a typed `defineEvent` in `@parity-app/telemetry`, in two new files: `extension-events.ts` and `sync-events.ts`.
+  The multiplayer extension's own events go in its package, registered with the catalog.
+- Each goes to the local copy, to Sentry as a structured log, and as a breadcrumb in the process that recorded it.
+- Each is listed in docs/telemetry.md and docs/telemetry-coverage.md in the same commit that adds it.
+- Window modules record through `parity.log` and the events below. They don't call Sentry themselves.
+
+**What's never sent:** document bytes, people's names, an agent's labels, or what anyone typed. Peer ids, lineages and
+agent ids are random, so they're sent as they are.
+
+### Every error says which extension
+
+- **Sentry tags.** Every error from a window module, a layer's error boundary, or a call core makes into an extension
+  is tagged `extension` (its id), `extension_half` (`window` or `node`) and `tab`.
+- **The issue's title** starts with the extension's display name, so issues group by extension.
+- **`extensions.json`** is attached to every error from the editor window, beside `frames.json`. For each extension
+  active in each tab, it lists:
+  - its id, version, halves and their states
+  - its capabilities
+  - its layers, and how many previews and holds it has open
+  - its recent failures
+  - for the extension that brings the room: the lineage, whether it writes files, whether changes are pending, how big
+    its version is, and how many peers it last reported
+
+### Extensions' lifecycle
+
+These cover internal and external extensions, both halves.
+
+| Event                         | Level | Sent by            | When                                                                                     | Attributes                                                                                                                 |
+| ----------------------------- | ----- | ------------------ | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `extension.activated`         | info  | renderer, service  | A half's `activate` or `activateWindow` returns                                          | `extension`, `version`, `half`, `internal`, `trigger` (the activation event), `durationMs`, `capabilities`                 |
+| `extension.activateFailed`    | error | renderer, service  | A half fails to load or its activation throws                                            | `extension`, `half`, `phase` (`load`, `activate`), the error's message and stack                                            |
+| `extension.deactivated`       | info  | renderer, service  | A half stops                                                                             | `extension`, `half`, `why` (`turnedOff`, `tabClosed`, `setting`, `crashed`, `undetected`, `quit`), `uptimeMs`               |
+| `extension.crashed`           | warn  | service            | A Node half's process ends by itself                                                     | `extension`, `uptimeMs`, `crashesInRow`, `restarting`, `exitCode`, `signal`, its last 50 lines of output                    |
+| `extension.callFailed`        | warn  | renderer           | A listener, handler, layer render or `activateWindow` throws, caught by core             | `extension`, `api` (as `presence.onPointer` or `layer:multiplayer.pointers`), `failures` (in this tab), `stopped`, the error |
+| `extension.stoppedInTab`      | error | renderer           | A window module reaches five failures and is stopped in a tab                            | `extension`, `failures`, the last error                                                                                    |
+| `extension.halfUnavailable`   | warn  | renderer, service  | A call to the other half rejects with `HalfUnavailableError`                             | `extension`, `from` (`window`, `node`), `method`, `state`. Sampled to one in ten after the first per minute                  |
+| `extension.manifestRefused`   | error | service            | A manifest breaks a rule when it's read                                                  | `extension`, `rule` (as `internalOutsideBuiltIns`, `secondSync`, `capabilityWithoutContribution`)                          |
+| `extension.capabilityMissing` | warn  | renderer           | A window module calls an API it didn't declare                                           | `extension`, `capability`, `api`. Once per extension, API and session                                                     |
+
+### Time on the main thread
+
+| Event                 | Level | Sent by  | When                                                                                       | Attributes                                                                                                                            |
+| --------------------- | ----- | -------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension.slow`      | warn  | renderer | A long animation frame's scripts are mostly a window module's chunk, or one callback into it takes over 16 ms | `extension`, `kind` (`frame`, `callback`), `api` (for a callback), `durationMs`, `blockingMs`. At most one per extension a minute; the rest are counted in `extension.mainThread` |
+| `extension.mainThread` | info | renderer | Once a minute while a window module is active in a visible tab                              | `extension`, `callbacks`, `callbackMs` (total), `callbackP95Ms`, `longFrames`, `layers`, `layerRenders`                                |
+
+`extension.mainThread` is how a creeping cost shows up before anyone notices it, such as a layer re-rendering every
+frame. `extension.slow` is the spike that makes someone notice.
+
+### The canvas surface
+
+| Event                    | Level | Sent by  | When                                                    | Attributes                                                                                                       |
+| ------------------------ | ----- | -------- | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `dragPreview.settled`    | info  | renderer | A preview ends. Sampled to one in ten when it ends by its write | `extension`, `kind` (`board`, `layout`, `absolute`), `items`, `how` (`write`, `timeout`, `cancel`, `disposed`), `durationMs`, `concurrent` (previews open at once) |
+| `hold.released`          | info  | renderer | A hold ends                                             | `extension`, `how` (`released`, `timeout`, `grabbed`, `disposed`), `heldMs`                                      |
+| `follow.ended`           | info  | renderer | Following ends                                          | `extension`, `why`, `durationMs`                                                                                 |
+| `colors.exhausted`       | info  | renderer | A claim finds every palette taken, once per tab          | `keys`, `assigned` (how many the room assigned)                                                                  |
+
+- **A preview settled by `timeout`** means the write never arrived, or came after the gesture's end. That's the
+  ordering the event tables promise, so it's the first sign the promise broke.
+- **A hold let go by `timeout`** means an agent's write never came.
+
+### Sync
+
+Recorded by core, so they're there whichever extension brings the room.
+
+| Event                  | Level | Sent by  | When                                                                                   | Attributes                                                                                                                  |
+| ---------------------- | ----- | -------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `sync.opened`          | info  | renderer | The project opens through `onOpen`                                                     | `extension`, `from` (`files`, `snapshot`), `waitMs`, `snapshotBytes`, `lineage`, `format`                                   |
+| `sync.openFailed`      | warn  | renderer | `onOpen` rejects or takes over 30 s, so the project opens alone and sync is detached   | `extension`, `reason` (`rejected`, `timeout`), `waitMs`, the error                                                          |
+| `sync.traffic`         | info  | renderer | Once a minute while synced                                                             | `changesOut`, `changesIn`, `bytesOut`, `bytesIn`, `pendingReceives`, `maxPendingMs`, `receiveP95Ms`                         |
+| `sync.pending`         | warn  | renderer | Changes stay pending for over 5 s                                                      | `pendingMs`, `pendingBytes`                                                                                                 |
+| `sync.caughtUp`        | info  | renderer | `changesSince` is answered or applied                                                  | `role` (`asked`, `answered`), `bytes`, `durationMs`, `trigger` (`reconnect`, `pending`)                                     |
+| `sync.diverged`        | error | renderer | After catching up, this copy's version still differs from the one it caught up from     | `lineage`, `localVersionBytes`, `remoteVersionBytes`                                                                        |
+| `sync.receiveFailed`   | error | renderer | `receive` rejects for anything but another lineage                                     | `bytes`, the error                                                                                                          |
+| `sync.lineageRefused`  | warn  | renderer | `receive` refuses bytes from another lineage                                           | `lineage`, `theirs`                                                                                                         |
+| `sync.writesFiles`     | info  | renderer | `setWritesFiles` settles                                                               | `writes`, `why` (`open`, `host`, `roomGone`), `filesWritten`, `stylesheetWritten`, `durationMs`                             |
+| `sync.detached`        | warn  | renderer | The room goes away and the project moves to the local provider                         | `why` (`stopped`, `crashed`, `openFailed`, `turnedOff`), `unsavedFiles`, `saved`                                            |
+| `sync.diskIgnored`     | info  | renderer | A copy that doesn't write files ignores a file changed on its disk, once per file      | `path`                                                                                                                      |
+
+**Saving in a room** extends existing events instead of adding new ones:
+- `document.saved` gains `fromOthers`, the number of other copies' changes the save included.
+- `document.saveFailed` gains `inRoom` and `writesFiles`.
+- `document.saved` with `fromOthers` above zero is how we see that the blocker is fixed in practice.
+
+### Agents' activity
+
+| Event               | Level | Sent by  | When                                     | Attributes                                                                           |
+| ------------------- | ----- | -------- | ---------------------------------------- | ------------------------------------------------------------------------------------ |
+| `agents.activity`   | info  | renderer | Once a minute while agents are working   | `stepsHere`, `stepsReceived`, `copies` (distinct `from`), `listeners` (extensions listening) |
+| `agents.stepDropped`| warn  | renderer | A received step names a node that isn't there | `kind`, `from`. At most one a minute, the rest counted                               |
+
+`listeners: 0` with `stepsReceived` above zero shows that steps arrive but nothing draws them, as when agent presence
+is turned off.
+
+### The multiplayer extension's own
+
+| Event                | Level | When                                                       | Attributes                                                                                       |
+| -------------------- | ----- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `room.relayStarted`  | info  | The Node half starts the development relay, or finds one   | `result` (`started`, `shared`), `port`                                                           |
+| `room.joined`        | info  | This copy joins a room                                     | `host` (whether this copy hosts), `peers`, `waitMs`                                              |
+| `room.left`          | info  | This copy leaves                                           | `why` (`closed`, `turnedOff`, `lineage`, `relayGone`), `durationMs`                              |
+| `room.hostChanged`   | info  | The host changes                                           | `becameHost`, `peers`                                                                            |
+| `room.reconnected`   | warn  | The connection to the relay comes back                     | `downMs`                                                                                         |
+| `room.latency`       | info  | Once a minute while in a room                              | `rttP50Ms`, `rttP95Ms`, `rttMaxMs`, `presenceSent`, `presenceReceived`, `queueMax`, `batchesInFlightMax` |
+
+`room.latency` keeps the numbers we measured by hand during PAR-1179: round trips of a few milliseconds with spikes
+of 150–560 ms from busy main threads. We'll see whether that holds outside one machine.
+
+### Traces
+
+Spans follow the existing tracing (docs/telemetry.md, "Traces"):
+- `extension.activate` is a span under the tab's opening.
+- `sync.open` is a span under `project.opening`, so a slow open shows whether the room or the files took the time.
+- `sync.catchUp` is a span from asking to applying.
+- `room.join` is a span in the multiplayer extension, from connecting to the snapshot arriving.
+- A change carries no trace across copies. Changes are batched, and a trace per edit across machines would be noise.
+
+### Debugging without Sentry
+
+- **The extension's log tab.** Window modules write to the same tab in the bottom panel as their Node half, each line
+  marked with its half and tab. Failures counted by `extension.callFailed` show there with their stacks.
+- **`PARITY_EXTENSIONS_DEBUG=1`** (or `=multiplayer` for one extension) logs every call core makes into a window module
+  and every call it makes back, with timing, to the log tab and the local copy. It's for development.
+- **The Live room's status item.** The multiplayer extension's status item shows peers and whether this copy writes
+  files. Its tooltip shows the lineage, pending changes and the latest round trip. It's what someone looks at first when
+  two copies disagree.
+- **For agents.** `parity extensions` (and MCP's `list_extensions`) gives each extension's halves, states, recent
+  failures and, for the room, the sync state from `extensions.json`. An agent debugging a live room can see what the
+  person sees.
+
 ## Trust and limits
 
 - **Internal extensions are trusted like the app's code,** because they are the app's code, released with it.
@@ -1046,8 +1184,8 @@ External extensions can't be installed yet (PAR-1098), so this part waits. What'
   - A synchronous hang can't be contained. It's attributed and reported.
 - **Attributed.** Parity watches the main thread with `long-animation-frame` entries, whose script timings name the
   module's chunk, and times each callback into a window module. In development, past a budget, it says "Multiplayer is
-  slowing the editor". In production it reports to telemetry. `long-tasks.ts` gains this, since `longtask` entries
-  can't name a script.
+  slowing the editor". Everywhere, it records `extension.slow` and `extension.mainThread` (see "Telemetry and
+  debugging"). `long-tasks.ts` gains this, since `longtask` entries can't name a script.
 - **Layers can't cover Parity's own UI.** `edge` layers are kept clear of the toolbar and panels, and layers don't take
   the pointer unless an element asks.
 - **Stopping an extension** removes its layers, places, previews and holds, and releases its colors. If it brought the
@@ -1096,7 +1234,11 @@ In short:
   previews
 - the avatar stack and following, once designed
 
-**Throughout:** docs/editor.md, docs/extensions.md and developer-api.md, kept current.
+**Throughout:**
+- docs/editor.md, docs/extensions.md and developer-api.md, kept current
+- each task adds the telemetry events for its seam, with docs/telemetry.md and docs/telemetry-coverage.md updated in the
+  same commit
+- `extensions.json`, the Sentry tags and `PARITY_EXTENSIONS_DEBUG` land with window modules in phase 2
 
 **Backlog:** canvas overlays, web views (PAR-1099), and third-party extensions (PAR-1098).
 
