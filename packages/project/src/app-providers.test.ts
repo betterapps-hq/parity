@@ -289,6 +289,84 @@ createRoot(document.getElementById("root")).render(
     expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider"])
   })
 
+  it("looks inside a fragment between providers", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { StrictMode } from "react"
+import { createRoot } from "react-dom/client"
+import { IntlProvider } from "react-intl"
+import { ThemeProvider } from "styled-components"
+import { theme } from "./theme"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <>
+      <IntlProvider locale="en">
+        <>
+          <ThemeProvider theme={theme}><App /></ThemeProvider>
+        </>
+      </IntlProvider>
+    </>
+  </StrictMode>
+)
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider", "ThemeProvider"])
+  })
+
+  it("follows the one provider among a fragment's children, as among an element's", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import React from "react"
+import { createRoot } from "react-dom/client"
+import { IntlProvider } from "react-intl"
+import { ThemeProvider } from "styled-components"
+import { Toaster } from "sonner"
+import { theme } from "./theme"
+import App from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <IntlProvider locale="en">
+    <React.Fragment>
+      <Toaster />
+      <ThemeProvider theme={theme}><App /></ThemeProvider>
+    </React.Fragment>
+  </IntlProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider", "ThemeProvider"])
+  })
+
+  it("stops at sibling providers a fragment holds, rather than nest them", async () => {
+    const offer = await offerPreviewFile(
+      files({
+        "src/main.jsx": `import { createRoot } from "react-dom/client"
+import { IntlProvider } from "react-intl"
+import { ThemeProvider } from "styled-components"
+import { light, dark } from "./themes"
+import { Header, Main } from "./App"
+
+createRoot(document.getElementById("root")).render(
+  <IntlProvider locale="en">
+    <>
+      <ThemeProvider theme={light}><Header /></ThemeProvider>
+    </>
+    <ThemeProvider theme={dark}><Main /></ThemeProvider>
+  </IntlProvider>
+)
+`
+      })
+    )
+
+    expect(offer?.providers.map((provider) => provider.name)).toEqual(["IntlProvider"])
+  })
+
   it("imports a context its file exports, so the app's components read the same one", async () => {
     const offer = await offerPreviewFile(
       files({

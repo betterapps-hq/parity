@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The preview file offer looks inside fragments between the app's providers",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
