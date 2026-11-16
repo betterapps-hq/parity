@@ -56,6 +56,12 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: "../../out/renderer",
       emptyOutDir: true,
+      // For Electron 45's Chromium, the only browser the window runs in, so the code and CSS are built as the dev server
+      // serves them; Storybook builds for it too, as it keeps this one of the build's settings. For Vite's default, older
+      // browsers, the CSS minifier rewrites `light-dark()` into variables settled where a color is declared rather than
+      // where it's used, so anything with its own color scheme inside the page, such as a light story pane in a dark
+      // Storybook, took the page's colors instead.
+      target: "chrome156",
       // Written for Sentry, without the bundles pointing at them; scripts/build.ts moves them out of what's packaged.
       sourcemap: "hidden",
       rolldownOptions: {

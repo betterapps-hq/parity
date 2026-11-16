@@ -17,11 +17,7 @@ export type Theme = "light" | "dark"
  */
 export const scrolls: Decorator = (Story) => <div className="h-screen overflow-y-auto bg-background">{Story()}</div>
 
-/*
- * Each pane's color scheme, as a class rather than an inline style: the built Storybook turns `light-dark()` into
- * variables that only a stylesheet rule declaring `color-scheme` sets, so an inline scheme left the floating bars'
- * etched lines in the page's theme instead of the pane's.
- */
+/** Each pane's color scheme, so colors chosen by `light-dark()` follow the pane's theme rather than the page's. */
 const schemes: Record<Theme, string> = { light: "scheme-light", dark: "scheme-dark" }
 
 /** The canvas's own background in each theme, as tldraw draws it. */
