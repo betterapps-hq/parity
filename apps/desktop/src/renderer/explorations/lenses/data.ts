@@ -1,4 +1,4 @@
-import { AppWindow, Component, Database, type LucideIcon, Route, SquareLibrary, Webhook } from "lucide-react"
+import { Component, Database, type LucideIcon, Route, SquareLibrary, Webhook } from "lucide-react"
 import type { LensId } from "./model.ts"
 
 const shots = import.meta.glob<string>("../canvas-container/shots/*.png", { eager: true, import: "default" })
@@ -211,5 +211,3 @@ export const storyFiles = {
   Button: ["button-default", "button-outline"],
   PlanCard: ["plan-popular", "plan-side"]
 } satisfies Record<string, string[]>
-
-export const appIcon = AppWindow
