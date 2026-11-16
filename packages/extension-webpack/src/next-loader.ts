@@ -97,6 +97,40 @@ export const nextWebpackLoader: NextGuestLoader = {
   }
 }
 
+/**
+ * Keeps each session's chunks on its own runtime (PAR-1172). Next names webpack's chunk list `webpackChunk_N_E` in every
+ * app, so a second Next.js guest in the page would take over the one global, and a lazy chunk the first loads later
+ * would reach the second's runtime and never finish. So the global hands each script the list of the session that owns
+ * it, by the script's origin, as each builder serves from a port of its own, and others the last session's.
+ * `startSession` gives a session its own list, and `listOf` is the list its runtime took over.
+ */
+export const chunkListsSource = `const lists = (self.__parityWebpackLists ??= {})
+const origins = (self.__parityWebpackOrigins ??= {})
+const ownerOf = () => {
+  const src = document.currentScript?.src
+  const origin = src ? new URL(src, location.href).origin : undefined
+  return origins[origin] ?? self.__parityWebpackLatest
+}
+if (!Object.getOwnPropertyDescriptor(self, "webpackChunk_N_E")?.get) {
+  Object.defineProperty(self, "webpackChunk_N_E", {
+    configurable: true,
+    get: () => lists[ownerOf()],
+    set: (list) => {
+      lists[ownerOf()] = list
+    }
+  })
+}
+// Until the runtime takes a list over, what the chunks push keeps their modules and leaves out the function that would
+// start Next's router.
+const startSession = (session, runtime) => {
+  const chunks = []
+  chunks.push = (chunk) => Array.prototype.push.call(chunks, [chunk[0], chunk[1]])
+  lists[session] = chunks
+  origins[new URL(runtime, location.href).origin] = session
+  self.__parityWebpackLatest = session
+}
+const listOf = (session) => lists[session]`
+
 /** The guest module's source. It loads the chunks and the runtime once per page and session, then makes the guest. */
 export function webpackGuestLoaderSource(loader: WebpackGuestLoader): string {
   const json = (value: string | readonly string[]) => JSON.stringify(value)
@@ -109,18 +143,15 @@ const load = (src) => new Promise((resolve, reject) => {
   script.onerror = () => reject(new Error(\`\${src} didn't load\`))
   document.head.append(script)
 })
-// One runtime per page and session: each starts on a list of its own, and the one before goes on with the modules it
-// has. Until the runtime takes the list over, what the chunks push keeps their modules and leaves out the function
-// that would start Next's router.
+${chunkListsSource}
+// One runtime per page and session, each on a list of its own; the one before goes on with the modules it has.
 sessions[${json(loader.session)}] ??= (async () => {
-  const chunks = []
-  chunks.push = (chunk) => Array.prototype.push.call(chunks, [chunk[0], chunk[1]])
-  self.webpackChunk_N_E = chunks
+  startSession(${json(loader.session)}, ${json(loader.runtime)})
   await Promise.all(${json(loader.chunks)}.map(load))
   await load(${json(loader.runtime)})
 
   return new Promise((resolve, reject) => {
-    self.webpackChunk_N_E.push([[${json(`parity:${loader.session}`)}], {}, (require) => {
+    listOf(${json(loader.session)}).push([[${json(`parity:${loader.session}`)}], {}, (require) => {
       try {
         resolve(require(${json(loader.id)}))
       } catch (error) {

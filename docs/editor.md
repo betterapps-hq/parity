@@ -1932,6 +1932,49 @@ card's variants on demand (`showVariants`) has no test of its own, as the rest o
 tried in a debug copy of the app on 2026-11-05, where Button's card showed its six variants and pointing at outline
 showed it large. Component designs show their icon, not their board's picture.
 
+### The Components panel draws only the rows in view (PAR-1202)
+
+The Components tab draws only the lines in view, ten either side besides, with `@tanstack/react-virtual`, in every view:
+Names, List and Grid. Each source's heading, its styles notice, its families' headings and its rows are lines of one
+list, so a library of hundreds of components costs the panel what a few do. Before this, opening Copacker drew all 647
+of Base UI's, Shadcn Vega's and Recharts' entries, with about 1,950 buttons, each with its own card, hint and menu:
+10,659 of the window's 20,000 or so elements.
+
+- **A row is drawn again only when what it shows changes:** its name, why it's listed or hidden, how often the designs
+  use it, the view, its picture, or whether it fails to draw. A change to the project's designs or a new picture used to
+  draw the whole list again, 1.4 to 2 s a pass on the development build. Each row hears only of its own component's
+  picture and of whether it fails to draw; a card that's closed no longer hears of every new picture, as each row's did
+  for its variants' pictures.
+- **What extensions offer for a row is worked out when it's wanted.** A component's menu works out Open in Storybook and
+  View code as it opens; the buttons on its row, while the row is pointed at or has focus; its card's, while the card is
+  open. Before, every row worked out all three each time it was drawn.
+- **The keyboard keeps its place.** Tab moves down the rows, which scroll into view as they get focus, and the row with
+  focus stays drawn when the wheel scrolls it away. The right arrow still opens a row's card, and dragging a row inserts
+  it as before.
+- **Searching starts at the top** of what matches, and starting or clearing a search forgets which sources were opened
+  or closed by hand, as before.
+
+Code: which lines show is pure, in `packages/editor/src/asset-lines.ts` (`assetLines`). The panel is `ComponentsPanel`,
+`AssetList` and `AssetEntry` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`; `AssetMenu` and `RowOffers` work out
+a row's offers when they're shown. `useVariantPreviews` in `renderer/component-previews.ts` listens only while its card
+shows.
+
+Tests:
+
+- `packages/editor/src/asset-lines.test.ts` (5): a source's heading, its families' headings and one item to a row; the
+  count of a closed source; a closed source's notice without its items; items two to a row in Grid, marking each
+  family's first and last rows; and keys that differ across sources.
+- `chrome/ComponentsPanel.stories.tsx`: OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once
+  the list scrolls to its end; StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has
+  focus; ComponentMenu, its menu worked out as it opens; and SearchingAgain, a source closed in one search open again in
+  the next.
+
+Tried on Copacker in a development copy of the app on 2026-11-16: the panel held 212 to 348 elements, 24 to 35 lines, in
+every view, at 256 and 200 pixels wide; moving a design five times drew no rows again; searching "badge", Tab through a
+row's buttons to the next row, the right arrow opening a row's card, the context menu, and inserting Badge all worked.
+Gaps: that a change to the designs or a new picture draws only the rows it touches was checked by counting rows' renders
+in the app, not by a test. The stories' play functions run in Storybook, not in `pnpm verify`.
+
 ## Moving, reordering and resizing
 
 Dragging layers and designs, where they land, resize handles and duplicates.
@@ -8510,38 +8553,6 @@ frame's body). `packages/core/src/css.test.ts` (1: the copy on the body, by what
 tokens, nor for a root in a theme). Checked in the running app on `nextjs-webpack` (Chakra UI 3.37.0) on 2026-11-16:
 solid buttons drew black in light and white in dark, as Chakra draws them, teal buttons and a purple badge filled, and
 Problems found nothing in either mode. Before, every solid button was transparent.
-
-### A project's code can't reload Parity's window or change its root (PAR-1207)
-
-A project's code can't reload or leave Parity's window, nor change Parity's `<html>` or `<body>`, whichever builder or
-library it comes from. It runs in Parity's own window, beside the stylesheet boundary above. Before, a Vite project's
-client, which its modules import for hot updates, reloaded the whole window when its server restarted. A shadcn theme
-toggle set `dark` on the page's `<html>`, where Parity keeps its own theme.
-
-- **Reloads.** The first guest the page loads adds a `beforeunload` handler (`guardWindow`). An unload runs it in the
-  same call as the `location.reload()` or navigation that started it, so the code that asked is on the stack. If any
-  frame on it is another origin's, the unload is cancelled and the log says which origin tried. Any frame, not the
-  first: Sentry wraps every listener the page adds, so Parity's own code calls the handler. Parity's own reloads go
-  ahead, and so does closing or reloading the window from its menu, which no page code starts. Electron cancels without
-  asking.
-- **`<html>` and `<body>`.** `setAttribute`, `removeAttribute`, `toggleAttribute`, `className`, `classList`'s methods,
-  `setProperty`, `removeProperty` and inline style properties set by name are wrapped. Chrome sets a style property by
-  name without a setter to wrap, so their `style` is a proxy. Another origin's change to them is dropped, and `toggle`,
-  `replace` and `toggleAttribute` answer as if it had been made. It isn't moved into the project's frames: a frame's
-  body takes its classes and attributes from the frame's modes, such as a theme mode's `dark`, which a toggle would
-  otherwise override in every frame. Parity's own changes, and the project's to its own elements, go through.
-- **What it doesn't cover.** Changes through `dataset`, other ways to navigate that don't run page code first, and the
-  rest of what the proposal lists: window listeners, history, portals, globals and errors.
-
-Code: `apps/desktop/src/renderer/page-window.ts`, set up from `guest.ts` beside `guardPage`. Tests:
-`apps/desktop/src/renderer/page-window.test.ts` (3, in Chrome, with Parity's page and a project's code served from two
-origins: a project's reload cancelled and logged with its origin, with listeners wrapped as Sentry wraps them, and
-Parity's own reload let through; a theme toggle's class, attribute, `colorScheme` and scroll lock dropped from `<html>`
-and `<body>`, with `toggle` and `toggleAttribute` answering as if they'd been made; Parity's own changes to them, and
-the project's to its own elements, made). Checked in the running app with shadcn-vite open: a module of the project's
-that toggles the theme and sets the body's overflow left Parity's `<html>` and `<body>` as they were. Its
-`location.reload()`, and its Vite client's reload after the project's `vite.config.ts` changed, both left the window
-open, with one log line each kind. Parity's own reload went ahead.
 
 ### Detected again when what detection reads changes (PAR-820)
 

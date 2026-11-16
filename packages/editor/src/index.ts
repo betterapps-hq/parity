@@ -162,6 +162,8 @@ export {
 
 export { openingDesigns } from "./home.ts"
 
+export { type AssetLine, assetLines, type LineFamily, type LineSource } from "./asset-lines.ts"
+
 export {
   compareRanked,
   hiddenHeading,

@@ -592,6 +592,9 @@ export function useComponentPreview(session: ProjectSession, component: string):
   return useSyncExternalStore(previews.subscribe, () => previews.get(component))
 }
 
+/** Listens to nothing, for a hook that has nothing to hear of yet. */
+const ignore = () => () => undefined
+
 /**
  * The previews of a component's variants while `shown`, as its card shows them, made on demand: a card that never opens
  * makes none (PAR-208).
@@ -617,7 +620,9 @@ export function useVariantPreviews(
 
     return previews.showVariants(component, asked.current)
   }, [previews, component, key, shown])
-  useSyncExternalStore(previews.subscribe, () => previews.version)
+  // Only a card that shows hears of new previews: a closed one in every row would draw each row again for every preview.
+  const listening = shown && key !== ""
+  useSyncExternalStore(listening ? previews.subscribe : ignore, () => (listening ? previews.version : 0))
 
   return ids.map((id) => previews.get(id))
 }

@@ -402,7 +402,8 @@ quietly, in the status bar's tooltips and the agent API. Each adapter gives its 
 major (`Adapter.versions`), so a new adapter brings its own cutoff; add a major there when it comes out. A tool whose
 extension exists, React, Storybook, TanStack Router, React Router and Next.js so far, takes its versions from the
 extension's peer dependencies instead: inside the range is supported, above it newer and below it dropped, and the range
-is widened or narrowed in the extension's `package.json` as this policy says.
+is widened or narrowed in the extension's `package.json` as this policy says. A version read from another of its peers
+is checked against that peer's own range, as Next.js against `next`'s when the webpack builder runs a Next.js app.
 
 - **A tool's newest major is never dropped,** however old it is, as you confirmed. Otherwise React 19 would drop in
   December 2026 with nothing to replace it, and Fluent UI v9, from 2022, would already be gone.
