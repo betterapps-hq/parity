@@ -2008,6 +2008,8 @@ of Base UI's, Shadcn Vega's and Recharts' entries, with about 1,950 buttons, eac
   it as before.
 - **Searching starts at the top** of what matches, and starting or clearing a search forgets which sources were opened
   or closed by hand, as before.
+- **Libraries start closed,** each a heading with its count, and so do the app's components and pages beside two other
+  sources or more. A search opens every source with a match.
 
 Code: which lines show is pure, in `packages/editor/src/asset-lines.ts` (`assetLines`). The panel is `ComponentsPanel`,
 `AssetList` and `AssetEntry` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`; `AssetMenu` and `RowOffers` work out
@@ -2019,10 +2021,10 @@ Tests:
 - `packages/editor/src/asset-lines.test.ts` (5): a source's heading, its families' headings and one item to a row; the
   count of a closed source; a closed source's notice without its items; items two to a row in Grid, marking each
   family's first and last rows; and keys that differ across sources.
-- `chrome/ComponentsPanel.stories.tsx`: OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once
-  the list scrolls to its end; StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has
-  focus; ComponentMenu, its menu worked out as it opens; and SearchingAgain, a source closed in one search open again in
-  the next.
+- `chrome/ComponentsPanel.stories.tsx`: AllSources, each library closed and the component designs open as the tab first
+  opens; OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once the list scrolls to its end;
+  StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has focus; ComponentMenu, its menu
+  worked out as it opens; and SearchingAgain, a source closed in one search open again in the next.
 
 Tried on Copacker in a development copy of the app on 2026-11-16: the panel held 212 to 348 elements, 24 to 35 lines, in
 every view, at 256 and 200 pixels wide; moving a design five times drew no rows again; searching "badge", Tab through a
