@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 00:11:32 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 00:29:30 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.1
+
+Mon, 16 Nov 2026 00:29:30 GMT
+
+### Patches
+
+- Next.js projects on Turbopack load components found after the start, and reload changed code, without restarting the
+  builder (ajcraswell@gmail.com)
 
 ## 0.96.0
 
