@@ -181,8 +181,8 @@ export function pressLayers(
       // before they're pictured: grabbed again on their way back, they'd otherwise be carried unseen.
       carriedPicture.finish()
       layouts.measure(host, entry.container.root)
-      // The picture is taken before the layers are hidden.
-      const picture = layerPicture(host, elements, scale)
+      // The picture is taken before the layers are hidden, of the box it's carried by.
+      const picture = layerPicture(host, elements, scale, union)
 
       if (picture) {
         carriedPicture.pickUp({

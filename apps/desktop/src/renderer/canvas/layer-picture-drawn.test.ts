@@ -62,7 +62,11 @@ beforeAll(async () => {
       </div>
       <div style="opacity: 0.8; filter: url(#missing)"><div style="filter: brightness(0.5)">
         <div style="opacity: 0.5; filter: grayscale(1)"><div data-canvas-node="dimmed" style="width: 40px; height: 40px;
-          background: rgb(255, 0, 0)"></div></div></div></div></div>`
+          background: rgb(255, 0, 0)"></div></div></div></div>
+      <div data-canvas-node="field" style="position: absolute; left: 420px; top: 320px; width: 90px; height: 30px;
+        background: rgb(0, 0, 0)"></div><span data-canvas-node="field" style="display: none"></span>
+      <input data-canvas-node="field" style="position: absolute; left: 0; top: 0; width: 1px; height: 1px;
+        clip: rect(0 0 0 0)"></div>`
   })
 })
 
@@ -80,7 +84,7 @@ describe("a picture of a layer the frame's rules draw", () => {
 
       // SAFETY: the bundle's global is layer-picture.ts's exports, whose layerPicture returns this.
       // @ts-expect-error The bundle's global.
-      const picture = pictures.layerPicture(host, [card], 1) as HTMLElement
+      const picture = pictures.layerPicture(host, [card], 1, card.getBoundingClientRect()) as HTMLElement
       document.body.append(picture)
 
       // The card's copy is the first thing the body's stand-in holds, in the layer's place.
@@ -111,7 +115,7 @@ describe("a picture of a layer the frame's rules draw", () => {
   })
 
   it("adds no layers where the canvas looks for them", () => {
-    expect(drawn.layers).toBe(8)
+    expect(drawn.layers).toBe(11)
     expect(drawn.found).toBe(0)
   })
 })
@@ -128,7 +132,7 @@ describe("a picture of a layer scaled, turned and moved by its own transforms", 
 
       // SAFETY: as above.
       // @ts-expect-error The bundle's global.
-      const picture = pictures.layerPicture(host, [badge], 1) as HTMLElement
+      const picture = pictures.layerPicture(host, [badge], 1, badge.getBoundingClientRect()) as HTMLElement
       document.body.append(picture)
       const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
 
@@ -168,7 +172,7 @@ describe("a picture of a layer inside something scaled and turned", () => {
 
       // SAFETY: as above.
       // @ts-expect-error The bundle's global.
-      const picture = pictures.layerPicture(host, [chip], 1) as HTMLElement
+      const picture = pictures.layerPicture(host, [chip], 1, chip.getBoundingClientRect()) as HTMLElement
       document.body.append(picture)
       const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
 
@@ -208,7 +212,7 @@ describe("a picture of a layer padded by a share of what it's laid out in", () =
 
       // SAFETY: as above.
       // @ts-expect-error The bundle's global.
-      const picture = pictures.layerPicture(host, [padded], 1) as HTMLElement
+      const picture = pictures.layerPicture(host, [padded], 1, padded.getBoundingClientRect()) as HTMLElement
       document.body.append(picture)
       const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
 
@@ -258,7 +262,7 @@ describe("a picture of a layer drawn by rules about what it's in", () => {
 
       // SAFETY: as above.
       // @ts-expect-error The bundle's global.
-      const picture = pictures.layerPicture(host, [label], 1) as HTMLElement
+      const picture = pictures.layerPicture(host, [label], 1, label.getBoundingClientRect()) as HTMLElement
       document.body.append(picture)
       const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
       const box = copied.getBoundingClientRect()
@@ -297,7 +301,7 @@ describe("a picture of a layer in something dimmed and filtered", () => {
 
       // SAFETY: as above.
       // @ts-expect-error The bundle's global.
-      const picture = pictures.layerPicture(host, [dimmed], 1) as HTMLElement
+      const picture = pictures.layerPicture(host, [dimmed], 1, dimmed.getBoundingClientRect()) as HTMLElement
       document.body.append(picture)
       const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
       const holder = getComputedStyle(copied.parentElement!)
@@ -312,6 +316,39 @@ describe("a picture of a layer in something dimmed and filtered", () => {
 
   it("is filtered by what it's in, the nearest first, but for a filter the picture can't draw", () => {
     expect(blended.filter).toBe("grayscale(1) brightness(0.5)")
+  })
+})
+
+describe("a picture of a component that draws a hidden input and a part not displayed beside what's seen", () => {
+  let drawn: { seen: Box; copy: Box; picture: Box }
+
+  beforeAll(async () => {
+    drawn = await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const parts = [...host.shadowRoot!.querySelectorAll('[data-canvas-node="field"]')]
+      const box = ({ left, top, width, height }: DOMRect) => ({ left, top, width, height })
+      // As the drag measures it (`nodeBox`): what's seen, leaving out what's empty or clipped to nothing.
+      const seen = parts[0]!.getBoundingClientRect()
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const picture = pictures.layerPicture(host, parts, 1, seen) as HTMLElement
+      document.body.append(picture)
+      const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
+
+      return {
+        seen: box(seen),
+        copy: box(copied.getBoundingClientRect()),
+        picture: box(picture.getBoundingClientRect())
+      }
+    })
+  })
+
+  it("is the box of what's seen, which is drawn from its top-left, where the drag holds it", () => {
+    expect(drawn.picture.width).toBeCloseTo(drawn.seen.width, 1)
+    expect(drawn.picture.height).toBeCloseTo(drawn.seen.height, 1)
+    expect(drawn.copy.left - drawn.picture.left).toBeCloseTo(0, 1)
+    expect(drawn.copy.top - drawn.picture.top).toBeCloseTo(0, 1)
   })
 })
 

@@ -48,6 +48,14 @@ const bleed = 32
 /** The properties that transform an element where it's drawn, without moving where it's laid out. */
 const transforms = ["transform", "translate", "rotate", "scale"] as const
 
+/** A box on screen by its edges, in client pixels. */
+export interface Edges {
+  left: number
+  top: number
+  right: number
+  bottom: number
+}
+
 /** Where an element is drawn, leaving out its own transforms (see `laidOut`). */
 interface LaidOut {
   /** Its border box's size, in its own pixels. */
@@ -160,7 +168,10 @@ function byPoints(element: HTMLElement): LaidOut | undefined {
 
 /**
  * A picture of layers drawn in a frame, as they're drawn now, for a drag to carry over the canvas (`CarriedPicture`).
- * It's their box on screen, in screen pixels, at the frame's `scale` (screen pixels per pixel of the frame).
+ * It's `box` on screen, the layers' box as the drag measures it, from what they draw that's seen (`nodeBox`), so the
+ * picture sits where the drag places it; in screen pixels, at the frame's `scale` (screen pixels per pixel of the
+ * frame). An element of theirs that isn't seen, such as a hidden input or one that's not displayed, is copied as it is,
+ * where it is, but doesn't move the picture.
  *
  * The layers are copied into a shadow root of the picture's own, and each copy, and every part of it, is drawn as the
  * same part of its layer is drawn now, property by property, `::before` and `::after` too (`keepLook`): rules about
@@ -174,21 +185,22 @@ function byPoints(element: HTMLElement): LaidOut | undefined {
  * in a picture is hit. What can't be copied this way, such as a canvas element's drawing or a scroll position, is left
  * out.
  *
- * Nothing when the host isn't a frame or no layer is drawn.
+ * Nothing when the host isn't a frame or there are no layers.
  */
-export function layerPicture(host: HTMLElement, layers: readonly Element[], scale: number): HTMLElement | undefined {
+export function layerPicture(
+  host: HTMLElement,
+  layers: readonly Element[],
+  scale: number,
+  box: Edges
+): HTMLElement | undefined {
   const frame = host.shadowRoot
-  const rects = layers.map((layer) => layer.getBoundingClientRect())
 
-  if (!frame || rects.length === 0 || scale <= 0) {
+  if (!frame || layers.length === 0 || scale <= 0) {
     return undefined
   }
 
   const origin = host.getBoundingClientRect()
-  const left = Math.min(...rects.map((rect) => rect.left))
-  const top = Math.min(...rects.map((rect) => rect.top))
-  const right = Math.max(...rects.map((rect) => rect.right))
-  const bottom = Math.max(...rects.map((rect) => rect.bottom))
+  const { left, top, right, bottom } = box
   const own = (value: number) => `${value / scale}px`
 
   const picture = document.createElement("div")
