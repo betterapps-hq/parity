@@ -363,7 +363,7 @@ Providers are declared in the manifest's `providers` and given behaviour in `act
   decorators take: a module the project imports, an export and its props, whose `{ "$frame": "url" }` is the URL the
   frame stands for. Parity reads them before the extension's code runs, as it does a renderer's guest module, since the
   builder writes the guest as the project opens. React Router's is a `MemoryRouter`; TanStack Router's a
-  `RouterContextProvider` around a memory-history router.
+  `RouterProvider` with a memory-history router whose root route draws the frame (`{ "$frame": "content" }`).
 - **Entities providers keep the round trip.** Import gives screens and their code; export writes an edited screen back
   to its file on Save, as stories work today. Parity makes the canvas file and its nodes from what import returns, so no
   call adds a canvas file directly.
