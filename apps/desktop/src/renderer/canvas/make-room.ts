@@ -1,5 +1,6 @@
 import { makeRoomMs, settle, translated } from "./drag-motion.ts"
 import { styleElements } from "./element-lift.ts"
+import { asTranslate, translateOnScreen } from "./screen-moves.ts"
 
 /** Elements still sliding, and what ends each slide at once, putting back what was written on it. */
 const sliding = new WeakMap<Element, () => void>()
@@ -52,11 +53,12 @@ export function slideElements(elements: Iterable<Element>, change: () => void, r
       return []
     }
 
-    // A slide is in the element's own pixels, which the canvas scales.
-    const size = element instanceof HTMLElement ? element.offsetWidth : 0
-    const ratio = size > 0 ? now.width / size : 1
+    // A slide is a translate, which moves the element along whatever it's in, scaled and turned with it: the move on
+    // screen goes back through what a translate does there.
+    const styled = element instanceof HTMLElement || element instanceof SVGElement ? element : undefined
     const own = getComputedStyle(element).translate
-    const from = translated(own, { x: away.x / ratio, y: away.y / ratio })
+    const ratio = element instanceof HTMLElement && element.offsetWidth > 0 ? now.width / element.offsetWidth : 1
+    const from = translated(own, asTranslate(away, styled && translateOnScreen(styled, own), ratio))
 
     return from ? [{ element, own, from }] : []
   })

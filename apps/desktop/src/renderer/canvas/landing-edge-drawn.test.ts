@@ -34,6 +34,16 @@ beforeAll(async () => {
       <div id="clips" style="position: relative; width: 120px; height: 60px; overflow: hidden"></div>
       <img id="image" alt="" style="position: relative; width: 100px; height: 60px"
         src="data:image/gif;base64,R0lGODlhAQABAAAAACw=">
+    </div>
+    <div id="scaled-row" style="display: flex; gap: 20px; padding: 40px">
+      <div id="scaled-first" style="width: 80px; height: 40px"></div>
+      <div id="scaled" style="width: 60px; height: 40px; scale: 2"></div>
+    </div>
+    <div style="margin: 60px; rotate: 20deg; scale: 1.5; width: 400px">
+      <div id="turned-row" style="display: flex; gap: 20px">
+        <div id="turned-first" style="width: 80px; height: 40px"></div>
+        <div id="turned" style="width: 60px; height: 40px"></div>
+      </div>
     </div></body>`)
   await page.addScriptTag({ content: bundle.outputFiles[0]!.text })
 })
@@ -139,5 +149,37 @@ describe("a copy still sliding into place", () => {
     expect(at.sliding).toBe(at.was)
     // Past the 120px box and the row's 20px gap.
     expect(at.ended).toBe(at.was + 140)
+  })
+})
+
+describe("a slide of something scaled, or in something turned", () => {
+  /** Moves the element with `id` to the start of its row and says where it's drawn, before and as its slide starts. */
+  async function slideToStart(id: string) {
+    return page.evaluate((id) => {
+      const element = document.getElementById(id)!
+      const row = element.parentElement!
+      const box = ({ left, top }: DOMRect) => ({ left, top })
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const { slideElements } = edges
+      const was = box(element.getBoundingClientRect())
+      slideElements([...row.children], () => row.prepend(element), false)
+
+      return { was, sliding: box(element.getBoundingClientRect()) }
+    }, id)
+  }
+
+  it("starts from where an element with a scale of its own was drawn", async () => {
+    const { was, sliding } = await slideToStart("scaled")
+
+    expect(Math.abs(sliding.left - was.left)).toBeLessThan(0.25)
+    expect(Math.abs(sliding.top - was.top)).toBeLessThan(0.25)
+  })
+
+  it("starts from where an element in something scaled and turned was drawn", async () => {
+    const { was, sliding } = await slideToStart("turned")
+
+    expect(Math.abs(sliding.left - was.left)).toBeLessThan(0.25)
+    expect(Math.abs(sliding.top - was.top)).toBeLessThan(0.25)
   })
 })
