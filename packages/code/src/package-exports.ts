@@ -21,12 +21,48 @@ export function packageExports(entry: string): Set<string> {
   const names = new Set<string>()
 
   for (const exported of checker.getExportsOfModule(moduleSymbol)) {
-    if (exportsValue(checker, exported)) {
+    if (reachesValue(checker, moduleSymbol, exported.name, new Set())) {
       names.add(exported.name)
     }
   }
 
   return names
+}
+
+/**
+ * Whether a module exports `name` as a value: its own export of it is one, or an `export * from` that isn't
+ * `export type *` leads to a module that does.
+ */
+function reachesValue(checker: ts.TypeChecker, module: ts.Symbol, name: string, seen: Set<ts.Symbol>): boolean {
+  if (seen.has(module)) {
+    return false
+  }
+
+  seen.add(module)
+  // A module's own exports are its symbol's; what `export *` brings is only in what the checker resolves.
+  const own = module.exports?.get(ts.escapeLeadingUnderscores(name))
+
+  if (own) {
+    return exportsValue(checker, own)
+  }
+
+  const stars = (module.declarations ?? []).flatMap((declaration) =>
+    ts.isSourceFile(declaration) ? declaration.statements.filter(ts.isExportDeclaration) : []
+  )
+
+  return stars.some((statement) => {
+    if (statement.exportClause || !statement.moduleSpecifier || statement.isTypeOnly) {
+      return false
+    }
+
+    const target = checker.getSymbolAtLocation(statement.moduleSpecifier)
+
+    return (
+      target !== undefined &&
+      checker.getExportsOfModule(target).some((symbol) => symbol.name === name) &&
+      reachesValue(checker, target, name, seen)
+    )
+  })
 }
 
 /**

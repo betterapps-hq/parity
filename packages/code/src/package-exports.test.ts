@@ -35,7 +35,8 @@ describe("packageExports (PAR-1168)", () => {
         "export declare const One: Factory<{}>, Two: Factory<{}>",
         'export type { PanelProps } from "./panel.mjs"',
         "export interface Theme { dark: boolean }",
-        'export * from "./types.mjs"'
+        'export * from "./types.mjs"',
+        'export type * from "./typed-star.mjs"'
       ].join("\n")
     )
     await write(
@@ -43,6 +44,7 @@ describe("packageExports (PAR-1168)", () => {
       "export declare const Card: Factory<{ props: CardProps }>\ntype Factory<T> = () => T"
     )
     await write("dist/badge.d.mts", "declare const Badge: () => null\nexport default Badge")
+    await write("dist/typed-star.d.mts", "export declare const Starred: () => null")
     // A value, but only its type is passed on.
     await write(
       "dist/types.d.mts",
