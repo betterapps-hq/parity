@@ -1416,9 +1416,24 @@ A route that answers requests on the server and draws nothing is an API route: t
 leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
 `pages/api` files are API routes. One with pages inside it is their layout or group, as before.
 
-- **Layers** lists them in their own section, API routes, under the app's pages and before its screens, by path, in the
-  order the router gives them. A search finds them by path. A click selects one, and the Design tab shows its path and
-  file (`ApiRoutePanel`).
+- **Layers** lists them in their own section, API routes, under the app's pages and before its screens. A click selects
+  one, and the Design tab shows its path and file (`ApiRoutePanel`).
+- **Nested by URL** (PAR-1185). Router extensions give an API route its layout or the root as its parent, so API routes
+  have no tree among themselves. `routeOutline` in `@parity-app/core` nests routes by their `segments` alone, so they
+  nest the same way for TanStack Router, React Router and Next.js. A route whose URL starts another's holds it and
+  opens: `/api/projects` holds `$projectId`. A folder (`Folder` icon) stands for URL parts that two or more items share
+  but no route ends at, as `/api` holding `auth/callback` and `projects`. Parts only one item has are folded into its
+  label, so no folder holds a single item and a lone `/api/v1/users/[id]` is one row, not four. Each row shows the URL
+  parts it adds, as the router writes them, and is named by its whole path for screen readers. Items are in order by
+  label, and two routes at one URL are two rows. Folders and routes that hold others are open until closed, as a
+  layout's folder among the pages is; the arrow keys move through them with the pages' rows and folders. A search finds
+  API routes by path and shows them nested the same way, everything open. Pages still nest by layout, as the canvas
+  draws them.
+
+  Tests: `packages/core/src/route-outline.test.ts` (nesting, folding, params written as the router writes them, two
+  routes at one URL, keys that stay the same, a path without one part for each segment), and the stories Parity/Left
+  panel/API routes: Under The Pages (the nesting, labels, levels and names), Folder Closed, Route Closed and Searched.
+
 - **The canvas** never draws one (`drawnRoute`), and no Open in browser is offered. The status bar's route count and
   Settings' "Reads the app's routes as pages" count only pages; Settings counts API routes apart.
 - **Marks.** Parity can't always tell a route draws nothing without running the app, so a page's menu, in Layers or on
@@ -1433,8 +1448,9 @@ leaving it out. TanStack Start's server routes, React Router's resource routes, 
   extensions as they change (`sendRouteMarks` in `extension-editor.ts`), and each router counts its pages through
   `parity.routes.marked`, again on `parity.routes.onChange`.
 
-Code: `packages/core/src/routes.ts`, `apps/desktop/src/renderer/route-marks.ts`, `Routes` in `packages/extension-api`,
-`apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left panel/API routes).
+Code: `packages/core/src/routes.ts`, `packages/core/src/route-outline.ts`, `apps/desktop/src/renderer/route-marks.ts`,
+`Routes` in `packages/extension-api`, `apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left
+panel/API routes).
 
 ### Next's router on canvas (PAR-1160)
 
@@ -1572,11 +1588,18 @@ the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild bu
 - **Its builder provider says whether Rspack builds the project,** asked of the project's own Rspack, with its version
   and config file: the one the dev script names with `-c`, else `rspack.config.*`. A config that exports a function is
   called as Rspack's CLI calls it for `serve`. A project with an Rsbuild config is left to Rsbuild.
-- **The guest is the project's config, building the guest in place of the app.** Its entry is the guest module every
-  builder writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's
-  written as classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's
-  rules, loaders, aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with
-  the renderer's stand-in for its development JSX runtime.
+- **The guest is the project's config, building the guest beside the app.** Its entry is the guest module every builder
+  writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's written as
+  classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's rules, loaders,
+  aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with the renderer's
+  stand-in for its development JSX runtime.
+- **The app's pages draw its routes' screens** (PAR-1194). A route's screen loads the app at the builder's address and
+  the route's path, as Vite serves it, so the builder builds the app's own entries beside the guest's (`app-` before
+  their names) and makes its page with the project's first HTML plugin, made again with its options for those entries:
+  Rsbuild's comes with its template and title filled in. An app without one gets a page with a `root` to mount on. Any
+  path that names no file gets the page, with the script that gives it the frame's mode and tells the canvas its height
+  and where it landed first, and one that reloads it after each build that changes something. The app's entries' CSS is
+  the page's, not the components'. Code: `app-pages.ts`.
 - **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
   takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
   imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
@@ -1592,9 +1615,10 @@ Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`
 
 Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
-graph walks and the server's paths); the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy
-of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
-properties, and a component's code and a token edited together, both drawn afresh.
+graph walks, the server's paths, and the app's entries, page and reloads in `app-pages.test.ts` and `server.test.ts`);
+the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and
+its config found, its three components and Home drawn with the project's custom properties, and a component's code and a
+token edited together, both drawn afresh.
 
 ### Rsbuild as an extension, through its builder provider (PAR-1148)
 
@@ -1616,8 +1640,10 @@ Tests: `packages/extension-rsbuild/src/builder.test.ts` (detection, and the conf
 `extension.test.ts`; `packages/builder-webpack-compatible/src/guest-config.test.ts` (the extractor and HTML plugin).
 Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3.2 and its config found, Chakra UI's
 components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
-code since PAR-1156, and its root route's component, `AppShell`, draws inside the router TanStack Router's extension
-puts around every frame (PAR-1152).
+code since PAR-1156. Tried again on 2026-11-16 on a copy of it: it opens once (PAR-1193), its Home and Settings route
+screens draw the app's pages with `AppShell` around them, and an edit to Home reloads its screen (PAR-1194). `AppShell`
+on its own still fails to draw, as its `Outlet` has no matched route in the router TanStack Router's extension puts
+around frames (PAR-1195).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 
@@ -2861,7 +2887,10 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   layer blue going home. With reduced motion the sides cross-fade. Focus moves to the side showing, to its picked
   control or its first; the hidden side can't be reached by pointer, keyboard or screen reader. The toolbar is named for
   its side ("Toolbar", "Comments", "Behaviour annotations"). A focused button's ring shows whole at either end of the
-  bar.
+  bar. The hidden side takes no room, so a bar that hasn't measured its sides yet fits the side showing (PAR-1192).
+  Before, it took the hidden review bar's 400px around the tools' 315px whenever its ResizeObserver hadn't reported, as
+  in a window the system hides, leaving empty space at both ends. Checked on 2026-11-16 in a dev copy whose window was
+  covered: with the hidden side out of the flow, the bar measured 324px around the tools.
 - **Zoom floats at the top right:** Zoom out, the level, Zoom in and Zoom to fit, each with its keys in its tooltip. The
   level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on its own tab's canvas. Undo and Redo
   left the canvas for the Edit menu and their keys.
@@ -7941,11 +7970,15 @@ every bitmap. Reopened in the same window, every frame shows its bitmap at 2.2 s
   (`BuilderAdapter.prepare`): Vite creates its server, says which stylesheets the app loads from it, and starts serving
   once the project's components are known. The modules it read the stylesheets with are compiled again once its
   dependency optimizer runs, so none keep its earlier hashes. A builder that doesn't prepare, or can't say, leaves it to
-  its extension, as before. Opening copacker went from about 36 seconds to between 26 and 32 seconds until it served,
-  timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts` (2: the stylesheets come from the
-  builder started early, and from its extension when it can't say) and `packages/processes/src/builder-process.test.ts`
-  (3: a prepared builder answers the stylesheets before its config comes, one whose config never comes is closed, and
-  one that doesn't prepare says nothing).
+  its extension, as before. That's the extension of the builder that serves the project (PAR-1193): a builder's config
+  file being there doesn't make it the project's, as Rspack's extension watches `rsbuild.config.*` and leaves the
+  project to Rsbuild's. Asking Rspack's gave no stylesheets, while the check after opening asked Rsbuild's, so every
+  Rsbuild project read as changed and opened again, endlessly. Opening copacker went from about 36 seconds to between 26
+  and 32 seconds until it served, timed on a busy machine outside the app. `apps/desktop/src/utility/projects.test.ts`
+  (3: the stylesheets come from the builder started early, from its extension when it can't say, and from the builder
+  that serves the project when the one started early leaves it to another) and
+  `packages/processes/src/builder-process.test.ts` (3: a prepared builder answers the stylesheets before its config
+  comes, one whose config never comes is closed, and one that doesn't prepare says nothing).
 - **A builder process waits ready before a project opens (PAR-1079).** Starting a builder's process and loading the
   builders' code took about 0.4 seconds before the builder itself began. The service starts one process as it starts,
   and a project opening takes it. The next one starts once that project's builder is up, so the two don't share the CPU.
@@ -8429,6 +8462,35 @@ Tests: `apps/desktop/src/main/packaged.test.ts` covers the copy under the dev ru
 `main/project-service.test.ts` a crash that names the missing script. The app tests start Parity through
 `scripts/dev.ts`, so on CI's Windows runner they run under `Parity.exe` too. Gap: nothing automated starts the service
 from a freshly made copy and compares it with Electron as installed. That's the smoke check above.
+
+### The project service starts again after it runs out of memory (PAR-1184)
+
+The project service never exits by itself, so main takes any exit it didn't ask for as a crash and starts a fresh
+service, with the back-off PAR-788 set. That includes code 0, which is what Electron reports for a utility process V8
+stopped for running out of memory. Before, main read that 0 as a clean stop: after an out-of-memory crash it logged
+nothing and started no service, and the window kept going without one.
+
+Every thread in an Electron process shares one 4 GB V8 heap, so the type checker's worker is capped at 3 GB, or half the
+computer's memory when that's less. A program too big for that stops the worker, and components stay as the parse found
+them. The service doesn't run out of memory itself. With a cap above the shared heap, a large checker left the service's
+own thread no room, and the whole service crashed.
+
+Checked on Windows 11 on 2026-11-15 under Parity's Electron 45: a utility process that runs out of memory exits with
+code 0 and fires no `child-process-gone`. A worker capped at 3 GB stops with `ERR_WORKER_OUT_OF_MEMORY` while the main
+thread holds 700 MB, and the main thread then takes 300 MB more. With copacker open, the checker's heap peaked at about
+0.9 GB.
+
+The crash goes to Sentry as one issue, "The project service exited with code 0: JavaScript heap out of memory", wherever
+V8 failed.
+
+Code: `createProjectService` in `apps/desktop/src/main/project-service.ts`, `serviceRestarts` in
+`packages/processes/src/service-restarts.ts`, `serviceCrash` in `packages/telemetry/src/app-events.ts`, and
+`checkerHeapMb` in `apps/desktop/src/utility/props.ts`.
+
+Tests: `main/project-service.test.ts` (a service that exits with code 0 by itself is reported as a crash, with what it
+printed, and started again), `packages/processes/src/service-restarts.test.ts` (code 0 restarts; an exit main asked for
+doesn't) and `packages/telemetry/src/app-events.test.ts` (running out of memory is one cause, with code 0). Gap: nothing
+automated runs a real service out of memory. That's the check above.
 
 ## The window
 

@@ -74,6 +74,8 @@ export {
   sameSegments
 } from "./routes.ts"
 
+export { type OutlineRoute, routeOutline, type RouteOutlineItem } from "./route-outline.ts"
+
 export { type AdapterFacts, type ContributingExtension, extensionAdds } from "./extension-adds.ts"
 
 export {

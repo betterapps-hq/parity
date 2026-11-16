@@ -1,13 +1,14 @@
 import type { z } from "zod"
+import { appEntries, appPagePlugin } from "./app-pages.ts"
 import { babelFromRoot } from "./babel.ts"
 import { guestFiles } from "./browser-modules.ts"
 import { type Bundler, type BundlerConfig, type BundlerPlugin, bundlerPlugin, bundlerRule, ruleUse } from "./bundler.ts"
 
 /*
- * The project's own config, changed to build the guest in place of the app: the guest's entry and the global
- * stylesheets as entries, classic scripts with one runtime and hot updates, its CSS extracted, written to a folder of
- * the builder's own. Everything else is the project's: its rules, loaders, resolve settings and plugins, so its code
- * compiles as it does for the app.
+ * The project's own config, changed to build the guest beside the app: the guest's entry and the global stylesheets as
+ * entries, with the app's own entries and its page for the canvas's route screens, classic scripts with one runtime and
+ * hot updates, its CSS extracted, written to a folder of the builder's own. Everything else is the project's: its
+ * rules, loaders, resolve settings and plugins, so its code compiles as it does for the app.
  */
 
 export interface GuestConfigOptions {
@@ -39,8 +40,8 @@ export interface GuestConfigOptions {
 }
 
 /**
- * Plugins the app's dev server needs that the guest doesn't, by their class's name: HTML pages (Rsbuild's included)
- * and Fast Refresh.
+ * Plugins the app's dev server needs that the guest doesn't, by their class's name: HTML pages (Rsbuild's included),
+ * which the app's page takes the first of again (`appPagePlugin`), and Fast Refresh.
  */
 const appOnlyPlugins =
   /^(?:Html(?:Rspack|Webpack)?Plugin|RsbuildHtmlPlugin|ReactRefresh(?:Rspack|Webpack)?Plugin|ReactRefreshPlugin)$/
@@ -62,10 +63,22 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
       : []
   })
 
+  // The app's own entries are built beside the guest's, for the pages the canvas draws routes from.
+  const app = appEntries(config.entry)
+
+  const projectPlugins = (config.plugins ?? []).flatMap((entry) => {
+    const plugin = bundlerPlugin.safeParse(entry)
+
+    return plugin.success ? [plugin.data] : []
+  })
+
+  const appPage = appPagePlugin(projectPlugins, Object.keys(app), options.publicPath)
+
   const entries = Object.fromEntries([
     ["main", { import: [options.entry], library: { type: "window", name: options.key } }],
     ...(options.styles.length > 0 ? [["styles", { import: [...options.styles] }]] : []),
-    ...(options.packageStyles.length > 0 ? [["package-styles", { import: [...options.packageStyles] }]] : [])
+    ...(options.packageStyles.length > 0 ? [["package-styles", { import: [...options.packageStyles] }]] : []),
+    ...Object.entries(app)
   ])
 
   const rules = config.module?.rules ?? []
@@ -126,6 +139,7 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
     plugins: [
       ...plugins,
       ...(extract ? [extract.plugin()] : []),
+      ...(appPage ? [appPage] : []),
       bundler.hotModuleReplacement(),
       // React's production build: its development one keeps a stack for every element it makes, and its warnings are
       // for the app's own dev server to show. Fast Refresh's calls, compiled in by a loader set up for it, do nothing.

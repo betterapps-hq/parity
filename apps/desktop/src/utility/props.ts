@@ -30,6 +30,13 @@ export const checkerVersion = (() => {
  */
 export const checkerIdleMs = environment().PARITY_CHECKER_IDLE_MS ?? 5 * 60_000
 
+/**
+ * The most the type checker's heap can take, in MB: half the computer's memory, and never more than 3 GB. Electron gives
+ * every thread in a process one 4 GB heap between them, so a worker allowed more takes the service's own share, and the
+ * service, not the worker, runs out (PAR-1184). Copacker's program is about 1 GB.
+ */
+const checkerHeapMb = Math.min(Math.round(totalmem() / 2 ** 20 / 2), 3072)
+
 /** Props and the component check, read by TypeScript's checker in a worker thread, one request at a time. */
 export interface TypeChecker {
   /** Infers every component's props. */
@@ -136,11 +143,9 @@ export function typeChecker(
 /** The service's type checker, on a worker that stops when it has nothing to do. */
 export const checker = typeChecker(
   workerClient<CheckerMethods>({
-    // Half the computer's memory at most, so a project too big to check stops the worker rather than the computer.
+    // A project too big to check stops the worker rather than the service or the computer.
     start: () => {
-      const worker = new Worker(workerUrl, {
-        resourceLimits: { maxOldGenerationSizeMb: Math.round(totalmem() / 2 ** 20 / 2) }
-      })
+      const worker = new Worker(workerUrl, { resourceLimits: { maxOldGenerationSizeMb: checkerHeapMb } })
 
       // The worker's events come beside its channel's messages (PAR-627).
       worker.on("message", recordFromWorker)
