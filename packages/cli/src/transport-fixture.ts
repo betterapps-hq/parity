@@ -56,7 +56,7 @@ export const succeeded = expect.objectContaining({ code: 0 })
  * three full runs at once, as several sessions' `pnpm verify` make, these tests took over the default 5 seconds
  * (PAR-495), and a start on CI's Windows runners took more than 10 (PAR-533).
  */
-export const processTests = { timeout: process.env.CI ? 36_000 : 20_000 }
+export const processTests = { timeout: process.env.CI ? 60_000 : 20_000 }
 
 /**
  * How long one process may take: all of its test's time, less a second so it fails with its output rather than with
