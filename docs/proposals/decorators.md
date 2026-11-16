@@ -1,7 +1,8 @@
 # Proposal: decorators and modes
 
-Status: you decided the contract, Storybook's, and on 2026-10-28 the questions below. Nothing here is built yet beyond
-`.lib.par` decorators.
+Status: you decided the contract, Storybook's, and on 2026-10-28 the questions below. Built: `.lib.par` decorators, and
+`.parity/preview.tsx` with its decorators, loaders, parameters and global types' defaults (PAR-100, in
+[editor.md](../editor.md)). The rest isn't built yet.
 
 ## In one line
 

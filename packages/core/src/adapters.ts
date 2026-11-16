@@ -589,7 +589,7 @@ export interface GuestInit {
    * server would otherwise add to the page's head, where they'd restyle Parity's own window.
    */
   moduleStyles?: ModuleStyles
-  /** Libraries' decorators, outermost first, with the modules they import by specifier. */
+  /** Libraries' decorators, outermost first, with the modules they import by specifier, and the project's preview. */
   decorators?: GuestDecorators
   /** Categories for custom properties libraries describe, by name without `--`. */
   tokenCategories?: Record<string, TokenCategory>
@@ -621,6 +621,11 @@ export interface GuestDecorators {
   list: { library: string; decorator: LibraryDecorator }[]
   /** Modules by specifier; a module that failed to load is the error it failed with. */
   modules: Record<string, ModuleExports | { loadError: string }>
+  /**
+   * The project's preview file as it loaded (`ProjectConfig.preview`), or the error it failed with. Its decorators wrap
+   * inside the libraries'.
+   */
+  project?: ModuleExports | { loadError: string }
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
