@@ -24,10 +24,19 @@ import {
   updateContainer,
   updateContainers
 } from "@parity-app/multiplayer"
-import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame.ts"
+import {
+  adoptFrameSheet,
+  dropFrameSheet,
+  findFrames,
+  findNodeElement,
+  findNodeElements,
+  frameRuleSheets,
+  nodeBox
+} from "../frame.ts"
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { carriedPicture, type Spot } from "./carried.ts"
+import { dropPreviewSheet, markPreviewCopy } from "./drop-preview-rules.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
@@ -183,7 +192,7 @@ export function pressLayers(
         })
       }
 
-      preview = new DropPreview(elements, landingColor(area), reducedMotion())
+      preview = new DropPreview(host, elements, landingColor(area), reducedMotion())
       view = { carried: true }
     },
     move(event) {
@@ -352,11 +361,17 @@ class DropPreview {
   private hidden = false
   private at = ""
 
+  /** The frame's rules about the layers, for their copies (`dropPreviewSheet`), and the frame showing them. */
+  private readonly rules: CSSStyleSheet
+  private ruled: Element | undefined
+
   constructor(
+    source: Element,
     private readonly originals: HTMLElement[],
     private readonly color: string,
     private readonly reduced: boolean
   ) {
+    this.rules = dropPreviewSheet(frameRuleSheets(source))
     this.radii = originals.map((original) => parseFloat(getComputedStyle(original).borderTopLeftRadius) || 0)
     this.clips = originals.map((original) => {
       const style = getComputedStyle(original)
@@ -367,10 +382,8 @@ class DropPreview {
       // SAFETY: a deep clone of an element is an element of the same kind.
       const copy = original.cloneNode(true) as HTMLElement
 
-      // Copies aren't layers: hit testing and outlines must not find them.
-      for (const element of [copy, ...copy.querySelectorAll<HTMLElement>("[data-canvas-node]")]) {
-        element.removeAttribute("data-canvas-node")
-      }
+      // Copies aren't layers: hit testing and outlines must not find them. They're drawn by the preview's rules.
+      markPreviewCopy(copy)
 
       copy.dataset.dropPreview = ""
       // It holds the layers' place, unseen, under its outline.
@@ -440,6 +453,13 @@ class DropPreview {
       [...this.beside(this.copies), ...this.home(), ...parent.children],
       () => {
         this.hide()
+
+        // The copies are drawn by their layers' rules in whichever frame they're shown in.
+        if (this.ruled !== host) {
+          this.unrule()
+          adoptFrameSheet(host, this.rules)
+          this.ruled = host
+        }
 
         // SAFETY: a deep clone of an element is an element of the same kind.
         const copies =
@@ -530,6 +550,13 @@ class DropPreview {
     }
   }
 
+  private unrule(): void {
+    if (this.ruled) {
+      dropFrameSheet(this.ruled, this.rules)
+      this.ruled = undefined
+    }
+  }
+
   private remove(): void {
     for (const element of [...this.copies, ...this.edges]) {
       element.remove()
@@ -537,6 +564,7 @@ class DropPreview {
 
     this.copies = []
     this.edges = []
+    this.unrule()
     this.at = ""
   }
 }

@@ -1916,6 +1916,10 @@ while a picture of it is carried (see "How dragged things move", above). Where i
   and never drops into one, or into anything inside one, even when the neighbour is a layout, as each of the dashboard's
   revenue bars is. Outside its own layout it goes into the deepest layout under the pointer, as before, in this design
   or another. To put a layer inside its neighbour, drag it there in Layers.
+- **The outline is round a hidden copy of the layer, laid out as the layer is.** A frame draws a layer that has no
+  classes from rules about its node alone, so the copy is drawn from those rules too, taken from the frame the layer is
+  in, even in another design. The copy carries the node under another attribute, so nothing that finds layers in a frame
+  (hit testing, outlines, measuring) takes it for one.
 - **Into another design, the copies are what the frame shows** (PAR-464): the state being edited, the variant options
   the board shows, the frame's viewport and the values bound params show, keeping only the bindings the destination has
   params for, as a paste does (see "Copy, paste and paste style").
