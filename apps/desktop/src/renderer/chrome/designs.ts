@@ -1,9 +1,9 @@
 import { type ContainerKind, uniqueId } from "@parity-app/core"
 import { designGap, detachInstancesOf, freeSpotBeside, instanceCount, kindName, turnInto } from "@parity-app/editor"
-import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import { bringIntoView, takenBounds } from "../canvas/free-space.ts"
 import type { ContainerEntry } from "../design-store.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectSession } from "../workspace.ts"
 import { dropLines, frameDrops } from "./convert-to-frame.ts"
 import { askToConvertToFrame } from "./ConvertToFrameDialog.tsx"
@@ -51,11 +51,6 @@ export function duplicateDesign(session: ProjectSession, entry: ContainerEntry):
 }
 
 /** What the toast after converting a frame to a heavier kind says next. */
-const convertedHints: Record<Exclude<ContainerKind, "frame">, string> = {
-  component: "Place it in screens from Components.",
-  screen: "Show it in more modes from its board's menu."
-}
-
 /**
  * Converts a design to another kind, from its title's menu, the canvas's and Object menus and the inspector (PAR-545).
  * A screen and a component become each other at once. A frame becomes either at once too, dropping nothing, with a
@@ -84,9 +79,9 @@ export function setDesignKind(session: ProjectSession, entry: ContainerEntry, ki
     (container) => turnInto(container, kind, store.getModes()).design
   )
   if (from === "frame") {
-    toast.success(`${entry.container.name} is a ${kindName(kind)}`, {
-      description: convertedHints[kind],
-      action: { label: "Undo", onClick: () => store.undo() }
+    notify.done(`Converted to a ${kindName(kind)}`, {
+      description: `${entry.container.name} is now a ${kindName(kind)}.`,
+      action: { label: "Undo", run: () => store.undo() }
     })
   }
 }

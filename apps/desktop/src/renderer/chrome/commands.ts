@@ -1,4 +1,4 @@
-import { detachInstance, findNode } from "@parity-app/core"
+import { detachInstance, findNode, plainReason } from "@parity-app/core"
 import {
   type Alignment,
   arrowOf,
@@ -8,7 +8,6 @@ import {
   selectedDesigns,
   selectedNodes
 } from "@parity-app/editor"
-import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import {
   copySelection,
@@ -25,6 +24,7 @@ import { frameDrawn, nudgeSelection } from "../canvas/nudge.ts"
 import { enterTarget } from "../canvas/pick.ts"
 import { adjacentDesign, inverseSelection, matchingSelection } from "../canvas/select.ts"
 import { request } from "../service.ts"
+import { lines, notify } from "../toasts.tsx"
 import { spacingUnit } from "../tokens-store.ts"
 import { homeTab, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import {
@@ -62,15 +62,18 @@ export async function openProjectFile(): Promise<void> {
   if (file) await workspace.open(file)
 }
 
-/** Writes every file with unsaved changes and says which ones it wrote. */
+/** Writes every file with unsaved changes and says so. */
 export async function save(session = activeSession()): Promise<void> {
   if (!session) return
   try {
-    const paths = session.store.unsavedPaths()
     await session.store.flush()
-    toast.success("Saved", { description: paths.join(", ") || session.store.mainPath, duration: 2000 })
+    notify.done("Saved the project", { timeout: 2000 })
   } catch (error) {
-    toast.error("Couldn't save", { id: saveFailureToast(session.id), description: message(error) })
+    notify.failed("Couldn't save the project", {
+      id: saveFailureToast(session.id),
+      error,
+      retry: () => void save(session)
+    })
   }
 }
 
@@ -91,12 +94,12 @@ export async function saveCopy(session = activeSession()): Promise<void> {
   try {
     await session.store.flush()
     await request("document.saveCopy", { path, document: session.store.merged() })
-    toast.success("Saved a copy", {
+    notify.done("Saved a copy", {
       description: path,
-      action: { label: "Show", onClick: () => void window.canvasHost.showItem(path) }
+      action: { label: "Show file", run: () => void window.canvasHost.showItem(path) }
     })
   } catch (error) {
-    toast.error("Couldn't save the copy", { description: message(error) })
+    notify.failed("Couldn't save the copy", { description: `${plainReason(error) ?? ""} Try another folder.`.trim() })
   }
 }
 
@@ -108,11 +111,9 @@ export async function saveCopy(session = activeSession()): Promise<void> {
 export async function clearBitmapCache(): Promise<void> {
   try {
     await request("frames.clearStored", undefined)
-    toast.success("Bitmap cache cleared", { duration: 2000 })
+    notify.done("Cleared the bitmap cache", { timeout: 2000 })
   } catch (error) {
-    toast.error("The bitmap cache couldn't be cleared", {
-      description: error instanceof Error ? error.message : String(error)
-    })
+    notify.failed("Couldn't clear the cache", { error })
   }
 }
 
@@ -159,30 +160,28 @@ export async function exportLayers(
     targets.map((target) => target.name),
     sizes
   )
-  const progress = toast.loading(
-    files.length === 1 ? `Exporting ${files[0]!.name}…` : `Exporting ${files.length} files…`
-  )
-  try {
-    const { files: written, warnings } = await request("layers.export", {
-      projectId: session.id,
-      folder,
-      layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
-      files
-    })
-    toast.success(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
-      id: progress,
-      description: folder,
-      action: written[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(written[0]!) } : undefined
-    })
-    if (warnings.length > 0) {
-      toast.warning("Some layers couldn't be drawn", {
-        description: warnings.join("\n"),
-        classNames: { description: "whitespace-pre-line" }
+  const run = async (): Promise<void> => {
+    const progress = notify.progress(files.length === 1 ? "Exporting a file…" : `Exporting ${files.length} files…`)
+    try {
+      const { files: written, warnings } = await request("layers.export", {
+        projectId: session.id,
+        folder,
+        layers: targets.map(({ design, node }) => (node ? { design, node } : { design })),
+        files
       })
+      notify.done(written.length === 1 ? "Exported 1 file" : `Exported ${written.length} files`, {
+        id: progress,
+        description: folder,
+        ...(written[0]
+          ? { action: { label: "Open folder", run: () => void window.canvasHost.showItem(written[0]!) } }
+          : {})
+      })
+      if (warnings.length > 0) notify.warning("Some layers were left out", { description: lines(warnings) })
+    } catch (error) {
+      notify.failed("Couldn't export", { id: progress, error, retry: () => void run() })
     }
-  } catch (error) {
-    toast.error("Couldn't export", { id: progress, description: message(error) })
   }
+  await run()
 }
 
 /**
@@ -193,7 +192,7 @@ export async function exportSelected(session = activeSession()): Promise<void> {
   if (!session) return
   const targets = selectedTargets(session)
   if (targets.length === 0) {
-    toast.info("Select a screen, a component or a layer to export it")
+    notify.info("Nothing selected", { description: "Select what to export." })
     return
   }
   await exportLayers(session, targets, getPreferences().exportSizes)
@@ -208,10 +207,10 @@ export async function copySelectedAsPng(session = activeSession()): Promise<void
   if (!session) return
   const targets = selectedTargets(session)
   if (targets.length === 0) {
-    toast.info("Select a screen, a component or a layer to copy it as a PNG")
+    notify.info("Nothing selected", { description: "Select what to copy as a PNG." })
     return
   }
-  const progress = toast.loading("Copying as PNG…")
+  const progress = notify.progress("Copying as PNG…")
   try {
     const { png, warnings } = await request("layers.picture", {
       projectId: session.id,
@@ -223,24 +222,18 @@ export async function copySelectedAsPng(session = activeSession()): Promise<void
       }))
     })
     if (!png) {
-      toast.error("Couldn't copy as PNG", {
+      notify.failed("Couldn't copy as PNG", {
         id: progress,
-        description: warnings.join("\n") || undefined,
-        classNames: { description: "whitespace-pre-line" }
+        description: warnings.length > 0 ? lines(warnings) : undefined
       })
       return
     }
     const blob = new Blob([Uint8Array.from(atob(png), (char) => char.charCodeAt(0))], { type: "image/png" })
     await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })])
-    toast.success("Copied as PNG", { id: progress, duration: 2000 })
-    if (warnings.length > 0) {
-      toast.warning("Some layers couldn't be drawn", {
-        description: warnings.join("\n"),
-        classNames: { description: "whitespace-pre-line" }
-      })
-    }
+    notify.done("Copied as PNG", { id: progress, timeout: 2000 })
+    if (warnings.length > 0) notify.warning("Some layers were left out", { description: lines(warnings) })
   } catch (error) {
-    toast.error("Couldn't copy as PNG", { id: progress, description: message(error) })
+    notify.failed("Couldn't copy as PNG", { id: progress, error })
   }
 }
 
@@ -251,38 +244,31 @@ export async function exportImages(scope: "selection" | "all", session = activeS
   let designs: string[] = selected ? [selected] : []
   if (scope === "all") designs = store.getEntries().map((entry) => entry.key)
   if (designs.length === 0) {
-    toast.info(
-      scope === "all" ? "There are no screens or components to export" : "Select a screen or component to export it"
-    )
+    if (scope === "all")
+      notify.info("Nothing to export", { description: "This project has no screens or components yet." })
+    else notify.info("Nothing selected", { description: "Select a screen or component to export." })
     return
   }
   const folder = await window.canvasHost.pickFolder("Export images to")
   if (!folder) return
   const scale = getPreferences().exportScale
-  const named = designs.length === 1 ? store.getEntry(designs[0]!)?.container.name : undefined
-  const progress = toast.loading(`Exporting ${named ?? store.designsLabel(designs)}…`)
-  try {
-    // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
-    const { files, warnings } = await request("designs.export", {
-      projectId: session.id,
-      folder,
-      designs,
-      scale
-    })
-    toast.success(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
-      id: progress,
-      description: folder,
-      action: files[0] ? { label: "Show", onClick: () => void window.canvasHost.showItem(files[0]!) } : undefined
-    })
-    if (warnings.length > 0)
-      toast.warning("Some previews had problems", {
-        description: warnings.join("\n"),
-        // One warning to a line.
-        classNames: { description: "whitespace-pre-line" }
+  const label = store.designsLabel(designs)
+  const run = async (): Promise<void> => {
+    const progress = notify.progress(`Exporting ${designs.length === 1 ? `a ${label}` : label}…`)
+    try {
+      // Designs export as they are on the canvas, saved or not, and exporting doesn't save them.
+      const { files, warnings } = await request("designs.export", { projectId: session.id, folder, designs, scale })
+      notify.done(files.length === 1 ? "Exported 1 image" : `Exported ${files.length} images`, {
+        id: progress,
+        description: folder,
+        ...(files[0] ? { action: { label: "Open folder", run: () => void window.canvasHost.showItem(files[0]!) } } : {})
       })
-  } catch (error) {
-    toast.error("Couldn't export", { id: progress, description: message(error) })
+      if (warnings.length > 0) notify.warning("Some images may be incomplete", { description: lines(warnings) })
+    } catch (error) {
+      notify.failed("Couldn't export", { id: progress, error, retry: () => void run() })
+    }
   }
+  await run()
 }
 
 /** Opens a new tab, which shows the start page until a project opens in it. */
@@ -409,8 +395,9 @@ export function nudge(event: KeyboardEvent | undefined, session = activeSession(
     event.shiftKey
   )
   if (blocked) {
-    toast.info(`Its ${blocked.side} is the ${String(blocked.token)} token, so it doesn't nudge that way`, {
-      id: "nudge-token"
+    notify.info("Can't nudge that way", {
+      id: "nudge-token",
+      description: `Its ${blocked.side} edge is set by the ${String(blocked.token)} token.`
     })
   }
   if (session.selection.get().node) revealSelection(session)
@@ -580,7 +567,7 @@ export function makeComponent(session = activeSession()): void {
     session.selection.set({ design: extractIntoComponent(session, layer.entry, [layer.node.id], name) })
     revealSelection(session)
   } catch (error) {
-    toast.info(message(error))
+    notify.failed("Couldn't make a component", { error, retry: () => makeComponent(session) })
   }
 }
 
@@ -611,10 +598,6 @@ export function goToMainComponent(session = activeSession()): void {
   if (!main) return
   session.selection.set({ design: main.key })
   revealSelection(session)
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 function parentOf(path: string): string {

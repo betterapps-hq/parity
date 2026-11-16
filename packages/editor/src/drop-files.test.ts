@@ -77,11 +77,11 @@ describe("what's said about skipped files", () => {
 
   it("names one skipped file and says why", () => {
     expect(skippedMessage([{ name: "notes.txt", reason: "type" }])).toEqual({
-      title: "Skipped notes.txt",
+      title: "Skipped a file",
       description: "notes.txt isn't a PNG, JPEG, GIF, WebP or SVG image."
     })
     expect(skippedMessage([{ name: "huge.png", reason: "size" }])).toEqual({
-      title: "Skipped huge.png",
+      title: "Skipped a file",
       description: "huge.png is larger than 20 MB."
     })
   })

@@ -1,4 +1,4 @@
-import { SonnerToaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
 import { useEffect } from "react"
 import { accountActions, startAccount, useAccount } from "./account/account.ts"
 import { SignInDialog, SignInScreen, UntilQuitDialog } from "./account/SignIn.tsx"
@@ -17,7 +17,6 @@ import { startConsole } from "./console-feed.ts"
 import { ProjectView } from "./ProjectView.tsx"
 import { HomePage } from "./start/HomePage.tsx"
 import { NewTabPage } from "./start/NewTabPage.tsx"
-import { useResolvedTheme } from "./theme.ts"
 import { useActiveTabId, useHomeActive, useTabs, workspace } from "./workspace.ts"
 
 let started = false
@@ -47,7 +46,6 @@ export function AppWindow() {
   const tabs = useTabs()
   const active = useActiveTabId()
   const home = useHomeActive()
-  const theme = useResolvedTheme()
   const account = useAccount()
   const signInScreen = account.place === "screen"
   useAppShortcuts()
@@ -69,12 +67,7 @@ export function AppWindow() {
           )
         )}
       </div>
-      <SonnerToaster
-        theme={theme}
-        position="bottom-right"
-        offset={{ bottom: 40, right: 16 }}
-        mobileOffset={{ bottom: 40, left: 16, right: 16 }}
-      />
+      <Toaster />
       <QuickInsert />
       <ActionsSearch />
       <SettingsDialog />

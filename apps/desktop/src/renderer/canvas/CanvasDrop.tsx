@@ -1,6 +1,6 @@
 import { type Box, dropHint, mayBeImage, readInsertItem } from "@parity-app/editor"
 import { useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
+import { notify } from "../toasts.tsx"
 import { useProject } from "./context.ts"
 import { carriesFiles, draggedTypes, dropFiles, type FileDrop, fileDropAt, overFileField } from "./drop-files.ts"
 import type { Point } from "./hit.ts"
@@ -140,7 +140,7 @@ export function CanvasDrop() {
       if (!item) return
       if (target) insertItem(session, target, item)
       else if (canvas) addFrameOfItem(session, item, canvas)
-      else toast.info("There's no layout here to drop into")
+      else notify.info("Can't drop here", { description: "Drop onto a layout or the empty canvas." })
     }
 
     area.addEventListener("dragover", onDragOver)

@@ -13,7 +13,7 @@ import {
  */
 import { Ban, ChevronRight, Copy, ExternalLink, KeyRound, TriangleAlert, X } from "lucide-react"
 import type { ReactNode } from "react"
-import { toast } from "sonner"
+import { notify } from "../../toasts.tsx"
 import { accent, GitHubMark, GoogleMark, MicrosoftMark, ParityMark } from "../parts.tsx"
 
 export const providers = [
@@ -185,7 +185,7 @@ export function WaitingPanel({
         <Button
           variant="outline"
           className="gap-1.5"
-          onClick={() => toast.success("Copied the link", { id: "copied-link", duration: 2000 })}
+          onClick={() => notify.done("Copied the link", { id: "copied-link", timeout: 2000 })}
         >
           <Copy /> Copy the link
         </Button>
@@ -228,7 +228,7 @@ function Details({ text }: { text: string }) {
             size="icon-xs"
             aria-label="Copy the details"
             className="absolute top-2 right-2"
-            onClick={() => toast.success("Copied the details", { id: "copied-details", duration: 2000 })}
+            onClick={() => notify.done("Copied the details", { id: "copied-details", timeout: 2000 })}
           >
             <Copy />
           </Button>

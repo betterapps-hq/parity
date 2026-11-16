@@ -35,12 +35,12 @@ import {
   useState,
   useSyncExternalStore
 } from "react"
-import { toast } from "sonner"
 import { placeLayers } from "../canvas/clipboard.ts"
 import { insertAtSelection } from "../canvas/insert.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { usePreviewOnScreen } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
+import { notify } from "../toasts.tsx"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentSources, useComponentCard } from "./AssetsPanel.tsx"
 import { activeSession } from "./commands.ts"
@@ -578,7 +578,8 @@ function RowContent({
 
 function insert(session: ProjectSession, item: InsertItem): void {
   setOpen(false)
-  if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
+  if (!insertAtSelection(session, item))
+    notify.info("Nowhere to add it", { description: "Select a layout, or a layer to add it after." })
 }
 
 function insertBasic(session: ProjectSession, { node: make, label }: (typeof basics)[number]): void {

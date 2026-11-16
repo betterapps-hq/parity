@@ -1,7 +1,6 @@
-import { finiteNumber, guestChanges, jsonText, parseData } from "@parity-app/core"
+import { finiteNumber, guestChanges, jsonText, parseData, plainReason } from "@parity-app/core"
 import { openingDesigns } from "@parity-app/editor"
 import { useSyncExternalStore } from "react"
-import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import { z } from "zod"
 import type { ProjectInfo, TabSummary } from "../shared/protocol.ts"
@@ -13,6 +12,7 @@ import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
 import { SelectionStore } from "./selection.ts"
 import { request } from "./service.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./start/projects.ts"
+import { notify } from "./toasts.tsx"
 import { TokenStore } from "./tokens-store.ts"
 
 /** Everything one open project needs: its info from the service, its components and styles, and its stores. */
@@ -340,8 +340,9 @@ export class Workspace {
           current.session.tokens.dispose()
           if (before !== info.guestUrl) releaseGuest(before)
         } catch (error) {
-          toast.error(`Couldn't reopen ${session.info.name}`, {
-            description: error instanceof Error ? error.message : String(error)
+          notify.failed("Couldn't reopen the project", {
+            description: `${session.info.name}: ${plainReason(error) ?? "It didn't answer."}`,
+            retry: () => void this.reconnect()
           })
         }
       })
@@ -390,8 +391,9 @@ export class Workspace {
       return true
     } catch (error) {
       if (!latest()) return false
-      toast.error(`Couldn't load ${tab.session.info.name} from its restarted builder`, {
-        description: error instanceof Error ? error.message : String(error)
+      notify.failed("Couldn't reload the project", {
+        description: `${tab.session.info.name}: ${plainReason(error) ?? "Its preview stopped responding."}`,
+        retry: () => void this.moveGuest(projectId, guestUrl)
       })
       return false
     }
@@ -673,9 +675,10 @@ async function saveOrSay(session: ProjectSession): Promise<boolean> {
     await session.store.flush()
     return true
   } catch (error) {
-    toast.error(`Couldn't save ${session.info.name}`, {
+    notify.failed("Couldn't save the project", {
       id: saveFailureToast(session.id),
-      description: error instanceof Error ? error.message : String(error)
+      error,
+      retry: () => void saveOrSay(session)
     })
     return false
   }
@@ -697,17 +700,12 @@ function sayWhenSavesFail(session: ProjectSession): void {
   store.subscribe(() => {
     const state = store.getSaveState()
     if (state.status === "saved" || state.status === "unsaved") {
-      if (said) toast.dismiss(id)
+      if (said) notify.close(id)
       said = false
     }
     if (state.status !== "failed" || said) return
     said = true
-    toast.error(`Couldn't save ${session.info.name}`, {
-      id,
-      description: state.error,
-      duration: Infinity,
-      action: { label: "Retry", onClick: () => void saveOrSay(session) }
-    })
+    notify.failed("Couldn't save the project", { id, error: state.error, retry: () => void saveOrSay(session) })
   })
 }
 

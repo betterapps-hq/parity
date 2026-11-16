@@ -1,8 +1,8 @@
 import { createContext, useContext } from "react"
-import { toast } from "sonner"
 import type { ProjectPicture } from "../../shared/protocol.ts"
 import { openDialog } from "../chrome/app-dialogs.ts"
 import { openProjectFile, openProjectFolder } from "../chrome/commands.ts"
+import { notify } from "../toasts.tsx"
 import { workspace } from "../workspace.ts"
 
 /** What the start page's controls do. In the window they act on the workspace; stories give their own. */
@@ -43,14 +43,14 @@ export function useStartActions(): StartActions {
  * Says that what a control starts isn't built yet, and what to do meanwhile. The start page shows the controls it was
  * designed with, so their places are there before what they do is.
  */
-export function notReady(title: string, description?: string, action?: { label: string; onClick: () => void }): void {
-  toast(title, { ...(description ? { description } : {}), ...(action ? { action } : {}) })
+export function notReady(title: string, description?: string, action?: { label: string; run: () => void }): void {
+  notify.info(title, { description, ...(action ? { action } : {}) })
 }
 
 /** New project waits on the Buildkit scaffolder (PAR-284); until then, a project starts from a folder. */
 export function newProjectNotReady(actions: StartActions): void {
-  notReady("New project isn't ready yet", "For now, open a React app's folder.", {
-    label: "Open a folder",
-    onClick: actions.openFolder
+  notReady("New projects aren't available yet", "Open an existing React app's folder instead.", {
+    label: "Open folder",
+    run: actions.openFolder
   })
 }

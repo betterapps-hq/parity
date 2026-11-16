@@ -1,10 +1,9 @@
-import { SonnerToaster } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useMemo, useState } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import type { PictureFrame, PictureScreen, ProjectPicture } from "../../shared/protocol.ts"
 import { setStoryAccount } from "../stories/host.ts"
-import { useResolvedTheme } from "../theme.ts"
 import { examplePicture } from "./example-picture.ts"
 import dashboardDesktop from "./example-pictures/dashboard-desktop.webp?inline"
 import dashboardMobile from "./example-pictures/dashboard-mobile.webp?inline"
@@ -123,7 +122,6 @@ function Sample({
   const [listed, setListed] = useState(recent)
   const [kept, setKept] = useState(notes)
   const source = useMemo(() => staticPictures(pictures), [pictures])
-  const theme = useResolvedTheme()
   const ignore = () => undefined
   return (
     <PictureSourceProvider value={source}>
@@ -145,8 +143,7 @@ function Sample({
             )
           )}
         </div>
-        {/* The kit follows the system's theme unless told, which in a light story is the wrong one. */}
-        <SonnerToaster theme={theme} position="bottom-right" />
+        <Toaster />
       </StartActionsProvider>
     </PictureSourceProvider>
   )

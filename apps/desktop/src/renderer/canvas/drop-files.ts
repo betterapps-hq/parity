@@ -1,3 +1,4 @@
+import { plainReason } from "@parity-app/core"
 import type { DesignNode } from "@parity-app/core"
 import {
   designOfImages,
@@ -11,7 +12,7 @@ import {
   skippedMessage,
   sortDrop
 } from "@parity-app/editor"
-import { toast } from "sonner"
+import { lines, notify } from "../toasts.tsx"
 import type { ProjectSession } from "../workspace.ts"
 import { importImage } from "./clipboard.ts"
 import { type Hit, pickedIn } from "./hit.ts"
@@ -63,13 +64,13 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
   const { store, selection } = session
   const { images, skipped } = sortDrop(files)
   const message = skippedMessage(skipped)
-  if (message) toast.warning(message.title, { description: message.description })
+  if (message) notify.warning(message.title, { description: message.description })
   if (images.length === 0) return
   if (target.kind === "none") {
-    toast.info("There's no layout here to drop into")
+    notify.info("Can't drop here", { description: "Drop onto a layout or the empty canvas." })
     return
   }
-  const progress = toast.loading(images.length === 1 ? "Adding the image…" : `Adding ${images.length} images…`)
+  const progress = notify.progress(images.length === 1 ? "Adding the image…" : `Adding ${images.length} images…`)
   const added: { node: DesignNode; name: string }[] = []
   const failed: { name: string; error: unknown }[] = []
   // One at a time, in the order dropped: each is read whole before it's sent, so a folder of large photos isn't all in
@@ -83,15 +84,11 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
     }
   }
   if (failed.length > 0) {
-    const reason = (error: unknown) => (error instanceof Error ? error.message : String(error))
-    toast.error(failed.length === 1 ? `Couldn't add ${failed[0]!.name}` : `Couldn't add ${failed.length} images`, {
+    notify.failed(failed.length === 1 ? "Couldn't add an image" : `Couldn't add ${failed.length} images`, {
       id: progress,
-      description:
-        failed.length === 1
-          ? reason(failed[0]!.error)
-          : failed.map((file) => `${file.name}: ${reason(file.error)}`).join("\n")
+      description: lines(failed.map((file) => `${file.name}: ${plainReason(file.error) ?? "It couldn't be saved."}`))
     })
-  } else toast.dismiss(progress)
+  } else notify.close(progress)
   if (added.length === 0) return
   const nodes = added.map((image) => image.node)
   const label = dropLabel(nodes.length)
@@ -118,7 +115,7 @@ export async function dropFiles(session: ProjectSession, target: FileDrop, files
   }
   // The layout went while the files were saved, by an undo or an agent.
   if (copies.length === 0) {
-    toast.info("The layout they were dropped on is gone, so the images weren't placed")
+    notify.warning("Images weren't placed", { description: "The layout they were dropped on was deleted." })
     return
   }
   selection.set(layersSelection(hit.entry.key, copies, hit))

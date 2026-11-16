@@ -12,13 +12,13 @@ import {
   useRef,
   useState
 } from "react"
-import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
 import { ParamsSection } from "../../chrome/ComponentsSection.tsx"
 import { IconButton } from "../../chrome/IconButton.tsx"
 import { SidePanel } from "../../chrome/SidePanel.tsx"
 import { StatesSection } from "../../chrome/StatesSection.tsx"
 import { useContainerEntries } from "../../design-store.ts"
+import { notify } from "../../toasts.tsx"
 import {
   Board,
   CanvasFrame,
@@ -289,9 +289,9 @@ export function FramesWorkspace({ start }: { start: Start }) {
       })
     }))
     setSelected(of.id)
-    toast.success(`${of.name} is a ${kind}`, {
+    notify.done(`${of.name} is a ${kind}`, {
       description: toasts[kind],
-      action: { label: "Undo", onClick: () => setDoc(before) }
+      action: { label: "Undo", run: () => setDoc(before) }
     })
   }
   const convert = (of: Design, kind: Kind) => {
@@ -385,12 +385,12 @@ export function FramesWorkspace({ start }: { start: Start }) {
   // A toast the story starts with, as just after a change, whose Undo goes back a step.
   useEffect(() => {
     if (!start.toast) return undefined
-    const id = toast.success(start.toast.title, {
+    const id = notify.done(start.toast.title, {
       description: start.toast.description,
-      duration: Infinity,
-      action: { label: "Undo", onClick: () => undo() }
+      timeout: 0,
+      action: { label: "Undo", run: () => undo() }
     })
-    return () => void toast.dismiss(id)
+    return () => notify.close(id)
   }, [start.toast, undo])
 
   const stepZoom = (direction: 1 | -1) => {

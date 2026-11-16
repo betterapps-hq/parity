@@ -20,7 +20,6 @@ import {
   X
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
-import { toast } from "sonner"
 import icon from "../../../../../brand/parity-icon.svg?url"
 import type {
   AccountPerson,
@@ -30,6 +29,7 @@ import type {
   SignInRequest
 } from "../../shared/account.ts"
 import { GitHubMark } from "../start/marks.tsx"
+import { notify } from "../toasts.tsx"
 import { GoogleMark, MicrosoftMark } from "./marks.tsx"
 import { OrganizationBadge } from "./OrganizationBadge.tsx"
 import { PersonAvatar } from "./PersonAvatar.tsx"
@@ -186,10 +186,10 @@ function MarkRing({ turning, badge }: { turning?: boolean; badge?: { icon: React
   )
 }
 
-function copy(text: string, said: string, id: string): void {
+function copy(text: string, said: string, failed: string, id: string): void {
   void navigator.clipboard.writeText(text).then(
-    () => toast.success(said, { id, duration: 2000 }),
-    () => toast.error("Parity couldn't copy that", { id })
+    () => notify.done(said, { id, timeout: 2000 }),
+    () => notify.failed(failed, { id, retry: () => copy(text, said, failed, id) })
   )
 }
 
@@ -215,7 +215,7 @@ export function WaitingPanel({
     attempt.provider === "authkit"
       ? "We opened your browser to sign you in."
       : `We opened ${providerName(attempt.provider)} in your browser to sign you in.`
-  const copyLink = () => copy(attempt.url, "Copied the link", "copied-link")
+  const copyLink = () => copy(attempt.url, "Copied the link", "Couldn't copy the link", "copied-link")
   return (
     <div className="flex flex-col items-center gap-8">
       <MarkRing turning />
@@ -291,7 +291,7 @@ function Details({ text }: { text: string }) {
             size="icon-xs"
             aria-label="Copy the details"
             className="absolute top-2 right-2"
-            onClick={() => copy(text, "Copied the details", "copied-details")}
+            onClick={() => copy(text, "Copied the details", "Couldn't copy the details", "copied-details")}
           >
             <Copy />
           </Button>

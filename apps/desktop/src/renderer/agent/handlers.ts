@@ -1,7 +1,6 @@
 import type { IconNames, IconSet } from "@parity-app/agent"
 import { activeTab, matchTab } from "@parity-app/agent/routing"
 import { type ChangeConflict, CodedError, errorDetails, type LibraryInfo, unknownReference } from "@parity-app/core"
-import { toast } from "sonner"
 import type {
   AgentChanges,
   ServeAnswer,
@@ -11,6 +10,7 @@ import type {
   WindowMethods
 } from "../../shared/protocol.ts"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
+import { notify } from "../toasts.tsx"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 
@@ -82,10 +82,10 @@ const handlers: Handlers = {
     const store = workspace.getTabs().find((tab) => tab.session?.id === projectId)?.session?.store
     // Unsaved changes here win until the person says otherwise.
     if (store && !store.reloadDocument(path, document)) {
-      toast.warning(`${path} changed on disk`, {
-        description: "Your unsaved changes are kept. Saving writes them over it.",
-        duration: 15000,
-        action: { label: "Load from disk", onClick: () => store.reloadDocument(path, document, true) }
+      notify.warning("A file changed outside Parity", {
+        description: `Reload ${path.split(/[\\/]/).at(-1)} to get its changes, or save to keep yours.`,
+        timeout: 15_000,
+        action: { label: "Reload", run: () => store.reloadDocument(path, document, true) }
       })
     }
     return undefined

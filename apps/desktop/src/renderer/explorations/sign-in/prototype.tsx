@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  SonnerToaster
+  Toaster
 } from "@buildkitgg/shadcn-baseui-kit"
 /**
  * Signing in, as one working prototype: the sign-in screen on first launch, Home signed out, the sign-in dialog from the
@@ -14,8 +14,7 @@ import {
  * be driven from a story, so a panel marked Prototype stands in for it while Parity waits.
  */
 import { type ReactNode, useEffect, useRef, useState } from "react"
-import { toast } from "sonner"
-import { useResolvedTheme } from "../../theme.ts"
+import { notify } from "../../toasts.tsx"
 import { people } from "../explore-data.ts"
 import { ExploreWindow, type MockTab } from "../parts.tsx"
 import { projects, type StartProject } from "../start/data.ts"
@@ -101,16 +100,16 @@ function BrowserStandIn({ onEnd }: { onEnd: (problem?: Problem) => void }) {
 
 /** Said once, after signing in on a system with no keyring. */
 function untilQuitToast(onWhy: () => void) {
-  toast("You're signed in until you quit Parity", {
-    id: "until-quit",
+  notify.info("You're signed in until you quit Parity", {
     description: "This system has no keyring to keep you signed in.",
-    action: { label: "What to do", onClick: onWhy },
-    duration: 12_000
+    id: "until-quit",
+    action: { label: "What to do", run: onWhy },
+    timeout: 12_000
   })
 }
 
 function signedOutToast() {
-  toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
+  notify.info("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." })
 }
 
 /** Why signing in lasts only until Parity quits, from the account menu or the toast after signing in. */
@@ -144,7 +143,6 @@ export function SignInPrototype({
   home: startHome = "first-run",
   notice
 }: SignInStart) {
-  const theme = useResolvedTheme()
   const [place, setPlace] = useState(startPlace)
   const [flow, setFlow] = useState<Flow>(startFlow)
   const [account, setAccount] = useState<StartAccount | null>(startAccount ? accounts[startAccount] : null)
@@ -206,7 +204,7 @@ export function SignInPrototype({
     )
   }
 
-  const toaster = <SonnerToaster theme={theme} position="bottom-right" />
+  const toaster = <Toaster />
   const standIn = waiting && <BrowserStandIn onEnd={end} />
 
   if (place === "window") {

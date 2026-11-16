@@ -64,7 +64,11 @@ export function SearchButton({ large, takeFocus = false }: { large?: boolean; ta
 /** Opening what's already there: a folder, a project file, or a repository to clone. */
 export function OpenMenu() {
   const actions = useStartActions()
-  const clone = () => notReady("Cloning isn't ready yet", "For now, clone the repository yourself and open its folder.")
+  const clone = () =>
+    notReady("Cloning isn't available yet", "Clone it yourself, then open its folder here.", {
+      label: "Open folder",
+      run: actions.openFolder
+    })
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -123,7 +127,7 @@ export function HomeAccountMenu() {
   }
   const current = currentOrganization(account)
   const organizations = knownOrganizations(account)
-  const notYet = () => notReady("Organizations aren't ready yet", "Parity can't make one or invite people yet.")
+  const notYet = () => notReady("Organizations aren't available yet")
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
@@ -160,10 +164,7 @@ export function HomeAccountMenu() {
               // Personal is one more organization, just yours, which Parity's service makes (PAR-616). A session
               // can't leave an organization, so until then there's no Personal to switch to.
               if (id === "personal") {
-                notReady(
-                  "Personal isn't ready yet",
-                  "It needs an organization of your own, which Parity can't make yet."
-                )
+                notReady("Personal isn't available yet")
                 return
               }
               accountActions.switchOrganization(id)

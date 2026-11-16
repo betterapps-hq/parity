@@ -1,7 +1,8 @@
+import { plainReason } from "@parity-app/core"
 import { useEffect, useState, useSyncExternalStore } from "react"
-import { toast } from "sonner"
 import type { ProjectProcess } from "../../shared/protocol.ts"
 import { request } from "../service.ts"
+import { notify as toasts } from "../toasts.tsx"
 
 /** How often the list is asked for: often while it's shown, now and then for the status bar. */
 const shownInterval = 1000
@@ -83,7 +84,7 @@ export function useNow(ticking: boolean): number {
 }
 
 export async function stopProcess(process: ProjectProcess): Promise<void> {
-  await act(process, "stopping", "processes.stop", `Couldn't stop ${process.name}`)
+  await act(process, "stopping", "processes.stop", "Couldn't stop a process")
 }
 
 export async function restartProcess(process: ProjectProcess): Promise<void> {
@@ -92,7 +93,7 @@ export async function restartProcess(process: ProjectProcess): Promise<void> {
     process,
     task ? "running" : "starting",
     "processes.restart",
-    task ? `Couldn't run ${process.name} again` : `Couldn't start ${process.name} again`
+    task ? "Couldn't run a task again" : "Couldn't restart a server"
   )
 }
 
@@ -129,7 +130,7 @@ async function act(
     await request(method, { id: process.id })
   } catch (error) {
     pending.delete(process.id)
-    toast.error(failure, { description: error instanceof Error ? error.message : String(error) })
+    toasts.failed(failure, { description: `${process.name}: ${plainReason(error) ?? "It didn't answer."}` })
   }
   poll()
 }

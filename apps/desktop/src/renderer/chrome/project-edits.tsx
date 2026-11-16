@@ -1,6 +1,6 @@
-import { toast } from "sonner"
 import type { ProjectEditResult } from "../../shared/protocol.ts"
 import { request } from "../service.ts"
+import { notify } from "../toasts.tsx"
 
 /**
  * Says the service changed the project's files: which ones and why, with the diff to look at and Undo. `afterUndo`
@@ -14,7 +14,8 @@ export function announceEdit(
 ): void {
   if (edit.files.length === 0) return
   const id = options.id ?? edit.id
-  showEdit(`Changed ${files(edit)}`, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
+  const title = edit.files.length === 1 ? "Changed a project file" : `Changed ${edit.files.length} project files`
+  showEdit(title, edit, id, () => void undo(projectId, edit, id, options.afterUndo))
 }
 
 /**
@@ -22,11 +23,12 @@ export function announceEdit(
  * in place, since a notification takes its height when it's set. Shown, it stays until it's hidden, to be read.
  */
 function showEdit(title: string, edit: ProjectEditResult, id: string, undo?: () => void, open = false): void {
-  toast.success(title, {
+  notify.done(title, {
     id,
     description: <EditDetails edit={edit} open={open} toggle={() => showEdit(title, edit, id, undo, !open)} />,
-    duration: open ? Number.POSITIVE_INFINITY : 10_000,
-    ...(undo ? { action: { label: "Undo", onClick: undo } } : {})
+    timeout: open ? 0 : 10_000,
+    // Undo turns this toast into its progress, so it stays.
+    ...(undo ? { action: { label: "Undo", run: undo, keepOpen: true } } : {})
   })
 }
 
@@ -36,20 +38,26 @@ async function undo(
   id: string,
   afterUndo: (() => Promise<unknown>) | undefined
 ): Promise<void> {
-  toast.loading(`Putting back ${files(edit)}…`, { id, description: undefined, action: undefined })
+  notify.progress("Undoing the change…", { id })
   let undone: ProjectEditResult
   try {
     undone = await request("project.undoEdit", { projectId, id: edit.id })
   } catch (error) {
-    toast.error("Couldn't undo it", { id, description: message(error) })
+    notify.failed("Couldn't undo the change", { id, error })
     return
   }
   // The files are back by now, so a failure from here on isn't a failed undo.
   try {
     await afterUndo?.()
-    showEdit(`Put back ${files(undone)}`, undone, id)
-  } catch (error) {
-    toast.error(`Put back ${files(undone)}, but couldn't reload the project`, { id, description: message(error) })
+    showEdit("Undid the change", undone, id)
+  } catch {
+    const reload = afterUndo
+    notify.warning("Couldn't reload the project", {
+      id,
+      description: "The change was undone, but the project didn't reload.",
+      timeout: 0,
+      ...(reload ? { action: { label: "Reload", run: () => void reload() } } : {})
+    })
   }
 }
 
@@ -61,6 +69,7 @@ function files(edit: ProjectEditResult): string {
 export function EditDetails({ edit, open, toggle }: { edit: ProjectEditResult; open: boolean; toggle: () => void }) {
   return (
     <div className="flex min-w-0 flex-col items-start gap-1">
+      <span>{files(edit)}</span>
       <span>{edit.label}</span>
       <button
         type="button"
@@ -95,8 +104,4 @@ function lineClass(line: string): string | undefined {
   if (line.startsWith("+")) return "text-emerald-600 dark:text-emerald-400"
   if (line.startsWith("-")) return "text-destructive"
   return undefined
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

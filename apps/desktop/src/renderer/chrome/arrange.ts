@@ -22,9 +22,9 @@ import {
   selectedDesigns,
   selectedNodes
 } from "@parity-app/editor"
-import { toast } from "sonner"
 import { shapeIdFor } from "../canvas/CanvasEditor.tsx"
 import type { ContainerEntry } from "../design-store.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectSession } from "../workspace.ts"
 
 /**
@@ -126,7 +126,7 @@ export function wrapLayers(session: ProjectSession): boolean {
       return wrapped.container
     })
   } catch (error) {
-    toast.info(error instanceof Error ? error.message : String(error))
+    notify.failed("Couldn't wrap these layers", { error })
     return false
   }
   if (!id) return false
@@ -146,7 +146,7 @@ export function unwrapLayer(session: ProjectSession): boolean {
     return unwrapped?.container ?? container
   })
   if (!children) {
-    toast.info("Select a layout to unwrap it")
+    notify.info("Select a layout to unwrap it")
     return false
   }
   session.selection.set(layersSelection(entry.key, children, session.selection.get()))

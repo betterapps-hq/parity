@@ -1,4 +1,4 @@
-import { SonnerToaster } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster } from "@buildkitgg/shadcn-baseui-kit"
 import { layersSelection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { userEvent, within } from "storybook/test"
@@ -26,11 +26,11 @@ import { copySelectionStyle, exportImages, save, saveCopy, unwrapSelection } fro
  */
 const meta = {
   title: "Parity/Chrome/Notifications",
-  component: SonnerToaster,
+  component: Toaster,
   render: () => <AppWindow />,
   decorators: [Window],
   loaders: [clearNotifications]
-} satisfies Meta<typeof SonnerToaster>
+} satisfies Meta<typeof Toaster>
 
 export default meta
 type Story = StoryObj<typeof meta>
@@ -55,7 +55,7 @@ export const Saved: Story = {
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
     void save()
-    await holdToast("Saved")
+    await holdToast("Saved the project")
   }
 }
 
@@ -71,7 +71,7 @@ export const SaveFailed: Story = {
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
     void save()
-    await holdToast("Couldn't save")
+    await holdToast("Couldn't save the project")
   }
 }
 
@@ -118,7 +118,7 @@ export const Exporting: Story = {
   play: async () => {
     await frameDesigns("Pricing")
     void exportImages("selection")
-    await holdToast("Exporting Pricing…")
+    await holdToast("Exporting a screen…")
   }
 }
 
@@ -157,7 +157,7 @@ export const ExportedWithWarnings: Story = {
   play: async () => {
     await frameDesigns("Pricing")
     void exportImages("selection")
-    await holdToast("Some previews had problems")
+    await holdToast("Some images may be incomplete")
   }
 }
 
@@ -187,7 +187,7 @@ export const NothingSelectedToExport: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
     void exportImages("selection")
-    await holdToast("Select a screen or component to export it")
+    await holdToast("Select a screen or component to export.")
   }
 }
 
@@ -236,7 +236,7 @@ export const CouldntReopen: Story = {
   play: async () => {
     await frameDesigns("Pricing", "Dashboard")
     void workspace.reconnect()
-    await holdToast("Couldn't reopen shadcn-vite")
+    await holdToast("Couldn't reopen the project")
   }
 }
 
@@ -249,7 +249,7 @@ function importNovaStyles(): Promise<void> {
 
 /** A button on the notification showing, since the window has an Undo of its own. */
 function notificationButton(name: string): HTMLElement {
-  const notification = document.querySelector<HTMLElement>("[data-sonner-toast]")
+  const notification = document.querySelector<HTMLElement>('[data-slot="toast"]')
   if (!notification) throw new Error("No notification is showing")
   return within(notification).getByRole("button", { name })
 }
@@ -259,7 +259,7 @@ export const ProjectFileChanged: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     void importNovaStyles()
-    await holdToast("Changed src/index.css")
+    await holdToast("Changed a project file")
     await userEvent.click(notificationButton("Show changes"))
   }
 }
@@ -269,9 +269,9 @@ export const ProjectFileChangeUndone: Story = {
   loaders: [() => openProjects("example")],
   play: async () => {
     void importNovaStyles()
-    await holdToast("Changed src/index.css")
+    await holdToast("Changed a project file")
     await userEvent.click(notificationButton("Undo"))
-    await holdToast("Put back src/index.css")
+    await holdToast("Undid the change")
   }
 }
 
@@ -287,8 +287,8 @@ export const ProjectFileChangeNotUndone: Story = {
   ],
   play: async () => {
     void importNovaStyles()
-    await holdToast("Changed src/index.css")
+    await holdToast("Changed a project file")
     await userEvent.click(notificationButton("Undo"))
-    await holdToast("Couldn't undo it")
+    await holdToast("Couldn't undo the change")
   }
 }

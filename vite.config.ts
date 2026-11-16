@@ -250,6 +250,43 @@ export default defineConfig({
         rules: { "typescript/no-implied-eval": "off" }
       },
       {
+        // Every toast goes through renderer/toasts.tsx, which keeps their kinds, copy and buttons the same (PAR-1186).
+        files: ["apps/desktop/src/**"],
+        rules: {
+          "eslint/no-restricted-imports": [
+            "error",
+            {
+              paths: [
+                {
+                  name: "@buildkitgg/shadcn-baseui-kit",
+                  importNames: [
+                    "toast",
+                    "createToastManager",
+                    "useToastManager",
+                    "Toast",
+                    "ToastAction",
+                    "ToastClose",
+                    "ToastContent",
+                    "ToastDescription",
+                    "ToastPortal",
+                    "ToastProvider",
+                    "ToastTitle",
+                    "ToastViewport"
+                  ],
+                  message: "Show toasts with `notify` from renderer/toasts.tsx."
+                },
+                { name: "sonner", message: "Show toasts with `notify` from renderer/toasts.tsx." }
+              ]
+            }
+          ]
+        }
+      },
+      {
+        // The toast module, and the audit story, which draws each toast in place to compare its copy.
+        files: ["apps/desktop/src/renderer/toasts.tsx", "apps/desktop/src/renderer/chrome/ToastAudit.stories.tsx"],
+        rules: { "eslint/no-restricted-imports": "off" }
+      },
+      {
         // Tests may use Node to set up files and folders.
         files: ["packages/**/*.test.ts", "packages/**/*.test.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { patterns: [appOnly] }] }

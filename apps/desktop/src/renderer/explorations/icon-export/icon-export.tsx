@@ -24,9 +24,9 @@ import {
 import type { LibraryInfo } from "@parity-app/core"
 import { Download } from "lucide-react"
 import { useMemo, useState } from "react"
-import { toast } from "sonner"
 import { useProject } from "../../canvas/context.ts"
 import { GuestIcon, type IconEntry, iconCatalog, iconLibraries, iconStyles, iconsOf } from "../../chrome/icons.tsx"
+import { notify } from "../../toasts.tsx"
 
 /*
  * Exporting an icon set's icons as SVG files, designed for PAR-185 and set aside on 2026-11-05: the project already has
@@ -254,7 +254,7 @@ function ExportChoices({
             disabled={icons.length === 0}
             onClick={() => {
               close()
-              toast.info(`Would export ${icons.length.toLocaleString()} icons at ${size} px`)
+              notify.info(`Would export ${icons.length.toLocaleString()} icons at ${size} px`)
             }}
           >
             <Download /> Export {icons.length === 1 ? "1 icon" : `${icons.length.toLocaleString()} icons`}

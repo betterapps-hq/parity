@@ -225,25 +225,28 @@ async function checkFromMenu(page: Page): Promise<void> {
 }
 
 /**
- * The update notice that's staying on screen. Sonner keeps a dismissed toast in the page, marked data-removed, while it
+ * The update notice that's staying on screen. A closed toast stays in the page, marked data-ending-style, while it
  * animates out: its buttons move, then go. Waiting on or clicking one of those times out ("element is not stable",
  * then "detached from the DOM"), as it did on Ubuntu when a restored notice reused the leaving toast's id (PAR-494).
  */
 function updateToast(page: Page): Locator {
   return page
-    .locator('[data-sonner-toast][data-removed="false"]')
-    .filter({ has: page.locator('[data-slot="update-toast"]') })
+    .locator('[data-slot="toast"]:not([data-ending-style])')
+    .filter({ hasText: /update|Downloading Parity|up to date/i })
 }
 
-/** Later keeps the update. The leaving toast is gone before this returns, so the next notice is a toast of its own. */
+/** Closing the notice keeps the update. The leaving toast is gone before this returns. */
 async function later(page: Page): Promise<void> {
-  await updateToast(page).getByRole("button", { name: "Later", exact: true }).click()
-  await page.locator('[data-slot="update-toast"]').waitFor({ state: "detached" })
+  await updateToast(page).getByRole("button", { name: "Close toast", exact: true }).click()
+  await page
+    .locator('[data-slot="toast"]')
+    .filter({ hasText: /update|Downloading Parity|up to date/i })
+    .waitFor({ state: "detached" })
 }
 
 async function openUpdate(page: Page): Promise<void> {
   await checkFromMenu(page)
-  await updateToast(page).getByRole("button", { name: "Restart to update", exact: true }).waitFor()
+  await updateToast(page).getByRole("button", { name: "Restart", exact: true }).waitFor()
   if (await page.getByRole("dialog", { name: "Parity", exact: true }).count())
     throw new Error("Check for updates opened About instead of a toast.")
   // About remains a separate way to find the restart control after dismissing the notice.
@@ -384,7 +387,7 @@ try {
   await waitForUpdate(page, "ready")
   await later(page)
   if ((await page.evaluate(() => window.canvasHost.updates.get())).phase !== "ready")
-    throw new Error("Later discarded the update.")
+    throw new Error("Closing the notice discarded the update.")
   await page.getByRole("application", { name: "tldraw", exact: true }).waitFor()
   stage = "creating unsaved work"
   console.log(stage)
@@ -467,7 +470,7 @@ try {
   if (!saved.includes("Update smoke")) throw new Error("Unsaved work was not saved before installation.")
   if (newPage) await withTimeout(newPage.evaluate(() => window.canvasHost.quit())).catch(() => undefined)
   console.log(
-    "Real installed update passed: corrupt download rejected, Later retained, Cancel respected, work saved, version 999.0.1 relaunched."
+    "Real installed update passed: corrupt download rejected, closing the notice kept it, Cancel respected, work saved, version 999.0.1 relaunched."
   )
 } catch (error) {
   failed = true

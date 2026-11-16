@@ -39,6 +39,31 @@
 .dark [data-slot="tooltip-content"] {
   filter: drop-shadow(0 2px 6px oklch(0 0 0 / 50%));
 }
+/*
+ * Toasts sit at the bottom right as the kit places them, but 40px up, above the status bar, so they don't cover its
+ * buttons, on a phone-sized window too.
+ */
+[data-slot="toast-viewport"] {
+  bottom: 2.5rem;
+}
+/*
+ * The kit colors only an error's icon. A success's and a warning's are colored too (PAR-1186), so each kind reads at a
+ * glance; info and progress stay in the text's color.
+ */
+:root {
+  --toast-success: oklch(0.55 0.14 150);
+  --toast-warning: oklch(0.62 0.15 70);
+}
+.dark {
+  --toast-success: oklch(0.76 0.15 150);
+  --toast-warning: oklch(0.8 0.15 80);
+}
+[data-slot="toast"][data-type="success"] [data-slot="toast-icon"] {
+  color: var(--toast-success);
+}
+[data-slot="toast"][data-type="warning"] [data-slot="toast-icon"] {
+  color: var(--toast-warning);
+}
 
 @layer base {
   * {

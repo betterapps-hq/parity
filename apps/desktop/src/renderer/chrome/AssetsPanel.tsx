@@ -67,7 +67,6 @@ import {
   useState,
   useSyncExternalStore
 } from "react"
-import { toast } from "sonner"
 import type { ProjectInfo } from "../../shared/protocol.ts"
 import { useProject } from "../canvas/context.ts"
 import { insertAtSelection, insertMime } from "../canvas/insert.ts"
@@ -75,6 +74,7 @@ import { kindColors } from "../canvas/kinds.tsx"
 import { useComponentPreview, usePreviewOnScreen, useVariantPreviews } from "../component-previews.ts"
 import { type ContainerEntry, useContainerEntries } from "../design-store.ts"
 import { request } from "../service.ts"
+import { notify } from "../toasts.tsx"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
@@ -93,7 +93,8 @@ import { hasStories, openInStorybook } from "./storybook.ts"
  * what to select when the selected design has nowhere for it.
  */
 function addAtSelection(session: ProjectSession, item: InsertItem): void {
-  if (!insertAtSelection(session, item)) toast.info("Select a layout, or a layer to add it after")
+  if (!insertAtSelection(session, item))
+    notify.info("Nowhere to add it", { description: "Select a layout, or a layer to add it after." })
 }
 
 const noStatus: Record<string, ComponentRenderStatus> = {}
@@ -776,13 +777,17 @@ function AssetRow({ component, children }: { component: string | undefined; chil
 
 /** Installs a catalog library with the project's package manager, then reopens the tab to load it. */
 async function installLibrary(session: ProjectSession, library: { id: string; name: string }): Promise<void> {
-  const progress = toast.loading(`Installing ${library.name}…`, { description: "With the project's package manager" })
+  const progress = notify.progress(`Installing ${library.name}…`)
   try {
     await request("library.add", { projectId: session.id, library: library.id })
-    toast.success(`${library.name} is ready`, { id: progress, description: undefined })
+    notify.done(`Installed ${library.name}`, { id: progress })
     await workspace.reload(session.id, `Loading ${library.name}`)
   } catch (error) {
-    toast.error(`Couldn't install ${library.name}`, { id: progress, description: message(error).slice(-400) })
+    notify.failed(`Couldn't install ${library.name}`, {
+      id: progress,
+      description: "The package manager stopped with an error.",
+      details: message(error).slice(-2000)
+    })
   }
 }
 
@@ -799,7 +804,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
       onOpenChange={(open) => {
         if (open && !catalog) {
           void request("library.catalog", { projectId: session.id }).then(setCatalog, (error: unknown) =>
-            toast.error("Couldn't list libraries", { description: message(error) })
+            notify.failed("Couldn't load libraries", { error })
           )
         }
       }}
@@ -882,7 +887,10 @@ export async function importStyles(session: ProjectSession, library: LibraryInfo
       })
     }
   } catch (error) {
-    toast.error("Couldn't import its styles", { description: message(error) })
+    notify.failed(`Couldn't import ${library.name}'s styles`, {
+      error,
+      retry: () => void importStyles(session, library)
+    })
   }
 }
 

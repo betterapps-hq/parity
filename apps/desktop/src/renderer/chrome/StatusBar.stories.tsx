@@ -132,7 +132,7 @@ export const SaveFailed: Story = {
   play: async () => {
     void save()
     await expect(await body().findByRole("button", { name: /Couldn't save/ })).toBeVisible()
-    await holdToast("Couldn't save")
+    await holdToast("Couldn't save the project")
   }
 }
 
@@ -150,7 +150,7 @@ export const RetryingAFailedSave: Story = {
   ],
   play: async () => {
     await userEvent.click(await body().findByRole("button", { name: /Couldn't save/ }))
-    await holdToast("Saved")
+    await holdToast("Saved the project")
     await waitFor(() => expect(body().queryByRole("button", { name: /Couldn't save/ })).toBeNull())
   }
 }
@@ -286,7 +286,7 @@ export const OpeningStorybook: Story = {
   }
 }
 
-/** Clicking Storybook once it's running: it opens in the browser, and a notification gives its address. */
+/** Clicking Storybook once it's running: it opens in the browser, which says so, and its notification goes. */
 export const OpenedStorybook: Story = {
   loaders: [
     async () => {
@@ -297,7 +297,7 @@ export const OpenedStorybook: Story = {
   ],
   play: async () => {
     await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
-    await holdToast("Opened in your browser")
+    await waitFor(() => expect(document.querySelector('[data-slot="toast"]:not([data-ending-style])')).toBeNull())
   }
 }
 

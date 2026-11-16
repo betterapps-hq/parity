@@ -145,6 +145,6 @@ export const NowhereToInsertInto: Story = {
   play: async () => {
     await openWith("badge")()
     await userEvent.keyboard("{Enter}")
-    await holdToast("Select a layout, or a layer to add it after")
+    await holdToast("Nowhere to add it")
   }
 }

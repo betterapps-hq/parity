@@ -84,7 +84,8 @@ export function sortDrop(files: readonly DroppedFile[]): { images: DroppedImage[
 /** What to say about skipped files: a title naming them, and why each was skipped. Undefined when none were. */
 export function skippedMessage(skipped: readonly SkippedFile[]): { title: string; description: string } | undefined {
   if (skipped.length === 0) return undefined
-  const title = skipped.length === 1 ? `Skipped ${skipped[0]!.name}` : `Skipped ${skipped.length} files`
+  // Names go in the description, since a title holds none from the person's project (PAR-1186).
+  const title = skipped.length === 1 ? "Skipped a file" : `Skipped ${skipped.length} files`
   const sentences: string[] = []
   const types = skipped.filter((file) => file.reason === "type").map((file) => file.name)
   if (types.length === 1) sentences.push(`${types[0]} isn't a ${imageKinds} image.`)

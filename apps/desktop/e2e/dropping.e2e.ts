@@ -44,7 +44,7 @@ async function belowLede(): Promise<{ x: number; y: number }> {
 }
 
 const hint = () => app.page.locator("[data-drop-hint]")
-const toasts = () => app.page.locator("[data-sonner-toast]").allInnerTexts()
+const toasts = () => app.page.locator('[data-slot="toast"]').allInnerTexts()
 
 /** A PNG of one color, `width` by `height` pixels. */
 function png(width: number, height: number): Buffer {
@@ -138,7 +138,7 @@ describe("dropping image files", () => {
     await expect
       .poll(async () => (await toasts()).join("\n"))
       .toContain("notes.txt isn't a PNG, JPEG, GIF, WebP or SVG image.")
-    expect((await toasts()).join("\n")).toContain("Skipped notes.txt")
+    expect((await toasts()).join("\n")).toContain("Skipped a file")
     expect(await app.undoLabel()).toBe("Drop image")
   })
 

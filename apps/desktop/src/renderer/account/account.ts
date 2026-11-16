@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react"
-import { toast } from "sonner"
 import { type AccountState, accountState, type SignInRequest, signedOut } from "../../shared/account.ts"
 import { openProjectFolder } from "../chrome/commands.ts"
+import { notify } from "../toasts.tsx"
 import { workspace } from "../workspace.ts"
 
 /**
@@ -76,11 +76,11 @@ export function receiveAccount(raw: unknown): void {
 }
 
 function untilQuitToast(): void {
-  toast("You're signed in until you quit Parity", {
+  notify.info("Signed in until you quit", {
     id: "until-quit",
     description: "This system has no keyring to keep you signed in.",
-    action: { label: "What to do", onClick: () => update({ untilQuit: true }) },
-    duration: 12_000
+    action: { label: "Details", run: () => update({ untilQuit: true }) },
+    timeout: 12_000
   })
 }
 
@@ -109,9 +109,16 @@ export function useAccount(): AccountView {
   )
 }
 
-const failed = (title: string) => (error: unknown) => {
+/** Says an account step failed and where things stand, and offers to try it again. */
+const failed = (title: string, description: () => string, retry: () => void) => (error: unknown) => {
   console.error(title, error)
-  toast.error(title, { description: "Try again in a moment." })
+  notify.failed(title, { description: description(), retry })
+}
+
+/** The organization the session is in, by the name WorkOS gave it. */
+function organizationName(): string | undefined {
+  const account = view.state.account
+  return account?.organizations?.find((organization) => organization.id === account.organizationId)?.name
 }
 
 /** What the sign-in screens, the account menu and Home do. */
@@ -119,8 +126,21 @@ export const accountActions = {
   /** Sign in from the title bar or Home: the sign-in screen in a dialog. */
   open: () => update({ place: "dialog" }),
   signIn: (request: SignInRequest) =>
-    void window.canvasHost.account.signIn(request).catch(failed("Parity couldn't start signing you in")),
-  reopen: () => void window.canvasHost.account.reopen().catch(failed("Parity couldn't open your browser")),
+    void window.canvasHost.account.signIn(request).catch(
+      failed(
+        "Couldn't start signing in",
+        () => "You're still signed out of Parity.",
+        () => accountActions.signIn(request)
+      )
+    ),
+  reopen: () =>
+    void window.canvasHost.account.reopen().catch(
+      failed(
+        "Couldn't open your browser",
+        () => "Sign-in is still waiting for you there.",
+        () => accountActions.reopen()
+      )
+    ),
   /** Back to the ways in: the attempt, or the session that ended, is put away. */
   back: () => void window.canvasHost.account.cancel(),
   /** Closes the dialog, stopping a sign-in that's waiting. */
@@ -144,13 +164,20 @@ export const accountActions = {
   },
   signOut: () =>
     void window.canvasHost.account.signOut().then(
-      () => toast("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." }),
+      () => notify.done("You're signed out", { id: "signed-out", description: "Projects on this computer stay open." }),
       (error: unknown) => console.error("Signing out failed", error)
     ),
   explainUntilQuit: (open: boolean) => update({ untilQuit: open }),
   /** Moves the session to another of the person's organizations. Main refreshes, and the window follows its state. */
   switchOrganization: (organizationId: string) =>
-    void window.canvasHost.account
-      .switchOrganization(organizationId)
-      .catch(failed("Parity couldn't switch organizations"))
+    void window.canvasHost.account.switchOrganization(organizationId).catch(
+      failed(
+        "Couldn't switch organizations",
+        () => {
+          const name = organizationName()
+          return name ? `Nothing changed; you're still in ${name}.` : "You're still in the same organization."
+        },
+        () => accountActions.switchOrganization(organizationId)
+      )
+    )
 }

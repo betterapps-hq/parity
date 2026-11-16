@@ -103,7 +103,7 @@ describe("converting a frame", () => {
     await app.page.getByRole("group", { name: "Kind" }).getByRole("button", { name: "Component" }).click()
     await expect.poll(async () => (await frameOf(frame.key)).kind).toBe("component")
     expect(await app.undoLabel()).toBe("Convert to component")
-    await app.page.locator("[data-sonner-toast]").getByRole("button", { name: "Undo" }).click()
+    await app.page.locator('[data-slot="toast"]').getByRole("button", { name: "Undo" }).click()
     await expect.poll(async () => (await frameOf(frame.key)).kind).toBe("frame")
   })
 

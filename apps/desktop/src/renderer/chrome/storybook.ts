@@ -1,5 +1,5 @@
-import { toast } from "sonner"
 import { request } from "../service.ts"
+import { notify } from "../toasts.tsx"
 import type { ProjectSession } from "../workspace.ts"
 
 /** Whether a component has stories in the project's Storybook. */
@@ -12,17 +12,17 @@ export function hasStories(session: ProjectSession, component: string): boolean 
  * it isn't running, which can take a minute the first time.
  */
 export async function openInStorybook(session: ProjectSession, component?: string): Promise<void> {
-  const progress = toast.loading("Opening Storybook…", {
-    description: "If it isn't running yet, it starts first; that can take a minute."
-  })
+  const progress = notify.progress("Opening Storybook…", { description: "Starting it can take a minute." })
   try {
     const { url } = await request("storybook.open", { projectId: session.id, component })
     window.open(url, "_blank")
-    toast.success("Opened in your browser", { id: progress, description: url, duration: 3000 })
+    // The browser coming forward says it opened.
+    notify.close(progress)
   } catch (error) {
-    toast.error("Couldn't open Storybook", {
+    notify.failed("Couldn't open Storybook", {
       id: progress,
-      description: (error instanceof Error ? error.message : String(error)).slice(0, 600)
+      description: "It stopped while starting.",
+      details: (error instanceof Error ? error.message : String(error)).slice(-2000)
     })
   }
 }
