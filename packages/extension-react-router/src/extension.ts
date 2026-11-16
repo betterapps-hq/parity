@@ -80,9 +80,9 @@ export function statusOf(found: ReadRoutes): RoutesStatus {
   return { value, tooltip: "Click to show them" }
 }
 
-/** Whether a route draws a page: every route but the root, which only holds the others. */
+/** Whether a route draws a page: every route but the root, which only holds the others, and an API route (PAR-1174). */
 export function isPage(route: Route): boolean {
-  return route.kind !== "root"
+  return route.kind !== "root" && route.kind !== "api"
 }
 
 /** The route a command was run for: its page, or from Search actions, the page selected. */

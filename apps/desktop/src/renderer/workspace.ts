@@ -5,6 +5,7 @@ import {
   type GuestComponentSource,
   guestChanges,
   type LayerFailure,
+  markedRoutes,
   routeFiles,
   versionedSources,
   withProjectPreferences
@@ -21,7 +22,7 @@ import {
   prunedDocument,
   sameValue
 } from "@parity-app/editor"
-import { changeSnapshot, containerEntries, type ProjectDoc, restoreCopy } from "@parity-app/multiplayer"
+import { applyDocuments, changeSnapshot, containerEntries, type ProjectDoc, restoreCopy } from "@parity-app/multiplayer"
 import {
   changeProjectsData,
   type ProjectNote,
@@ -34,7 +35,7 @@ import { useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import type { Editor } from "tldraw"
 import type { ProjectEditResult, ProjectInfo, ServiceMethods, TabSummary } from "../shared/protocol.ts"
-import { keepCodeDesigns, openCodeDesigns } from "./canvas/code-designs.ts"
+import { keepCodeDesigns, openCodeDesigns, withCodeDesigns } from "./canvas/code-designs.ts"
 import { componentBoardsDocument, componentBoardsFile } from "./canvas/component-boards.ts"
 import { type FirstFrameWatch, watchFirstFrame } from "./canvas/first-frame.ts"
 import { routePages, routePagesFile, routeParams } from "./canvas/route-pages.ts"
@@ -1293,7 +1294,9 @@ async function createSession(
   const drawn = drawImported(info, loaded)
 
   const modes = info.modes.settings
-  const fromCode = [...routePages(info), ...componentBoardsDocument(info), ...storyScreensDocument(info)]
+  const marks = info.documents.find(({ path }) => path === info.mainDocument)?.document.routeKinds
+  const routes = markedRoutes(info.routes, marks)
+  const fromCode = [...routePages({ ...info, routes }), ...componentBoardsDocument(info), ...storyScreensDocument(info)]
 
   // What's stale goes as the project opens: views naming modes, states or params that are gone, and what was kept for
   // designs drawn from code that no longer are. The file loses it at its next save.
@@ -1343,7 +1346,7 @@ async function createSession(
     libraryDesigns: info.libraries.flatMap((library) => library.designs ?? [])
   })
 
-  keepCodeDesigns(designs.doc, fromCode)
+  const learnDrawn = keepCodeDesigns(designs.doc, fromCode)
   const components = new ComponentStore()
   inferComponents(info, components)
   sampleBoards(info, designs.doc, components)
@@ -1365,6 +1368,7 @@ async function createSession(
 
   sayWhenSavesFail(session)
   followCorrections(session)
+  followRouteMarks(session, marks, learnDrawn)
   const now = performance.now()
 
   const recordLoaded = () =>
@@ -1426,6 +1430,37 @@ function followCorrections(session: ProjectSession): void {
     request("project.correctComponents", params).catch((cause: unknown) =>
       console.warn("The component list couldn't take the correction", cause)
     )
+  })
+}
+
+/**
+ * Draws the app's pages again when the person's marks on its routes change, by an edit, an undo or the file changing on
+ * disk (PAR-1175, PAR-1176): a page marked as an API route leaves the canvas, and an API route marked as a page joins it.
+ */
+function followRouteMarks(
+  session: ProjectSession,
+  opened: CanvasDocument["routeKinds"],
+  learnDrawn: (drawn: readonly { path: string; document: CanvasDocument }[]) => void
+): void {
+  const { doc, info } = session
+  let drawn = opened
+
+  doc.subscribe(() => {
+    const marks = doc.file(doc.main)?.routeKinds
+
+    if (sameValue(marks, drawn)) {
+      return
+    }
+
+    drawn = marks
+
+    const pages = withCodeDesigns(
+      routePages({ ...info, routes: markedRoutes(info.routes, marks) }),
+      doc.file(doc.main)?.codeDesigns
+    )
+
+    learnDrawn(pages)
+    applyDocuments(doc, "Draw the pages again", pages, { origin: "code" })
   })
 }
 

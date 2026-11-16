@@ -94,13 +94,25 @@ export function openCodeDesigns(
  * Keeps what's set on the designs drawn from code in the project file, as it changes: those designs are drawn again each
  * time the project opens, so it's the only place it lasts. Only a story keeps its tried sizes, since a page's and a
  * board's layers are drawn afresh, and a design missing for now, such as a story whose file fails, keeps what it had.
+ * Gives back what takes designs drawn again while the project's open.
  */
-export function keepCodeDesigns(doc: ProjectDoc, drawn: Drawn): void {
-  const paths = new Set(drawn.map(({ path }) => path))
+export function keepCodeDesigns(doc: ProjectDoc, drawn: Drawn): (redrawn: Drawn) => void {
+  const paths = new Set<string>()
+  const asDrawn = new Map<string, ContainerSpec>()
 
-  const asDrawn = new Map<string, ContainerSpec>(
-    drawn.flatMap(({ path, document }) => document.containers.map((design) => [keyOf(path, design), design] as const))
-  )
+  // Designs drawn again while the project's open, as its pages when a route's marked (PAR-1175), are compared with how
+  // they're drawn then.
+  const learn = (designs: Drawn) => {
+    for (const { path, document } of designs) {
+      paths.add(path)
+
+      for (const design of document.containers) {
+        asDrawn.set(keyOf(path, design), design)
+      }
+    }
+  }
+
+  learn(drawn)
 
   const read = new WeakMap<ContainerSpec, CodeDesignSettings | undefined>()
 
@@ -160,4 +172,6 @@ export function keepCodeDesigns(doc: ProjectDoc, drawn: Drawn): void {
   }
 
   doc.subscribe(() => keep())
+
+  return learn
 }

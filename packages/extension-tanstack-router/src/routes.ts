@@ -4,7 +4,6 @@ import { z } from "zod"
 import { codeRouteTree, readCodeRoutes } from "./code-routes.ts"
 import {
   constantsOf,
-  pagesOnly,
   parentRouteName,
   propertyValue,
   resolvePath,
@@ -13,7 +12,8 @@ import {
   segmentsOf,
   serverOnly,
   stringProperty,
-  unwrap
+  unwrap,
+  withApiRoutes
 } from "./syntax.ts"
 
 /** The root route's id, as TanStack Router names it. */
@@ -58,7 +58,7 @@ const routerConfig = z.looseObject({ generatedRouteTree: z.string().optional() }
  * It reads the route tree the router's tooling generates (`src/routeTree.gen.ts`, or where `tsr.config.json` says),
  * which names each route's id, path, parent and file, then each route's file for what it draws, whether it loads data
  * and whether it guards the page. Without a route tree, the routes the app declares in code with `createRootRoute` and
- * `createRoute` (PAR-1156). Empty when it has neither. Server routes, which draw nothing, are left out (PAR-1173).
+ * `createRoute` (PAR-1156). Empty when it has neither. Server routes, which draw nothing, are API routes (PAR-1174).
  */
 export function readRoutes(read: (path: string) => string | undefined): Route[] {
   const treeFile = routeTreeFile(read("tsr.config.json"))
@@ -77,7 +77,7 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
       }
     )
 
-    return pagesOnly(routes, server)
+    return withApiRoutes(routes, server)
   }
 
   const { root, routes } = parseRouteTree(tree, treeFile)
@@ -121,7 +121,7 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
     visit(route, { id: rootId, path: "/" })
   }
 
-  return pagesOnly(found, server)
+  return withApiRoutes(found, server)
 }
 
 /** The route tree's path from the project root, as `tsr.config.json` names it or the router's default. */

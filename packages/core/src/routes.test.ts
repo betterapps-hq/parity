@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vite-plus/test"
-import { drawnRoute, lastStaticSegment, type RouteSegment, routeParams, sameSegments } from "./routes.ts"
+import {
+  drawnRoute,
+  lastStaticSegment,
+  markedRoutes,
+  type ProjectRoute,
+  type RouteSegment,
+  routeParams,
+  sameSegments
+} from "./routes.ts"
 
 const team: RouteSegment[] = [
   { type: "static", value: "team" },
@@ -32,9 +40,34 @@ describe("routes (PAR-1132)", () => {
     expect(lastStaticSegment({ segments: [{ type: "param", name: "id" }] })).toBeUndefined()
   })
 
-  it("leaves a parallel route's slot and an intercepting route off the canvas", () => {
-    expect(drawnRoute({})).toBe(true)
-    expect(drawnRoute({ slot: "modal" })).toBe(false)
-    expect(drawnRoute({ intercepts: "/photo/[id]" })).toBe(false)
+  it("leaves an API route, a parallel route's slot and an intercepting route off the canvas", () => {
+    expect(drawnRoute({ kind: "page" })).toBe(true)
+    expect(drawnRoute({ kind: "api" })).toBe(false)
+    expect(drawnRoute({ kind: "page", slot: "modal" })).toBe(false)
+    expect(drawnRoute({ kind: "page", intercepts: "/photo/[id]" })).toBe(false)
+  })
+
+  it("takes the person's marks on pages and API routes, and on nothing else (PAR-1175, PAR-1176)", () => {
+    const route = (id: string, kind: ProjectRoute["kind"]): ProjectRoute => ({
+      id,
+      kind,
+      segments: [],
+      path: `/${id}`,
+      file: `src/routes/${id}.ts`,
+      index: false,
+      loads: false,
+      guards: false
+    })
+
+    const routes = [route("root", "root"), route("ping", "page"), route("feed", "api"), route("team", "layout")]
+
+    expect(markedRoutes(routes, undefined)).toEqual(routes)
+    expect(
+      markedRoutes(routes, { ping: "api", feed: "page", team: "api", root: "page", gone: "api" }).map(
+        ({ id, kind }) => `${id} ${kind}`
+      )
+    ).toEqual(["root root", "ping api", "feed page", "team layout"])
+    // A mark that says what the route is read as now changes nothing.
+    expect(markedRoutes(routes, { ping: "page" })).toEqual(routes)
   })
 })

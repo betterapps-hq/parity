@@ -175,7 +175,7 @@ describe("readRoutes", () => {
     ])
   })
 
-  it("leaves out resource routes, which have no default export, whichever way one is written, but keeps one with pages inside (PAR-1173)", async () => {
+  it("reads resource routes, which have no default export, whichever way one is written, as API routes, but keeps one with pages inside as their layout (PAR-1173, PAR-1174)", async () => {
     const found = await readRoutes(
       recordFiles({
         "app/root.tsx": `export default function Root() {}`,
@@ -216,14 +216,21 @@ describe("readRoutes", () => {
     expect(found.routes.map((route) => [route.id, route.kind])).toEqual([
       ["root", "root"],
       ["home", "page"],
+      ["report", "api"],
+      ["sitemap", "api"],
+      // A resource route with only resource routes inside is one too.
+      ["feeds", "api"],
+      ["rss", "api"],
       ["account", "layout"],
       ["profile", "page"],
       ["about", "page"],
       ["legal", "page"],
       ["help", "page"],
       ["faq", "page"],
-      // A module that can't be read isn't known to be a resource route, so it stays.
-      ["missing", "page"]
+      ["blog", "api"],
+      // A module that can't be read isn't known to be a resource route, so it's a page.
+      ["missing", "page"],
+      ["cjs", "api"]
     ])
   })
 

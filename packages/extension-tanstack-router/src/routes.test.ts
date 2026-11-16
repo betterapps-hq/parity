@@ -249,7 +249,7 @@ describe("readRoutes", () => {
     ])
   })
 
-  it("leaves out server routes, but keeps one with a component, a lazy part, or pages inside it (PAR-1173)", () => {
+  it("reads server routes as API routes, but keeps one with a component, a lazy part, or pages inside it as it draws (PAR-1173, PAR-1174)", () => {
     const routes = readRoutes(
       recordReader({
         "src/routeTree.gen.ts": `
@@ -293,15 +293,20 @@ export const Route = createFileRoute("/ping")(options)`,
       })
     )
 
-    // A server route with only server routes inside goes with them; one with a page inside stays, as a layout still. Options
-    // named in the file are read, and options a function makes may draw, so that route stays.
+    // A server route with only server routes inside is an API route with them; one with a page inside stays a layout.
+    // Options named in the file are read, and options a function makes may draw, so that route is a page.
     expect(routes.map(({ id, kind }) => [id, kind])).toEqual([
       ["__root__", "root"],
       ["/", "page"],
+      ["/api/action", "api"],
+      ["/logout", "api"],
       ["/export", "page"],
       ["/team", "page"],
       ["/account", "layout"],
       ["/account/profile", "page"],
+      ["/hooks", "api"],
+      ["/hooks/stripe", "api"],
+      ["/ping", "api"],
       ["/feed", "page"]
     ])
   })
@@ -423,7 +428,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
     expect(routes.find((route) => route.id === "/$")?.segments).toEqual([{ type: "catchAll", name: "_splat" }])
   })
 
-  it("leaves out server routes declared in code, but keeps one with pages inside (PAR-1173)", () => {
+  it("reads server routes declared in code as API routes, but keeps one with pages inside as their layout (PAR-1173, PAR-1174)", () => {
     const routes = readRoutes(
       recordReader({
         "src/main.tsx": `
@@ -439,6 +444,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
     expect(routes.map(({ id, kind }) => [id, kind])).toEqual([
       ["__root__", "root"],
       ["/", "page"],
+      ["/health", "api"],
       ["/api", "layout"],
       ["/api/docs", "page"]
     ])
@@ -487,7 +493,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
       `createRoute({ ${parent}, server: { handlers } }).update({ ssr: false })`
     ],
     ["a spread of spread options", `createRoute({ ...nested, ${parent} })`]
-  ])("leaves out a server route with %s (PAR-1173)", (_, made) => {
+  ])("reads a server route with %s as an API route (PAR-1173, PAR-1174)", (_, made) => {
     const routes = readRoutes(
       recordReader({
         "src/main.tsx": `
@@ -499,7 +505,7 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
       })
     )
 
-    expect(routes.map(({ id }) => id)).toEqual(["__root__"])
+    expect(routes.map(({ id, kind }) => `${id} ${kind}`)).toEqual(["__root__ root", "/report api"])
   })
 
   it("lists nothing when the app makes no root route", () => {

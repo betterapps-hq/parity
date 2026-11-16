@@ -82,7 +82,9 @@ export function sourceFiles(files: readonly string[], folders: NextFolders, exte
 
     const pages = folders.pages === undefined ? false : inFolder(file, folders.pages)
 
-    return pages !== false && pagesFile(pages, extensions) !== undefined
+    const name = pages === false ? undefined : pagesFile(pages, extensions)
+
+    return name !== undefined && !isPagesApi(name)
   })
 }
 
@@ -152,6 +154,8 @@ function appFile(path: string, extensions: readonly string[]): { folder: string;
 interface AppFolder {
   page?: string
   layout?: string
+  /** A route handler, as `route.ts`, which answers requests and draws nothing: an API route (PAR-1174). */
+  route?: string
   loading?: string
   error?: string
   notFound?: string
@@ -161,6 +165,7 @@ interface AppFolder {
 const appNames = new Map<string, keyof AppFolder>([
   ["page", "page"],
   ["layout", "layout"],
+  ["route", "route"],
   ["loading", "loading"],
   ["error", "error"],
   ["global-error", "error"],
@@ -181,8 +186,8 @@ interface Place {
 
 /**
  * The App Router's routes: a folder with a `layout` is a layout, or a group for a `(group)` folder, and a folder's
- * `page` is a page inside the nearest layout. `loading`, `error` and `not-found` belong to their folder's layout, else
- * its page. A `@slot` folder's routes are that slot's, and a `(.)`, `(..)` or `(...)` folder's intercept the route at
+ * `page` is a page inside the nearest layout, and its `route` handler an API route. `loading`, `error` and `not-found`
+ * belong to their folder's layout, else its page. A `@slot` folder's routes are that slot's, and a `(.)`, `(..)` or `(...)` folder's intercept the route at
  * the URL they match.
  */
 function appRoutes(
@@ -268,6 +273,27 @@ function appRoutes(
         ...fileFacts(entry.page, texts, "app")
       }
       routes.push(placed(page, place))
+    }
+
+    // Next.js refuses a folder with both a page and a route handler, so a page there wins.
+    if (entry.route && !entry.page) {
+      const parent = layout ?? routes.find((route) => route.id === place.parent) ?? root
+
+      routes.push(
+        placed(
+          {
+            id: withoutExtension(entry.route),
+            kind: "api",
+            ...base,
+            parent: parent.id,
+            file: entry.route,
+            index: sameSegments(parent.segments, place.segments),
+            loads: false,
+            guards: false
+          },
+          place
+        )
+      )
     }
 
     const states = stateFiles(entry)
@@ -366,7 +392,8 @@ function interceptionOf(part: string): { levels: number | "root"; rest: string }
 
 /**
  * The Pages Router's routes: each file a page under `_app`, its path its own with `index` left off. `404`, `500` and
- * `_error` are what `_app` draws when nothing matches or a page fails, and `_document` and `api/` draw no page.
+ * `_error` are what `_app` draws when nothing matches or a page fails, `_document` draws no page, and what's under
+ * `api/` is API routes (PAR-1174).
  */
 function pagesRoutes(
   files: readonly string[],
@@ -418,16 +445,17 @@ function pagesRoutes(
       const name = pagesFile(inFolder(file, folder) || "", extensions) ?? ""
       const parts = name.split("/")
       const segments = (parts.at(-1) === "index" ? parts.slice(0, -1) : parts).map(segmentOf)
+      const api = isPagesApi(name)
 
       return {
         id: withoutExtension(file),
-        kind: "page",
+        kind: api ? "api" : "page",
         segments,
         path: nextPath(segments),
         parent: root.id,
         file,
         index: segments.length === 0,
-        ...fileFacts(file, texts, "pages")
+        ...(api ? { loads: false, guards: false } : fileFacts(file, texts, "pages"))
       }
     })
     .toSorted((a, b) => a.path.localeCompare(b.path))
@@ -436,17 +464,22 @@ function pagesRoutes(
 }
 
 /**
- * A Pages Router file's route name, its path in the folder without its extension, or nothing for a file that draws no
- * page here: one under `api/`, `_document`, or a type, test or story.
+ * A Pages Router file's route name, its path in the folder without its extension, or nothing for a file that's no
+ * route: `_document`, or a type, test or story.
  */
 function pagesFile(path: string, extensions: readonly string[]): string | undefined {
   const name = routeName(path, extensions)
 
-  if (!name || notRoute.test(path) || name === "_document" || name === "api" || name.startsWith("api/")) {
+  if (!name || notRoute.test(path) || name === "_document") {
     return undefined
   }
 
   return name
+}
+
+/** Whether a Pages Router route is an API route, under `api/`, which answers requests and draws nothing (PAR-1174). */
+function isPagesApi(name: string): boolean {
+  return name === "api" || name.startsWith("api/")
 }
 
 /** A folder or file name's segment: `[id]` a param, `[...slug]` a catch-all, `[[...slug]]` an optional one. */

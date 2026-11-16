@@ -1191,14 +1191,16 @@ bar.
   as React Router's library mode does; `loader` and `beforeLoad` say it loads data and guards the page. Routes come in
   the order their files are read. Routes made at run time, or whose parent is reached through anything but a plain
   variable, are left out.
-- **Only pages** (PAR-1173). TanStack Start's server routes draw nothing, so they're left out, from the route tree and
-  code-based routes alike. Nothing marks a route as a server route, and its options are values the app builds while it
-  runs, so it's read as one only when that's certain without running it: its options, with any `.update(…)` after, give
-  `server` and no `component`. Options are followed through the file's constants and spreads (`{ ...shared }`,
-  `createFileRoute("/ping")(options)`). Whenever a part can't be read, the route may draw, so it stays: options imported
-  from another file or made by a function, a computed option, or a `.lazy(…)` or any other method chained after
-  (`serverOnly` in `syntax.ts`). A server route with pages inside stays, so they keep their parent, and a layout left
-  with nothing inside is a page (`pagesOnly`). So a server route can still show as a page, but a page is never left out.
+- **API routes** (PAR-1173, PAR-1174). TanStack Start's server routes draw nothing, so they're API routes (kind `api`),
+  from the route tree and code-based routes alike. Nothing marks a route as a server route, and its options are values
+  the app builds while it runs, so it's read as one only when that's certain without running it: its options, with any
+  `.update(…)` after, give `server` and no `component`. Options are followed through the file's constants and spreads
+  (`{ ...shared }`, `createFileRoute("/ping")(options)`). Whenever a part can't be read, the route may draw, so it
+  stays: options imported from another file or made by a function, a computed option, or a `.lazy(…)` or any other
+  method chained after (`serverOnly` in `syntax.ts`). A server route with pages inside is their layout still, one with
+  only API routes inside is an API route with them, and a layout left with no page inside is a page (`withApiRoutes`).
+  So a server route can still show as a page, but a page is never read as an API route; either can be marked as the
+  other (see "API routes in Layers").
 
 Code: `packages/extension-tanstack-router` (its manifest, `extension.ts`, `routes.ts`, `code-routes.ts` and
 `syntax.ts`); `providers` in `packages/extension-api/src/api.ts`; `provide` and `provider` in
@@ -1240,12 +1242,12 @@ routes inside is a layout, or a group when it adds nothing to the URL, as a path
 module's default export names its component; a `loader` or `clientLoader` means it loads data, and `middleware` or
 `clientMiddleware` that it guards the page. A loader that always throws or returns `redirect("/x")`, or library mode's
 `<Navigate to>` as the element, is where the route redirects. A resource route, a module without a default export that
-answers with its `loader` or `action`, draws nothing and is left out (PAR-1173), unless pages sit inside it. This is
-React Router's own rule, so it's exact: `export default …` and `export { X as default }` (or `export { default } from`)
-are default exports, `export *` never passes one on, and a module that can't be read stays. Whatever can only be known
-by running the app is left out and named in the route count's tooltip: "Some routes aren't supported yet", with what
-wasn't read, or, when no routes are declared anywhere it reads, that routes made while the app runs aren't supported
-yet.
+answers with its `loader` or `action`, draws nothing and is an API route (PAR-1173, PAR-1174), unless pages sit inside
+it. This is React Router's own rule, so it's exact: `export default …` and `export { X as default }` (or
+`export { default } from`) are default exports, `export *` never passes one on, and a module that can't be read is a
+page. Whatever can only be known by running the app is left out and named in the route count's tooltip: "Some routes
+aren't supported yet", with what wasn't read, or, when no routes are declared anywhere it reads, that routes made while
+the app runs aren't supported yet.
 
 Components the project's Vite plugin wraps for Fast Refresh, as React Router's does, draw on the canvas: the guest sets
 Fast Refresh's preamble, with hooks that do nothing, before any of the app's modules load (`viteGuestModule` in
@@ -1333,12 +1335,13 @@ dependency on `next`.
 - **The App Router:** a folder is a segment, `[id]` a param, `[...slug]` a catch-all and `[[...slug]]` an optional one.
   A folder's `layout` is a layout, or a group for a `(group)` folder, and its `page` a page inside the nearest layout,
   the layout's index when it's at the layout's own URL. `loading`, `error` and `not-found` are the state files of their
-  folder's layout, else its page. Private `_folders` and route handlers aren't routes, and a layout with no page under
-  it, or only a parallel route's, is left out so it draws no screen.
+  folder's layout, else its page. A folder's `route` handler is an API route, unless a `page` is there too, which
+  Next.js refuses (PAR-1174). Private `_folders` aren't routes, and a layout with no page under it, or only a parallel
+  route's or API routes, is left out so it draws no screen; what's inside moves to the route around it.
 - **Parallel and intercepting routes** are read, each with the `slot` it fills or the route it `intercepts`, found by
   the URL it matches, and left off the canvas and the route count until the canvas draws them.
 - **The Pages Router:** each file is a page under `_app`, its path its own without `index`. `404`, `500` and `_error`
-  are `_app`'s state files; `_document` and `api/` aren't routes.
+  are `_app`'s state files; `_document` isn't a route, and what's under `api/` is API routes (PAR-1174).
 - **Both in one project:** the App Router's root layout is the root, and `_app` a group inside it holding the Pages
   Router's pages, or the pages sit under the root without an `_app`.
 - **Open in browser** and **the route count** work as TanStack Router's do.
@@ -1396,6 +1399,32 @@ webpack-compatible builder's loader do, so a Next.js project's layers lead back 
 Code: `packages/next-builders/src/element-sources.ts`, the route in `guest-server.ts`, and the config in `guest-app.ts`.
 Tests: `element-sources.test.ts`. Checked by hand against Next 16.4 on Turbopack and webpack: an App Router page, a
 client component it imports and a Pages Router page each served with their elements' sources.
+
+### API routes in Layers (PAR-1174, PAR-1175, PAR-1176)
+
+A route that answers requests on the server and draws nothing is an API route: the extensions API's `RouteKind` has
+`api` for it, beside `root`, `layout`, `group` and `page`, so a router extension says so with the route rather than
+leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
+`pages/api` files are API routes. One with pages inside it is their layout or group, as before.
+
+- **Layers** lists them in their own section, API routes, under the app's pages and before its screens, by path, in the
+  order the router gives them. A search finds them by path. A click selects one, and the Design tab shows its path and
+  file (`ApiRoutePanel`).
+- **The canvas** never draws one (`drawnRoute`), and no Open in browser is offered. The status bar's route count and
+  Settings' "Reads the app's routes as pages" count only pages; Settings counts API routes apart.
+- **Marks.** Parity can't always tell a route draws nothing without running the app, so a page's menu, in Layers or on
+  canvas, has Mark as API route, and an API route's has Mark as page. Marks are kept in the project's main `.par`, as
+  `routeKinds` by route id, so they hold for everyone on the project, and each is an undo step. Marking a route as what
+  Parity reads it as takes the mark away. Only pages and API routes take a mark; a layout or group holds pages, which an
+  API route can't (`markedRoutes` in `@parity-app/core`).
+- **Drawing again.** The app's pages are drawn from its routes as the project opens, with its marks. When the marks
+  change, by a mark, an undo or the file changing on disk, the pages are drawn again (`followRouteMarks` in
+  `workspace.ts`), keeping what each page shows.
+
+The route count in the status bar is each router extension's own reading, without the marks.
+
+Code: `packages/core/src/routes.ts`, `apps/desktop/src/renderer/route-marks.ts`,
+`apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left panel/API routes).
 
 ### Next's router on canvas (PAR-1160)
 

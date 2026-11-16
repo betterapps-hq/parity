@@ -16,6 +16,7 @@ import {
   locateNode,
   nodeLabel,
   nodeOnBoard,
+  type ProjectRoute,
   toggleHidden
 } from "@parity-app/core"
 import {
@@ -107,6 +108,7 @@ import { type ContainerEntry, projectLibrary, useContainerEntries, useNotes } fr
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
+import { ApiRouteLine, MarkAsApiItem, selectedApiRoute, useProjectRoutes } from "./ApiRoutes.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
 import { componentOffers, layerOffers, pageOffers } from "./command-offers.ts"
@@ -155,11 +157,22 @@ interface Group {
  */
 type Line =
   | { type: "heading" | "empty"; key: string; group: Group }
+  | { type: "apiHeading"; key: string }
+  | { type: "api"; key: string; route: ProjectRoute }
   | { type: "row"; key: string; row: Row; level: number; parent?: string }
   | { type: "folder"; key: string; folder: FolderRow; layout?: PageGroupPlace }
   | { type: "gap" | "none"; key: string }
 
-const lineHeights: Record<Line["type"], number> = { heading: 28, empty: 28, row: 28, folder: 28, gap: 8, none: 28 }
+const lineHeights: Record<Line["type"], number> = {
+  heading: 28,
+  empty: 28,
+  apiHeading: 28,
+  api: 28,
+  row: 28,
+  folder: 28,
+  gap: 8,
+  none: 28
+}
 
 /** What a route layout's folder is listed under, which its id starts with. */
 const routesScope = "routes"
@@ -282,6 +295,9 @@ export function LayerTree() {
   const notes = useNotes(session)
   const selected = useSelection(selection)
   const hover = useHover(selection)
+  const routes = useProjectRoutes(session)
+  const apiRoutes = useMemo(() => routes.filter((route) => route.kind === "api"), [routes])
+  const pickedApi = selectedApiRoute(routes, selected)?.id
   const [expansion, setExpansion] = useState(closedTree)
   const expanded = useMemo(() => expandedRows(expansion), [expansion])
   const [renaming, setRenaming] = useState<string>()
@@ -411,7 +427,26 @@ export function LayerTree() {
     const all: Row[] = []
     const list: Line[] = []
 
+    // The app's API routes come under its pages, before the screens designed for it (PAR-1174). They draw nothing, so
+    // each is a line of its own rather than a design's row.
+    const apiFound = search
+      ? apiRoutes.filter((route) => route.path.toLowerCase().includes(search.toLowerCase()))
+      : apiRoutes
+
+    const apiLines: Line[] =
+      apiFound.length === 0
+        ? []
+        : [
+            { type: "apiHeading", key: "heading:api" },
+            ...apiFound.map((route): Line => ({ type: "api", key: `api:${route.id}`, route })),
+            { type: "gap", key: "gap:api" }
+          ]
+
     for (const group of groups) {
+      if (group.id === "screens") {
+        list.push(...apiLines)
+      }
+
       const rowsOf = (designs: readonly ContainerEntry[]) =>
         search
           ? searchRows(designs, search, label, library, boardOpensTo)
@@ -453,12 +488,12 @@ export function LayerTree() {
       all.push(...found)
     }
 
-    if (search && all.length === 0) {
+    if (search && all.length === 0 && apiFound.length === 0) {
       list.push({ type: "none", key: "none" })
     }
 
     return { rows: all, lines: list }
-  }, [groups, expanded, search, entries, library, session.info.libraries, session.info.id])
+  }, [groups, apiRoutes, expanded, search, entries, library, session.info.libraries, session.info.id])
 
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 
@@ -947,6 +982,12 @@ export function LayerTree() {
                   style={{ height: item.size, transform: `translateY(${item.start}px)` }}
                 >
                   {line.type === "heading" && <GroupHeading group={line.group} />}
+                  {line.type === "apiHeading" && (
+                    <div className="flex h-7 items-center pr-1.5 pl-3 text-xs text-muted-foreground">
+                      <GroupLabel className="flex-1">API routes</GroupLabel>
+                    </div>
+                  )}
+                  {line.type === "api" && <ApiRouteLine route={line.route} selected={pickedApi === line.route.id} />}
                   {line.type === "empty" && <EmptyGroup group={line.group} />}
                   {line.type === "none" && (
                     <p className="flex h-7 items-center px-3 text-xs text-muted-foreground">
@@ -1646,6 +1687,7 @@ function RowMenuItems({ row, onRename }: { row: Row; onRename: () => void }) {
     <>
       {items}
       <OfferMenuItems offers={offers} page={page !== undefined} />
+      {page && <MarkAsApiItem route={page.route} />}
     </>
   )
 }

@@ -89,6 +89,7 @@ describe("readRoutes for the App Router", () => {
         parent: "app/(marketing)/layout",
         index: false
       },
+      { id: "app/api/health/route", kind: "api", path: "/api/health", parent: "app/layout", index: false },
       { id: "app/blog/[slug]/page", kind: "page", path: "/blog/[slug]", parent: "app/blog/layout", index: false },
       { id: "app/docs/[...slug]/page", kind: "page", path: "/docs/[...slug]", parent: "app/layout", index: false },
       {
@@ -144,12 +145,31 @@ describe("readRoutes for the App Router", () => {
     })
   })
 
-  it("leaves out private folders, route handlers and files that aren't routes", () => {
+  it("leaves out private folders and files that aren't routes", () => {
     const files = routesOf(app).map((route) => route.file)
 
-    expect(files.some((file) => file.includes("_components") || file.includes("api/") || file.includes(".test."))).toBe(
-      false
-    )
+    expect(files.some((file) => file.includes("_components") || file.includes(".test."))).toBe(false)
+  })
+
+  it("reads route handlers as API routes, inside the layout around them, and a page over a handler beside it (PAR-1174)", () => {
+    const routes = routesOf({
+      "app/layout.tsx": "export default function RootLayout() {}",
+      "app/page.tsx": "export default function Home() {}",
+      "app/api/layout.tsx": "export default function ApiLayout({ children }) { return children }",
+      "app/api/webhooks/[id]/route.ts": "export async function POST() {}",
+      "app/feed.xml/route.ts": "export async function GET() {}",
+      "app/both/page.tsx": "export default function Both() {}",
+      "app/both/route.ts": "export async function GET() {}"
+    })
+
+    // A layout with nothing but API routes inside draws no page, so they move to the route around it.
+    expect(summary(routes, "kind", "path", "parent")).toEqual([
+      { id: "app/layout", kind: "root", path: "/", parent: undefined },
+      { id: "app/page", kind: "page", path: "/", parent: "app/layout" },
+      { id: "app/both/page", kind: "page", path: "/both", parent: "app/layout" },
+      { id: "app/feed.xml/route", kind: "api", path: "/feed.xml", parent: "app/layout" },
+      { id: "app/api/webhooks/[id]/route", kind: "api", path: "/api/webhooks/[id]", parent: "app/layout" }
+    ])
   })
 
   it("reads src/app, and names a root layout Next.js would write itself by its folder", () => {
@@ -324,6 +344,9 @@ describe("readRoutes for the Pages Router", () => {
       { id: "pages/_app", kind: "root", path: "/", parent: undefined, index: false },
       { id: "pages/index", kind: "page", path: "/", parent: "pages/_app", index: true },
       { id: "pages/about", kind: "page", path: "/about", parent: "pages/_app", index: false },
+      // What's under `api/` answers requests and draws nothing (PAR-1174).
+      { id: "pages/api", kind: "api", path: "/api", parent: "pages/_app", index: false },
+      { id: "pages/api/hello", kind: "api", path: "/api/hello", parent: "pages/_app", index: false },
       { id: "pages/blog/index", kind: "page", path: "/blog", parent: "pages/_app", index: false },
       { id: "pages/blog/[slug]", kind: "page", path: "/blog/[slug]", parent: "pages/_app", index: false },
       { id: "pages/docs/[...slug]", kind: "page", path: "/docs/[...slug]", parent: "pages/_app", index: false },

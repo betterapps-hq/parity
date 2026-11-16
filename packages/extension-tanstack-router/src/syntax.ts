@@ -233,31 +233,30 @@ function optionNames(
 }
 
 /**
- * Routes without the server-only ones, which draw nothing (PAR-1173). One with routes still inside it stays, so they
- * keep their parent, and a layout or group left with nothing inside is a page.
+ * Routes with the server-only ones given as API routes, which draw nothing (PAR-1173, PAR-1174). One with pages still
+ * inside it stays their layout or group, so they keep their parent, and a layout or group left with no page inside is a
+ * page.
  */
-export function pagesOnly(routes: readonly Route[], server: ReadonlySet<string>): Route[] {
-  const kept = new Set<string>()
-  const parents = new Set<string>()
+export function withApiRoutes(routes: readonly Route[], api: ReadonlySet<string>): Route[] {
+  const drawn = new Set<string>()
+  const holders = new Set<string>()
 
   // Children come after their parents, so going backwards each route's children are decided before it.
   for (const route of routes.toReversed()) {
-    if (route.kind === "root" || parents.has(route.id) || !server.has(route.id)) {
-      kept.add(route.id)
+    if (route.kind === "root" || holders.has(route.id) || !api.has(route.id)) {
+      drawn.add(route.id)
 
       if (route.parent !== undefined) {
-        parents.add(route.parent)
+        holders.add(route.parent)
       }
     }
   }
 
-  return routes.flatMap((route) => {
-    if (!kept.has(route.id)) {
-      return []
+  return routes.map((route) => {
+    if (!drawn.has(route.id)) {
+      return { ...route, kind: "api" }
     }
 
-    return route.kind !== "root" && route.kind !== "page" && !parents.has(route.id)
-      ? [{ ...route, kind: "page" }]
-      : [route]
+    return route.kind !== "root" && route.kind !== "page" && !holders.has(route.id) ? { ...route, kind: "page" } : route
   })
 }

@@ -38,6 +38,16 @@ describe("what an extension adds", () => {
     ])
   })
 
+  it("counts a router's API routes apart from its pages (PAR-1174)", () => {
+    const routes = [...project.routes, { parent: "__root__", kind: "api" as const }]
+
+    expect(extensionAdds("tanstack-router", { ...project, routes })).toEqual([
+      "Reads the app's routes as pages (2)",
+      "Reads its API routes (1)",
+      "A status bar item"
+    ])
+  })
+
   it("counts the screens an adapter read, and lists its extension's commands and status item", () => {
     expect(extensionAdds("storybook", project, [storybook])).toEqual([
       "Reads its files as screens (2)",

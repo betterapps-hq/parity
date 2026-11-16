@@ -525,7 +525,7 @@ const routeSegment: z.ZodType<RouteSegment> = z.discriminatedUnion("type", [
 
 const route: z.ZodType<Route> = z.strictObject({
   id: routePath,
-  kind: z.enum(["root", "layout", "group", "page"]),
+  kind: z.enum(["root", "layout", "group", "page", "api"]),
   segments: z.array(routeSegment).max(100),
   path: routePath,
   parent: routePath.optional(),

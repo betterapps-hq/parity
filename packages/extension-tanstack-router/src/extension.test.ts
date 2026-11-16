@@ -34,8 +34,9 @@ describe("the TanStack Router extension", () => {
 describe("isPage", () => {
   const route = { file: "src/routes/x.tsx", index: false, loads: false, guards: false }
 
-  it("counts every route but the root, which only holds the others", () => {
+  it("counts every route but the root, which only holds the others, and an API route, which draws nothing", () => {
     expect(isPage({ ...route, id: "__root__", kind: "root", segments: [], path: "/" })).toBe(false)
+    expect(isPage({ ...route, id: "/api/action", kind: "api", segments: [], path: "/api/action" })).toBe(false)
 
     expect(
       isPage({
