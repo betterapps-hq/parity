@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 03:58:25 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 04:19:41 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.5
+
+Mon, 16 Nov 2026 04:19:41 GMT
+
+### Patches
+
+- Open a project with one Vite server: the builder starts as soon as the renderer is known and says which stylesheets
+  the app loads, instead of a second server loading the project's config first (ajcraswell@gmail.com)
 
 ## 0.96.4
 

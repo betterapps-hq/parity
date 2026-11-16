@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 04:19:41 GMT",
+      "version": "0.96.5",
+      "tag": "@parity-app/desktop_v0.96.5",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "597c25259f61e46a7d84a80b188bbc9ac656a6be",
+            "comment": "Open a project with one Vite server: the builder starts as soon as the renderer is known and says which stylesheets the app loads, instead of a second server loading the project's config first"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 03:58:25 GMT",
       "version": "0.96.4",
       "tag": "@parity-app/desktop_v0.96.4",
