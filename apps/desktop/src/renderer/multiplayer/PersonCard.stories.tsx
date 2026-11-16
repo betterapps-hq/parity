@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { useResolvedTheme } from "../theme.ts"
-import { FaceStack, PersonCard, type Presence } from "./presence-parts.tsx"
+import { FaceStack } from "./FaceStack.tsx"
+import type { Presence } from "./member.ts"
+import { PersonCard } from "./PersonCard.tsx"
 import { CanvasBoard, CanvasPane, DashboardDesign, members, presences, Themes, scrolls } from "./story-kit.tsx"
 
 /**

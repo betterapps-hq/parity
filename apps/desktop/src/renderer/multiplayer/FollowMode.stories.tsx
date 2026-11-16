@@ -1,7 +1,9 @@
 import { Button } from "@buildkitgg/shadcn-baseui-kit"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useResolvedTheme } from "../theme.ts"
-import { FaceStack, FollowLayer, type FollowState, RemotePointer, useFollow } from "./presence-parts.tsx"
+import { FaceStack } from "./FaceStack.tsx"
+import { FollowLayer } from "./FollowLayer.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
 import {
   CanvasBoard,
   CanvasPane,
@@ -13,10 +15,11 @@ import {
   useClock,
   scrolls
 } from "./story-kit.tsx"
+import { type FollowState, useFollow } from "./useFollow.ts"
 
 /**
  * Following someone: your canvas goes where theirs goes. It's framed in their color with a banner along the top saying
- * whose view it is and how to stop. It ends when you press Esc, click the banner's way out, or move the canvas
+ * whose view it is and how to stop. It ends when you press Esc, click Stop, or move the canvas
  * yourself, and when they leave. Each ending says so briefly where the banner was, then goes. On a narrow canvas the
  * stack moves down out of the banner's way; try the toolbar's viewport menu.
  */
@@ -62,7 +65,7 @@ export const Following: Story = {
 }
 
 const endings = [
-  { label: "You pressed Esc, clicked the banner, or moved the canvas", state: "stopped" },
+  { label: "You pressed Esc, clicked Stop, or moved the canvas", state: "stopped" },
   { label: "Mia left the project", state: "left" }
 ] as const
 
@@ -101,7 +104,7 @@ export const HowItEnds: Story = {
 }
 
 /**
- * Following Mia for real, through `useFollow`: press Esc, click the banner, or scroll the canvas to stop. The moving
+ * Following Mia for real, through `useFollow`: press Esc, click Stop, or scroll the canvas to stop. The moving
  * pointer and the button that makes Mia leave stand in for the room. Follows the toolbar's theme.
  */
 function TryItStory() {

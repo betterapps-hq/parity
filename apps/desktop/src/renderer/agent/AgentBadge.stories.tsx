@@ -34,7 +34,7 @@ const kinds: { kind: Kind; action: string; note: string }[] = [
 ]
 
 const meta = {
-  title: "Agent/Badge",
+  title: "Parity/Multiplayer/Agents/Badge",
   component: Badge,
   parameters: { layout: "fullscreen" },
   argTypes: {
@@ -61,25 +61,6 @@ export const LongAction: Story = {
 
 /** Before the agent has a palette, for the moment before its first step plays. */
 export const BeforeColors: Story = { args: { palette: "None", kind: "start", label: "" } }
-
-const agentNames = ["Claude Code", "Cursor", "Codex", "Gemini CLI", "Copilot", "Windsurf"]
-
-/** In every palette, each doing something different. */
-export const EveryPalette: Story = {
-  render: () => (
-    <div className="flex flex-col items-start gap-4 bg-[#0e0e10] p-12">
-      {agentPalettes.map((palette, index) => (
-        <AgentBadge
-          key={palette.name}
-          palette={palette}
-          agent={agentNames[index % agentNames.length]!}
-          kind={kinds[index % kinds.length]!.kind}
-          label={kinds[index % kinds.length]!.action}
-        />
-      ))}
-    </div>
-  )
-}
 
 /** The icon for each kind of action, under its arrow. */
 export const ActionIcons: Story = {

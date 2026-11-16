@@ -1,12 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
 import { useResolvedTheme } from "../theme.ts"
-import { RemotePointer } from "./presence-parts.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
 import { CanvasBoard, CanvasPane, DashboardDesign, members, Playback, Themes, useClock, scrolls } from "./story-kit.tsx"
 
 /**
- * Other people's pointers, in the agents' style: the same arrow and pill, in their own palette, with a person's first
- * name and, when there's something to say, what they're doing. An agent's badge adds the icon for its call. When
+ * Other people's pointers: the agents' arrow and pill, in the person's flat color, with their first name and, when
+ * there's something to say, what they're doing. Agents keep their gradient and glow, and their badge leads with the
+ * icon for their call, so the two never read alike. When
  * someone leaves the canvas, their pointer stays where they left it, faded; when they come back, it glides from there.
  */
 const meta = {

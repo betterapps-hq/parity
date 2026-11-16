@@ -9665,7 +9665,8 @@ numeric ones left out; `subagent` on every listed tool but the two that answer a
 the tool list stays within 21.5 KB).
 
 Gap: not tried with real subagents. Claude Code's CLI wasn't signed in where this was built, so nothing here shows that
-subagents pass the name. The story Agent/Behavior, Three subagents, plays what the canvas shows when they do.
+subagents pass the name. The story Parity/Multiplayer/Agents/Behavior, Three subagents, plays what the canvas shows when
+they do.
 
 ### Shared execute contract (PAR-451)
 

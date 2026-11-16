@@ -1,9 +1,9 @@
 import { Button, Slider } from "@buildkitgg/shadcn-baseui-kit"
-import { palette } from "@parity-app/presence-colors"
+import { agentPalette, palette } from "@parity-app/presence-colors"
 import type { Decorator } from "@storybook/react-vite"
 import { Pause, Play } from "lucide-react"
 import { Fragment, type ReactElement, type ReactNode, useEffect, useId, useState } from "react"
-import type { Member, Presence } from "./presence-parts.tsx"
+import type { Member, Presence } from "./member.ts"
 
 /*
  * What the multiplayer stories share: the canvas in light and dark side by side, a couple of small designs to put on
@@ -273,27 +273,27 @@ export const members = {
     palette: palette(2),
     photo: portrait({ background: "#cfd8e3", skin: "#a8714f", hair: "#1c1210", shirt: "#b8475a", long: true })
   },
-  claude: { name: "Claude Code", palette: palette(3), agent: true },
-  codex: { name: "Codex", palette: palette(4), agent: true },
+  claude: { name: "Claude Code", palette: agentPalette(3), agent: true },
+  codex: { name: "Codex", palette: agentPalette(4), agent: true },
   sam: {
     name: "Sam Okafor",
-    palette: palette(5),
+    palette: palette(3),
     photo: portrait({ background: "#d9e4d0", skin: "#6e4632", hair: "#16110f", shirt: "#e0a43c" })
   },
-  lena: { name: "Lena Fischer", palette: palette(6) },
-  theo: { name: "Theo Martin", palette: palette(7) }
+  lena: { name: "Lena Fischer", palette: palette(4) },
+  theo: { name: "Theo Martin", palette: palette(5) }
 } satisfies Record<string, Member>
 
 /** What everyone in the room is doing. */
 export const presences = {
-  mia: { member: members.mia, activity: "Viewing Dashboard · Dark mode" },
-  jonas: { member: members.jonas, activity: "Editing Pricing · Mobile" },
-  priya: { member: members.priya, activity: "Viewing Dashboard · Light mode" },
+  mia: { member: members.mia, activity: "Viewing Dashboard in dark mode" },
+  jonas: { member: members.jonas, activity: "Editing Pricing on mobile" },
+  priya: { member: members.priya, activity: "Viewing Dashboard in light mode" },
   claude: { member: members.claude, activity: "Tightening the dashboard's spacing" },
   codex: { member: members.codex, activity: "Checking Pricing" },
   sam: { member: members.sam, activity: "Viewing Settings" },
   lena: { member: members.lena, activity: "Viewing Sign in", away: "12 min" },
-  theo: { member: members.theo, activity: "Viewing Dashboard · Mobile" }
+  theo: { member: members.theo, activity: "Viewing Dashboard on mobile" }
 } satisfies Record<string, Presence>
 
 /**

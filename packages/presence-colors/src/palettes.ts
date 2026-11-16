@@ -1,11 +1,13 @@
-import { contrastRatio, formatHex, oklchToRgba, parseHex, rgbaToOklch } from "@parity-app/tokens"
+import { colorDistance, contrastRatio, formatHex, oklchToRgba, parseHex, rgbaToOklch } from "@parity-app/tokens"
 
 /**
  * The colors people and agents wear on the canvas: a gradient for pointers and badges, a solid color for outlines and
- * name tags, and the ink that reads on both. People and agents draw from the same list, so they look like one system.
+ * name tags, and the ink that reads on both. People and agents each have their own list, and neither runs out. What
+ * keeps them apart is their style, not their hue: an agent's palette is vivid and its gradient sweeps across
+ * neighbouring hues; a person's is soft and light, and its gradient stays in one hue.
  */
 export interface Palette {
-  /** Its number in the list, from 0. A room hands out numbers, never colors, so every copy draws the same one. */
+  /** Its number in its list, from 0. A room hands out numbers, never colors, so every copy draws the same one. */
   n: number
   /** A hand-tuned palette's name, as `Ember`; a generated one's is its hue, as `Hue 137`. */
   name: string
@@ -15,12 +17,10 @@ export interface Palette {
 }
 
 /**
- * The hand-tuned palettes, in the order they're handed out: each is as far as it can be from all those before it, so
- * the first few people in a room look the most different. The first twelve are the agents' palettes from the desktop
- * app's `agent-colors.ts`, with Sky's ink a step deeper so its text passes on the blue end of its gradient. The next
- * twelve fill the gaps in hue between them, a step lighter or deeper than their neighbours.
+ * The agents' hand-tuned palettes, from the desktop app's `agent-colors.ts`, with Sky's ink a step deeper so its text
+ * passes on the blue end of its gradient. The first agents at work get these.
  */
-const tuned: Omit<Palette, "n">[] = [
+const tunedAgents: Omit<Palette, "n">[] = [
   { name: "Ember", stops: ["#FFB347", "#FF5A5F", "#FF4FA3"], color: "#FF6A5A", ink: "#3D0D05" },
   { name: "Citrus", stops: ["#F4FF7A", "#B6F25A", "#5FE08A"], color: "#B6F25A", ink: "#1F3A08" },
   { name: "Indigo", stops: ["#8FA8FF", "#7A6EFF", "#B36BFF"], color: "#7A6EFF", ink: "#120C40" },
@@ -32,54 +32,112 @@ const tuned: Omit<Palette, "n">[] = [
   { name: "Lagoon", stops: ["#7CFFE4", "#34D8D0", "#3AA8FF"], color: "#34D8D0", ink: "#053A38" },
   { name: "Orchid", stops: ["#9D8CFF", "#B57CFF", "#FF8AD8"], color: "#B57CFF", ink: "#2A0B40" },
   { name: "Rose", stops: ["#FFB3C8", "#FF6FA0", "#FF8A6B"], color: "#FF6FA0", ink: "#40081F" },
-  { name: "Aurora", stops: ["#5CE1FF", "#5B7CFF", "#9D6BFF"], color: "#6C8BFF", ink: "#0B1640" },
-  { name: "Flamingo", stops: ["#FFD4FF", "#FFA7D8", "#FD94A2"], color: "#FFA7D8", ink: "#3B132B" },
-  { name: "Glacier", stops: ["#CFFFFF", "#9BE4FE", "#9CCDFC"], color: "#9BE4FE", ink: "#002936" },
-  { name: "Iris", stops: ["#CCDAFF", "#BFB0FF", "#CF94E2"], color: "#BFB0FF", ink: "#251C43" },
-  { name: "Teal", stops: ["#6CCFC0", "#00B3C2", "#189CCE"], color: "#00B3C2", ink: "#002A2F" },
-  { name: "Fern", stops: ["#C4DB67", "#69CC59", "#00BE8E"], color: "#69CC59", ink: "#0D2C08" },
-  { name: "Apricot", stops: ["#FFE0C2", "#FFB694", "#FF9C8A"], color: "#FFB694", ink: "#3E1602" },
-  { name: "Grape", stops: ["#AB93FF", "#B75EDF", "#D94AB3"], color: "#B75EDF", ink: "#260E31" },
-  { name: "Jade", stops: ["#95DBA4", "#35C5A1", "#00B1B6"], color: "#35C5A1", ink: "#002C21" },
-  { name: "Scarlet", stops: ["#FF8FA8", "#F34E6A", "#FF6B3D"], color: "#F34E6A", ink: "#3F1219" },
-  { name: "Cobalt", stops: ["#2AB6EC", "#2A8EEF", "#767CF5"], color: "#2A8EEF", ink: "#01203F" },
-  { name: "Pear", stops: ["#FBF7A6", "#DCDD40", "#9EE05A"], color: "#DCDD40", ink: "#262600" },
-  { name: "Amber", stops: ["#FFE3A3", "#F9AD26", "#FF8A3D"], color: "#F9AD26", ink: "#341F00" }
+  { name: "Aurora", stops: ["#5CE1FF", "#5B7CFF", "#9D6BFF"], color: "#6C8BFF", ink: "#0B1640" }
 ]
 
-export const tunedPalettes: readonly Palette[] = tuned.map((palette, n) => ({ n, ...palette }))
+/** The agents' hand-tuned palettes, numbered. */
+export const tunedAgentPalettes: readonly Palette[] = tunedAgents.map((each, n) => ({ n, ...each }))
+
+/** How a list's generated palettes look: the lightness and chroma steps they alternate between, and their gradient. */
+interface Style {
+  steps: readonly { lightness: number; chroma: number }[]
+  /** The gradient's three stops around a palette's color. */
+  stops: (lightness: number, chroma: number, hue: number) => [string, string, string]
+  /** Where its hues start, in OKLCH degrees. */
+  firstHue: number
+  /**
+   * How many hues to a ring, when hues are handed out in evenly spaced rings (see `onRing`) rather than by the golden
+   * angle.
+   */
+  ring?: number
+}
+
+/** Agents: vivid, the gradient sweeping from a lighter hue before to a deeper one after, as the hand-tuned ones do. */
+const agentStyle: Style = {
+  steps: [
+    { lightness: 0.76, chroma: 0.17 },
+    { lightness: 0.68, chroma: 0.18 }
+  ],
+  stops: (lightness, chroma, hue) => [
+    inGamut(lightness + 0.1, chroma * 0.85, hue - 34),
+    inGamut(lightness, chroma, hue),
+    inGamut(lightness - 0.03, chroma * 1.05, hue + 38)
+  ],
+  firstHue: 45
+}
+
+/** People: soft and light, the gradient running from paler to deeper in the one hue. */
+const personStyle: Style = {
+  steps: [
+    { lightness: 0.9, chroma: 0.09 },
+    { lightness: 0.83, chroma: 0.11 }
+  ],
+  stops: (lightness, chroma, hue) => [
+    inGamut(lightness + 0.05, chroma * 0.6, hue),
+    inGamut(lightness, chroma, hue),
+    inGamut(lightness - 0.07, chroma * 1.2, hue)
+  ],
+  firstHue: 20,
+  ring: 12
+}
+
+/** Hues, in OKLCH degrees, that turn olive on a deeper step, so they always take the lighter one. */
+const yellows = { from: 60, to: 130 }
 
 /** The angle that spreads hues furthest apart however many have been taken: 360° divided by the golden ratio, squared. */
 const goldenAngle = 180 * (3 - Math.sqrt(5))
-
-/** Where the generated hues start, in OKLCH degrees. */
-const firstHue = 20
-
-/**
- * The two steps generated palettes alternate between, both inside the hand-tuned set's range so they sit with it. Every
- * step takes dark ink, as the hand-tuned palettes do.
- */
-export const generatedSteps = [
-  { lightness: 0.84, chroma: 0.13 },
-  { lightness: 0.72, chroma: 0.16 }
-] as const
-
-/** Hues, in OKLCH degrees, that turn olive on the deeper step, so they always take the lighter one. */
-const yellows = { from: 60, to: 130 }
 
 /** WCAG AA for text: the least contrast badge text may have over any part of its badge. */
 export const inkContrast = 4.5
 
 /**
- * Palette `n`: hand-tuned below `tunedPalettes.length`, and made from `n` above it, so the list never runs out and
- * every copy makes the same palette for the same number.
+ * How far, in OKLab, a generated agent palette's color always is from the hand-tuned ones', so it doesn't pass for one
+ * of them; candidates closer than this are skipped.
+ */
+export const tunedClearance = 0.06
+
+/**
+ * Person `n`'s palette. Every copy makes the same palette for the same number, and the list never runs out: hues step
+ * round the wheel by the golden angle, so each lands in the widest gap left.
  */
 export function palette(n: number): Palette {
+  check(n)
+
+  return { n, ...generate(personStyle, n) }
+}
+
+const generatedAgents: Omit<Palette, "n">[] = []
+let agentCandidates = 0
+
+/**
+ * Agent `n`'s palette: hand-tuned for the first `tunedAgentPalettes.length`, generated after, skipping any too close to
+ * a hand-tuned one. It never runs out either.
+ */
+export function agentPalette(n: number): Palette {
+  check(n)
+  const tuned = tunedAgentPalettes[n]
+
+  if (tuned) {
+    return tuned
+  }
+
+  while (generatedAgents.length <= n - tunedAgentPalettes.length) {
+    const next = generate(agentStyle, agentCandidates)
+    agentCandidates += 1
+    const color = parseRequired(next.color)
+
+    if (tunedAgents.every((each) => colorDistance(color, parseRequired(each.color)) >= tunedClearance)) {
+      generatedAgents.push(next)
+    }
+  }
+
+  return { ...generatedAgents[n - tunedAgentPalettes.length]!, n }
+}
+
+function check(n: number) {
   if (!Number.isInteger(n) || n < 0) {
     throw new RangeError(`A palette's number is a whole number from 0, not ${n}.`)
   }
-
-  return tunedPalettes[n] ?? generate(n)
 }
 
 /** The least contrast a palette's ink has over its badge, which runs through its three stops. */
@@ -90,24 +148,72 @@ export function badgeContrast({ stops, color, ink }: Palette): number {
 }
 
 /**
- * A palette past the hand-tuned ones. Its hue steps round the wheel by the golden angle, so each new hue lands in the
- * widest gap left, and it alternates between two lightness steps, except yellows, which stay on the lighter one. Its stops sit either side of its hue, lighter before
- * and deeper after, as the hand-tuned ones do, and its ink is the lightest dark of its hue that reads on all of them.
+ * The `index`th palette in a style. Its hue steps round the wheel by the golden angle from the style's first hue, and
+ * it alternates between the style's steps, except yellows, which stay on the lighter one. Its ink is the lightest dark
+ * of its hue that reads on all of its stops.
  */
-function generate(n: number): Palette {
-  const index = n - tunedPalettes.length
-  const hue = (firstHue + index * goldenAngle) % 360
-  const yellow = hue >= yellows.from && hue <= yellows.to
-  const { lightness, chroma } = generatedSteps[yellow ? 0 : index % generatedSteps.length]!
-  const color = inGamut(lightness, chroma, hue)
+function generate(style: Style, index: number): Omit<Palette, "n"> {
+  const { hue, step }: Place = style.ring ? onRing(style.ring, index) : { hue: index * goldenAngle, step: index }
+  const at = (style.firstHue + hue) % 360
+  const yellow = at >= yellows.from && at <= yellows.to
+  const { lightness, chroma } = style.steps[yellow ? 0 : step % style.steps.length]!
+  const stops = style.stops(lightness, chroma, at)
+  const color = stops[1]
 
-  const stops: [string, string, string] = [
-    inGamut(lightness + 0.09, chroma * 0.8, hue - 22),
-    color,
-    inGamut(lightness - 0.04, chroma * 1.05, hue + 26)
-  ]
+  return { name: `Hue ${Math.round(at)}`, stops, color, ink: inkFor(at, stops) }
+}
 
-  return { n, name: `Hue ${Math.round(hue)}`, stops, color, ink: inkFor(hue, [...stops, color]) }
+/** Where a palette sits on the wheel, in degrees from a style's first hue, and which of its steps it takes. */
+interface Place {
+  hue: number
+  step: number
+}
+
+/**
+ * Where palette `index` sits when they're handed out in rings of `count` evenly spaced hues: the first ring from 0°,
+ * each later one turned to fall between those before it (half a slot, then quarters, and so on). Neighbours on a ring
+ * take different steps, and each ring swaps them.
+ */
+function onRing(count: number, index: number): Place {
+  const ring = Math.floor(index / count)
+  const slot = spread(count)[index % count]!
+  let turn = 0
+
+  for (let rest = ring, part = 0.5; rest > 0; rest = Math.floor(rest / 2), part /= 2) {
+    turn += (rest % 2) * part
+  }
+
+  return { hue: ((slot + turn) * 360) / count, step: slot + ring }
+}
+
+/**
+ * The slots of an evenly spaced ring of `count`, in the order to hand them out: each as far round the wheel as it can be
+ * from those already taken.
+ */
+function spread(count: number): number[] {
+  const order = [0]
+
+  while (order.length < count) {
+    let best = 0
+    let bestGap = -1
+
+    for (let slot = 0; slot < count; slot += 1) {
+      if (order.includes(slot)) {
+        continue
+      }
+
+      const gap = Math.min(...order.map((taken) => Math.min(Math.abs(slot - taken), count - Math.abs(slot - taken))))
+
+      if (gap > bestGap) {
+        best = slot
+        bestGap = gap
+      }
+    }
+
+    order.push(best)
+  }
+
+  return order
 }
 
 /** The lightest dark ink of `hue`, from a lightness of 0.26 down, that passes the contrast check over every color. */

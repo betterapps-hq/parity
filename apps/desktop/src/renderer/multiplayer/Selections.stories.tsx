@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { type Member, Outlined, RemotePointer } from "./presence-parts.tsx"
+import type { Member } from "./member.ts"
+import { Outlined } from "./Outlined.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
 import { CanvasBoard, DashboardDesign, type Marker, members, Themes, scrolls } from "./story-kit.tsx"
 
 /**

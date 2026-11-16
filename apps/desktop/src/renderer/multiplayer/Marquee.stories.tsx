@@ -1,6 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
-import { hairline, Marquee, type Member, RemotePointer } from "./presence-parts.tsx"
+import { Marquee } from "./Marquee.tsx"
+import { hairline, type Member } from "./member.ts"
+import { RemotePointer } from "./RemotePointer.tsx"
 import { CanvasBoard, DashboardDesign, members, Themes, scrolls } from "./story-kit.tsx"
 
 /**

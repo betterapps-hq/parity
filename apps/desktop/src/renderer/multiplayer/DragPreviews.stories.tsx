@@ -1,6 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import { DragGhost, LandingCopy, Outlined, RemotePointer } from "./presence-parts.tsx"
+import { DragGhost } from "./DragGhost.tsx"
+import { LandingCopy } from "./LandingCopy.tsx"
+import { Outlined } from "./Outlined.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
 import {
   CanvasBoard,
   DashboardDesign,

@@ -6,10 +6,10 @@ import { design, example, node, onCanvas } from "../stories/fixtures.tsx"
 
 /**
  * Agents at work on the real canvas, as the project service reports their calls: each gets a cursor in its own colors
- * that travels to what it reads or changes and scans it. The cursor's own stories are under Agent.
+ * that travels to what it reads or changes and scans it. The cursor's own stories are beside this one, under Agents.
  */
 const meta = {
-  title: "Parity/Canvas/Agents",
+  title: "Parity/Multiplayer/Agents/On the canvas",
   component: AppWindow,
   decorators: [
     (Story) => (

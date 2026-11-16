@@ -1,11 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
-import { FaceStack, type Presence } from "./presence-parts.tsx"
+import { FaceStack } from "./FaceStack.tsx"
+import type { Presence } from "./member.ts"
 import { CanvasBoard, DashboardDesign, members, presences, Themes, scrolls } from "./story-kit.tsx"
 
 /**
- * Who's here, on the canvas's top-right edge: up to four faces, then a count of the rest. A face is a picture or
- * initials on the person's own gradient, so it matches their pointer. Someone away is faded and moves to the end; the
+ * Who's here, on the canvas's top-right edge: up to four faces, then a count of the rest. A person's face is round, a
+ * picture or initials on their color; an agent's is a rounded square, a sparkle on its gradient. Someone away is faded and moves to the end; the
  * person you're following gets a ring in their color and moves to the front. Click a face, or focus it and press Enter,
  * for their card.
  */

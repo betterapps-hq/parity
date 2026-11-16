@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { FaceStack, Marquee, Outlined, RemotePointer } from "./presence-parts.tsx"
+import { FaceStack } from "./FaceStack.tsx"
+import { Marquee } from "./Marquee.tsx"
+import { Outlined } from "./Outlined.tsx"
+import { RemotePointer } from "./RemotePointer.tsx"
 import {
   CanvasBoard,
   DashboardDesign,

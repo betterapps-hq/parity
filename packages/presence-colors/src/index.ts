@@ -1,1 +1,1 @@
-export { badgeContrast, inkContrast, type Palette, palette, tunedPalettes } from "./palettes.ts"
+export { agentPalette, badgeContrast, inkContrast, type Palette, palette, tunedAgentPalettes } from "./palettes.ts"
