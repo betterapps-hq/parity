@@ -263,6 +263,8 @@ describe("readRoutes", () => {
           import { Route as AccountProfileRouteImport } from './routes/account.profile'
           import { Route as HooksRouteImport } from './routes/hooks'
           import { Route as HooksStripeRouteImport } from './routes/hooks.stripe'
+          import { Route as PingRouteImport } from './routes/ping'
+          import { Route as FeedRouteImport } from './routes/feed'
 
           const IndexRoute = IndexRouteImport.update({ id: '/', path: '/', getParentRoute: () => rootRouteImport } as any)
           const ApiActionRoute = ApiActionRouteImport.update({ id: '/api/action', path: '/api/action', getParentRoute: () => rootRouteImport } as any)
@@ -273,6 +275,8 @@ describe("readRoutes", () => {
           const AccountProfileRoute = AccountProfileRouteImport.update({ id: '/profile', path: '/profile', getParentRoute: () => AccountRoute } as any)
           const HooksRoute = HooksRouteImport.update({ id: '/hooks', path: '/hooks', getParentRoute: () => rootRouteImport } as any)
           const HooksStripeRoute = HooksStripeRouteImport.update({ id: '/stripe', path: '/stripe', getParentRoute: () => HooksRoute } as any)
+          const PingRoute = PingRouteImport.update({ id: '/ping', path: '/ping', getParentRoute: () => rootRouteImport } as any)
+          const FeedRoute = FeedRouteImport.update({ id: '/feed', path: '/feed', getParentRoute: () => rootRouteImport } as any)
         `,
         "src/routes/index.tsx": `export const Route = createFileRoute("/")({ component: Home })`,
         "src/routes/api.action.ts": `export const Route = createFileRoute("/api/action")({ server: { handlers: { POST } } })`,
@@ -282,18 +286,23 @@ describe("readRoutes", () => {
         "src/routes/account.ts": `export const Route = createFileRoute("/account")({ server: { handlers: { GET } } })`,
         "src/routes/account.profile.tsx": `export const Route = createFileRoute("/account/profile")({ component: Profile })`,
         "src/routes/hooks.ts": `export const Route = createFileRoute("/hooks")({ server: { handlers: { GET } } })`,
-        "src/routes/hooks.stripe.ts": `export const Route = createFileRoute("/hooks/stripe")({ server: { handlers: { POST } } })`
+        "src/routes/hooks.stripe.ts": `export const Route = createFileRoute("/hooks/stripe")({ server: { handlers: { POST } } })`,
+        "src/routes/ping.ts": `const options = { server: { handlers: { GET } } }
+export const Route = createFileRoute("/ping")(options)`,
+        "src/routes/feed.ts": `export const Route = createFileRoute("/feed")(serverRoute({ GET }))`
       })
     )
 
-    // A server route with only server routes inside goes with them; one with a page inside stays, as a layout still.
+    // A server route with only server routes inside goes with them; one with a page inside stays, as a layout still. Options
+    // named in the file are read, and options a function makes may draw, so that route stays.
     expect(routes.map(({ id, kind }) => [id, kind])).toEqual([
       ["__root__", "root"],
       ["/", "page"],
       ["/export", "page"],
       ["/team", "page"],
       ["/account", "layout"],
-      ["/account/profile", "page"]
+      ["/account/profile", "page"],
+      ["/feed", "page"]
     ])
   })
 
@@ -326,6 +335,9 @@ describe("readRoutes", () => {
     )
   })
 })
+
+/** A route's options naming the root route as its parent and `report` as its path, for the server routes' cases. */
+const parent = `getParentRoute: () => rootRoute, path: "report"`
 
 describe("readRoutes with code-based routes (PAR-1156)", () => {
   it("reads app H's routes from its entry, in the files their components come from", () => {
@@ -411,17 +423,13 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
     expect(routes.find((route) => route.id === "/$")?.segments).toEqual([{ type: "catchAll", name: "_splat" }])
   })
 
-  it("leaves out server routes declared in code, keeping a lazy one, one with spread options, and one with pages inside (PAR-1173)", () => {
+  it("leaves out server routes declared in code, but keeps one with pages inside (PAR-1173)", () => {
     const routes = readRoutes(
       recordReader({
         "src/main.tsx": `
           const rootRoute = createRootRoute({ component: Shell })
           const homeRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: Home })
           const healthRoute = createRoute({ getParentRoute: () => rootRoute, path: "health", server: { handlers: { GET } } })
-          const teamRoute = createRoute({ getParentRoute: () => rootRoute, path: "team", server: { handlers } }).lazy(
-            () => import("./team.lazy").then((d) => d.Route)
-          )
-          const reportRoute = createRoute({ ...pageOptions, getParentRoute: () => rootRoute, path: "report", server: { handlers } })
           const apiRoute = createRoute({ getParentRoute: () => rootRoute, path: "api", server: { handlers } })
           const docsRoute = createRoute({ getParentRoute: () => apiRoute, path: "docs", component: Docs })
         `
@@ -431,11 +439,67 @@ describe("readRoutes with code-based routes (PAR-1156)", () => {
     expect(routes.map(({ id, kind }) => [id, kind])).toEqual([
       ["__root__", "root"],
       ["/", "page"],
-      ["/team", "page"],
-      ["/report", "page"],
       ["/api", "layout"],
       ["/api/docs", "page"]
     ])
+  })
+
+  it.each([
+    [
+      "a component given by an update",
+      `createRoute({ ${parent}, server: { handlers } }).update({ component: Report })`
+    ],
+    [
+      "a lazy part",
+      `createRoute({ ${parent}, server: { handlers } }).lazy(() => import("./report.lazy").then((d) => d.Route))`
+    ],
+    ["any other method after", `createRoute({ ${parent}, server: { handlers } }).withOptions(more)`],
+    [
+      "a spread of the file's options with a component",
+      `createRoute({ ...pageOptions, ${parent}, server: { handlers } })`
+    ],
+    ["a spread of imported options", `createRoute({ ...shared, ${parent}, server: { handlers } })`],
+    ["a spread made by a function", `createRoute({ ...makeOptions(), ${parent}, server: { handlers } })`],
+    ["a spread of options that can change later", `createRoute({ ...loose, ${parent} })`],
+    ["a computed option", `createRoute({ [key]: Report, ${parent}, server: { handlers } })`],
+    ["an update with options it can't read", `createRoute({ ${parent}, server: { handlers } }).update(shared)`]
+  ])("keeps a server route with %s, which may draw (PAR-1173)", (_, made) => {
+    const routes = readRoutes(
+      recordReader({
+        "src/main.tsx": `
+          import { shared } from "@app/shared"
+          const pageOptions = { component: Report }
+          let loose = { server: { handlers } }
+          const rootRoute = createRootRoute({ component: Shell })
+          const reportRoute = ${made}
+        `
+      })
+    )
+
+    expect(routes.map(({ id }) => id)).toEqual(["__root__", "/report"])
+  })
+
+  it.each([
+    ["server options spread from the file", `createRoute({ ...serverOptions, ${parent} })`],
+    ["server options given by an update", `createRoute({ ${parent} }).update({ server: { handlers } })`],
+    [
+      "an update that changes nothing that draws",
+      `createRoute({ ${parent}, server: { handlers } }).update({ ssr: false })`
+    ],
+    ["a spread of spread options", `createRoute({ ...nested, ${parent} })`]
+  ])("leaves out a server route with %s (PAR-1173)", (_, made) => {
+    const routes = readRoutes(
+      recordReader({
+        "src/main.tsx": `
+          const serverOptions = { server: { handlers: { GET } } } satisfies Partial<RouteOptions>
+          const nested = { ...serverOptions, ssr: false }
+          const rootRoute = createRootRoute({ component: Shell })
+          const reportRoute = ${made}
+        `
+      })
+    )
+
+    expect(routes.map(({ id }) => id)).toEqual(["__root__"])
   })
 
   it("lists nothing when the app makes no root route", () => {
