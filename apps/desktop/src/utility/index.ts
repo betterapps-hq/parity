@@ -248,6 +248,7 @@ const handlers: Handlers<ServiceMethods> = {
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.cancel": ({ projectId, extension, progress }) => extensions.cancel(projectId, extension, progress),
   "extensions.selectionChanged": ({ projectId, refs }) => extensions.selectionChanged(projectId, refs),
+  "extensions.routeMarksChanged": ({ projectId, marks }) => extensions.routeMarksChanged(projectId, marks),
   "extensions.projectSettings": ({ projectId, settings }) => extensions.setProjectSettings(projectId, settings),
   "extensions.viewOpened": ({ projectId, view }) => extensions.viewOpened(projectId, view),
   "extensions.viewChanged": ({ projectId, extension, view, key, value }) =>

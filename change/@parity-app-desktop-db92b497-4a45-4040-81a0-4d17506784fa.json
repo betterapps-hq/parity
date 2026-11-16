@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The router extensions' route count in the status bar follows routes marked as pages or API routes, through a new parity.routes API.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -1,5 +1,5 @@
 import type { Checks } from "@parity-app/channel"
-import { containerSpec, parseData } from "@parity-app/core"
+import { containerSpec, parseData, type RouteMark } from "@parity-app/core"
 import type {
   Candidate,
   CommandTarget,
@@ -69,6 +69,8 @@ export interface ActivateParams {
   state: StateValues
   /** What's selected in the window with the project open, which `parity.selection.get` gives until it changes. */
   selection: NodeRef[]
+  /** The person's marks on the app's routes, by route id, which `parity.routes.marked` applies until they change. */
+  routeMarks: Record<string, RouteMark>
   /** Its settings' values now, by key, and whose each one is: the person's (`app`) or the project's (`project`). */
   settings: { values: Record<string, SettingValue>; scopes: Record<string, "app" | "project"> }
   /**
@@ -201,6 +203,8 @@ export interface HostMethods {
   "view.changed": { params: { view: string; key: string; value: string | number | boolean }; result: undefined }
   /** What's selected in the window changed. */
   "selection.changed": { params: { refs: NodeRef[] }; result: undefined }
+  /** The person marked a route or took a mark away: the marks now, by route id. */
+  "routes.changed": { params: { marks: Record<string, RouteMark> }; result: undefined }
   /** The project's processes changed: all of them, as it may see them. */
   "processes.changed": { params: { processes: ProcessInfo[] }; result: undefined }
   /** One of its own processes printed these lines. */

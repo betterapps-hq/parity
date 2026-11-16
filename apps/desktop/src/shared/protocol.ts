@@ -167,6 +167,7 @@ export interface ServiceMethods {
   "extensions.viewChanged": { params: ServiceParams["extensions.viewChanged"]; result: undefined }
   /** What's selected in the project's tab changed, by `NodeRef`, which its extensions' `parity.selection` gives. */
   "extensions.selectionChanged": { params: ServiceParams["extensions.selectionChanged"]; result: undefined }
+  "extensions.routeMarksChanged": { params: ServiceParams["extensions.routeMarksChanged"]; result: undefined }
   /**
    * The project's settings for its extensions, from its main `.par`'s `extensions` field, sent each time they change,
    * before they're saved, so extensions see them at once (PAR-1090).

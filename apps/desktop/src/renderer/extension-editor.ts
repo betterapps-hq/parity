@@ -16,6 +16,7 @@ import {
   selectedRefs,
   whenFactsOf
 } from "./extensions.ts"
+import { marksOf } from "./route-marks.ts"
 import { request } from "./service.ts"
 import type { ProjectSession } from "./workspace.ts"
 
@@ -59,6 +60,30 @@ export function followSelection(session: ProjectSession): () => void {
   send()
 
   return session.selection.subscribe(send)
+}
+
+/**
+ * Tells the project's extensions the person's marks on its routes now and each time they change (PAR-1175, PAR-1176),
+ * until the tab closes, so a router extension counts the pages as marked.
+ */
+export function sendRouteMarks(session: ProjectSession): () => void {
+  let sent: string | undefined
+
+  const send = () => {
+    const marks = marksOf(session.doc) ?? {}
+    const key = JSON.stringify(marks)
+
+    if (key === sent) {
+      return
+    }
+
+    sent = key
+    void request("extensions.routeMarksChanged", { projectId: session.id, marks }).catch(() => undefined)
+  }
+
+  send()
+
+  return session.doc.subscribe(send)
 }
 
 /** Selects nodes, as an extension asks, and brings them into view. */

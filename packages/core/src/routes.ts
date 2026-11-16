@@ -115,10 +115,10 @@ export type RouteMark = "api" | "page"
  * A project's routes with the person's marks: a page marked as an API route is one, and an API route marked as a page
  * is one. A mark on a route that's now read as it says, or on a layout, group or the root, changes nothing.
  */
-export function markedRoutes(
-  routes: readonly ProjectRoute[],
+export function markedRoutes<Route extends Pick<ProjectRoute, "id" | "kind">>(
+  routes: readonly Route[],
   marks: Readonly<Record<string, RouteMark>> | undefined
-): ProjectRoute[] {
+): Route[] {
   if (!marks) {
     return [...routes]
   }
