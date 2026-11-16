@@ -107,8 +107,62 @@ function apiRoutes(then?: () => Promise<void> | void): Story {
   }
 }
 
-/** Listed under the app's pages, by path, in their own section. The canvas draws only the pages. */
-export const UnderThePages: Story = apiRoutes()
+/**
+ * Listed under the app's pages, in their own section, nested by URL (PAR-1185): `/api` holds `auth/callback`, folded
+ * since `auth` holds nothing else, and `projects`, which holds `$projectId` and opens. The canvas draws only the pages.
+ */
+export const UnderThePages: Story = apiRoutes(async () => {
+  const api = apiFolder()
+  await expect(api.textContent).toBe("/api")
+  await expect(api.getAttribute("aria-expanded")).toBe("true")
+  await expect(apiRow("/api/auth/callback").textContent).toBe("auth/callback")
+  await expect(apiRow("/api/projects").textContent).toBe("projects")
+  await expect(apiRow("/api/projects").getAttribute("aria-expanded")).toBe("true")
+  await expect(apiRow("/api/projects/$projectId").textContent).toBe("$projectId")
+  await expect(apiRow("/api/projects/$projectId").getAttribute("aria-level")).toBe("3")
+  await expect(apiRow("/api/projects/$projectId").getAttribute("aria-label")).toBe("/api/projects/$projectId")
+  await expect(apiRow("/webhooks/stripe").textContent).toBe("/webhooks/stripe")
+  await expect(apiRow("/webhooks/stripe").getAttribute("aria-level")).toBe("1")
+})
+
+/** The folder `/api` holds, by its id among Layers' folders. */
+function apiFolder(): HTMLElement {
+  const folder = document.getElementById("layer-folder:api:static:api")
+
+  if (!folder) {
+    throw new Error("Layers lists no /api folder")
+  }
+
+  return folder
+}
+
+/** A folder closed with a click: what's under its URL leaves the list until it's opened again. */
+export const FolderClosed: Story = apiRoutes(async () => {
+  await userEvent.click(apiFolder())
+  await waitFor(() => expect(document.getElementById("layer-api-/api/projects")).toBeNull())
+  await expect(apiFolder().getAttribute("aria-expanded")).toBe("false")
+  await expect(apiRow("/webhooks/stripe")).toBeTruthy()
+})
+
+/** An API route that holds others, closed with its arrow: it stays selectable, and what's under it leaves the list. */
+export const RouteClosed: Story = apiRoutes(async () => {
+  const arrow = apiRow("/api/projects").querySelector<HTMLElement>("span[aria-hidden]:not(.absolute)")
+  await userEvent.click(arrow!)
+  await waitFor(() => expect(document.getElementById("layer-api-/api/projects/$projectId")).toBeNull())
+  await expect(apiRow("/api/projects").getAttribute("aria-expanded")).toBe("false")
+})
+
+/** Searched by path: what matches, in the folders it's in. */
+export const Searched: Story = apiRoutes(async () => {
+  // Set the way React reads it, since `userEvent.type` changes the field without React's change handler seeing it.
+  const field = within(document.body).getByRole("textbox", { name: "Search layers" })
+  field.focus()
+  await fireEvent.input(field, { target: { value: "api/" } })
+  await waitFor(() => expect(document.getElementById("layer-api-/webhooks/stripe")).toBeNull())
+  await expect(apiFolder().textContent).toBe("/api")
+  await expect(apiRow("/api/auth/callback").textContent).toBe("auth/callback")
+  await expect(apiRow("/api/projects/$projectId").getAttribute("aria-level")).toBe("3")
+})
 
 /** One selected: what the router says of it, read-only. It draws nothing, so it has no modes or Export. */
 export const Selected: Story = apiRoutes(() => {

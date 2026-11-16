@@ -17,6 +17,8 @@ import {
   nodeLabel,
   nodeOnBoard,
   type ProjectRoute,
+  routeOutline,
+  type RouteOutlineItem,
   toggleHidden
 } from "@parity-app/core"
 import {
@@ -108,7 +110,7 @@ import { type ContainerEntry, projectLibrary, useContainerEntries, useNotes } fr
 import { useHover, useRenameRequest, useSelection } from "../selection.ts"
 import { useStore } from "../store.ts"
 import { actions, commandsFor } from "./actions.ts"
-import { ApiRouteLine, MarkAsApiItem, selectedApiRoute, useProjectRoutes } from "./ApiRoutes.tsx"
+import { type ApiLine, ApiRouteLine, MarkAsApiItem, selectedApiRoute, useProjectRoutes } from "./ApiRoutes.tsx"
 import { SearchField } from "./AssetsPanel.tsx"
 import { iconFor } from "./command-icons.ts"
 import { componentOffers, layerOffers, pageOffers } from "./command-offers.ts"
@@ -158,7 +160,7 @@ interface Group {
 type Line =
   | { type: "heading" | "empty"; key: string; group: Group }
   | { type: "apiHeading"; key: string }
-  | { type: "api"; key: string; route: ProjectRoute }
+  | { type: "api"; key: string; api: ApiLine }
   | { type: "row"; key: string; row: Row; level: number; parent?: string }
   | { type: "folder"; key: string; folder: FolderRow; layout?: PageGroupPlace }
   | { type: "gap" | "none"; key: string }
@@ -176,6 +178,9 @@ const lineHeights: Record<Line["type"], number> = {
 
 /** What a route layout's folder is listed under, which its id starts with. */
 const routesScope = "routes"
+
+/** What the folders of API routes, and API routes that hold others, are listed under (PAR-1185). */
+const apiScope = "api"
 
 /**
  * The expansion id that closes a route layout's folder: they're open until closed, so the app's pages show in their
@@ -272,10 +277,56 @@ function routeLines(
   return lines
 }
 
-/** The folder a line is in, or undefined at the top. */
+/**
+ * The app's API routes as Layers lists them, nested by their URLs (PAR-1185): a folder for URL parts routes share, and
+ * a route that holds the routes under its URL, which opens. Both are open until closed, as a route layout's folder is,
+ * and a search opens everything it found.
+ */
+function apiRouteLines(
+  items: readonly RouteOutlineItem<ProjectRoute>[],
+  expanded: ReadonlySet<string>,
+  searching: boolean,
+  level = 0,
+  parent?: string
+): Line[] {
+  return items.flatMap((item, index): Line[] => {
+    const id = folderId(apiScope, [item.key])
+    const open = searching || !expanded.has(closedRouteFolder(id))
+    const inside = open ? apiRouteLines(item.items, expanded, searching, level + 1, id) : []
+    const place = { level, position: index + 1, siblings: items.length }
+
+    if (!item.route) {
+      const folder: FolderRow = { type: "folder", id, label: item.label, expanded: open, ...place }
+
+      if (parent !== undefined) {
+        folder.parent = parent
+      }
+
+      return [{ type: "folder", key: id, folder }, ...inside]
+    }
+
+    const api: ApiLine = { route: item.route, label: item.label, ...place }
+
+    if (parent !== undefined) {
+      api.parent = parent
+    }
+
+    if (item.items.length > 0) {
+      api.opens = { id, expanded: open }
+    }
+
+    return [{ type: "api", key: `api:${item.route.id}`, api }, ...inside]
+  })
+}
+
+/** The folder, or the API route that opens, a line is in, or undefined at the top. */
 function folderOfLine(line: Line): string | undefined {
   if (line.type === "folder") {
     return line.folder.parent
+  }
+
+  if (line.type === "api") {
+    return line.api.parent
   }
 
   return line.type === "row" ? line.parent : undefined
@@ -427,8 +478,9 @@ export function LayerTree() {
     const all: Row[] = []
     const list: Line[] = []
 
-    // The app's API routes come under its pages, before the screens designed for it (PAR-1174). They draw nothing, so
-    // each is a line of its own rather than a design's row.
+    // The app's API routes come under its pages, before the screens designed for it (PAR-1174), nested by their URLs
+    // (PAR-1185). They draw nothing, so each is a line of its own rather than a design's row. A search finds them by
+    // path, in the folders they're in.
     const apiFound = search
       ? apiRoutes.filter((route) => route.path.toLowerCase().includes(search.toLowerCase()))
       : apiRoutes
@@ -438,7 +490,7 @@ export function LayerTree() {
         ? []
         : [
             { type: "apiHeading", key: "heading:api" },
-            ...apiFound.map((route): Line => ({ type: "api", key: `api:${route.id}`, route })),
+            ...apiRouteLines(routeOutline(apiFound), expanded, !!search),
             { type: "gap", key: "gap:api" }
           ]
 
@@ -519,9 +571,10 @@ export function LayerTree() {
 
   const toggle = (id: string, open?: boolean) => setExpansion((current) => toggleRow(current, id, open))
 
-  // A route layout's folder is open until it's closed, so it's opened by taking its closing away.
+  // A route layout's folder, and an API route's folder or route that holds others, is open until it's closed, so it's
+  // opened by taking its closing away.
   const toggleFolder = (id: string, open?: boolean) =>
-    id.startsWith(folderId(routesScope, []))
+    id.startsWith(folderId(routesScope, [])) || id.startsWith(folderId(apiScope, []))
       ? toggle(closedRouteFolder(id), open === undefined ? undefined : !open)
       : toggle(id, open)
 
@@ -788,6 +841,46 @@ export function LayerTree() {
     }
   }
 
+  /** A key on an API route: Right opens one that holds others or goes into it, Left closes it or goes up. */
+  const apiKeyDown = (
+    event: KeyboardEvent,
+    api: ApiLine,
+    next: Line | undefined,
+    go: (target: Line | undefined) => void,
+    folderLine: (id: string | undefined) => Line | undefined,
+    previous: Line | undefined
+  ) => {
+    if (event.key === "ArrowDown") {
+      go(next)
+    } else if (event.key === "ArrowUp") {
+      go(previous)
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault()
+
+      if (api.opens && !api.opens.expanded && !search) {
+        toggleFolder(api.opens.id, true)
+      } else if (api.opens && next && folderOfLine(next) === api.opens.id) {
+        go(next)
+      }
+    } else if (event.key === "ArrowLeft") {
+      event.preventDefault()
+
+      if (api.opens?.expanded && !search) {
+        toggleFolder(api.opens.id, false)
+      } else {
+        go(folderLine(api.parent))
+      }
+    }
+  }
+
+  // Selecting an API route, by a click or the keys, keeps focus on the tree, as a folder's click does, so the keys act
+  // on what's highlighted rather than on the row last clicked.
+  const selectApi = (route: ProjectRoute) => {
+    setActiveFolder(undefined)
+    selection.set(refsSelection([routeRef(session.info, route.id)]))
+    treeRef.current?.focus()
+  }
+
   const onKeyDown = (event: KeyboardEvent) => {
     // A heading's + and an empty group's row keep their keys, so Enter makes a new one rather than renaming.
     const from = event.target
@@ -796,15 +889,26 @@ export function LayerTree() {
       return
     }
 
-    // The keys move through rows and folders alike, from the folder picked, else from the row selected.
-    const items = lines.filter((line) => line.type === "row" || line.type === "folder")
-    const folderLine = (id: string | undefined) => items.find((line) => line.type === "folder" && line.key === id)
+    // The keys move through rows, folders and API routes alike, from the folder picked, else from the row or API
+    // route selected.
+    const items = lines.filter((line) => line.type === "row" || line.type === "folder" || line.type === "api")
+
+    const folderLine = (id: string | undefined) =>
+      id === undefined
+        ? undefined
+        : items.find(
+            (line) => (line.type === "folder" && line.key === id) || (line.type === "api" && line.api.opens?.id === id)
+          )
 
     const picked = activeFolder ? folderLine(activeFolder) : undefined
 
     const itemIndex = picked
       ? items.indexOf(picked)
-      : items.findIndex((line) => line.type === "row" && line.row.id === selectedRow)
+      : items.findIndex(
+          (line) =>
+            (line.type === "row" && line.row.id === selectedRow) ||
+            (line.type === "api" && line.api.route.id === pickedApi)
+        )
 
     const item = items[itemIndex]
 
@@ -817,11 +921,21 @@ export function LayerTree() {
         event.preventDefault()
         select(target.row)
         scrollToRow(target.row.id)
+      } else if (target?.type === "api") {
+        event.preventDefault()
+        selectApi(target.api.route)
+        scrollToRow(target.key)
       }
     }
 
     if (item?.type === "folder") {
       folderKeyDown(event, item.folder, items[itemIndex + 1], go, folderLine, items[itemIndex - 1])
+
+      return
+    }
+
+    if (item?.type === "api") {
+      apiKeyDown(event, item.api, items[itemIndex + 1], go, folderLine, items[itemIndex - 1])
 
       return
     }
@@ -987,7 +1101,15 @@ export function LayerTree() {
                       <GroupLabel className="flex-1">API routes</GroupLabel>
                     </div>
                   )}
-                  {line.type === "api" && <ApiRouteLine route={line.route} selected={pickedApi === line.route.id} />}
+                  {line.type === "api" && (
+                    <ApiRouteLine
+                      line={line.api}
+                      selected={pickedApi === line.api.route.id}
+                      searching={!!search}
+                      onSelect={() => selectApi(line.api.route)}
+                      onToggle={() => line.api.opens && toggleFolder(line.api.opens.id)}
+                    />
+                  )}
                   {line.type === "empty" && <EmptyGroup group={line.group} />}
                   {line.type === "none" && (
                     <p className="flex h-7 items-center px-3 text-xs text-muted-foreground">
@@ -1010,7 +1132,7 @@ export function LayerTree() {
                           selection.set(refsSelection([routeRef(session.info, line.layout.route)]))
                           revealSelection(session)
                         } else {
-                          toggle(line.folder.id)
+                          toggleFolder(line.folder.id)
                         }
 
                         treeRef.current?.focus()

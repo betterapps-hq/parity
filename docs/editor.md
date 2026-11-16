@@ -1416,9 +1416,24 @@ A route that answers requests on the server and draws nothing is an API route: t
 leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
 `pages/api` files are API routes. One with pages inside it is their layout or group, as before.
 
-- **Layers** lists them in their own section, API routes, under the app's pages and before its screens, by path, in the
-  order the router gives them. A search finds them by path. A click selects one, and the Design tab shows its path and
-  file (`ApiRoutePanel`).
+- **Layers** lists them in their own section, API routes, under the app's pages and before its screens. A click selects
+  one, and the Design tab shows its path and file (`ApiRoutePanel`).
+- **Nested by URL** (PAR-1185). Router extensions give an API route its layout or the root as its parent, so API routes
+  have no tree among themselves. `routeOutline` in `@parity-app/core` nests routes by their `segments` alone, so they
+  nest the same way for TanStack Router, React Router and Next.js. A route whose URL starts another's holds it and
+  opens: `/api/projects` holds `$projectId`. A folder (`Folder` icon) stands for URL parts that two or more items share
+  but no route ends at, as `/api` holding `auth/callback` and `projects`. Parts only one item has are folded into its
+  label, so no folder holds a single item and a lone `/api/v1/users/[id]` is one row, not four. Each row shows the URL
+  parts it adds, as the router writes them, and is named by its whole path for screen readers. Items are in order by
+  label, and two routes at one URL are two rows. Folders and routes that hold others are open until closed, as a
+  layout's folder among the pages is; the arrow keys move through them with the pages' rows and folders. A search finds
+  API routes by path and shows them nested the same way, everything open. Pages still nest by layout, as the canvas
+  draws them.
+
+  Tests: `packages/core/src/route-outline.test.ts` (nesting, folding, params written as the router writes them, two
+  routes at one URL, keys that stay the same, a path without one part for each segment), and the stories Parity/Left
+  panel/API routes: Under The Pages (the nesting, labels, levels and names), Folder Closed, Route Closed and Searched.
+
 - **The canvas** never draws one (`drawnRoute`), and no Open in browser is offered. The status bar's route count and
   Settings' "Reads the app's routes as pages" count only pages; Settings counts API routes apart.
 - **Marks.** Parity can't always tell a route draws nothing without running the app, so a page's menu, in Layers or on
@@ -1433,8 +1448,9 @@ leaving it out. TanStack Start's server routes, React Router's resource routes, 
   extensions as they change (`sendRouteMarks` in `extension-editor.ts`), and each router counts its pages through
   `parity.routes.marked`, again on `parity.routes.onChange`.
 
-Code: `packages/core/src/routes.ts`, `apps/desktop/src/renderer/route-marks.ts`, `Routes` in `packages/extension-api`,
-`apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left panel/API routes).
+Code: `packages/core/src/routes.ts`, `packages/core/src/route-outline.ts`, `apps/desktop/src/renderer/route-marks.ts`,
+`Routes` in `packages/extension-api`, `apps/desktop/src/renderer/chrome/ApiRoutes.tsx` and its stories (Parity/Left
+panel/API routes).
 
 ### Next's router on canvas (PAR-1160)
 
