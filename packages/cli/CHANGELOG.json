@@ -2,6 +2,53 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 00:12:13 GMT",
+      "version": "0.72.0",
+      "tag": "@parity-app/cli_v0.72.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "73a42b9006025d9d9ca76489918ef0dd455955cc",
+            "comment": "The Components panel, component boards and the Home screen take pages from the project's routes, whatever its router calls its files"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b7b6893a539cc9399a20ee3c330be052a04b1181",
+            "comment": "Next.js projects draw their own App Router and Pages Router pages on canvas, in each frame's mode, on Turbopack and webpack"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "39c65c88897c16c0c9e742b8f4bae1de6ddcea47",
+            "comment": "Next.js components that read the router draw on canvas, inside a still router at the root."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d555e20f1d31e094ccd85cef3c983aee3112e9d2",
+            "comment": "Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the extension API"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "e5eca2d977cc206672694f90115087916e72ee93",
+            "comment": "The editor's designs live in a project document on the local provider, with operation-based undo and a saver, in place of the design store."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "236047b66673804c60afab0dccd9bc35d96e4e9c",
+            "comment": "Components that render React Router's or TanStack Router's Link now draw on canvas on their own, inside a router at the frame's URL."
+          }
+        ]
+      }
+    },
+    {
       "date": "Sun, 15 Nov 2026 14:54:39 GMT",
       "version": "0.71.1",
       "tag": "@parity-app/cli_v0.71.1",

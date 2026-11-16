@@ -1,8 +1,29 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Sun, 15 Nov 2026 14:54:39 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 00:12:13 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.72.0
+
+Mon, 16 Nov 2026 00:12:13 GMT
+
+### Minor changes
+
+- Next.js projects draw their own App Router and Pages Router pages on canvas, in each frame's mode, on Turbopack and
+  webpack (ajcraswell@gmail.com)
+- Next.js components that read the router draw on canvas, inside a still router at the root. (ajcraswell@gmail.com)
+- Read a Next.js app's routes, from the App Router and the Pages Router, with a Next.js extension and files.list in the
+  extension API (ajcraswell@gmail.com)
+- The editor's designs live in a project document on the local provider, with operation-based undo and a saver, in place
+  of the design store. (ajcraswell@gmail.com)
+- Components that render React Router's or TanStack Router's Link now draw on canvas on their own, inside a router at
+  the frame's URL. (ajcraswell@gmail.com)
+
+### Patches
+
+- The Components panel, component boards and the Home screen take pages from the project's routes, whatever its router
+  calls its files (ajcraswell@gmail.com)
 
 ## 0.71.1
 
