@@ -36,9 +36,12 @@ beforeAll(async () => {
     rules.replaceSync(`
       [data-canvas-node="card"] { position: absolute; left: 40px; top: 60px; width: 200px; height: 120px;
         background: rgb(0, 128, 0); border: 3px solid rgb(0, 0, 255) }
-      [data-canvas-node="card"] > [data-canvas-node="title"] { color: rgb(255, 0, 0) }`)
+      [data-canvas-node="card"] > [data-canvas-node="title"] { color: rgb(255, 0, 0) }
+      [data-canvas-node="badge"] { position: absolute; left: 300px; top: 200px; width: 80px; height: 40px;
+        background: rgb(255, 165, 0); scale: 1.5; rotate: 30deg; translate: 10px 6px; transition: scale 1s, rotate 1s }`)
     frame.adoptedStyleSheets = [rules]
-    frame.innerHTML = `<div data-canvas-body><div data-canvas-node="card"><p data-canvas-node="title">Plans</p></div></div>`
+    frame.innerHTML = `<div data-canvas-body><div data-canvas-node="card"><p data-canvas-node="title">Plans</p></div>
+      <div data-canvas-node="badge"></div></div>`
   })
 })
 
@@ -87,7 +90,55 @@ describe("a picture of a layer the frame's rules draw", () => {
   })
 
   it("adds no layers where the canvas looks for them", () => {
-    expect(drawn.layers).toBe(2)
+    expect(drawn.layers).toBe(3)
     expect(drawn.found).toBe(0)
   })
 })
+
+describe("a picture of a layer scaled, turned and moved by its own transforms", () => {
+  let drawn: { layer: Box; copy: Box; picture: Box; animating: number; after: Box }
+
+  beforeAll(async () => {
+    drawn = await page.evaluate(() => {
+      const host = document.querySelector<HTMLElement>("#host")!
+      const badge = host.shadowRoot!.querySelector<HTMLElement>('[data-canvas-node="badge"]')!
+      const box = ({ left, top, width, height }: DOMRect) => ({ left, top, width, height })
+      const layer = box(badge.getBoundingClientRect())
+
+      // SAFETY: as above.
+      // @ts-expect-error The bundle's global.
+      const picture = pictures.layerPicture(host, [badge], 1) as HTMLElement
+      document.body.append(picture)
+      const copied = picture.querySelector("div")!.shadowRoot!.querySelector("[data-canvas-body] > * > *")!
+
+      return {
+        layer,
+        copy: box(copied.getBoundingClientRect()),
+        picture: box(picture.getBoundingClientRect()),
+        // Measuring it without its transforms doesn't set off its own transition.
+        animating: badge.getAnimations().length,
+        after: box(badge.getBoundingClientRect())
+      }
+    })
+  })
+
+  it("draws the copy just as the layer is drawn, transformed once", () => {
+    // The picture is the layer's box on screen, so the copy fills it from its top-left.
+    expect(drawn.copy.left - drawn.picture.left).toBeCloseTo(0, 1)
+    expect(drawn.copy.top - drawn.picture.top).toBeCloseTo(0, 1)
+    expect(drawn.copy.width).toBeCloseTo(drawn.layer.width, 1)
+    expect(drawn.copy.height).toBeCloseTo(drawn.layer.height, 1)
+  })
+
+  it("leaves the layer as it was drawn, with nothing animating", () => {
+    expect(drawn.animating).toBe(0)
+    expect(drawn.after).toEqual(drawn.layer)
+  })
+})
+
+interface Box {
+  left: number
+  top: number
+  width: number
+  height: number
+}

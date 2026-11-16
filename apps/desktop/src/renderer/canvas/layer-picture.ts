@@ -58,6 +58,55 @@ const standIn = {
 /** How far past the picture's box its layers' own shadows and outlines still show. */
 const bleed = 32
 
+/** The properties that transform an element where it's drawn, without moving where it's laid out. */
+const transforms = ["transform", "translate", "rotate", "scale"] as const
+
+/**
+ * Where an element is laid out, on screen, leaving out its own transforms: its box as it'd be drawn without its own
+ * scale, rotation or translation, which are switched off for as long as it takes to measure it. They're put back before
+ * its transition is, so putting them back doesn't animate.
+ */
+function laidOut(element: Element): DOMRect {
+  const drawn = getComputedStyle(element)
+
+  if (
+    !(element instanceof HTMLElement || element instanceof SVGElement) ||
+    transforms.every((name) => drawn.getPropertyValue(name) === "none")
+  ) {
+    return element.getBoundingClientRect()
+  }
+
+  const { style } = element
+
+  const saved = (["transition", ...transforms] as const).map((name) => ({
+    name,
+    value: style.getPropertyValue(name),
+    priority: style.getPropertyPriority(name)
+  }))
+
+  const put = ({ name, value, priority }: (typeof saved)[number]) => {
+    if (value) {
+      style.setProperty(name, value, priority)
+    } else {
+      style.removeProperty(name)
+    }
+  }
+
+  style.setProperty("transition", "none", "important")
+
+  for (const name of transforms) {
+    style.setProperty(name, "none", "important")
+  }
+
+  const rect = element.getBoundingClientRect()
+  saved.slice(1).forEach(put)
+  // Drawn transformed again before its transition comes back.
+  element.getBoundingClientRect()
+  put(saved[0]!)
+
+  return rect
+}
+
 /**
  * A picture of layers drawn in a frame, as they're drawn now, for a drag to carry over the canvas (`CarriedPicture`).
  * It's their box on screen, in screen pixels, at the frame's `scale` (screen pixels per pixel of the frame).
@@ -67,7 +116,8 @@ const bleed = 32
  * root is laid out as the frame is, its size and the custom properties its host sets, so the project's media queries,
  * which ask the frame's size, still match; the frame's body is copied without its children, for the classes and
  * attributes the design's rules ask for; and each copy takes what its layer inherits from its parent. Each sits where
- * its layer is, at its size, so one that fills its layout keeps its size. The copies keep their `data-canvas-node`,
+ * its layer is laid out, at its size, so one that fills its layout keeps its size, and keeps its own transforms, so
+ * it's scaled, turned or moved from there just as its layer is. The copies keep their `data-canvas-node`,
  * which the frame's own rules are written against (`nodeSelector`), yet aren't layers: hit testing and outlines look
  * for layers in a frame's shadow root, never in the picture's. What can't be copied this way, such as a canvas
  * element's drawing or a scroll position, is left out.
@@ -122,8 +172,9 @@ export function layerPicture(host: HTMLElement, layers: readonly Element[], scal
 
   shadow.append(stand)
 
-  layers.forEach((layer, index) => {
-    const rect = rects[index]!
+  layers.forEach((layer) => {
+    // Where the layer's laid out, without its own transforms, which its copy keeps.
+    const rect = laidOut(layer)
     // Inherits what the layer does from its parent, without being laid out itself.
     const context = document.createElement("div")
     context.style.display = "contents"

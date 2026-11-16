@@ -1,7 +1,7 @@
-import { cancelMs, dropMs, lift, liftScale, settle, translated } from "./drag-motion.ts"
+import { cancelMs, dropMs, lift, liftMs, liftScale, settle, translated } from "./drag-motion.ts"
 
 /** What lifting writes on an element, which is put back as it was once it's settled. */
-const written = ["scale", "filter", "transition", "translate", "transform-origin"] as const
+const written = ["scale", "filter", "transition", "translate"] as const
 
 /** Values for what lifting writes. */
 type Written = Partial<Record<(typeof written)[number], string>>
@@ -35,8 +35,10 @@ export function reducedMotion(): boolean {
 
 /**
  * Lifts the canvas's own elements as they're picked up, as `DragLift` does for what React draws: an absolutely placed
- * layer, or a board dragged by its name. They grow from `origin` (where they were grabbed, in client pixels), so it
- * stays under the pointer, and lift onto the shadow; dropped, they settle where they are; cancelled, they fly back.
+ * layer, or a board dragged by its name. They grow round `origin` (where they were grabbed, in client pixels), so it
+ * stays under the pointer, and lift onto the shadow; dropped, they settle where they are; cancelled, they fly back. Their
+ * transform origin is left as it is, since their own scale, rotation or transform turn about it too: a translate,
+ * easing along with the growth, keeps the grab point where it was instead.
  * `scale` is screen pixels per pixel of their own, for an element whose layout size can't be read (an SVG's). The
  * styles go on the elements themselves, composed with any scale, shadow or translate of their own, and come off once
  * they've settled. With reduced motion nothing grows or flies, and the shadow comes off as soon as they're put down.
@@ -87,7 +89,8 @@ export function liftElements(
       restore()
     })
 
-    return [{ element, style, own, ratio, restore }]
+    // The translate it's lifted with: its own, unless it's moved to keep the grab point under the pointer.
+    return [{ element, style, own, ratio, restore, held: own.translate }]
   })
 
   const write = (style: CSSStyleDeclaration, values: Written) => {
@@ -96,14 +99,19 @@ export function liftElements(
     }
   }
 
-  for (const { element, style, own, ratio } of lifted) {
-    if (origin) {
-      const rect = element.getBoundingClientRect()
-      write(style, { "transform-origin": `${(origin.x - rect.left) / ratio}px ${(origin.y - rect.top) / ratio}px` })
-    }
-
+  for (const entry of lifted) {
+    const { element, style, own, ratio } = entry
     const up = lift(true, { reduced, scale: own.scale, filter: own.filter })
-    write(style, up)
+
+    const held =
+      origin && up.scale !== own.scale ? pinned(element, own.scale, up.scale, origin, ratio, own.translate) : undefined
+
+    if (held) {
+      entry.held = held
+      write(style, { ...up, translate: held, transition: `${up.transition}, translate ${liftMs}ms ${settle}` })
+    } else {
+      write(style, up)
+    }
 
     if (up.scale !== own.scale) {
       grown.set(element, liftScale)
@@ -131,7 +139,15 @@ export function liftElements(
       // A frame draws a dropped layer again as the move is written, which can take it out and put it back, and that
       // would end a transition as it starts; so it settles from the next frame.
       window.requestAnimationFrame(() =>
-        putDown(dropMs, ({ own }) => lift(false, { reduced, ms: dropMs, scale: own.scale, filter: own.filter }))
+        putDown(dropMs, ({ own }) => {
+          const down = lift(false, { reduced, ms: dropMs, scale: own.scale, filter: own.filter })
+
+          return {
+            ...down,
+            translate: own.translate,
+            transition: `${down.transition}, translate ${dropMs}ms ${settle}`
+          }
+        })
       )
     },
     cancel(moveBack) {
@@ -146,8 +162,8 @@ export function liftElements(
         })
 
         // Where it was let go, at once, then back to where it was, settling as it goes.
-        lifted.forEach(({ element, style, own }, index) => {
-          const from = translated(own.translate, away[index]!)
+        lifted.forEach(({ element, style, held }, index) => {
+          const from = translated(held, away[index]!)
 
           if (!reduced && from) {
             write(style, { transition: "none", translate: from })
@@ -176,6 +192,34 @@ export function liftElements(
       }
     }
   }
+}
+
+/**
+ * The translate that keeps `at`, where an element was grabbed (in client pixels), under the pointer as it grows from
+ * scale `from` to `to` about its own transform origin: its own `translate`, moved back by however far growing takes that
+ * point. Growing evenly about any point takes its box's corner along with everything else, so it's drawn grown for a
+ * moment to see where the corner goes, then drawn as it was, for the lift to ease from. `ratio` is screen pixels per
+ * pixel of its parent. Nothing for a translate that isn't in pixels.
+ */
+function pinned(
+  element: HTMLElement | SVGElement,
+  from: string,
+  to: string,
+  at: { x: number; y: number },
+  ratio: number,
+  translate: string
+): string | undefined {
+  const { style } = element
+  const was = element.getBoundingClientRect()
+  style.setProperty("transition", "none", "important")
+  style.setProperty("scale", to, "important")
+  const now = element.getBoundingClientRect()
+  style.setProperty("scale", from, "important")
+  element.getBoundingClientRect()
+
+  const goes = { x: now.left + liftScale * (at.x - was.left), y: now.top + liftScale * (at.y - was.top) }
+
+  return translated(translate, { x: (at.x - goes.x) / ratio, y: (at.y - goes.y) / ratio })
 }
 
 /**
