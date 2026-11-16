@@ -1,15 +1,11 @@
-import { useLayoutEffect, useRef } from "react"
 import { useStore } from "../store.ts"
 import { carriedPicture } from "./carried.ts"
 import { DragPicture } from "./DragPicture.tsx"
+import { Holds } from "./Holds.tsx"
 import { LandingSpot } from "./LandingSpot.tsx"
 
 interface CarriedPictureProps {
   area: Element | undefined
-}
-
-interface HoldsProps {
-  picture: HTMLElement
 }
 
 /**
@@ -41,17 +37,4 @@ export function CarriedPicture({ area }: CarriedPictureProps) {
       </DragPicture>
     </>
   )
-}
-
-/** Holds an element React didn't draw. */
-function Holds({ picture }: HoldsProps) {
-  const ref = useRef<HTMLDivElement>(null)
-
-  useLayoutEffect(() => {
-    ref.current?.replaceChildren(picture)
-
-    return () => picture.remove()
-  }, [picture])
-
-  return <div ref={ref} />
 }
