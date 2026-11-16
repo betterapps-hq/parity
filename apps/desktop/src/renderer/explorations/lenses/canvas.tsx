@@ -298,9 +298,10 @@ function DrawnCanvas({ lens, selected, peek, onSelect, camera, onCamera }: LensC
     }
   }
 
-  const drag = (event: ReactPointerEvent<HTMLDivElement>) => {
+  /** Starts panning on the middle button, or the left with Space held, and says whether it did. */
+  const drag = (event: ReactPointerEvent<HTMLDivElement>): boolean => {
     if (!camera || !(event.button === 1 || (event.button === 0 && space))) {
-      return
+      return false
     }
 
     event.preventDefault()
@@ -323,6 +324,8 @@ function DrawnCanvas({ lens, selected, peek, onSelect, camera, onCamera }: LensC
 
     target.addEventListener("pointermove", move)
     target.addEventListener("pointerup", end)
+
+    return true
   }
 
   const keys = new Map<string, () => void>([
@@ -345,9 +348,13 @@ function DrawnCanvas({ lens, selected, peek, onSelect, camera, onCamera }: LensC
       className={`relative isolate min-h-0 flex-1 overflow-hidden bg-[rgb(249,250,251)] outline-none dark:bg-[rgb(16,16,17)] ${
         space ? "cursor-grab active:cursor-grabbing" : ""
       }`}
+      onPointerDownCapture={(event) => {
+        // A pan starts before what's under the pointer, a page or a table, can take the press as selecting it.
+        if (drag(event)) {
+          event.stopPropagation()
+        }
+      }}
       onPointerDown={(event) => {
-        drag(event)
-
         if (event.button === 0 && !space && event.target === event.currentTarget) {
           onSelect(undefined)
         }
