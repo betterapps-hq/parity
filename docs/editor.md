@@ -5444,8 +5444,9 @@ picker.
   line, up to its maximum width if it has one, where it wraps as the text does. Its font, size, weight, line height,
   letter spacing, alignment, case and decoration follow the text's at the zoom shown.
 - **Leaving keeps the edit.** Escape keeps what's typed, as notes do, and so do Enter and clicking away. Shift+Enter
-  types a new line. The layer stays selected. An edit is one undo step, Edit text, written to the state and variant the
-  editor opened on (PAR-164, below); leaving without a change writes nothing.
+  types a new line. The layer stays selected. Typing is written to the state and variant the editor opened on (PAR-164,
+  below) as it's typed, one Edit text step per pause (PAR-1230, below); leaving with the text as it opened leaves no
+  step.
 - **It reads and writes the same state** (PAR-585). The text it opens on and the place the edit goes are worked out by
   one rule, `editingState`: the state the layer was picked in, else the state the board shows, else the base state. A
   picked state that's gone, as when an agent deletes it while the editor is open, used to show the board's text but
@@ -5453,6 +5454,44 @@ picker.
 - **Input methods.** While an input method is composing (Japanese, Chinese, Korean), Enter and Escape are left to it, to
   take or drop what's composed, and don't close the editor. The editor tracks composition by its `compositionstart` and
   `compositionend` events, and by the key event's own `isComposing`.
+
+### Typing written as it's typed (PAR-1230)
+
+Text is written to the document while it's typed, not when the editor closes, so others in a live room (PAR-1179) see it
+as it's typed, and layers after it move with it (docs/proposals/extensions-in-the-window.md, Live text).
+
+- **A few writes a second.** The first key starts a write 150 ms later with whatever's typed by then, so a burst of keys
+  is one write, not one per key. The saver writes the file as it does any change, after its own 300 ms, so the file
+  isn't rewritten per key either.
+- **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
+  so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step.
+- **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
+  their change is merged with what's typed and not yet written, and the caret moves with the characters around it, so it
+  stays where the person is typing. Where both changed the same characters, what either removed goes and the typing
+  follows what the other wrote. Their change isn't in this person's undo. While an input method is composing, the change
+  waits until it's done.
+- **A frame named after its text** follows each write, as it did the closing one.
+- Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
+
+Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (the batching, the gesture per pause and taking in
+others' changes), `rebaseText` in `packages/editor/src/text-editing.ts` (merging the two changes and moving the
+selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes.
+
+Tests:
+
+- `apps/desktop/src/renderer/canvas/live-text.test.ts` (6), on a test document: four keys 50 ms apart written twice; two
+  runs of typing a pause apart undone as two steps; closing with the text as it opened leaving no step; nothing written
+  once closed; someone else's change before the caret taken in with the typing and the caret kept after it, and Undo
+  taking back only the typing; and its own writes not taken in again.
+- `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
+  the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
+  characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
+
+Gaps: the `text` gesture that would show others where someone's typing (the proposal's start, caret and end) isn't sent
+yet. Two people typing in the same text within the same 150 ms each write the whole text, so one of those writes can win
+over the other's before either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`:
+" today" typed into Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed
+after a pause came off with one Undo, " today" with the next, in both copies.
 
 ### Auto width, auto height and fixed text (PAR-175)
 
@@ -5525,12 +5564,11 @@ been tried. With several layers selected, a switch measures each text layer in i
 of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, and with the
 Resizing control gone, nothing drives a switch end to end. The resize handles changing the mode follows from reading it
 from the width and height, and has no test of its own. A text layer's own new lines, typed with Shift+Enter, are kept in
-the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). While the editor is
-open the text under it doesn't reflow as it's typed in, so layers after it move only once the edit is kept. Checked in
-an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and
-a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and
-Resizing showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923
-took Resizing out of the panel).
+the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). Checked in an isolated
+copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to
+110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and Resizing
+showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923 took
+Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
@@ -6102,7 +6140,8 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   the first to answer, so it starts from the same Loro document, unsaved edits included. When the host leaves, the copy
   that joined next takes over.
 - **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
-  show as `remote` changes: in neither person's undo.
+  show as `remote` changes: in neither person's undo. Text is written as it's typed (PAR-1230), so it arrives while it's
+  typed, not when the editor closes.
 - **Only the host saves,** so copies don't write the same files over each other, and only the host takes in a file
   changed on disk; the others get it from there.
 - **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in

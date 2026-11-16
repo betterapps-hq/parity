@@ -15,6 +15,7 @@ import { useProject } from "./context.ts"
 import { type AreaSpace, areaSpace, type ElementGeometry, frameGeometry } from "./frame-geometry.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
+import { LiveText } from "./live-text.ts"
 import { scheduleOverlay } from "./overlay-scheduler.ts"
 
 /** What closed the editor: Enter, Escape, or clicking away. */
@@ -29,10 +30,11 @@ interface EditorLayout {
 }
 
 /**
- * Edits a text layer in place, over the rendered text, then writes it to the state it was picked in. It opens with the
- * double-clicked word selected, or the whole text; follows the text with the canvas's other overlays, so it moves and
- * scales with the camera; and wraps where the text wraps, at its own width. Escape and Enter keep the edit, as clicking
- * away does, except while an input method is composing, which uses those keys itself.
+ * Edits a text layer in place, over the rendered text, writing it to the state it was picked in as it's typed (see
+ * `LiveText`), so others in a live room see it. It opens with the double-clicked word selected, or the whole text;
+ * follows the text with the canvas's other overlays, so it moves and scales with the camera; and wraps where the text
+ * wraps, at its own width. Escape and Enter close it, keeping the edit, as clicking away does, except while an input
+ * method is composing, which uses those keys itself.
  */
 export function TextEditor() {
   const session = useProject()
@@ -44,6 +46,8 @@ export function TextEditor() {
   const opened = useRef<{ text: string; range: TextRange }>(undefined)
   const composing = useRef(false)
   const done = useRef(false)
+  /** Writes what's typed as it's typed, and takes in others' changes to the text. */
+  const live = useRef<LiveText>(undefined)
   const [openedAt] = useState(() => performance.now())
 
   /** Records how the edit ended, as `text.edited` (PAR-640). */
@@ -110,6 +114,51 @@ export function TextEditor() {
     const offset = editing.at && drawnText(found.element) === text ? offsetAt(found.element, editing.at) : undefined
     opened.current = { text, range: openingSelection(text, offset) }
     textarea.value = text
+    // The text a frame named after its text was named for, which it follows (see `textFrameRenamed`).
+    let namedFor = text
+
+    const writer = new LiveText(text, {
+      doc,
+      read: () => {
+        const now = doc.design(editing.design)
+
+        return now && textToEdit(now, editing.state, editing.node, libraryOf(session, editing.design))?.text
+      },
+      write: (typed, gesture) =>
+        updateContainer(
+          doc,
+          editing.design,
+          "Edit text",
+          (container) => {
+            const edited = withEditedText(
+              container,
+              editing.state,
+              editing.node,
+              typed,
+              libraryOf(session, editing.design)
+            )
+
+            const renamed = textFrameRenamed(edited, editing.node, namedFor, typed)
+
+            if (renamed !== edited) {
+              namedFor = typed
+            }
+
+            return renamed
+          },
+          { gesture }
+        )
+    })
+
+    live.current = writer
+
+    // Someone else changed the text, as in a live room: it's taken in, and the caret stays where it was among the
+    // characters. Not while an input method is composing, which owns the text until it's done.
+    const unsubscribe = doc.subscribe(() => {
+      if (!composing.current) {
+        takeIn(textarea, writer)
+      }
+    })
 
     // The text itself is hidden while the editor draws it, and measured whenever the canvas area's overlays are
     // (PAR-986, see `overlay-scheduler.ts`): in the frame the camera moves, and after anything that can move the text,
@@ -138,8 +187,11 @@ export function TextEditor() {
     })
 
     return () => {
+      unsubscribe()
       stop()
       hidden.restore()
+      // Closed some other way than `commit`, as when the layer goes: what's typed is kept.
+      writer.close()
     }
   }, [editing, selection, doc, session])
 
@@ -163,28 +215,17 @@ export function TextEditor() {
 
     done.current = true
     const text = ref.current?.value ?? ""
+    // What's typed and not yet written is written, to the state it was read from by the same rule (see `textToEdit`),
+    // and the last pause's step ends.
+    live.current?.close(text)
     selection.setEditing(undefined)
     const original = opened.current?.text
 
-    // Written to the state it was read from, by the same rule (see `textToEdit`).
     if (original === undefined || !doc.design(editing.design)) {
       return record("cancelled", how, text.length)
     }
 
-    if (text === original) {
-      return record("unchanged", how, text.length)
-    }
-
-    record("committed", how, text.length)
-    // A text frame named after its text follows it (see `textFrameRenamed`), in the same step.
-    updateContainer(doc, editing.design, "Edit text", (container) =>
-      textFrameRenamed(
-        withEditedText(container, editing.state, editing.node, text, libraryOf(session, editing.design)),
-        editing.node,
-        original,
-        text
-      )
-    )
+    record(text === original ? "unchanged" : "committed", how, text.length)
   }
 
   return (
@@ -208,11 +249,22 @@ export function TextEditor() {
           : { display: "none" }
       }
       onBlur={() => commit("blur")}
+      onInput={(event) => {
+        if (!composing.current) {
+          live.current?.input(event.currentTarget.value)
+        }
+      }}
       onCompositionStart={() => {
         composing.current = true
       }}
-      onCompositionEnd={() => {
+      onCompositionEnd={(event) => {
         composing.current = false
+        const writer = live.current
+
+        if (writer) {
+          writer.input(event.currentTarget.value)
+          takeIn(event.currentTarget, writer)
+        }
       }}
       onKeyDown={(event) => {
         event.stopPropagation()
@@ -229,6 +281,17 @@ export function TextEditor() {
       }}
     />
   )
+}
+
+/** Takes the document's text into the editor if someone else changed it, keeping the caret among its characters. */
+function takeIn(textarea: HTMLTextAreaElement, writer: LiveText): void {
+  const { selectionStart, selectionEnd, selectionDirection } = textarea
+  const rebased = writer.received(textarea.value, { start: selectionStart, end: selectionEnd })
+
+  if (rebased && rebased.text !== textarea.value) {
+    textarea.value = rebased.text
+    textarea.setSelectionRange(rebased.selection.start, rebased.selection.end, selectionDirection)
+  }
 }
 
 /** Whether text in an element stays on one line, as a button's label usually does. */
