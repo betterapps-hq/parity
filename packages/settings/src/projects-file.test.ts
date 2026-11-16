@@ -34,6 +34,15 @@ describe("projects.json", () => {
     expect(readProjects(text).values).toEqual({ recent: [], notes: { "D:/shop": { opened: 1, starred: true } } })
   })
 
+  it("remembers a closed preview file offer, through starring and unstarring (PAR-104)", () => {
+    let text = changeProjects(undefined, { kind: "opened", root: "D:/shop" }, 1)
+    text = changeProjects(text, { kind: "closedPreviewOffer", root: "D:/shop" }, 2)
+    text = changeProjects(text, { kind: "starred", root: "D:/shop", starred: true }, 3)
+    text = changeProjects(text, { kind: "starred", root: "D:/shop", starred: false }, 4)
+
+    expect(readProjects(text).values.notes["D:/shop"]).toEqual({ opened: 1, previewOfferClosed: true })
+  })
+
   it("keeps keys it doesn't know, and refuses to write over text that doesn't parse", () => {
     expect(JSON.parse(changeProjects(JSON.stringify({ newer: 1 }), { kind: "forgot" }, 0))).toMatchObject({ newer: 1 })
     expect(() => changeProjects("{ half", { kind: "forgot" }, 0)).toThrow(/isn't JSON/)

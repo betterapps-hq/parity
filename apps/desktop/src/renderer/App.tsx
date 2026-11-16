@@ -11,6 +11,7 @@ import { ConvertToFrameDialog, stopAskingToConvert } from "./chrome/ConvertToFra
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
 import { ExtensionPageView } from "./chrome/ExtensionPage.tsx"
 import { ExtensionQuestion } from "./chrome/ExtensionQuestion.tsx"
+import { PreviewOfferDialog, stopReviewingPreviewFile } from "./chrome/PreviewOffer.tsx"
 import { closeQuickInsert, QuickInsert } from "./chrome/QuickInsert.tsx"
 import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProblemDialog.tsx"
 import { restoreAsked } from "./chrome/restore.ts"
@@ -166,6 +167,9 @@ export function AppWindow() {
       </ErrorBoundary>
       <ErrorBoundary name="restore" label="Restore unsaved changes" kind="dialog" onClose={restoreAsked}>
         <RestorePrompt />
+      </ErrorBoundary>
+      <ErrorBoundary name="preview-offer" label="Write a preview file" kind="dialog" onClose={stopReviewingPreviewFile}>
+        <PreviewOfferDialog />
       </ErrorBoundary>
       <ErrorBoundary name="sign-in-dialog" label="Sign in" kind="dialog" onClose={accountActions.close}>
         <SignInDialog />

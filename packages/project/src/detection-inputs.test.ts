@@ -9,6 +9,15 @@ let root: string
 /** The files the registered adapters watch, as `Adapter.watches` gives them. */
 const builderConfigs = ["vite.config.ts", "vite.config.mjs"]
 
+/** The preview file's names Parity looks for, which detection watches. */
+const previewFiles = [
+  ".parity/preview.tsx",
+  ".parity/preview.ts",
+  ".parity/preview.jsx",
+  ".parity/preview.js",
+  ".parity/preview.mjs"
+]
+
 async function write(path: string, content: string) {
   await mkdir(dirname(join(root, path)), { recursive: true })
   await writeFile(join(root, path), content)
@@ -27,7 +36,7 @@ describe("detectionInputs", () => {
   it("changes with the stylesheets the builder says the app loads, and watches the files it read them from", async () => {
     const styles = { styles: ["src/style.css"], packageStyles: [], from: ["src/routes/__root.tsx"] }
     const before = await detectionInputs(root, builderConfigs, styles)
-    expect(before.files).toEqual(["package.json", "src/routes/__root.tsx", ...builderConfigs])
+    expect(before.files).toEqual(["package.json", "src/routes/__root.tsx", ...builderConfigs, ...previewFiles])
 
     const more = { ...styles, packageStyles: ["@mantine/core/styles.css"] }
     expect((await detectionInputs(root, builderConfigs, more)).key).not.toBe(before.key)
@@ -75,6 +84,13 @@ describe("detectionInputs", () => {
       JSON.stringify({ name: "app", dependencies: { react: "19.1.0", "@base-ui/react": "1" } })
     )
     expect((await detectionInputs(root, builderConfigs, styles)).key).not.toBe(before.key)
+  })
+
+  it("changes once the project has a preview file, so one written while it's open draws its frames (PAR-104)", async () => {
+    const before = await detectionInputs(root, builderConfigs)
+    await write(".parity/preview.jsx", "export const decorators = []\n")
+
+    expect((await detectionInputs(root, builderConfigs)).key).not.toBe(before.key)
   })
 
   it("fails while package.json is missing or half-written, rather than reading as a change", async () => {

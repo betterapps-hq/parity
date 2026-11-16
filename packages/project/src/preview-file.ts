@@ -5,7 +5,7 @@ import { join } from "node:path"
 export const previewFolder = ".parity"
 
 /** The preview file's names, in the order one is picked when there are several, as Storybook takes `preview.*`. */
-const previewNames = ["preview.tsx", "preview.ts", "preview.jsx", "preview.js", "preview.mjs"]
+export const previewNames = ["preview.tsx", "preview.ts", "preview.jsx", "preview.js", "preview.mjs"]
 
 /**
  * The project's preview file for Parity, relative to its root (`.parity/preview.tsx`), if it has one. A project
