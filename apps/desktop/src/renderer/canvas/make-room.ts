@@ -5,6 +5,18 @@ import { styleElements } from "./element-lift.ts"
 const sliding = new WeakMap<Element, () => void>()
 
 /**
+ * Ends the slides of elements and of what holds them at once, so each is drawn where it's laid out: for measuring where
+ * something will be, rather than where a slide has it on the way.
+ */
+export function endSlides(elements: Iterable<Element>): void {
+  for (const element of elements) {
+    for (let at: Element | null = element; at; at = at.parentElement) {
+      sliding.get(at)?.()
+    }
+  }
+}
+
+/**
  * Slides elements from where they're drawn to where `change` lays them out, so a layout making room for what's carried
  * moves aside rather than jumping (FLIP): each is measured, `change` is made, and each moved one is drawn back where it
  * was by a `translate` that then eases away in `makeRoomMs`. One still sliding is measured where it's drawn mid-slide,
@@ -69,6 +81,15 @@ export function slideElements(elements: Iterable<Element>, change: () => void, r
     const end = () => {
       window.clearTimeout(timer)
       restore()
+
+      // Taking its transition away leaves a slide under way running, so it's called off too, and the element is drawn
+      // where it's laid out at once.
+      for (const animation of element.getAnimations()) {
+        if (animation instanceof CSSTransition && animation.transitionProperty === "translate") {
+          animation.cancel()
+        }
+      }
+
       sliding.delete(element)
     }
 

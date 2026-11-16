@@ -52,14 +52,31 @@ export const landingEdge = { width: 1.5, gap: 1 }
  * The landing outline as inline styles for an element of the canvas's own, which React doesn't draw: a box laid over the
  * place it marks, as far out as `LandingSpot`'s edge, in `color`, following corners `radius` round. It's in a frame's
  * pixels, `scale` screen pixels each, so it's the same on screen at any zoom. One marking something that clips what
- * overflows it is drawn just inside instead, where it's seen.
+ * overflows it is drawn just inside instead, where it's seen. Laid over its own box by default; with `anchor`, over the
+ * box of the element anchor positioning names so, wherever it's laid out.
  */
-export function landingEdgeStyle(color: string, scale: number, radius: number, { inside = false } = {}) {
+export function landingEdgeStyle(
+  color: string,
+  scale: number,
+  radius: number,
+  { inside = false, anchor }: { inside?: boolean; anchor?: string } = {}
+) {
   const out = inside ? 0 : (landingEdge.width + landingEdge.gap) / scale
+  const at = `${round(out)}px`
+
+  const place = anchor
+    ? {
+        "position-anchor": anchor,
+        top: `calc(anchor(top) - ${at})`,
+        right: `calc(anchor(right) - ${at})`,
+        bottom: `calc(anchor(bottom) - ${at})`,
+        left: `calc(anchor(left) - ${at})`
+      }
+    : { inset: `${-round(out)}px` }
 
   return {
     position: "absolute",
-    inset: `${-round(out)}px`,
+    ...place,
     border: `${round(landingEdge.width / scale)}px dashed ${color}`,
     "border-radius": `${round(radius + out)}px`,
     "box-sizing": "border-box",

@@ -1850,12 +1850,13 @@ stories show it (PAR-1188):
 - **A layer in a layout (flex or grid)** stays where it is, hidden, and a picture of it is carried, lifted. Nothing of
   it is left behind: an empty dashed outline in the layer color, 1.5px wide, shows where it would land, so it reads as
   moved rather than copied. The outline sits 1px outside the layer, or just inside one that clips what overflows it,
-  where it would be cut off. The layout makes room for it as it moves (see "Where a dragged layer lands", below): what's
-  around it slides aside in 180 ms, with the same easing, and the outline slides from slot to slot, rather than either
-  jumping. A slide turned around mid-way carries on from where it's drawn. Dropped, the picture flies into the outline,
-  and the moved layer stays hidden until the picture gets there and goes. Cancelled, or dropped where nothing takes it,
-  the row closes and the picture flies back to where the layer is, which stays empty until then, as the row slides
-  closed. The layer's selection outline is left out until the picture lands.
+  where it would be cut off; round a layer that can't hold it, as an image or a field can't, it's pinned beside it, 1px
+  outside. The layout makes room for it as it moves (see "Where a dragged layer lands", below): what's around it slides
+  aside in 180 ms, with the same easing, and the outline slides from slot to slot, rather than either jumping. A slide
+  turned around mid-way carries on from where it's drawn. Dropped, the picture flies into the outline, where the layer
+  will be once any slide still going ends, and the moved layer stays hidden until the picture gets there and goes.
+  Cancelled, or dropped where nothing takes it, the row closes and the picture flies back to where the layer is, which
+  stays empty until then, as the row slides closed. The layer's selection outline is left out until the picture lands.
 - **An absolutely placed layer** lifts itself, follows the pointer and settles where it's dropped; nothing marks where
   it was. Its outline follows it, a little bigger while it's carried, but its size label says its own size. Cancelled,
   it flies back from where it was let go.

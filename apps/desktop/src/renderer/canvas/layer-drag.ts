@@ -28,17 +28,17 @@ import { findFrames, findNodeElement, findNodeElements, nodeBox } from "../frame
 import { spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { carriedPicture, type Spot } from "./carried.ts"
-import { landingEdgeStyle } from "./drag-motion.ts"
 import { type DropAt, DragLayouts, dropInFrame } from "./drop-target.ts"
 import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { type Drag, followPress, gestures } from "./gesture.ts"
 import { frameAt, type Point } from "./hit.ts"
 import { kindColors } from "./kinds.tsx"
+import { drawLandingEdge } from "./landing-edge.ts"
 import { insetSteps } from "./layer-measure.ts"
 import { layerPicture } from "./layer-picture.ts"
 import { LayerSnapping } from "./layer-snap.ts"
-import { slideElements } from "./make-room.ts"
+import { endSlides, slideElements } from "./make-room.ts"
 import { StylePreview } from "./style-preview.ts"
 
 /**
@@ -335,7 +335,7 @@ export function moveTarget(
 /**
  * Shows where dragged layers would land, before anything changes: the layers are hidden where they are, and copies
  * of them go where they'd be dropped, so every layout around them reflows exactly as it will. The copies aren't
- * drawn, only a dashed outline over each, as `LandingSpot` draws it (`landingEdgeStyle`), so the layers read as moved
+ * drawn, only a dashed outline round each, as `LandingSpot` draws it (`drawLandingEdge`), so the layers read as moved
  * rather than copied. They're plain DOM, outside React, and gone before the move is made. As the copies move, they and
  * the layers around them slide to their new places (`slideElements`), rather than jumping there.
  */
@@ -347,6 +347,8 @@ class DropPreview {
   /** Which layers clip what overflows them, so their outline is drawn inside, where it's seen. */
   private readonly clips: boolean[]
   private copies: HTMLElement[] = []
+  /** Each copy's landing outline. */
+  private edges: HTMLElement[] = []
   private hidden = false
   private at = ""
 
@@ -378,8 +380,6 @@ class DropPreview {
       if (getComputedStyle(original).position === "static") {
         copy.style.position = "relative"
       }
-
-      copy.append(document.createElement("span"))
 
       return copy
     })
@@ -445,24 +445,21 @@ class DropPreview {
         const copies =
           this.copies.length > 0 ? this.copies : this.templates.map((t) => t.cloneNode(true) as HTMLElement)
 
+        if (copies !== this.copies) {
+          this.edges = copies.map(() => document.createElement("span"))
+        }
+
         // The outline is drawn in the frame's pixels, so it's redrawn for the frame's scale.
         const { scale } = frameGeometry(host)
 
         copies.forEach((copy, index) => {
           parent.insertBefore(copy, before ?? null)
-          const edge = copy.lastElementChild
-
-          if (edge instanceof HTMLElement) {
-            edge.style.cssText = ""
-
-            for (const [name, value] of Object.entries(
-              landingEdgeStyle(this.color, scale, this.radii[index]!, {
-                inside: this.clips[index]
-              })
-            )) {
-              edge.style.setProperty(name, value, "important")
-            }
-          }
+          drawLandingEdge(copy, this.edges[index]!, {
+            color: this.color,
+            scale,
+            radius: this.radii[index]!,
+            clips: this.clips[index]!
+          })
         })
 
         this.copies = copies
@@ -475,8 +472,12 @@ class DropPreview {
     return true
   }
 
-  /** Where the copies are, in the overlay's pixels, and how round, for their outline. Nothing when none is shown. */
+  /**
+   * Where the copies are laid out, in the overlay's pixels, and how round, for their outline: where the layers will be
+   * put, so a copy still sliding there is measured as it'll end. Nothing when none is shown.
+   */
   spot(space: ReturnType<typeof areaSpace>): Spot | undefined {
+    endSlides(this.copies)
     const at = corner(this.copies.map((copy) => copy.getBoundingClientRect()))
     const first = this.copies[0]
 
@@ -530,11 +531,12 @@ class DropPreview {
   }
 
   private remove(): void {
-    for (const copy of this.copies) {
-      copy.remove()
+    for (const element of [...this.copies, ...this.edges]) {
+      element.remove()
     }
 
     this.copies = []
+    this.edges = []
     this.at = ""
   }
 }
