@@ -1,8 +1,11 @@
 import {
-  type GuestPages,
+  type GuestPage,
   type GuestStylesheets,
   guestExportSource,
-  type NextGuestLoader
+  guestPage,
+  guestRoutes,
+  type NextGuestLoader,
+  type NextServer
 } from "@parity-app/next-builders"
 
 /*
@@ -12,6 +15,24 @@ import {
  * the guest page's chunks with their start-up functions taken out, then the runtime, then asks it for the guest module
  * by its id (docs/proposals/nextjs-builders.md).
  */
+
+/** The guest app's pages, as Next renders them: the guest's, and those of the project's and packages' stylesheets. */
+export interface GuestPages {
+  guest: GuestPage
+  styles: GuestPage
+  packageStyles: GuestPage
+}
+
+/** The guest app's pages as Next renders them now. */
+async function guestPages(server: NextServer): Promise<GuestPages> {
+  const [guest, styles, packageStyles] = await Promise.all([
+    guestPage(server, guestRoutes.guest),
+    guestPage(server, guestRoutes.styles),
+    guestPage(server, guestRoutes.packageStyles)
+  ])
+
+  return { guest, styles, packageStyles }
+}
 
 /** How Next's webpack builds the guest app, read from its page: the chunks to load, the runtime, and the guest's id. */
 export interface WebpackGuestChunks {
@@ -64,7 +85,9 @@ export interface WebpackGuestLoader extends WebpackGuestChunks, GuestStylesheets
 /** How the canvas loads what Next's webpack built: the page's chunks without their start-up, then the runtime. */
 export const nextWebpackLoader: NextGuestLoader = {
   bundler: "webpack",
-  async guestModule(pages, server, session) {
+  async guestModule(server, session) {
+    const pages = await guestPages(server)
+
     return webpackGuestLoaderSource({
       ...webpackGuestChunks(pages, server.origin),
       session,

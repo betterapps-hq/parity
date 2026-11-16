@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "A Next.js project's layers lead back to their code: the Next builders tag each element with its source.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

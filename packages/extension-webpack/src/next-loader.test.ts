@@ -1,6 +1,6 @@
-import type { GuestPage, GuestPages } from "@parity-app/next-builders"
+import type { GuestPage } from "@parity-app/next-builders"
 import { describe, expect, it } from "vite-plus/test"
-import { webpackGuestChunks, webpackGuestLoaderSource } from "./next-loader.ts"
+import { type GuestPages, webpackGuestChunks, webpackGuestLoaderSource } from "./next-loader.ts"
 
 const origin = "http://127.0.0.1:4000"
 const empty: GuestPage = { scripts: [], stylesheets: [] }

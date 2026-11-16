@@ -1,18 +1,20 @@
 import type { BuilderAdapter, BuilderDetection } from "@parity-app/core"
 import {
   detectNext,
-  type GuestPages,
+  guestPage,
+  guestRoutes,
   nextAppStyles,
-  nextConfigFiles,
-  type NextGuestLoader,
-  nextGuestRoutes,
   type NextServer,
+  nextConfigFiles,
   startNextGuest
 } from "@parity-app/next-builders"
-import { guestLoaderSource, runtimeChunks, withoutStartup } from "./loader.ts"
+import { guestLoaderSource, type ModuleLoader, moduleLoaderSource, runtimeChunks, withoutStartup } from "./loader.ts"
 
 /** The files whose coming or going means the project is detected again: Next's config. */
 export const turbopackWatches = [...nextConfigFiles]
+
+/** Where the builder serves the guest page's runtime chunk, without what would start Next's router. */
+const runtimeRoute = "/__parity/runtime.js"
 
 /**
  * Builds a Next.js app's components with the project's own Next on Turbopack, on a guest app of Parity's own in the
@@ -25,20 +27,33 @@ export const turbopackBuilder: BuilderAdapter = {
   watches: turbopackWatches,
   detect: ({ root }) => detectTurbopack(root),
   styles: ({ root }) => nextAppStyles(root),
-  start: (options) => startNextGuest(options, turbopackLoader)
-}
+  start: (options) =>
+    startNextGuest(options, {
+      bundler: "turbopack",
+      guestModule: guestModuleText,
+      module: async (_server, session, module) => {
+        const loader: ModuleLoader = {
+          session,
+          id: module.reference.id,
+          chunks: module.reference.chunks.filter((chunk) => /\.js(?:\?|$)/.test(chunk)),
+          stylesheets: module.stylesheets,
+          names: module.names
+        }
 
-/** How the canvas loads what Turbopack built: its runtime without its start-up, then the guest's chunks. */
-const turbopackLoader: NextGuestLoader = {
-  bundler: "turbopack",
-  guestModule: guestModuleText,
-  script: runtimeText
+        return moduleLoaderSource(module.stamp === undefined ? loader : { ...loader, stamp: module.stamp })
+      },
+      scripts: { [runtimeRoute]: (server, url) => runtimeText(server, url.searchParams.get("src") ?? "") }
+    })
 }
 
 /** The guest module, from the guest app's pages as Next renders them now. */
-async function guestModuleText(pages: GuestPages, server: NextServer, session: string): Promise<string> {
-  const reference = pages.guest.guest
-  const runtime = pages.guest.scripts.find((script) => /\/turbopack-[^/]+\.js(?:\?|$)/.test(script))
+async function guestModuleText(server: NextServer, session: string): Promise<string> {
+  const [guest, styles, packageStyles] = await Promise.all(
+    [guestRoutes.guest, guestRoutes.styles, guestRoutes.packageStyles].map((route) => guestPage(server, route))
+  )
+
+  const reference = guest.guest
+  const runtime = guest.scripts.find((script) => /\/turbopack-[^/]+\.js(?:\?|$)/.test(script))
 
   if (!reference || !runtime) {
     throw new Error("Next's page for the guest has no Turbopack runtime or guest module")
@@ -51,11 +66,11 @@ async function guestModuleText(pages: GuestPages, server: NextServer, session: s
 
   return guestLoaderSource({
     session,
-    runtime: `${server.origin}${nextGuestRoutes.script}?src=${encodeURIComponent(runtime)}`,
+    runtime: `${server.origin}${runtimeRoute}?src=${encodeURIComponent(runtime)}`,
     chunks,
     id: reference.id,
-    styles: pages.styles.stylesheets,
-    packageStyles: pages.packageStyles.stylesheets,
+    styles: styles.stylesheets,
+    packageStyles: packageStyles.stylesheets,
     stylesheetBase: base
   })
 }

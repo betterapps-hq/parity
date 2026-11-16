@@ -13,16 +13,19 @@ export interface GuestPage {
   scripts: string[]
   /** Its stylesheets, in the order the page links them. */
   stylesheets: string[]
-  /** The guest module's id and chunks, when the page is the guest's. */
+  /** The guest module's id and chunks, when the page is the guest's, or those of the client module `file` names. */
   guest?: { id: string; chunks: string[] }
 }
 
-/** Reads a page Next rendered for the guest app. */
-export function readGuestPage(html: string): GuestPage {
+/**
+ * Reads a page Next rendered for the guest app: the guest's own, or, with `file`, the page of one of the guest app's
+ * client modules, from the guest app's folder.
+ */
+export function readGuestPage(html: string, file: string = guestModuleFile): GuestPage {
   const tags = (pattern: RegExp) => [...html.matchAll(pattern)].map((match) => decodeEntities(match[1]!))
   const scripts = tags(/<script\b[^>]*?\bsrc="([^"]+)"/g)
   const stylesheets = tags(/<link\b[^>]*?\brel="stylesheet"[^>]*?\bhref="([^"]+)"/g)
-  const guest = clientReference(payload(html), `/${guestModuleFile}`)
+  const guest = clientReference(payload(html), `/${file}`)
 
   return guest ? { scripts, stylesheets, guest } : { scripts, stylesheets }
 }

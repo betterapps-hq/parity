@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Next.js components that read the router draw on canvas, inside a still router at the root.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

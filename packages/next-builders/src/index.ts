@@ -35,4 +35,4 @@ export { serverOnlyReason, serverOnlyStandIns, type StandIn, standInFolder } fro
 
 export { freePort, type NextServer, type OwnRoute, portFree, startNextServer, writeGuestApp } from "./server.ts"
 
-export { type GuestPages, type NextGuestLoader, nextGuestRoutes, startNextGuest } from "./start.ts"
+export { guestModuleRoute, guestPage, type NextGuestLoader, startNextGuest } from "./start.ts"

@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The Components panel, component boards and the Home screen take pages from the project's routes, whatever its router calls its files",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
