@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { ModuleExports, MountHandle, MountOptions, RenderNode } from "@parity-app/core"
+import type { GuestDecorators, MountHandle, MountOptions, RenderNode } from "@parity-app/core"
 import { createContext, createElement, type ReactNode, useContext, useEffect } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { createGuest } from "./guest.ts"
@@ -52,7 +52,7 @@ function box(name: string) {
   }
 }
 
-function mount(project: ModuleExports, options: MountOptions = {}) {
+function mount(project: GuestDecorators["project"], options: MountOptions = {}) {
   const guest = createGuest({
     components: { Themed },
     css: "",

@@ -13,7 +13,7 @@ const previewNames = ["preview.tsx", "preview.ts", "preview.jsx", "preview.js", 
  * files.
  */
 export async function findPreviewFile(root: string): Promise<string | undefined> {
-  const names = await readdir(join(root, previewFolder)).catch(() => [])
+  const names = await readdir(join(root, previewFolder)).catch((): string[] => [])
   const found = previewNames.find((name) => names.includes(name))
 
   return found && `${previewFolder}/${found}`

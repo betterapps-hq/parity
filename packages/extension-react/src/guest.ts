@@ -1328,7 +1328,7 @@ function decorators(
 
   const ready = readyStory()
 
-  const loading = Promise.all(loaders.map((loader) => loader(context({})))).then(
+  const loading = Promise.all(loaders.map(async (loader) => loader(context({})))).then(
     (results) => {
       const loaded: StoryValues = Object.assign({}, ...results.filter(isStoryValues))
       ready.set(storyChain(levels, context(loaded)))
@@ -1360,9 +1360,9 @@ function StoryContent() {
 
 /** The outermost `Story` once the preview's loaders are done, and what tells the frame it's there. */
 interface Ready {
-  get(): (() => ReactNode) | undefined
-  set(story: () => ReactNode): void
-  subscribe(listener: () => void): () => void
+  get: () => (() => ReactNode) | undefined
+  set: (story: () => ReactNode) => void
+  subscribe: (listener: () => void) => () => void
 }
 
 function readyStory(): Ready {
