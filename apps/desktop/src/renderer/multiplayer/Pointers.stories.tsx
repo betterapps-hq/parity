@@ -1,14 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
-import {
-  CanvasBoard,
-  CanvasPane,
-  DashboardDesign,
-  Playback,
-  Themes,
-  useClock,
-  scrolls
-} from "../stories/canvas-kit.tsx"
+import { scrolls } from "../stories/canvas-kit.tsx"
+import { CanvasBoard } from "../stories/CanvasBoard.tsx"
+import { CanvasPane } from "../stories/CanvasPane.tsx"
+import { DashboardDesign } from "../stories/DashboardDesign.tsx"
+import { Playback } from "../stories/Playback.tsx"
+import { Themes } from "../stories/Themes.tsx"
+import { useClock } from "../stories/useClock.ts"
 import { useResolvedTheme } from "../theme.ts"
 import { RemotePointer } from "./RemotePointer.tsx"
 import { members } from "./story-kit.tsx"

@@ -1,18 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
 import { LandingSpot } from "../canvas/LandingSpot.tsx"
-import {
-  CanvasBoard,
-  DashboardDesign,
-  Playback,
-  PricingDesign,
-  type Stat,
-  StatCard,
-  stickerHome,
-  Themes,
-  useClock,
-  scrolls
-} from "../stories/canvas-kit.tsx"
+import { type Stat, stickerHome, scrolls } from "../stories/canvas-kit.tsx"
+import { CanvasBoard } from "../stories/CanvasBoard.tsx"
+import { DashboardDesign } from "../stories/DashboardDesign.tsx"
+import { Playback } from "../stories/Playback.tsx"
+import { PricingDesign } from "../stories/PricingDesign.tsx"
+import { StatCard } from "../stories/StatCard.tsx"
+import { Themes } from "../stories/Themes.tsx"
+import { useClock } from "../stories/useClock.ts"
 import { DragGhost } from "./DragGhost.tsx"
 import { Outlined } from "./Outlined.tsx"
 import { RemotePointer } from "./RemotePointer.tsx"

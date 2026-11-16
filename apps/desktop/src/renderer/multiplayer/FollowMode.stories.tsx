@@ -1,14 +1,11 @@
 import { Button } from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import {
-  CanvasBoard,
-  CanvasPane,
-  DashboardDesign,
-  type Theme,
-  Themes,
-  useClock,
-  scrolls
-} from "../stories/canvas-kit.tsx"
+import { type Theme, scrolls } from "../stories/canvas-kit.tsx"
+import { CanvasBoard } from "../stories/CanvasBoard.tsx"
+import { CanvasPane } from "../stories/CanvasPane.tsx"
+import { DashboardDesign } from "../stories/DashboardDesign.tsx"
+import { Themes } from "../stories/Themes.tsx"
+import { useClock } from "../stories/useClock.ts"
 import { useResolvedTheme } from "../theme.ts"
 import { FaceStack } from "./FaceStack.tsx"
 import { FollowLayer } from "./FollowLayer.tsx"

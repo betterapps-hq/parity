@@ -1,19 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useState } from "react"
-import {
-  CanvasBoard,
-  CanvasPane,
-  DashboardDesign,
-  type Marker,
-  Playback,
-  PricingDesign,
-  scrolls,
-  type Stat,
-  StatCard,
-  stickerHome,
-  Themes,
-  useClock
-} from "../stories/canvas-kit.tsx"
+import { type Marker, scrolls, type Stat, stickerHome } from "../stories/canvas-kit.tsx"
+import { CanvasBoard } from "../stories/CanvasBoard.tsx"
+import { CanvasPane } from "../stories/CanvasPane.tsx"
+import { DashboardDesign } from "../stories/DashboardDesign.tsx"
+import { Playback } from "../stories/Playback.tsx"
+import { PricingDesign } from "../stories/PricingDesign.tsx"
+import { StatCard } from "../stories/StatCard.tsx"
+import { Themes } from "../stories/Themes.tsx"
+import { useClock } from "../stories/useClock.ts"
 import type { DragPhase } from "./drag-motion.ts"
 import { DragLift } from "./DragLift.tsx"
 import { DragPicture } from "./DragPicture.tsx"
