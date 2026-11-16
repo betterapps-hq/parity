@@ -409,6 +409,34 @@ async function exportsOf(
   return found
 }
 
+/**
+ * The source of a module and of every file of the package's own it re-exports from, by path: where to look for a name
+ * it exports when what declares it isn't a component the renderer recognises, as Mantine's `factory()` components.
+ */
+export async function reexportedSources(file: string, read = new Map<string, string>()): Promise<Map<string, string>> {
+  if (read.has(file)) {
+    return read
+  }
+
+  const source = await readFile(file, "utf8").catch(() => undefined)
+
+  if (source === undefined) {
+    return read
+  }
+
+  read.set(file, source)
+
+  for (const reexport of reexportsOf(source)) {
+    const target = resolveRelative(file, reexport.from)
+
+    if (target) {
+      await reexportedSources(target, read)
+    }
+  }
+
+  return read
+}
+
 /** A module's re-exports: `export * from "./x"` (every name), and `export { A, B as C } from "./x"`. Types are left out. */
 function reexportsOf(source: string): { from: string; names?: [string, string][] }[] {
   const found: { from: string; names?: [string, string][] }[] = []

@@ -18,7 +18,7 @@ import {
 } from "@parity-app/core"
 import { newestEntries, registryEntryFor, withEdits } from "@parity-app/registry"
 import { type ReadTokenFile, readDesignTokens, type SkippedToken } from "@parity-app/tokens"
-import { exportedComponents, findPackage, type InstalledPackage, packageEntry } from "./packages.ts"
+import { exportedComponents, findPackage, type InstalledPackage, packageEntry, reexportedSources } from "./packages.ts"
 import { readStylesheet } from "./styles.ts"
 
 /** A library that can be added to a project from the canvas: one Parity's registry describes. */
@@ -300,13 +300,16 @@ async function otherExports(
 
   const names = new Set(declared.map((component) => component.name))
   const listedRoots = new Set(Object.keys(list).map((name) => name.split(".")[0]!))
-  const source = await readFile(entry, "utf8").catch(() => "")
+  // A name the renderer doesn't take for a component may still be exported, as Mantine's `factory()` components are,
+  // so a name is gone only when no file the entry re-exports from mentions it.
+  const sources = [...(await reexportedSources(entry)).values()]
+  const words = new Set(sources.flatMap((text) => text.match(/[\w$]+/g) ?? []))
 
   const gone = new Set(
     Object.keys(list).filter((name) => {
       const root = name.split(".")[0]!
 
-      return !names.has(root) && !new RegExp(`\\b${root}\\b`).test(source)
+      return !names.has(root) && !words.has(root)
     })
   )
 

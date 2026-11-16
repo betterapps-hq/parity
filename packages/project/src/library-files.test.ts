@@ -107,15 +107,17 @@ describe("library files", () => {
     await write("node_modules/@acme/ui/package.json", { name: "@acme/ui", version: "1.2.0", types: "index.d.ts" })
     await write(
       "node_modules/@acme/ui/index.d.ts",
-      "export function Button(): unknown\nexport function Legacy(): unknown"
+      'export function Button(): unknown\nexport function Legacy(): unknown\nexport * from "./card.js"'
     )
+    // Made with a factory, as Mantine's are, so it's no component the renderer recognises, but it's still exported.
+    await write("node_modules/@acme/ui/card.d.ts", "export declare const Card: Factory<{ props: CardProps }>")
     await write("registry/@acme+ui.lib.par", {
       version: 4,
       id: "acme",
       name: "Acme UI",
       package: { name: "@acme/ui", version: "2.4.0", range: "^2.0.0" },
       decorators: [{ wrap: { import: "@acme/ui", component: "Provider" } }],
-      components: { list: { Button: component(), Badge: component() } }
+      components: { list: { Button: component(), Badge: component(), Card: component() } }
     })
 
     const found = await findLibraries(
@@ -128,7 +130,7 @@ describe("library files", () => {
     )
 
     expect(found.libraries[0]?.decorators).toHaveLength(1)
-    expect(Object.keys(found.components).sort()).toEqual(["acme/Button", "acme/Legacy"])
+    expect(Object.keys(found.components).sort()).toEqual(["acme/Button", "acme/Card", "acme/Legacy"])
     expect(found.notes[0]).toMatch(
       /1\.2\.0 is older than Parity's file for it \(2\.4\.0\): 1 components it doesn't list found by name, 1 it doesn't have yet/
     )
