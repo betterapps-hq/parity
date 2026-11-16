@@ -114,13 +114,14 @@ export function callerOrigin(stack: string, pageOrigin: string): string | undefi
 }
 
 /**
- * `css` with each relative `url()` resolved against `address`, the linked stylesheet it was read from, as a browser
- * resolves them. Frames take it as a sheet of Parity's own, where they'd resolve against Parity's page. Addresses with
- * a scheme, from the root, and fragments stay as they are.
+ * `css` with each relative `url()`, from the root too, resolved against `address`, the linked stylesheet it was read
+ * from, as a browser resolves them. Frames take it as a sheet of Parity's own, where they'd resolve against Parity's
+ * page, and an imported stylesheet's root may be another origin's. Addresses with a scheme and fragments stay as
+ * they are.
  */
 export function relativeUrlsFrom(css: string, address: string): string {
   return css.replace(
-    /url\(\s*(["']?)(?![a-z][a-z\d+.-]*:|\/|#)([^"')]+)\1\s*\)/gi,
+    /url\(\s*(["']?)(?![a-z][a-z\d+.-]*:|#)([^"')]+)\1\s*\)/gi,
     (_match, quote: string, path: string) => `url(${quote}${new URL(path, address).href}${quote})`
   )
 }
@@ -178,7 +179,13 @@ function styleWithImports(css: string, origin: string): string {
 
 /** `@import` statements: the address, plain or in `url()`, and what follows it (layer, supports, media). */
 function importPattern(): RegExp {
-  return /@import\s+(?:url\(\s*)?(["']?)([^"')\s;]+)\1\s*\)?\s*([^;]*);/g
+  // A quoted address is read whole, semicolons and all, as Google Fonts' carry.
+  return /@import\s+(?:url\(\s*(?:"([^"]*)"|'([^']*)'|([^)\s]*))\s*\)|"([^"]*)"|'([^']*)')\s*([^;]*);/g
+}
+
+/** An `@import` match's address, whichever way it was written. */
+function importAddress(match: readonly (string | undefined)[]): string {
+  return match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? ""
 }
 
 /** A stylesheet's text by its address, and where it came from in the end, after any redirect. */
@@ -210,8 +217,8 @@ export async function withImports(
   }
 
   const contents = await Promise.all(
-    statements.map(async ([, , path = ""]) => {
-      const answer = await readSheet(new URL(path, address).href)
+    statements.map(async (statement) => {
+      const answer = await readSheet(new URL(importAddress(statement), address).href)
 
       return answer ? withImports(relativeUrlsFrom(answer.text, answer.from), answer.from, readSheet, depth + 1) : ""
     })
@@ -219,9 +226,7 @@ export async function withImports(
 
   let index = 0
 
-  return css.replace(importPattern(), (_statement, _quote, _path, conditions: string) =>
-    importConditions(contents[index++] ?? "", conditions)
-  )
+  return css.replace(importPattern(), () => importConditions(contents[index] ?? "", statements[index++]?.[6] ?? ""))
 }
 
 /** Imported CSS wrapped in the layer, supports condition and media its `@import` names, in that order outward. */

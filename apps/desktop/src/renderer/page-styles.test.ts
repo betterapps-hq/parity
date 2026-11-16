@@ -499,6 +499,22 @@ describe("withImports", () => {
       ].join("\n")
     )
   })
+
+  it("reads a quoted address whole, semicolons and all, and an import's root against its own origin", async () => {
+    const fonts = "https://fonts.test/css2?family=Roboto:wght@400;700&display=swap"
+    const asked: string[] = []
+
+    const read = async (address: string) => {
+      asked.push(address)
+
+      return { text: "@font-face { src: url(/s/roboto.woff2); }", from: address }
+    }
+
+    const css = await withImports(`@import url("${fonts}"); .a {}`, "http://project.test/app.css", read)
+
+    expect(asked).toEqual([fonts])
+    expect(css).toBe("@font-face { src: url(https://fonts.test/s/roboto.woff2); } .a {}")
+  })
 })
 
 describe("importConditions", () => {
@@ -520,7 +536,7 @@ describe("relativeUrlsFrom", () => {
         address
       )
     ).toBe(
-      '.a { background: url("http://project.test/_next/static/media/a.png"); } @font-face { src: url(http://project.test/_next/static/css/f.woff2); } .b { background: url(/b.png), url(data:image/png;base64,x), url(#c), url(https://cdn.test/d.png); }'
+      '.a { background: url("http://project.test/_next/static/media/a.png"); } @font-face { src: url(http://project.test/_next/static/css/f.woff2); } .b { background: url(http://project.test/b.png), url(data:image/png;base64,x), url(#c), url(https://cdn.test/d.png); }'
     )
   })
 })
