@@ -352,7 +352,6 @@ export function moveTarget(
  */
 export class DropPreview {
   private readonly templates: HTMLElement[]
-  private readonly displays: string[]
   /** Each layer's corners, in its own pixels, which its outline follows. */
   private readonly radii: number[]
   /** Which layers clip what overflows them, so their outline is drawn inside, where it's seen. */
@@ -398,7 +397,6 @@ export class DropPreview {
 
       return copy
     })
-    this.displays = originals.map((original) => original.style.getPropertyValue("display"))
   }
 
   /**
@@ -413,7 +411,7 @@ export class DropPreview {
     this.hidden = true
 
     for (const original of this.originals) {
-      original.style.setProperty("display", "none", "important")
+      hideOriginal(original)
     }
   }
 
@@ -534,15 +532,11 @@ export class DropPreview {
   end(close: boolean): void {
     const show = () => {
       this.remove()
-      this.originals.forEach((original, index) => {
-        const display = this.displays[index]
 
-        if (display) {
-          original.style.setProperty("display", display)
-        } else {
-          original.style.removeProperty("display")
-        }
-      })
+      if (this.hidden) {
+        this.hidden = false
+        this.originals.forEach(showOriginal)
+      }
     }
 
     if (close) {
@@ -568,6 +562,34 @@ export class DropPreview {
     this.edges = []
     this.unrule()
     this.at = ""
+  }
+}
+
+/** Layers hidden by drop previews, by how many hide each, and the `display` each had before the first did. */
+const hiddenOriginals = new WeakMap<HTMLElement, { display: string; by: number }>()
+
+/** Hides a layer for a drop preview; several previews can hide one, and it shows again once the last lets go. */
+function hideOriginal(original: HTMLElement): void {
+  const hidden = hiddenOriginals.get(original) ?? { display: original.style.getPropertyValue("display"), by: 0 }
+  hidden.by++
+  hiddenOriginals.set(original, hidden)
+  original.style.setProperty("display", "none", "important")
+}
+
+/** Lets go of a layer one drop preview hid: the last to let go puts back the `display` it had. */
+function showOriginal(original: HTMLElement): void {
+  const hidden = hiddenOriginals.get(original)
+
+  if (!hidden || --hidden.by > 0) {
+    return
+  }
+
+  hiddenOriginals.delete(original)
+
+  if (hidden.display) {
+    original.style.setProperty("display", hidden.display)
+  } else {
+    original.style.removeProperty("display")
   }
 }
 

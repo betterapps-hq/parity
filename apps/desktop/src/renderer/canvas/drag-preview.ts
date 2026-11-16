@@ -3,7 +3,7 @@ import { containerEntry, type DocChange } from "@parity-app/multiplayer"
 import type { Palette } from "@parity-app/presence-colors"
 import { findFrames, findNodeElements, nodeBox } from "../frame.ts"
 import { type CarriedPictures, carriedPictureSet, type Dragger } from "./carried.ts"
-import { type ElementLift, liftElements, reducedMotion } from "./element-lift.ts"
+import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { corner, DropPreview } from "./layer-drag.ts"
 import { layerPicture } from "./layer-picture.ts"
@@ -330,8 +330,14 @@ function layersPart(
       }
 
       drop?.end(true)
+      // Back where they were, they stay empty until the picture gets there, as a local drag called off does.
+      const back = styleElements(elements, { opacity: "0" })
       const home = corner(ids.flatMap((id) => nodeBox(host, id) ?? [])) ?? { x: union.left, y: union.top }
-      pictures.letGo("cancelling", space().point(home), reduced, forget)
+
+      pictures.letGo("cancelling", space().point(home), reduced, () => {
+        back()
+        forget()
+      })
     }
   }
 }
