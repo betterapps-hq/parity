@@ -1,8 +1,9 @@
 # The editor
 
 The production desktop can be packaged with `pnpm --filter @parity-app/desktop package` after `pnpm build` (PAR-9). The
-Windows installer offers a per-user install directory and an uninstaller. CI's `try-installed` check opens a cold
-project in that installed app and checks that the canvas and project service connect, then uninstalls it.
+Windows installer offers a per-user install directory and an uninstaller. The Fixtures workflow's `try-installed` check
+(`fixtures.yml`, started by hand since PAR-1225) opens a cold project in that installed app and checks that the canvas
+and project service connect, then uninstalls it.
 
 What Parity's canvas editor does, how each part of it works, and the tests that keep it working. You asked on 2026-10-29
 for every piece of editor work to land with tests and a description here, so nothing gets lost or quietly breaks.
@@ -1808,10 +1809,10 @@ Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts`
 Tests: `packages/extension-turbopack/src/extension.test.ts` (its manifest) and `loader.test.ts` (the runtime chunk and
 the guest module); `packages/next-builders/src/*.test.ts` (detection, the bundler, the guest app, the runtime's copy,
 server-only modules, reading Next's pages and the global stylesheets); `packages/fixtures/src/turbopack.test.ts`, which
-starts the builder on the `nextjs-turbopack` validation project in CI and loads everything its guest module names. Tried
-in the running app on 2026-11-15 on `fixtures/nextjs-turbopack`: Next.js 16.4.6 on Turbopack found, its components, its
-stories and Home drawn with Tailwind and Recharts. On a Next.js 16.3.1 app with vanilla-extract, Sentry and Radix: it
-opened with 97 components and 441 theme variables, and the components that need no provider drew.
+starts the builder on the `nextjs-turbopack` validation project in the Fixtures workflow and loads everything its guest
+module names. Tried in the running app on 2026-11-15 on `fixtures/nextjs-turbopack`: Next.js 16.4.6 on Turbopack found,
+its components, its stories and Home drawn with Tailwind and Recharts. On a Next.js 16.3.1 app with vanilla-extract,
+Sentry and Radix: it opened with 97 components and 441 theme variables, and the components that need no provider drew.
 
 ### webpack as an extension, through its builder provider (PAR-1150)
 
@@ -8570,8 +8571,8 @@ discovery takes the builder's answer and reads no entry itself). `apps/desktop/s
 PAR-820's, with a fake builder's answer). `parity lib` on an app asks the registered builders the same way
 (`appStylesheets` in `packages/cli/src/lib.ts`) and reads the app's tokens from what the first that serves it names.
 Gaps: Vite 6 and 7 resolve a config with only `rollupOptions`, which `configInput`'s tests cover with that shape rather
-than a real Vite 7, and CI's detection snapshots of `vite7-js` and `react-aria` cover it end to end; Vite 5's projects
-are compiled with a middleware-mode dev server, since Vite 5 has no environments.
+than a real Vite 7, and the Fixtures workflow's detection snapshots of `vite7-js` and `react-aria` cover it end to end;
+Vite 5's projects are compiled with a middleware-mode dev server, since Vite 5 has no environments.
 
 ### A project's stylesheets stay in its frames (PAR-1181, PAR-1187)
 
@@ -8999,9 +9000,9 @@ on the latest release; `main/updates.test.ts` covers the channel each check name
 `preload/index.test.ts` covers a native menu action arriving before React subscribes and replacing its listener without
 losing the next action. `chrome/updates.test.ts` covers manual checks without a dialog, quiet startup results, repeated
 checks, retry, a closed notice staying hidden until a check, one Parity closed itself not staying hidden, and closed
-progress becoming a ready notice. CI runs `scripts/try-update.ts` on Windows and Linux: two real packaged versions,
-built uncompressed since neither leaves the runner, checksum rejection, closing the notice, unsaved-work cancellation,
-Save, installation and relaunch as the newer version. It refuses to run outside CI.
+progress becoming a ready notice. The Fixtures workflow, started by hand, runs `scripts/try-update.ts` on Windows and
+Linux: two real packaged versions, built uncompressed since neither leaves the runner, checksum rejection, closing the
+notice, unsaved-work cancellation, Save, installation and relaunch as the newer version. It refuses to run outside CI.
 
 ### Sharing diagnostics (PAR-626)
 

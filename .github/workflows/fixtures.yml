@@ -1,0 +1,221 @@
+name: Fixtures
+
+# The checks on other people's kinds of projects (PAR-1225): the projects in fixtures/, each installed with its own
+# package manager, and the app built, packaged, installed and updated on each system, opening sample projects. They
+# matter once Parity supports projects beyond the core editor's, so they're off pull requests' CI and run only when
+# started from the Actions tab or with `gh workflow run fixtures.yml --ref <branch>`.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # The fixtures' tests on each system: the detection snapshot of every project in fixtures/, and the Turbopack builder
+  # started on nextjs-turbopack. They run when PARITY_FIXTURES is set.
+  fixtures:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
+    with:
+      os: '["ubuntu-latest", "windows-latest", "macos-latest"]'
+      # The detection tests need every project in fixtures/ installed, each with its own package manager. Their
+      # node_modules, or for vite-fluent-pnp Yarn's Plug'n'Play files and its archives in `.yarn`, come back from the
+      # cache while their lockfiles are unchanged, and npm ci would delete them, so they're installed only when one is
+      # missing. Bun (for mantine) and Corepack (which brings react-aria's Yarn)
+      # come from npm at pinned versions, the same on every system.
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+        missing=
+        for project in fixtures/*/; do
+          if [ ! -d "${project}node_modules" ] && [ ! -f "${project}.pnp.cjs" ]; then missing=1; fi
+        done
+        if [ -n "$missing" ]; then
+          tools=$(mktemp -d)
+          npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
+          export PATH="$tools/node_modules/.bin:$PATH"
+          pnpm --filter @parity-app/fixtures install-projects
+        else
+          echo "Every fixture project came from the cache."
+        fi
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
+      cache-path: |
+        fixtures/*/node_modules
+        fixtures/*/.pnp.*
+        fixtures/*/.yarn/cache
+        fixtures/*/.yarn/unplugged
+        fixtures/*/.yarn/install-state.gz
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
+      cache-key-files: |
+        fixtures/*/*lock*
+        fixtures/*/pnpm-workspace.yaml
+      command: PARITY_FIXTURES=1 pnpm vitest run packages/fixtures
+      # A run that installs the fixture projects and caches their 2 GB can outlast the default 30 minutes on Windows.
+      timeout-minutes: 45
+
+  # The Windows app, built, packaged and installed as people get it, then updated. Every installer target must build
+  # before a change can merge; signing is a separate release task. Its bundles and source maps go to the sourcemaps job.
+  app-windows:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
+    with:
+      os: '["windows-latest"]'
+      # A group of its own, so it never cancels verify's run on the same system.
+      concurrency-key: app-${{ github.ref }}
+      # The start and update checks open fixture projects, so this installs them as verify does, from the same cache.
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+        missing=
+        for project in fixtures/*/; do
+          if [ ! -d "${project}node_modules" ] && [ ! -f "${project}.pnp.cjs" ]; then missing=1; fi
+        done
+        if [ -n "$missing" ]; then
+          tools=$(mktemp -d)
+          npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
+          export PATH="$tools/node_modules/.bin:$PATH"
+          pnpm --filter @parity-app/fixtures install-projects
+        else
+          echo "Every fixture project came from the cache."
+        fi
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
+      cache-path: |
+        fixtures/*/node_modules
+        fixtures/*/.pnp.*
+        fixtures/*/.yarn/cache
+        fixtures/*/.yarn/unplugged
+        fixtures/*/.yarn/install-state.gz
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
+      cache-key-files: |
+        fixtures/*/*lock*
+        fixtures/*/pnpm-workspace.yaml
+      command: |
+        pnpm build
+        # The startup check launches the production app only in CI, outside the checkout and without a dev server.
+        pnpm --filter @parity-app/desktop try-built vite7-js
+        pnpm --filter @parity-app/desktop try-built headless
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
+        pnpm --filter @parity-app/desktop try-installed
+        # Real N -> N+1 updates, including corrupt downloads and unsaved-work cancellation.
+        pnpm --filter @parity-app/desktop try-update
+      # A run that installs the fixture projects can outlast the default 30 minutes on Windows, as verify's can.
+      timeout-minutes: 45
+      artifact-path: apps/desktop/sourcemaps
+      artifact-name: desktop-sourcemaps
+      artifact-retention-days: 7
+
+  # The Linux app, packaged, then updated from one real version to the next.
+  app-linux:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
+    with:
+      os: '["ubuntu-latest"]'
+      # A group of its own, so it never cancels verify's run on the same system.
+      concurrency-key: app-${{ github.ref }}
+      # The start and update checks open fixture projects, so this installs them as verify does, from the same cache.
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+        missing=
+        for project in fixtures/*/; do
+          if [ ! -d "${project}node_modules" ] && [ ! -f "${project}.pnp.cjs" ]; then missing=1; fi
+        done
+        if [ -n "$missing" ]; then
+          tools=$(mktemp -d)
+          npm install --prefix "$tools" --no-audit --no-fund bun@1.4.3 corepack@0.35.0
+          export PATH="$tools/node_modules/.bin:$PATH"
+          pnpm --filter @parity-app/fixtures install-projects
+        else
+          echo "Every fixture project came from the cache."
+        fi
+      # Electron's downloads share the fixtures' cache and its key, as the template keeps one. After Electron's version
+      # changes, the new one downloads on each run until a fixture's lockfile changes too.
+      cache-path: |
+        fixtures/*/node_modules
+        fixtures/*/.pnp.*
+        fixtures/*/.yarn/cache
+        fixtures/*/.yarn/unplugged
+        fixtures/*/.yarn/install-state.gz
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # The pnpm projects' workspace settings decide how their node_modules are laid out, so they key it too.
+      cache-key-files: |
+        fixtures/*/*lock*
+        fixtures/*/pnpm-workspace.yaml
+      command: |
+        pnpm build
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
+        xvfb-run -a pnpm --filter @parity-app/desktop try-update
+
+  # The macOS app, packaged for both chips.
+  app-macos:
+    uses: betterapps-hq/pipelines/.github/workflows/ci-verify.yml@main
+    with:
+      os: '["macos-latest"]'
+      # A group of its own, so it never cancels verify's run on the same system.
+      concurrency-key: app-${{ github.ref }}
+      prepare: |
+        # Electron's binary and what electron-builder downloads to package it go where the cache keeps them. Electron
+        # is installed here, with up to 3 tries, since whatever first loads it would otherwise download it with one (PAR-789).
+        # Outside the checkout, whose package.json would make the scripts electron-builder unpacks there ES modules.
+        home=$(node -p "require('os').homedir()")
+        echo "electron_config_cache=$home/.cache/parity-ci/electron" >> "$GITHUB_ENV"
+        echo "ELECTRON_BUILDER_CACHE=$home/.cache/parity-ci/electron-builder" >> "$GITHUB_ENV"
+        export electron_config_cache="$home/.cache/parity-ci/electron"
+        node scripts/retry.ts pnpm --filter @parity-app/desktop exec install-electron
+      cache-path: |
+        ~/.cache/parity-ci/electron
+        ~/.cache/parity-ci/electron-builder
+      # Electron's version is in the app's package.json, so its downloads are fetched again when that changes.
+      cache-key-files: apps/desktop/package.json
+      command: |
+        pnpm build
+        export CSC_IDENTITY_AUTO_DISCOVERY=false
+        node scripts/retry.ts pnpm --filter @parity-app/desktop package
+
+  # Sends the Windows build's source maps to Sentry, so events from the copies these checks start resolve to source (PAR-625).
+  # Their release is the commit; only main's commits are tied to it, since a pull request's merge commit isn't kept.
+  # Forks' pull requests get no secrets, so it skips them. A failed upload only leaves those events unresolved, so it
+  # never fails the run.
+  sourcemaps:
+    name: Upload source maps
+    needs: app-windows
+    if: >-
+      needs.app-windows.outputs.artifact-name != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    continue-on-error: true
+    steps:
+      - uses: betterapps-hq/pipelines/github/actions/setup@main
+      - uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.app-windows.outputs.artifact-name }}
+          path: apps/desktop/sourcemaps
+      - name: Upload to Sentry
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          LINK_COMMITS: ${{ github.ref == 'refs/heads/main' && '--link-commits' || '' }}
+        run: node scripts/upload-sourcemaps.ts apps/desktop --project parity-desktop $LINK_COMMITS

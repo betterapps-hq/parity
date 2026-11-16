@@ -163,9 +163,10 @@ This is how Buildkit and the agency monorepo already release, and you asked for 
 - **The shared CI template runs `pnpm verify`** on an operating system matrix (PAR-2): Ubuntu, Windows and macOS for
   Parity, since a public repository's runners are free on all three and Parity is developed on Windows. It sets up Vite+
   through `voidzero-dev/setup-vp`, pinned to an exact release, since its docs say the `v1` tag no longer gets updates.
-- **Parity's own steps go before it:** installing the fixture projects with npm, Yarn and Bun
-  (`pnpm --filter @parity-app/fixtures install-projects`), cached on their lockfiles. `detection.test.ts` runs only in
-  CI, so a local `pnpm verify` skips it rather than needing them.
+- **The fixture projects and the app's packaging run by hand** (PAR-1225), in the Fixtures workflow (`fixtures.yml`): it
+  installs the fixture projects with npm, Yarn and Bun (`pnpm --filter @parity-app/fixtures install-projects`), cached
+  on their lockfiles, runs their tests with `PARITY_FIXTURES` set, and builds, packages, installs and updates the app on
+  each system. Pull requests' CI runs neither, so `pnpm verify` skips the fixtures' tests there and locally.
 - **Pull requests also run `beachball check`.**
 - **A newer push cancels the run before it.** Release and deploy runs never cancel.
 - **Dependabot opens a weekly PR** for npm minor and patch updates, grouped, and one for Actions (PAR-394). The shared
