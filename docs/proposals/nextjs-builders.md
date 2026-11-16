@@ -190,7 +190,7 @@ The core does the work, given a `Bundler` for webpack:
 
 Both are in `fixtures/` (PR #677) and go through the validation snapshots:
 
-- **`nextjs-webpack`:** Next.js 15 on webpack, React 18, both `app/` and `pages/` routers, Sass CSS modules, Mantine 8
+- **`nextjs-webpack`:** Next.js 15 on webpack, React 18, both `app/` and `pages/` routers, Sass CSS modules, Chakra UI 3
   and Tabler icons, TypeScript and npm.
 - **`webpack-react-router`:** webpack 5, React 19, React Router's `<Routes>` in JSX, styled-components, React Aria
   Components and Lucide, JavaScript and pnpm. It has no stylesheets: styled-components makes its styles at run time,

@@ -46,11 +46,11 @@
   },
   "themes": [],
   "breakpoints": {
-    "mantine/xs": "576px",
-    "mantine/sm": "768px",
-    "mantine/md": "992px",
-    "mantine/lg": "1200px",
-    "mantine/xl": "1408px"
+    "chakra/sm": "480px",
+    "chakra/md": "768px",
+    "chakra/lg": "1024px",
+    "chakra/xl": "1280px",
+    "chakra/2xl": "1536px"
   },
   "components": {
     "App": {
@@ -83,6 +83,12 @@
       "as": "function",
       "lazy": true
     },
+    "Provider": {
+      "path": "src/components/Provider.tsx",
+      "export": "Provider",
+      "as": "function",
+      "lazy": true
+    },
     "RootLayout": {
       "path": "src/app/layout.tsx",
       "export": "default",
@@ -104,11 +110,11 @@
   },
   "libraries": [
     {
-      "id": "mantine",
-      "package": "@mantine/core",
-      "version": "8.3.18",
+      "id": "chakra",
+      "package": "@chakra-ui/react",
+      "version": "3.37.0",
       "stylesImported": true,
-      "components": 234
+      "components": 784
     }
   ],
   "icons": [
@@ -119,10 +125,9 @@
     }
   ],
   "notes": [
-    "styles the builder found: @mantine/core/styles.css",
-    "8 components in 9 files from tsconfig.json",
-    "@mantine/core 8.3.18 is older than Parity's file for it (9.7.3): 1 components it doesn't list found by name, 58 it doesn't have yet. `parity lib @mantine/core --registry` makes one for this version.",
-    "234 components from Mantine (@mantine/core)",
+    "the builder found no global stylesheets the app loads",
+    "9 components in 10 files from tsconfig.json",
+    "784 components from Chakra UI (@chakra-ui/react)",
     "0 components from Tabler Icons (@tabler/icons-react)",
     "no .par project file yet"
   ]

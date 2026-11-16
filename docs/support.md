@@ -193,7 +193,7 @@ go.
 | Parent chains checked against the docs' anatomy     | ◐      | Base UI, Chakra and shadcn: of the parts their docs' Anatomy or Usage blocks nest, placed as shown: Base UI 174 of 196, Chakra 295 of 328, each Buildkit style 160 of 170. Radix's and Mantine's docs aren't in their repositories.                                                                                                                                                                                                                                                                                            |
 | Internal parts                                      | ✅     | Parts a library renders inside its own components and nothing places (a kit's Overlay and Portal, ChartStyle) are listed under Internal parts at the end of the library, with the props their owner passes.                                                                                                                                                                                                                                                                                                                    |
 | A library newer than its file                       | ◐      | Uses the newest older file, leaves out what's gone and lists new components by name, with a note to update the file.                                                                                                                                                                                                                                                                                                                                                                                                           |
-| A library older than every file                     | ◐      | Uses the oldest newer file, so Mantine 8 still gets Mantine 9's provider: what it doesn't have is left out and components the file doesn't list are found by name, with a note to make a file for its version.                                                                                                                                                                                                                                                                                                                 |
+| A library older than every file                     | ◐      | Uses the oldest newer file, so MUI 7 still gets the providers MUI 9's file wraps frames in: what it doesn't have is left out and components the file doesn't list are found by name, with a note to make a file for its version.                                                                                                                                                                                                                                                                                               |
 | A library's own repo, with a `.lib.par` at its root | ✅     | Its designs open on the canvas, and saving writes them into the `.lib.par`'s `canvas`. Its own components are named by the library (`nova/Button`), so those designs work in the apps that install it.                                                                                                                                                                                                                                                                                                                         |
 | A library's component designs                       | ✅     | The component designs on a dependency's `.lib.par` canvas are listed in its section of the Components panel, and placed as linked instances that follow the library or as detached copies.                                                                                                                                                                                                                                                                                                                                     |
 | Buildkit shadcn styles (Base UI)                    | ✅     | All eight (luma, lyra, maia, mira, nova, rhea, sera, vega) in the registry, sharing one set of hand edits, with the tooltip provider and toaster. Parts that need a provider of their own, as the sidebar's need `SidebarProvider`, are composed inside it, by agents too. Their tokens are each style's own DTCG `tokens.json`, with a description on every token. The Radix styles aren't published.                                                                                                                         |
@@ -444,16 +444,16 @@ versions. Dates are each major's first stable release on npm. The Parity column 
 
 ### Component libraries
 
-| Tool                    | Parity | Supported | Drops next                 | Dropped                        |
-| ----------------------- | ------ | --------- | -------------------------- | ------------------------------ |
-| Buildkit Base UI styles | ✅     | 0.x       | Nothing; 0.x is the newest | Nothing                        |
-| Radix                   | ✅     | 1         | Nothing; 1 is the newest   | 0.x (August 2022)              |
-| Base UI                 | ✅     | 1         | Nothing; 1 is the newest   | Nothing                        |
-| React Aria Components   | ✅     | 1         | Nothing; 1 is the newest   | 0.x (June 2018)                |
-| MUI                     | ◐      | 9, 7      | 7, in March 2027           | 6 (August 2024) and earlier    |
-| Chakra UI               | ✅     | 3         | Nothing; 3 is the newest   | 2 (May 2022) and earlier       |
-| Mantine                 | ◐      | 9, 8      | 8, in May 2027             | 7 (September 2023) and earlier |
-| Fluent UI               | ✅     | 9         | Nothing; 9 is the newest   | 0.x (June 2022)                |
+| Tool                    | Parity | Supported | Drops next                 | Dropped                     |
+| ----------------------- | ------ | --------- | -------------------------- | --------------------------- |
+| Buildkit Base UI styles | ✅     | 0.x       | Nothing; 0.x is the newest | Nothing                     |
+| Radix                   | ✅     | 1         | Nothing; 1 is the newest   | 0.x (August 2022)           |
+| Base UI                 | ✅     | 1         | Nothing; 1 is the newest   | Nothing                     |
+| React Aria Components   | ✅     | 1         | Nothing; 1 is the newest   | 0.x (June 2018)             |
+| MUI                     | ◐      | 9, 7      | 7, in March 2027           | 6 (August 2024) and earlier |
+| Chakra UI               | ✅     | 3         | Nothing; 3 is the newest   | 2 (May 2022) and earlier    |
+| Mantine                 | ◐      | 9         | Nothing; 9 is the newest   | 8 (May 2025) and earlier    |
+| Fluent UI               | ✅     | 9         | Nothing; 9 is the newest   | 0.x (June 2022)             |
 
 ### Icons
 
@@ -541,8 +541,7 @@ of every axis at least once. The more of each project that's tested end to end, 
 `react-router-framework` is generated from `create-react-router` like the others, with its styles, Radix and Phosphor
 laid over the template (PAR-1145). No project covers shadcn on Radix now. `react-aria` runs on Vite 7, not 8 as first
 planned: Storybook 9 accepts Vite 5 to 7 only, so a Storybook 9 project on Vite 8 can't be installed cleanly. Its Yarn
-Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no project yet. By the version cutoff, Mantine 8
-should be tested too, since it drops in May 2027; no project covers it yet.
+Berry uses the `node-modules` linker; Plug'n'Play, Yarn's default, has no project yet.
 
 What the detection snapshots record on 2026-10-29, gaps included:
 
@@ -573,9 +572,9 @@ What the detection snapshots record on 2026-10-29, gaps included:
 - **`mui` and `fluent`:** MUI and Fluent UI are listed as libraries, Fluent's icons as an icon set, and MUI's four
   breakpoints are read. Neither has tokens yet, since both keep their themes in JavaScript objects.
 - **`nextjs-webpack`:** Next.js 15 on webpack with React 18, both the `app/` and `pages/` routers, Sass CSS modules,
-  Mantine 8, Tabler icons and npm. It opens on webpack, through the webpack extension on the Turbopack builder's guest
-  app. Mantine is listed as a library from the registry's Mantine 9 file, so its components draw inside its
-  `MantineProvider` (PAR-1168).
+  Chakra UI 3 with next-themes' color mode, Tabler icons and npm. It opens on webpack, through the webpack extension on
+  the Turbopack builder's guest app. Chakra is listed as a library with its five breakpoints, so its components draw
+  inside the providers its library file gives (PAR-1168).
 - **`nextjs-turbopack`:** Next.js 16 on Turbopack with React 19, nested App Router layouts, a route group, dynamic and
   catch-all routes, `loading` and `not-found` files, Tailwind v4 through `@tailwindcss/turbopack`, a CSS module,
   Headless UI, Heroicons, Recharts, Storybook and pnpm. It opens on Turbopack, with Tailwind's 435 tokens and its light
