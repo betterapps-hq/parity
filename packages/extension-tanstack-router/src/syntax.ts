@@ -100,19 +100,136 @@ function propertyName(name: ts.PropertyName): string | undefined {
   return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : undefined
 }
 
+/** The call that makes a route, and what's chained after it. */
+export interface RouteChain {
+  /** `createRoute(…)`, `createRootRoute(…)`, `createFileRoute("/x")(…)` and the like. */
+  call: ts.CallExpression
+  /** The options given to it, then to each `.update(…)` chained after it. */
+  parts: ts.Expression[]
+  /** Whether anything else is chained after it, as `.lazy(…)`, which may give the route what its options don't. */
+  opaque: boolean
+}
+
 /**
- * Whether a route only answers requests on the server, as a TanStack Start server route does (PAR-1173): its options
- * have `server` and no `component`, and neither spread options nor a lazy part could give it one.
+ * The call that makes a route, through what's chained after it, as `createRoute({…}).update({…}).lazy(…)`. Nothing for
+ * `addChildren`, which makes a tree of routes declared elsewhere.
  */
-export function serverOnly(options: ts.ObjectLiteralExpression | undefined, lazy: boolean): boolean {
-  return (
-    !lazy &&
-    options !== undefined &&
-    propertyValue(options, "server") !== undefined &&
-    propertyValue(options, "component") === undefined &&
-    // Options spread in, as `{ ...pageOptions, server }`, may give the component.
-    !options.properties.some((property) => ts.isSpreadAssignment(property))
-  )
+export function routeChain(expression: ts.Expression): RouteChain | undefined {
+  const call = unwrap(expression)
+
+  if (!ts.isCallExpression(call)) {
+    return undefined
+  }
+
+  const callee = unwrap(call.expression)
+
+  if (!ts.isPropertyAccessExpression(callee)) {
+    return { call, parts: call.arguments[0] ? [call.arguments[0]] : [], opaque: false }
+  }
+
+  const inner = callee.name.text === "addChildren" ? undefined : routeChain(callee.expression)
+
+  if (!inner) {
+    return undefined
+  }
+
+  if (callee.name.text !== "update") {
+    return { ...inner, opaque: true }
+  }
+
+  return call.arguments[0] ? { ...inner, parts: [...inner.parts, call.arguments[0]] } : inner
+}
+
+/** A file's top-level constants by name, as `const pageOptions = {…}`, so an option spread or passed by name is read. */
+export function constantsOf(source: ts.SourceFile): Map<string, ts.Expression> {
+  const constants = new Map<string, ts.Expression>()
+
+  for (const statement of source.statements) {
+    // oxlint-disable-next-line no-bitwise -- TypeScript keeps `const` as a flag; a `let` may be changed later
+    if (!ts.isVariableStatement(statement) || (statement.declarationList.flags & ts.NodeFlags.Const) === 0) {
+      continue
+    }
+
+    for (const declaration of statement.declarationList.declarations) {
+      if (ts.isIdentifier(declaration.name) && declaration.initializer) {
+        constants.set(declaration.name.text, declaration.initializer)
+      }
+    }
+  }
+
+  return constants
+}
+
+/**
+ * Whether a route only answers requests on the server, as a TanStack Start server route does (PAR-1173): its options,
+ * with any `.update(…)` after, give `server` and no `component`. Options are followed through the file's constants and
+ * spreads; when any part can't be read, as options imported or made by a function, or something like `.lazy(…)` is
+ * chained after, the route may draw, so it isn't.
+ */
+export function serverOnly(chain: RouteChain, constants: ReadonlyMap<string, ts.Expression>): boolean {
+  if (chain.opaque) {
+    return false
+  }
+
+  const names = new Set<string>()
+
+  for (const part of chain.parts) {
+    const read = optionNames(part, constants, new Set())
+
+    if (!read) {
+      return false
+    }
+
+    for (const name of read) {
+      names.add(name)
+    }
+  }
+
+  return names.has("server") && !names.has("component")
+}
+
+/** The names some options give, through constants and spreads, or nothing when any of them can't be known. */
+function optionNames(
+  expression: ts.Expression,
+  constants: ReadonlyMap<string, ts.Expression>,
+  seen: ReadonlySet<string>
+): Set<string> | undefined {
+  const value = unwrap(expression)
+
+  if (ts.isIdentifier(value)) {
+    const constant = constants.get(value.text)
+
+    return constant === undefined || seen.has(value.text)
+      ? undefined
+      : optionNames(constant, constants, new Set([...seen, value.text]))
+  }
+
+  if (!ts.isObjectLiteralExpression(value)) {
+    return undefined
+  }
+
+  const names = new Set<string>()
+
+  for (const property of value.properties) {
+    if (ts.isSpreadAssignment(property)) {
+      const spread = optionNames(property.expression, constants, seen)
+
+      if (!spread) {
+        return undefined
+      }
+
+      for (const name of spread) {
+        names.add(name)
+      }
+    } else if (ts.isIdentifier(property.name) || ts.isStringLiteralLike(property.name)) {
+      names.add(property.name.text)
+    } else {
+      // A computed name, as `[key]: …`, could be any.
+      return undefined
+    }
+  }
+
+  return names
 }
 
 /**

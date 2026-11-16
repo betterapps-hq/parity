@@ -3,10 +3,12 @@ import ts from "typescript"
 import { z } from "zod"
 import { codeRouteTree, readCodeRoutes } from "./code-routes.ts"
 import {
+  constantsOf,
   pagesOnly,
   parentRouteName,
   propertyValue,
   resolvePath,
+  routeChain,
   scriptExtensions,
   segmentsOf,
   serverOnly,
@@ -69,7 +71,7 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
       readCodeRoutes(read),
       (route) => optionsSaid(route.options),
       (route, id) => {
-        if (serverOnly(route.options, route.lazy)) {
+        if (route.serverOnly) {
           server.add(id)
         }
       }
@@ -90,10 +92,10 @@ export function readRoutes(read: (path: string) => string | undefined): Route[] 
 
   const add = (route: Pick<Route, "id" | "kind" | "path" | "parent" | "index">, module: string, lazy = false) => {
     const { file, text } = resolveModule(module, read)
-    const options = text === undefined ? undefined : exportedRouteOptions(text)
-    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(options) })
+    const exported = text === undefined ? undefined : exportedRoute(text)
+    found.push({ ...route, segments: segmentsOf(route.path), file, ...routeOptions(exported?.options) })
 
-    if (serverOnly(options, lazy)) {
+    if (!lazy && exported?.serverOnly) {
       server.add(route.id)
     }
   }
@@ -344,8 +346,11 @@ function alwaysRedirects(option: ts.Node | undefined): string | undefined {
     : undefined
 }
 
-/** The options object of the call `export const Route = …` ends with. */
-function exportedRouteOptions(text: string): ts.ObjectLiteralExpression | undefined {
+/**
+ * What `export const Route = …` says: the options of the call that makes it, and whether it only answers requests on the
+ * server (see `serverOnly`).
+ */
+function exportedRoute(text: string): { options?: ts.ObjectLiteralExpression; serverOnly: boolean } | undefined {
   const source = ts.createSourceFile("route.tsx", text, ts.ScriptTarget.Latest, false, ts.ScriptKind.TSX)
 
   for (const statement of source.statements) {
@@ -362,10 +367,16 @@ function exportedRouteOptions(text: string): ts.ObjectLiteralExpression | undefi
         continue
       }
 
-      const call = unwrap(declaration.initializer)
-      const argument = ts.isCallExpression(call) && call.arguments[0] ? unwrap(call.arguments[0]) : undefined
+      const chain = routeChain(declaration.initializer)
 
-      return argument && ts.isObjectLiteralExpression(argument) ? argument : undefined
+      if (!chain) {
+        return undefined
+      }
+
+      const argument = chain.call.arguments[0] && unwrap(chain.call.arguments[0])
+      const said = { serverOnly: serverOnly(chain, constantsOf(source)) }
+
+      return argument && ts.isObjectLiteralExpression(argument) ? { ...said, options: argument } : said
     }
   }
 
