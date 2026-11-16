@@ -58,6 +58,12 @@ async function write(path: string, contents: string): Promise<void> {
   await writeFile(join(root, path), contents)
 }
 
+/**
+ * Retries `assertion` until it passes, with a limit longer than any test's timeout, so the test's own is the one that
+ * counts: CI's Windows runner can stall for longer than vi.waitFor's default second or a few more (PAR-1215, PAR-1220).
+ */
+const settles = (assertion: () => void) => vi.waitFor(assertion, { timeout: 120_000 })
+
 /** The steps a test makes the fake builder fail at, and how. */
 interface Failures {
   detection?: Error
@@ -369,7 +375,7 @@ describe("opening a project", () => {
   it("saves what the type checker found, and a reopen with nothing changed takes it instead of checking again", async () => {
     const { projects, checker, detections } = setUp()
     await projects.open(root)
-    await vi.waitFor(() => expect(detections.kept.has(root)).toBe(true))
+    await settles(() => expect(detections.kept.has(root)).toBe(true))
     expect(checker.checkComponents).toHaveBeenCalledTimes(1)
 
     await projects.close(root)
@@ -384,9 +390,7 @@ describe("opening a project", () => {
     const confirmed = Promise.withResolvers<void>()
     builder.hooks.detecting = confirmed.promise
     const opening = projects.open(root)
-    // Reading the project before the builder starts goes through its renderer's provider, which CI's Windows runners can
-    // take more than the default second over.
-    await vi.waitFor(() => expect(builder.started).toEqual([5100]), { timeout: 5_000 })
+    await settles(() => expect(builder.started).toEqual([5100]))
 
     confirmed.resolve()
     expect((await opening).guestUrl).toBe("http://localhost:5100/@parity/guest.js")
@@ -400,7 +404,7 @@ describe("opening a project", () => {
     await expect(projects.open(root)).rejects.toThrow("The config didn't load")
 
     expect(builder.started).toEqual([5100])
-    await vi.waitFor(() => expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"]))
+    await settles(() => expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"]))
   })
 
   it("takes the app's stylesheets from the builder it started early, without loading the config again", async () => {
@@ -479,7 +483,7 @@ describe("what opening a project records", () => {
   it("records a reopen as Parity starts, and one that took the last detection", async () => {
     const { projects, detections } = setUp()
     await projects.open(root)
-    await vi.waitFor(() => expect(detections.kept.has(root)).toBe(true))
+    await settles(() => expect(detections.kept.has(root)).toBe(true))
     await projects.close(root)
     await projects.open(root, { reopen: true })
 
@@ -551,7 +555,7 @@ describe("an open project's stylesheets", () => {
 
     builder.changeCode({ paths: [], stamp: 8, styles: true })
     const restyled = `${guestUrl}?styles=8`
-    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: restyled }]))
+    await settles(() => expect(moves).toEqual([{ projectId: root, guestUrl: restyled }]))
     expect((await projects.open(root)).guestUrl).toBe(restyled)
     expect(projects.codeServedAt(root, restyled)).toBeDefined()
 
@@ -569,7 +573,7 @@ describe("an open project's stylesheets", () => {
 
     builder.changeCode({ paths: [], stamp: 8, styles: true })
     const moved = "http://localhost:5101/@parity/guest.js"
-    await vi.waitFor(() => expect(moves).toEqual([{ projectId: root, guestUrl: moved }]))
+    await settles(() => expect(moves).toEqual([{ projectId: root, guestUrl: moved }]))
     expect(builder.started).toEqual([5100, 5101])
     expect(builder.closed).toEqual(["http://localhost:5100/@parity/guest.js"])
     expect((await projects.open(root)).guestUrl).toBe(moved)
