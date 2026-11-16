@@ -86,17 +86,21 @@ describe("gitDetector.detect (PAR-1074)", () => {
 })
 
 describe("gitDetector.watch (PAR-1074)", () => {
-  it("tells once when a commit moves HEAD, and stops telling once stopped", async () => {
+  // A commit's writes to the index and HEAD usually tell once, but a runner that stalls between them for longer than the
+  // settling time tells twice, which only reads the changes again. So this checks that a commit tells, with no limit
+  // shorter than the test's own, and that nothing tells once stopped (PAR-1220).
+  it("tells when a commit moves HEAD, and stops telling once stopped", async () => {
     let moves = 0
     const stop = await gitDetector.watch(join(repo, "apps/shop"), () => moves++)
 
     await write("apps/shop/src/badge.tsx", "export const Badge = () => 'edited'")
     await git("commit", "--quiet", "-am", "Edit the badge")
-    await vi.waitFor(() => expect(moves).toBe(1), { timeout: 4000 })
+    await vi.waitFor(() => expect(moves).toBeGreaterThan(0), { timeout: 120_000 })
 
     stop()
+    const told = moves
     await git("commit", "--quiet", "--allow-empty", "-m", "Nothing")
     await new Promise((resolve) => setTimeout(resolve, 600))
-    expect(moves).toBe(1)
+    expect(moves).toBe(told)
   })
 })

@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 16 Nov 2026 17:18:11 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 18:04:35 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.73.1
+
+Mon, 16 Nov 2026 18:04:35 GMT
+
+### Patches
+
+- Stop opening a Vite 7 project sometimes hanging at "Starting the project's builder" (ajcraswell@gmail.com)
 
 ## 0.73.0
 

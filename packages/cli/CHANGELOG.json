@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 18:04:35 GMT",
+      "version": "0.73.1",
+      "tag": "@parity-app/cli_v0.73.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7e8a6256aa40ec85604ebe6bcc50cef8b3a5c799",
+            "comment": "Stop opening a Vite 7 project sometimes hanging at \"Starting the project's builder\""
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 17:18:11 GMT",
       "version": "0.73.0",
       "tag": "@parity-app/cli_v0.73.0",
