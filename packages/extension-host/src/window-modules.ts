@@ -146,7 +146,7 @@ export interface WindowModulesOptions {
   /** How many failures in a tab stop a module there. 5 unless given. */
   failureLimit?: number
   /** The time, in milliseconds. `Date.now` unless given. */
-  now?(): number
+  now?: () => number
 }
 
 /** One project tab's window modules. */
@@ -206,7 +206,7 @@ const json: z.ZodType<JsonValue> = z.json()
 export function windowModules(options: WindowModulesOptions): WindowModules {
   const { tab } = options
   const limit = options.failureLimit ?? 5
-  const now = options.now ?? Date.now
+  const now = options.now ?? (() => Date.now())
   const reported = options.reported ?? new Set<string>()
   const entries = new Map<string, Entry>()
   const commands = new Map<string, { entry: Entry; handler: CommandHandler }>()
