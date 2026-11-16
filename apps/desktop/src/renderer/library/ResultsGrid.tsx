@@ -1,4 +1,4 @@
-import { Button, Spinner } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Spinner } from "@buildkitgg/shadcn"
 import {
   creditOf,
   type Found,

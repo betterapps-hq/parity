@@ -1,4 +1,4 @@
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@buildkitgg/shadcn"
 import { type ProjectImage, removalOf } from "@parity-app/editor"
 import { type MediaLayers, MediaUses } from "./MediaUses.tsx"
 

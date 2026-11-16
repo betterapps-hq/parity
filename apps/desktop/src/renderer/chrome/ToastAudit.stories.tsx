@@ -9,7 +9,7 @@ import {
   ToastTitle,
   ToastViewport,
   useToastManager
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { CircleCheckIcon, InfoIcon, Loader2Icon, OctagonXIcon, TriangleAlertIcon } from "lucide-react"
 import { useEffect, useState } from "react"

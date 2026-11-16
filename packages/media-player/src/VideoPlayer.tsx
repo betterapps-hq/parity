@@ -1,5 +1,5 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role, jsx-a11y/no-noninteractive-element-interactions, jsx-a11y/media-has-caption -- a player is a group of controls named by its video, which a fieldset, being for a form's fields, isn't; it takes keys for the controls inside it, as a video's own controls do; and neither stock nor project videos come with captions to give it */
-import { Button, cn, Kbd, Slider, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, cn, Kbd, Slider, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
 import { Maximize, Minimize, Pause, Play, Volume1, Volume2, VolumeX } from "lucide-react"
 import { type KeyboardEvent, type ReactNode, type RefObject, useEffect, useId, useRef, useState } from "react"
 import { clockOf, playerAction, seekTo, volumeTo } from "./controls.ts"

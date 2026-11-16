@@ -197,6 +197,11 @@ export interface ToolVersions {
    * newer than it was tested with, and below is older than it supports.
    */
   range?: string
+  /**
+   * The ranges of the other packages in `packages`, where they differ from `range`, so a version read from one is checked
+   * against its own, as Next.js against `next`'s range when the webpack builder's main peer is `webpack`.
+   */
+  ranges?: Record<string, string>
   /** A scope every package of which is one of the tool's, as `@storybook/`, beside `packages`. */
   scope?: string
   /** How majors are written, such as Tailwind's `v4`. */
@@ -210,8 +215,9 @@ export type ToolVersionsExtra = Pick<ToolVersions, "scope" | "prefix" | "distrib
 
 /**
  * A tool's versions from an extension's `package.json`: its peer dependencies name the packages that carry the version,
- * the main one first, and the main one's range is what it supports. `extra` is the manifest's `versions`, for what peer
- * dependencies can't say. Nothing when it has no peer dependencies.
+ * the main one first, and the main one's range is what it supports. Another peer whose range differs keeps its own, for a
+ * version read from that package. `extra` is the manifest's `versions`, for what peer dependencies can't say. Nothing
+ * when it has no peer dependencies.
  */
 export function peerVersions(
   peerDependencies: Readonly<Record<string, string>> | undefined,
@@ -219,7 +225,14 @@ export function peerVersions(
 ): ToolVersions | undefined {
   const [main, ...rest] = Object.entries(peerDependencies ?? {})
 
-  return main ? { packages: [main[0], ...rest.map(([name]) => name)], range: main[1], ...extra } : undefined
+  if (!main) {
+    return undefined
+  }
+
+  const differing = rest.filter(([, range]) => range !== main[1])
+  const ranges = differing.length > 0 ? { ranges: Object.fromEntries(differing) } : {}
+
+  return { packages: [main[0], ...rest.map(([name]) => name)], range: main[1], ...ranges, ...extra }
 }
 
 /**

@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * The org's admin pages that charging per seat needs: members and their seats, billing, plans and security. Only
  * editors pay; viewing and commenting are free. The plans are Figma's at half the price. A seat request is approved

@@ -73,6 +73,28 @@ function source(canvasElement: HTMLElement, title: string): HTMLElement {
  */
 export const AllSources: Story = { loaders: [openComponents] }
 
+/**
+ * Only the rows in view are drawn, ten either side besides, however many components the sources hold (PAR-1202).
+ * Scrolling to the end draws the last rows, and the first are gone.
+ */
+export const OnlyRowsInView: Story = {
+  loaders: [openComponents],
+  play: async ({ canvasElement }) => {
+    const headings = within(canvasElement).getAllByRole("button", { name: /\d+$/, expanded: true })
+    const listed = headings.reduce((total, heading) => total + Number(/(\d+)$/.exec(heading.textContent ?? "")![1]), 0)
+    const rows = () => canvasElement.querySelectorAll("[data-line^='items:']")
+
+    await waitFor(() => expect(rows().length).toBeGreaterThan(0))
+    await expect(rows().length).toBeLessThan(listed)
+
+    const first = rows()[0]!.getAttribute("data-line")
+    const list = rows()[0]!.closest<HTMLElement>(".overflow-y-auto")!
+    list.scrollTop = list.scrollHeight
+    await waitFor(() => expect(canvasElement.querySelector(`[data-line="${first}"]`)).toBeNull())
+    await expect(rows().length).toBeLessThan(listed)
+  }
+}
+
 /** Opens the example on the Components tab with its previews, the UI kit's open and the other sources closed. */
 async function openWithPreviews(): Promise<void> {
   answerPreviews()
@@ -225,6 +247,23 @@ export const Searching: Story = {
   }
 }
 
+/**
+ * A source closed during one search is open again in the next: clearing a search forgets what was opened or closed
+ * while it showed, as starting one does.
+ */
+export const SearchingAgain: Story = {
+  loaders: [openComponents],
+  play: async ({ canvasElement }) => {
+    const field = within(canvasElement).getByRole("textbox", { name: "Search components" })
+    await enter(field, "card")
+    await userEvent.click(source(canvasElement, "UI kit"))
+    await waitFor(() => expect(source(canvasElement, "UI kit")).toHaveAttribute("aria-expanded", "false"))
+    await enter(field, "")
+    await enter(field, "card")
+    await waitFor(() => expect(source(canvasElement, "UI kit")).toHaveAttribute("aria-expanded", "true"))
+  }
+}
+
 /** A search that matches nothing. */
 export const NothingMatches: Story = {
   loaders: [openComponents],
@@ -309,13 +348,7 @@ export const ComponentMenu: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
-    const kit = source(canvasElement, "UI kit").closest("section")
-
-    if (!kit) {
-      throw new Error("The UI kit isn't in a section")
-    }
-
-    const button = within(kit).getByRole("button", { name: "Button" })
+    const button = kitButton(canvasElement)
     const box = button.getBoundingClientRect()
     // Where a pointer would be, so the menu opens beside the row.
     await fireEvent.contextMenu(button, { clientX: box.left + 48, clientY: box.top + box.height / 2 })
@@ -371,8 +404,8 @@ export const AddingWithNothingSelected: Story = {
 }
 
 /**
- * A component with stories in the project's Storybook, Button: a book button beside it opens them. It shows only while
- * the row is pointed at, which a story can't do, so it is shown here as if it were.
+ * A component with stories in the project's Storybook, Button: a book button beside it opens them. It's there only while
+ * the row is pointed at or has focus, and shows on hover, which a story can't do, so it is shown here as if it were.
  */
 export const StorybookLink: Story = {
   loaders: [openComponents],
@@ -386,6 +419,8 @@ export const StorybookLink: Story = {
   ],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
+    await userEvent.hover(kitButton(canvasElement))
+    await within(canvasElement).findByRole("button", { name: "Open in Storybook: Button" })
   }
 }
 
@@ -396,7 +431,9 @@ export const OpeningStorybook: Story = {
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
     service.latency = forever
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Open in Storybook: Button" }))
+    // Its row has focus, which brings its buttons, as pointing at it does.
+    kitButton(canvasElement).focus()
+    await userEvent.click(await within(canvasElement).findByRole("button", { name: "Open in Storybook: Button" }))
     await within(document.body).findByText("Opening Storybook…")
   }
 }

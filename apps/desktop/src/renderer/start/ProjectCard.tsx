@@ -5,7 +5,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { AppWindow, Ellipsis, FolderX, Link, Star, X } from "lucide-react"
 import { type CSSProperties, useId, useRef, useState } from "react"
 import { Hint } from "../chrome/Hint.tsx"

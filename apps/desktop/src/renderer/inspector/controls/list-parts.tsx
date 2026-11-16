@@ -9,7 +9,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { ChevronDown, Eye, EyeOff, GripVertical, Minus } from "lucide-react"
 import {
   type ComponentProps,

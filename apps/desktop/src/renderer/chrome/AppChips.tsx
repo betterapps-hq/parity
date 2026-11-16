@@ -10,7 +10,7 @@ import {
   ComboboxItem,
   ComboboxLabel,
   ComboboxList
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { type HTMLAttributes, type InputHTMLAttributes, type ReactNode, useState } from "react"
 import { ChangeMark, useChanged } from "../inspector/controls/field-parts.tsx"
 
@@ -114,23 +114,17 @@ export function AppChips({
   )
 }
 
-/** One chip in `AppChips`, in the panel's 10px, with an × named `removeLabel` that removes it. */
+/** One chip in `AppChips`, in the panel's 10px, with an × that removes it. */
 export function AppChip({
-  removeLabel,
   className = "",
   children,
   ...props
 }: {
-  removeLabel: string
   className?: string
   children: ReactNode
 } & Omit<HTMLAttributes<HTMLDivElement>, "children" | "className">) {
   return (
-    <ComboboxChip
-      removeLabel={removeLabel}
-      className={`h-5 max-w-full min-w-0 bg-accent text-2xs font-normal ${className}`}
-      {...props}
-    >
+    <ComboboxChip className={`h-5 max-w-full min-w-0 bg-accent text-2xs font-normal ${className}`} {...props}>
       {children}
     </ComboboxChip>
   )

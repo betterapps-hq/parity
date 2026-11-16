@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process"
+import { type ChildProcess, spawn } from "node:child_process"
 import { readdirSync, readFileSync, rmSync } from "node:fs"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { createServer } from "node:http"
@@ -6,7 +6,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import type { rpcReply } from "@parity-app/agent/contracts"
 import { type JsonValue, jsonValue } from "@parity-app/core/schema"
-import { afterAll, beforeAll, beforeEach, expect } from "vite-plus/test"
+import { afterAll, afterEach, beforeAll, beforeEach, expect } from "vite-plus/test"
 import { z } from "zod"
 import type { OperationInput } from "./operations.ts"
 
@@ -51,18 +51,19 @@ export type AppAnswer = z.input<typeof rpcReply>
 export const succeeded = expect.objectContaining({ code: 0 })
 
 /**
- * How long one CLI or MCP process may take. A start on CI's Windows runners, with every test file's processes and
- * Chrome on four cores, took more than 10 seconds (PAR-533); the limit stays under the test's own 20 there.
+ * The timeout for a test that starts CLI or MCP processes. Alone each takes about a fifth of a second, mostly Node
+ * loading the CLI's modules, but starting processes slows under load far more than work inside the test does: with
+ * three full runs at once, as several sessions' `pnpm verify` make, these tests took over the default 5 seconds
+ * (PAR-495), and a start on CI's Windows runners took more than 10 (PAR-533).
  */
-const spawnLimit = process.env.CI ? 18_000 : 10_000
+export const processTests = { timeout: process.env.CI ? 60_000 : 20_000 }
 
 /**
- * The timeout for a test that starts CLI or MCP processes: two rounds of them at `spawnLimit`, so a slow start fails
- * with the fixture's own error rather than vitest's. Alone each takes about a fifth of a second, mostly Node loading
- * the CLI's modules, but starting processes slows under load far more than work inside the test does: with three full
- * runs at once, as several sessions' `pnpm verify` make, these tests took over the default 5 seconds (PAR-495).
+ * How long one process may take: all of its test's time, less a second so it fails with its output rather than with
+ * vitest's timeout. A limit of its own any shorter failed processes the test would still have waited for, when CI's
+ * Windows runner stalled for 30 seconds or more (PAR-1215).
  */
-export const processTests = { timeout: 2 * spawnLimit }
+const processLimit = processTests.timeout - 1_000
 
 /** Node's compile cache, shared by every CLI process the tests start, which saves about a quarter of each start. */
 export const compileCache = { NODE_COMPILE_CACHE: join(tmpdir(), "parity-cli-compile-cache") }
@@ -152,6 +153,8 @@ export function transportFixture(defaultResult: AppAnswer["result"]): TransportF
   let directory = ""
   let agentFile = ""
   const bin = join(import.meta.dirname, "bin.ts")
+  /** The processes still running, which end with their test so none runs on into the next one (PAR-1215). */
+  const running = new Set<ChildProcess>()
 
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "parity-operation-contract-"))
@@ -174,9 +177,18 @@ export function transportFixture(defaultResult: AppAnswer["result"]): TransportF
     fixture.response = { result: defaultResult }
     fixture.tabs = [fixtureTab]
   })
+  afterEach(() => {
+    for (const child of running) {
+      child.kill()
+    }
+
+    running.clear()
+  })
 
   function run(args: string[], input = "", env: Record<string, string | undefined> = {}) {
     return new Promise<ProcessResult>((resolve, reject) => {
+      const started = performance.now()
+
       const child = spawn(process.execPath, [bin, ...args], {
         env: {
           ...process.env,
@@ -190,6 +202,7 @@ export function transportFixture(defaultResult: AppAnswer["result"]): TransportF
         stdio: ["pipe", "pipe", "pipe"]
       })
 
+      running.add(child)
       let stdout = ""
       let stderr = ""
       child.stdout.setEncoding("utf8").on("data", (chunk: string) => {
@@ -199,17 +212,26 @@ export function transportFixture(defaultResult: AppAnswer["result"]): TransportF
         stderr += chunk
       })
 
+      // What it wrote by then says how far it got.
       const timeout = setTimeout(() => {
         child.kill()
-        reject(new Error("Transport did not finish"))
-      }, spawnLimit)
+        const took = Math.round(performance.now() - started)
+
+        reject(
+          new Error(
+            `Transport did not finish: parity ${args.join(" ")} ran ${took} ms\nstdout: ${stdout}\nstderr: ${stderr}`
+          )
+        )
+      }, processLimit)
 
       child.on("error", (error) => {
         clearTimeout(timeout)
+        running.delete(child)
         reject(error)
       })
       child.on("close", (code) => {
         clearTimeout(timeout)
+        running.delete(child)
         resolve({ code, stdout, stderr })
       })
       // A process that exits before reading its input closes the pipe; its code and output say what happened.

@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { Maximize, Minus, Plus } from "lucide-react"
 import type { ReactNode } from "react"
 import { useValue } from "tldraw"

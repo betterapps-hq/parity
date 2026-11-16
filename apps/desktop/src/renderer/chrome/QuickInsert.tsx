@@ -1,4 +1,4 @@
-import { cn } from "@buildkitgg/shadcn-baseui-kit"
+import { cn } from "@buildkitgg/shadcn"
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 // The list is ARIA's combobox pattern: focus stays in the search field, which takes the keys and points at the active
 // option with aria-activedescendant, so the options are neither focusable nor keyed, and they're divs, which a
 // virtualized list draws and a native select can't hold.

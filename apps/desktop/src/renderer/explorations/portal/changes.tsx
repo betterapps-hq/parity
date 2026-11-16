@@ -7,7 +7,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 /**
  * A project opened from the portal on what changed: its canvas in the browser, comparing two versions. Quiet around
  * the edges so the changes are what you see: the changed boards before and after, each change marked and numbered,

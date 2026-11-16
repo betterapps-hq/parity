@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Keep unit tests from failing when CI's Windows runner stalls (PAR-1215)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

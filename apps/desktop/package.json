@@ -18,10 +18,11 @@
     "inspect": "node scripts/inspect.ts",
     "perf": "node scripts/perf.ts",
     "storybook": "storybook dev -p 6007",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "postinstall": "shadcn-sync sync --base base --icons lucide --style nova --theme neutral --css tailwind"
   },
   "dependencies": {
-    "@buildkitgg/shadcn-baseui-kit": "catalog:",
+    "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn",
     "@sentry/electron": "catalog:",
     "@tanstack/react-virtual": "3.14.24",
     "axe-core": "4.14.0",
@@ -36,6 +37,7 @@
     "unconfig": "^7.5.0"
   },
   "devDependencies": {
+    "@buildkitgg/shadcn-sync": "catalog:",
     "@buildkitgg/storybook-config": "catalog:",
     "@parity-app/account": "workspace:*",
     "@parity-app/agent": "workspace:*",

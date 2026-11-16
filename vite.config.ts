@@ -252,7 +252,7 @@ export default defineConfig({
             {
               paths: [
                 {
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: [
                     "Select",
                     "SelectContent",
@@ -269,12 +269,12 @@ export default defineConfig({
                 },
                 {
                   // Fields of tags kept copying the chips' box and chip, as Selects did their parts (AppChips).
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: ["ComboboxChips", "ComboboxChip", "ComboboxChipsInput"],
                   message: "Use AppChips, AppChip and AppChipsInput from apps/desktop/src/renderer/chrome/AppChips.tsx."
                 },
                 {
-                  name: "@buildkitgg/shadcn-baseui-kit",
+                  name: "@buildkitgg/shadcn",
                   importNames: [
                     "toast",
                     "createToastManager",
@@ -346,9 +346,10 @@ export default defineConfig({
     // it with a bundle (frame.test.ts, frame-nodes.test.ts) took more than 30 on its macOS and Windows runners (PAR-533).
     // A hook that passes a timeout of its own skips this, so the browser tests' hooks don't (PAR-645).
     hookTimeout: process.env.CI ? 60_000 : 30_000,
-    // CI's Windows runners take longer than the default 5 seconds over whichever tests run slowest, a different few
-    // each run, with Chrome and the fixture projects on four cores. Locally a slow test still fails at 5.
-    testTimeout: process.env.CI ? 20_000 : 5_000,
+    // CI's Windows runner sometimes stalls for 30 seconds or more, and whichever tests are waiting on the disk or a
+    // process then fail, though their work takes milliseconds (PAR-1215), so a test there gets as long as a hook.
+    // Locally a slow test still fails at 5.
+    testTimeout: process.env.CI ? 60_000 : 5_000,
     // A page in Chrome can take more than the default second to show a change on CI's runners (PAR-533).
     expect: { poll: { timeout: process.env.CI ? 5_000 : 1_000 } },
     // The React guest's React 18 tests run as a project of their own, with React 18 for `react` (PAR-1157).

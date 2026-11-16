@@ -1,4 +1,4 @@
-import { DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuSeparator } from "@buildkitgg/shadcn-baseui-kit"
+import { DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuSeparator } from "@buildkitgg/shadcn"
 import { formatNumber } from "@parity-app/style-schema"
 import { Contrast } from "lucide-react"
 import { Fragment } from "react"

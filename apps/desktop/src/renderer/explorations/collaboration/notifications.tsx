@@ -7,7 +7,7 @@ import {
   RadioGroup,
   RadioGroupItem,
   Switch
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   ArrowLeft,
   AtSign,

@@ -6,7 +6,7 @@ import {
   Switch,
   ToggleGroup,
   ToggleGroupItem
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { isSecretName } from "@parity-app/telemetry"
 import { Ellipsis, Lock, LockOpen, Minus, Plus, RotateCcw } from "lucide-react"
 import {

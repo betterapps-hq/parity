@@ -21,7 +21,7 @@ import {
   ItemTitle,
   Toggle,
   useHighlightedCode
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   type DesignNode,
   type ElementSource,

@@ -1,11 +1,4 @@
-import {
-  Button,
-  DropdownMenuCheckboxItem,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Toggle
-} from "@buildkitgg/shadcn-baseui-kit"
+import { Button, DropdownMenuCheckboxItem, Popover, PopoverContent, PopoverTrigger, Toggle } from "@buildkitgg/shadcn"
 import { formatNumber, isReadFailure, readTrackSize, type TrackSize } from "@parity-app/style-schema"
 import {
   ArrowDown,

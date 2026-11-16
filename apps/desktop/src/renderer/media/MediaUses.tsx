@@ -1,4 +1,4 @@
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@buildkitgg/shadcn-baseui-kit"
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@buildkitgg/shadcn"
 import {
   type CodeFileUse,
   codeFilesUsing,

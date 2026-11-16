@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 /**
  * Sharing a project from the portal, and asking for access to one. The dialog shows where everyone's access comes
  * from (owning the project, a team, being an admin, an invite), puts requests waiting for an answer first, and keeps

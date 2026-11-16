@@ -1,4 +1,4 @@
-import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Popover, PopoverContent, PopoverTrigger } from "@buildkitgg/shadcn"
 import { Apple, Clock, Hand, Heart, Leaf, Lightbulb, Search, Smile, SmilePlus } from "lucide-react"
 import { type KeyboardEvent, type ReactElement, useEffect, useRef, useState } from "react"
 import { useStore, windowStore } from "../../store.ts"

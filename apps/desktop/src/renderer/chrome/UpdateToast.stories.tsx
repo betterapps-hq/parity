@@ -1,4 +1,4 @@
-import { Toaster } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster } from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useState } from "react"
 import { fn } from "storybook/test"

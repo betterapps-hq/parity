@@ -8,7 +8,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   type DeviceKind,
   deviceForWidth,

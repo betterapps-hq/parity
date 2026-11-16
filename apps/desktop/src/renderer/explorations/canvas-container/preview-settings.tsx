@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { besideScales, type ResolvedMode } from "@parity-app/core"
 import { RotateCcw, Search } from "lucide-react"
 import { AppSelect } from "../../chrome/AppSelect.tsx"

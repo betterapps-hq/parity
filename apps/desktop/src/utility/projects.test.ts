@@ -231,6 +231,32 @@ function setUp(
   const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
   let port = 5100
 
+  // Woken whenever the windows are told something.
+  const waiting = new Set<() => void>()
+
+  const told = () => {
+    for (const check of waiting) {
+      check()
+    }
+  }
+
+  /**
+   * Resolves once the windows have been told `length` things on `list`. It has no limit of its own, so the test's
+   * timeout is the only one: CI's Windows runner can stall for longer than a shorter limit would allow (PAR-1215).
+   */
+  const reaches = (list: readonly unknown[], length: number) =>
+    new Promise<void>((resolve) => {
+      const check = () => {
+        if (list.length >= length) {
+          waiting.delete(check)
+          resolve()
+        }
+      }
+
+      waiting.add(check)
+      check()
+    })
+
   // React's renderer reads components here, and each builder says whether it serves the project and which stylesheets
   // the app loads, as their extensions' hosts do in the app.
   const answer = async (project: ProviderProject, call: ProviderCall, extension?: string) => {
@@ -281,7 +307,10 @@ function setUp(
     detections,
     ports: { free: () => Promise.resolve(port++), isFree: () => Promise.resolve(true) },
     listeners: {
-      fileChanged: (change) => fileChanged.push(change),
+      fileChanged: (change) => {
+        fileChanged.push(change)
+        told()
+      },
       componentsChanged: () => undefined,
       codeChanged: () => undefined,
       guestMoved: (move) => {
@@ -289,13 +318,16 @@ function setUp(
 
         return Promise.resolve(true)
       },
-      detectionChanged: (change) => detectionChanged.push(change)
+      detectionChanged: (change) => {
+        detectionChanged.push(change)
+        told()
+      }
     },
     environment,
     unsupported
   })
 
-  return { projects, builder, watcher, detections, checker, fileChanged, moves, detectionChanged }
+  return { projects, builder, watcher, detections, checker, fileChanged, moves, detectionChanged, reaches }
 }
 
 beforeEach(async () => {
@@ -576,18 +608,16 @@ describe("a project Parity doesn't support", () => {
   })
 })
 
+// The watcher waits after a change, then reads the project from disk. These wait for the windows to be told, however
+// long that takes, rather than polling with a limit of their own (PAR-1215).
 describe("an open project's files", () => {
-  // The watcher waits 400 ms after a change, then reads the project from disk, which a loaded CI runner can take most of
-  // waitFor's default second over.
-  const detected = { timeout: 5_000 }
-
   it("tell the windows about a project file changed outside the canvas, but not about the canvas's own saves", async () => {
-    const { projects, watcher, fileChanged } = setUp()
+    const { projects, watcher, fileChanged, reaches } = setUp()
     await projects.open(root)
 
     await write("shop.par", parFile("Edited by an agent"))
     watcher.change("shop.par")
-    await vi.waitFor(() => expect(fileChanged).toHaveLength(1))
+    await reaches(fileChanged, 1)
     expect(fileChanged[0]?.document.containers[0]?.name).toBe("Edited by an agent")
 
     const saved = designs("Saved from the canvas")
@@ -600,7 +630,7 @@ describe("an open project's files", () => {
   })
 
   it("tell the windows when the builder names other stylesheets, so they open the project again", async () => {
-    const { projects, watcher, detectionChanged, builder } = setUp()
+    const { projects, watcher, detectionChanged, builder, reaches } = setUp()
     await write("src/styles/app.css", ":root { --primary: red; }")
     expect((await projects.open(root)).notes).toContain("the builder found no global stylesheets the app loads")
 
@@ -615,7 +645,8 @@ describe("an open project's files", () => {
     await write("src/main.tsx", 'import "./styles/app.css"')
     expect(await projects.detectAgain(root)).toBe(true)
     watcher.change("src/main.tsx")
-    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+    await reaches(detectionChanged, 1)
+    expect(detectionChanged).toEqual([{ projectId: root }])
 
     // A moment without package.json, as while it's rewritten, isn't a change.
     const manifest = await readFile(join(root, "package.json"), "utf8")
@@ -630,7 +661,7 @@ describe("an open project's files", () => {
   })
 
   it("tell the windows when a config file a registered builder names is added, and not one no builder names", async () => {
-    const { projects, watcher, detectionChanged } = setUp()
+    const { projects, watcher, detectionChanged, reaches } = setUp()
     await projects.open(root)
 
     await write("vite.config.ts", "export default {}")
@@ -641,11 +672,12 @@ describe("an open project's files", () => {
 
     await write("fake.config.ts", "export default {}")
     watcher.change("fake.config.ts")
-    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+    await reaches(detectionChanged, 1)
+    expect(detectionChanged).toEqual([{ projectId: root }])
   })
 
   it("tell the windows when what detection reads changed while the project opened", async () => {
-    const { projects, detectionChanged, builder } = setUp()
+    const { projects, detectionChanged, builder, reaches } = setUp()
 
     builder.hooks.starting = () => {
       writeFileSync(join(root, "src/styles.css"), ":root { --primary: red; }")
@@ -653,7 +685,8 @@ describe("an open project's files", () => {
     }
 
     await projects.open(root)
-    await vi.waitFor(() => expect(detectionChanged).toEqual([{ projectId: root }]), detected)
+    await reaches(detectionChanged, 1)
+    expect(detectionChanged).toEqual([{ projectId: root }])
   })
 
   it("open with the stylesheets of the builder that serves it, though one listed first watches its config too", async () => {

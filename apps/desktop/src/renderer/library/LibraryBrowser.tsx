@@ -8,7 +8,7 @@ import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import {
   choose,
   countOf,

@@ -1,4 +1,4 @@
-import { ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn-baseui-kit"
+import { ToggleGroup, ToggleGroupItem } from "@buildkitgg/shadcn"
 import { isReviewTool } from "@parity-app/editor"
 import { useState } from "react"
 import { useProject } from "../../canvas/context.ts"

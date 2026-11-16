@@ -6,7 +6,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   Button
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { useRef, useState } from "react"
 import { changeTime } from "./report-time.ts"
 import { type RestoreQuestion, useRestoreQuestion } from "./restore.ts"

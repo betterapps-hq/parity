@@ -1,4 +1,4 @@
-import { Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Button } from "@buildkitgg/shadcn"
 import { describeFiles, type ExportSize, exportFiles, nextExportSize } from "@parity-app/editor"
 import { Download, Minus, Plus } from "lucide-react"
 import { useProject } from "../canvas/context.ts"

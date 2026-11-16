@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@buildkitgg/shadcn-baseui-kit": "catalog:",
+    "@buildkitgg/shadcn": "link:../../apps/desktop/node_modules/.buildkit/shadcn",
     "lucide-react": "^1.66.0"
   },
   "peerDependencies": {

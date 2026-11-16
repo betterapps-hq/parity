@@ -1,4 +1,4 @@
-import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Kbd } from "@buildkitgg/shadcn"
 import { formatKeys } from "../chrome/keys.ts"
 
 /**

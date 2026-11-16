@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { useState } from "react"
 import { type ExtensionQuestion as Question, useExtensionQuestion } from "../extension-ui.ts"
 

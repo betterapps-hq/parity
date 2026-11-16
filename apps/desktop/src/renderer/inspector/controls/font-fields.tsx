@@ -1,4 +1,4 @@
-import { Slider, Toggle } from "@buildkitgg/shadcn-baseui-kit"
+import { Slider, Toggle } from "@buildkitgg/shadcn"
 import { formatNumber, lengthForm, remPx } from "@parity-app/style-schema"
 import { ALargeSmall, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
 import { type ReactNode, useState } from "react"

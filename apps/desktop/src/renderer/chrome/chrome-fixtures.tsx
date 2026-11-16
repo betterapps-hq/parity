@@ -1,4 +1,4 @@
-import { Toaster, TooltipProvider } from "@buildkitgg/shadcn-baseui-kit"
+import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { addNote as addNoteTo, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"

@@ -1,4 +1,4 @@
-import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@buildkitgg/shadcn-baseui-kit"
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@buildkitgg/shadcn"
 import { pageOf } from "../extension-views.ts"
 import { useExtensions } from "../extensions.ts"
 import { type ExtensionPage as Page, type ProjectSession, useTabs } from "../workspace.ts"

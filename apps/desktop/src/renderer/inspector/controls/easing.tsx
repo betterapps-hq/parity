@@ -9,7 +9,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { type Bezier, bezierCss, type EasingPlot, formatNumber, plotCss } from "@parity-app/style-schema"
 import { type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, useId, useRef, useState } from "react"
 import { kindColors } from "../../canvas/kinds.tsx"

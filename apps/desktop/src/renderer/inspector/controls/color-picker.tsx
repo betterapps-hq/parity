@@ -1,5 +1,5 @@
 /* oxlint-disable jsx-a11y/prefer-tag-over-role -- the saturation and brightness square is a slider on two axes, which no input element is; the hue and alpha strips beside it are drawn and keyed the same way */
-import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@buildkitgg/shadcn-baseui-kit"
+import { Button, Input, Tabs, TabsContent, TabsList, TabsTrigger } from "@buildkitgg/shadcn"
 import {
   formatHex,
   formatOklch,

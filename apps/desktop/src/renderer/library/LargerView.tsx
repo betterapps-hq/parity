@@ -1,4 +1,4 @@
-import { Badge, Button } from "@buildkitgg/shadcn-baseui-kit"
+import { Badge, Button } from "@buildkitgg/shadcn"
 import { type ConnectorInfo, creditOf, type Found, labelOf, sizeOf } from "@parity-app/connectors"
 import { VideoPlayer } from "@parity-app/media-player"
 import { Check, ChevronLeft, ChevronRight, ExternalLink, Monitor, Smartphone, X } from "lucide-react"

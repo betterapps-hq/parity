@@ -6,7 +6,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { useEffect, useState } from "react"
 import type { AccountState } from "../../shared/account.ts"
 import { accountActions, useAccount } from "./account.ts"

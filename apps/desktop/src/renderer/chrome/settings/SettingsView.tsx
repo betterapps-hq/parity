@@ -9,7 +9,7 @@ import {
   InputGroupButton,
   InputGroupInput,
   Kbd
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Check, ChevronRight, Search, X } from "lucide-react"
 import { Fragment, type KeyboardEvent, type RefObject, useEffect, useRef, useState } from "react"
 import { shortcutFor, shortcutOf } from "../keymap.ts"

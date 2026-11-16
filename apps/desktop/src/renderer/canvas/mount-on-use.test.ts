@@ -15,7 +15,7 @@ import { createRoot } from "react-dom/client"
 import {
   ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger,
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, TooltipProvider
-} from "@buildkitgg/shadcn-baseui-kit"
+} from "@buildkitgg/shadcn"
 import { Hint } from "../chrome/Hint.tsx"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 

@@ -1,4 +1,4 @@
-import { Kbd } from "@buildkitgg/shadcn-baseui-kit"
+import { Kbd } from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Component } from "lucide-react"
 import type { ComponentProps, ReactNode } from "react"
