@@ -1404,6 +1404,37 @@ Code: `packages/next-builders/src/next-router.ts`, `guest-server.ts` and `packag
 `next/router` and `next/link`, in a React root of its own as the canvas draws it, drew inside the router and threw the
 invariant without it. Gaps: a frame drawn for a page doesn't take its route's path yet.
 
+### Modules on demand and after a change on Turbopack (PAR-1159)
+
+The Turbopack builder built only what the guest imported at the start: a code change started it again, and the canvas
+couldn't load a module the guest hadn't imported, as a stories file, which on legislation-web failed every story with
+"Failed to fetch dynamically imported module". Now it loads both from the running builder, as Vite's does.
+
+- **A page per module.** Next builds a client module only for a page that renders it, so a module the canvas asks for at
+  `/<path>` gets a page of the guest app's own, `/parity-guest/modules/<key>`, whose client module imports it whole
+  (`app/parity-modules/<key>.tsx`). The page's payload names that module's id and chunks, as the guest's own page does.
+  Next finds a new page a moment after it's written, so the builder asks again while it answers 404.
+- **Loaded into the guest's runtime.** The served module loads those chunks into the Turbopack runtime the guest
+  started, which the guest keeps by session, and asks the runtime for the client module. Every runtime registers chunks
+  through the one `globalThis.TURBOPACK`, so the guest routes each chunk to the runtime its address names
+  (`?parity-session=`), and others to the last started, for two projects open in one window. Its CSS modules'
+  stylesheets are linked and muted, as the guest's are.
+- **Loaded again after a change.** At `/<path>?t=<stamp>` the chunks load at the stamp too, after the page is rendered
+  again, which has Next build the change. The runtime keeps the first factory it's given for a module, so the guest's
+  runtime forgets the project's modules in a stamped chunk, factory and instance, before registering them; packages'
+  modules stay, so React stays the one React. Next 16.4's runtime keeps modules in maps, and earlier ones in objects.
+- **Code changes.** The builder watches the project, leaving out `node_modules`, `.next` and `.git`, and tells the
+  canvas the components a change reaches through imports however deep, read from their sources with the tsconfig's
+  aliases. Its `styles` is set when the guest's compiled CSS changed, by a digest of the styles pages' stylesheets, or a
+  stylesheet changed; `restyledGuestUrl` serves a guest made afresh with them.
+
+Code: `packages/next-builders/src/project-modules.ts`, `module-server.ts` and `guest-server.ts`;
+`packages/extension-turbopack/src/loader.ts` and `builder.ts`. Tests: `project-modules.test.ts`,
+`module-server.test.ts`, `page.test.ts` and `loader.test.ts`. Checked by hand with the builder running in a browser: on
+a scratch Next 16.4 app, a component found later loaded, an edit to a file it imports drew the new code at its stamp,
+and a new CSS module set `styles`; on legislation-web (Next 16.3), its stories files loaded with their stories. The
+webpack builder has no module loader yet, so it still starts again on a change.
+
 ### Tailwind CSS as an extension, through its styles provider (PAR-1095)
 
 Tailwind CSS runs as an extension, through Parity's public API alone, rather than as an adapter. Nothing it does
@@ -1563,10 +1594,8 @@ sets out. What any Next.js builder needs is in `packages/next-builders`, for the
 - **The global stylesheets** are the ones the root layout imports, or the Pages Router's `_app`, following the project's
   own modules through its path aliases until some import stylesheets, the choice the other builders make too
   (`chooseAppStyles`). CSS modules are left out.
-- **Not yet:** a changed component starts the builder again rather than loading afresh, and the canvas can't load a
-  module the guest didn't import at the start, so stories drawn from their stories file don't draw (PAR-1159).
-  Components that read Next's router (`next/navigation`) fail without it (PAR-1160), components get no element sources
-  (PAR-1161), and CSS modules don't reach frames, as with Vite.
+- **Not yet:** CSS modules don't reach frames, as with Vite. Code changes and modules found later load without a restart
+  (PAR-1159), Next's router is mounted around frames (PAR-1160) and elements know their sources (PAR-1161).
 
 Code: `packages/extension-turbopack` (its manifest, `extension.ts`, `builder.ts` and `loader.ts`);
 `packages/next-builders` (`next.ts`, `bundler.ts`, `guest-app.ts`, `guest-runtime.ts`, `server-modules.ts`, `page.ts`,

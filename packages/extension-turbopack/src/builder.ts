@@ -8,7 +8,7 @@ import {
   nextConfigFiles,
   startNextGuest
 } from "@parity-app/next-builders"
-import { guestLoaderSource, runtimeChunks, withoutStartup } from "./loader.ts"
+import { guestLoaderSource, type ModuleLoader, moduleLoaderSource, runtimeChunks, withoutStartup } from "./loader.ts"
 
 /** The files whose coming or going means the project is detected again: Next's config. */
 export const turbopackWatches = [...nextConfigFiles]
@@ -31,6 +31,17 @@ export const turbopackBuilder: BuilderAdapter = {
     startNextGuest(options, {
       bundler: "turbopack",
       guestModule: guestModuleText,
+      module: async (_server, session, module) => {
+        const loader: ModuleLoader = {
+          session,
+          id: module.reference.id,
+          chunks: module.reference.chunks.filter((chunk) => /\.js(?:\?|$)/.test(chunk)),
+          stylesheets: module.stylesheets,
+          names: module.names
+        }
+
+        return moduleLoaderSource(module.stamp === undefined ? loader : { ...loader, stamp: module.stamp })
+      },
       scripts: { [runtimeRoute]: (server, url) => runtimeText(server, url.searchParams.get("src") ?? "") }
     })
 }

@@ -49,4 +49,15 @@ describe("reading the guest app's pages", () => {
 
     expect(read.guest).toEqual({ id: guestId, chunks: [shared, own] })
   })
+
+  it("finds another of the guest app's client modules by its file, as a module's own page names it", () => {
+    const moduleId = "[project]/app/.next/parity/app/parity-modules/src-Card-1a2b3c4d.tsx [app-client] (ecmascript)"
+    const html = page([`5:I[${JSON.stringify(moduleId)},${JSON.stringify([shared, own])},"default"]`])
+
+    expect(readGuestPage(html).guest).toBeUndefined()
+    expect(readGuestPage(html, "app/parity-modules/src-Card-1a2b3c4d.tsx").guest).toEqual({
+      id: moduleId,
+      chunks: [shared, own]
+    })
+  })
 })
