@@ -1,7 +1,0 @@
-{
-  "type": "none",
-  "comment": "A live room in development: two copies of the app on Loro, with each other's cursors and agents (PAR-1179)",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "none"
-}

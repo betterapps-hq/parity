@@ -2,6 +2,29 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Mon, 16 Nov 2026 03:58:25 GMT",
+      "version": "0.96.4",
+      "tag": "@parity-app/desktop_v0.96.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ba5e16713884c50e1f1c45203e60b0d0e089ec7c",
+            "comment": "Leave the builder's own console chatter to its manifest, and drop the inspector's dead Tailwind readouts"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "2ea84aeac0553517db47201131aa4211a06b5b60",
+            "comment": "A live room in development: two copies of the app on Loro, with each other's cursors and agents (PAR-1179)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 01:53:02 GMT",
       "version": "0.96.3",
       "tag": "@parity-app/desktop_v0.96.3",

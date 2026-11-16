@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 01:53:02 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 03:58:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.96.4
+
+Mon, 16 Nov 2026 03:58:25 GMT
+
+### Patches
+
+- Leave the builder's own console chatter to its manifest, and drop the inspector's dead Tailwind readouts
+  (ajcraswell@gmail.com)
 
 ## 0.96.3
 
