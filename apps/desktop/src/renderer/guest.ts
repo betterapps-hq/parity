@@ -49,6 +49,8 @@ export interface FrameCss {
   previewRules(drawn: readonly RenderNode[], next: readonly RenderNode[]): string
   /** CSS written for this project's frames, such as its styling framework's classes, prepared as its own CSS is. */
   prepare(css: string): { scoped: string; global: string }
+  /** The project's origin, which its stylesheets' `@import`s are read from. */
+  origin: string
 }
 
 interface Loading {
@@ -201,7 +203,8 @@ export function frameCss(css: string, origin: string): FrameCss {
   return {
     rules: (tree) => prepare(frameRules(tree, layer)).scoped,
     previewRules: (drawn, next) => prepare(previewRules(drawn, next, layer)).scoped,
-    prepare
+    prepare,
+    origin
   }
 }
 

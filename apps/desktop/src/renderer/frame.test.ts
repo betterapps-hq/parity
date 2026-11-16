@@ -685,6 +685,34 @@ describe("styles written while the project runs", () => {
     expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)", "rgb(7, 8, 9)"])
   })
 
+  it("follow a written stylesheet's media as the project changes it, and read what it imports", async () => {
+    await frameWith("", '<div class="box"></div><div class="font"></div>')
+
+    const drawn = await page.evaluate(async () => {
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      const box = shadow.querySelector(".box")!
+      const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+      const style = document.createElement("style")
+      style.media = "print"
+      style.textContent = ".box { color: rgb(1, 1, 1) }"
+      shadow.append(style)
+      await tick()
+      const printed = getComputedStyle(box).color
+      style.media = "all"
+      await tick()
+      const all = [getComputedStyle(box).color, style.getAttribute("media")]
+      const importing = document.createElement("style")
+      importing.textContent = '@import url("data:text/css,.font%7Bcolor:rgb(6,6,6)%7D");'
+      shadow.append(importing)
+      await tick()
+      await tick()
+
+      return [printed, ...all, getComputedStyle(shadow.querySelector(".font")!).color]
+    })
+
+    expect(drawn).toEqual(["rgb(0, 0, 0)", "rgb(1, 1, 1)", "not all", "rgb(6, 6, 6)"])
+  })
+
   it("follow rules the project's code deletes and text it replaces", async () => {
     await frameWith("", '<div class="box"></div>')
 

@@ -1,4 +1,5 @@
-import { type prepareCanvasCss, withMedia } from "@parity-app/core"
+import { importsIn, type prepareCanvasCss, withImports, withMedia } from "@parity-app/core"
+import { fetchStylesheet } from "./page-styles.ts"
 
 type CanvasCss = ReturnType<typeof prepareCanvasCss>
 
@@ -24,6 +25,8 @@ export type PrepareCss = (css: string) => CanvasCss
 interface FrameEntry {
   shadow: ShadowRoot
   prepare: PrepareCss
+  /** The project's origin, which caught CSS's `@import`s are read from. */
+  origin: string
   /** What the frame draws its caught stylesheets with, adopted by the frame. */
   sheet: CSSStyleSheet
   /** The media the project gave each caught element, which the frame's copy no longer has. */
@@ -39,6 +42,10 @@ interface FrameEntry {
 const muted = "not all"
 const frames = new WeakMap<ShadowRoot, FrameEntry>()
 const owners = new WeakMap<HTMLStyleElement, FrameEntry>()
+
+/** Caught CSS with what it `@import`s in place, once read, by origin and CSS; the frames still waiting for each. */
+const imported = new Map<string, string>()
+const awaitingImports = new Map<string, Set<FrameEntry>>()
 
 /** Each piece of CSS prepared once per way of preparing it: frames of a project share their CSS-in-JS rules. */
 const preparedBy = new WeakMap<PrepareCss, Map<string, CanvasCss>>()
@@ -56,11 +63,12 @@ const documentRules = new Set<string>()
  * sheet they're drawn in, for the frame to adopt where the elements' own sheets would have been: before every adopted
  * sheet. Called again for the same frame, it keeps catching and gives back the same sheet.
  */
-export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss): CSSStyleSheet {
+export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss, origin: string): CSSStyleSheet {
   const known = frames.get(shadow)
 
   if (known) {
     known.prepare = prepare
+    known.origin = origin
     schedule(known)
 
     return known.sheet
@@ -69,6 +77,7 @@ export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss): CSSSt
   const entry: FrameEntry = {
     shadow,
     prepare,
+    origin,
     sheet: new CSSStyleSheet(),
     media: new Map(),
     edited: new Set(),
@@ -84,6 +93,7 @@ export function catchFrameStyles(shadow: ShadowRoot, prepare: PrepareCss): CSSSt
 
   entry.observer = new MutationObserver((records) => follow(entry, records))
   entry.observer.observe(shadow, {
+    attributeFilter: ["media"],
     childList: true,
     characterData: true,
     subtree: true
@@ -121,6 +131,20 @@ function follow(entry: FrameEntry, records: MutationRecord[]): void {
   let changed = false
 
   for (const record of records) {
+    if (record.type === "attributes") {
+      const element = record.target
+
+      // The project changed its media, which it means for the stylesheet, even to `not all`. Read now, before it's
+      // switched off again: Parity's own changes are never queued (see `setOwnMedia`).
+      if (element instanceof HTMLStyleElement && owners.get(element) === entry) {
+        entry.media.set(element, element.getAttribute("media"))
+        setOwnMedia(entry, element)
+        changed = true
+      }
+
+      continue
+    }
+
     if (record.type === "characterData") {
       const element = record.target.parentElement
 
@@ -173,10 +197,26 @@ function catchElement(entry: FrameEntry, element: HTMLStyleElement): void {
 
   owners.set(element, entry)
   entry.media.set(element, element.getAttribute("media"))
+  setOwnMedia(entry, element)
+}
 
-  if (element.getAttribute("media") !== muted) {
-    element.setAttribute("media", muted)
+/**
+ * Switches a caught element off. The project's changes queued before it are followed first, and this change, queued as
+ * it's made, is dropped, so it's never taken for the project's.
+ */
+function setOwnMedia(entry: FrameEntry, element: HTMLStyleElement): void {
+  if (element.getAttribute("media") === muted) {
+    return
   }
+
+  const queued = entry.observer?.takeRecords() ?? []
+
+  if (queued.length > 0) {
+    follow(entry, queued)
+  }
+
+  element.setAttribute("media", muted)
+  entry.observer?.takeRecords()
 }
 
 /** Draws the frame's caught CSS again once, in a microtask, however many changes come before then. */
@@ -210,7 +250,7 @@ function show(entry: FrameEntry): void {
       entry.edited.has(element) && sheet ? [...sheet.cssRules].map((rule) => rule.cssText) : [element.textContent ?? ""]
 
     for (const piece of pieces) {
-      const prepared = preparedOnce(entry.prepare, withMedia(piece, media))
+      const prepared = preparedOnce(entry.prepare, withMedia(withFrameImports(entry, piece), media))
       scoped.push(prepared.scoped)
 
       if (prepared.global && !documentRules.has(prepared.global)) {
@@ -230,6 +270,44 @@ function show(entry: FrameEntry): void {
   if (global) {
     showDocumentRules()
   }
+}
+
+/**
+ * Caught CSS with what it `@import`s in place, once read, as `page-styles.ts` reads a style element's: a frame's sheet
+ * ignores `@import`. Until then it's its own CSS; the frames waiting for it draw again once it's in.
+ */
+function withFrameImports(entry: FrameEntry, css: string): string {
+  if (importsIn(css).length === 0) {
+    return css
+  }
+
+  const key = `${entry.origin}\n${css}`
+  const done = imported.get(key)
+
+  if (done !== undefined) {
+    return done
+  }
+
+  const waiting = awaitingImports.get(key)
+
+  if (waiting) {
+    waiting.add(entry)
+
+    return css
+  }
+
+  awaitingImports.set(key, new Set([entry]))
+  void withImports(css, `${entry.origin}/`, fetchStylesheet).then((expanded) => {
+    imported.set(key, expanded)
+
+    for (const each of awaitingImports.get(key) ?? []) {
+      schedule(each)
+    }
+
+    awaitingImports.delete(key)
+  })
+
+  return css
 }
 
 function preparedOnce(prepare: PrepareCss, css: string): CanvasCss {

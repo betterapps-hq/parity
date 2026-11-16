@@ -287,6 +287,10 @@ describe("prepareCanvasCss", () => {
     expect(
       prepareCanvasCss(":root { --fg: red; --a: var(--b); @supports (display: grid) { --fg: blue; } }", options).scoped
     ).toContain(bodyCopy("--a: var(--b);"))
+    // A semicolon in a string doesn't end a declaration.
+    expect(prepareCanvasCss(':root { --a: "one;two"; --b: "three;four" }', options).scoped).toContain(
+      bodyCopy('--a: "one;two"; --b: "three;four";')
+    )
     // Tokens read the root as written.
     expect(prepareCanvasCss(css, { ...options, qualifiedRoots: false }).scoped).not.toContain("data-canvas-body")
     // A root in a theme is already drawn on the body in it.

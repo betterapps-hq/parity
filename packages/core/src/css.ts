@@ -517,16 +517,25 @@ function customPropertyName(declaration: string): string | undefined {
   return /^(--[\w-]+)\s*:/.exec(declaration)?.[1]
 }
 
-/** A declaration list's declarations, trimmed, split at the semicolons outside parentheses. */
+/** A declaration list's declarations, trimmed, split at the semicolons outside parentheses and strings. */
 function declarationsIn(text: string): string[] {
   const found: string[] = []
   let depth = 0
   let start = 0
+  let quote: string | undefined
 
   for (let index = 0; index <= text.length; index++) {
     const char = text[index]
 
-    if (char === "(") {
+    if (quote) {
+      if (char === "\\") {
+        index++
+      } else if (char === quote) {
+        quote = undefined
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === "(") {
       depth++
     } else if (char === ")") {
       depth--
@@ -539,6 +548,13 @@ function declarationsIn(text: string): string[] {
 
       start = index + 1
     }
+  }
+
+  const rest = text.slice(start).trim()
+
+  // An unclosed string runs to the end, as CSS reads it.
+  if (quote && rest) {
+    found.push(rest)
   }
 
   return found

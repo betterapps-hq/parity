@@ -33,6 +33,8 @@ export interface FrameEnvironment {
    * guest's `prepare`, against the project's origin. Without one, against Parity's.
    */
   prepare?: PrepareCss
+  /** The project's origin, which those stylesheets' `@import`s are read from. Without one, Parity's. */
+  origin?: string
 }
 
 let rootSheet: CSSStyleSheet | undefined
@@ -198,7 +200,13 @@ export function prepareFrame(
   rewriteAddedRules()
   const shadow = unrecordedShadow(host)
   watchFrameStyles(shadow)
-  const written = catchFrameStyles(shadow, environment.prepare ?? prepareForParity)
+
+  const written = catchFrameStyles(
+    shadow,
+    environment.prepare ?? prepareForParity,
+    environment.origin ?? location.origin
+  )
+
   const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "" }
   frameSheets.set(host, own)
   // What the project's code writes into the frame first, where its `<style>` elements' own sheets cascade, before any
