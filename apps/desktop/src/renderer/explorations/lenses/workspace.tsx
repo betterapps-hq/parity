@@ -131,10 +131,13 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     // A lens's own window, once its group is in, takes the main window's theme and says what it holds.
     subscriptions.push(api.onDidAddPopoutGroup(({ window: opened, group }) => dress(opened, group.activePanel?.title)))
 
-    // A lens drawn from the lens bar drops where a tab would.
+    // A lens drawn from the lens bar drops where a tab would, in any window. A drag over a lens's own window is that
+    // window's event, not an instance of this one's DragEvent, so it's told apart by having data.
     subscriptions.push(
       api.onUnhandledDragOver((event) => {
-        if (event.nativeEvent instanceof DragEvent && event.nativeEvent.dataTransfer?.types.includes(lensDragType)) {
+        const native = event.nativeEvent
+
+        if ("dataTransfer" in native && native.dataTransfer?.types.includes(lensDragType)) {
           event.accept()
         }
       })
@@ -226,7 +229,7 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
 
   const onDidDrop = (event: DockviewDidDropEvent) => {
     const native = event.nativeEvent
-    const lens = native instanceof DragEvent ? native.dataTransfer?.getData(lensDragType) : undefined
+    const lens = "dataTransfer" in native ? native.dataTransfer?.getData(lensDragType) : undefined
 
     if (!api || !isLens(lens)) {
       return

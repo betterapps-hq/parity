@@ -496,6 +496,9 @@ export function LensBar({ actions }: { actions: ChromeActions }) {
 /** Where a lens shows when it isn't the canvas in focus's, for its hint. */
 const placeWords = { open: "Open in a tab", window: "In its own window" }
 
+/** The lens the lens bar is reached by with Tab while no lens is in focus, as with every tab closed. */
+const firstLens = lensOrder.find((id) => !lenses[id].missing)
+
 function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions }) {
   const { label, icon: Icon, keys, missing } = lenses[lens]
   const current = actions.current === lens
@@ -533,7 +536,7 @@ function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions })
               data-lens={lens}
               aria-label={said ? `${label}, ${said.toLowerCase()}` : label}
               aria-pressed={current}
-              tabIndex={current ? 0 : -1}
+              tabIndex={(actions.current ? current : lens === firstLens) ? 0 : -1}
               onClick={(event) => (event.ctrlKey || event.metaKey ? actions.openTab(lens) : actions.show(lens))}
               onAuxClick={(event) => event.button === 1 && actions.openTab(lens)}
               draggable={!missing}
