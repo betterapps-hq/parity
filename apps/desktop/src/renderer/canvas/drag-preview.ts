@@ -5,6 +5,7 @@ import { findFrames, findNodeElements, nodeBox } from "../frame.ts"
 import { type CarriedPictures, carriedPictureSet, type Dragger } from "./carried.ts"
 import { type ElementLift, liftElements, reducedMotion, styleElements } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
+import { hideLayers } from "./hide-layers.ts"
 import { corner, DropPreview, showHidden } from "./layer-drag.ts"
 import { layerPicture } from "./layer-picture.ts"
 import { type Placement, placedBoards, type Point } from "./placed-boards.ts"
@@ -226,6 +227,32 @@ function boardPart(surface: PreviewSurface, boards: PreviewItem[]): Part {
 }
 
 /**
+ * Leaves layers empty in the frame they landed in, once it draws them there, which may take an animation frame or two,
+ * unless `landed` already; `hidden` gets what shows them again.
+ */
+function hideLanded(
+  host: HTMLElement,
+  ids: readonly string[],
+  landed: () => boolean,
+  hidden: (show: () => void) => void,
+  tries = 2
+): void {
+  window.requestAnimationFrame(() => {
+    if (landed()) {
+      return
+    }
+
+    const elements = ids.flatMap((id) => findNodeElements(host, id))
+
+    if (elements.length > 0) {
+      hidden(hideLayers(elements))
+    } else if (tries > 1) {
+      hideLanded(host, ids, landed, hidden, tries - 1)
+    }
+  })
+}
+
+/**
  * Layers carried by someone else: from a layout, the place they left is an empty outline and a landing spot shows
  * where they'd go; placed absolutely, only their picture is carried. The picture is taken once, as the preview starts.
  */
@@ -282,6 +309,8 @@ function layersPart(
 
   const drop = absolute ? undefined : new DropPreview(host, elements, options.color.color, reduced)
   let at = ""
+  // The frame the layers would land in, last, where they're left empty until their picture lands.
+  let landing: HTMLElement | undefined
 
   return {
     kind: absolute ? "absolute" : "layout",
@@ -310,6 +339,8 @@ function layersPart(
       const found = parent && findNode(parent, target.parent)
       const siblings = found && "children" in found ? found.children.map((child) => child.id) : []
 
+      landing = into
+
       if (target && into) {
         drop.show(into, { design: target.design, parent: target.parent, index: target.index }, siblings)
       } else {
@@ -331,7 +362,30 @@ function layersPart(
         const spot = drop?.spot(space())
         drop?.end(false)
         const to = spot ?? pictures.store.get()?.at ?? space().point({ x: union.left, y: union.top })
-        pictures.letGo("dropping", to, reduced, forget, spot)
+        // Where they landed stays empty until the picture gets there, as a local drop's does.
+        let show: (() => void) | undefined
+        let gone = false
+
+        pictures.letGo(
+          "dropping",
+          to,
+          reduced,
+          () => {
+            gone = true
+            show?.()
+            forget()
+          },
+          spot
+        )
+
+        if (!gone && landing) {
+          hideLanded(
+            landing,
+            ids,
+            () => gone,
+            (put) => (show = put)
+          )
+        }
 
         return
       }

@@ -517,13 +517,17 @@ export function CanvasEditor({
 
         const gesture = translating ? translation?.gesture : undefined
 
+        // The person dragging a board themselves, not a hold or preview placing it.
+        const grabbed =
+          next.type === "canvas-container" && translating && editor.getSelectedShapeIds().includes(next.id)
+
         // Grabbing a held board lets go of it, and the person's drag wins.
-        if (next.type === "canvas-container" && translating && editor.getSelectedShapeIds().includes(next.id)) {
+        if (grabbed) {
           holds.grab(tab, next.props.key)
         }
 
-        // A placed board is drawn where it's held or previewed, which isn't written back.
-        if (next.type === "canvas-container" && !placedBoards.at(tab, next.props.key)) {
+        // A placed board is drawn where it's held or previewed, which isn't written back; the person's own drag is.
+        if (next.type === "canvas-container" && (grabbed || !placedBoards.at(tab, next.props.key))) {
           setPosition(doc, next.props.key, { x: next.x, y: next.y }, { gesture })
         }
 
