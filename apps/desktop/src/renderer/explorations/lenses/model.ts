@@ -147,13 +147,23 @@ export function splitRight(layout: Layout, lens: LensId, windowId: string, besid
   return { ...layout, windows }
 }
 
-/** Moves a lens into a window of its own. The main window keeps at least one lens. */
-export function toNewWindow(layout: Layout, lens: LensId): Layout {
-  if (anchorsMain(layout, lens)) {
+/**
+ * Moves a lens into a window of its own. The main window always keeps a lens: moving its only one out leaves the lens
+ * given instead in its place, and without one the lens stays.
+ */
+export function toNewWindow(layout: Layout, lens: LensId, instead?: LensId): Layout {
+  if (!anchorsMain(layout, lens)) {
+    return { ...layout, windows: [...without(layout, lens), lensWindow([group(lens)])] }
+  }
+
+  if (!instead || instead === lens) {
     return layout
   }
 
-  return { ...layout, windows: [...without(layout, lens), lensWindow([group(lens)])] }
+  const [main, ...others] = without(layout, instead)
+  const kept = { ...main!, groups: [{ ...main!.groups[0]!, lens: instead }] }
+
+  return { ...layout, windows: [kept, ...others, lensWindow([group(lens)])] }
 }
 
 /** Moves a lens from its own window back into the main window, to the right of its group in focus. */

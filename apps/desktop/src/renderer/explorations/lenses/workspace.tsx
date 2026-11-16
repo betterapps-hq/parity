@@ -35,16 +35,15 @@ import {
 import { LensPanel } from "./panel.tsx"
 
 /** Where a dragged lens would go if let go now. */
-type Target =
-  | { kind: "here"; group: string }
-  | { kind: "split"; window: string; group: string }
-  | { kind: "window"; from: string }
+type Target = { kind: "here"; group: string } | { kind: "split"; window: string; group: string } | { kind: "window" }
 
 interface Drag {
   lens: LensId
   start: { x: number; y: number }
   at: { x: number; y: number }
   moved: boolean
+  /** It can move to a window of its own, so the desktop around the windows takes it. */
+  leaves: boolean
   target?: Target
 }
 
@@ -101,8 +100,9 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
       }
 
       const moved = current.moved || Math.hypot(event.clientX - current.start.x, event.clientY - current.start.y) > 4
-      const next: Drag = { lens: current.lens, start: current.start, at: { x: event.clientX, y: event.clientY }, moved }
-      const target = moved ? targetAt(event.clientX, event.clientY, current.lens) : undefined
+      const at = { x: event.clientX, y: event.clientY }
+      const next: Drag = { lens: current.lens, start: current.start, at, moved, leaves: current.leaves }
+      const target = moved ? targetAt(at.x, at.y, current.leaves) : undefined
 
       if (target) {
         next.target = target
@@ -162,6 +162,8 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
     setCameras({})
   }
 
+  const dragging = drag?.moved ? drag : undefined
+
   const shared: Shared = {
     layout,
     set: setLayout,
@@ -175,7 +177,7 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
       })),
     tabs,
     setTab: (key, tab) => setTabs((before) => ({ ...before, [key]: tab })),
-    drag: drag?.moved ? drag : undefined,
+    drag: dragging,
     peek,
     setPeek,
     startDrag: (lens, event) => {
@@ -184,7 +186,8 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
           lens,
           start: { x: event.clientX, y: event.clientY },
           at: { x: event.clientX, y: event.clientY },
-          moved: false
+          moved: false,
+          leaves: canLeave(layout, lens)
         }
 
         dragRef.current = next
@@ -199,7 +202,7 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
     openProject
   }
 
-  const grabbing = drag?.moved ? "cursor-grabbing select-none" : ""
+  const grabbing = dragging ? "cursor-grabbing select-none" : ""
 
   if (shown === undefined) {
     return (
@@ -211,15 +214,18 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
   }
 
   const [main, ...others] = layout.windows
+  const leaving = dragging?.target?.kind === "window" ? dragging : undefined
 
   return (
     <div className={grabbing}>
       {others.length === 0 ? (
-        <div className="h-screen">
-          <WindowView win={main!} main shared={shared} />
-        </div>
+        <Desktop drag={dragging}>
+          <div className="relative size-full overflow-hidden rounded-lg shadow-2xl ring-1 ring-black/10 dark:ring-white/10">
+            <WindowView win={main!} main shared={shared} />
+          </div>
+        </Desktop>
       ) : (
-        <Desk>
+        <Desktop drag={dragging} className="grid auto-cols-fr grid-flow-col items-center gap-8">
           <Screen label="Display 1">
             <WindowView win={main!} main shared={shared} />
           </Screen>
@@ -228,20 +234,41 @@ export function LensesPrototype({ initial }: { initial: Layout }) {
               <WindowView win={each} main={false} shared={shared} />
             </Screen>
           ))}
-        </Desk>
+        </Desktop>
       )}
-      {drag?.moved && <DragChip drag={drag} />}
+      {leaving ? <WindowGhost drag={leaving} /> : dragging && <DragChip drag={dragging} />}
     </div>
   )
 }
 
-/** The desk the story shows windows on, once there's more than one: a screen for each, side by side. */
-function Desk({ children }: { children: ReactNode }) {
+/**
+ * The desktop the story shows the project's windows on: one window with room around it, or once a lens has a window
+ * of its own, a screen for each. Dragging a lens off a window, onto the desktop, opens it in a window of its own, as
+ * dragging it onto another monitor would; while a lens is dragged, the desktop is outlined to say so.
+ */
+function Desktop({
+  drag,
+  className = "",
+  children
+}: {
+  drag: Drag | undefined
+  className?: string
+  children: ReactNode
+}) {
+  const over = drag?.target?.kind === "window"
+
   return (
-    <div
-      className="grid h-screen auto-cols-fr grid-flow-col items-center gap-8 bg-neutral-200 p-8 dark:bg-neutral-900"
-      data-wallpaper=""
-    >
+    <div className={`relative h-screen bg-neutral-200 p-8 dark:bg-neutral-900 ${className}`} data-wallpaper="">
+      {drag?.leaves && (
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-3 rounded-xl border-2 border-dashed transition-colors ${
+            over
+              ? "border-(--canvas-layer) bg-[color-mix(in_oklch,var(--canvas-layer)_8%,transparent)]"
+              : "border-[color-mix(in_oklch,var(--canvas-layer)_45%,transparent)]"
+          }`}
+        />
+      )}
       {children}
     </div>
   )
@@ -289,7 +316,6 @@ function WindowView({ win, main, shared }: { win: LensWindow; main: boolean; sha
   const focused = win.groups.find((one) => one.id === win.focused) ?? win.groups[0]!
   const panels = { left: true, right: true, ...shared.panels[win.id] }
   const lens = focused.lens
-  const newWindow = shared.drag?.target?.kind === "window" && shared.drag.target.from === win.id
 
   const elsewhere = (id: LensId) => {
     const there = find(layout, id)
@@ -299,12 +325,6 @@ function WindowView({ win, main, shared }: { win: LensWindow; main: boolean; sha
     }
 
     return there.window.id === win.id ? "beside" : "window"
-  }
-
-  const alone = (id: LensId) => {
-    const there = find(layout, id)
-
-    return !!there && there.window.groups.length === 1
   }
 
   const actions: ChromeActions = {
@@ -321,16 +341,8 @@ function WindowView({ win, main, shared }: { win: LensWindow; main: boolean; sha
     },
     splitRight: (id) => set((before) => splitRight(before, id, win.id)),
     canSplit: (id) => !(find(layout, id)?.group.id === focused.id && win.groups.length === 1),
-    toWindow: (id) => set((before) => toNewWindow(before, id)),
-    canMoveToWindow: (id) => {
-      const there = find(layout, id)
-
-      if (there && alone(id)) {
-        return false
-      }
-
-      return !(there?.window === layout.windows[0] && layout.windows[0]!.groups.length === 1)
-    },
+    toWindow: (id) => set((before) => moveOut(before, id)),
+    canMoveToWindow: (id) => canLeave(layout, id),
     toMain: (id) => set((before) => toMainWindow(before, id)),
     canMoveToMain: (id) => {
       const there = find(layout, id)
@@ -421,21 +433,14 @@ function WindowView({ win, main, shared }: { win: LensWindow; main: boolean; sha
         )}
       </div>
       {main && <StatusBar />}
-      {newWindow && (
-        <div className="pointer-events-none absolute inset-0 z-[500] ring-4 ring-(--canvas-layer) ring-inset">
-          <DropChip className="absolute right-6 bottom-12">
-            <SquareArrowOutUpRight /> Move to new window
-          </DropChip>
-        </div>
-      )}
     </div>
   )
 }
 
 /**
  * A canvas showing one lens. With two or more side by side, each has a header with its lens, picked out like an open
- * tab while it's the canvas in focus, and the lens's actions at its end. Dropping a lens on a canvas shows it there;
- * on its right side, beside it.
+ * tab while it's the canvas in focus, and the lens's actions at its end; the header drags the lens as the lens bar
+ * does. Dropping a lens on a canvas shows it there; on its right side, beside it.
  */
 function GroupView({
   group,
@@ -457,7 +462,6 @@ function GroupView({
   const { label, icon: Icon } = lenses[group.lens]
   const split = win.groups.length > 1
   const closable = split || !main
-  const moveOut = !(main && win.groups.length === 1) && !(!main && win.groups.length === 1)
 
   return (
     <section
@@ -469,10 +473,16 @@ function GroupView({
     >
       {split && (
         <div
-          className={`flex h-9 shrink-0 items-center gap-1.5 border-b pr-1 pl-3 text-sm ${
+          className={`relative flex h-9 shrink-0 items-center gap-1.5 border-b pr-1 pl-3 text-sm ${
             focused ? "bg-background text-foreground" : "bg-neutral-50 text-muted-foreground dark:bg-white/[0.02]"
           }`}
+          onPointerDown={(event) => {
+            if (!(event.target instanceof Element && event.target.closest("button"))) {
+              shared.startDrag(group.lens, event)
+            }
+          }}
         >
+          {focused && <span aria-hidden className="absolute inset-x-0 top-0 h-0.5 bg-(--canvas-layer)" />}
           <Icon className="size-4 shrink-0" />
           <span className="truncate">{label}</span>
           <span
@@ -485,8 +495,8 @@ function GroupView({
               <Columns2 />
             </IconButton>
             {main ? (
-              moveOut && (
-                <IconButton label="Move to new window" onClick={() => set((before) => toNewWindow(before, group.lens))}>
+              canLeave(layout, group.lens) && (
+                <IconButton label="Move to new window" onClick={() => set((before) => moveOut(before, group.lens))}>
                   <SquareArrowOutUpRight />
                 </IconButton>
               )
@@ -539,6 +549,35 @@ function DropChip({ className = "", children }: { className?: string; children: 
   )
 }
 
+/**
+ * Where a lens dragged onto the desktop will open: a window of its own, outlined under the pointer, kept on screen
+ * near the desktop's edges.
+ */
+function WindowGhost({ drag }: { drag: Drag }) {
+  const { label, icon: Icon } = lenses[drag.lens]
+  const size = { width: 240, height: 150 }
+  const left = Math.max(8, Math.min(drag.at.x - 28, window.innerWidth - size.width - 8))
+  const top = Math.max(8, Math.min(drag.at.y - 14, window.innerHeight - size.height - 8))
+
+  return (
+    <div
+      className="pointer-events-none fixed z-[1000] flex flex-col overflow-hidden rounded-lg border-2 border-(--canvas-layer) bg-background/90 shadow-xl backdrop-blur-sm"
+      style={{ left, top, ...size }}
+    >
+      <div className="flex h-7 shrink-0 items-center gap-1.5 border-b px-2.5 text-xs font-medium">
+        <Icon className="size-3.5 text-muted-foreground" />
+        {label}
+      </div>
+      <div className="grid flex-1 place-items-center bg-[color-mix(in_oklch,var(--canvas-layer)_8%,transparent)]">
+        <span className="flex items-center gap-2 text-sm font-medium text-(--canvas-layer-text)">
+          <SquareArrowOutUpRight className="size-4" />
+          Move to new window
+        </span>
+      </div>
+    </div>
+  )
+}
+
 /** The lens being dragged, under the pointer. */
 function DragChip({ drag }: { drag: Drag }) {
   const { label, icon: Icon } = lenses[drag.lens]
@@ -554,40 +593,61 @@ function DragChip({ drag }: { drag: Drag }) {
   )
 }
 
-/** What's under the pointer while a lens is dragged from the lens bar. */
-function targetAt(x: number, y: number, lens: LensId): Target | undefined {
-  for (const element of document.elementsFromPoint(x, y)) {
-    if (!(element instanceof HTMLElement)) {
-      continue
-    }
+/**
+ * What's under the pointer while a lens is dragged: a canvas, to show it there or, on its right side, beside it; or the
+ * desktop outside every window, to move it to a window of its own if it can leave where it is.
+ */
+function targetAt(x: number, y: number, leaves: boolean): Target | undefined {
+  const element = document.elementFromPoint(x, y)
 
-    // The window's right or bottom edge, whatever is drawn there: inspector, status bar or canvas.
-    const winElement = element.closest<HTMLElement>("[data-window]")
-
-    if (winElement && !lenses[lens].missing) {
-      const win = winElement.getBoundingClientRect()
-
-      if (Math.min(win.right - x, win.bottom - y) < 16 * (win.width / windowSize.width)) {
-        return { kind: "window", from: winElement.dataset.window! }
-      }
-    }
-
-    const canvas = element.closest<HTMLElement>("[data-canvas]")
-
-    if (canvas && winElement) {
-      const box = canvas.getBoundingClientRect()
-
-      return x > box.left + box.width * 0.6
-        ? { kind: "split", window: winElement.dataset.window!, group: canvas.dataset.canvas! }
-        : { kind: "here", group: canvas.dataset.canvas! }
-    }
-
-    if (element.hasAttribute("data-wallpaper")) {
-      return { kind: "window", from: "" }
-    }
+  if (!(element instanceof HTMLElement)) {
+    return undefined
   }
 
-  return undefined
+  const winElement = element.closest<HTMLElement>("[data-window]")
+
+  if (!winElement) {
+    return leaves && element.closest("[data-wallpaper]") ? { kind: "window" } : undefined
+  }
+
+  const canvas = element.closest<HTMLElement>("[data-canvas]")
+
+  if (!canvas) {
+    return undefined
+  }
+
+  const box = canvas.getBoundingClientRect()
+
+  return x > box.left + box.width * 0.6
+    ? { kind: "split", window: winElement.dataset.window!, group: canvas.dataset.canvas! }
+    : { kind: "here", group: canvas.dataset.canvas! }
+}
+
+/** The lens the main window shows when its only one moves out: the first that shows nowhere and has something to draw. */
+function insteadOf(layout: Layout, lens: LensId): LensId | undefined {
+  return lensOrder.find((id) => id !== lens && !find(layout, id) && !lenses[id].missing)
+}
+
+/**
+ * Whether a lens can move to a window of its own: it has something to draw, and it isn't already all its window shows,
+ * unless that's the main window and another lens can take its place there.
+ */
+function canLeave(layout: Layout, lens: LensId): boolean {
+  const there = find(layout, lens)
+
+  if (lenses[lens].missing) {
+    return false
+  }
+
+  if (!there || there.window.groups.length > 1) {
+    return true
+  }
+
+  return there.window === layout.windows[0] && insteadOf(layout, lens) !== undefined
+}
+
+function moveOut(layout: Layout, lens: LensId): Layout {
+  return toNewWindow(layout, lens, insteadOf(layout, lens))
 }
 
 function drop(layout: Layout, lens: LensId, target: Target): Layout {
@@ -597,7 +657,7 @@ function drop(layout: Layout, lens: LensId, target: Target): Layout {
     case "here":
       return showIn(layout, lens, target.group)
     case "window":
-      return toNewWindow(layout, lens)
+      return moveOut(layout, lens)
   }
 }
 

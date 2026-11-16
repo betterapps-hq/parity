@@ -7,16 +7,13 @@ import {
   Frame,
   ImagePlay,
   KeyRound,
-  Layers,
   Link2,
   type LucideIcon,
   Palette,
   PanelLeftClose,
   PanelRightClose,
   Plus,
-  Server,
   Smile,
-  Table2,
   Type
 } from "lucide-react"
 import { type ComponentType, type KeyboardEvent, type ReactNode, useMemo, useState } from "react"
@@ -98,9 +95,6 @@ export function PanelFrame({
   )
 }
 
-/** The outline tab's icon, where it isn't Layers': Data lists tables, API its endpoints. */
-const outlineIcons: Partial<Record<LensId, LucideIcon>> = { data: Table2, api: Server }
-
 /** What goes into designs, as today's left panel has it, for a lens that holds designs. */
 const assetTabs: PanelTab[] = [
   { value: "components", label: "Components", icon: Component },
@@ -130,10 +124,7 @@ export function LensPanel({
 }) {
   const info = lenses[lens]
 
-  const tabs: PanelTab[] = [
-    { value: "outline", label: info.outline.label, icon: outlineIcons[lens] ?? Layers },
-    ...(info.assets ? assetTabs : [])
-  ]
+  const tabs: PanelTab[] = [{ value: "outline", label: info.label, icon: info.icon }, ...(info.assets ? assetTabs : [])]
 
   return (
     <PanelFrame side="left" label={`${info.label} panel`} tabs={tabs} tab={tab} onTab={onTab} onHide={onHide}>
@@ -384,7 +375,7 @@ function LensOutline({
         <div
           className="flex flex-col pb-2 text-sm outline-none"
           role="tree"
-          aria-label={info.outline.label}
+          aria-label={info.label}
           aria-activedescendant={current ? `row-${lens}-${current.key}` : undefined}
           tabIndex={0}
           onKeyDown={onKeyDown}

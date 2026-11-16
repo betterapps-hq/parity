@@ -45,12 +45,14 @@ restore. The project service still could hold more than one project; the window 
   Components, Stories, Data for its database, and API.
 - **The lens bar** is a column of icons at the window's left edge, as VS Code's activity bar is, on the title bar's
   surface so the two frame the panels. Each lens's name and shortcut, Ctrl+1 to Ctrl+6, is its tooltip. The lens shown
-  in the canvas in focus is drawn as the open tab is today; one shown in another canvas of the window has a dot.
-  Clicking the lens already shown hides or shows the left panel. A lens with nothing to read from, such as API without
-  an OpenAPI document, sits at the bottom, dimmed, and its canvas says what's missing.
-- **The left panel is the lens's,** with today's tab row along its top. Its first tab lists what the lens draws, as
-  Layers does: Pages' routes, Screens' screens and frames, Components, Stories by file, Data's tables. Screens adds the
-  asset tabs, Components, Icons, Media and Tokens, since that's where they're dropped. It follows the canvas in focus.
+  in the canvas in focus is drawn as the open tab is today, with a blue bar at the window's edge as Layers marks its
+  selected row, and the other lenses are dimmed; one shown in another canvas of the window has a dot. Clicking the lens
+  already shown hides or shows the left panel. A lens with nothing to read from, such as API without an OpenAPI
+  document, sits at the bottom, dimmed, and its canvas says what's missing.
+- **The left panel is the lens's,** with today's tab row along its top. Its first tab is named for the lens and lists
+  what it draws, as Layers does: Pages' routes, Screens' screens and frames, Components, Stories by file, Data's tables.
+  Screens adds the asset tabs, Components, Icons, Media and Tokens, since that's where they're dropped. It follows the
+  canvas in focus.
 - **Each lens keeps its own canvas, camera and selection,** so moving between Pages and Data and back leaves both as
   they were. Each canvas is today's: its colors, group titles that scale with zoom, the zoom bar, and the drawing
   toolbar on the lenses that hold designs.
@@ -61,17 +63,22 @@ restore. The project service still could hold more than one project; the window 
 
 ## Side by side and in windows
 
-| Action                                                                  | Result                                            |
-| ----------------------------------------------------------------------- | ------------------------------------------------- |
-| Click a lens                                                            | Shows it where it is, else in the canvas in focus |
-| Right-click a lens, Split right, or drag it onto a canvas's right       | Shows it in a new canvas to the right             |
-| Drag a lens onto a canvas                                               | Shows it there, in place of what it showed        |
-| Right-click a lens, Move to new window, or drag it to the window's edge | A window of its own, with that lens               |
-| In that window, right-click the lens, Move to main window               | Back into the main window, to the right           |
+| Action                                                            | Result                                            |
+| ----------------------------------------------------------------- | ------------------------------------------------- |
+| Click a lens                                                      | Shows it where it is, else in the canvas in focus |
+| Right-click a lens, Split right, or drag it onto a canvas's right | Shows it in a new canvas to the right             |
+| Drag a lens onto a canvas                                         | Shows it there, in place of what it showed        |
+| Right-click a lens, Move to new window, or drag it off the window | A window of its own where it's dropped            |
+| In that window, right-click the lens, Move to main window         | Back into the main window, to the right           |
+
+Dragging a lens off the window works as dragging a tab out of a browser does: the window opens where the lens is let go,
+so dropping it on another monitor puts it there. While it's dragged, an outline of the window it would open follows the
+pointer outside the window. A canvas's header drags its lens too.
 
 Each lens shows in one place at most, so showing it elsewhere moves it. With two or more canvases, each has a slim
-header with its lens and a close button. The main window always keeps one canvas; a lens's own window closes with its
-last. Windows and their canvases are kept with the project and come back as they were.
+header with its lens and a close button, and the one in focus has a blue top edge. The main window always keeps a
+canvas: moving its only lens out leaves the next free lens in its place. A lens's own window closes with its last
+canvas. Windows and their canvases are kept with the project and come back as they were.
 
 ## Why it helps loading
 

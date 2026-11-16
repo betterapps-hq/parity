@@ -513,7 +513,7 @@ function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions })
     "border-transparent text-muted-foreground hover:bg-background/70 hover:text-foreground dark:hover:bg-input/20"
 
   if (current) {
-    look = "border-border bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30"
+    look = "border-border bg-background text-foreground shadow-sm dark:border-white/10 dark:bg-white/10"
   } else if (elsewhere) {
     look = "border-transparent text-foreground hover:bg-background/70 dark:hover:bg-input/20"
   } else if (missing) {
@@ -544,7 +544,11 @@ function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions })
               onPointerDown={(event) => actions.startDrag(lens, event)}
               className={`relative grid size-9 place-items-center rounded-lg border outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 ${look}`}
             >
-              <Icon className="size-[18px]" strokeWidth={1.75} />
+              <Icon className="size-[18px]" strokeWidth={current ? 2 : 1.75} />
+              {/* The bar at the window's edge, as Layers marks its selected row and VS Code its open view. */}
+              {current && (
+                <span aria-hidden className="absolute inset-y-1 -left-[7px] w-0.5 rounded-r-full bg-(--canvas-layer)" />
+              )}
               {elsewhere && (
                 <span aria-hidden className="absolute right-1 bottom-1 size-1.5 rounded-full bg-foreground/60" />
               )}
