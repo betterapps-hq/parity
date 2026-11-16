@@ -181,20 +181,22 @@ const projects = new Map<string, Project>([
         )
         await remove(dir, "src/app")
         await overlay(dir, "nextjs-webpack")
-        // Mantine 8, the last to support React 18, set up as its Next.js guide says. The CSS modules are Sass, with the
-        // breakpoints as Sass variables, so PostCSS needs only Mantine's preset.
+        // Chakra UI 3 on React 18, set up as its Next.js guide says, with its own system and next-themes' color mode.
+        // Emotion's cache is listed for the provider Chakra's library file wraps frames in. The CSS modules are Sass,
+        // with Chakra's breakpoints as Sass variables.
         await editPackage(dir, (pkg) => {
           addDependencies(pkg, "dependencies", {
-            "@mantine/core": "8.3.18",
-            "@mantine/hooks": "8.3.18",
+            "@chakra-ui/react": "3.37.0",
+            "@emotion/cache": "11.14.0",
+            "@emotion/react": "11.14.0",
             "@tabler/icons-react": "3.52.0",
+            "next-themes": "0.4.6",
             react: "18.3.1",
             "react-dom": "18.3.1"
           })
           addDependencies(pkg, "devDependencies", {
             "@types/react": "18.3.31",
             "@types/react-dom": "18.3.7",
-            "postcss-preset-mantine": "1.18.0",
             sass: "1.108.2"
           })
         })

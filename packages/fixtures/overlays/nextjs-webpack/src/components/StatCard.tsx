@@ -1,4 +1,4 @@
-import { Card, Group, Text } from '@mantine/core'
+import { Card, HStack, Text } from '@chakra-ui/react'
 import { IconArrowDownRight, IconArrowUpRight } from '@tabler/icons-react'
 import classes from './StatCard.module.scss'
 
@@ -12,20 +12,27 @@ export interface StatCardProps {
 export function StatCard({ label, value, change }: StatCardProps) {
   const Arrow = change !== undefined && change < 0 ? IconArrowDownRight : IconArrowUpRight
   return (
-    <Card withBorder padding="lg" className={classes.card}>
-      <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-        {label}
-      </Text>
-      <Group justify="space-between" align="flex-end" mt="sm">
-        <Text className={classes.value}>{value}</Text>
-        {change !== undefined && (
-          <Text c={change >= 0 ? 'teal' : 'red'} fw={600} size="sm" className={classes.change}>
-            {change >= 0 ? '+' : ''}
-            {change}%
-            <Arrow size={16} />
-          </Text>
-        )}
-      </Group>
-    </Card>
+    <Card.Root variant="outline" className={classes.card}>
+      <Card.Body>
+        <Text textStyle="xs" color="fg.muted" textTransform="uppercase" fontWeight="bold">
+          {label}
+        </Text>
+        <HStack justify="space-between" align="flex-end" mt="3">
+          <Text className={classes.value}>{value}</Text>
+          {change !== undefined && (
+            <Text
+              color={change >= 0 ? 'teal.fg' : 'red.fg'}
+              fontWeight="semibold"
+              textStyle="sm"
+              className={classes.change}
+            >
+              {change >= 0 ? '+' : ''}
+              {change}%
+              <Arrow size={16} />
+            </Text>
+          )}
+        </HStack>
+      </Card.Body>
+    </Card.Root>
   )
 }
