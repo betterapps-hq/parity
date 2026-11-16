@@ -11,7 +11,8 @@ import {
   StatCard,
   stickerHome,
   Themes,
-  useClock
+  useClock,
+  scrolls
 } from "./story-kit.tsx"
 
 /**
@@ -21,7 +22,8 @@ import {
  */
 const meta = {
   title: "Parity/Multiplayer/Drag previews",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta

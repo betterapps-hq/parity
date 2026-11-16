@@ -1,6 +1,5 @@
 import { colorDistance, parseHex, rgbaToOklch } from "@parity-app/tokens"
 import { describe, expect, it } from "vite-plus/test"
-import { agentPalettes } from "../agent/agent-colors.ts"
 import { badgeContrast, inkContrast, palette, tunedPalettes } from "./palettes.ts"
 
 const hueOf = (hex: string) => rgbaToOklch(parseHex(hex)!).h
@@ -11,11 +10,9 @@ const hueGap = (a: number, b: number) => Math.min(Math.abs(a - b), 360 - Math.ab
 const generated = (count: number) => Array.from({ length: count }, (_, index) => palette(tunedPalettes.length + index))
 
 describe("palettes", () => {
-  it("starts with the agents' twelve, then twelve more, each numbered by its place", () => {
+  it("has 24 hand-tuned palettes, each named once and numbered by its place", () => {
     expect(tunedPalettes).toHaveLength(24)
-    expect(new Set(tunedPalettes.slice(0, 12).map((each) => each.color))).toEqual(
-      new Set(agentPalettes.map((each) => each.color))
-    )
+    expect(new Set(tunedPalettes.map((each) => each.name)).size).toBe(24)
     expect(tunedPalettes.map((each) => each.n)).toEqual(tunedPalettes.map((_, index) => index))
     expect(palette(5)).toBe(tunedPalettes[5])
   })

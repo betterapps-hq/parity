@@ -1,12 +1,12 @@
 import { Slider } from "@buildkitgg/shadcn-baseui-kit"
+import { badgeContrast, inkContrast, type Palette, palette, tunedPalettes } from "@parity-app/presence-colors"
 import { contrastRatio, parseHex, rgbaToOklch } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Check, X } from "lucide-react"
 import { useId, useState } from "react"
 import { AgentPointer } from "../agent/AgentPointer.tsx"
-import { badgeContrast, inkContrast, type Palette, palette, tunedPalettes } from "./palettes.ts"
 import { gradient, type Member, MemberBadge, Outlined } from "./presence-parts.tsx"
-import { canvasBackground, type Theme } from "./story-kit.tsx"
+import { canvasBackground, type Theme, scrolls } from "./story-kit.tsx"
 
 /**
  * People and agents share one list of colors, handed out by number, so the same person is the same color in every
@@ -16,7 +16,8 @@ import { canvasBackground, type Theme } from "./story-kit.tsx"
  */
 const meta = {
   title: "Parity/Multiplayer/Colors",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta

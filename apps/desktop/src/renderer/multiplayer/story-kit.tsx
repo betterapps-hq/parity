@@ -1,7 +1,8 @@
 import { Button, Slider } from "@buildkitgg/shadcn-baseui-kit"
+import { palette } from "@parity-app/presence-colors"
+import type { Decorator } from "@storybook/react-vite"
 import { Pause, Play } from "lucide-react"
 import { Fragment, type ReactElement, type ReactNode, useEffect, useId, useState } from "react"
-import { palette } from "./palettes.ts"
 import type { Member, Presence } from "./presence-parts.tsx"
 
 /*
@@ -11,12 +12,19 @@ import type { Member, Presence } from "./presence-parts.tsx"
 
 export type Theme = "light" | "dark"
 
+/**
+ * Gives a story its own scrolling, since the app's page never scrolls (see `#root` in styles.css) and a story taller
+ * than the window would otherwise be cut off at its bottom.
+ */
+export const scrolls: Decorator = (Story) => <div className="h-screen overflow-y-auto bg-background">{Story()}</div>
+
 /** The canvas's own background in each theme, as tldraw draws it. */
 export const canvasBackground: Record<Theme, string> = { light: "#f8fafb", dark: "#101012" }
 
 /**
  * The same piece of canvas in the light theme and the dark, side by side, wrapping onto two rows when there isn't room.
- * Each is its own theme, whatever the toolbar says; menus and popovers opened from it follow the toolbar.
+ * Each is its own theme, whatever the toolbar says; menus and popovers opened from it follow the toolbar. Each pane is
+ * `width` wide at most and narrows with the window, so the toolbar's viewport menu shows the canvas narrow.
  */
 export function Themes({
   width = 560,
@@ -30,7 +38,7 @@ export function Themes({
   return (
     <div className="flex min-h-screen flex-wrap content-start gap-6 bg-background p-6 text-foreground">
       {(["light", "dark"] as const).map((theme) => (
-        <section key={theme} className="flex flex-col gap-2">
+        <section key={theme} className="flex flex-col gap-2" style={{ width, maxWidth: "100%" }}>
           <h2 className="text-xs font-medium text-muted-foreground">{theme === "light" ? "Light" : "Dark"}</h2>
           <CanvasPane theme={theme} width={width} height={height}>
             {children(theme)}
@@ -41,7 +49,11 @@ export function Themes({
   )
 }
 
-/** A piece of the canvas in one theme. What's inside is placed absolutely, in pixels from its top-left. */
+/**
+ * A piece of the canvas in one theme, `width` wide at most and `height` tall at least. What's inside is placed
+ * absolutely, in pixels from its top-left, or flows and grows it. It's a container, so what's inside can respond to how
+ * wide the canvas is.
+ */
 export function CanvasPane({
   theme,
   width,
@@ -55,8 +67,8 @@ export function CanvasPane({
 }) {
   return (
     <div
-      className={`${theme} relative shrink-0 overflow-hidden rounded-xl border text-foreground`}
-      style={{ width, height, background: canvasBackground[theme] }}
+      className={`${theme} @container relative overflow-hidden rounded-xl border text-foreground`}
+      style={{ width, maxWidth: "100%", minHeight: height, background: canvasBackground[theme] }}
     >
       {children}
     </div>

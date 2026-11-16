@@ -16,9 +16,9 @@ export interface Palette {
 
 /**
  * The hand-tuned palettes, in the order they're handed out: each is as far as it can be from all those before it, so
- * the first few people in a room look the most different. The first twelve are the agents' palettes from
- * `agent-colors.ts`, with Sky's ink a step deeper so its text passes on the blue end of its gradient; the next twelve
- * fill the gaps in hue between them, a step lighter or deeper than their neighbours.
+ * the first few people in a room look the most different. The first twelve are the agents' palettes from the desktop
+ * app's `agent-colors.ts`, with Sky's ink a step deeper so its text passes on the blue end of its gradient. The next
+ * twelve fill the gaps in hue between them, a step lighter or deeper than their neighbours.
  */
 const tuned: Omit<Palette, "n">[] = [
   { name: "Ember", stops: ["#FFB347", "#FF5A5F", "#FF4FA3"], color: "#FF6A5A", ink: "#3D0D05" },

@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { hairline, Marquee, type Member, RemotePointer } from "./presence-parts.tsx"
-import { CanvasBoard, DashboardDesign, members, Themes } from "./story-kit.tsx"
+import { CanvasBoard, DashboardDesign, members, Themes, scrolls } from "./story-kit.tsx"
 
 /**
  * Someone dragging out a marquee: the area tinted in their color, edged in it, and their pointer at the corner they're
@@ -9,7 +9,8 @@ import { CanvasBoard, DashboardDesign, members, Themes } from "./story-kit.tsx"
  */
 const meta = {
   title: "Parity/Multiplayer/Marquee",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta

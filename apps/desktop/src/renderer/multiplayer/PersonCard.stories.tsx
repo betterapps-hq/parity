@@ -2,16 +2,18 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { useResolvedTheme } from "../theme.ts"
 import { FaceStack, PersonCard, type Presence } from "./presence-parts.tsx"
-import { CanvasBoard, CanvasPane, DashboardDesign, members, presences, Themes } from "./story-kit.tsx"
+import { CanvasBoard, CanvasPane, DashboardDesign, members, presences, Themes, scrolls } from "./story-kit.tsx"
 
 /**
  * Someone's card, opened from their face in the avatar stack: their name, where they are and what they're looking at,
  * and buttons to follow them or go to where they are. It opens with Enter or Space from a focused face, takes focus,
- * and closes with Escape back to the face.
+ * and closes with Escape back to the face. On a narrow window the cards keep their width and stack; try the toolbar's
+ * viewport menu.
  */
 const meta = {
   title: "Parity/Multiplayer/Person card",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta
@@ -42,16 +44,7 @@ const cards = (
 export const Cards: Story = {
   render: () => (
     <Themes width={640} height={270}>
-      {() => <div className="grid grid-cols-2 gap-4 p-4">{cards}</div>}
-    </Themes>
-  )
-}
-
-/** On a narrow window, the cards keep their width and stack. */
-export const Narrow: Story = {
-  render: () => (
-    <Themes width={320} height={520}>
-      {() => <div className="flex flex-col gap-3 p-6">{cards}</div>}
+      {() => <div className="grid grid-cols-[repeat(auto-fill,minmax(18rem,1fr))] gap-4 p-4">{cards}</div>}
     </Themes>
   )
 }
@@ -83,10 +76,4 @@ export const FromAFace: Story = {
     const card = within(canvasElement.ownerDocument.body)
     await waitFor(() => expect(card.getByRole("button", { name: "Follow" })).toBeVisible())
   }
-}
-
-/** The same, in the light theme. */
-export const FromAFaceLight: Story = {
-  ...FromAFace,
-  globals: { theme: "light" }
 }

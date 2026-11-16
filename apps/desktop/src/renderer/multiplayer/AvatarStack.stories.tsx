@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { FaceStack, type Presence } from "./presence-parts.tsx"
-import { CanvasBoard, DashboardDesign, members, presences, Themes } from "./story-kit.tsx"
+import { CanvasBoard, DashboardDesign, members, presences, Themes, scrolls } from "./story-kit.tsx"
 
 /**
  * Who's here, on the canvas's top-right edge: up to four faces, then a count of the rest. A face is a picture or
@@ -11,7 +11,8 @@ import { CanvasBoard, DashboardDesign, members, presences, Themes } from "./stor
  */
 const meta = {
   title: "Parity/Multiplayer/Avatar stack",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta
@@ -70,24 +71,6 @@ export const OnTheCanvas: Story = {
           </CanvasBoard>
           <div className="absolute top-3 right-3">
             <FaceStack here={[mia, jonas, { ...priya, away: "3 min" }, claude, codex, sam]} />
-          </div>
-        </>
-      )}
-    </Themes>
-  )
-}
-
-/** On a narrow window, the stack keeps its corner and its four faces, and the boards pass under it. */
-export const Narrow: Story = {
-  render: () => (
-    <Themes width={340} height={300}>
-      {() => (
-        <>
-          <CanvasBoard name="Dashboard" x={20} y={28}>
-            <DashboardDesign />
-          </CanvasBoard>
-          <div className="absolute top-2 right-2">
-            <FaceStack here={[mia, jonas, priya, claude, codex, sam]} size={24} />
           </div>
         </>
       )}

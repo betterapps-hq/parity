@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type Member, Outlined, RemotePointer } from "./presence-parts.tsx"
-import { CanvasBoard, DashboardDesign, type Marker, members, Themes } from "./story-kit.tsx"
+import { CanvasBoard, DashboardDesign, type Marker, members, Themes, scrolls } from "./story-kit.tsx"
 
 /**
  * Other people's selections: the layer outlined in their color, with their name on a tag at its top-left corner. When
@@ -9,7 +9,8 @@ import { CanvasBoard, DashboardDesign, type Marker, members, Themes } from "./st
  */
 const meta = {
   title: "Parity/Multiplayer/Selections",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta

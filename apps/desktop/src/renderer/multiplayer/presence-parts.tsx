@@ -8,12 +8,12 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@buildkitgg/shadcn-baseui-kit"
-import { Eye, LocateFixed, Sparkles } from "lucide-react"
-import { type CSSProperties, type ReactNode, useLayoutEffect, useRef } from "react"
+import type { Palette } from "@parity-app/presence-colors"
+import { Eye, LocateFixed, LogOut, Sparkles } from "lucide-react"
+import { type CSSProperties, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
 import { AgentBadge, AgentPointer } from "../agent/AgentPointer.tsx"
 import { shortcutOf } from "../chrome/keymap.ts"
-import type { Palette } from "./palettes.ts"
 
 /*
  * Multiplayer presence, drawn: who's here, where their pointers are, what they've selected and what they're moving.
@@ -462,6 +462,83 @@ export function FollowEnded({ children }: { children: ReactNode }) {
     <output className="absolute top-2.5 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1.5 rounded-full border bg-popover px-2.5 py-1 text-xs whitespace-nowrap text-popover-foreground shadow-md">
       {children}
     </output>
+  )
+}
+
+/**
+ * Where following someone stands: on, ended by you, ended because they left, or over once the note saying so has gone.
+ */
+export type FollowState = "following" | "stopped" | "left" | "done"
+
+/** How long the note that following ended stays: longer when they left, since you didn't do it. */
+const followNoteMs = { stopped: 2000, left: 4000 }
+
+/**
+ * Following someone, from start to end. Escape stops it while it's on. The canvas calls `stop` when you pan or zoom it
+ * yourself, and the room calls `leaderLeft` when they go. Either way a note shows for a while, then following is over.
+ */
+export function useFollow(initial: FollowState = "following") {
+  const [state, setState] = useState(initial)
+
+  useEffect(() => {
+    if (state !== "following") {
+      return undefined
+    }
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setState("stopped")
+      }
+    }
+
+    window.addEventListener("keydown", onKey)
+
+    return () => window.removeEventListener("keydown", onKey)
+  }, [state])
+
+  useEffect(() => {
+    if (state !== "stopped" && state !== "left") {
+      return undefined
+    }
+
+    const timer = setTimeout(() => setState("done"), followNoteMs[state])
+
+    return () => clearTimeout(timer)
+  }, [state])
+
+  return {
+    state,
+    follow: () => setState("following"),
+    stop: () => setState((before) => (before === "following" ? "stopped" : before)),
+    leaderLeft: () => setState((before) => (before === "following" ? "left" : before))
+  }
+}
+
+/**
+ * What following draws over the canvas: the frame and banner while it's on, fading as it ends, then the note saying
+ * why it ended.
+ */
+export function FollowLayer({ leader, state, onStop }: { leader: Member; state: FollowState; onStop?: () => void }) {
+  return (
+    <>
+      <div
+        className={`pointer-events-none absolute inset-0 rounded-[inherit] transition-opacity duration-300 ${state === "following" ? "opacity-100" : "opacity-0"}`}
+      >
+        {state !== "done" && <FollowFrame leader={leader} onStop={onStop} />}
+      </div>
+      {state === "stopped" && (
+        <FollowEnded>
+          <Eye className="size-3.5 text-muted-foreground" />
+          Stopped following {shortName(leader)}
+        </FollowEnded>
+      )}
+      {state === "left" && (
+        <FollowEnded>
+          <LogOut className="size-3.5 text-muted-foreground" />
+          {shortName(leader)} left, so following stopped.
+        </FollowEnded>
+      )}
+    </>
   )
 }
 

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
 import { useResolvedTheme } from "../theme.ts"
 import { RemotePointer } from "./presence-parts.tsx"
-import { CanvasBoard, CanvasPane, DashboardDesign, members, Playback, Themes, useClock } from "./story-kit.tsx"
+import { CanvasBoard, CanvasPane, DashboardDesign, members, Playback, Themes, useClock, scrolls } from "./story-kit.tsx"
 
 /**
  * Other people's pointers, in the agents' style: the same arrow and pill, in their own palette, with a person's first
@@ -11,7 +11,8 @@ import { CanvasBoard, CanvasPane, DashboardDesign, members, Playback, Themes, us
  */
 const meta = {
   title: "Parity/Multiplayer/Pointers",
-  parameters: { layout: "fullscreen" }
+  parameters: { layout: "fullscreen" },
+  decorators: [scrolls]
 } satisfies Meta
 
 export default meta
