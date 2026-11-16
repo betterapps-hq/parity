@@ -1588,11 +1588,18 @@ the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild bu
 - **Its builder provider says whether Rspack builds the project,** asked of the project's own Rspack, with its version
   and config file: the one the dev script names with `-c`, else `rspack.config.*`. A config that exports a function is
   called as Rspack's CLI calls it for `serve`. A project with an Rsbuild config is left to Rsbuild.
-- **The guest is the project's config, building the guest in place of the app.** Its entry is the guest module every
-  builder writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's
-  written as classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's
-  rules, loaders, aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with
-  the renderer's stand-in for its development JSX runtime.
+- **The guest is the project's config, building the guest beside the app.** Its entry is the guest module every builder
+  writes, its global stylesheets are entries of their own, extracted to CSS the guest reads as text, and it's written as
+  classic scripts with one runtime to a folder of the builder's own, served on 127.0.0.1. The project's rules, loaders,
+  aliases and plugins stay, but its HTML pages and Fast Refresh. React runs its production build, with the renderer's
+  stand-in for its development JSX runtime.
+- **The app's pages draw its routes' screens** (PAR-1194). A route's screen loads the app at the builder's address and
+  the route's path, as Vite serves it, so the builder builds the app's own entries beside the guest's (`app-` before
+  their names) and makes its page with the project's first HTML plugin, made again with its options for those entries:
+  Rsbuild's comes with its template and title filled in. An app without one gets a page with a `root` to mount on. Any
+  path that names no file gets the page, with the script that gives it the frame's mode and tells the canvas its height
+  and where it landed first, and one that reloads it after each build that changes something. The app's entries' CSS is
+  the page's, not the components'. Code: `app-pages.ts`.
 - **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
   takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
   imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
@@ -1608,9 +1615,10 @@ Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`
 
 Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
-graph walks and the server's paths); the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy
-of `fixtures/rspack`: Rspack 2.3.2 and its config found, its three components and Home drawn with the project's custom
-properties, and a component's code and a token edited together, both drawn afresh.
+graph walks, the server's paths, and the app's entries, page and reloads in `app-pages.test.ts` and `server.test.ts`);
+the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and
+its config found, its three components and Home drawn with the project's custom properties, and a component's code and a
+token edited together, both drawn afresh.
 
 ### Rsbuild as an extension, through its builder provider (PAR-1148)
 
@@ -1632,8 +1640,10 @@ Tests: `packages/extension-rsbuild/src/builder.test.ts` (detection, and the conf
 `extension.test.ts`; `packages/builder-webpack-compatible/src/guest-config.test.ts` (the extractor and HTML plugin).
 Tried in the running app on 2026-11-15 on `examples/rsbuild-chakra`: Rsbuild 2.3.2 and its config found, Chakra UI's
 components listed, and the app's own components drawn and styled by Chakra UI's decorator. Its routes are read from its
-code since PAR-1156, and its root route's component, `AppShell`, draws inside the router TanStack Router's extension
-puts around every frame (PAR-1152).
+code since PAR-1156. Tried again on 2026-11-16 on a copy of it: it opens once (PAR-1193), its Home and Settings route
+screens draw the app's pages with `AppShell` around them, and an edit to Home reloads its screen (PAR-1194). `AppShell`
+on its own still fails to draw, as its `Outlet` has no matched route in the router TanStack Router's extension puts
+around frames (PAR-1195).
 
 ### Turbopack as an extension, through its builder provider (PAR-1149)
 
