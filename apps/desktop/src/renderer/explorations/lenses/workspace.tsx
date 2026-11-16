@@ -96,6 +96,8 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
   const [tabs, setTabs] = useState<Record<string, string>>({})
   const [peek, setPeek] = useState<Ref>()
   const [name, setName] = useState<string | undefined>(project.name)
+  // Bumped when a project opens in another's place, so a new Dockview lays it out afresh and closes the old windows.
+  const [dock, setDock] = useState(0)
   const active = useActiveTabId()
   const openTabs = useTabs()
 
@@ -262,6 +264,8 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
       setName(next)
       setSelected(initial.selected)
       setCameras({})
+      setApi(undefined)
+      setDock((before) => before + 1)
     }
   })
 
@@ -315,6 +319,7 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
           )}
           <div className="relative min-w-0 flex-1">
             <DockviewReact
+              key={dock}
               className="absolute inset-0"
               theme={theme}
               components={components}
