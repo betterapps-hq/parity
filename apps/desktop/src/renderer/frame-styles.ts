@@ -119,6 +119,17 @@ export function frameRulesEdited(sheet: CSSStyleSheet): void {
   }
 }
 
+/** Draws the frame a caught sheet is in again, as it's switched off or on: its rules haven't changed. */
+function redraw(sheet: CSSStyleSheet): void {
+  const owner = sheet.ownerNode
+  const entry = owner instanceof HTMLStyleElement ? entryOf(owner) : undefined
+
+  if (owner instanceof HTMLStyleElement && entry) {
+    catchElement(entry, owner)
+    schedule(entry)
+  }
+}
+
 /** The frame a `<style>` is caught in, or is in before the frame's observer has seen it go in. */
 function entryOf(owner: HTMLStyleElement): FrameEntry | undefined {
   // Code that adds a `<style>` and inserts its rules straight away, as Emotion does, edits it before then.
@@ -154,6 +165,23 @@ export function followRuleEdits(): void {
     if (inFrame(rule.parentStyleSheet)) {
       frameRulesEdited(rule.parentStyleSheet)
     }
+  }
+
+  // Switching a caught sheet off or on, through the sheet or its element, draws the frame again.
+  for (const prototype of [StyleSheet.prototype, HTMLStyleElement.prototype]) {
+    const disabled = Object.getOwnPropertyDescriptor(prototype, "disabled")!
+
+    Object.defineProperty(prototype, "disabled", {
+      ...disabled,
+      set(this: StyleSheet | HTMLStyleElement, value: boolean) {
+        disabled.set!.call(this, value)
+        const sheet = this instanceof HTMLStyleElement ? this.sheet : this
+
+        if (sheet instanceof CSSStyleSheet && inFrame(sheet)) {
+          redraw(sheet)
+        }
+      }
+    })
   }
 
   CSSGroupingRule.prototype.insertRule = function (rule, index) {
@@ -360,7 +388,8 @@ function show(entry: FrameEntry): void {
 
   // The caught elements still in the frame, in its order, as the page would cascade them.
   for (const element of entry.shadow.querySelectorAll("style")) {
-    if (owners.get(element) !== entry) {
+    // A sheet the project's code switched off (`sheet.disabled`) draws nothing, as it wouldn't in a page.
+    if (owners.get(element) !== entry || element.sheet?.disabled) {
       continue
     }
 

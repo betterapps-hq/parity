@@ -766,6 +766,11 @@ describe("styles written while the project runs", () => {
       rule.selectorText = ".nothing"
       await tick()
       const selector = getComputedStyle(box).color
+      text.sheet!.disabled = true
+      await tick()
+      const disabled = getComputedStyle(box).color
+      text.disabled = false
+      await tick()
       text.sheet!.insertRule("@media all { }", 2)
       // SAFETY: the third rule is the `@media` rule just inserted.
       const media = text.sheet!.cssRules[2] as CSSMediaRule
@@ -784,6 +789,7 @@ describe("styles written while the project runs", () => {
         setProperty,
         named,
         selector,
+        disabled,
         nested,
         getComputedStyle(box).color
       ]
@@ -798,6 +804,7 @@ describe("styles written while the project runs", () => {
       "rgb(7, 7, 7)",
       "rgb(8, 8, 8)",
       "rgb(4, 4, 4)",
+      "rgb(0, 0, 0)",
       "rgb(9, 9, 9)",
       "rgb(0, 0, 0)"
     ])

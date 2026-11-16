@@ -336,6 +336,23 @@ interface SerializeContext {
   enclosing?: { layer?: string; condition?: string }[]
 }
 
+/**
+ * Declares the layers the body's copies of layered roots' custom properties go in (see `rootCustomProperties`) in the
+ * order a layer statement (`@layer base, theme;`) declares the project's own, so they rank as those do.
+ */
+function declareCopyLayers(text: string, options: SerializeOptions, context: SerializeContext): void {
+  const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
+
+  if (!options.bodyCopies || context.inRule || layers.includes("")) {
+    return
+  }
+
+  for (const statement of text.matchAll(/@layer\s+([^;{}]+);/gi)) {
+    const names = statement[1]!.split(",").map((name) => [...layers, name.trim()].join("."))
+    options.bodyCopies.push(`@layer ${names.map((name) => `${qualifiedRootLayer}.${name}`).join(", ")};`)
+  }
+}
+
 /** Serializes rules for a frame. */
 function serialize(
   nodes: CssNode[],
@@ -348,6 +365,7 @@ function serialize(
   for (const node of nodes) {
     if (node.kind === "text") {
       const text = rewriteUrls(node.text, options.baseUrl)
+      declareCopyLayers(node.text, options, context)
 
       if (options.units === false) {
         output += text

@@ -305,6 +305,11 @@ describe("prepareCanvasCss", () => {
       "@layer theme { @container canvas-viewport (width >= 40rem) { :host { --a: var(--b) } } } " +
         "@layer canvas-qualified-root.theme { @container canvas-viewport (width >= 40rem) { :where([data-canvas-body]) { --a: var(--b); } } }"
     )
+    // In the order the project's layer statement declares its own.
+    expect(prepareCanvasCss("@layer base, theme; @layer theme { :root { --fg: blue } }", options).scoped).toBe(
+      "@layer base, theme; @layer canvas-qualified-root.base, canvas-qualified-root.theme; " +
+        "@layer theme { :host { --fg: blue } } @layer canvas-qualified-root.theme { :where([data-canvas-body]) { --fg: blue; } }"
+    )
     // A semicolon in a string doesn't end a declaration.
     expect(prepareCanvasCss(':root { --a: "one;two"; --b: "three;four" }', options).scoped).toContain(
       bodyCopy('--a: "one;two"; --b: "three;four";')
