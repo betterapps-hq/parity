@@ -8,8 +8,9 @@ import { renderers } from "./extensions.ts"
 
 /*
  * The Turbopack builder started on the `nextjs-turbopack` example app, as the desktop app starts it: Next compiles the
- * guest app, and the builder serves a guest module whose runtime, chunks and stylesheets all load. It runs where CI has
- * installed the example apps, and on the app itself, since Turbopack builds nothing outside the project's folder.
+ * guest app, and the builder serves a guest module whose runtime, chunks and stylesheets all load. It runs where the
+ * Fixtures workflow has installed the example apps and set PARITY_FIXTURES (PAR-1225), on the app itself, since
+ * Turbopack builds nothing outside the project's folder.
  */
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../../../fixtures/nextjs-turbopack")
@@ -28,7 +29,7 @@ afterAll(async () => {
   // deleted, which aborts the worker (PAR-1224).
 }, 180_000)
 
-describe.skipIf(!process.env.CI)("the Turbopack builder on nextjs-turbopack", { timeout: 300_000 }, () => {
+describe.skipIf(!process.env.PARITY_FIXTURES)("the Turbopack builder on nextjs-turbopack", { timeout: 300_000 }, () => {
   it("serves a guest module whose runtime, chunks and stylesheets load", async () => {
     const pkg = (await readPackage(root))?.manifest
 
