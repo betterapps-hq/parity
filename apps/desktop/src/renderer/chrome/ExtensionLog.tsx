@@ -1,4 +1,5 @@
 import {
+  Badge,
   Button,
   Collapsible,
   CollapsibleContent,
@@ -12,7 +13,7 @@ import {
   TabsList,
   TabsTrigger
 } from "@buildkitgg/shadcn"
-import { Ban, ChevronRight, CircleX, Info, RotateCw, ScrollText, TriangleAlert, X } from "lucide-react"
+import { Ban, Bug, ChevronRight, CircleX, Info, RotateCw, ScrollText, TriangleAlert, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ExtensionStatus, LogLine } from "../../shared/protocol.ts"
 import { type PlacedView, tabsAt } from "../extension-views.ts"
@@ -26,7 +27,8 @@ import { setLayout, useLayout } from "./layout.ts"
 /*
  * The bottom panel's tabs (PAR-1089): the console first, then a tab for each extension with something in its log, or
  * whose host crashed or got stuck, then the tabs extensions add for their views (PAR-1094). An extension's log tab
- * shows its log, newest last, and its host's state with Restart.
+ * shows its log, newest last, and its host's state with Restart. An internal extension's window module writes to the
+ * same log as its Node half, so each line from one with both says which half wrote it (PAR-1284).
  */
 
 type Session = Pick<ProjectSession, "id" | "untilClosed">
@@ -193,10 +195,18 @@ const levelLook: Record<LogLine["level"], { icon: ReactNode; row: string; text: 
     text: "text-amber-700 dark:text-amber-300",
     label: "Warning"
   },
-  info: { icon: <Info className="size-3.5 text-muted-foreground" />, row: "", text: "", label: "Info" }
+  info: { icon: <Info className="size-3.5 text-muted-foreground" />, row: "", text: "", label: "Info" },
+  debug: {
+    icon: <Bug className="size-3.5 text-muted-foreground" />,
+    row: "",
+    text: "text-muted-foreground",
+    label: "Debug"
+  }
 }
 
-/** A line: when it was written, its level and its text. An error's stack opens under it. */
+const halfWords: Record<NonNullable<LogLine["half"]>, string> = { node: "Node", window: "Window" }
+
+/** A line: when it was written, its level, which half wrote it and its text. An error's stack opens under it. */
 function LineRow({ line }: { line: LogLine }) {
   const look = levelLook[line.level]
   const [open, setOpen] = useState(false)
@@ -226,6 +236,11 @@ function LineRow({ line }: { line: LogLine }) {
             <span className="sr-only">{look.label}</span>
           </span>
           <time className="mt-px shrink-0 font-mono text-2xs text-muted-foreground tabular-nums">{time}</time>
+          {line.half && (
+            <Badge variant="secondary" className="mt-px h-4 shrink-0 px-1.5 text-2xs">
+              {halfWords[line.half]}
+            </Badge>
+          )}
           <p className={`min-w-0 flex-1 type-code font-mono break-words whitespace-pre-wrap select-text ${look.text}`}>
             {line.text}
           </p>

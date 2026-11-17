@@ -594,7 +594,12 @@ export function extensionHosts<Project extends OpenedProject>(
     options.window.changed(open.project.id, [...open.hosts.values()].map(statusOf))
 
   const log = (open: OpenProject<Project>, host: Host<Project>, line: Omit<LogLine, "at">) => {
-    const logged: LogLine = { ...line, at: Date.now() }
+    // An internal extension with a window module writes to the same log from both halves, so each line says whose.
+    const logged: LogLine =
+      host.extension.package.manifest.window === undefined
+        ? { ...line, at: Date.now() }
+        : { ...line, half: "node", at: Date.now() }
+
     host.logs.push(logged)
     host.logs.splice(0, Math.max(0, host.logs.length - keptLines))
     options.window.logged(open.project.id, host.extension.package.id, logged)

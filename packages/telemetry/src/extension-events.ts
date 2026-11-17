@@ -190,6 +190,28 @@ export const extensionMainThread = defineEvent(
   }
 )
 
+export const extensionCalled = defineEvent(
+  "extension.called",
+  z.object({
+    extension,
+    half: z.literal("window").describe("Which half: its window module"),
+    direction: z
+      .enum(["in", "out"])
+      .describe("`in` when core called the module; `out` when the module called core or its Node half"),
+    api: z
+      .string()
+      .describe("What was called, as `selection.onChange`, `command:<id>`, `node.<method>` or `host.<method>`"),
+    durationMs: z.number().nonnegative().describe("How long it took until it settled, in milliseconds"),
+    outcome: z.enum(["ok", "error"]).describe("Whether it returned or threw"),
+    tab: z.string().describe("The project tab's id")
+  }),
+  {
+    level: "debug",
+    sentBy: ["renderer"],
+    when: "`PARITY_EXTENSIONS_DEBUG` names the extension and core calls into its window module, or the module calls back."
+  }
+)
+
 export const extensionEvents = [
   extensionActivated,
   extensionActivateFailed,
@@ -201,7 +223,8 @@ export const extensionEvents = [
   extensionManifestRefused,
   extensionCapabilityMissing,
   extensionSlow,
-  extensionMainThread
+  extensionMainThread,
+  extensionCalled
 ] as const
 
 const sentBy = ["renderer"] as const

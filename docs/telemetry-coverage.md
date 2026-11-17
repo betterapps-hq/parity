@@ -55,11 +55,12 @@ Across all of them:
   (PAR-1283). Both halves' lifecycle is recorded as `extension.*` events: activating, failing to, stopping, crashing,
   failed calls into a window module, one stopped in a tab, calls to a half that isn't ready from either half, refused
   manifests and missing capabilities, including those nested in `parity.canvas`. A window module's time on the main
-  thread is `extension.slow` and, once a minute, `extension.mainThread` (PAR-1283). A canvas layer's render that throws
-  is caught by its own error boundary and counted as `layer:<id>`; the followings, previews and holds a window module
-  opens are recorded with its id (PAR-1257). `parity.sync` records how a project opened through it, changes refused or
-  left waiting, who writes files, its minute's traffic and detaching (`sync.*`) once the tab offers it, and
-  `parity.agents` its minute's activity and steps dropped (`agents.*`).
+  thread is `extension.slow` and, once a minute, `extension.mainThread` (PAR-1283). With `PARITY_EXTENSIONS_DEBUG` set,
+  each call between core and a window module is `extension.called`, with its direction and time (PAR-1284). A canvas
+  layer's render that throws is caught by its own error boundary and counted as `layer:<id>`; the followings, previews
+  and holds a window module opens are recorded with its id (PAR-1257). `parity.sync` records how a project opened
+  through it, changes refused or left waiting, who writes files, its minute's traffic and detaching (`sync.*`) once the
+  tab offers it, and `parity.agents` its minute's activity and steps dropped (`agents.*`).
 - **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
   own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Three events thin
   themselves: `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every

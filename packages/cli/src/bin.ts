@@ -141,7 +141,9 @@ const usage = `parity: drive the Parity app from a terminal or an agent
                                             Parity tells the source it was used. Exits with 1 when it wasn't placed
   parity open <folder>                      open a project in a new tab, or detect an open one again
   parity extensions [--tab t]               the project's extensions, with their commands, agent tools (and each
-                                            tool's input schema), node types and facts about components
+                                            tool's input schema), node types and facts about components; for
+                                            debugging, their halves' states, latest failures and the room's sync
+                                            state
   parity run <command|tool> [--component c] [--input '{"field":"value"}'] [--tab t]
                                             run an extension's command, for a component when --component names one,
                                             or its agent tool with --input as JSON; prints what it gave back. Its

@@ -1,6 +1,7 @@
 import type { IconNames, IconSet } from "@parity-app/agent"
 import { activeTab, matchTab } from "@parity-app/agent/routing"
 import { type ChangeConflict, CodedError, errorDetails, type LibraryInfo, unknownReference } from "@parity-app/core"
+import { extensionsSnapshot } from "@parity-app/extension-host/window-snapshot"
 import { applyAgentChanges, applyOperations, containerEntries } from "@parity-app/multiplayer"
 import type {
   AgentChanges,
@@ -162,6 +163,13 @@ const handlers: Handlers = {
     }
 
     return undefined
+  },
+  // What `parity extensions` adds of the tab's window modules (PAR-1284), as `extensions.json` has them.
+  "extensions.facts": ({ projectId }) => {
+    const modules = windowModulesFor({ id: projectId })
+    const [tab] = modules ? extensionsSnapshot([modules]).tabs : []
+
+    return tab ? { tab } : {}
   },
   "extensions.reveal": ({ projectId, extension, view }) => {
     const session = sessionOf(projectId)

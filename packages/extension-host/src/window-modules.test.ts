@@ -22,6 +22,7 @@ import { readExtension } from "@parity-app/extension/manifest"
 import { type ChildEnd, lifecycle } from "@parity-app/processes"
 import { describe, expect, it } from "vite-plus/test"
 import { z } from "zod"
+import type { TracedCall } from "./debug.ts"
 import type { ExtensionEventName } from "./events.ts"
 import {
   type WindowTestWindowApi,
@@ -31,6 +32,7 @@ import {
 } from "./fixtures/window-test.ts"
 import { serveExtensionHost } from "./host.ts"
 import { type ExtensionHosts, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
+import type { LogLine } from "./protocol.ts"
 import {
   type WindowExtension,
   type WindowModules,
@@ -79,7 +81,10 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
   }
 }
 
-/** A tab's window modules with stand-ins for the editor and the Node halves, recording what happens. */
+/**
+ * A tab's window modules with stand-ins for the editor and the Node halves, recording what happens. `more` adds or
+ * replaces options, as `debug`.
+ */
 function tab(
   modules: Record<string, WindowModule> = {},
   failureLimit?: number,
@@ -853,6 +858,7 @@ describe("an internal extension's two halves (the window test extension, in the 
     /** The tab's window modules, once they're made below, which the service's stand-in window reaches. */
     const link = new Map<"runtime", WindowModules>()
     let latest: ExtensionStatus[] = []
+    const lines: LogLine[] = []
 
     const found = readExtension(windowTestPackage, { builtIn: true })
 
@@ -886,7 +892,7 @@ describe("an internal extension's two halves (the window test extension, in the 
           latest = extensions
           link.get("runtime")?.update(windowExtensions(extensions))
         },
-        logged: () => undefined,
+        logged: (_projectId, _extension, line) => void lines.push(line),
         ui: () => Promise.reject(new Error("Not in this test")),
         reveal: () => undefined,
         callWindow: (_projectId, extension, method, args) =>
@@ -990,7 +996,7 @@ describe("an internal extension's two halves (the window test extension, in the 
       throw new Error("The halves never got ready")
     }
 
-    return { hosts, runtime, parities, ends, events, ready, latest: () => latest }
+    return { hosts, runtime, parities, ends, events, ready, lines, latest: () => latest }
   }
 
   it("never starts the Node half by itself, only with its window module", async () => {
@@ -1066,6 +1072,21 @@ describe("an internal extension's two halves (the window test extension, in the 
       { extension: id, from: "node", method: "status", state: refused[0] },
       { extension: id, from: "node", method: "status", state: refused[10] }
     ])
+  })
+
+  it("marks its Node half's log lines as the Node half's, since its window module writes to the same log", async () => {
+    const logging = defineExtension({
+      activate(parity) {
+        parity.log.info("Hello from Node")
+
+        return { ping: () => "pong" }
+      }
+    })
+
+    const { ready, lines } = setUp(logging)
+
+    await ready()
+    expect(lines).toContainEqual(expect.objectContaining({ level: "info", text: "Hello from Node", half: "node" }))
   })
 
   it("lets each half call the other", async () => {
@@ -1164,5 +1185,94 @@ describe("an internal extension's two halves (the window test extension, in the 
     expect(
       events.find((event) => event.name === "extension.deactivated" && event.attributes.half === "window")?.attributes
     ).toMatchObject({ why: "crashed" })
+  })
+})
+
+describe("PARITY_EXTENSIONS_DEBUG in a tab", () => {
+  const id = "@parity-app/extension-window-test"
+
+  /** A clock that moves 2 ms each time it's read, so every traced call's time is known. */
+  const ticking = () => {
+    let time = 0
+
+    return () => (time += 2)
+  }
+
+  it("traces nothing unless the extension is debugged", async () => {
+    const { runtime, logs, select } = tab({}, undefined, { debug: () => false, clock: ticking() })
+
+    runtime.update([extension()])
+    await settle()
+    select()
+    await runtime.run("wtest.confirm")
+
+    expect(logs.filter((line) => line.startsWith("debug:"))).toEqual([])
+  })
+
+  it("logs each call core makes into the module, and each it makes back, with how long it took", async () => {
+    const traced: TracedCall[] = []
+
+    const { runtime, logs, select } = tab({}, undefined, {
+      debug: (debugged) => debugged.prefix === "wtest",
+      clock: ticking(),
+      traced: (extensionId, call) => {
+        expect(extensionId).toBe(id)
+
+        traced.push(call)
+      }
+    })
+
+    runtime.update([extension()])
+    await settle()
+    select()
+    await runtime.run("wtest.confirm")
+    await expect(runtime.run("wtest.fail")).rejects.toThrow("Failing on purpose")
+    await runtime.callFromNode(id, "status", [])
+    runtime.update([extension({ settings: { "wtest.on": false } })])
+    await settle()
+
+    expect(logs.filter((line) => line.startsWith("debug:"))).toEqual([
+      "debug: in activateWindow 2.0 ms",
+      "debug: in selection.onChange 2.0 ms",
+      // The command waits on its Node half, so the call back ends first and the command's time holds it.
+      "debug: out host.confirm 2.0 ms",
+      "debug: in command:wtest.confirm 6.0 ms",
+      "debug: in command:wtest.fail 2.0 ms, failed",
+      "debug: in node.status 2.0 ms",
+      "debug: in deactivateWindow 2.0 ms"
+    ])
+    expect(traced).toContainEqual({ direction: "in", api: "command:wtest.fail", durationMs: 2, outcome: "error" })
+    expect(traced).toHaveLength(7)
+  })
+
+  it("traces the module's calls to the editor and its settings", async () => {
+    const { runtime, logs, parities } = tab({}, undefined, {
+      debug: () => true,
+      clock: ticking()
+    })
+
+    runtime.update([
+      extension({
+        settings: { "wtest.on": true, "wtest.size": 1 },
+        declaredSettings: {
+          "wtest.on": { type: "boolean", scope: "app", title: "On" },
+          "wtest.size": { type: "number", scope: "project", title: "Size" }
+        }
+      })
+    ])
+    await settle()
+
+    const parity = parities.get(id)
+    await parity?.selection.set([])
+    await parity?.navigate.openSettings()
+    await parity?.settings.update("wtest.size", 2)
+    await parity?.commands.execute("parity.save")
+
+    expect(logs.filter((line) => line.startsWith("debug: out"))).toEqual([
+      "debug: out selection.set 2.0 ms",
+      "debug: out navigate.openSettings 2.0 ms",
+      "debug: out settings.update:wtest.size 2.0 ms",
+      "debug: out commands.execute:parity.save 2.0 ms"
+    ])
   })
 })
