@@ -135,13 +135,14 @@ export function deleteDesigns(session: ProjectDesigns): boolean {
   return true
 }
 
-/** Ctrl+A: the selected layer and its siblings, or every design. */
-export function selectAll(session: ProjectDesigns): void {
+/** Ctrl+A: the selected layer and its siblings, or every design, of those `drawn` keeps, as the canvas in focus draws. */
+export function selectAll(session: ProjectDesigns, drawn: (key: string) => boolean = () => true): void {
   const { doc, selection } = session
   const current = selection.get()
   const entry = current.design ? containerEntry(doc, current.design) : undefined
 
-  if (entry && current.node) {
+  // Layers of a design another lens's canvas draws, kept selected as the lens changed, count as nothing selected here.
+  if (entry && current.node && drawn(entry.key)) {
     const siblings = siblingsOf(entry.container.root, current.node)
 
     if (siblings) {
@@ -151,7 +152,7 @@ export function selectAll(session: ProjectDesigns): void {
     return
   }
 
-  selection.set(designsSelection(containerEntries(doc).map((candidate) => candidate.key)))
+  selection.set(designsSelection(containerEntries(doc).flatMap(({ key }) => (drawn(key) ? [key] : []))))
 }
 
 /** Puts the selected layers in a new layout, laid out the way their parent lays them out, and selects it. */

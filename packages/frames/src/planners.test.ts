@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { type CopyKey, copyId, sharedMarkup, staleCopies } from "./keys.ts"
+import { type CopyKey, copyId, groupLeaders, sharedMarkup, staleCopies, withMarkup } from "./keys.ts"
 import { planPool, type PoolView } from "./pool.ts"
 import { type BoardView, boardTier } from "./tiers.ts"
 
@@ -132,6 +132,50 @@ describe("sharedMarkup", () => {
   it("gives only the mode when it hasn't been frozen yet", () => {
     expect(sharedMarkup("/pricing", "tablet-light", groups)).toEqual(["tablet-light"])
     expect(sharedMarkup("/login", "desktop-light", groups)).toEqual(["desktop-light"])
+  })
+})
+
+describe("groupLeaders (PAR-1264)", () => {
+  const groups = new Map([
+    [
+      "/pricing",
+      new Map([
+        ["desktop-light", "m1"],
+        ["desktop-dark", "m1"],
+        ["mobile-light", "m2"],
+        ["mobile-dark", "m2"]
+      ])
+    ]
+  ])
+
+  it("snapshots one mode of each markup group, and each mode not frozen yet", () => {
+    expect(
+      groupLeaders("/pricing", ["desktop-dark", "desktop-light", "mobile-light", "mobile-dark", "tablet"], groups)
+    ).toEqual(["desktop-dark", "mobile-light", "tablet"])
+  })
+
+  it("snapshots every mode of a route frozen for the first time", () => {
+    expect(groupLeaders("/login", ["desktop-light", "desktop-dark"], groups)).toEqual(["desktop-light", "desktop-dark"])
+  })
+})
+
+describe("withMarkup (PAR-1264)", () => {
+  it("moves a mode into the group of the markup it drew", () => {
+    const before = new Map([
+      [
+        "/a",
+        new Map([
+          ["light", "m1"],
+          ["dark", "m1"]
+        ])
+      ]
+    ])
+
+    const after = withMarkup(before, "/a", "dark", "m2")
+
+    expect(sharedMarkup("/a", "light", after)).toEqual(["light"])
+    expect(sharedMarkup("/a", "light", before)).toEqual(["light", "dark"])
+    expect(withMarkup(after, "/a", "dark", "m2")).toBe(after)
   })
 })
 

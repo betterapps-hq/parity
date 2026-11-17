@@ -318,8 +318,9 @@ folders and files as segments, `[id]`, `[...slug]` and `[[...slug]]`, nested lay
 `not-found` files, and `404`, `500` and `_error`, are named as the route's state files. Parallel `@slot` routes and
 intercepting `(.)`, `(..)` and `(...)` routes are read with their slot and the route they intercept, and left off the
 canvas. Private `_folders`, route handlers, `_document` and `api/` aren't routes. Its pages draw once a builder serves
-the app. Each page is a screen, laid out in the router's tree, whose frames show a frozen copy of the app's own page at
-the page's URL (see editor.md), with each path param's value set in Props.
+the app. Each page is a screen on the Pages lens's own canvas (PAR-1244), laid out in the router's tree, whose frames
+show a frozen copy of the app's own page at the page's URL (see editor.md), with each path param's value set in Props.
+Pages draws them the first time it's shown, and its Layers lists the routes.
 
 **Pages run the page runtime (PAR-1260),** which Vite, the webpack-compatible builders and Next serve first in the app's
 page, so a page changes mode without loading again and says how tall it is and where it went. Each project's pages load
@@ -387,6 +388,20 @@ builder can say about a route:
 
 Every trace also holds the project's stylesheets, its package.json, configs and lockfiles. Server code a loader reaches
 only through a dynamic import isn't in the scan.
+
+**Copies follow the code, and show token edits (PAR-1264).** When the app's files change, its route copies are frozen
+again, nearest the view first, and a route whose modes drew the same markup takes one snapshot for all of them. Token
+values edited and not yet saved show in every copy and in the page drawn with the Interact tool.
+
+| Builder            | After a code change                                                             | Status |
+| ------------------ | ------------------------------------------------------------------------------- | ------ |
+| Vite               | Copies frozen again; a page drawn with the Interact tool loaded again           | ✅     |
+| webpack-compatible | Copies frozen again; a page drawn with the Interact tool loaded again by Parity | ✅     |
+| Next.js            | Copies frozen again; a page drawn with the Interact tool takes Next's updates   | ✅     |
+| Any                | Only the copies a change reaches are frozen again                               | ❌     |
+
+Copies don't read pages' traces yet ([proposals/route-frames.md](proposals/route-frames.md)), so any change to the app's
+files freezes every copy again. A theme a token preview reaches is one the page turns on with a class on its root.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.

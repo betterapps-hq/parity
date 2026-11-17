@@ -8,8 +8,11 @@ import { startPreviews } from "./component-previews.ts"
 import { followSelection, sendRouteMarks } from "./extension-editor.ts"
 import { appLenses } from "./lenses/app-lenses.ts"
 import { LensWorkspace } from "./lenses/LensWorkspace.tsx"
-import { OpenProjectContext } from "./lenses/screens.tsx"
+import { OpenProjectContext } from "./lenses/project-canvas.tsx"
 import type { Project, ProjectSession } from "./workspace.ts"
+
+/** A project opens on Screens, as it did before it had lenses; Pages draws its pages once it's shown. */
+const openingLayout = { groups: [{ where: "main", tabs: ["screens"] }] }
 
 /**
  * An open project in the lens shell: the lens bar, each open lens a tab over its canvas, and the left panel and inspector
@@ -46,6 +49,7 @@ export function OpenProject({
           <OpenProjectContext value={{ projectId: project.id, shown: active, reopen }}>
             <LensWorkspace
               lenses={appLenses}
+              layout={openingLayout}
               title={project.title}
               panels={{ left, right }}
               onPanels={setLayout}

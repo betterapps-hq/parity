@@ -766,13 +766,24 @@ Each is an issue, in this order.
    imports, the stylesheets and the shared config. A page that redirected, or drew its not-found or error page, takes
    the whole project, since its chain doesn't lead to what it drew. A copy notes when its page started loading, and a
    picture whose traced files changed after that is kept without a trace. Server code is the scan's, since no builder's
-   server graph is read yet. Which pictures a code change makes stale is step 7's; a stale one is only found when its
-   board asks for it. Boards choose their tier with `boardTier` from the camera's zoom and `useFrameView`'s `near`, with
-   no live or pointed board yet, and route boards ask for no design bitmaps. A copy is still kept by project, URL, mode
-   and window. A capture that fails is tried again after 2 s, doubling up to 16 s, as frames' are.
-7. **Code changes and previews:** the watcher's changes reaching the window, stale copies by trace, starting frames
-   again where pages don't update themselves, the second hello, markup groups, and style previews in copies and the live
-   page.
+   server graph is read yet. A stale picture is only found when its board asks for it, and the window's copies still
+   take the whole project as their trace, since page traces live in the project service. Boards choose their tier with
+   `boardTier` from the camera's zoom, `useFrameView`'s `near`, the live frame and the pointer with Interact, and route
+   boards ask for no design bitmaps. A capture that fails is tried again after 2 s, doubling up to 16 s, as frames' are.
+7. **Code changes and previews** (PAR-1264), done: the watcher's changes reaching the window, stale copies by trace,
+   starting frames again where pages don't update themselves, the second hello, markup groups, and style previews in
+   copies and the live page. Built: the window hears `project.filesChanged`, the app's changed files 250 ms after the
+   last, leaving out hidden folders, installed packages, builders' output and `.par` files. Copies are kept by
+   `CopyKey`, with the mode's id, and remember the mode as drawn, so an edited mode is frozen again; two states of a
+   route share a copy. Every copy's trace is the whole project until step 6's traces by builder, so any change makes all
+   of a project's copies stale; `staleCopies` already reads a narrower trace. A refreeze takes one snapshot per markup
+   group (`groupLeaders`), which stands in for the group's other modes until each is checked once nothing is missing.
+   The freezer takes a second hello as a reload: it waits for `page.ready` and asks again, three times at most. Until
+   step 5's live frame, the page drawn with the Interact tool is what's started again, unless its `page.ready` named
+   Next's router (`updatesItself`), and the webpack-compatible builders' polling reload is gone. The style preview that
+   exists today is token values edited and not saved, which go into one sheet per project every copy adopts and to the
+   page through `preview.set`, into a sheet snapshots never list. A preview of one element's style waits for something
+   to show one, since copies' layers are read-only.
 8. **React Router's and Next's page routers** (PAR-1265), with the wrapped `createBrowserRouter` and `createHashRouter`
    for library mode. Built: React Router's reads `__reactRouterDataRouter`, or in library mode `__parityDataRouter`,
    which Parity's `react-router` sets. A manifest's `pageWraps` names the packages a router serves in place of the

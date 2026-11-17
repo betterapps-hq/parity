@@ -14,6 +14,8 @@ beforeAll(async () => {
 afterEach(async () => {
   // Out of Interact first, so the live page lets go of the keys `reset` presses.
   await app?.page.evaluate(() => window.e2e!.session().selection.setTool("select"))
+  // Screens back in front, as the tests after these expect.
+  await app?.page.keyboard.press("Control+2")
   await app?.reset()
 })
 
@@ -22,8 +24,23 @@ afterAll(() => app?.close())
 /** The Pricing route's board, drawn from its page: the `(pages)` file's route, not the Pricing screen. */
 const pricing = "(pages)#route:/pricing"
 
-/** Puts the Pricing route's board in view at 50%, waits for its frozen copy, and says where its frame is on screen. */
+/**
+ * Shows Pages, whose canvas draws the routes' boards (PAR-1244), puts the Pricing route's board in view at 50%, waits for
+ * its frozen copy, and says where its frame is on screen.
+ */
 async function showPricing() {
+  await app.page.keyboard.press("Control+1")
+  await expect
+    .poll(() =>
+      app.page.evaluate((key) => {
+        try {
+          return !!window.e2e!.frame(key)
+        } catch {
+          return false
+        }
+      }, pricing)
+    )
+    .toBe(true)
   await app.page.evaluate((key) => {
     const editor = window.e2e!.session().editor!
     editor.stopCameraAnimation()

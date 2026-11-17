@@ -1585,8 +1585,8 @@ A route that answers requests on the server and draws nothing is an API route: t
 leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
 `pages/api` files are API routes. One with pages inside it is their layout or group, as before.
 
-- **Layers** lists them in their own section, API routes, under the app's pages and before its screens. A click selects
-  one, and the Design tab shows its path and file (`ApiRoutePanel`).
+- **Pages' Layers** lists them in their own section, API routes, under the app's pages; Screens' Layers doesn't. A click
+  selects one, and the Design tab shows its path and file (`ApiRoutePanel`).
 - **Nested by URL** (PAR-1185). Router extensions give an API route its layout or the root as its parent, so API routes
   have no tree among themselves. `routeOutline` in `@parity-app/core` nests routes by their `segments` alone, so they
   nest the same way for TanStack Router, React Router and Next.js. A route whose URL starts another's holds it and
@@ -1801,8 +1801,8 @@ the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild bu
   their names) and makes its page with the project's first HTML plugin, made again with its options for those entries:
   Rsbuild's comes with its template and title filled in. An app without one gets a page with a `root` to mount on. Any
   path that names no file gets the page, with the script that gives it the frame's mode and tells the canvas its height
-  and where it landed first, and one that reloads it after each build that changes something. The app's entries' CSS is
-  the page's, not the components'. Code: `app-pages.ts`.
+  and where it landed first. The page doesn't reload itself after a build: Parity loads its frames again when the app's
+  files change (PAR-1264). The app's entries' CSS is the page's, not the components'. Code: `app-pages.ts`.
 - **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
   takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
   imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
@@ -1818,9 +1818,9 @@ Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`
 
 Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
-graph walks, the server's paths, and the app's entries, page and reloads in `app-pages.test.ts` and `server.test.ts`);
-the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and
-its config found, its three components and Home drawn with the project's custom properties, and a component's code and a
+graph walks, the server's paths, and the app's entries and page in `app-pages.test.ts` and `server.test.ts`); the
+`rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and its
+config found, its three components and Home drawn with the project's custom properties, and a component's code and a
 token edited together, both drawn afresh.
 
 ### Rsbuild as an extension, through its builder provider (PAR-1148)
@@ -8435,18 +8435,24 @@ The open project shows in the lens shell, as [lens-layout.md](proposals/lens-lay
 lens bar down the window's left edge, each open lens a tab over its canvas, and the left panel and inspector of the lens
 in focus beside them, over the status bar. The title bar stays above, as on Home.
 
-- **Screens is the one lens so far.** It's today's canvas with the console under it, Layers with its asset tabs, and the
-  inspector with Modes, unchanged: it still draws pages, stories and component boards until Pages, Stories and
-  Components have lenses of their own. The lens bar lists only lenses that are built. Opening a project shows Screens.
+- **Pages and Screens are the lenses so far,** and the lens bar lists only lenses that are built. Screens is today's
+  canvas, Layers with its asset tabs, and the inspector with Modes: it draws the designs, stories and component boards
+  until Stories and Components have lenses of their own. Pages has a canvas of its own (see Pages, a lens of its own).
+  Opening a project shows Screens.
+- **Each lens has a canvas of its own,** a tldraw editor drawing its part of the project. The project holds the editor
+  of the lens in focus, which Layers, the inspector, the menus and the shortcuts act on; N and Shift+N step through the
+  designs on it. What draws over a canvas, its outlines, the zoom bar, the drawing toolbar, extensions' layers and the
+  console docked under it, shows on the canvas in focus. What's selected is the project's, so it stays as lenses come
+  and go.
 - **The lens bar works as links do in a browser.** A click shows a lens in the tab in focus, and Ctrl+click or a middle
   click opens it in a new tab; one that's open is revealed where it is. Clicking the lens in front hides or shows the
-  left panel. Ctrl and a lens's number shows it, Ctrl+2 for Screens. The arrow keys, Home and End move between lenses.
-  Right-clicking one offers Show, Open in new tab, Split right and Close.
+  left panel. Ctrl and a lens's number shows it, Ctrl+1 for Pages and Ctrl+2 for Screens. The arrow keys, Home and End
+  move between lenses. Right-clicking one offers Show, Open in new tab, Split right and Close.
 - **Tabs** drag onto another group's tabs to join them, or onto a canvas's side to split. A tab's close button, or a
   middle click, closes it, the last one too.
 - **Every tab closed empties the window:** the left panel and the inspector go, and the canvas's place says No lens
-  open, with how to show one. The canvas closes with its tab, and showing Screens again draws it afresh, fitted to the
-  designs.
+  open, with how to show one. A canvas closes with its tab, or when another lens takes its tab's place, and showing its
+  lens again draws it afresh where its camera was.
 - **Lenses stay in the main window** until the desktop app has lens windows (PAR-1247): the menus don't offer Move to
   new window, and a tab let go outside the window stays where it was.
 - **The panels are the window's panel layout,** so the lens bar, Show Layers and the other panel commands, the View
@@ -8455,21 +8461,67 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
 - **Component previews** are made for as long as the project is open, whether or not Screens shows: once a canvas has
   come up, a lens closed doesn't hold them back as a canvas still loading does.
 
-Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`; `lenses/screens.tsx` is
-Screens (`screensLens`), whose views read the open project through `OpenProjectContext`. The shell is
-`lenses/LensWorkspace.tsx`, with `LensBar.tsx`, `LensTab.tsx`, `GroupActions.tsx` and `dock-adapter.ts`, the one file
-that calls Dockview; its decisions are `@parity-app/lenses`'s. Without a `popoutUrl`, `LensWorkspace` keeps lenses in
-its window.
+Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`, opening on Screens;
+`lenses/screens.tsx` is Screens (`screensLens`) and `lenses/pages.tsx` Pages (`pagesLens`). Their canvases are
+`ProjectCanvas` in `lenses/project-canvas.tsx`, which reads the open project through `OpenProjectContext`, gives the
+project its editor while its lens is in focus, and renders `CanvasEditor` with what it `draws` (`drawsDesign`, with
+`isRoutePage` in `canvas/route-pages.ts`). `CanvasEditor` keeps each canvas's camera as it goes (`keptCameras`). The
+shell is `lenses/LensWorkspace.tsx`, with `LensBar.tsx`, `LensTab.tsx`, `GroupActions.tsx` and `dock-adapter.ts`, the
+one file that calls Dockview; its decisions are `@parity-app/lenses`'s. Without a `popoutUrl`, `LensWorkspace` keeps
+lenses in its window.
 
-Tests: `e2e/window.e2e.ts` (the project in the lens shell: Screens the one lens and pressed, a click hiding and showing
-the left panel, closing its tab leaving No lens open with no Layers or designs, and Ctrl+2 drawing it again);
-`packages/lenses/src/decide.test.ts`, `state.test.ts` and `saved.test.ts` for the shell's decisions; and the Storybook
-stories Parity/Explorations/Lenses (Pages, Tabs, Components, Side by side and Empty), which render the same
-`LensWorkspace` with the exploration's lenses, and Parity/App's Example project. Tried in `pnpm dev` on 2026-11-17 on
-the example: the lens bar listed Screens alone, pressed; clicking it hid Layers and clicking again showed it; its menu
-offered Show Screens with Ctrl+2, Close, and Open in new tab and Split right unavailable; Close Screens and a middle
-click on its tab each left No lens open with the panels gone; Ctrl+2, and Enter on Screens in the lens bar, drew the
-canvas and panels again; the page didn't scroll.
+Tests: `e2e/window.e2e.ts` (the project opening on Screens in the lens shell, Pages and Screens listed and Screens
+pressed, a click hiding and showing the left panel, closing its tab leaving No lens open with no Layers or designs, and
+Ctrl+2 drawing it again); `e2e/keyboard.e2e.ts` (N going round Screens' designs); `packages/lenses/src/decide.test.ts`,
+`state.test.ts` and `saved.test.ts` for the shell's decisions; and the Storybook stories Parity/Explorations/Lenses
+(Pages, Tabs, Components, Side by side and Empty), which render the same `LensWorkspace` with the exploration's lenses,
+and Parity/App's Example project. Tried in `pnpm dev` on 2026-11-17 on the example: the lens bar listed Screens alone,
+pressed; clicking it hid Layers and clicking again showed it; its menu offered Show Screens with Ctrl+2, Close, and Open
+in new tab and Split right unavailable; Close Screens and a middle click on its tab each left No lens open with the
+panels gone; Ctrl+2, and Enter on Screens in the lens bar, drew the canvas and panels again; the page didn't scroll.
+
+### Pages, a lens of its own (PAR-1244)
+
+The app's routes and their pages have a lens of their own, Pages, as
+[lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it. Screens no longer draws them.
+
+- **Its canvas** draws each page as a screen, laid out in the router's tree with the lines between them and layouts
+  without a page as groups around theirs, as Screens drew them before. It's drawn the first time Pages shows, so opening
+  a project on Screens loads no page. Shown again after another lens took its place, it's where its camera was, with
+  what was selected still selected. A page is drawn from the app's code, so the canvas has no drawing toolbar: F and T
+  leave it on Move and select, and files dropped on it make nothing.
+- **Selecting stays on its canvas.** Select all, Select inverse and Select matching select only pages, and N steps
+  through them; layers kept selected from another lens's canvas count as nothing selected. A router's Show routes, and
+  its route count in the status bar, show Pages with its Layers, and an extension's `navigate.reveal` and `zoomTo` show
+  the lens whose canvas draws the node first. A page selected while another lens shows, from Search, shows Pages in that
+  lens's place with the page in view; a design selected while Pages shows, or made from its menu, shows Screens the same
+  way. A canvas showing part of what's selected never narrows it for the others.
+- **Its Layers** lists the routes and their pages' layers, as Layers' Routes group did; Screens' Layers no longer has
+  that group. Selecting a page there or on its canvas shows it in the inspector. Layers is its panel's only tab, so
+  asking for another from Pages, such as Show Components (Alt+2), the status bar's tokens, or an extension's tab, shows
+  Screens in its place with that tab open.
+- **The inspector** shows the selected page as before: its header, its path params as props, its route and Export. Under
+  them, its links: the components it places that have a board, each showing its board in Screens, selected, with Show
+  beside at the row's end splitting Screens to the right. A page places its route's components, whose boards Screens
+  doesn't draw, so the example's pages show none yet; links to screens and tables wait for what relates them
+  (Components, PAR-1245, and Data, PAR-40).
+
+Code: `lenses/pages.tsx` (`pagesLens`); `RouteLayerTree` in `chrome/LayerTree.tsx`, which lists `part` `pages`;
+`chrome/PageLinks.tsx`, under a page in `DesignPanel`; `canvasOf` in `canvas/CanvasEditor.tsx` and the selection
+following its lens in `ProjectCanvas`, with `revealOnceShown` in `chrome/reveal.ts`; `drawnInFocus` in
+`chrome/actions.ts` for the commands that select designs; `drawing` in `extension-editor.ts`, with `refDesign` in
+`chrome/reveal.ts` and `lensOf` in `lenses/lens-requests.ts`, for an extension's reveal and zoom; `onOtherTab` on
+`SidePanel`, heard through `onTabAsked` in `chrome/layout.ts`, for a tab Pages' panel lacks; `useLensActions` in
+`lenses/shell.ts` for views that may be shown outside the shell.
+
+Tests: `e2e/window.e2e.ts` (Screens drawing none of the pages, Ctrl+1 showing Pages in Screens' tab with every page and
+nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back; a page selected with Screens in
+front showing Pages, and Ctrl+A there selecting every page and nothing else; Alt+2 on Pages showing Screens with its
+Components tab). Tried in `pnpm dev` on 2026-11-17 on the example: Screens drew 68 designs and no Routes group; clicking
+Pages showed it in Screens' tab with its 8 pages, the page tree's lines and the Routes group alone in Layers; selecting
+Pricing there showed its route in the inspector; Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went
+to the next page; Ctrl+click on Screens opened it in a second tab and Split right put it beside Pages; the page didn't
+scroll.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -8654,21 +8706,21 @@ A screen is named for the component its route draws, else its path.
 - **Frozen copies (PAR-1262).** Each route board's frame shows a frozen copy of its page, as
   [proposals/route-frames.md](proposals/route-frames.md) sets out. One frame per project, the freezer, makes them: it's
   parked in Parity's window at 1% of its size, where Chromium still lays it out, and for each route that needs a copy,
-  nearest the view first, it loads the route fresh, then for each mode its boards draw sets the mode (`mode.set`), sizes
-  itself to the mode's window and asks for a snapshot (`snapshot.take`) once the page has been quiet for 150 ms, at most
-  3 s. The page runtime answers with the body's tree as plain data, URLs made absolute and form state written in as
-  attributes, `<html>`'s classes and attributes without the mode's, the page's height, where it landed, and its
-  stylesheets by content hash. Parity asks for the sheets it hasn't got (`sheets.get`), and main fetches a sheet on
-  another host, such as a web font's, over `https:` (`pageSheet`). The snapshot is parsed with its schema, which refuses
-  a page past 50,000 elements, 256 deep or 8 MB of text, and passed through `sanitizePage` and `sanitizeRoot`. The board
-  builds it with `buildCopy` in a shadow root from `prepareFrame`, with a custom element registry of its own, so the
-  guest's definitions don't upgrade its elements; each sheet goes through `sanitizeSheet` and `prepareCanvasCss` once
-  and is shared by every copy. `<html>`'s classes and attributes go on the frame's host and on an element around the
-  body stand-in, as tall as the mode's window as the page's root was, `<body>`'s on the stand-in, and the mode's on the
-  host and the stand-in. A web component's open shadow root comes with its own styles, and a canvas comes as a picture
-  at the size it was drawn. A copy is as tall as its page in the mode's window, unless the board has a height of its
-  own, and it's inert, so nothing in it takes focus or follows a link. Until its copy or picture comes, a placeholder
-  stands in at the window's height.
+  nearest the view first, it loads the route fresh, then for each mode its boards draw (or each markup group, below)
+  sets the mode (`mode.set`), sizes itself to the mode's window and asks for a snapshot (`snapshot.take`) once the page
+  has been quiet for 150 ms, at most 3 s. The page runtime answers with the body's tree as plain data, URLs made
+  absolute and form state written in as attributes, `<html>`'s classes and attributes without the mode's, the page's
+  height, where it landed, and its stylesheets by content hash. Parity asks for the sheets it hasn't got (`sheets.get`),
+  and main fetches a sheet on another host, such as a web font's, over `https:` (`pageSheet`). The snapshot is parsed
+  with its schema, which refuses a page past 50,000 elements, 256 deep or 8 MB of text, and passed through
+  `sanitizePage` and `sanitizeRoot`. The board builds it with `buildCopy` in a shadow root from `prepareFrame`, with a
+  custom element registry of its own, so the guest's definitions don't upgrade its elements; each sheet goes through
+  `sanitizeSheet` and `prepareCanvasCss` once and is shared by every copy. `<html>`'s classes and attributes go on the
+  frame's host and on an element around the body stand-in, as tall as the mode's window as the page's root was,
+  `<body>`'s on the stand-in, and the mode's on the host and the stand-in. A web component's open shadow root comes with
+  its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its page in the mode's
+  window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or follows a link.
+  Until its copy or picture comes, a placeholder stands in at the window's height.
 - **Pictures (PAR-1200).** A board small on screen or away from the view shows a picture of its copy instead of the copy
   itself, as [proposals/route-frames.md](proposals/route-frames.md) sets out. It turns into its copy once it's near the
   view and wider than 440 screen pixels, and back into its picture once it's narrower than 360 or leaves the view
@@ -8692,6 +8744,29 @@ A screen is named for the component its route draws, else its path.
   `header` and `main`. Those layers are made again with each freeze and kept in the window (`copyLayers`), never in the
   project's document. They're made without styles; the Design panel reads an element's computed style when it shows it
   (`withCopyStyle`).
+- **Copies follow the code (PAR-1264).** The project service's watcher tells the window which of the app's files changed
+  (`project.filesChanged`), 250 ms after the last, leaving out hidden folders such as `.git` and `.next`, installed
+  packages, builders' output at the project's root (a `build` folder deeper down can be the app's), `.par` files and
+  TypeScript's build records (`pageSourceChange`). A copy is kept by its route, mode and state (`CopyKey`) and the mode
+  as drawn, so duplicated designs at other widths or themes keep their own, with the trace it was made from; until
+  traces by builder come (step 6), every copy's trace is the whole project, so any change makes the project's copies
+  stale. A stale copy stays shown until the freezer has a new one, nearest the view first. Modes whose snapshots drew
+  the same markup form a markup group: a route frozen again takes one snapshot per group, which every copy in the group
+  shows at once with its own height, and each other mode is checked with a snapshot of its own once nothing is missing
+  or stale. Two states of a route share a copy. A page that loads again while it's frozen says hello again with the same
+  id: the freezer replaces its channel, waits for it to be ready and takes the snapshot again, three times at most. With
+  the Interact tool, when the app's files change, a project's live page under Vite or a webpack-compatible builder,
+  which keeps the modules it loaded, is loaded again where it is (`page.reload`, or at its last location when it doesn't
+  answer), and a frame still going live once it's live; its spares are closed and opened again. A page whose router is
+  Next's takes Next's hot updates in place. The webpack-compatible builders' pages no longer poll and reload themselves.
+- **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
+  design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
+  every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
+  body, except where the class of a theme the token has a value of its own in is, and a theme's value where its class
+  is: Desktop Dark keeps `primary`'s dark value, and takes an edited `radius`, which has none. A theme's value given,
+  saved and undone shows the token's default there. A theme turned on by an attribute, such as `[data-theme="dark"]`,
+  counts as its class does (the guest's `themeAttributes`). The pool's live and spare pages get them over their channel
+  (`preview.set`), when they connect and as they change, into a sheet their snapshots never list.
 - **Live boards (PAR-1263).** With the Interact tool, a route board can be the app's own page, as
   [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps two spare frames per window while
   Interact is on: the app's page in an iframe on its builder's origin, in a layer in the canvas's page space above the
@@ -8739,6 +8814,15 @@ Region panel, and double-clicking the pricing cards on the canvas selected their
 read styles in the Design panel. Dashboard's row in Layers kept its warning from its copy's landing on `/login`. Mobile
 and dark modes and a failing page process weren't tried in the app.
 
+Code changes and previews were tried in a development build on the example project (PAR-1264). Editing PlanCard, the
+Pricing route's component, on disk ("a month" to "per month, billed yearly") showed in Pricing's copy 4.4 s after the
+save, and putting it back showed again. With Desktop Dark turned on too, both copies changed in the same frame, 7.6 s
+after the save, from the one snapshot of their markup group. With the Interact tool, the same edit loaded Pricing's page
+again with the change. Setting `primary`'s Light value in the Tokens panel turned the Choose Team button in Pricing's
+copy blue in the same frame, while Desktop Dark's kept its own value; the page drawn with the Interact tool showed it
+too, and again after it loaded again for the code change. Undo put both copies back. A page that loads again while
+frozen, and a webpack-compatible project, weren't tried in the app.
+
 Live boards were tried in a development build on the example project (PAR-1263). With Interact, two spares parked in the
 view; resting on Pricing marked it ready, and a press made it live and engaged in 94 ms, the page exactly over its copy
 and holding focus. Ctrl and the wheel over it zoomed the canvas from 55% to about 61%. Escape disengaged it, with focus
@@ -8776,24 +8860,28 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `apps/desktop/src/main/page-sheets.ts`, live boards: the pool and `useLiveBoard` in `live-frames.ts`, `LiveLayer` in
 `LiveLayer.tsx`, `pickLive` and `liveWindowTop` in `packages/frames/src/live.ts`, `passesBack` and the runtime's
 `page.scrolled`, `page.zoom` and `page.key` in `packages/page-runtime/src/`, `holdFreezer` in `freezer.ts`, and
-`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; pictures: `useBoardTier` in `RouteBoard.tsx`,
-`usePagePicture` in `page-bitmaps.ts`, `mountCopy` in `apps/desktop/src/renderer/page-copy.ts` and `copySheets` in
-`copy-sheets.ts`, both shared with the render window's `renderPage` in `render.ts`, the `pageJob` schema in
-`shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in `shared/render-job.ts`, `capturePage` and
-`storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in `utility/page-traces.ts`, `pageTraceFiles` in
-`packages/project/src/page-trace.ts`, and `boardTier` in `packages/frames/src/tiers.ts`; and the `routeFrame` events in
-`packages/telemetry/src/route-frame-events.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`;
-`appPage` in `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
-`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
-in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
-with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `nextjsPage` in
-`packages/extension-nextjs/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each manifest's
-`page` and `pageWraps`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
-`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
-`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
-`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
-`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs before Vite's own
-resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
+`pageFrameGuard` in `apps/desktop/src/main/page-frames.ts`; code changes and previews: `pageSourceChange` in
+`packages/project/src/open-project.ts`, the watcher's `filesChanged` in `apps/desktop/src/utility/projects.ts`,
+`page-changes.ts` (`pageFilesChanged`, `previewTokens`), the pool's `filesChanged` in `live-frames.ts`, `staleCopies`,
+`groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and `updatesItself`
+in `packages/frames/src/preview.ts`, and `preview.set` and `page.reload` in `packages/page-runtime/src/runtime.ts`;
+pictures: `useBoardTier` in `RouteBoard.tsx`, `usePagePicture` in `page-bitmaps.ts`, `mountCopy` in
+`apps/desktop/src/renderer/page-copy.ts` and `copySheets` in `copy-sheets.ts`, both shared with the render window's
+`renderPage` in `render.ts`, the `pageJob` schema in `shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in
+`shared/render-job.ts`, `capturePage` and `storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in
+`utility/page-traces.ts`, `pageTraceFiles` in `packages/project/src/page-trace.ts`, and `boardTier` in
+`packages/frames/src/tiers.ts`; and the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`;
+`routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
+The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
+in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
+`reactRouterPage` in `packages/extension-react-router/src/page.ts`, with library mode's wrapped `react-router` in
+`src/page-wrap/react-router.ts`; `nextjsPage` in `packages/extension-nextjs/src/page.ts`; `reactHydration` in
+`packages/extension-react/src/page.ts`; each manifest's `page` and `pageWraps`, carried by `pageRouters` in
+`packages/extension-host/src/hosts.ts` and `pageModules` in `apps/desktop/src/utility/projects.ts` into the project's
+config; `pageEntrySource` in `packages/project/src/page-entry.ts`, served by `appPageRuntime` in
+`packages/extension-vite/src/app-page.ts`, `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and
+`copyPageModules` in `packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs
+before Vite's own resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
@@ -8828,11 +8916,20 @@ its media, an unreadable import where it stands inside every condition around it
 one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings
 made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
 `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
-and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts` ("gives a
-copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the innermost
-route"), `apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and
-`supports()` kept apart from the media after it; another host's sheet over https, its `url()`s absolute against where it
-came from; anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
+and 5 s, stopping after three failures in two minutes, and forgetting older ones), and for code changes and previews
+(PAR-1264): `packages/frames/src/planners.test.ts` (`groupLeaders`: one mode of each markup group and each mode not
+frozen yet, and every mode of a route frozen for the first time; `withMarkup`: a mode moved into the group of the markup
+it drew), `packages/frames/src/preview.test.ts` (5: token values on a copy's roots by theme and on the live page's root,
+unsafe values and themes left out, and a sheet a document takes; only Next's pages updating themselves),
+`packages/page-runtime/src/snapshot.test.ts` ("shows a style preview over the page, and never puts it in a snapshot"),
+`packages/project/src/open-project.test.ts` (`pageSourceChange`: the app's files and lockfile, not hidden folders,
+installed packages, builders' output, `.par` files, build records or logs) and
+`apps/desktop/src/utility/projects.test.ts` ("tell the windows which of the app's files changed, at once for a save that
+writes several"), `element-layers.test.ts` ("gives a copy's elements their path from the body as ids"),
+`route-boards.test.ts` ("puts what the copy drew inside the innermost route"),
+`apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and `supports()` kept
+apart from the media after it; another host's sheet over https, its `url()`s absolute against where it came from;
+anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
 `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
 resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
 not when it's first idle; one given up when aborted; the watcher told until it stops),
@@ -8879,13 +8976,13 @@ frame's own height; why when there's no copy), `render-job.test.ts` (3, "a page'
 not the builder's address; changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's
 picture in the store": kept while its trace holds and stale after; apart from frames' bitmaps and the page in another
 mode) and `copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the
-page frames, the freezer, building and selecting copies, a board's tier as the camera moves, `usePagePicture`, drawing
-the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their
-own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path
-read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App
-at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
-(`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
-Pricing, Settings' group and Billing and hovering Projects.
+page frames, the freezer (its stale copies, markup groups and second hello included), building and selecting copies, a
+board's tier as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop,
+Layers' route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the
+example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each
+page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines
+forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes
+and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

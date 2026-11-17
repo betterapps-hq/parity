@@ -42,7 +42,7 @@ function activate(parity: Parity): void {
   )
 
   parity.subscriptions.push(
-    parity.commands.register("nextjs.showRoutes", () => parity.navigate.showTab("layers")),
+    parity.commands.register("nextjs.showRoutes", () => parity.navigate.showTab("routes")),
     parity.commands.register("nextjs.open", async (target) => {
       const route = routeOf(target, parity.selection.get())
 

@@ -130,6 +130,9 @@ import { revealSelection } from "./reveal.ts"
 
 type Row = TreeRow<ContainerEntry>
 
+/** What a Layers panel lists: the app's pages, by route, or the designs, boards, stories and notes. */
+export type LayerPart = "pages" | "designs"
+
 /** Where dragged layers or designs would land relative to a row: just above it, just below it, or inside it. */
 type DropPosition = "before" | "after" | "inside"
 
@@ -338,9 +341,19 @@ function folderOfLine(line: Line): string | undefined {
  * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has a + that makes a
  * new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
  * the first one (PAR-546). A search above the tree finds layers and designs by name, and Collapse all closes every
- * row. Only the rows in view are drawn (PAR-187).
+ * row. Only the rows in view are drawn (PAR-187). Pages' Layers lists the app's routes; Screens' the rest
+ * (lens-layout.md).
  */
 export function LayerTree() {
+  return <LayerList part="designs" />
+}
+
+/** Pages' Layers: the app's routes, and their pages' layers. */
+export function RouteLayerTree() {
+  return <LayerList part="pages" />
+}
+
+function LayerList({ part }: { part: LayerPart }) {
   const session = useProject()
   const { selection } = session
   const entries = useContainerEntries(session)
@@ -428,9 +441,9 @@ export function LayerTree() {
 
     const listed: Group[] = []
 
-    // Routes are listed once the app has some, as its router says.
-    if (routes.length > 0) {
-      listed.push({ id: "routes", title: "Routes", kind: "screen", none: "", entries: routes })
+    // Pages lists the app's routes, as its router says, and nothing else.
+    if (part === "pages") {
+      return [{ id: "routes", title: "Routes", kind: "screen", none: "No routes yet.", entries: routes }]
     }
 
     listed.push({
@@ -468,7 +481,7 @@ export function LayerTree() {
     }
 
     return listed
-  }, [entries, places, session.info])
+  }, [entries, places, session.info, part])
 
   const library = projectLibrary(session)
 
@@ -479,12 +492,14 @@ export function LayerTree() {
     const all: Row[] = []
     const list: Line[] = []
 
-    // The app's API routes come under its pages, before the screens designed for it (PAR-1174), nested by their URLs
-    // (PAR-1185). They draw nothing, so each is a line of its own rather than a design's row. A search finds them by
-    // path, in the folders they're in.
+    // The app's API routes come under its pages, in Pages' Layers (PAR-1174), nested by their URLs (PAR-1185). They draw
+    // nothing, so each is a line of its own rather than a design's row. A search finds them by path, in the folders
+    // they're in.
+    const apiListed = part === "pages" ? apiRoutes : []
+
     const apiFound = search
-      ? apiRoutes.filter((route) => route.path.toLowerCase().includes(search.toLowerCase()))
-      : apiRoutes
+      ? apiListed.filter((route) => route.path.toLowerCase().includes(search.toLowerCase()))
+      : apiListed
 
     const apiLines: Line[] =
       apiFound.length === 0
@@ -496,10 +511,6 @@ export function LayerTree() {
           ]
 
     for (const group of groups) {
-      if (group.id === "screens") {
-        list.push(...apiLines)
-      }
-
       const rowsOf = (designs: readonly ContainerEntry[]) =>
         search
           ? searchRows(designs, search, label, library, boardOpensTo)
@@ -541,12 +552,14 @@ export function LayerTree() {
       all.push(...found)
     }
 
+    list.push(...apiLines)
+
     if (search && all.length === 0 && apiFound.length === 0) {
       list.push({ type: "none", key: "none" })
     }
 
     return { rows: all, lines: list }
-  }, [groups, apiRoutes, expanded, search, entries, library, session.info.libraries, session.info.id])
+  }, [groups, apiRoutes, expanded, search, entries, library, session.info.libraries, session.info.id, part])
 
   const lineIndex = useMemo(() => new Map(lines.map((line, index) => [line.key, index])), [lines])
 
@@ -1166,7 +1179,7 @@ export function LayerTree() {
               )
             })}
           </div>
-          {notes.length > 0 && !search && (
+          {part === "designs" && notes.length > 0 && !search && (
             <div className="mb-2">
               <GroupLabel as="div" className="px-3 py-1">
                 Text on the canvas

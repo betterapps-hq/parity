@@ -2,7 +2,7 @@ import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { childNodes, type ComponentRenderStatus, type DesignNode } from "@parity-app/core"
 import { containerEntries, containerEntry } from "@parity-app/multiplayer"
 import type { ReactNode } from "react"
-import { userEvent, waitFor, within } from "storybook/test"
+import { expect, userEvent, waitFor, within } from "storybook/test"
 import { Box } from "tldraw"
 import type { ProjectInfo, ServiceMethods } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
@@ -147,6 +147,19 @@ export async function openInTurn(...projects: ProjectInfo[]): Promise<void> {
   for (const project of projects) {
     await workspace.open(project.root)
   }
+}
+
+/**
+ * Shows one of the open project's lenses, such as Pages, as a click on it in the lens bar does, in Screens' place, once
+ * the project has opened on Screens' tab.
+ */
+export async function showLens(name: string): Promise<void> {
+  const bar = () => within(within(document.body).getByRole("toolbar", { name: "Lenses" }))
+  const screens = await waitFor(() => bar().getByRole("button", { name: "Screens" }), { timeout: 30_000 })
+  await waitFor(() => expect(screens.getAttribute("aria-pressed")).toBe("true"), { timeout: 30_000 })
+  const lens = bar().getByRole("button", { name })
+  await userEvent.click(lens)
+  await waitFor(() => expect(lens.getAttribute("aria-pressed")).toBe("true"))
 }
 
 /**

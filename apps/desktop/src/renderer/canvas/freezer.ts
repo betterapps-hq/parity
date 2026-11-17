@@ -1,10 +1,14 @@
 import { type Channel, createChannel, domPort } from "@parity-app/channel"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
+  type CopyKey,
+  copyId,
   type FrozenElement,
   freezeLoadDeadline,
   freezeOrder,
   freezeQuiet,
+  groupLeaders,
+  type MarkupGroups,
   type PageLocation,
   type PageMode,
   type PageRoot,
@@ -14,7 +18,11 @@ import {
   type SanitizePolicy,
   sanitizePage,
   sanitizeRoot,
-  type SheetEntry
+  type SheetEntry,
+  sharedMarkup,
+  staleCopies,
+  type TracedCopy,
+  withMarkup
 } from "@parity-app/frames"
 import { withConditions } from "@parity-app/page-runtime"
 import {
@@ -31,6 +39,7 @@ import { useEffect, useId, useRef } from "react"
 import { clearCopySheets, sheetTexts } from "../copy-sheets.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
+import { onPageFiles } from "./page-changes.ts"
 import { parityChecks } from "./page-channel.ts"
 
 /*
@@ -41,6 +50,13 @@ import { parityChecks } from "./page-channel.ts"
  * are asked for once each, by content hash, or fetched by main when they're on another host. When the project's page
  * process fails under it, the freezer starts again after a pause, and stops after three failures in two minutes;
  * boards keep the copies they have.
+ *
+ * Copies are kept by `CopyKey`: the route's URL, the mode and the board's state (PAR-1264). Each keeps the trace it was
+ * made from, and when the app's files change, the copies whose traces hold one are stale: they stay shown until they're
+ * frozen again, nearest the view first. Modes whose snapshots drew the same markup at the last freeze form a markup
+ * group, and a route frozen again takes one snapshot per group, which updates every copy in it at once; each other mode
+ * is checked after, once no copy is missing or stale. A page that loads again while it's frozen says hello again: its
+ * channel is replaced, it's waited for as a page loading, and the snapshot it was taking is taken again.
  */
 
 /** A route's page in one mode, as plain data that's been through the sanitizers, ready for `buildCopy`. */
@@ -57,22 +73,45 @@ export interface FrozenCopy {
   origin: string
   /** When its page started loading, in milliseconds since 1970: what code it drew is no newer than this. */
   loadedAt: number
+  /** The hash of the markup its snapshot drew, which puts its mode in a markup group. */
+  markup: string
+  /** The mode as drawn, its classes, attributes and window (`drawnAs`), which a changed mode no longer matches. */
+  drawn: string
+  /** The freezer's count of code changes when its route's freeze began: a change after it makes it stale. */
+  changes: number
+  /** The files its page was made from, relative to the project's root, or `"all"` when the builder couldn't say. */
+  trace: readonly string[] | "all"
+  /** Whether it was made from another mode's snapshot in its markup group and is still to be checked in its own. */
+  unchecked?: true
 }
 
-/** Every copy the window has, by `copyKey`. */
+/** Every copy the window has, by `copyStoreKey`. */
 const copies = windowStore<ReadonlyMap<string, FrozenCopy>>(() => new Map())
 
-/** A copy's key: the project, the URL its page draws at, and the mode and window it's drawn in. */
-export function copyKey(project: string, url: string, mode: PageMode, viewport: PageViewport): string {
-  return JSON.stringify([project, url, mode, viewport])
+/**
+ * A copy's key in the window: its project, its `CopyKey` and the mode as drawn (`drawnAs`), so two boards of a route,
+ * mode and state drawn at different widths or themes, as a duplicated design can be, each keep their own.
+ */
+export function copyStoreKey(project: string, key: CopyKey, drawn: string): string {
+  return `${project}
+${copyId(key)}
+${drawn}`
+}
+
+/** A mode as drawn, its classes, attributes and window, as one string: copies made in another are redone. */
+function drawnAs(mode: PageMode, viewport: PageViewport): string {
+  return JSON.stringify([mode, viewport])
 }
 
 /** One board's need of a copy. */
 interface CopyNeed {
+  /** Its key in the window, from `copyStoreKey`. */
   key: string
   url: string
   mode: PageMode
   viewport: PageViewport
+  /** The mode as drawn (`drawnAs`), which the freezer snapshots once for every need that shares it. */
+  drawn: string
   /** How urgent it is, lowest first, from where its board is against the view (`useFrameView`'s `rank`). */
   rank: () => number
 }
@@ -116,12 +155,13 @@ resetWithWindow(() => {
  */
 export function useFrozenCopy(
   project: string,
-  url: string,
+  key: CopyKey,
   mode: PageMode,
   viewport: PageViewport,
   rank: () => number
 ): FrozenCopy | undefined {
-  const key = copyKey(project, url, mode, viewport)
+  const drawn = drawnAs(mode, viewport)
+  const stored = copyStoreKey(project, key, drawn)
   const ranked = useRef(rank)
   const id = useId()
 
@@ -131,14 +171,17 @@ export function useFrozenCopy(
 
   useEffect(() => {
     const freezer = freezerFor(project)
-    freezer.need(id, { key, url, mode, viewport, rank: () => ranked.current() })
+    freezer.need(id, { key: stored, url: key.route, mode, viewport, drawn, rank: () => ranked.current() })
 
     return () => freezer.drop(id)
-    // The key holds the mode and viewport.
+    // `drawn` holds the mode and viewport, and `stored` the route.
     // oxlint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, id, key, url])
+  }, [project, id, stored, drawn])
 
-  return useStore(copies).get(key)
+  const copy = useStore(copies).get(stored)
+
+  // A copy made in a mode since changed isn't this mode's; it's frozen again.
+  return copy?.drawn === drawn ? copy : undefined
 }
 
 function freezerFor(project: string): Freezer {
@@ -179,24 +222,53 @@ function withDeadline<T>(request: Promise<T>, ms: number): Promise<T> {
   ]).finally(() => window.clearTimeout(timer))
 }
 
-/** One project's freezer: its frame, its queue, and its failures. */
+/** How many times a page may load again while one route is frozen before the freezer takes it to be stuck. */
+const reloadLimit = 3
+
+/** A mode a route is frozen in, and the boards' needs that share it. */
+interface FreezeUnit {
+  drawn: string
+  mode: PageMode
+  viewport: PageViewport
+  needs: CopyNeed[]
+}
+
+/** What the freezer's frame has said: hellos counted, so a reload is told from a failure, and when it's ready. */
+interface FrameLoad {
+  hellos: number
+  ready: PromiseWithResolvers<void>
+}
+
+/** One project's freezer: its frame, its queue, its markup groups, the copies code changes made stale, its failures. */
 class Freezer {
   private readonly needs = new Map<string, CopyNeed>()
-  /** Copies refused for a cap or the schema, which aren't asked for again until their board's mode changes. */
+  /**
+   * Copies refused for a cap or the schema, by their key and the mode as drawn (`refusal`), not asked for again until
+   * their board's mode or the code changes.
+   */
   private readonly refused = new Set<string>()
+  /** How many times the app's files have changed in a way that made a copy stale. */
+  private changes = 0
+  /** The count of changes when each stale copy last went stale, by its key. */
+  private readonly stale = new Map<string, number>()
+  /** Each route's modes, as drawn, with the markup each drew at its last snapshot. */
+  private groups: MarkupGroups = new Map()
   private running = false
   private disposed = false
   private timer = 0
   private failures: number[] = []
   private frame: HTMLIFrameElement | undefined
   private readonly project: string
+  private readonly unhear: () => void
 
   constructor(project: string) {
     this.project = project
+    this.unhear = onPageFiles(project, (paths) => this.filesChanged(paths))
   }
 
   need(id: string, need: CopyNeed): void {
     this.needs.set(id, need)
+    this.share(need)
     this.poke()
   }
 
@@ -206,8 +278,78 @@ class Freezer {
 
   dispose(): void {
     this.disposed = true
+    this.unhear()
     window.clearTimeout(this.timer)
     this.frame?.remove()
+  }
+
+  /**
+   * A board in another state of a route and mode shares the copy one has, as both draw the same page: a route's page
+   * doesn't know the board's state.
+   */
+  private share(need: CopyNeed): void {
+    const have = copies.get()
+
+    if (have.has(need.key)) {
+      return
+    }
+
+    for (const other of this.needs.values()) {
+      const copy = have.get(other.key)
+
+      if (other.url === need.url && copy?.drawn === need.drawn) {
+        const stale = this.stale.get(other.key)
+
+        // A copy a code change made stale is stale for the board that shares it too, until it's frozen again.
+        if (stale !== undefined) {
+          this.stale.set(need.key, stale)
+        }
+
+        copies.set(new Map(have).set(need.key, copy))
+
+        return
+      }
+    }
+  }
+
+  /**
+   * The app's files changed: the project's copies whose traces hold one are stale, and frozen again, nearest the view
+   * first. Every copy the window keeps counts, a board's that isn't drawn now too, as with the Interact tool, so it isn't
+   * shown from before the change when it comes back. Refused copies are asked for again, as the change may fix them.
+   */
+  private filesChanged(paths: readonly string[]): void {
+    // Its copies' keys in the window start with it (`copyStoreKey`).
+    const prefix = `${this.project}\n`
+    const traced: TracedCopy[] = []
+
+    for (const [key, copy] of copies.get()) {
+      if (key.startsWith(prefix)) {
+        // The copy's key in the window stands in for its state, so it's found again by it.
+        traced.push({ key: { route: key, mode: copy.drawn, state: key }, files: copy.trace })
+      }
+    }
+
+    const stale = staleCopies(paths, traced, { distance: new Map() }).map((key) => key.state)
+    const have = copies.get()
+
+    // A board whose first copy is still to come has no trace yet, so its snapshot, which may have been taken before the
+    // change, is taken again.
+    for (const need of this.needs.values()) {
+      if (!have.has(need.key)) {
+        stale.push(need.key)
+      }
+    }
+
+    if (stale.length > 0) {
+      this.changes++
+
+      for (const key of stale) {
+        this.stale.set(key, this.changes)
+      }
+    }
+
+    this.refused.clear()
+    this.poke()
   }
 
   /** Runs the queue soon, unless it runs or waits to start again already. */
@@ -222,11 +364,25 @@ class Freezer {
     }, delay)
   }
 
-  /** What still needs a copy: needs with no copy, and not refused. */
+  /** Whether a need's copy is missing, made in a mode since changed, or stale after a code change. */
+  private wants(need: CopyNeed, have: ReadonlyMap<string, FrozenCopy>): boolean {
+    const copy = have.get(need.key)
+
+    return !copy || copy.drawn !== need.drawn || (this.stale.get(need.key) ?? -1) > copy.changes
+  }
+
+  /** What needs a copy first: needs with none, a stale one or one made in another mode, and not refused. */
   private missing(): CopyNeed[] {
     const have = copies.get()
 
-    return [...this.needs.values()].filter((need) => !have.has(need.key) && !this.refused.has(need.key))
+    return [...this.needs.values()].filter((need) => this.wants(need, have) && !this.refused.has(refusal(need)))
+  }
+
+  /** What needs checking once nothing is missing: copies made from another mode's snapshot in their markup group. */
+  private unchecked(): CopyNeed[] {
+    const have = copies.get()
+
+    return [...this.needs.values()].filter((need) => have.get(need.key)?.unchecked && !this.refused.has(refusal(need)))
   }
 
   private async run(): Promise<void> {
@@ -234,11 +390,19 @@ class Freezer {
     let failure: "gone" | "hung" | undefined
 
     try {
-      for (let missing = this.missing(); missing.length > 0 && !this.disposed; missing = this.missing()) {
-        const [url] = freezeOrder(missing.map((need) => ({ url: need.url, distance: need.rank() })))
-        const modes = new Map(missing.filter((need) => need.url === url).map((need) => [need.key, need]))
+      while (!this.disposed) {
+        const missing = this.missing()
+        // Once nothing is missing, each mode a group's snapshot stood in for is checked with its own.
+        const checking = missing.length === 0
+        const needs = checking ? this.unchecked() : missing
+
+        if (needs.length === 0) {
+          break
+        }
+
+        const [url] = freezeOrder(needs.map((need) => ({ url: need.url, distance: need.rank() })))
         await unheld(this.project)
-        await this.freeze(url!, [...modes.values()])
+        await this.freeze(url!, units(needs.filter((need) => need.url === url)), checking)
       }
     } catch (error) {
       failure = error instanceof Deadline ? "hung" : "gone"
@@ -252,13 +416,22 @@ class Freezer {
     }
   }
 
-  /** Loads `url` fresh in the freezer's frame and takes a snapshot in each mode that needs one. */
-  private async freeze(url: string, modes: readonly CopyNeed[]): Promise<void> {
+  /**
+   * Loads `url` fresh in the freezer's frame and takes a snapshot in its modes: one per markup group, which stands in
+   * for the group's other modes until they're checked, or, when `checking`, one in each mode.
+   */
+  private async freeze(url: string, modes: readonly FreezeUnit[], checking: boolean): Promise<void> {
     const [first] = modes
 
     if (!first) {
       return
     }
+
+    const changes = this.changes
+    const groups = this.groups
+    const drawn = modes.map((unit) => unit.drawn)
+
+    const leaders = checking ? modes : pick(modes, groupLeaders(url, drawn, groups))
 
     const src = pageFrameUrl(url, this.project)
     const loadedAt = Date.now()
@@ -293,11 +466,13 @@ class Freezer {
     })
     sizeFrame(frame, first.viewport)
 
+    const load: FrameLoad = { hellos: 0, ready: Promise.withResolvers<void>() }
+
     const channel = createChannel<ParityMethods, PageMethods>({
       checks: parityChecks,
       handlers: {
         "page.ready": () => {
-          ready.resolve()
+          load.ready.resolve()
 
           return null
         },
@@ -310,8 +485,6 @@ class Freezer {
       }
     })
 
-    const ready = Promise.withResolvers<void>()
-
     const hello = (event: MessageEvent) => {
       const said = readHello(event.data)
 
@@ -319,7 +492,14 @@ class Freezer {
         return
       }
 
-      // A page that loads again says hello again, and gets a new port.
+      // A page that loads again says hello again: it's loading until it's ready, and the snapshot it was taking goes,
+      // as its new port replaces the old one, which fails what was asked on it.
+      load.hellos++
+
+      if (load.hellos > 1) {
+        load.ready = Promise.withResolvers<void>()
+      }
+
       const ports = new MessageChannel()
       channel.connect(domPort(ports.port1))
       frame.contentWindow?.postMessage({ parity: "port", frame: id }, origin, [ports.port2])
@@ -331,20 +511,40 @@ class Freezer {
     document.body.append(frame)
 
     try {
-      await withDeadline(ready.promise, freezeLoadDeadline)
+      for (const unit of leaders) {
+        for (let reloads = 0; ; reloads++) {
+          if (this.disposed) {
+            return
+          }
 
-      for (const need of modes) {
-        if (this.disposed) {
-          return
+          const hellos = load.hellos
+
+          try {
+            await withDeadline(load.ready.promise, freezeLoadDeadline)
+            await unheld(this.project)
+            sizeFrame(frame, unit.viewport)
+            await withDeadline(
+              channel.request("mode.set", { mode: unit.mode, viewport: unit.viewport }),
+              pageDeadlines["mode.set"]
+            )
+            await this.snapshot(
+              channel,
+              url,
+              unit,
+              { origin, loadedAt },
+              changes,
+              checking ? [] : others(url, unit, modes, groups)
+            )
+            break
+          } catch (error) {
+            // The page loaded again under the request: wait for it to be ready, and ask again.
+            if (load.hellos !== hellos && reloads < reloadLimit) {
+              continue
+            }
+
+            throw error
+          }
         }
-
-        await unheld(this.project)
-        sizeFrame(frame, need.viewport)
-        await withDeadline(
-          channel.request("mode.set", { mode: need.mode, viewport: need.viewport }),
-          pageDeadlines["mode.set"]
-        )
-        await this.snapshot(channel, need, origin, loadedAt)
       }
     } finally {
       window.removeEventListener("message", hello)
@@ -354,13 +554,20 @@ class Freezer {
     }
   }
 
-  /** Takes one mode's snapshot, checks and sanitizes it, gets the sheets it lists, and keeps its copy. */
+  /**
+   * Takes one mode's snapshot, checks and sanitizes it, gets the sheets it lists, and keeps its copy for every board
+   * that draws the mode, and as a stand-in for the `group`'s other modes, which keep their own heights until they're
+   * checked.
+   */
   private async snapshot(
     channel: Channel<ParityMethods, PageMethods>,
-    need: CopyNeed,
-    origin: string,
-    loadedAt: number
+    url: string,
+    unit: FreezeUnit,
+    page: Pick<FrozenCopy, "origin" | "loadedAt">,
+    changes: number,
+    group: readonly FreezeUnit[]
   ): Promise<void> {
+    const { origin, loadedAt } = page
     let taken: unknown
 
     try {
@@ -370,7 +577,7 @@ class Freezer {
       )
     } catch (error) {
       if (error instanceof Deadline) {
-        this.refuse(need, "deadline")
+        this.refuse("deadline")
       }
 
       throw error
@@ -381,8 +588,7 @@ class Freezer {
     try {
       snapshot = parsePageSnapshot(taken)
     } catch (error) {
-      this.refuse(need, String(error).includes("at most") ? "cap" : "schema")
-      this.refused.add(need.key)
+      this.refuse(String(error).includes("at most") ? "cap" : "schema", unit)
 
       return
     }
@@ -403,8 +609,7 @@ class Freezer {
       }
 
       // A sheet past its cap, or one that isn't what the schema reads.
-      this.refuse(need, String(error).includes("at most") ? "cap" : "schema")
-      this.refused.add(need.key)
+      this.refuse(String(error).includes("at most") ? "cap" : "schema", unit)
 
       return
     }
@@ -416,14 +621,46 @@ class Freezer {
       body: body.body,
       sheets: snapshot.sheets.map(sheetId),
       origin,
-      loadedAt
+      loadedAt,
+      markup: snapshot.markup,
+      drawn: unit.drawn,
+      changes,
+      // Pages' traces by builder are the project service's (`pageTraces`); until the window has them, any change to
+      // the app's files makes a copy stale.
+      trace: "all"
     }
 
-    copies.set(new Map(copies.get()).set(need.key, copy))
+    this.groups = withMarkup(this.groups, url, unit.drawn, snapshot.markup)
+
+    const next = new Map(copies.get())
+
+    for (const need of unit.needs) {
+      next.set(need.key, copy)
+    }
+
+    for (const other of group) {
+      for (const need of other.needs) {
+        const before = next.get(need.key)
+
+        next.set(need.key, {
+          ...copy,
+          pageHeight: before?.drawn === other.drawn ? before.pageHeight : copy.pageHeight,
+          drawn: other.drawn,
+          unchecked: true
+        })
+      }
+    }
+
+    copies.set(next)
   }
 
-  private refuse(_need: CopyNeed, reason: Refusal): void {
+  /** Tells telemetry a snapshot was refused, and for a cap or the schema, leaves its mode's boards as they are. */
+  private refuse(reason: Refusal, unit?: FreezeUnit): void {
     track("routeFrame.refused", { reason })
+
+    for (const need of unit?.needs ?? []) {
+      this.refused.add(refusal(need))
+    }
   }
 
   /**
@@ -448,6 +685,38 @@ class Freezer {
 
     this.poke(next.delay)
   }
+}
+
+/** A refused copy's entry: its key and the mode as drawn, so a board whose mode changes is asked for again. */
+function refusal(need: Pick<CopyNeed, "key" | "drawn">): string {
+  return `${need.key}\n${need.drawn}`
+}
+
+/** A route's needs as the modes they're drawn in, each with the needs that share it, in the needs' order. */
+function units(needs: readonly CopyNeed[]): FreezeUnit[] {
+  const found = new Map<string, FreezeUnit>()
+
+  for (const need of needs) {
+    const unit = found.get(need.drawn)
+
+    if (unit) {
+      unit.needs.push(need)
+    } else {
+      found.set(need.drawn, { drawn: need.drawn, mode: need.mode, viewport: need.viewport, needs: [need] })
+    }
+  }
+
+  return [...found.values()]
+}
+
+/** The units of these modes, in their order. */
+function pick(modes: readonly FreezeUnit[], drawn: readonly string[]): FreezeUnit[] {
+  return drawn.flatMap((each) => modes.filter((unit) => unit.drawn === each))
+}
+
+/** The other modes being frozen that drew `unit`'s markup at the last freeze, which its snapshot stands in for. */
+function others(url: string, unit: FreezeUnit, modes: readonly FreezeUnit[], groups: MarkupGroups): FreezeUnit[] {
+  return pick(modes, sharedMarkup(url, unit.drawn, groups).slice(1))
 }
 
 /** Sizes the freezer's frame to a mode's window, which the page lays out in. */

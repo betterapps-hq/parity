@@ -6,7 +6,7 @@ import { routePageDesign, routePageTarget } from "./canvas/route-pages.ts"
 import { actions, commandsFor } from "./chrome/actions.ts"
 import { type Command, keymap } from "./chrome/keymap.ts"
 import { setLayout } from "./chrome/layout.ts"
-import { revealRef, revealSelection, zoomToRef } from "./chrome/reveal.ts"
+import { drawsRef, refDesign, revealRef, revealSelection, zoomToRef } from "./chrome/reveal.ts"
 import { openSettings } from "./chrome/SettingsDialog.tsx"
 import {
   type EditorRequest,
@@ -16,9 +16,10 @@ import {
   selectedRefs,
   whenFactsOf
 } from "./extensions.ts"
+import { lensOf, requestLens } from "./lenses/lens-requests.ts"
 import { marksOf } from "./route-marks.ts"
 import { request } from "./service.ts"
-import type { ProjectSession } from "./workspace.ts"
+import { type ProjectSession, workspace } from "./workspace.ts"
 
 /*
  * What extensions do with Parity's own UX rather than beside it (PAR-1092): read and change what's selected, by
@@ -166,6 +167,31 @@ async function executeCommand(session: ProjectSession, command: string): Promise
   return undefined
 }
 
+/**
+ * The project's session once its canvas in focus draws a node: as it is when it does, else after the lens whose canvas
+ * draws the node has shown in that one's place, waiting a frame at a time for it to draw.
+ */
+async function drawing(session: ProjectSession, ref: NodeRef): Promise<ProjectSession> {
+  const design = refDesign(session, ref)
+
+  if (drawsRef(session, ref) || design === undefined) {
+    return session
+  }
+
+  requestLens(lensOf(design))
+
+  for (let frame = 0; frame < 60; frame++) {
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    const shown = workspace.getProject()?.session
+
+    if (shown?.id === session.id && drawsRef(shown, ref)) {
+      return shown
+    }
+  }
+
+  return session
+}
+
 /** Goes where an extension asks. */
 async function navigate(
   session: ProjectSession,
@@ -173,10 +199,10 @@ async function navigate(
 ): Promise<{ url?: string }> {
   switch (to.kind) {
     case "reveal":
-      revealRef(session, to.ref)
+      revealRef(await drawing(session, to.ref), to.ref)
       break
     case "zoomTo":
-      if (!zoomToRef(session, to.ref)) {
+      if (!zoomToRef(await drawing(session, to.ref), to.ref)) {
         throw new Error("The canvas doesn't draw that node")
       }
 
@@ -250,8 +276,18 @@ async function navigate(
   return {}
 }
 
-/** Opens a panel's tab: Parity's own, the console, an extension's log, or a tab an extension declares. */
+/**
+ * Opens a panel's tab: Parity's own, the console, an extension's log, or a tab an extension declares. `routes` shows
+ * Pages, whose Layers lists the app's routes.
+ */
 function showTab(session: ProjectSession, id: string): void {
+  if (id === "routes") {
+    requestLens("pages")
+    setLayout({ left: true, leftTab: "layers" })
+
+    return
+  }
+
   const side = panelTabs.get(id)
 
   if (side === "left") {

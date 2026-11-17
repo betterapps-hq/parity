@@ -13,12 +13,11 @@ afterEach(async () => {
   await rm(folder, { recursive: true, force: true })
 })
 
-/** Serves a build folder with `main.js` in it, and the app's page, at the build count `builds` gives. */
+/** Serves a build folder with `main.js` in it, and the app's page. */
 async function served() {
   folder = await mkdtemp(join(tmpdir(), "parity-guest-server-"))
   await writeFile(join(folder, "main.js"), "window.main = true")
   const port = await freePort()
-  const builds = { changed: 0 }
 
   server = await serveGuest({
     port,
@@ -27,12 +26,11 @@ async function served() {
     ready: () => Promise.resolve(),
     module: () => Promise.resolve(undefined),
     page: {
-      html: () => Promise.resolve('<html><head></head><body><div id="root"></div></body></html>'),
-      version: () => builds.changed
+      html: () => Promise.resolve('<html><head></head><body><div id="root"></div></body></html>')
     }
   })
 
-  return { origin: `http://127.0.0.1:${port}`, builds }
+  return { origin: `http://127.0.0.1:${port}` }
 }
 
 /** How a frame loads a page, as Chromium says. */
@@ -57,14 +55,6 @@ describe("serveGuest", () => {
     expect(await (await fetch(`${origin}/main.js`, frameLoad)).text()).toBe("window.main = true")
     expect((await fetch(`${origin}/missing.js`, { headers: { "Sec-Fetch-Dest": "script" } })).status).toBe(404)
     expect((await fetch(`${origin}/settings`)).status).toBe(404)
-  })
-
-  it("says how many builds have changed something, for a page to reload when it grows", async () => {
-    const { origin, builds } = await served()
-    expect(await (await fetch(`${origin}/@parity/page-version`)).text()).toBe("0")
-
-    builds.changed = 2
-    expect(await (await fetch(`${origin}/@parity/page-version`)).text()).toBe("2")
   })
 })
 

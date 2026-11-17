@@ -40,7 +40,7 @@ function activate(parity: Parity): void {
   )
 
   parity.subscriptions.push(
-    parity.commands.register("tanstack-router.showRoutes", () => parity.navigate.showTab("layers")),
+    parity.commands.register("tanstack-router.showRoutes", () => parity.navigate.showTab("routes")),
     parity.commands.register("tanstack-router.open", async (target) => {
       const route = routeOf(target, parity.selection.get())
 

@@ -37,16 +37,17 @@ const hostAttributes = new Set([
 /**
  * Builds `copy` in `host`'s shadow root from `prepareFrame`, with a custom element registry of its own, styled with the
  * page's own stylesheets through `prepareCanvasCss`. `<html>`'s classes and attributes go on the host and on an element
- * around the body, `<body>`'s on the body stand-in, and the mode's on all three.
+ * around the body, `<body>`'s on the body stand-in, and the mode's on all three. `sheets` come after the page's own.
  */
 export function mountCopy(
   host: HTMLElement,
   copy: CopyContent,
   mode: PageMode,
   viewport: { width: number; height: number },
-  registry: CustomElementRegistry
+  registry: CustomElementRegistry,
+  sheets: readonly CSSStyleSheet[] = []
 ): MountedCopy {
-  const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry })
+  const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry, sheets })
 
   // Inline styles' viewport lengths and `rem` measure the board, as its sheets' do.
   const built = buildCopy(document, copy.body, registry, {

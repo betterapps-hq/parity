@@ -4,12 +4,12 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { routePageDesign, routeRef } from "../canvas/route-pages.ts"
-import { example, openProject } from "../stories/fixtures.tsx"
+import { example, openProject, showLens } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 
 /**
  * The app's API routes (PAR-1174): routes that answer requests on the server and draw nothing, as TanStack Start's
- * server routes. Layers lists them under the app's pages, never on the canvas, and the status bar counts only pages. A
+ * server routes. Pages' Layers lists them under the app's pages, never on the canvas, and the status bar counts only pages. A
  * page can be marked as an API route, and an API route as a page, where Parity read it otherwise (PAR-1175, PAR-1176).
  * On the example, opened with its own routes and some API routes beside them.
  */
@@ -101,6 +101,7 @@ function apiRoutes(then?: () => Promise<void> | void): Story {
       }
     ],
     play: async () => {
+      await showLens("Pages")
       await waitFor(() => expect(apiRow("/api/projects")).toBeTruthy())
       await then?.()
     }

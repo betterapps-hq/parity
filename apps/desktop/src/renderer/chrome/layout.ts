@@ -43,6 +43,9 @@ const layout = windowStore(() => readLayout(undefined))
 // Shared by every copy in `state.json`: a window starts with the layout last saved.
 layout.set(readLayout(saved().values.layout))
 
+/** Who hears of a side panel's tab asked for, whether or not it's the one already open. */
+const tabListeners = new Set<(side: "left" | "right", tab: string) => void>()
+
 export function setLayout(change: Partial<PanelLayout>): void {
   const before = layout.get()
   const after = { ...before, ...change }
@@ -50,6 +53,27 @@ export function setLayout(change: Partial<PanelLayout>): void {
 
   saveState("layout", { ...after })
   layout.set(after)
+
+  for (const [side, tab] of [
+    ["left", change.leftTab],
+    ["right", change.rightTab]
+  ] as const) {
+    if (tab !== undefined) {
+      for (const listener of tabListeners) {
+        listener(side, tab)
+      }
+    }
+  }
+}
+
+/**
+ * Hears each side panel tab asked for, as Show components or an extension's `showTab` asks, until the returned function
+ * is called. A lens whose panel lacks the tab shows one that has it.
+ */
+export function onTabAsked(listener: (side: "left" | "right", tab: string) => void): () => void {
+  tabListeners.add(listener)
+
+  return () => tabListeners.delete(listener)
 }
 
 /** Records each side panel, or the console, that opens or shows another tab (PAR-634). */

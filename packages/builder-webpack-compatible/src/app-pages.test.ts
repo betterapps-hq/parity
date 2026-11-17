@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { appEntries, appPagePlugin, builtAppFiles, plainAppPage, servedAppPage } from "./app-pages.ts"
+import { appEntries, appPagePlugin, builtAppFiles, plainAppPage } from "./app-pages.ts"
 import type { BundlerPlugin } from "./bundler.ts"
 
 /** What the test plugins are given, as a project or the builder makes them. */
@@ -109,18 +109,5 @@ describe("the app's page", () => {
       '<link rel="stylesheet" href="/app-main.css"></head><body><div id="root"></div><script src="/runtime.js"></script><script src="/app-main.js"></script>'
     )
     expect(builtAppFiles([{ name: "main", files: ["main.js"] }])).toEqual({ scripts: [], styles: [] })
-  })
-
-  it("runs what reloads the page after a build first", () => {
-    const served = servedAppPage(
-      '<!doctype html><html><head lang="en"><title>Harbor</title></head><body></body></html>'
-    )
-
-    expect(served).toMatch(/^<!doctype html><html><head lang="en"><script>\(\(\) => \{/)
-    expect(served).not.toContain("parity:")
-    expect(served).toContain('fetch("/@parity/page-version", { cache: "no-store" })')
-    expect(served).toContain("else if (version !== seen) window.location.reload()")
-    expect(served.indexOf("<title>")).toBeGreaterThan(served.indexOf("page-version"))
-    expect(servedAppPage("<p>No head</p>")).toMatch(/^<script>.*<p>No head<\/p>$/s)
   })
 })

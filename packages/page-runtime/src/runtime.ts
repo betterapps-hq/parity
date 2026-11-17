@@ -3,6 +3,7 @@ import type { PageHydration, PageLocation, PageRouter } from "@parity-app/extens
 import {
   type FrameRole,
   isObject,
+  maxPreviewCss,
   isRole,
   maxSheetIds,
   maxSnapshotWait,
@@ -19,7 +20,7 @@ import {
   readMode,
   readViewport
 } from "./protocol.ts"
-import { sheetsById, takeSnapshot } from "./snapshot.ts"
+import { runtimeSheets, sheetsById, takeSnapshot } from "./snapshot.ts"
 
 /*
  * The page runtime (docs/proposals/route-frames.md, PAR-1260): what runs first in the app's own page when Parity draws
@@ -100,6 +101,8 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
   let going = 0
 
   const channel = createChannel<PageMethods, ParityMethods>({ checks: pageChecks() })
+  const preview = previewSheet(document)
+  cleanups.push(() => preview.show(""))
   // The sheets the page's snapshots read, by hash, which `sheets.get` answers from.
   const sheets = new Map<string, string>()
 
@@ -281,6 +284,17 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
       })
     },
     "sheets.get": ({ ids }) => sheetsById(sheets, ids),
+    "preview.set": ({ css }) => {
+      preview.show(css)
+
+      return null
+    },
+    "page.reload": () => {
+      // After the answer has gone, so Parity hears it before the page goes.
+      page.setTimeout(() => page.location.reload(), 0)
+
+      return null
+    },
     "role.set": ({ role: next }) => {
       role = next
       Object.assign(page, { parityFrame: { role } })
@@ -335,6 +349,44 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
 
     modes.restore()
     channel.close(new Error("The page runtime stopped"))
+  }
+}
+
+/** Where the page shows a style preview. */
+interface PreviewSheet {
+  /** Shows `css` in place of the last; an empty string takes it out. */
+  show(css: string): void
+}
+
+/**
+ * A style preview's rules over the page's own, in a sheet the document adopts last while it holds any, which no
+ * snapshot lists.
+ */
+function previewSheet(document: Document): PreviewSheet {
+  let sheet: CSSStyleSheet | undefined
+
+  return {
+    show(css) {
+      if (css === "") {
+        if (sheet) {
+          const shown = sheet
+          document.adoptedStyleSheets = document.adoptedStyleSheets.filter((each) => each !== shown)
+        }
+
+        return
+      }
+
+      if (!sheet) {
+        sheet = new (document.defaultView ?? window).CSSStyleSheet()
+        runtimeSheets.add(sheet)
+      }
+
+      sheet.replaceSync(css)
+
+      if (!document.adoptedStyleSheets.includes(sheet)) {
+        document.adoptedStyleSheets = [...document.adoptedStyleSheets, sheet]
+      }
+    }
   }
 }
 
@@ -394,6 +446,16 @@ function pageChecks(): Checks<PageMethods> {
 
       return { ids }
     },
+    "preview.set": (params) => {
+      const css = isObject(params) && "css" in params ? params.css : undefined
+
+      if (!isText(css) || css.length > maxPreviewCss) {
+        throw new Error(`preview.set takes CSS of at most ${maxPreviewCss} characters`)
+      }
+
+      return { css }
+    },
+    "page.reload": () => ({}),
     "role.set": (params) => {
       const role = isObject(params) && "role" in params ? params.role : undefined
 
