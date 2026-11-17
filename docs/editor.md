@@ -796,7 +796,7 @@ Tests:
   nothing changed for the same place, itself, another file or a missing design.
 - `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): Searching, NothingFound, CollapsedAll,
   OpenedWithEverythingInside (Alt+click), OpenedWithItsSiblings (`*`), SelectionMovedOn, HiddenFromItsEye,
-  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-05.
+  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-16.
 - `apps/desktop/e2e/app.ts`: `selectDesignInLayers` and `toggleInLayers` scroll the panel with the mouse wheel to a row
   out of view, which `sleeping.e2e.ts` and `fields.e2e.ts` use.
 
@@ -2915,9 +2915,9 @@ Tests:
   lock left to the canvas; and Unlock read only when every design is locked.
 - `chrome/canvas-menu.test.ts` and `chrome/layers-menu.test.ts`: Lock in each menu, unavailable inside an instance and
   on the root, and in a design's menu.
-- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Features")
-  and LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
-  2026-11-06.
+- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Hero") and
+  LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
+  2026-11-16.
 - `e2e/menus.e2e.ts`: the canvas menu lists Lock with Ctrl+Shift+L.
 
 Gaps: clicking through a locked layer, a locked design ignoring clicks and its title, and Ctrl+Shift+L were tried on the
@@ -2938,8 +2938,8 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   corner marks the pointer where it goes in an absolutely placed layout. A drop on the empty canvas makes a screen there
   (PAR-546, below); one over a design where there's no layout says so.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
-  layout or slot; or at the end of a selected design's root. With nothing selected it makes a screen in the middle of
-  the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
+  layout or slot; or at the end of a selected design's root. With nothing selected it makes a frame in the middle of the
+  view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
 - **What goes in is ready to show something.** A component gets its required props (an option's first value, `false`,
   `0` or its own name, unless they have a default) and its name as text when it takes children. A library's part comes
   inside the parents it needs that aren't around the layout already, with their samples.
@@ -6142,8 +6142,8 @@ Tests:
   the variant's changes.
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
-- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
-  menu offers Show.
+- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Pricing's Compact option hides its lede, and the lede's
+  row's menu offers Show.
 - `packages/editor/src/style-editing.test.ts` (PAR-567): an edit in a variant option the board shows landing in the
   option, a state's edit leaving the design alone, resets across layers, and the parent's layout read with a variant's
   direction and inside an instance (see Fields, Typing, stepping and scrubbing).
@@ -6604,7 +6604,7 @@ Tests:
   palette shade), DetailFromTheKeyboard (the right arrow in and Escape back, past a spacing step's disabled Edit),
   Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token,
   refused) and DescribedOnly (the end of the list, drawn once scrolled to). All 29 of the file's stories played in
-  Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
+  Storybook on 2026-11-16. Gap: FoldedSections clears the search with the section already open, so no story folds one
   during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
   empties the folded set whenever the search goes from empty to not, or back.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module. The

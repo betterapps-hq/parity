@@ -44,7 +44,8 @@ const heroSelected = async () => {
 /** Frames Pricing and presses `/` on the canvas, then types a search if given. */
 const openWith = (query?: string) => async () => {
   await frameDesigns("Pricing")
-  await userEvent.keyboard("/")
+  // By the key's place, as the keymap reads `/`: typing "/" leaves the event without one.
+  await userEvent.keyboard("[Slash]")
   const input = await body().findByPlaceholderText("Insert a layer, component or icon")
 
   if (!(input instanceof HTMLInputElement)) {
@@ -82,10 +83,12 @@ export const WithPreviews: Story = {
   ],
   play: async () => {
     await openWith("button")()
-    const card = await body().findByRole("complementary", { name: "Highlighted component" })
-    await waitFor(() => expect(within(card).getByText("src/components/ui/button.tsx")).toBeInTheDocument())
+    // The Button component design comes first, and a design has no card; Shadcn Nova's Button is next.
     await userEvent.keyboard("{ArrowDown}")
-    await waitFor(() => expect(within(card).queryByText("src/components/ui/button.tsx")).toBeNull())
+    const card = await body().findByRole("complementary", { name: "Highlighted component" })
+    await waitFor(() => expect(within(card).getByText("Button", { exact: true })).toBeInTheDocument())
+    await userEvent.keyboard("{ArrowDown}")
+    await waitFor(() => expect(within(card).getByText("ButtonGroup", { exact: true })).toBeInTheDocument())
   }
 }
 
@@ -111,14 +114,14 @@ export const SearchingIcons: Story = { loaders: [heroSelected], play: openWith("
 export const NoResults: Story = {
   loaders: [heroSelected],
   play: async () => {
-    await openWith("zebra crossing")()
+    await openWith("quokka")()
     await expect(await body().findByText("Nothing matches.")).toBeInTheDocument()
   }
 }
 
 /**
- * Picking a component with nothing selected: it lands on the canvas, so the picker closes and a new screen named Badge,
- * holding it, is made in the middle of the view and selected (PAR-546).
+ * Picking a component with nothing selected: it lands on the canvas, so the picker closes and a new frame named Badge,
+ * holding Shadcn Nova's Badge, is made in the middle of the view and selected (PAR-546).
  */
 export const NothingSelected: Story = {
   loaders: [() => openProject("example")],
@@ -129,7 +132,7 @@ export const NothingSelected: Story = {
       const made = example().doc.design(example().selection.get().design ?? "")
       await expect(made).toMatchObject({
         name: "Badge",
-        root: { children: [{ type: "component", component: "Badge" }] }
+        root: { children: [{ type: "component", component: "nova/Badge" }] }
       })
     })
   }

@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { AppWindow } from "../App.tsx"
 import { openProject, preferring } from "../stories/fixtures.tsx"
 import { dialogStories, openOverExample } from "./chrome-fixtures.tsx"
 import { setPreferences } from "./preferences.ts"
@@ -11,7 +12,14 @@ import { openSettings, SettingsDialog } from "./SettingsDialog.tsx"
 const meta = {
   title: "Parity/Chrome/Settings/Dialog",
   component: SettingsDialog,
-  ...dialogStories
+  ...dialogStories,
+  // The window doesn't draw Settings, which is main's own view in the app (PAR-1090), so it's drawn over it here.
+  render: () => (
+    <>
+      <AppWindow />
+      <SettingsDialog />
+    </>
+  )
 } satisfies Meta<typeof SettingsDialog>
 
 export default meta
