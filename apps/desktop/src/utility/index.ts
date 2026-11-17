@@ -33,6 +33,7 @@ import {
   builtInEntities,
   builtInPreviews,
   builtInRenderers,
+  builtInRootOptions,
   builtInTools,
   closeExtensions,
   openExtensions,
@@ -80,6 +81,7 @@ const projects = openProjects({
   entities: builtInEntities,
   previews: builtInPreviews,
   tools: builtInTools,
+  rootOptions: builtInRootOptions,
   // The extensions' hosts start below, before any project opens.
   get providers() {
     return projectProviders(extensions)
@@ -390,7 +392,8 @@ const handlers: Handlers<ServiceMethods> = {
   "library.add": (params) => addLibrary(projects.get(params.projectId), projectProviders(extensions), params),
   "library.preview": previewFor,
   "library.remove": (params) => removeLibrary(projects.get(params.projectId), projectProviders(extensions), params),
-  "library.importStyles": (params) => importStyles(projects.get(params.projectId), params),
+  "library.importStyles": (params) =>
+    importStyles(projects.get(params.projectId), projectProviders(extensions), params),
   "tokens.save": projects.saveTokens,
   "styles.classes": projects.frameClasses,
   "processes.list": listProcesses,

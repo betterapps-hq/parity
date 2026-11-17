@@ -30,8 +30,8 @@ export interface LibraryDefinition {
   name: string
   description: string
   package: string
-  /** The library's Tailwind entry, relative to the package. */
-  tailwindEntry?: string
+  /** The library's stylesheet, relative to the package. */
+  styles?: string
   /** Icon libraries add icons rather than components to compose with. */
   kind?: "components" | "icons"
   /** The version of the package its file was made for. */
@@ -55,19 +55,12 @@ function rank(library: LibraryDefinition): number {
 }
 
 /**
- * A stylesheet with a library's styles imported right after Tailwind, so the library's own token defaults come first
- * and the project's tokens, declared later in the file, still win. `undefined` when it imports them already.
+ * A stylesheet with a library's styles imported first, so the library's own token defaults come before the project's,
+ * which still win: where a stylesheet no styling framework reads imports them. One a framework reads has them where its
+ * styles provider says (`StylesProvider.importStyles`).
  */
-export function withStylesImport(source: string, specifier: string): string | undefined {
-  if (source.includes(specifier)) {
-    return undefined
-  }
-
-  const lines = source.split("\n")
-  const tailwind = lines.findIndex((text) => /^@import\s+["']tailwindcss["']/.test(text.trim()))
-  lines.splice(tailwind + 1, 0, `@import "${specifier}";`)
-
-  return lines.join("\n")
+export function withStylesImport(source: string, specifier: string): string {
+  return `@import "${specifier}";\n${source}`
 }
 
 /**
@@ -104,7 +97,7 @@ export function withoutStylesImport(source: string, specifier: string): string |
 /** Buildkit publishes each shadcn style as its own package; any of them is recognized once installed. */
 const buildkitStyle = /^@buildkitgg\/shadcn-(baseui|radix)-([a-z]+)$/
 
-/** A Buildkit style the registry has no file for yet: its Tailwind entry is all Parity needs to know. */
+/** A Buildkit style the registry has no file for yet: its stylesheet is all Parity needs to know. */
 function buildkitDefinition(packageName: string): LibraryDefinition | undefined {
   const style = buildkitStyle.exec(packageName)
 
@@ -120,7 +113,7 @@ function buildkitDefinition(packageName: string): LibraryDefinition | undefined 
     name: `Shadcn ${name.charAt(0).toUpperCase()}${name.slice(1)}`,
     description: `Every shadcn component on ${primitives === "baseui" ? "Base UI" : "Radix"}, in the ${name} style.`,
     package: packageName,
-    tailwindEntry: "tailwind.css"
+    styles: "tailwind.css"
   }
 }
 
@@ -135,8 +128,8 @@ export interface DetectedLibrary {
   package?: string
   name: string
   description: string
-  /** Its Tailwind entry, from the package's folder. */
-  tailwindEntry?: string
+  /** Its stylesheet, from the package's folder. */
+  styles?: string
   /** An icon package its components draw with, read as an icon library even when it isn't a dependency. */
   icons?: string
 }
@@ -173,7 +166,7 @@ function definitionFor(
       name: hint.name,
       description: hint.description,
       package: packageName,
-      tailwindEntry: hint.tailwindEntry
+      styles: hint.styles
     }
   }
 
@@ -181,7 +174,7 @@ function definitionFor(
     ...definitionOf(manifest, hint.registry),
     id: libraryId({ id: "" }, packageName),
     package: packageName,
-    tailwindEntry: hint.tailwindEntry
+    styles: hint.styles
   }
 }
 
@@ -322,10 +315,10 @@ export async function findLibraries(
       package: definition.package,
       importName,
       version: version || undefined,
-      tailwindEntry: definition.tailwindEntry || undefined,
+      styles: definition.styles || undefined,
       kind: definition.kind === "icons" ? definition.kind : undefined,
       stylesImported:
-        !definition.tailwindEntry ||
+        !definition.styles ||
         css.includes(`${importName}/`) ||
         packageStyles.some((specifier) => specifier.startsWith(`${importName}/`)),
       breakpoints: manifest?.breakpoints,
@@ -589,11 +582,11 @@ async function libraryManifestIn(packageDir: string): Promise<{ path: string; ma
 }
 
 /**
- * A library as its manifest describes it. A Buildkit style's manifest that leaves out its stylesheet still gets its
- * Tailwind entry, which every Buildkit style has.
+ * A library as its manifest describes it. A Buildkit style's manifest that leaves out its stylesheet still gets
+ * `tailwind.css`, which every Buildkit style has.
  */
 function definitionOf(manifest: LibraryManifest, packageName: string): LibraryDefinition {
-  const tailwindEntry = manifest.styles ?? buildkitDefinition(packageName)?.tailwindEntry
+  const styles = manifest.styles ?? buildkitDefinition(packageName)?.styles
   const icons = manifest.icons !== undefined && manifest.components === undefined
 
   return {
@@ -601,7 +594,7 @@ function definitionOf(manifest: LibraryManifest, packageName: string): LibraryDe
     name: manifest.name,
     description: manifest.description ?? "",
     package: packageName,
-    tailwindEntry: tailwindEntry || undefined,
+    styles: styles || undefined,
     kind: icons ? "icons" : undefined,
     version: manifest.package?.version
   }

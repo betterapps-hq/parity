@@ -401,6 +401,12 @@ export interface BuilderStartOptions {
   allowedOrigins: string[]
   /** The port to serve on when it's free. Otherwise, or when it's unset, any free port. */
   port?: number
+  /**
+   * Build plugins that look for the project's files from where they run, by package, each with the option naming the
+   * folder to look from, as styling extensions' manifests give them: a builder that runs the project's build from a
+   * folder of its own sets that option to the project's root.
+   */
+  rootOptions?: Record<string, string>
 }
 
 /** The extensions a JavaScript tool's config file may have: `vite.config.ts`, `.storybook/main.mjs`. */
@@ -790,6 +796,8 @@ export interface DrawnNodes {
 export interface ThemeVariable {
   name: string
   value: string
+  /** A step of a scale built on another variable, as `spacing-4` is four of `spacing`: it follows its base. */
+  derived?: { from: string; factor: number }
 }
 
 /**

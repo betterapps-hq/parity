@@ -292,7 +292,7 @@ export const libraryManifest = fileObject({
   description: z.string().optional(),
   /** The npm package it describes, and the versions it was made for. */
   package: libraryPackage.optional(),
-  /** The stylesheet to import, relative to the package: its Tailwind entry, or plain CSS. */
+  /** The stylesheet to import, relative to the package: the entry its framework builds, or plain CSS. */
   styles: z.string().optional(),
   /** The viewport widths it's designed around, smallest first, however the file lists them. */
   breakpoints: z

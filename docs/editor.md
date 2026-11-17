@@ -2525,7 +2525,8 @@ layers at once, resize from the middle with Alt, and hug or fill on a double-cli
 Code: the rules are in `@parity-app/editor`. `packages/editor/src/spacing-handles.ts`: `spacingHandles` says where the
 bars go from a layout's measured boxes, `spacingDrag` follows a drag, `spacingStep` a key, `typedSpacing` and
 `pickedSpacing` a typed or picked value, `changedSides` the sides held, and `spacingScaleName` and `spacingName` what a
-label and a slider say. `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
+label and a slider say, the steps of the scale being those the styling framework derives (`spacingSteps` in the app's
+`tokens-store.ts`). `packages/editor/src/move-resize.ts`: `resizeGesture` and `resizeInsets` take `centre`,
 `layersResize` follows several layers, and `layerSizeReset` hugs or fills. In the app, `canvas/SpacingHandles.tsx` draws
 the bars, their hatching (`Hatching`, one shape per color), labels and sliders and the box a value is typed in, with
 `sidesHeld` reading the keys, and each bar's hint through `chrome/Hint.tsx` with `passThrough`, which takes the hint out
@@ -2968,13 +2969,14 @@ a component design; the Layers panel's add buttons start new designs. Each is on
 
 Code: the rules are in `packages/editor/src/insert.ts`, `components.ts`, `create.ts` and `placement.ts`
 (`@parity-app/editor`), with the new layer's props and label in `componentNode` and a library part's parents and samples
-in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fixedSize` read by `setsOwnSize` in
-`packages/code/src/props.ts`. The app's `canvas/insert.ts` finds where a drop lands through `placeAtPoint` in
-`canvas/paste-here.ts`, the step drops, Paste here and the text tool share, and applies an insert to the selection and
-the document, `chrome/components.ts` measures the designs and applies Make component, and `chrome/create.ts` adds a new
-design and zooms to it. Every design added to or deleted from a file, by the editor or an agent, goes through core's
-`addDesigns` and `removeDesigns` in `packages/core/src/designs.ts`, and a new file starts as its `emptyDocument`, so the
-format's version is written only in `formatVersion` (PAR-1052).
+in `withLibraryContext`, both in `packages/core/src/library-insert.ts`, and `fixedSize` read from the classes
+`packages/code/src/props.ts` finds on a component's own element (`ownClasses`) by the styles provider's `setsOwnSize`.
+The app's `canvas/insert.ts` finds where a drop lands through `placeAtPoint` in `canvas/paste-here.ts`, the step drops,
+Paste here and the text tool share, and applies an insert to the selection and the document, `chrome/components.ts`
+measures the designs and applies Make component, and `chrome/create.ts` adds a new design and zooms to it. Every design
+added to or deleted from a file, by the editor or an agent, goes through core's `addDesigns` and `removeDesigns` in
+`packages/core/src/designs.ts`, and a new file starts as its `emptyDocument`, so the format's version is written only in
+`formatVersion` (PAR-1052).
 
 Tests: `packages/editor/src/insert.test.ts`: the layer for a component (required props, given props, a library's name),
 an instance and an image (its size, alt text and credit, and a tiny one); the labels; inserting between children, at the
@@ -10201,13 +10203,13 @@ Code: `packages/core/src/render.ts` resolves each element with its `declarations
 `frameRules` (a tree's rules, through `cssPrinter`), `previewRules` and `withClasses`; the Tailwind extension's
 `classes.ts` has `writeClasses`. `apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and
 one for a preview, after the project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes
-a tree's rules in the project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a
-guest's frames and asks the service for the rest, naming the ones it has, so the stylesheet that comes back is whole
-even from a service started again since. It asks once the last ask is answered, since an answer's stylesheet replaces
-the one before (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the
-styles provider's `classes`, whose printer's `css` compiles them). `ModeView.tsx` draws a live frame with both;
-`render.ts` draws an offscreen one from the rules. The React guest (`packages/extension-react/src/guest.ts`) gives an
-element its classes and no style.
+a tree's rules in the layer the styles provider's manifest names, when the project's CSS has it (`frameCss`,
+`rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks the service for the rest,
+naming the ones it has, so the stylesheet that comes back is whole even from a service started again since. It asks once
+the last ask is answered, since an answer's stylesheet replaces the one before (`styles.classes`, answered by
+`frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles provider's `classes`, whose printer's `css`
+compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an offscreen one from the rules. The
+React guest (`packages/extension-react/src/guest.ts`) gives an element its classes and no style.
 
 Tests:
 

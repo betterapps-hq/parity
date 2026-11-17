@@ -22,9 +22,15 @@ export interface ComponentInfo {
   takesStyle?: boolean
   /**
    * Its own element sets its size, as an Avatar's `size-8` or a Separator's `h-px` do, so text inside it is cut off or
-   * spills out rather than sizing it. Unset when it doesn't, or when that isn't known.
+   * spills out rather than sizing it, as the project's styles provider reads `ownClasses`. Unset when it doesn't, or
+   * when that isn't known.
    */
   fixedSize?: true
+  /**
+   * The classes it writes on the outermost element it returns, in its source or a library's compiled JavaScript, which
+   * `fixedSize` is read from. Parity leaves them out once it has.
+   */
+  ownClasses?: string[]
 }
 
 export interface ComponentProp {

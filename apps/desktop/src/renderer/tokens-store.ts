@@ -10,6 +10,7 @@ import {
   tokensWithEdits,
   withTokenOverrides
 } from "@parity-app/editor"
+import type { ScaleStep } from "@parity-app/editor"
 import { changeTokens } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
 import { useSyncExternalStore } from "react"
@@ -220,9 +221,27 @@ export function resolveTokenValue(tokens: readonly Token[], name: string, theme 
   return reference && depth < 6 ? resolveTokenValue(tokens, reference[1]!, theme, depth + 1) || value : value
 }
 
-/** The pixel size of one spacing step (`--spacing`), assuming a 16px root. */
+/**
+ * The token the spacing scale is built on: the base the styling framework derives its steps from, as Tailwind's
+ * `spacing`, else a token named `spacing`.
+ */
+export function spacingBase(tokens: readonly Token[]): string {
+  return tokens.find((token) => token.category === "spacing" && token.derived)?.derived?.from ?? "spacing"
+}
+
+/** The steps of the spacing scale, as the styling framework derives and names them from its base, smallest first. */
+export function spacingSteps(tokens: readonly Token[]): ScaleStep[] {
+  const base = spacingBase(tokens)
+
+  return tokens
+    .flatMap(({ name, derived }) => (derived?.from === base ? [{ name, factor: derived.factor }] : []))
+    .sort((a, b) => a.factor - b.factor)
+}
+
+/** The pixel size of one spacing step (`--spacing`, or the base of the scale's steps), assuming a 16px root. */
 export function spacingUnit(tokens: readonly Token[]): number {
-  const value = tokens.find((token) => token.name === "spacing")?.values.default ?? "0.25rem"
+  const base = spacingBase(tokens)
+  const value = tokens.find((token) => token.name === base)?.values.default ?? "0.25rem"
   const match = /^([\d.]+)(rem|px)$/.exec(value.trim())
 
   if (!match) {

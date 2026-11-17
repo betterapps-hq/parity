@@ -8,7 +8,12 @@ describe("the Tailwind CSS extension", () => {
     const found = readExtension(packageJson)
 
     expect(found.manifest.activates).toEqual(["onDetect"])
-    expect(found.manifest.contributes.providers).toEqual({ styles: {} })
+    expect(found.manifest.contributes.providers).toEqual({
+      styles: {
+        layer: "utilities",
+        rootOptions: { "@tailwindcss/postcss": "base", "@tailwindcss/turbopack": "base" }
+      }
+    })
     expect(found.versions).toEqual({ packages: ["tailwindcss"], range: "^4.0.0", prefix: "v" })
   })
 })

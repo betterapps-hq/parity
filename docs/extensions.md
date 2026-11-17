@@ -112,7 +112,12 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `router`'s `routes()` gives the app's routes, each parent before its children; Parity asks once as the project opens.
   A `styles` provider's `handles({ source })`, `theme({ stylesheet })`,
   `classes({ stylesheet, version, written, declarations })` and `writeTokens({ source, writes, theme })` read a styling
-  framework's theme, write a frame's declarations as classes and write token values into a stylesheet. A `renderer`'s
+  framework's theme, with the steps of its scales each `derived` from its base, write a frame's declarations as classes
+  and write token values into a stylesheet; `importStyles({ source, specifier })` adds a library's stylesheet import
+  where the framework builds it, and `setsOwnSize({ classes })` says which elements' classes set their own size
+  (PAR-1130). The manifest's `providers.styles` names the cascade `layer` its classes go in, where frames put their
+  rules, and in `rootOptions`, its build plugins that look for the project's files from where they run, with the option
+  naming the folder, which a builder that runs the build elsewhere sets to the project's root. A `renderer`'s
   `components({ files })` reads which components each file exports, a batch of files at a time, while the manifest's
   `providers.renderer` names its guest module, runtime packages and imports, development stand-ins and component file
   extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's

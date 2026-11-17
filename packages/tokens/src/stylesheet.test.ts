@@ -173,7 +173,8 @@ describe("extractTokens", () => {
     { name: "color-primary", value: "var(--primary)" },
     { name: "color-red-500", value: "oklch(0.637 0.237 25.331)" },
     { name: "text-sm", value: "0.875rem" },
-    { name: "text-sm--line-height", value: "calc(1.25 / 0.875)" }
+    { name: "text-sm--line-height", value: "calc(1.25 / 0.875)" },
+    { name: "spacing-4", value: "calc(var(--spacing) * 4)", derived: { from: "spacing", factor: 4 } }
   ]
 
   it("adds the framework's theme and tells semantic tokens from the scale", () => {
@@ -190,7 +191,7 @@ describe("extractTokens", () => {
       dark: "oklch(0.9 0 0)"
     })
 
-    // The spacing scale's steps are listed as tokens of their own, following the base.
+    // The steps the framework derives from its spacing scale are listed as tokens of their own, following the base.
     expect(tokens.find((token) => token.name === "spacing-4")).toMatchObject({
       category: "spacing",
       derived: { from: "spacing", factor: 4 },

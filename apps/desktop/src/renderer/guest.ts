@@ -68,13 +68,13 @@ const guests = new Map<string, Loading>()
  * compiled CSS left out are declared too, so designs can use any token. Each URL loads once per page until it's
  * released.
  */
-export function loadGuest(url: string, theme: readonly ThemeVariable[]): Promise<LoadedGuest> {
+export function loadGuest(url: string, theme: readonly ThemeVariable[], layer?: string): Promise<LoadedGuest> {
   let loading = guests.get(url)
 
   if (!loading) {
     // SAFETY: `loaded`, its one required field, is set on the next line, before anything reads the entry.
     const entry = {} as Loading
-    entry.loaded = load(url, theme, entry)
+    entry.loaded = load(url, theme, layer, entry)
     entry.loaded.catch(() => {
       if (guests.get(url) === entry) {
         guests.delete(url)
@@ -136,7 +136,12 @@ export function declaredFaces(): DeclaredFace[] {
   )
 }
 
-async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
+async function load(
+  url: string,
+  theme: readonly ThemeVariable[],
+  layer: string | undefined,
+  entry: Loading
+): Promise<LoadedGuest> {
   // What the project's code adds to the page from here on, its guest module's imports included, stays out of it.
   guardPage()
   const { origin } = new URL(url)
@@ -181,7 +186,7 @@ async function load(url: string, theme: readonly ThemeVariable[], entry: Loading
     addedSheet,
     tokens: extractTokens(written.scoped, theme, guest.tokenCategories),
     themeAttributes: themeAttributes(collectCustomProperties(written.scoped)),
-    ...frameCss(guest.css, new URL(url).origin)
+    ...frameCss(guest.css, new URL(url).origin, layer)
   }
 }
 
@@ -219,28 +224,31 @@ export function showAddedStyles(
 
 /**
  * What writes the CSS for the frames of a project whose compiled styles are `css`, served from `origin`: each is
- * prepared as the project's own CSS is, so its lengths measure the frame and its `url()`s are the project's.
+ * prepared as the project's own CSS is, so its lengths measure the frame and its `url()`s are the project's. `layer` is
+ * the cascade layer its styling framework puts its classes in, when it names one.
  */
-export function frameCss(css: string, origin: string): FrameCss {
+export function frameCss(css: string, origin: string, layer?: string): FrameCss {
   const prepare = (text: string) => prepareCanvasCss(text, { baseUrl: origin })
-  const layer = rulesLayer(css)
+  const options = rulesLayer(css, layer)
 
   return {
-    rules: (tree) => prepare(frameRules(tree, layer)).scoped,
-    previewRules: (drawn, next) => prepare(previewRules(drawn, next, layer)).scoped,
+    rules: (tree) => prepare(frameRules(tree, options)).scoped,
+    previewRules: (drawn, next) => prepare(previewRules(drawn, next, options)).scoped,
     prepare,
     origin
   }
 }
 
 /**
- * Where a project's frames put the rules they draw layers from. A project whose CSS has a `utilities` cascade layer,
- * as Tailwind's does, takes them there, where the classes its code would have go: over its base styles, and ranked
- * with a component's own classes. Any other project's CSS isn't layered, and a layered rule would lose to all of it,
- * a reset's `* { padding: 0 }` included, so its rules aren't either.
+ * Where a project's frames put the rules they draw layers from. A project whose CSS has the cascade layer its styling
+ * framework puts its classes in, as Tailwind's `utilities`, takes them there, where the classes its code would have
+ * go: over its base styles, and ranked with a component's own classes. Any other project's CSS isn't layered, and a
+ * layered rule would lose to all of it, a reset's `* { padding: 0 }` included, so its rules aren't either.
  */
-function rulesLayer(css: string): FrameRulesOptions {
-  return /@layer\s[^{;]*\butilities\b/.test(css) ? { layer: "utilities" } : {}
+function rulesLayer(css: string, layer: string | undefined): FrameRulesOptions {
+  const declared = layer && new RegExp(String.raw`@layer\s[^{;]*(?<![\w-])${layer}(?![\w-])`)
+
+  return declared && declared.test(css) ? { layer } : {}
 }
 
 /** Each guest stylesheet's CSS as compiled, which a frame drawn offscreen starts from. */

@@ -102,9 +102,15 @@ export function treePreviewJob(
             projectId: session.id,
             guestUrl: session.info.guestUrl,
             components: session.added,
-            theme: session.info.theme
+            theme: session.info.theme,
+            layer: session.info.styles?.layer
           }
-        : { projectId: session.id, guestUrl: session.info.guestUrl, theme: session.info.theme },
+        : {
+            projectId: session.id,
+            guestUrl: session.info.guestUrl,
+            theme: session.info.theme,
+            layer: session.info.styles?.layer
+          },
       {
         tree: tree(mode.viewport),
         mode,

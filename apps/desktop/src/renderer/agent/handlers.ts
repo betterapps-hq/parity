@@ -359,6 +359,7 @@ function snapshot(reference: string | undefined): TabSnapshot {
     iconSets: session.info.libraries.filter((library) => library.kind === "icons").map(iconSet),
     tokens: session.tokens.get(),
     theme: session.info.theme,
+    ...(session.info.styles?.layer && { layer: session.info.styles.layer }),
     modes: session.doc.modes(),
     documents: [...session.doc.files()].map(([path, document]) => ({ path, document })),
     // The same library and token values the canvas draws with, so agents' frames match it.

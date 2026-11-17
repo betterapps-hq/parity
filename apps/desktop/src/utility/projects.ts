@@ -176,7 +176,11 @@ export interface ProjectProviders {
    * The extension that provides `kind` for the project, or with `extension`, that one if it does: its prefix and name,
    * which own what it gives.
    */
-  owner(project: ProviderProject, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
+  owner(
+    project: ProviderProject,
+    kind: ProviderKind,
+    extension?: string
+  ): { id: string; name: string; layer?: string } | undefined
   /** What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152). */
   decorators(project: ProviderProject): ExtensionDecorator[]
   /** The page modules of the project's routers, from their manifests (PAR-1260). */
@@ -194,6 +198,11 @@ export interface ProjectAdapters {
    * its version among what the project uses. None unless given.
    */
   tools?: ExtensionTool[]
+  /**
+   * Build plugins that look for the project's files from where they run, with the option naming the folder, from the
+   * styling extensions' manifests, which builders that run the build elsewhere are given. None unless given.
+   */
+  rootOptions?: Record<string, string>
   /**
    * What extensions provide: the app's routes, which Parity asks for while the builder starts so the canvas draws each
    * page, and its styling framework. None unless given.
@@ -436,6 +445,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   const env = adapters.environment ?? environment()
   const allowedOrigins = env.PARITY_ALLOWED_ORIGINS ?? []
+  const rootOptions = adapters.rootOptions && { rootOptions: adapters.rootOptions }
   const startedWith = env.PARITY_PROJECT
   const devRunner = !!env.PARITY_DEV_RUNNER
 
@@ -561,7 +571,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       const prepared = early?.({
         builder: likely,
         name,
-        options: { root, renderer, rendererGuestPath: guestPath(renderer), allowedOrigins }
+        options: { root, renderer, rendererGuestPath: guestPath(renderer), allowedOrigins, ...rootOptions }
       })
 
       // A builder that doesn't prepare, or can't say, leaves it to its extension, as one not started early does. Its config
@@ -756,7 +766,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       config: { ...config, components: opened.list.sources },
       renderer,
       rendererGuestPath: guestPath(renderer),
-      allowedOrigins
+      allowedOrigins,
+      ...rootOptions
     }
 
     return { config, discovered, documents, entities, fingerprint, known, mainDocument, opened, saved, startOptions }
@@ -970,7 +981,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       known,
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
-      iconProps: inferProps(root, config.iconSets ?? {}),
+      iconProps: inferProps({ root, name: info.name, pkg }, config.iconSets ?? {}),
       renderer,
       openedAt: performance.now(),
       stylesVersion: 0,
@@ -1373,7 +1384,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
         continue
       }
 
-      const info = { id: framework.id, name: framework.name, stylesheet }
+      const info = { ...framework, stylesheet }
 
       try {
         const theme = await provide(project, { kind: "styles", method: "theme", params: { stylesheet } })
@@ -1791,10 +1802,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
    * same program, or the named ones', kept with the rest. Ones no longer listed are let go either way.
    */
   function readProps(project: Project, step: ComponentListStep, files?: string[]): void {
-    const { root } = project.info
-
     if (step.props === "all") {
-      project.components = withIconProps(project, inferProps(root, step.list.sources, files))
+      project.components = withIconProps(project, inferProps(providerProject(project), step.list.sources, files))
 
       return
     }
@@ -1806,7 +1815,10 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const named = new Set(step.props)
     const needed = Object.fromEntries(Object.entries(step.list.sources).filter(([id]) => named.has(id)))
     const known = project.components
-    const more = named.size > 0 ? inferProps(root, needed) : Promise.resolve<Record<string, ComponentInfo>>({})
+
+    const more =
+      named.size > 0 ? inferProps(providerProject(project), needed) : Promise.resolve<Record<string, ComponentInfo>>({})
+
     project.components = Promise.all([known, more]).then(([props, read]) => {
       const all = { ...props, ...read }
 
@@ -1838,15 +1850,57 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
   /** Props inference that never fails the project: without it, panels fall back to free-form props. */
   function inferProps(
-    root: string,
+    project: ProviderProject,
     sources: Record<string, ComponentSource>,
     files?: string[]
   ): Promise<Record<string, ComponentInfo>> {
-    return checker.inferComponents(root, sources, files).catch((cause: unknown) => {
-      degraded("prop_inference", "couldn't infer component props", cause, root)
+    const { root } = project
 
-      return {}
+    return checker.inferComponents(root, sources, files).then(
+      (components) => withOwnSize(project, components),
+      (cause: unknown) => {
+        degraded("prop_inference", "couldn't infer component props", cause, root)
+
+        return {}
+      }
+    )
+  }
+
+  /**
+   * The components, each `fixedSize` where the project's styles provider says the classes on its own element set its
+   * size, with those classes left out. None is when no styles provider can say.
+   */
+  async function withOwnSize(
+    project: ProviderProject,
+    components: Record<string, ComponentInfo>
+  ): Promise<Record<string, ComponentInfo>> {
+    const classed = Object.values(components).filter((info) => info.ownClasses)
+
+    if (classed.length === 0) {
+      return components
+    }
+
+    const classes = classed.map((info) => info.ownClasses ?? [])
+
+    const sized = await provide(project, {
+      kind: "styles",
+      method: "setsOwnSize",
+      params: { classes }
+    }).catch((cause: unknown) => {
+      logNote(`[service] couldn't tell which components set their own size: ${message(cause)}`)
+
+      return undefined
     })
+
+    for (const [index, info] of classed.entries()) {
+      if (sized?.[index]) {
+        info.fixedSize = true
+      }
+
+      delete info.ownClasses
+    }
+
+    return components
   }
 
   return {

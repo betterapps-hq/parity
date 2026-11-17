@@ -23,7 +23,12 @@ interface RecoveryCopySchema extends RecoveryCopyType {}
 const canvasDocument: CanvasDocumentSchema = canvasDocumentSchema
 const recoveryCopy: RecoveryCopySchema = recoveryCopySchema
 
-const themeVariable = z.object({ name: z.string(), value: z.string() })
+const themeVariable = z.object({
+  name: z.string(),
+  value: z.string(),
+  derived: z.object({ from: z.string(), factor: z.number() }).optional()
+})
+
 const tokenChange = z.object({ name: z.string(), theme: z.string(), value: z.string() })
 
 // A write without a value takes the token out, so `value` is there but may be undefined.
@@ -41,6 +46,8 @@ export const renderJob = z.object({
   /** Components the guest adds before drawing, since the type checker found them after it loaded. */
   components: z.record(z.string(), guestComponentSource).optional(),
   theme: z.array(themeVariable),
+  /** The cascade layer the project's styling framework puts its classes in, which the frame draws its rules in. */
+  layer: z.string().optional(),
   /** The node tree, which the offscreen window's guest reads as the canvas does. */
   tree: z.unknown(),
   /**

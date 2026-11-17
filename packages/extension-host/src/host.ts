@@ -782,6 +782,10 @@ async function callStyles(
       return styles.classes(call.params)
     case "writeTokens":
       return styles.writeTokens(call.params)
+    case "importStyles":
+      return styles.importStyles(call.params)
+    case "setsOwnSize":
+      return styles.setsOwnSize(call.params)
   }
 }
 

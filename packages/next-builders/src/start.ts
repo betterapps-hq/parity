@@ -117,6 +117,10 @@ export async function startNextGuest(options: BuilderStartOptions, loader: NextG
     app.config = found.config
   }
 
+  if (options.rootOptions) {
+    app.rootOptions = options.rootOptions
+  }
+
   if (postcss) {
     app.postcss = postcss
   }

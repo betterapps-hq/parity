@@ -288,7 +288,8 @@ async function renderFrame(
         projectId: snapshot.projectId,
         guestUrl: snapshot.guestUrl,
         components: snapshot.addedComponents,
-        theme: snapshot.theme
+        theme: snapshot.theme,
+        layer: snapshot.layer
       },
       {
         tree,

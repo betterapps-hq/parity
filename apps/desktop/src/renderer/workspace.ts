@@ -730,7 +730,7 @@ export class Workspace {
         return this.dropAbandoned(info.id)
       }
 
-      const loaded = await loadGuest(info.guestUrl, info.theme)
+      const loaded = await loadGuest(info.guestUrl, info.theme, info.styles?.layer)
 
       if (attempt.abandoned) {
         return this.dropAbandoned(info.id, info.guestUrl)
@@ -797,7 +797,7 @@ export class Workspace {
     }
 
     try {
-      const loaded = await loadGuest(guestUrl, project.session.info.theme)
+      const loaded = await loadGuest(guestUrl, project.session.info.theme, project.session.info.styles?.layer)
       const current = this.held(project.id)
       const now = current?.session?.info.guestUrl
 
@@ -1236,7 +1236,7 @@ async function createSession(
   restored = false
 ): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
-  const loaded = await loadGuest(info.guestUrl, info.theme)
+  const loaded = await loadGuest(info.guestUrl, info.theme, info.styles?.layer)
   const drawn = drawImported(info, loaded)
 
   const modes = info.modes.settings

@@ -1,7 +1,10 @@
 import { defineExtension, type Parity, type ThemeVariable } from "@parity-app/extension"
 import { type ClassPrinter, writeClasses } from "./classes.ts"
 import { loadDesignSystem } from "./design-system.ts"
+import { withStylesImport } from "./imports.ts"
 import { tailwindPrinter } from "./printer.ts"
+import { setsOwnSize } from "./sizing.ts"
+import { withSpacingSteps } from "./spacing.ts"
 import { writeTailwindTokens } from "./tokens.ts"
 
 /*
@@ -9,16 +12,21 @@ import { writeTailwindTokens } from "./tokens.ts"
  * stylesheets and finding the project's packages (PAR-1130). Its styles provider reads the theme from
  * the project's own Tailwind (through `@tailwindcss/node`, which its Vite or PostCSS plugin installs), so plugins,
  * `@theme` blocks and imported presets all count; writes a layer's declarations as the classes they compile to there;
- * and writes token values into `@theme` where Tailwind makes a utility from them. The status bar names it, and opens
- * the tokens.
+ * writes token values into `@theme` where Tailwind makes a utility from them; imports a library's stylesheet after
+ * Tailwind's own; and says which classes set an element's own size. The status bar names it, and opens the tokens.
  */
+
+export { setsOwnSize } from "./sizing.ts"
 
 /** Whether a stylesheet uses Tailwind: v4's import, or v3's directives. */
 export function handles(source: string): boolean {
   return /@import\s+["']tailwindcss["']|@tailwind\s+(?:base|utilities)/.test(source)
 }
 
-/** Every theme variable a stylesheet defines, without its `--`, resolved by the project's own Tailwind. */
+/**
+ * Every theme variable a stylesheet defines, without its `--`, resolved by the project's own Tailwind, and the steps of
+ * its spacing scale.
+ */
 export async function readTheme(root: string, stylesheet: string): Promise<ThemeVariable[]> {
   const system = await loadDesignSystem(root, stylesheet)
   const variables: ThemeVariable[] = []
@@ -29,7 +37,7 @@ export async function readTheme(root: string, stylesheet: string): Promise<Theme
     }
   }
 
-  return variables
+  return withSpacingSteps(variables)
 }
 
 export default defineExtension({ activate })
@@ -71,7 +79,9 @@ function activate(parity: Parity): void {
       async classes({ stylesheet, version, written, declarations }) {
         return writeClasses(await printerFor(stylesheet, version), written, declarations)
       },
-      writeTokens: async ({ source, writes, theme }) => writeTailwindTokens(source, writes, theme)
+      writeTokens: async ({ source, writes, theme }) => writeTailwindTokens(source, writes, theme),
+      importStyles: async ({ source, specifier }) => withStylesImport(source, specifier),
+      setsOwnSize: async ({ classes }) => classes.map(setsOwnSize)
     })
   )
 }

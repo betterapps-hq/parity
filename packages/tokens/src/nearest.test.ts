@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { parseHex } from "./color.ts"
 import { defaultValues } from "./kinds.ts"
 import { type NearValue, nearestTokens, readNearValue } from "./nearest.ts"
-import { spacingScale, type Token } from "./tokens.ts"
+import type { Token } from "./tokens.ts"
 
 /** A token as the agent lists it, whose source can also be `keyword`. */
 type Listed = Omit<Token, "source"> & { source: string }
@@ -38,7 +38,7 @@ const project: Listed[] = [
   { name: "text-base", category: "font-size", source: "theme", values: { default: "1rem" } },
   { name: "text-fluid", category: "font-size", source: "semantic", values: { default: "clamp(1rem, 2vw, 2rem)" } },
   { name: "spacing", category: "spacing", source: "theme", values: { default: "0.25rem" } },
-  ...spacingScale.map((step): Listed => ({
+  ...[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16].map((step): Listed => ({
     name: `spacing-${step}`,
     category: "spacing",
     source: "theme",

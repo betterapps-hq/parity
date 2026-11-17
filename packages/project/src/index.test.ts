@@ -102,7 +102,7 @@ describe("libraries", () => {
         package: "@acme/ui",
         importName: "@acme/ui",
         version: "1.2.0",
-        tailwindEntry: "styles.css",
+        styles: "styles.css",
         stylesImported: false,
         breakpoints: [{ id: "md", name: "Medium", width: 768 }],
         manifest: "node_modules/@acme/ui/acme.lib.par"

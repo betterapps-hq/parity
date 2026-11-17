@@ -406,11 +406,16 @@ describe("picking a value from the list beside the box", () => {
 
 describe("what a handle's label and name say", () => {
   it("names the token a value is bound to, or else its step of the spacing scale", () => {
-    expect(spacingScaleName({ px: 24, token: "card-padding" }, 4)).toBe("card-padding")
-    expect(spacingScaleName({ px: 16 }, 4)).toBe("spacing-4")
-    expect(spacingScaleName({ px: 2 }, 4)).toBe("spacing-0.5")
-    expect(spacingScaleName({ px: 16 }, 8)).toBe("spacing-2")
-    expect(spacingScaleName({ px: 13 }, 4)).toBeUndefined()
+    const steps = [0.5, 2, 4].map((factor) => ({ name: `spacing-${factor}`, factor }))
+
+    expect(spacingScaleName({ px: 24, token: "card-padding" }, steps, 4)).toBe("card-padding")
+    expect(spacingScaleName({ px: 16 }, steps, 4)).toBe("spacing-4")
+    expect(spacingScaleName({ px: 2 }, steps, 4)).toBe("spacing-0.5")
+    expect(spacingScaleName({ px: 16 }, steps, 8)).toBe("spacing-2")
+    // Off the scale, or a step the framework doesn't name.
+    expect(spacingScaleName({ px: 13 }, steps, 4)).toBeUndefined()
+    expect(spacingScaleName({ px: 12 }, steps, 4)).toBeUndefined()
+    expect(spacingScaleName({ px: 16 }, [], 4)).toBeUndefined()
   })
 
   it("names a padding handle by its side, and gaps in order when there are several", () => {

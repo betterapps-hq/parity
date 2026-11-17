@@ -416,7 +416,7 @@ describe("whether a component takes a style", () => {
   })
 })
 
-describe("components that set their own size (PAR-518)", () => {
+describe("the classes on a component's own element (PAR-518)", () => {
   let root: string
   let shadcn: string
 
@@ -451,33 +451,37 @@ describe("components that set their own size (PAR-518)", () => {
     await rm(shadcn, { recursive: true, force: true })
   })
 
-  it("says so for a width, a height under a line or @container on its own element, in a project's code", () => {
+  it("records the classes written on a component's own element, in a project's code", () => {
     const found = inferProps(
       shadcn,
       Object.fromEntries([
         ui("Avatar", "avatar"),
-        ui("AvatarGroupCount", "avatar"),
         ui("CardHeader", "card"),
         ui("Separator", "separator"),
-        ui("Card", "card"),
-        ui("Badge", "badge"),
         ui("Button", "button")
       ])
     )
 
-    const sized = Object.entries(found).flatMap(([name, info]) => (info.fixedSize ? [name] : []))
-    // `size-8`, `size-8`, `@container/card-header` and `data-horizontal:h-px`. Badge's `h-5` holds a line of text, and
-    // Button's size comes from a cva variant, not classes written on its element.
-    expect(sized.sort()).toEqual(["Avatar", "AvatarGroupCount", "CardHeader", "Separator"])
+    expect(found.Avatar?.ownClasses).toContain("size-8")
+    expect(found.CardHeader?.ownClasses).toContain("@container/card-header")
+    expect(found.Separator?.ownClasses).toContain("data-horizontal:h-px")
+    // Button's classes come from a cva variant, not ones written on its element.
+    expect(found.Button?.ownClasses).toBeUndefined()
+    // Whether they set its size is the styles provider's to say.
+    expect(found.Avatar?.fixedSize).toBeUndefined()
   })
 
-  it("reads a library's compiled parts, leaving out classes for what's inside or taken from a parent", () => {
+  it("reads them from a library's compiled parts", () => {
     const part = (name: string) => [
       name,
       { path: "kit", export: name, library: "kit", declaration: "node_modules/kit/index.d.ts" }
     ]
 
     const found = inferProps(root, Object.fromEntries(parts.map(part)))
-    expect(parts.map((name) => found[name]?.fixedSize)).toEqual([true, true, undefined])
+    expect(parts.map((name) => found[name]?.ownClasses)).toEqual([
+      ["size-4", "shrink-0", "[&_svg]:size-4"],
+      ["bg-border", "data-horizontal:h-px", "data-horizontal:w-full"],
+      ["flex", "w-full", "gap-2", "group-data-[size=sm]/card:size-6"]
+    ])
   })
 }, 60_000)

@@ -458,6 +458,7 @@ export {
   type PaddingSide,
   paddingSides,
   pickedSpacing,
+  type ScaleStep,
   type SidesHeld,
   spacingDrag,
   type SpacingEdit,
