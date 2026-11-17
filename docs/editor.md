@@ -8661,23 +8661,25 @@ A screen is named for the component its route draws, else its path.
   (`withCopyStyle`).
 - **Copies follow the code (PAR-1264).** The project service's watcher tells the window which of the app's files changed
   (`project.filesChanged`), 250 ms after the last, leaving out hidden folders such as `.git` and `.next`, installed
-  packages, builders' output, `.par` files and TypeScript's build records (`pageSourceChange`). A copy is kept by its
-  route, mode and state (`CopyKey`) with the trace it was made from; until traces by builder come (step 6), every copy's
-  trace is the whole project, so any change makes the project's copies stale. A stale copy stays shown until the freezer
-  has a new one, nearest the view first. Modes whose snapshots drew the same markup form a markup group: a route frozen
-  again takes one snapshot per group, which every copy in the group shows at once with its own height, and each other
-  mode is checked with a snapshot of its own once nothing is missing or stale. Two states of a route share a copy. A
-  page that loads again while it's frozen says hello again with the same id: the freezer replaces its channel, waits for
-  it to be ready and takes the snapshot again, three times at most. With the Interact tool, a board's page under Vite or
-  a webpack-compatible builder is loaded again when the app's files change, since it keeps the modules it loaded; a page
-  whose router is Next's takes Next's hot updates in place. The webpack-compatible builders' pages no longer poll and
-  reload themselves.
+  packages, builders' output at the project's root (a `build` folder deeper down can be the app's), `.par` files and
+  TypeScript's build records (`pageSourceChange`). A copy is kept by its route, mode and state (`CopyKey`) with the
+  trace it was made from; until traces by builder come (step 6), every copy's trace is the whole project, so any change
+  makes the project's copies stale. A stale copy stays shown until the freezer has a new one, nearest the view first.
+  Modes whose snapshots drew the same markup form a markup group: a route frozen again takes one snapshot per group,
+  which every copy in the group shows at once with its own height, and each other mode is checked with a snapshot of its
+  own once nothing is missing or stale. Two states of a route share a copy. A page that loads again while it's frozen
+  says hello again with the same id: the freezer replaces its channel, waits for it to be ready and takes the snapshot
+  again, three times at most. With the Interact tool, a board's page under Vite or a webpack-compatible builder is
+  loaded again where it is when the app's files change (`page.reload`, or its last location when it doesn't answer),
+  since it keeps the modules it loaded; a page whose router is Next's takes Next's hot updates in place. The
+  webpack-compatible builders' pages no longer poll and reload themselves.
 - **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
   design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
   every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
   body, except where the class of a theme the token has a value of its own in is, and a theme's value where its class
-  is: Desktop Dark keeps `primary`'s dark value, and takes an edited `radius`, which has none. The page with the
-  Interact tool gets them over its channel (`preview.set`), into a sheet its snapshots never list.
+  is: Desktop Dark keeps `primary`'s dark value, and takes an edited `radius`, which has none. A theme's value given,
+  saved and undone shows the token's default there. The page with the Interact tool gets them over its channel
+  (`preview.set`), into a sheet its snapshots never list.
 - **When the page process fails.** A project's pages share one renderer process. When it closes the freezer's channel or
   a request misses its deadline, the freezer starts again after 1 s, then 5 s, then 30 s, and after three failures in
   two minutes it stops for that project; boards keep the copies they have.

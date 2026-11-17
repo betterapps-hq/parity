@@ -145,6 +145,11 @@ export interface PageMethods {
    * never in a snapshot, so a preview never becomes a copy.
    */
   "preview.set": { params: { css: string }; result: null }
+  /**
+   * Loads the page again where it is now, its path, query and hash kept, after answering: a page that keeps the modules
+   * it loaded takes a code change this way.
+   */
+  "page.reload": { params: Record<string, never>; result: null }
 }
 
 /** The most text one `preview.set` may carry. */
@@ -186,7 +191,8 @@ export const pageDeadlines: Record<keyof PageMethods, number> = {
   // Past the quiet it waits for, which `snapshotDeadline` adds.
   "snapshot.take": 2000,
   "sheets.get": 5000,
-  "preview.set": 1000
+  "preview.set": 1000,
+  "page.reload": 1000
 }
 
 /** How long Parity waits for a snapshot: the quiet it asked the page to wait for, and two seconds more. */

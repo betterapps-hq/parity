@@ -231,6 +231,12 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
       preview.show(css)
 
       return null
+    },
+    "page.reload": () => {
+      // After the answer has gone, so Parity hears it before the page goes.
+      page.setTimeout(() => page.location.reload(), 0)
+
+      return null
     }
   })
 
@@ -385,7 +391,8 @@ function pageChecks(): Checks<PageMethods> {
       }
 
       return { css }
-    }
+    },
+    "page.reload": () => ({})
   }
 }
 

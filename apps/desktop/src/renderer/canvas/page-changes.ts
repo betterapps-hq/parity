@@ -37,6 +37,7 @@ interface TokensPreview {
   sheet: CSSStyleSheet
   tokens: readonly TokenPreview[]
   themes: ReadonlyMap<string, readonly string[]>
+  defaults: ReadonlyMap<string, string>
 }
 
 const tokenPreviews = new Map<string, TokensPreview>()
@@ -54,7 +55,7 @@ function tokensFor(project: string): TokensPreview {
   let preview = tokenPreviews.get(project)
 
   if (!preview) {
-    preview = { sheet: new CSSStyleSheet(), tokens: [], themes: new Map() }
+    preview = { sheet: new CSSStyleSheet(), tokens: [], themes: new Map(), defaults: new Map() }
     tokenPreviews.set(project, preview)
   }
 
@@ -64,28 +65,32 @@ function tokensFor(project: string): TokensPreview {
 /**
  * Shows token values edited and not yet saved in every copy of the project's routes and their live pages, in place of
  * what was shown: the page's own stylesheets hold the saved ones, which the design frames' shared stylesheet doesn't
- * reach. `themes` are the themes each token has a value in, whose own values a default value leaves alone. It goes into one sheet every
+ * reach. `themes` are the themes each token has a value in, whose own values a default value leaves alone, and
+ * `defaults` each token's saved default, which a theme's value taken out falls back to. It goes into one sheet every
  * copy adopts, so it reaches them all in the same frame, and it never makes a copy stale. The same `tokens` and `themes`
  * as last time change nothing.
  */
 export function previewTokens(
   project: string,
   tokens: readonly TokenPreview[],
-  themes: ReadonlyMap<string, readonly string[]>
+  themes: ReadonlyMap<string, readonly string[]>,
+  defaults: ReadonlyMap<string, string> = new Map()
 ): void {
   const preview = tokensFor(project)
 
-  if (preview.tokens === tokens && sameThemes(preview.themes, themes)) {
+  if (preview.tokens === tokens && sameThemes(preview.themes, themes) && sameDefaults(preview.defaults, defaults)) {
     return
   }
 
   preview.tokens = tokens
   preview.themes = themes
+  preview.defaults = defaults
   // Lengths in a copy measure its board, as its own sheets' do: `10vw` the mode's window, `0.5rem` the page's root font.
   const drawn = tokens.map((token) => ({ ...token, value: rewriteFrameUnits(token.value) }))
-  preview.sheet.replaceSync(tokenPreviewCss(drawn, themes, "copy"))
+  const drawnDefaults = new Map([...defaults].map(([name, value]) => [name, rewriteFrameUnits(value)]))
+  preview.sheet.replaceSync(tokenPreviewCss(drawn, themes, "copy", drawnDefaults))
 
-  const css = tokenPreviewCss(tokens, themes, "page")
+  const css = tokenPreviewCss(tokens, themes, "page", defaults)
 
   for (const page of livePages.get(project) ?? []) {
     page(css)
@@ -106,7 +111,11 @@ interface PreviewedTokens {
  */
 export function useTokenPreview(project: string, tokens: PreviewedTokens): void {
   useEffect(() => {
-    const show = () => previewTokens(project, tokens.previews(), themesOf(tokens.get()))
+    const show = () => {
+      const saved = tokens.get()
+      previewTokens(project, tokens.previews(), themesOf(saved), defaultsOf(saved))
+    }
+
     show()
     const unsubscribe = tokens.subscribe(show)
 
@@ -119,6 +128,16 @@ export function useTokenPreview(project: string, tokens: PreviewedTokens): void 
 /** The themes each token has a value in, by its name, `default` included. */
 function themesOf(tokens: readonly { name: string; values: Record<string, string> }[]): Map<string, string[]> {
   return new Map(tokens.map((token) => [token.name, Object.keys(token.values)]))
+}
+
+/** Each token's default value, by its name, for those that have one. */
+function defaultsOf(tokens: readonly { name: string; values: Record<string, string> }[]): Map<string, string> {
+  return new Map(tokens.flatMap((token) => (token.values.default ? [[token.name, token.values.default]] : [])))
+}
+
+/** Whether two tokens' defaults say the same. */
+function sameDefaults(a: ReadonlyMap<string, string>, b: ReadonlyMap<string, string>): boolean {
+  return a.size === b.size && [...a].every(([name, value]) => b.get(name) === value)
 }
 
 /** Whether two tokens' themes say the same. */

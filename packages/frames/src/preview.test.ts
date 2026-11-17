@@ -44,6 +44,18 @@ describe("tokenPreviewCss (PAR-1264)", () => {
     ).toBe("")
   })
 
+  it("declares a theme's value taken out as the token's default, previewed or saved", () => {
+    const undone = [{ name: "radius", theme: "dark", value: "" }]
+
+    expect(tokenPreviewCss(undone, themes, "page", new Map([["radius", "0.5rem"]]))).toBe(
+      ":root.dark { --radius: 0.5rem; }"
+    )
+    expect(tokenPreviewCss([...undone, { name: "radius", theme: "default", value: "1rem" }], themes, "page")).toBe(
+      ":root.dark { --radius: 1rem; }\n:root { --radius: 1rem; }"
+    )
+    expect(tokenPreviewCss(undone, themes, "page")).toBe("")
+  })
+
   it("is a real stylesheet a document takes", () => {
     const { document } = new Window()
     document.head.innerHTML = `<style>${tokenPreviewCss(tokens, themes, "page")}</style>`

@@ -93,6 +93,12 @@ export function usePageChannel(
   const drawn = JSON.stringify([mode, viewport])
   const [height, setHeight] = useState<{ drawn: string; height: number }>()
   const [location, setLocation] = useState<PageLocation>()
+  // Where the page last said it was, which it's loaded at again when it can't reload itself.
+  const here = useRef<PageLocation>(undefined)
+
+  useEffect(() => {
+    here.current = location
+  })
   const channel = useRef<Channel<ParityMethods, PageMethods>>(undefined)
   // The page router the page said it has, which says whether it updates itself after a code change.
   const router = useRef<string | null>(undefined)
@@ -173,16 +179,30 @@ export function usePageChannel(
     [project]
   )
 
-  // A page under Vite or a webpack-compatible builder keeps the modules it loaded, so a code change loads it again; its
-  // runtime says hello again with the same id. Next's take its hot updates in place.
+  // A page under Vite or a webpack-compatible builder keeps the modules it loaded, so a code change loads it again where
+  // it is now; its runtime says hello again with the same id. Next's take its hot updates in place. A page that doesn't
+  // answer is loaded at where it last said it was.
   useEffect(
     () =>
       onPageFiles(project, () => {
         const page = frame.current
+        const connected = channel.current
 
-        if (page && !updatesItself(router.current)) {
-          router.current = undefined
-          page.src = src
+        if (!page || updatesItself(router.current)) {
+          return
+        }
+
+        router.current = undefined
+        const at = here.current
+
+        const fallback = () => {
+          page.src = at ? new URL(`${at.path}${at.search}${at.hash}`, src).href : src
+        }
+
+        if (connected) {
+          void withDeadline(connected.request("page.reload", {}), pageDeadlines["page.reload"]).catch(fallback)
+        } else {
+          fallback()
         }
       }),
     [frame, project, src]

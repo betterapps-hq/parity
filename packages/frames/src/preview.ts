@@ -36,13 +36,16 @@ const themeName = /^[\w-]+$/
  * host and its body stand-in, and a theme's class is on the host, the element around the body and the body stand-in, or
  * for the live page (`"page"`), on its root. A default value leaves out roots with the class of a theme that token has a
  * value of its own in (`themes`, by token), so that theme's value still wins there, and reaches every other theme; a
- * theme's value is declared where the theme's class is. Values that would end their declaration early, and themes that
+ * theme's value is declared where the theme's class is. A theme's value taken out (`""`, a value given in a theme that
+ * had none, saved and undone) is declared as the token's default there, previewed or saved (`defaults`), so the saved
+ * one stops winning; with no default it's left out. Values that would end their declaration early, and themes that
  * aren't a class's name, are left out.
  */
 export function tokenPreviewCss(
   tokens: readonly TokenPreview[],
   themes: ReadonlyMap<string, readonly string[]>,
-  scope: "copy" | "page"
+  scope: "copy" | "page",
+  defaults: ReadonlyMap<string, string> = new Map()
 ): string {
   const defaultSelector = (classes: readonly string[]) => {
     const others = classes.length > 0 ? `:not(${classes.join(", ")})` : ""
@@ -58,8 +61,21 @@ export function tokenPreviewCss(
   // Declarations by selector, in the order their first token came.
   const bySelector = new Map<string, string[]>()
 
-  for (const { name, theme, value } of tokens) {
-    if (!customProperty.test(`--${name}`) || unsafeValue.test(value)) {
+  const previewedDefaults = new Map(
+    tokens.flatMap((token) =>
+      token.theme === "default" && token.value.trim() !== "" ? [[token.name, token.value]] : []
+    )
+  )
+
+  for (const token of tokens) {
+    const { name, theme } = token
+
+    const value =
+      token.value.trim() === "" && theme !== "default"
+        ? (previewedDefaults.get(name) ?? defaults.get(name) ?? "")
+        : token.value
+
+    if (!customProperty.test(`--${name}`) || value.trim() === "" || unsafeValue.test(value)) {
       continue
     }
 

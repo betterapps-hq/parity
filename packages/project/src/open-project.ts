@@ -197,14 +197,17 @@ export function documentTarget(root: string, path: string): string | undefined {
   return path.endsWith(".par") ? insideProject(root, path) : undefined
 }
 
-/** Folders a builder or tool writes into as it runs, whose changes are its output rather than the app's code. */
-const outputFolders = new Set(["node_modules", "dist", "build", "out", "coverage", "storybook-static"])
+/**
+ * Folders at the project's root a builder or tool writes into as it runs, whose changes are its output rather than the
+ * app's code. Deeper down, a folder with one of these names can be the app's own, such as `src/routes/build`.
+ */
+const outputFolders = new Set(["dist", "build", "out", "coverage", "storybook-static"])
 
 /**
  * Whether a change the project's watcher reports can change what the app's pages draw, by its path relative to the root
  * with `/` between folders (docs/proposals/route-frames.md, "Code changes and previews"): any file of the app's, with
- * its lockfile, but not what's in hidden folders such as `.git` and `.next`, in installed packages or builders' output,
- * Parity's own design files, or a TypeScript build's record.
+ * its lockfile, but not what's in hidden folders such as `.git` and `.next`, in installed packages, in builders' output
+ * at the root, Parity's own design files, or a TypeScript build's record.
  */
 export function pageSourceChange(path: string): boolean {
   const parts = path.split("/")
@@ -212,7 +215,8 @@ export function pageSourceChange(path: string): boolean {
 
   return (
     name !== "" &&
-    !parts.some((part) => part.startsWith(".") || outputFolders.has(part)) &&
+    !parts.some((part) => part.startsWith(".") || part === "node_modules") &&
+    !(parts.length > 1 && outputFolders.has(parts[0] ?? "")) &&
     !name.endsWith(".par") &&
     !name.endsWith(".tsbuildinfo") &&
     !name.endsWith(".log")

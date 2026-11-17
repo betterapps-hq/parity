@@ -76,6 +76,8 @@ describe("pageSourceChange (PAR-1264)", () => {
     ["node_modules/.vite/deps/react.js", false],
     ["packages/ui/node_modules/x/index.js", false],
     ["dist/assets/index.js", false],
+    ["src/routes/build/page.tsx", true],
+    ["app/out/page.tsx", true],
     ["designs.par", false],
     ["tsconfig.tsbuildinfo", false],
     ["npm-debug.log", false],
