@@ -139,7 +139,13 @@ describe("the overlay canvas", () => {
           }
         }, empty)
 
-      await expect.poll(met).toMatchObject({ path: "select.pointing_canvas" })
+      await expect
+        .poll(async () => {
+          const seen = await met()
+
+          return seen.path === "select.pointing_canvas" ? seen.path : JSON.stringify(seen)
+        })
+        .toBe("select.pointing_canvas")
       expect((await overlayCanvas()).drawn).toBe(true)
     } finally {
       await app.page.mouse.up()
