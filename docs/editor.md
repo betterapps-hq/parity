@@ -6771,14 +6771,15 @@ project has: shadcn-sync's components, by the base and style its `manifest.json`
 file and imported from `@buildkitgg/shadcn`, with its icon set read as an icon library; or components shadcn's CLI
 copied, by the style `components.json` names, which add only the Base UI kit's tokens, since a style's tokens are the
 same on every base. Without a file for the kit, as on React Aria, sync's components are listed from their declarations.
-Its `catalog` offers Shadcn in Component libraries, asking its theme (shadcn's style), color, base and icons, set to
-what the project uses now, Fluent icons among them through Buildkit's adapter; its `add` says what setting it up
-changes: sync as a dev dependency, the icon set and the base's primitives, a `postinstall` that runs sync with those
-settings, and in a project with Tailwind, its `tailwind.css` to import. Parity writes package.json as one change,
-installs with the project's package manager, which runs sync, and imports the stylesheet. An installed Shadcn shows
-Change, which applies new settings the same way. Its `remove` uninstalls sync and the components it generated, drops its
-part of `postinstall` and its stylesheet import, and keeps the icon set and primitives, which the app may use itself.
-The retired Buildkit kits are no longer offered.
+Either way sync's components are named by its package, as `shadcn/Button`, so choosing another style or base keeps the
+instances designs have. Its `catalog` offers Shadcn in Component libraries, asking its theme (shadcn's style), color,
+base and icons, set to what the project uses now, Fluent icons among them through Buildkit's adapter; its `add` says
+what setting it up changes: sync as a dev dependency, the icon set and the base's primitives, a `postinstall` that runs
+sync with those settings, and in a project with Tailwind, its `tailwind.css` to import. Parity writes package.json as
+one change, installs with the project's package manager, which runs sync, and imports the stylesheet. An installed
+Shadcn shows Change, which applies new settings the same way. Its `remove` uninstalls sync and the components it
+generated, drops its part of `postinstall` and its stylesheet import, and keeps the icon set and primitives, which the
+app may use itself. The retired Buildkit kits are no longer offered.
 
 Code: `packages/extension-shadcn/src/shadcn.ts` (what it reads and plans, as functions of the files' text) and
 `extension.ts`; `LibrariesProvider` in `packages/extension/src/providers.ts`, checked in

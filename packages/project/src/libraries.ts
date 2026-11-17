@@ -129,7 +129,10 @@ function registryFileFor(
   return hint ? newestEntryFor(hint.registry, registry) : registryEntryFor(packageName, version, registry)
 }
 
-/** How a dependency is shown: one an extension found under its registry file's name, in its own package. */
+/**
+ * How a dependency is shown: one an extension found under its registry file's name, in its own package. Its components
+ * are named by that package (`shadcn/Button`), not the file, so choosing another style or base keeps designs' instances.
+ */
 function definitionFor(
   manifest: LibraryManifest | undefined,
   packageName: string,
@@ -149,7 +152,12 @@ function definitionFor(
     }
   }
 
-  return { ...definitionOf(manifest, hint.registry), package: packageName, tailwindEntry: hint.tailwindEntry }
+  return {
+    ...definitionOf(manifest, hint.registry),
+    id: libraryId({ id: "" }, packageName),
+    package: packageName,
+    tailwindEntry: hint.tailwindEntry
+  }
 }
 
 export interface FoundLibraries {

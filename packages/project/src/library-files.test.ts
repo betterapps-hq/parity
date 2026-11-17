@@ -167,7 +167,7 @@ describe("libraries an extension found", () => {
 
   const syncedApp = { dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } }
 
-  it("are read with their registry file, imported from the package the app has, and checked against what it exports", async () => {
+  it("are read with their registry file, named by the package the app imports, and checked against what it exports", async () => {
     await synced("export function Button(): unknown\nexport function Attachment(): unknown")
     await novaFile()
 
@@ -178,7 +178,7 @@ describe("libraries an extension found", () => {
 
     expect(found.libraries).toMatchObject([
       {
-        id: "nova",
+        id: "shadcn",
         name: "Shadcn Nova",
         package: "@buildkitgg/shadcn",
         tailwindEntry: "tailwind.css",
@@ -187,8 +187,8 @@ describe("libraries an extension found", () => {
       }
     ])
     // The kit's Sonner isn't generated any more, and Attachment is newer than the kit's file.
-    expect(Object.keys(found.components).sort()).toEqual(["nova/Attachment", "nova/Button"])
-    expect(found.components["nova/Button"]?.path).toBe("@buildkitgg/shadcn")
+    expect(Object.keys(found.components).sort()).toEqual(["shadcn/Attachment", "shadcn/Button"])
+    expect(found.components["shadcn/Button"]?.path).toBe("@buildkitgg/shadcn")
     // sync's version says nothing about the kit's, so there's no file to update.
     expect(found.notes).toEqual([])
   })
@@ -269,7 +269,7 @@ describe("libraries an extension found", () => {
     })
 
     expect(found.libraries.map(({ id, kind, importName }) => ({ id, kind, importName }))).toEqual([
-      { id: "nova", kind: undefined, importName: "@buildkitgg/shadcn" },
+      { id: "shadcn", kind: undefined, importName: "@buildkitgg/shadcn" },
       { id: "acme-icons", kind: "icons", importName: "@acme/icons" }
     ])
   })
