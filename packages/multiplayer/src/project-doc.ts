@@ -221,6 +221,13 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
           }
 
           const caught = seen.text === was ? seen : followedTo(seen, was, matched.get(seen.text)!)
+
+          // This person took out some of the step's characters since, which undoing that puts back: it's left to match
+          // by text when it's undone, as following on would count them gone for good.
+          if (caught.own.some((at, index) => at < 0 && seen.own[index]! >= 0)) {
+            continue
+          }
+
           expect.followed = {
             text: now,
             own: movedThrough(caught.own, splices),

@@ -5647,8 +5647,9 @@ Tests:
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", on Loro: two people typing the same keys in
   40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; Undo taking
   out only this person's typing, keeping what the other typed since; a pause's typing undone whole with the other's
-  typing taken in between its keys (PAR-1252); and an "X" undone beside the same letter the other wrote, and a deletion
-  put back after the other wrote the same letters there (PAR-1258).
+  typing taken in between its keys (PAR-1252); and an "X" undone beside the same letter the other wrote, a deletion put
+  back after the other wrote the same letters there, and typing deleted and put back again by this person's own undo
+  before the other typed (PAR-1258).
 - `packages/editor/src/text-editing.test.ts`, "following characters through changes" (1): characters moved and dropped
   by changes in order.
 - `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (8): a change before

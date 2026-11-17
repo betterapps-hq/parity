@@ -1012,6 +1012,30 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Xa" })
       })
 
+      it("undoes typing this person deleted and put back again, after the other typed in the text", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, remove: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove, insert }
+        })
+
+        apply(a, [{ op: "editText", design: "app.par#home", node: "title", edit: { kind: "replace", text: "abcd" } }])
+        exchange()
+        apply(a, [splice(2, 0, "X")])
+        apply(a, [splice(2, 1, "")])
+        exchange()
+        apply(b, [splice(4, 0, "!")])
+        exchange()
+
+        a.undo()
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "abcd!" })
+      })
+
       it("puts back what this person deleted beside what the other wrote since, after typing of their own", () => {
         const { a, b, exchange } = together()
 
