@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { expect, userEvent, within } from "storybook/test"
 import { AppWindow } from "../../App.tsx"
-import { openProjects } from "../../stories/fixtures.tsx"
+import { openProject } from "../../stories/fixtures.tsx"
 import { type FirstStep, FirstSteps } from "./FirstSteps.tsx"
 
 /**
@@ -15,7 +15,7 @@ import { type FirstStep, FirstSteps } from "./FirstSteps.tsx"
 const meta = {
   title: "Parity/Explorations/First steps",
   parameters: { layout: "fullscreen" },
-  loaders: [() => openProjects("example")]
+  loaders: [() => openProject("example")]
 } satisfies Meta
 
 export default meta

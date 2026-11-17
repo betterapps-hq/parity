@@ -10,8 +10,8 @@ import { SelectionStore } from "./selection.ts"
 import { preloadAnswers } from "./service.ts"
 import type { SessionParts } from "./workspace.ts"
 
-// docs/editor.md: each open project's panel state hangs off its session, and goes, stopped, when its tab closes or
-// reopens (PAR-1005).
+// docs/editor.md: each open project's panel state hangs off its session, and goes, stopped, when it closes or reopens
+// (PAR-1005).
 
 /** A request the window made of the service, waiting for the test to answer it. */
 interface Asked {
@@ -136,7 +136,7 @@ describe("projectPart", () => {
   })
 })
 
-describe("when its tab closes", () => {
+describe("when its project closes", () => {
   it("forgets the project's media files and lets a scan under way go", async () => {
     const session = openSession()
     const files = mediaFilesOf(session)
@@ -171,7 +171,7 @@ describe("when its tab closes", () => {
     expect(asked).toHaveLength(1)
   })
 
-  it("keeps each tab's console filter apart, and a reopened project starts with its own", () => {
+  it("keeps each project's console filter apart, and a reopened project starts with its own", () => {
     const first = openSession()
     const second = openSession()
     consoleFilterOf(first).set({ query: "fetch" })
@@ -199,7 +199,7 @@ describe("when its tab closes", () => {
     await vi.advanceTimersByTimeAsync(1000)
     expect(previewsOf(session).get("Button")).toBeUndefined()
     expect(asked).toEqual([lookup])
-    // The canvas let go of its previews after the tab closed: starting them again starts nothing.
+    // The canvas let go of its previews after the project closed: starting them again starts nothing.
     stop()
     startPreviews(session)
     expect(windowListeners.get("pointerdown")).toBe(0)

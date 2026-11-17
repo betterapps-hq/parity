@@ -107,7 +107,7 @@ class Checks {
   }
 }
 
-/** An open project's accessibility checks, made the first time they're asked for and dropped when its tab closes. */
+/** An open project's accessibility checks, made the first time they're asked for and dropped when it closes. */
 export const checksOf = projectPart((session: CheckedSession) => new Checks(session))
 
 /** A design's check as it is now, if it's been checked. */

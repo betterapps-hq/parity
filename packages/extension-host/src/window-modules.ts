@@ -7,6 +7,7 @@ import type {
   Navigate,
   NodeRef,
   RemoteApi,
+  SettingContribution,
   SettingValue
 } from "@parity-app/extension"
 import {
@@ -19,6 +20,7 @@ import {
   type WindowModule,
   type WindowParity
 } from "@parity-app/extension/internal"
+import { fits } from "@parity-app/extension/manifest"
 import { z } from "zod"
 import type { RecordExtensionEvent } from "./events.ts"
 import type { ExtensionStatus, HostState } from "./hosts.ts"
@@ -53,8 +55,8 @@ export interface WindowExtension {
   commands: string[]
   /** Its settings' values now, by key. */
   settings: Record<string, SettingValue>
-  /** Whose each setting is: the person's (`app`) or the project's (`project`). */
-  settingScopes: Record<string, "app" | "project">
+  /** Each setting as its manifest declares it: whose it is, and the values it takes. */
+  declaredSettings: Record<string, SettingContribution>
   /** Where its Node half's host is. */
   host: HostState
 }
@@ -77,9 +79,7 @@ export function windowExtensions(statuses: readonly ExtensionStatus[]): WindowEx
           extensionDependencies: status.extensionDependencies,
           commands: (status.contributes.commands ?? []).map((command) => command.id),
           settings: status.settings,
-          settingScopes: Object.fromEntries(
-            Object.entries(status.contributes.settings ?? {}).map(([key, setting]) => [key, setting.scope])
-          ),
+          declaredSettings: status.contributes.settings ?? {},
           host: status.state
         }
   )
@@ -423,13 +423,13 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
   }
 
   const declaredSetting = (entry: Entry, key: string) => {
-    const scope = entry.extension.settingScopes[key]
+    const setting = entry.extension.declaredSettings[key]
 
-    if (!scope) {
+    if (!setting) {
       throw new Error(`${key} isn't a setting the manifest declares`)
     }
 
-    return scope
+    return setting
   }
 
   const parityFor = (entry: Entry, run: Run): WindowParity => {
@@ -544,8 +544,15 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
           return once(() => listeners.delete(heard))
         },
         async update(key, value) {
-          if (declaredSetting(entry, key) === "app") {
+          const setting = declaredSetting(entry, key)
+
+          if (setting.scope === "app") {
             throw new Error(`${key} is the person's, for every project, so only Settings changes it`)
+          }
+
+          // As the Node half's `settings.update` does, so a value its schema refuses never reaches the project.
+          if (value !== undefined && !fits(setting, value)) {
+            throw new Error(`${key} can't be set to ${JSON.stringify(value)}`)
           }
 
           await options.updateSetting(extension.prefix, storedKey(extension.prefix, key), value)

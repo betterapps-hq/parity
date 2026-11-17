@@ -136,7 +136,7 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions):
     report: (error, tags) =>
       void import("@sentry/electron/renderer").then((Sentry) => Sentry.captureException(error, { tags })),
     stopped: (extension) =>
-      notify.warning(`${name(extension.id)} stopped working in this tab`, {
+      notify.warning(`${name(extension.id)} stopped working in this project`, {
         description: "Reopen the project to start it again."
       }),
     reported

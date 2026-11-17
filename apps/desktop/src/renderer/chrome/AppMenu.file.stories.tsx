@@ -1,7 +1,7 @@
 import type { Meta } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { blankProjectAt, frameDesigns, openAlso, openProjects } from "../stories/fixtures.tsx"
+import { blankProjectAt, frameDesigns, openInTurn, openProject } from "../stories/fixtures.tsx"
 import { pickingWith } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
 import {
@@ -18,7 +18,7 @@ import {
 import type { AppMenu } from "./AppMenu.tsx"
 import { formatKeys } from "./keys.ts"
 
-/** File: a new tab, opening projects, saving, exporting, Settings, closing the tab and exiting. */
+/** File: opening a project, saving, exporting, Settings, closing the project and exiting. */
 const meta = {
   title: "Parity/Chrome/Menus/App menu/File",
   ...menuStories
@@ -30,23 +30,33 @@ const body = () => within(document.body)
 
 /** With a design selected. New screen and New component are Object's, not File's. */
 export const DesignSelected = opened("File", selecting(pricing), async () => {
-  await expect(menuItems()[0]).toHaveTextContent(`New tab${formatKeys("Ctrl T")}`)
+  await expect(menuItems()[0]).toHaveTextContent(`Open project folder…${formatKeys("Ctrl O")}`)
   await expect(unavailable(["New screen", "Settings"])).toEqual({ "New screen": undefined, Settings: false })
 })
 
 /** With nothing selected: every design can be exported, but not a selected one. */
 export const NothingSelected = opened("File")
 
-/** With every project closed: saving, exporting and closing a tab are unavailable. */
-export const NoProject = opened("File", () => openProjects())
+/** On Home: saving, exporting and closing the project are unavailable. */
+export const NoProject = opened(
+  "File",
+  () => openProject(),
+  async () => {
+    await expect(unavailable(["Save", "Close project", "Open project folder…"])).toEqual({
+      Save: true,
+      "Close project": true,
+      "Open project folder…": false
+    })
+  }
+)
 
 /** Open recent: the open project first, then the others, most recent first; long paths are cut short. */
 export const OpenRecent: MenuStory = {
   loaders: [
     async () => {
-      await openProjects()
+      await openProject()
       workspace.forgetRecent()
-      await openAlso(
+      await openInTurn(
         ...[
           "D:/clients/northwind/customer-onboarding-and-billing-portal-redesign-2026",
           "D:/projects/admin-console",
@@ -54,7 +64,7 @@ export const OpenRecent: MenuStory = {
           "D:/projects/marketing-site"
         ].map(blankProjectAt)
       )
-      await openProjects("example")
+      await openProject("example")
     }
   ],
   play: async () => {
@@ -67,7 +77,7 @@ export const OpenRecent: MenuStory = {
 export const OpenRecentEmpty: MenuStory = {
   loaders: [
     async () => {
-      await openProjects()
+      await openProject()
       workspace.forgetRecent()
     }
   ],

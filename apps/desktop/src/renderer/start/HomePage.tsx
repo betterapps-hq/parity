@@ -15,7 +15,7 @@ import { StartActionsProvider, useStartActions, workspaceActions } from "./start
 import { NewProjectButton, OpenMenu, SearchButton, WorkspaceMenu } from "./StartControls.tsx"
 import { useNow } from "./use-now.ts"
 
-/** Home, pinned first in the tab strip, with the projects the window remembers and the example when there is one. */
+/** Home, which the window shows with no project open, with the projects it remembers and the example when there is one. */
 export function HomePage({ active }: { active: boolean }) {
   const projects = useKnownProjects()
   const example = useExampleFolder()
@@ -36,7 +36,7 @@ export function HomePage({ active }: { active: boolean }) {
 }
 
 /**
- * Home: the project you were last in and what needs you, then your projects. It stays mounted while another tab shows,
+ * Home: the project you were last in and what needs you, then your projects. It stays mounted while a project is open,
  * so its lists keep their place.
  */
 export function Home({ projects, active = true }: { projects: readonly KnownProject[]; active?: boolean }) {

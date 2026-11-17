@@ -33,6 +33,8 @@ export interface CommandContext {
   repeat?: { label: string; enabled: boolean }
   /** Whether a reference library is connected, which Find references searches. */
   references: boolean
+  /** Whether the window holds a project: open, opening, or one that couldn't open. */
+  held: boolean
 }
 
 export interface CommandState {
@@ -161,17 +163,13 @@ export function commandStates(context: CommandContext): CommandStates {
     showLayers: true,
     showComponents: true,
     layoutGrid: true,
-    home: true,
-    nextTab: true,
-    previousTab: true,
 
-    newTab: true,
     openFolder: true,
     openFile: true,
     save: project,
     saveCopy: project,
     exportSelection: pointed,
-    closeTab: true,
+    closeTab: context.held,
     settings: true,
 
     actions: true,

@@ -16,7 +16,7 @@ vi.mock("../toasts.tsx", () => ({ notify: { warning: mocks.warning } }))
 vi.mock("../project-doc.ts", () => ({ reloadFile: mocks.reloadFile }))
 
 vi.mock("../workspace.ts", () => ({
-  workspace: { getTabs: () => [{ id: "tab", session: mocks.session }] }
+  workspace: { getProject: () => ({ id: "project", session: mocks.session }) }
 }))
 
 vi.mock("../canvas/CanvasEditor.tsx", () => ({ canvasIdFor: (key: string) => key }))

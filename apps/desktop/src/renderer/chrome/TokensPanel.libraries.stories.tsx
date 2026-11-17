@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { within } from "storybook/test"
 import { z } from "zod"
 import { ProjectContext } from "../canvas/context.ts"
-import { example, openProjects } from "../stories/fixtures.tsx"
+import { example, openProject } from "../stories/fixtures.tsx"
 import { TokenStore } from "../tokens-store.ts"
 import { ProjectSession } from "../workspace.ts"
 import { setLayout } from "./layout.ts"
@@ -73,7 +73,7 @@ function openLibrary(file: string) {
 
     const css = describedTokenCss(described)
     const tokens = extractTokens(css, [], describedCategories(described))
-    await openProjects("example")
+    await openProject("example")
     setLayout({ leftTab: "tokens" })
     const project = example()
     const sheet = new CSSStyleSheet()

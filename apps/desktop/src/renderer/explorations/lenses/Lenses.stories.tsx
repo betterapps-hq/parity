@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { openProjects, ProjectStage } from "../../stories/fixtures.tsx"
+import { openProject, ProjectStage } from "../../stories/fixtures.tsx"
 import { LensesPrototype } from "./workspace.tsx"
 
 /**
@@ -21,7 +21,7 @@ const meta = {
   title: "Parity/Explorations/Lenses",
   component: LensesPrototype,
   parameters: { layout: "fullscreen" },
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   decorators: [
     (Story) => (
       <ProjectStage project="example" className="block">

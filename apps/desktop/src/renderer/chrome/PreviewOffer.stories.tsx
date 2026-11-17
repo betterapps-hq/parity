@@ -2,7 +2,7 @@ import type { PreviewOffer } from "@parity-app/project"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { clearNotifications, holdToast, openProjects } from "../stories/fixtures.tsx"
+import { clearNotifications, holdToast, openProject } from "../stories/fixtures.tsx"
 import { Window } from "./chrome-fixtures.tsx"
 import { offerPreviewFile, PreviewOfferDialog } from "./PreviewOffer.tsx"
 
@@ -16,7 +16,7 @@ const meta = {
   component: PreviewOfferDialog,
   render: () => <AppWindow />,
   decorators: [Window],
-  loaders: [clearNotifications, async () => openProjects("example")]
+  loaders: [clearNotifications, async () => openProject("example")]
 } satisfies Meta<typeof PreviewOfferDialog>
 
 export default meta

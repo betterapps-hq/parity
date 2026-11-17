@@ -32,9 +32,9 @@ import { type ProjectSession, workspace } from "./workspace.ts"
 const noExtensions: ProjectExtensions = { extensions: [], logs: {} }
 const unsubscribed = () => () => undefined
 
-/** The active tab's project, or nothing on Home or while it opens. */
+/** The window's project, or nothing on Home or while it opens. */
 function useActiveSession(): ProjectSession | undefined {
-  return useSyncExternalStore(workspace.subscribe, () => workspace.getActive()?.session)
+  return useSyncExternalStore(workspace.subscribe, () => workspace.getProject()?.session)
 }
 
 /** The extensions running in the active tab's project, or none on Home. */
@@ -296,13 +296,9 @@ export function watchExtensionSettings(): void {
   }
 
   const watch = () => {
-    for (const tab of workspace.getTabs()) {
-      const session = tab.session
+    const session = workspace.getProject()?.session
 
-      if (!session || watched.has(session)) {
-        continue
-      }
-
+    if (session && !watched.has(session)) {
       watched.add(session)
       // The service read the saved file as the project opened, so only what changes after is sent.
       sent.set(session, session.doc.file(session.doc.main)?.extensions ?? {})

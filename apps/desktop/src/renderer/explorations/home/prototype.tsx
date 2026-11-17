@@ -1,9 +1,8 @@
 import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
 import { type ReactNode, useMemo, useRef, useState } from "react"
 import type { SignInProvider } from "../../../shared/account.ts"
-import { TabBar } from "../../chrome/TabBar.tsx"
+import { TitleBar } from "../../chrome/TitleBar.tsx"
 import { ContinueCard, FirstTime } from "../../start/HomePage.tsx"
-import { NewTab } from "../../start/NewTabPage.tsx"
 import { PictureSourceProvider } from "../../start/pictures.ts"
 import { ProjectList } from "../../start/ProjectList.tsx"
 import { type KnownProject, knownProjects, type ProjectNote } from "../../start/projects.ts"
@@ -39,7 +38,6 @@ import { ForYou, type WaitingInvitation } from "./for-you.tsx"
 
 /** Where a story starts. Everything after that works: switching, inviting, joining, making an organization. */
 export interface Start {
-  page?: "home" | "new-tab"
   /** The organization you're in, or Personal. Contoso is your work account's. */
   workspace?: "personal" | "kestrel" | "halcyon" | "contoso"
   /** Your work account is signed in too, beside your own. */
@@ -165,8 +163,8 @@ function accountFrom(provider: SignInProvider): Account {
 }
 
 /**
- * Home and the new tab page, built from the start page's own pieces, with the account menu, For you and the
- * organization dialogs this exploration proposes.
+ * Home, built from the start page's own pieces, with the account menu, For you and the organization dialogs this
+ * exploration proposes.
  */
 export function HomePrototype(start: Start) {
   const [accounts, setAccounts] = useState(() => startingAccounts(start))
@@ -504,12 +502,8 @@ export function HomePrototype(start: Start) {
         {/* The whole window: the title bar, with the account menu at its end, over the page. */}
         <TooltipProvider>
           <div className="flex h-screen flex-col bg-background text-foreground">
-            <TabBar account={accountMenu} />
-            {start.page === "new-tab" ? (
-              <NewTab projects={projects} />
-            ) : (
-              <Home projects={projects} workspace={workspaceMenu} forYou={forYou} />
-            )}
+            <TitleBar account={accountMenu} />
+            <Home projects={projects} workspace={workspaceMenu} forYou={forYou} />
           </div>
         </TooltipProvider>
         {dialog?.at === "people" && account && current && (

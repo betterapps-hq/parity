@@ -1223,7 +1223,7 @@ function install(): void {
   const { workspace, frames } = window.e2eModules!
 
   const session = () => {
-    const current = workspace.getActive()?.session
+    const current = workspace.getProject()?.session
 
     if (!current) {
       throw new Error("No project is open")

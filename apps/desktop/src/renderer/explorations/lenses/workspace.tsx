@@ -20,7 +20,7 @@ import { createContext, use, useCallback, useEffect, useState } from "react"
 import { IconButton } from "../../chrome/IconButton.tsx"
 import { StatusBar } from "../../chrome/StatusBar.tsx"
 import { HomePage } from "../../start/HomePage.tsx"
-import { homeTab, useActiveTabId, useTabs, workspace } from "../../workspace.ts"
+import { useProject, workspace } from "../../workspace.ts"
 import { type Camera, LensCanvas } from "./canvas.tsx"
 import { type ChromeActions, LensBar, lensDragType, TitleBar } from "./chrome.tsx"
 import { lensOrder, lenses, project, type Ref } from "./data.ts"
@@ -100,12 +100,10 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
   const [name, setName] = useState<string | undefined>(project.name)
   // Bumped when a project opens in another's place, so a new Dockview lays it out afresh and closes the old windows.
   const [dock, setDock] = useState(0)
-  const active = useActiveTabId()
-  const openTabs = useTabs()
+  const opened = useProject()
 
   // On Home, a project opened or resumed there opens in the window, in place of Home.
-  const reopened = name === undefined && active !== homeTab
-  const shown = reopened ? (openTabs.find((tab) => tab.id === active)?.title ?? project.name) : name
+  const shown = name === undefined && opened ? opened.title : name
   const current = snapshot.active ?? last
   // With every tab closed, no lens is in focus, and the panels that follow one go with it.
   const empty = api !== undefined && Object.keys(snapshot.open).length === 0
@@ -273,7 +271,7 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     },
     toggleLeft: () => setPanelState((before) => ({ ...before, left: !before.left })),
     closeProject: () => {
-      workspace.activate(homeTab)
+      void workspace.close()
       setName(undefined)
     },
     openProject: (next) => {

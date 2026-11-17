@@ -7,13 +7,12 @@ import {
   holdToast,
   keepingLinks,
   never,
-  openAlso,
-  openProjects,
+  openInTurn,
+  openProject,
   preferring,
   projectAt
 } from "../stories/fixtures.tsx"
 import { answering, askWindow, roots, running, service } from "../stories/host.ts"
-import { workspace } from "../workspace.ts"
 import { actions } from "./actions.ts"
 import { AtBottom, olderProjectAt, renameDesign, Window } from "./chrome-fixtures.tsx"
 import { setLayout } from "./layout.ts"
@@ -43,12 +42,12 @@ const whole = { render: () => <AppWindow />, decorators: [Window] } satisfies Pa
 
 /**
  * The example as it opens: React, Vite and its version, the components and tokens found, and Storybook. Unsaved
- * changes don't show here; the project's tab shows them.
+ * changes don't show here; the title bar shows them.
  */
 export const ExampleProject: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
     }
   ]
@@ -62,7 +61,7 @@ export const ExampleProject: Story = {
 export const Everything: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: true })
 
       const base = {
@@ -128,7 +127,7 @@ export const EverythingNarrow: Story = {
 export const SaveFailed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
@@ -145,7 +144,7 @@ export const SaveFailed: Story = {
 export const RetryingAFailedSave: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
@@ -167,7 +166,7 @@ export const RetryingAFailedSave: Story = {
 export const AutosaveFailed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ autosave: true, performanceStats: false })
       service.saveFails = true
       renameDesign("Pricing", "Pricing (annual)")
@@ -186,10 +185,9 @@ export const AutosaveFailed: Story = {
 export const OlderProject: Story = {
   loaders: [
     async () => {
-      await openProjects()
+      await openProject()
       preferring({ performanceStats: false })
-      await openAlso(olderProjectAt("D:/projects/legacy-admin"))
-      workspace.activate("D:/projects/legacy-admin")
+      await openInTurn(olderProjectAt("D:/projects/legacy-admin"))
     }
   ],
   play: async () => {
@@ -207,16 +205,15 @@ export const OlderProject: Story = {
 export const SmallProjectWithoutStorybook: Story = {
   loaders: [
     async () => {
-      await openProjects()
+      await openProject()
       preferring({ performanceStats: false })
       const landing = projectAt("D:/projects/landing-page")
-      await openAlso({
+      await openInTurn({
         ...landing,
         componentCount: 1,
         detection: { ...landing.detection, tools: landing.detection.tools.filter((tool) => tool.id !== "storybook") },
         status: landing.status.filter((item) => item.adapter !== "storybook")
       })
-      workspace.activate("D:/projects/landing-page")
     }
   ]
 }
@@ -225,7 +222,7 @@ export const SmallProjectWithoutStorybook: Story = {
 export const PerformanceStats: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: true })
     }
   ],
@@ -238,7 +235,7 @@ export const PerformanceStats: Story = {
 export const PerformanceStatsOpen: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: true })
     }
   ],
@@ -254,7 +251,7 @@ export const ShowsComponents: Story = {
   ...whole,
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
     }
   ],
@@ -270,7 +267,7 @@ export const ShowsTokens: Story = {
   ...whole,
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
       setLayout({ left: false })
     }
@@ -286,7 +283,7 @@ export const ShowsTokens: Story = {
 export const OpeningStorybook: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
       // Its extension shows progress, and the command doesn't finish while Storybook starts.
       answering({
@@ -317,7 +314,7 @@ export const OpeningStorybook: Story = {
 export const OpenedStorybook: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
       keepingLinks()
     }
@@ -332,7 +329,7 @@ export const OpenedStorybook: Story = {
 export const StorybookFailed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ performanceStats: false })
       answering({
         "extensions.run": () => {

@@ -5,8 +5,8 @@ Status: draft for discussion, 2026-11-16. Nothing here is built. It turns the sp
 Parity's route boards: what becomes a package, what goes into the router, renderer and builder extensions, what the
 desktop app keeps, and the contracts between them. Revised twice the same day after independent reviews: the live
 board's input, invalidation, the sanitizer, selection on copies, pictures at full height and failure of the page process
-are specified, and what isn't known yet is checked first, in step 1. A content security policy for Parity's window is
-left to PAR-1255.
+are specified. Step 1's checks were run in Electron on 2026-11-17 (PAR-1259); their results are under Evidence, and the
+sections they changed say so. A content security policy for Parity's window is left to PAR-1255.
 
 ## In one line
 
@@ -96,6 +96,8 @@ them. So a live page takes events only once someone has clicked into it, and giv
   Escape and Parity's Ctrl or Cmd shortcuts through `page.key`, when the page didn't handle them itself.
 - **Disengaging** happens on a press outside the frame, on Escape the page didn't handle, and on switching away from
   Interact. The frame goes back to `pointer-events: none` and stays live, so clicking into it again engages it at once.
+  Parity also takes focus back into its own document, since the page keeps receiving keys while it has focus, even with
+  `pointer-events: none`.
 - **The live window.** The live frame is one mode window tall. Disengaged, it sits over the part of its board in view,
   and the page scrolls to the same offset (`page.scroll`), so panning down a tall board shows the live page at that
   point with the copy around it. Engaged, the page's own scrolling moves the window down its board (`page.scrolled`).
@@ -131,11 +133,16 @@ the copy until the freezer's replaces it. A menu left open or a typed value neve
   the builder's origin, with the page runtime in it. A window that isn't focused closes its spares; the setting
   `routeFrames.spares` changes the count, and 0 turns spares off.
 - **Spares wait on the routes in view,** nearest the middle first. A spare already on one of those routes stays.
+- **A parked spare stays drawn:** at its mode's full size, inside the window's view, scaled to 1%
+  (`transform: scale(0.01)`) with `pointer-events: none`. Chromium stops rendering a cross-origin frame that's
+  off-screen, clipped away, at opacity 0, hidden or behind an opaque layer: off-screen and clipped frames run no
+  animation frames, and the others run them but no `ResizeObserver`, so a spare parked that way would go live half laid
+  out.
 - **One freezer frame per project** makes every copy. For each route that needs one, nearest the view first, it loads
   the route fresh, then takes a snapshot in each of the route's modes, waiting for quiet in each. A fresh load per route
   keeps a copy from depending on which routes came before it. The freezer pauses while a live page is in use (a pointer
-  or key event in the last 2 s, from `page.used`) and while the pool refills, since every project's pages share one
-  renderer process (below).
+  or key event in the last 2 s, from `page.used`) and while the pool refills, since a project's pages share one renderer
+  process (below).
 - **A frame navigates only after the app has hydrated.** Before that, the server's page stays and the new route renders
   beside it.
 - **A live frame is never reused.** Spares move through routes, so app-wide state one route sets, such as a query cache
@@ -237,8 +244,8 @@ project's source, so any change makes it stale: slower, never wrong.
 
 ### When the page process fails
 
-Every project's pages share one renderer process, so its failure takes the live frame, the spares and the freezer with
-it.
+A project's pages share one renderer process, so its failure takes that project's live frame, spares and freezer with
+it, and no other project's.
 
 - **Seen as a closed port.** Chromium closes a frame's `MessagePort` when its process goes, which `domPort` reports, and
   main hears `render-process-gone` for the frame's process. A request past its deadline counts as a hang.
@@ -362,8 +369,13 @@ export interface SanitizePolicy {
 }
 
 /** A copy's elements, made in `document` with `createElementNS` and `setAttribute` only, under a body stand-in marked
- * `inert`, and the `DrawnNodes` that maps their ids to them. */
-export function buildCopy(document: Document, body: FrozenElement): { fragment: DocumentFragment; drawn: DrawnNodes }
+ * `inert`, and the `DrawnNodes` that maps their ids to them. Every element is created in `registry`, the copy's shadow
+ * root's own, so none is upgraded by a definition in Parity's window. */
+export function buildCopy(
+  document: Document,
+  body: FrozenElement,
+  registry: CustomElementRegistry
+): { fragment: DocumentFragment; drawn: DrawnNodes }
 ```
 
 The sanitizer keeps what's on its allowlists and drops the rest:
@@ -374,9 +386,9 @@ The sanitizer keeps what's on its allowlists and drops the rest:
   `animateTransform`, which can set an `href`. A dropped element becomes an empty `parity-removed`, so the layout keeps
   its place.
 - **Custom elements** keep their tag so the page's CSS still matches them. The copy's shadow root uses a custom element
-  registry of its own, so the guest's definitions in Parity's window don't upgrade them. Whether Electron's Chromium has
-  scoped registries is checked in step 1. If it doesn't, they're renamed to `parity-element` with `data-tag`, and rules
-  that name them stop matching.
+  registry of its own (`attachShadow({ customElementRegistry })`), so the guest's definitions in Parity's window don't
+  upgrade them. Electron 45's Chromium 156 has scoped registries. An element made with a plain `document.createElement`
+  still upgrades to the guest's definition, so `buildCopy` passes the registry to `createElementNS`.
 - **Attributes:** global and per-element attributes that describe content, `data-*` and `aria-*`. Not on it: every
   `on*`, `autofocus`, `autoplay`, `is`, `popover`, `popovertarget`, `action`, `formaction`, `form`, `ping`, `srcdoc` and
   `http-equiv`.
@@ -527,14 +539,21 @@ doesn't listen for `popstate` keeps the old page under the new address. So spare
 route they're for and parked there, and going live anywhere else is a full load. **With no hydration module,** the app
 counts as hydrated once the document has loaded and the DOM has been quiet for 150 ms.
 
-Whether React has already loaded when Next runs `instrumentation-client`, and so which hydration signal Next needs, is
-checked in step 1. Where each page router finds its router is settled in step 2. What's known so far:
+**Next runs `instrumentation-client` before the app's React.** Every client entry of Next 16.4 requires it before the
+module that loads `react-dom/client`: the App and Pages Routers, under webpack and Turbopack, in dev and production. So
+React's `PageHydration` works under Next as elsewhere, and Next needs no signal of its own. The hook resolves only on a
+commit to the app's root (`document` for the App Router, `#__next` for the Pages Router), since Next's dev overlay
+brings its own React, which can load after the hook under Turbopack and render into a root of its own.
 
-| Router          | Where its router is in the page                                                                               |
-| --------------- | ------------------------------------------------------------------------------------------------------------- |
-| TanStack Router | `window.__TSR_ROUTER__`, which TanStack Start sets; a plain TanStack app may not, and then has no page router |
-| React Router    | No global in library mode, so no page router there yet; framework mode's to be found                          |
-| Next.js         | `window.next.router`, in the App and Pages Routers                                                            |
+Where each page router finds its router:
+
+| Router                     | Where its router is in the page                                                                                          |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| TanStack Router            | `window.__TSR_ROUTER__`, which `router-core` sets for every client router since about 1.121, not only TanStack Start     |
+| React Router, framework    | `window.__reactRouterDataRouter`, which `HydratedRouter` sets, in v7 and v8                                              |
+| React Router, data library | No global: the builder serves `createBrowserRouter` and `createHashRouter` through a module that hands their router over |
+| React Router, declarative  | `<BrowserRouter>` makes no router object, so there's no page router, and spares are parked                               |
+| Next.js                    | `window.next.router`, in the App and Pages Routers                                                                       |
 
 ### Keys
 
@@ -586,8 +605,8 @@ copy is refused, not misread.
   the picture as an `<img>`, or the copy in a shadow root from `prepareFrame`, which stays beneath the live frame while
   it's live.
 - **The live and spare frames live in one layer over the canvas,** not inside tiles. The live frame is placed over its
-  board as "The live window" says, scaled with the camera, with `pointer-events: none` until it's engaged. Where spares
-  are parked depends on step 1's throttling check.
+  board as "The live window" says, scaled with the camera, with `pointer-events: none` until it's engaged. Spares are
+  parked in the same layer, as "The pool" says.
 - **Page tiles stop asking for design-frame bitmaps.** They run `useFrameShows` and `useFrameBitmap` today on a tree
   that resolves to nothing.
 - **Every wait on a page has a timeout.** A hidden or minimized window runs no animation frames.
@@ -596,16 +615,20 @@ copy is refused, not misread.
 
 ## Isolation
 
-- **Pages run in a renderer process apart from Parity's,** since `parity://app` and the builder's `http://127.0.0.1` are
-  different sites. Site isolation ignores the port, so every open project's pages, live, spare and freezer alike, share
-  that one process and its main thread. That's why the freezer and refills pause while a live page is in use, and why
-  its failure is handled as one (above). Step 1 confirms it with `webFrameMain.osProcessId`.
+- **Each project's pages run in a renderer process of their own.** `parity://app` and the builder are different sites,
+  so pages never share Parity's process. Site isolation ignores the port, so on `http://127.0.0.1` every open project's
+  pages share one process and its main thread, as step 1 saw. Frames load from `http://<project-id>.localhost:<port>`
+  instead, which Chromium resolves to the loopback address without DNS, and each such host is a site of its own: step 1
+  saw a process per host. A project's live frame, spares and freezer still share one, which is why its freezer and
+  refills pause while its live page is in use. Vite accepts `*.localhost` hosts by default; webpack-dev-server's and
+  Next's host checks are confirmed in step 2.
 - **The sanitizer is the copy's only guard in Parity's window** until the window has a content security policy
   (PAR-1255).
 
-- **Every frame shares the window's session** (`persist:copy-N`), so frames share cookies and storage, as tabs of one
-  browser do. Closing a live frame after use keeps the app's memory apart, not its storage. Signing in is
-  [impersonation.md](impersonation.md)'s and PAR-1229's.
+- **Every frame shares the window's session** (`persist:copy-N`), so a project's frames share cookies and storage, as
+  tabs of one browser do. Cookies and storage are kept per host, so one project's don't reach another's. Closing a live
+  frame after use keeps the app's memory apart, not its storage. Signing in is [impersonation.md](impersonation.md)'s
+  and PAR-1229's.
 
 ## Evidence
 
@@ -637,9 +660,28 @@ What the demo found, each of which a contract above covers:
 6. A frame as tall as its page makes `svh` sections grow without end.
 7. A scrollbar takes width from the page's layout, so copy and page disagree.
 
-The demo didn't cover input on a live board, code changes, copies' selection, pictures captured from copies, or more
-than one project, and it ran same-origin, so the channel, the sanitizer on real cross-site snapshots and the process
-placement are untried.
+The demo didn't cover code changes, copies' selection or pictures captured from copies, and it ran same-origin, so the
+channel and the sanitizer on real cross-site snapshots are untried. Step 1 covered input, processes and parking.
+
+### Step 1's checks
+
+Run in Electron 45.2.1 (Chromium 156) on 2026-11-17 (PAR-1259), with Parity's window on `parity://app` and small pages
+on builders' loopback ports. Input went through Chromium's input router (`Input.dispatchMouseEvent` and
+`Input.dispatchKeyEvent`). Next's and the routers' answers come from their published sources.
+
+| Check                                                                            | Answer                                                                                                               | What it changed                                                |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Pages' process, two projects on `127.0.0.1`                                      | One process for every project's pages, apart from Parity's; a process per `*.localhost` host                         | Frames load from `<project-id>.localhost` (Isolation)          |
+| A spare off-screen or clipped                                                    | No animation frames, `ResizeObserver` or lazy images                                                                 | Spares park in view, scaled to 1% (The pool)                   |
+| A spare at opacity 0, hidden or behind the canvas                                | Animation frames but no `ResizeObserver`; lazy images only at opacity 0 and behind                                   | The same                                                       |
+| A spare in view scaled to 1%, or at opacity 0.01                                 | Drawn in full, like a visible frame                                                                                  | The same                                                       |
+| Wheel, Ctrl and wheel, and a press over a live frame with `pointer-events: none` | All reach the canvas; the page gets none                                                                             | None                                                           |
+| The same once it's engaged                                                       | The page gets them all and scrolls; the canvas gets none; the window doesn't zoom when the page stops Ctrl and wheel | None                                                           |
+| Keys after going back to `pointer-events: none`                                  | Still the page's while it has focus                                                                                  | Disengaging takes focus back (Input on a live board)           |
+| Scoped custom element registries                                                 | Yes. Elements made with the registry don't upgrade; a plain `document.createElement` does                            | `buildCopy` takes the registry; the renaming fallback goes     |
+| React loaded when Next runs `instrumentation-client`                             | No, in every Next 16.4 entry                                                                                         | React's hydration hook serves Next (The page modules)          |
+| A plain TanStack app's router                                                    | `window.__TSR_ROUTER__`, since about 1.121                                                                           | Every TanStack app has a page router                           |
+| React Router library mode's router                                               | No global; framework mode has `__reactRouterDataRouter`                                                              | The builder wraps `createBrowserRouter` and `createHashRouter` |
 
 ## Risks
 
@@ -655,8 +697,11 @@ placement are untried.
   between freezes, so they fall out of markup groups and refreeze more.
 - **The first visit to a route pays the builder's compile,** up to 37 s on Copacker. Spares and the freezer hide it from
   going live, but freezing every route when a project opens leans on the builder.
-- **Every router's landed signal, and Next's hydration, are their own,** and only TanStack's were tried. Apps whose
-  router has no global get no page router, so their spares can't be moved and only parked spares are fast.
+- **Every router's landed signal is its own,** and only TanStack's was tried. React Router's declarative
+  `<BrowserRouter>` has no router object, so its apps get no page router, their spares can't be moved, and only parked
+  spares are fast.
+- **The router globals aren't public API.** `__TSR_ROUTER__`, `__reactRouterDataRouter` and `next.router` can change in
+  a minor release; each page router checks what it finds and falls back to parking when it's missing.
 
 ## Beyond routes
 
@@ -667,21 +712,15 @@ that's tried.
 
 ## Build steps
 
-Each becomes an issue, in this order. Step 1 decides whether the rest goes ahead as written.
+Each is an issue, in this order.
 
-1. **Checks before building,** each with a yes or no and what changes if it's no:
-   - which process the frames run in (`webFrameMain.osProcessId`), with two projects open;
-   - whether a cross-origin iframe parked out of sight, or at opacity 0 behind the canvas, is throttled: animation
-     frames, `ResizeObserver`, lazy images;
-   - whether `pointer-events: none` on a live frame keeps the wheel and pinch on the canvas, and whether the runtime
-     sees the zoom wheel and Escape when engaged;
-   - whether Electron's Chromium has scoped custom element registries for shadow roots;
-   - whether React has loaded when Next runs `instrumentation-client`;
-   - whether a plain TanStack app and React Router's library mode can hand the runtime their router.
-2. **The page runtime, its channel and the page modules.** `@parity-app/page-runtime` replaces `appPageModeScript` in
-   the Vite, webpack-compatible and Next builders, with the handshake, `mode.set` without a reload, `page.height` in the
-   mode's window and no scrollbar. TanStack Router's page router, React's hydration module, Next's hydration signal, and
-   the fallbacks. `PageFrame` uses it, so a board's mode changes without reloading.
+1. **Checks before building** (PAR-1259), done: see Step 1's checks under Evidence. Nothing stopped the plan; parking,
+   processes, disengaging, `buildCopy` and the page modules changed.
+2. **The page runtime, its channel and the page modules** (PAR-1260). `@parity-app/page-runtime` replaces
+   `appPageModeScript` in the Vite, webpack-compatible and Next builders, with the handshake, `mode.set` without a
+   reload, `page.height` in the mode's window and no scrollbar. Frames load from `<project-id>.localhost`, with each
+   builder's host check confirmed. TanStack Router's page router, React's hydration module, and the fallbacks.
+   `PageFrame` uses it, so a board's mode changes without reloading.
 3. **`@parity-app/frames`:** the snapshot's schemas and caps, both sanitizers with a test for every element, attribute
    and URL rule, `buildCopy`, ids, keys and the planners.
 4. **Frozen copies.** `snapshot.take` and `sheets.get` in the runtime, other hosts' sheets fetched by main, the freezer
@@ -696,7 +735,8 @@ Each becomes an issue, in this order. Step 1 decides whether the rest goes ahead
 7. **Code changes and previews:** the watcher's changes reaching the window, stale copies by trace, starting frames
    again where pages don't update themselves, the second hello, markup groups, and style previews in copies and the live
    page.
-8. **React Router's and Next's page routers.**
+8. **React Router's and Next's page routers** (PAR-1265), with the wrapped `createBrowserRouter` and `createHashRouter`
+   for library mode.
 
 Each step updates the page-screens section of [editor.md](../editor.md) and its tests, and [support.md](../support.md)'s
 rows for routes.

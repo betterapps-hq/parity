@@ -546,7 +546,7 @@ menubar's command. A row in the Layers panel has a menu of its own, built the sa
   Paste here takes Paste's.
 - **The menubar offers each command once** (PAR-1039): New screen and New component are Object's, Settings is File's,
   Developer tools, Performance stats and Clear bitmap cache are in Help › Developer, and Install the Parity CLI… follows
-  Check for updates. Close project (Ctrl+W) closes the tab. A toggle, such as Panels or Performance stats, keeps its
+  Check for updates. Close project (Ctrl+W) closes the project. A toggle, such as Panels or Performance stats, keeps its
   icon where every item's goes and shows a tick on the right, before its keys, while it's on. No menu adds a line saying
   what to select; its greyed items say enough.
 
@@ -1045,9 +1045,9 @@ file and line in the project it was written at, which opens in the person's edit
 it, with the project's files from the root and a library's by its file's name. The header filters by level and by words,
 and Clear empties the log for agents too. Since PAR-165 the levels are a menu, as Chrome's DevTools have them: its
 button says what shows ("All levels", "Errors only", "Custom levels") and it opens to a checkbox for each level with its
-count, any mix of them; the errors and warnings are counted on the header's right. Each tab keeps its own levels and
-words, and they go when the tab closes (PAR-1005). There's no design filter, no time on a message and no button
-selecting a group's design. The panel's height is dragged at its top edge and kept with the layout.
+count, any mix of them; the errors and warnings are counted on the header's right. The project keeps its levels and
+words, and they go when it closes (PAR-1005). There's no design filter, no time on a message and no button selecting a
+group's design. The panel's height is dragged at its top edge and kept with the layout.
 
 - **One log:** main keeps the last 500 messages from every window, as it did for `parity console`, now with an id each.
   It sends what's new or counted again to the editor windows in batches, 100 ms after the first, so a component logging
@@ -1082,7 +1082,7 @@ and `consoleClear`, checked by `consoleAnnouncement` and `consoleOrigin` in `sha
 `projectPlace`, `routeConsoleChange`, `tally` and `byDesign` in `renderer/console-store.ts`, with `BuilderConsole`,
 `isBuilderChatter` and `isGeneratedPath` in `packages/core/src/adapters.ts`, fed by `startConsole` in
 `renderer/console-feed.ts`; the panel in `chrome/ConsolePanel.tsx`, its filter in `chrome/console-filter.ts`, kept for
-each tab with `projectPart` in `renderer/project-part.ts`, the count in `chrome/StatusBar.tsx` and the board's in
+the project with `projectPart` in `renderer/project-part.ts`, the count in `chrome/StatusBar.tsx` and the board's in
 `canvas/ConsoleBadge.tsx`; the layout's `console` and `consoleHeight` in `chrome/layout.ts`. For agents: `ConsoleEntry`,
 `FrameRequest.state` and `TabSnapshot.builderConsole` in `packages/agent/src/types.ts`, the chatter left out by
 `dispatch`'s `console`, and `describeConsole` in `packages/cli/src/client.ts`.
@@ -1104,7 +1104,7 @@ left alone outside frames, and a wrapper added since kept). `e2e/app.ts` clears 
 since a test's clicks would otherwise badge boards for the tests after it. `shared/render-job.test.ts` (the job's design
 passes the service's check, and no name has it), `shared/ipc-checks.test.ts` (an announcement and a builder's address
 checked), `chrome/layout.test.ts` (the console's open state and height kept, and their defaults),
-`renderer/project-part.test.ts` (each tab's filter kept apart, forgotten when its tab closes, and none kept for a
+`renderer/project-part.test.ts` (each project's filter kept apart, forgotten when it closes, and none kept for a
 reopened project), `packages/agent/src/run.test.ts` (each frame names its design and state) and
 `packages/cli/src/client.test.ts` (the design, state and mode in the text). `chrome/ConsolePanel.stories.tsx`: Counted,
 Open, ErrorStack, OneDesign, WarningsOnly and NothingLogged, fed main's entries through the same mapping. In the running
@@ -1997,8 +1997,9 @@ Extensions add tabs, Design tab sections and pages, drawn from data their code s
   extensions' logs. A tab that opens starts an extension that activates on it.
 - **Sections** show in the Design tab for a component's board, after What its code says, where the section's `when`
   holds for the component. Only the items about that component show.
-- **Pages** open in a tab at the top, after their project's tab, headed by the extension's logo and the page's title. A
-  page's tab closes with its project's.
+- **Pages** show in their project's place, under the title bar, headed by the extension's logo, the page's title and a
+  button that closes the page and shows the project again, as it was. Opening another page shows it instead, and a page
+  closes with its project (PAR-1241).
 - **Kinds.** A table, with its columns and each row's actions; a tree, where arrow keys move between rows and open and
   close them, Home and End go to the ends, Enter or a double-click runs the first action, and the menu key or a
   right-click lists them all; a list, as a setup guide's steps, each with its icon in its tone and its actions;
@@ -2013,14 +2014,15 @@ setup page, which Show Storybook setup in Search actions opens ([storybook.md](s
 
 Code: `renderer/extension-views.ts` (`tabsAt`, `sectionsFor`, `pageOf`, `shownItems`, `treeRows`, `revealView`),
 `chrome/ExtensionView.tsx`, `chrome/ExtensionTabs.tsx`, `chrome/ExtensionPage.tsx`, the bottom panel's tabs in
-`chrome/ExtensionLog.tsx`, and `Workspace.openPage` in `renderer/workspace.ts`.
+`chrome/ExtensionLog.tsx`, and `Workspace.openPage` and `closePage` in `renderer/workspace.ts`.
 
 Tests: `renderer/extension-views.test.ts` (placing tabs, sections and pages, a section's items, a tree's rows and an
 item's actions) and `packages/extension-host/src/views.test.ts`. Stories: `chrome/ExtensionView.stories.tsx` Kinds, with
-a play function for the tree's keys, and Page. Gaps: the panels, the page's tab and the form's round trip have no tests
-of their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow
-keys, Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at
-390 pixels, with the keyboard reaching its button after the tabs.
+a play function for the tree's keys, and Page; `renderer/workspace.test.ts` (a page shown in its project's place, and
+gone when it closes or the project does). Gaps: the panels, the page's view and the form's round trip have no tests of
+their own. They were tried in the running app on 2026-11-14 on `examples/shadcn-vite`: the Stories tab with arrow keys,
+Shift+F10's menu, the Stories section for PlanCard, and the setup page from Search actions, at full width and at 390
+pixels, with the keyboard reaching its button after the tabs.
 
 ### Previews in the Components panel and the insert picker (PAR-208)
 
@@ -2204,7 +2206,7 @@ from and skips writing), `canvas/carried.ts` (`carriedSet`, `carriedPictureSet`)
 `holds` (`agent/presence.ts`). `CarriedPicture` draws every drag's picture, with the dragger's outline and name.
 
 Tests: `canvas/board-holds.test.ts`: a hold drawn along a drag and let go, a second hold keeping the board where it's
-drawn, the 10 s limit, grabbing, disposing and tabs kept apart, and placed boards' newest placement winning.
+drawn, the 10 s limit, grabbing, disposing and sessions kept apart, and placed boards' newest placement winning.
 `canvas/preview-life.test.ts`: settling on the write, one in ten of those recorded, giving up after 2 s, counting
 previews open at once, and which writes cover a preview. `canvas/style-layers.test.ts`: two previews' values on one
 property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
@@ -2811,7 +2813,7 @@ they were copied from places them the same way.
 - **At the size it's drawn at.** A copy beside its original is the original's size. A design pasted from another
   project, or whose original is no longer on the canvas, goes in the middle of the view, and its size is only known once
   its board draws it, so it's brought into view then, from its board's real size rather than a guess. One that isn't
-  drawn within 2 seconds, as in a tab that isn't showing, leaves the view alone.
+  drawn within 2 seconds, as in a project that isn't showing, leaves the view alone.
 
 Code: `freeSpotBeside`, `pastedPlacement` and `panToShow` in `packages/editor/src/placement.ts` (`@parity-app/editor`),
 with `takenBounds`, `bringIntoView` and `bringIntoViewOnceSized` in `apps/desktop/src/renderer/canvas/free-space.ts`,
@@ -3249,11 +3251,11 @@ What the floating controls on the canvas hold, and how a review tool takes over 
   in a window the system hides, leaving empty space at both ends. Checked on 2026-11-16 in a dev copy whose window was
   covered: with the hidden side out of the flow, the bar measured 324px around the tools.
 - **Zoom floats at the top right:** Zoom out, the level, Zoom in and Zoom to fit, each with its keys in its tooltip. The
-  level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on its own tab's canvas. Undo and Redo
+  level is a button that goes to 100%, named "Zoom to 100%, now 64%". Each acts on the project's canvas. Undo and Redo
   left the canvas for the Edit menu and their keys.
 
 Code: the review rules are `packages/editor/src/review.ts` (`startReview`, `pickReview`, `stopReview`, `reviewToolFor`
-and `isReviewTool`). In the app, `renderer/selection.ts` keeps each tab's review (`startReviewing`, `stopReviewing`,
+and `isReviewTool`). In the app, `renderer/selection.ts` keeps each project's review (`startReviewing`, `stopReviewing`,
 `useReview`, and `setTool` putting it down); `chrome/keymap.ts` and `chrome/actions.ts` have Comment and Annotate, and
 `stepBack` in `chrome/actions.ts` puts the review tool down on Esc. `chrome/FloatingToolbar/` has the toolbar:
 `FloatingToolbar.tsx`, `Tools.tsx`, `MoveMenu.tsx`, `FrameMenu.tsx`, `ReviewButton.tsx` and `tool-details.ts`, with the
@@ -3276,8 +3278,8 @@ Tests:
   only Comment and the kinds are review tools.
 - `apps/desktop/src/renderer/springs.test.ts` (5): a spring starts at 0 and settles on 1, overshoots only when it's
   loose, settles later the less it's damped, and makes a `linear()` easing and keyframes.
-- `chrome/record-actions.test.ts`: an action runs on the tab it's given, as Zoom's buttons give theirs, and only when
-  its state says it applies (PAR-971).
+- `chrome/record-actions.test.ts`: an action runs on the session it's given, as Zoom's buttons give theirs, and only
+  when its state says it applies (PAR-971).
 - Stories, Parity / Chrome / Toolbar: SelectTool; Groups, which checks Frame, Text and Comment are the tools' group and
   Insert and Find references sit outside it; HandTool, TextTool, InteractTool, ToolTooltip, Annotating and Commenting;
   AnnotateAndBack picks Behaviour from the review menu, with the canvas on Move and select, and Esc goes back to Text;
@@ -3306,12 +3308,12 @@ that shows one reads it through one lookup, `shortcutOf(command)`, which formats
   single key stays as it is (`+`, `Del`).
 - **On a Mac** they're the Mac's symbols, modifiers first in the Mac's order, with nothing between: `⇧⌘Z`.
 - **Text that isn't keys,** such as `Hold Space`, is shown as written.
-- **Keys show as keycaps (`Kbd`)** in tooltips, the toolbar, the tab bar, the start screen, Search actions, the Wrap in
-  layout buttons, the resize handles' hint and the Keyboard shortcuts dialog. Menus keep the kit's own shortcut parts
-  (the menubar's, context menus' and dropdowns'), which show them as plain text, as Figma's and the system's menus do.
-- **A command shows its first keys** everywhere one key is shown: menus, tooltips, the tab bar, the start page, Search
-  actions and messages such as Paste style's "Copy a layer's style first, with Ctrl+Alt+C". The Keyboard shortcuts
-  dialog lists all of them, read through `keysOf(command)`, which the key handlers match against too.
+- **Keys show as keycaps (`Kbd`)** in tooltips, the toolbar, the start screen, Search actions, the Wrap in layout
+  buttons, the resize handles' hint and the Keyboard shortcuts dialog. Menus keep the kit's own shortcut parts (the
+  menubar's, context menus' and dropdowns'), which show them as plain text, as Figma's and the system's menus do.
+- **A command shows its first keys** everywhere one key is shown: menus, tooltips, the start page, Search actions and
+  messages such as Paste style's "Copy a layer's style first, with Ctrl+Alt+C". The Keyboard shortcuts dialog lists all
+  of them, read through `keysOf(command)`, which the key handlers match against too.
 - **Keys a control answers to on its own** are `fixedKeys`, shown through the same lookup but not bound or listed:
   Exit's Alt+F4, which Windows handles; Esc on Close and Back, and ← and → in the Library's larger view; Enter on
   Resume; and Del on a picture's Remove. People won't be able to change these, so they aren't commands.
@@ -3330,13 +3332,13 @@ the grid cell map's arrows, Shift and Delete, and a new prop's "Enter to add"; a
 
 Tests: `chrome/keymap.test.ts`, `formatKeys`: joining with `+`, naming `+` and `-`, the Mac's symbols, text left alone,
 and every key in the keymap showing as one chord off a Mac; `shortcutOf`: a command's first keys on both platforms, the
-keys the tab bar and start page wrote out before (Alt+Home, Ctrl+T, Ctrl+K, Ctrl+O, Ctrl+Shift+O), the fixed keys, no
-fixed name that's a command's, and `keysOf` giving the keys the handlers match. `chrome/canvas-menu.test.ts` and
-`chrome/layers-menu.test.ts` check each item's keys against `shortcutOf`, and the empty canvas's menu against the keys
-written out. `scripts/lint.test.ts` (3): the lint rule refuses a string or template of keys naming `shortcutOf`, allows
-keys passed in, and allows explorations and stories. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2) reads
-the Edit and View menus' items as plain text joined by `+`, and the nudges and the new keys in the Keyboard shortcuts
-dialog as keycaps; `e2e/menus.e2e.ts` reads the canvas menu's.
+keys the start page wrote out before (Ctrl+K, Ctrl+O, Ctrl+Shift+O), the fixed keys, no fixed name that's a command's,
+and `keysOf` giving the keys the handlers match. `chrome/canvas-menu.test.ts` and `chrome/layers-menu.test.ts` check
+each item's keys against `shortcutOf`, and the empty canvas's menu against the keys written out. `scripts/lint.test.ts`
+(3): the lint rule refuses a string or template of keys naming `shortcutOf`, allows keys passed in, and allows
+explorations and stories. End to end (PAR-202), `apps/desktop/e2e/keyboard.e2e.ts` (2) reads the Edit and View menus'
+items as plain text joined by `+`, and the nudges and the new keys in the Keyboard shortcuts dialog as keycaps;
+`e2e/menus.e2e.ts` reads the canvas menu's.
 
 ### Shortcuts the person changes (PAR-1085, PAR-1122)
 
@@ -3405,13 +3407,13 @@ actions, the toolbar, Zoom, and the canvas and Layers menus.
   as PNG a layer or design selected, and Lock a layer or design, not a mode column picked on its own.
 - **A menu's own wording,** such as Insert… or Export…, is kept only for commands whose name doesn't change.
 
-Code: `commandStates` in `apps/desktop/src/renderer/chrome/command-state.ts` takes the tab's selection, designs, notes,
-canvas, history, what Repeat would run and whether a reference library is connected, and returns every command's
-`{ enabled, label }`. `commandsFor` in `chrome/actions.ts` reads a tab into it; `AppMenu.tsx` reads it once for each
-open menu, `canvasMenu` and `layersMenu` take it, `ActionsSearch.tsx` and `IconButton.tsx` (`CommandButton`) read it,
-and `canvas/shortcuts.ts` asks it before a key runs a command. `recordActions` in `chrome/record-actions.ts` asks it
-again before running, for the tab passed as `session` or the active one. What each command runs is private to
-`actions.ts`, which exports only `actions` and `commandsFor`.
+Code: `commandStates` in `apps/desktop/src/renderer/chrome/command-state.ts` takes the project's selection, designs,
+notes, canvas, history, what Repeat would run, whether a reference library is connected and whether the window holds a
+project, and returns every command's `{ enabled, label }`. `commandsFor` in `chrome/actions.ts` reads the project into
+it; `AppMenu.tsx` reads it once for each open menu, `canvasMenu` and `layersMenu` take it, `ActionsSearch.tsx` and
+`IconButton.tsx` (`CommandButton`) read it, and `canvas/shortcuts.ts` asks it before a key runs a command.
+`recordActions` in `chrome/record-actions.ts` asks it again before running, for the session passed as `session` or the
+open project's. What each command runs is private to `actions.ts`, which exports only `actions` and `commandsFor`.
 
 Tests:
 
@@ -3421,9 +3423,9 @@ Tests:
   locked screen, two and three designs, a note, a reference, no reference library, no canvas, history and Repeat) and
   the state and name each command has in them; and a state for every command in the keymap.
 - `chrome/record-actions.test.ts` (6): the wrapper records each run with where it came from, records one that doesn't
-  apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the tab it's given;
-  the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once there's
-  something to duplicate, recorded both times.
+  apply as cancelled without running it, runs `instead` and records a failure's code, and runs on the session it's
+  given; the registry runs every keymap command, exports only `actions` and `commandsFor`, and runs Duplicate only once
+  there's something to duplicate, recorded both times.
 - Stories, Parity / Chrome / App menu / Edit and / Object: LayerInInstance (greyed items, Cut and Delete among them, and
   the keymap's names for a layer inside an instance); / File: ExportSelectedAsItsShortcutDoes (PAR-976); Parity / Chrome
   / Search: NamesWhatItDoes (a locked design's Unlock, found by "lock"). Parity / Chrome / Zoom controls: NothingToFit,
@@ -3441,7 +3443,7 @@ selected now.
   (Recent), the project's screens and components (Designs), their layers, the actions of each menu, the components the
   project can insert, its tokens, and the projects the window remembers. Layers, components and tokens show once
   something's typed, at most eight layers and six of the others, best first; with nothing typed the designs and actions
-  are listed in full. Projects come first on Home and in a new tab, and last in a project.
+  are listed in full. Projects come first on Home, and last in a project.
 - **What's typed matches the start of words,** in any order, a name starting with everything typed first; a layer
   matches by its design's name too, and a token by each part of its name, so "primary" finds `--color-primary`.
 - **Picking one:** a design is selected and zoomed to; a layer is selected and scrolled into view; a component is
@@ -3969,7 +3971,7 @@ of the pictures themselves, two across, each as tall as its own proportions make
   removes the layers that show it as one step of the designs' history, then the file; the file's Undo puts the layers
   back too while that step is still the latest. A linked photo or a path with no file has only layers to remove. One the
   project's code names stays: the dialog lists the lines and says to remove or replace it in the code first.
-- **Listing** asks the service (`images.scan`) as the tab opens, and again when a design names a file the last scan
+- **Listing** asks the service (`images.scan`) as the project opens, and again when a design names a file the last scan
   didn't have, as one pasted onto the canvas meanwhile; the designs themselves are read as they are, unsaved changes
   included. Before the first answer the tab shows the wall's shape; a failed scan says so and shows what it last had.
 
@@ -3980,7 +3982,7 @@ the remove dialog's flow), `MediaWall.tsx` (the wall and its tiles), `MediaCard.
 `MediaUses.tsx` (where it's used on the card, every place, and the remove dialog's list), `RemoveMediaDialog.tsx`,
 `ProjectPicture.tsx` (a picture at the builder's address, noting its size in `picture-sizes.ts`, and the transparency
 grid), `project-media.ts` (the scan, kept with the open project's session through code changes and reconnects, and
-dropped when its tab closes) and `remove-media.ts`.
+dropped when the project closes) and `remove-media.ts`.
 
 Tests:
 
@@ -3999,7 +4001,7 @@ Tests:
   offering Pixabay. The stories' pictures are drawn for them and served at `/images/`, as a builder serves
   `public/images/`.
 - `workspace.test.ts`, "an open project's session": the same media files through a code change and a reconnect.
-- `project-part.test.ts`, "when its tab closes": the scan forgotten, one under way let go, and no scan after.
+- `project-part.test.ts`, "when its project closes": the scan forgotten, one under way let go, and no scan after.
 
 Gaps: Removing a component layer that takes the image as a prop removes the whole layer, as the dialog's count says.
 There are no thumbnails: every picture loads whole as the tab opens, so a project with hundreds of large images loads
@@ -5326,7 +5328,7 @@ The file keeps a slot as `slot` on the layout. Its rules are in `@parity-app/cor
 `slot-names.ts`. Filling a slot from an instance is PAR-84.
 
 Code: `chrome/slot-props.tsx` (a slot's row, Add and Make slot), `chrome/slot-focus.ts` (the slot to focus and a refused
-name, kept for each tab until it closes), `ComponentProps` in `inspector/sections/PropsSection.tsx`,
+name, kept for the project until it closes), `ComponentProps` in `inspector/sections/PropsSection.tsx`,
 `chrome/DesignPanel.tsx`, `chrome/LayerPanel.tsx`, the slot outlines in `canvas/CanvasOverlay.tsx`, and `NodeIcon` in
 `canvas/kinds.tsx`.
 
@@ -5336,7 +5338,7 @@ Tests:
   refused; a name that isn't usable, is reserved, is a param's or another slot's; a slot inside another, or around one;
   the free name a new slot takes; the slot code nests, by layers and on a tie; `designSlots` skipping screens and nested
   slots; the file refusing a bad or repeated name; and copies and detached instances losing the mark.
-- `apps/desktop/src/renderer/project-part.test.ts`: the slot to focus forgotten when the tab closes.
+- `apps/desktop/src/renderer/project-part.test.ts`: the slot to focus forgotten when the project closes.
 - Stories: Parity/Inspector/Sections/Slots (Layout In A Component, which makes a slot, Second Slot, Slot Layout and
   Layout Inside A Slot), Parity/Inspector/Sections/Props/Component design (With A Slot, With Several Slots, Adding A
   Slot, which adds one from Add, and Slot Name Taken, which renames one to a param's name), Parity/Left panel/Layers ›
@@ -5394,15 +5396,15 @@ prop (PAR-1025): hide it in a state or a variant option, or in one copy.
 
 Rules in `@parity-app/core`, `prop-binding.ts`: `addValueProp`, `propNameProblem`, `freePropName`, `textProps`,
 `bindText` and `propFromText`. Code: `AddProp` and `NewPropRow` in `chrome/slot-props.tsx`, `chrome/new-prop.ts` (the
-row being typed and a refused name, kept for each tab until it closes), and `chrome/text-prop.tsx` with `LayerSections`
-in `chrome/LayerPanel.tsx`.
+row being typed and a refused name, kept for the project until it closes), and `chrome/text-prop.tsx` with
+`LayerSections` in `chrome/LayerPanel.tsx`.
 
 Tests:
 
 - `packages/core/src/prop-binding.test.ts` (6): adding each kind with its default; names refused as unusable, another
   prop's or a slot's, and a free one numbered; the text props; using one and going back to its text; a prop that isn't
   text, and a layer that isn't text; and a prop made from a layer's text.
-- `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the tab closes.
+- `apps/desktop/src/renderer/project-part.test.ts`: the prop being added forgotten when the project closes.
 - Stories: Parity/Inspector/Sections/Props/Component design › Adding A Text Prop, and
   Parity/Inspector/Sections/Content/Text props (Text Using A Prop and Making A Prop From Text, which makes `period` from
   Plan card's period).
@@ -5775,8 +5777,8 @@ Every change people or agents make goes into one history per project, and stays 
   is, but it's saved in the `.par`, so changing it marks the file unsaved.
 - **What Save writes:** each `.par` with changes, and the token values into the project's stylesheet (`src/index.css` in
   the example), together. A token edit shows in every frame at once, since the stylesheet every frame shares is edited
-  in place, but nothing is written until Save. Don't save, when closing a tab or quitting, leaves the stylesheet as it
-  was. With Save automatically on, token values are written about 300ms after the edit, as files are.
+  in place, but nothing is written until Save. Don't save, when closing the project or quitting, leaves the stylesheet
+  as it was. With Save automatically on, token values are written about 300ms after the edit, as files are.
 - **Undo after a save** puts the value back on the canvas, and the next Save writes the value the stylesheet had before.
   A value given to a theme that had none (a dark `--radius`), saved and then undone, is taken out of the stylesheet
   again by the next Save (PAR-420), from every block of that theme that declares it, and a block left empty goes with
@@ -6219,12 +6221,12 @@ runs build up a lot of them between the person's saves.
   is on the canvas, the modes when they changed, and token values the stylesheet doesn't have yet. It's kept in Parity's
   app data, `<userData>/recovery/<hash of the project's folder>.json`, never in the project. The project service writes
   it, beside a temporary file it renames over the copy.
-- **It's removed once nothing is unsaved:** after Save, after undoing back to what the files hold, when a tab closes,
-  and when quitting after Save or Don't save. A clean quit leaves no copy, so nothing is offered next time.
-- **The next open offers it back.** As the project opens, from the last session's tabs or by hand, "Restore unsaved
-  changes?" says when the changes were made ("Parity closed before you saved your changes at 6:35 PM today") and offers
-  Discard and Restore. Restore is focused; Escape and clicking away do nothing. Restore puts the changes back as one
-  undo step, "Restore unsaved changes", unsaved, so the tab shows its dot, Save writes them and Undo goes back to what
+- **It's removed once nothing is unsaved:** after Save, after undoing back to what the files hold, when it closes, and
+  when quitting after Save or Don't save. A clean quit leaves no copy, so nothing is offered next time.
+- **The next open offers it back.** As the project opens, from the last session or by hand, "Restore unsaved changes?"
+  says when the changes were made ("Parity closed before you saved your changes at 6:35 PM today") and offers Discard
+  and Restore. Restore is focused; Escape and clicking away do nothing. Restore puts the changes back as one undo step,
+  "Restore unsaved changes", unsaved, so the project's name shows its dot, Save writes them and Undo goes back to what
   the files hold. It goes over whatever the files hold now without asking, since an agent often changes a file with the
   CLI in between. Discard removes the copy. Projects that open together are asked about one after another. Nothing is
   kept for the project until it's answered, so the copy can't be written over first.
@@ -6239,7 +6241,8 @@ Tests:
 - `apps/desktop/src/utility/recovery.test.ts` (4): a file per project outside it, removed when there's nothing to keep,
   nothing read from a copy cut short or from another version, nothing kept without a folder.
 - `apps/desktop/src/renderer/chrome/report-time.test.ts`: how the time reads ("6:35 PM today").
-- `chrome/RestorePrompt.stories.tsx`: Offered, Restored (the tab's dot, and the undo step) and Discarded.
+- `chrome/RestorePrompt.stories.tsx`: Offered, Restored (the dot after the project's name, and the undo step) and
+  Discarded.
 
 ### Settings saved with the project (PAR-1085)
 
@@ -6247,9 +6250,9 @@ A project can keep settings of its own in its main `.par`, so everyone who opens
 lists them.
 
 - **Its own preferences.** Autosave, snapping, the layout grid and the export sizes can be set for the project, in
-  `preferences`, as `{ "snapping": false }`. The project's value wins over the person's while it's open, in the active
-  tab's canvas, its menus and its Export section, and autosave follows each project's own. They're kept in the order
-  they were set, which is the order the page lists them; changing one keeps its place.
+  `preferences`, as `{ "snapping": false }`. The project's value wins over the person's while it's open, in its canvas,
+  its menus and its Export section, and autosave follows each project's own. They're kept in the order they were set,
+  which is the order the page lists them; changing one keeps its place.
 - **Extensions' project settings,** in `extensions`, by the extension's prefix and then key, as
   `{ "storybook": { "configDir": "apps/web/.storybook" } }`. Each extension reads its own and takes one it can't read as
   its default; its manifest declares them (see [extensions.md](extensions.md#settings)). The window sends the field to
@@ -6312,7 +6315,7 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   already written (`written`): `files` for a file reloaded from disk or code drawn again, which the saver takes as
   saved, and `no` for everything else, the others' edits included. Only the host takes in a file changed on disk; the
   others get it from there.
-- **A copy that doesn't write files has nothing to save.** It records nothing as saved, its tab shows no unsaved dot,
+- **A copy that doesn't write files has nothing to save.** It records nothing as saved, its name shows no unsaved dot,
   closing it asks nothing, and Save says "Saved by the room". When the host leaves and it takes over, it writes every
   file that differs from what it read from disk when it opened, and the stylesheet when token values do.
 - **Everyone sees the same state and mode** (PAR-1231). Which state and mode a design shows (its `view`) is an edit like
@@ -6352,12 +6355,12 @@ Tests:
 
 Three core services that people's and agents' presence draws through, as docs/proposals/extensions-in-the-window.md sets
 out. They're in the window for core today; internal extensions reach them through `parity.canvas` once window modules
-land (PAR-1233). Each project tab's canvas starts its own as it mounts (`surfaceOf(editor)`).
+land (PAR-1233). The project's canvas starts its own as it mounts (`surfaceOf(editor)`).
 
 - **Colors never run out.** People and agents get colors by key, never by color: `claim(key)` gives the lowest-numbered
-  palette no other key in the tab holds, a released number goes out again first, and past the hand-tuned palettes more
-  are generated by number, the same in every copy. A room's numbers, given with `assign(key, n)`, win over claims, and a
-  claim on a number the room gave someone else moves to a free one. Claims are counted per owner, an extension or
+  palette no other key in the project holds, a released number goes out again first, and past the hand-tuned palettes
+  more are generated by number, the same in every copy. A room's numbers, given with `assign(key, n)`, win over claims,
+  and a claim on a number the room gave someone else moves to a free one. Claims are counted per owner, an extension or
   `core`, and given back together when it stops. Agents at work get theirs this way, so a thirteenth agent gets a
   generated palette rather than sharing one. The first claim to need each generated palette records `colors.generated`.
 - **The camera** says what's in view as a rect on the page, tells listeners at most once a frame, and `show(view)`
@@ -6720,8 +6723,8 @@ the style to set.
 - **Out of date, and checking again.** A check whose design changed since shows an amber warning with Check again, a dot
   on the refresh button, and its findings faded. Checking again keeps the last findings, faded, under "Checking again",
   rather than emptying the panel.
-- **Each tab's checks.** A tab keeps its designs' checks until it closes, when they go, and a check still running then
-  is let go (PAR-1005).
+- **The project's checks.** The project keeps its designs' checks until it closes, when they go, and a check still
+  running then is let go (PAR-1005).
 - **The newest check wins.** Checking a design again before the last check answers shows only the newest check's result,
   whichever reply lands first; an older one's result or failure is dropped (PAR-979).
 
@@ -6735,7 +6738,7 @@ Tests: `packages/tokens/src/contrast.test.ts` (WCAG ratios, translucent colors, 
 frames, preferred tokens and the fallback, large text, no token); `packages/agent/src/run.test.ts` ("gives contrast
 failures the token that passes in every frame", "gives no contrast fix when coloring the layer wouldn't reach its
 text"); `packages/cli/src/client.test.ts` ("gives a contrast failure's fix as the style to set");
-`apps/desktop/src/renderer/project-part.test.ts` (the checks forgotten when the tab closes, and one running then let
+`apps/desktop/src/renderer/project-part.test.ts` (the checks forgotten when the project closes, and one running then let
 go); `chrome/accessibility-checks.test.ts` (two checks answered out of order show the second's result, an older reply
 landing first leaves it checking, and an older failure is dropped); and `chrome/AccessibilityPanel.stories.tsx`:
 ContrastFix (Apply, the change, checking again), NoPassingToken, OutOfDate, CheckingAgain, ManyFindings (the tally) and
@@ -6977,7 +6980,7 @@ Layers and Instance sections, and Insert detached copy placed plain layers.
 ## Zooming far out
 
 What the canvas draws, and what it lets go of, once it's zoomed out far enough for frames to show their bitmaps, or its
-tab isn't showing.
+project isn't showing.
 
 ### Frames sleep while their bitmaps show (PAR-197)
 
@@ -7079,41 +7082,40 @@ empty frame). Gap: a skeleton shown on the canvas has no test of its own; it was
 project's Billing frames, main and companion, at 100%, 10% and 5% in the running app, which agreed to within a hundredth
 of a pixel.
 
-### A hidden tab's frames sleep (PAR-153)
+### A hidden project's frames sleep (PAR-153)
 
-A tab that isn't showing keeps its session, its document and its boards, but 3 seconds after it's hidden every frame
-showing its bitmap sleeps, on every board including the selected one: its design's React root is unmounted and its
-elements removed, as zoomed far out (see above). Shown again, every frame shows at once, the frames near the view
-drawing their design or, until they wake, their bitmap, and frames away from the view keeping their bitmap until they
-come near. Frames wake one each animation frame, near the view only, so switching back doesn't remount the whole
-project.
+A project that isn't showing, under an extension's page or the sign-in screen, keeps its session, its document and its
+boards, but 3 seconds after it's hidden every frame showing its bitmap sleeps, on every board including the selected
+one: its design's React root is unmounted and its elements removed, as zoomed far out (see above). Shown again, every
+frame shows at once, the frames near the view drawing their design or, until they wake, their bitmap, and frames away
+from the view keeping their bitmap until they come near. Frames wake one each animation frame, near the view only, so
+switching back doesn't remount the whole project.
 
-- **Sizes hold.** Boards keep the size they had: the tab's shapes aren't touched, and a frame put to sleep while nothing
-  is laid out keeps the height it last had when drawn (`contain-intrinsic-size: auto`) instead of recording none. A
-  board that has never been drawn, as in a tab restored behind another, has no size to keep, so its frames stay awake
-  until the tab is first shown.
-- **Agents** read a hidden tab's boards from its shapes, which keep every board's position and size, as before.
-- **Not at once.** A tab hidden for less than 3 seconds, as when flipping through tabs, lets go of nothing, so switching
-  straight back costs nothing either.
-- **What still runs:** a frame whose design changes while its tab is hidden (an agent's edit) wakes, draws offscreen,
-  and sleeps again once its new bitmap is taken, as a sleeping frame does anywhere. A frame without a bitmap, whose
-  design didn't render, never sleeps.
+- **Sizes hold.** Boards keep the size they had: the project's shapes aren't touched, and a frame put to sleep while
+  nothing is laid out keeps the height it last had when drawn (`contain-intrinsic-size: auto`) instead of recording
+  none. A board that has never been drawn, as in a project restored under the sign-in screen, has no size to keep, so
+  its frames stay awake until the project is first shown.
+- **Agents** read a hidden project's boards from its shapes, which keep every board's position and size, as before.
+- **Not at once.** A project hidden for less than 3 seconds, as under a page opened and closed again, lets go of
+  nothing, so switching straight back costs nothing either.
+- **What still runs:** a frame whose design changes while its project is hidden (an agent's edit) wakes, draws
+  offscreen, and sleeps again once its new bitmap is taken, as a sleeping frame does anywhere. A frame without a bitmap,
+  whose design didn't render, never sleeps.
 
-Measured with `pnpm perf` on `examples/shadcn-vite` (61 designs, 119 frames), every board visited at 100% first and then
-`fixtures/vite7-js` opened in a second tab: the hidden tab held 7,898 DOM nodes and 120 MB of heap, against 33,283 and
-139 MB before; switching back, every frame showed something within 283 ms (317 ms before, when they were all still
-drawn), the 4 frames near the view had woken by 468 ms, and no board changed size.
+Measured with `pnpm perf` on `examples/shadcn-vite` (61 designs, 119 frames), when windows had tabs, every board visited
+at 100% first and then `fixtures/vite7-js` opened in a second tab: the hidden tab held 7,898 DOM nodes and 120 MB of
+heap, against 33,283 and 139 MB before; switching back, every frame showed something within 283 ms (317 ms before, when
+they were all still drawn), the 4 frames near the view had woken by 468 ms, and no board changed size.
 
 Code: `isTabHidden` and the `shown` prop of `CanvasEditor` in `apps/desktop/src/renderer/canvas/CanvasEditor.tsx`, which
-`ProjectView.tsx` passes the tab's being active; `boardDormant` and `hiddenSleepMs` in `canvas/frame-sleep.ts`, which
+`ProjectView.tsx` passes whether the project shows; `boardDormant` and `hiddenSleepMs` in `canvas/frame-sleep.ts`, which
 the board's `dormant` signal in `canvas/ContainerUtil.tsx` goes by; the height kept in `ModeView.tsx`'s teardown.
-`pnpm perf` visits every board at 100% before hiding the tab, and reports `back shown ms` (every frame showing its
-design or its bitmap), `back woken ms` and `frames awake`; `PARITY_PERF_UI_PORT` and `PARITY_PERF_DEBUG_PORT` let a
-second run go alongside another.
+`pnpm perf` measured it by opening a second project in a tab, and stopped with PAR-1241, since a window no longer has
+one to show in its place.
 
-Tests: `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (4: a shown tab's boards stay awake up close, sleep far
-out except the selected one, a hidden tab's boards all sleep at any zoom, and not before they've been drawn).
-`ModeView.test.ts` (1, from PAR-197: a frame put to sleep keeps its host and height). Gaps: that the tab's hiding
+Tests: `apps/desktop/src/renderer/canvas/frame-sleep.test.ts` (4: a shown project's boards stay awake up close, sleep
+far out except the selected one, a hidden project's boards all sleep at any zoom, and not before they've been drawn).
+`ModeView.test.ts` (1, from PAR-197: a frame put to sleep keeps its host and height). Gaps: that the project's hiding
 reaches the boards after 3 seconds, and that sizes hold through it, have no unit test; both were measured by
 `pnpm perf`, above, and the hiding was checked by reading `CanvasEditor`. Before, tried 2026-10-29 without sleep:
 unmounting a hidden tab's frames cut its DOM nodes 77%, but all 119 remounting took 4 s, and remounting a few a frame
@@ -7216,10 +7218,10 @@ warm, and 1.1 s the first time after the window loaded.
   the file's modules, and every module importing them however deep, as Vite's HMR does, so Vite writes each import of
   them with `?t=<stamp>` from then on, and gives the component files among them (`stampChange`), gathering a burst of
   saves into one change 40 ms after the last. The guest still has no HMR client, so the page never reloads.
-- **The window loads only those components again.** The change reaches the tab (`project.codeChanged`), whose guest is
-  given each of those components again with the stamp as its `version` (`codeChangeVersions`, `versionedSources`). The
-  guest imports a component with a new version from `path?t=<version>`, which brings in what changed beneath it too, and
-  starts its boundaries over, so one that failed draws again. The job for offscreen frames carries the versions too.
+- **The window loads only those components again.** The change reaches the window (`project.codeChanged`), whose guest
+  is given each of those components again with the stamp as its `version` (`codeChangeVersions`, `versionedSources`).
+  The guest imports a component with a new version from `path?t=<version>`, which brings in what changed beneath it too,
+  and starts its boundaries over, so one that failed draws again. The job for offscreen frames carries the versions too.
 - **Only the frames drawing it draw again.** A frame's key names the source of each component its tree draws that the
   guest was given since it loaded, version included, rather than one number for all the guest's code (`frameKeys`), so a
   save redraws and retakes only those frames' bitmaps, and a kept bitmap's name has the version.
@@ -7287,9 +7289,9 @@ text, and a code change only loaded components again.
   Vite's is its own address with the change's stamp (`restyledGuest`, `?styles=<stamp>`): Vite writes the stamped
   stylesheets' imports with `?t=`, so the guest loaded there imports the CSS as it is now, while the renderer and
   unchanged components keep the modules the page has. The service serves the guest there and tells the windows as when a
-  builder moves (`project.guestMoved`). The tab swaps in the new guest and its tokens and lets go of the old one
+  builder moves (`project.guestMoved`). The window swaps in the new guest and its tokens and lets go of the old one
   (`moveGuest`); bitmaps are named by the code as the new address first served it, so none drawn with the old CSS is
-  shown. The styling framework's theme is read again for tabs opened later.
+  shown. The styling framework's theme is read again for projects opened later.
 - **A builder that can't say is started again on a new port,** one the windows have loaded nothing from, so they load
   the whole guest afresh.
 - **A builder started again keeps the stamp,** asking the new session for the restyled address, so on the same port it
@@ -7573,10 +7575,10 @@ shadcn's tooltip reads, set in `styles.css`.
   drawn in place.
 - **Canvas and agents first.** The offscreen windows' jobs are one queue (`renderQueue`): canvas bitmaps and agents'
   renders, then previews of rows on screen, then the rest. Previews are made one at a time, in one window, so with the
-  others free a preview never holds up a bitmap or an agent's render (PAR-523). Nothing is made until the tab is the one
-  shown, its canvas is up and no frame on it is waiting for its bitmap (`bitmapsWaiting`). Then the window asks for one
-  at a time (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after
-  2 seconds with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its
+  others free a preview never holds up a bitmap or an agent's render (PAR-523). Nothing is made until the project shows,
+  its canvas is up and no frame on it is waiting for its bitmap (`bitmapsWaiting`). Then the window asks for one at a
+  time (`nextPreview`): a component whose row is on screen first, whatever the person is doing; the rest only after 2
+  seconds with no pointer, key, wheel or drag and no edit, the person's or an agent's, and the pass stops before its
   next one as soon as they work. The offscreen windows' idle close still shuts them a minute after the last job.
 - **Drawn open, with what it portals drawn in place (PAR-517).** A dialog, popover or menu renders its content only once
   it's opened, and then in a portal, outside the frame's shadow root and the box the picture is cropped to, so its
@@ -7602,9 +7604,9 @@ shadcn's tooltip reads, set in `styles.css`.
   every open). One the offscreen window couldn't finish isn't kept and is tried again after the next lookup. The window
   looks every preview up again, 50 at a time, when the guest, its theme, the components, their props, the modes or the
   component designs change.
-- **Kept while the tab is open (PAR-1005).** The window keeps a tab's previews, and what it knows of each, with its
-  session: closing the tab stops making them and drops them, rather than keeping them until the window closes, and an
-  answer that arrives after is let go. Reopening the project looks them up again from the store on disk.
+- **Kept while the project is open (PAR-1005).** The window keeps the project's previews, and what it knows of each,
+  with its session: closing the project stops making them and drops them, rather than keeping them until the window
+  closes, and an answer that arrives after is let go. Reopening the project looks them up again from the store on disk.
 - **Kept under PAR-158's cleanup:** previews count toward the same 200 MB and 30 days, showing a picture counts as using
   it, and Clear bitmap cache removes them too.
 - **A void element gets no children (PAR-513).** React declares `children` for every element, so a component whose props
@@ -7645,8 +7647,8 @@ and `previews.make` handlers and their checks in `apps/desktop/src/shared/servic
 `deviceBox` and `devicePixels` in `apps/desktop/src/shared/render-job.ts`; the render pool's `preview` in
 `apps/desktop/src/main/render-pool.ts`, and `servePreview` in `apps/desktop/src/main/index.ts`; `previewJob`,
 `startPreviews`, `useComponentPreview` and `usePreviewOnScreen` in `apps/desktop/src/renderer/component-previews.ts`;
-`previewsOf`, kept for each tab with `projectPart` in `renderer/project-part.ts`; `previewMode` and `modeAppearance` in
-`packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
+`previewsOf`, kept for the project with `projectPart` in `renderer/project-part.ts`; `previewMode` and `modeAppearance`
+in `packages/core/src/modes.ts`, and `subscribeResolvedTheme` in `renderer/theme.ts`; `ComponentCard` in
 `renderer/chrome/ComponentCard.tsx` and `AssetRow` in `chrome/AssetsPanel.tsx`; `bitmapsWaiting` in
 `renderer/canvas/frame-bitmaps.ts`; `passesToVoidElement` in `packages/code/src/props.ts`; `sampleText` and
 `shortenedText` in `packages/libgen/src/sample-text.ts`.
@@ -8016,20 +8018,33 @@ component reloaded the page on the production build, and the prebundle's config 
 
 ## Opening and closing projects
 
-What opening a project loads into the windows, and what closing it gives back.
+What opening a project loads into the window, and what closing it gives back.
 
 On first launch the installed app shows the sign-in screen, and Home once you sign in or go on without (see
-[Signing in](#signing-in-par-612)). Later launches restore the saved project tabs, and Home if that's where the window
-was. Development can request an initial project through its runner. `workspace.test.ts` covers these startup choices
-(PAR-8, PAR-605).
+[Signing in](#signing-in-par-612)). Later launches reopen the project the window had open, or show Home if it had none.
+Development can request an initial project through its runner. `workspace.test.ts` covers these startup choices (PAR-8,
+PAR-605, PAR-1241).
 
-### The start page: Home and new tabs (PAR-605, PAR-607, PAR-188)
+### One project per window, and Home (PAR-1241, PAR-605, PAR-607, PAR-188)
 
-Home is pinned first in the tab strip, an icon that can't be closed, and shows whenever no tab is chosen. Alt+Home or
-View > Home goes there, and Ctrl+Tab goes round with Home first. The strip's +, Ctrl+T and File > New tab open a new tab
-at the end of the strip. Both are the start page from the explorations:
+A window holds one project, and shows Home when none is open, as
+[lens-layout.md](proposals/lens-layout.md#one-project-at-a-time) has it. There are no project tabs, new tabs or tab bar.
 
-- **Home** has the account menu (see Signing in), then Search, Open and New project along the top. Below them, the
+- **The title bar** has the app's menus on the left, your account on the right, and the open project's name in the
+  middle, with a dot after it while it has unsaved changes. The name's hint is the project's folder, with Unsaved
+  changes under it when there are some. The name opens the project's menu: Open project folder…, the projects opened
+  before under Recent, most recent first, and Close project. On Home the middle is empty.
+- **Opening a project closes the open one,** however it's opened: the project's menu, File, Home, Search or
+  `parity open`. One with unsaved changes asks first, as closing it does: Save, Don't save, or Cancel, which keeps it
+  open and opens nothing. Opening the project that's open leaves it as it is, and one that couldn't open opens again. A
+  project still opening is closed too, and the service closes it once it has it (see A project closed while it opens).
+- **Close project,** in the project's menu and File, or Ctrl+W, asks the same and leaves the window on Home. On Home
+  it's unavailable.
+- **An extension's page** shows in the project's place, under the title bar, with a button that closes it and shows the
+  project again as it was (see Extensions' views). Closing the project closes its page.
+- **Agents see the project as the one tab,** or none on Home: `parity tabs` lists it, a call naming another tab says
+  which is open, and `parity open` opens a project in its place, failing if the person keeps the open one.
+- **Home** has its workspace menu (see Signing in), then Search, Open and New project along the top. Below them, the
   Continue where you left off section offers the project opened last, which its picture, Resume or Enter opens, with For
   you beside it once you're signed in; signed out there's no For you. For you says nothing needs you, and what will show
   up there, until something can.
@@ -8037,28 +8052,27 @@ at the end of the strip. Both are the start page from the explorations:
   example, as it does run from the repository, Acme takes Continue's place: its picture, shipped with Parity until its
   own is kept, a line on what to try there, and Open Acme. Bring your own app sits beside it, with Open a folder and
   Open a project file. Without the example, the place shows what Parity does with your app, with the same two buttons.
-- **A new tab** has a large Search field, which has the keyboard when the tab shows so Enter or Space searches, then
-  Open and New project in Home's order.
-- **Both list your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
-  more, which sits beside the filters, or after the cards in a window as narrow as a phone. There Home's Search spans
-  the row under the account menu. A card has the project's picture, its folder's name and when it was last opened; its
-  tooltip is the folder's path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent.
-  Home's Recent leaves out the project it offers to continue. A list with nothing in it says what will show up there, in
-  a dashed box a row of cards tall.
+- **Home lists your projects** as cards under Recent, Starred, Shared with you and All projects, two rows until Show N
+  more, which sits beside the filters, or after the cards in a window as narrow as a phone. There Search spans the row
+  under the workspace menu. A card has the project's picture, its folder's name and when it was last opened; its tooltip
+  is the folder's path. Its menu opens it, stars or unstars it, copies its link and removes it from Recent. Recent
+  leaves out the project Home offers to continue. A list with nothing in it says what will show up there, in a dashed
+  box a row of cards tall.
 - **A project whose folder is gone (PAR-188)** — moved, renamed, deleted, or on a drive that isn't plugged in — is
   greyed, with Folder not found on its picture and under its name. Continue offers the next one instead, and opening it
   says where the folder was and offers Remove. It stays listed until removed, since a drive comes back. The service
-  checks the listed folders when the window starts, when the list changes, and each time Home or a new tab shows.
+  checks the listed folders when the window starts, when the list changes, and each time the project closes and Home
+  shows.
 - **Every copy of Parity lists the same projects,** kept in `projects.json` in the app's data folder. Opening, starring
-  or removing a project in one copy changes the start page in the others within a moment, and a change two copies make
-  at once keeps both.
-- **The tabs come back next time,** kept in `state.json` with the panel layout and Search's recent picks. Each window's
-  tabs have an entry of their own, which main writes as they change and every 10 seconds, so a copy that crashed loses
-  nothing: the next copy to start reopens the tabs of the newest copy that's gone, and a window that reloads keeps its
-  own. A copy started for one project, as `pnpm dev` is, opens that project and keeps no tabs. The layout is the one
-  last saved by any copy; a running copy doesn't follow another's.
-- **Opening from a new tab uses that tab.** A project already open elsewhere is switched to, and the new tab closes.
-- **Search is Ctrl+K,** which lists your projects as well as actions: first on Home and in a new tab, last in a project.
+  or removing a project in one copy changes Home in the others within a moment, and a change two copies make at once
+  keeps both.
+- **The project comes back next time,** kept in `state.json` with the panel layout and Search's recent picks. Each
+  window's project has an entry of its own, which main writes as it changes and every 10 seconds, so a copy that crashed
+  loses nothing: the next copy to start reopens the project of the newest copy that's gone, and a window that reloads
+  keeps its own. A window closed on Home keeps none. A window from before PAR-1241 kept several projects; the next one
+  reopens the one it showed. A copy started for one project, as `pnpm dev` is, opens that project and keeps none. The
+  layout is the one last saved by any copy; a running copy doesn't follow another's.
+- **Search is Ctrl+K,** which lists your projects as well as actions: first on Home, last in a project.
 - **A project's picture is its canvas as last saved (PAR-607).** It shows the project's first screens as the canvas drew
   them, each its main frame with the phone frame beside it where its board shows one, each frame the shape of its
   window, or shorter where the frame is. Moving the pointer across a card flips through them, naming each; Home's
@@ -8070,65 +8084,81 @@ at the end of the strip. Both are the start page from the explorations:
   - **When it's taken:** two seconds after the project opens and after each save, once the canvas has drawn the frames
     and has every bitmap it's waiting for, from those bitmaps; no frame is drawn again for it. A run of saves takes one.
     Edits not saved yet are never pictured: a picture that would show them waits for the next save. A code change, the
-    guest moving or the service restarting doesn't take it again, since the project stays the same session until its tab
+    guest moving or the service restarting doesn't take it again, since the project stays the same session until it
     closes; reopening it does (PAR-1004).
   - **Where it's kept:** in Parity's app data, in `pictures`, one file per project with each frame cut to the top of its
     window, about 70 KB for the example's five screens. Clear bitmap cache leaves them. A project's picture goes when
-    the start page stops listing it.
+    Home stops listing it.
 - **Stubs:** For you and Shared with you are empty; New project, cloning, Copy link, Invite people and New organization
   show a toast saying they aren't available yet. New project's and cloning's toasts also offer Open folder. A project's
   menu has no New project from this until projects can be made (PAR-284).
 
-Code: `apps/desktop/src/renderer/start/` (`HomePage.tsx`, `NewTabPage.tsx`, `ProjectList.tsx`, `ProjectCard.tsx`,
-`StartControls.tsx`, and `projects.ts` for what's listed and how times read); `workspace.ts` keeps Home and new tabs,
-claims its tabs from main (`restore`) and changes the projects with `changeProjectsData`, and asks the service which
-folders are gone and where the example is (`checkFolders`, through `start.check`, answered by
-`utility/start-folders.ts`); `start/example-picture.ts` is the example's shipped picture; `chrome/TabBar.tsx` draws the
-Home tab and the + button; `chrome/ActionsSearch.tsx` lists the projects. Pictures: `start/ProjectArt.tsx` draws one,
-`start/pictures.ts` reads them for the page, and `start/picture-screens.ts` (`picturedScreens`, `isPhone`) picks the
-screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`, started for each session by `keepPictureOf` in
-`workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and `frameBitmap` in `canvas/frame-bitmaps.ts`; the
-service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in `utility/webp.ts`, through the `pictures.store`,
-`pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`, in the folder main names as
-`PARITY_PICTURE_DIR`.
+Code: `chrome/TitleBar.tsx` draws the title bar and the project's menu; `workspace.ts` holds the window's project
+(`open`, `close`, `openPage`, `closePage`, `getProject` and `useProject`), claims it from main (`restore`), changes the
+projects with `changeProjectsData`, and asks the service which folders are gone and where the example is
+(`checkFolders`, through `start.check`, answered by `utility/start-folders.ts`); `App.tsx` shows Home, the project or an
+extension's page under the title bar; `closeTab` in `chrome/actions.ts` is Close project, available while
+`commandStates` says the window holds one (`held`). Home is in `apps/desktop/src/renderer/start/` (`HomePage.tsx`,
+`ProjectList.tsx`, `ProjectCard.tsx`, `StartControls.tsx`, and `projects.ts` for what's listed and how times read);
+`start/example-picture.ts` is the example's shipped picture; `chrome/ActionsSearch.tsx` lists the projects. Pictures:
+`start/ProjectArt.tsx` draws one, `start/pictures.ts` reads them for the page, and `start/picture-screens.ts`
+(`picturedScreens`, `isPhone`) picks the screens and frames; `renderer/project-picture.ts` (`keepProjectPicture`,
+started for each session by `keepPictureOf` in `workspace.ts`) takes them, from `useFirstRowFrame`, `firstRowFrame` and
+`frameBitmap` in `canvas/frame-bitmaps.ts`; the service keeps them in `utility/pictures.ts`, cut by `topOfPicture` in
+`utility/webp.ts`, through the `pictures.store`, `pictures.read` and `pictures.keepOnly` handlers in `utility/index.ts`,
+in the folder main names as `PARITY_PICTURE_DIR`.
 
 `readProjects`, `changeProjects`, `readState` and `changeState` in `packages/settings` take and return data;
 `appStateFiles` in `apps/desktop/src/main/app-state.ts` keeps both files with `sharedFile` (`main/shared-file.ts`), as
-`settings.json` is kept, and the window reads them through `renderer/saved.ts`.
+`settings.json` is kept, and the window reads them through `renderer/saved.ts`. The window's project is kept as a
+`SavedTabs` entry with one root, the shape windows with several projects kept.
 
 Tests: `start/projects.test.ts` (9: the order recent and starred projects list in, projects whose folders are gone, each
-scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "Home and new
-tabs" (7, with a project's picture let go once it isn't listed), "an open project's session" (5: the same session, media
-and picture through a code change and a reconnect, telling subscribers, the picture stopping when the tab closes, and a
-new session and picture on reopening), "starting the workspace" (4: Home on a fresh install, and staying there; a dev
-runner's project opened without keeping tabs; and the tabs told to main once claimed) and "checking the start page's
-folders" (2: gone folders flagged and the example kept; checked again when Home shows).
+scope, the times from minutes to another year, the picture's hue, folder names) and `workspace.test.ts`'s "one project
+per window" (11: a project opened in place of the open one, which closes and lets go of its guest; the open one kept
+when the question about its unsaved changes is cancelled, and closed once they're let go; a project still opening closed
+when another opens; the open project left as it is when opened again; one that couldn't open opened again; Home once the
+project closes; an extension's page shown in its place and gone when it closes or the project does; the project as the
+one tab agents see; and when a project opened, its star and its picture kept as Home lists it), "an open project's
+session" (5: the same session, media and picture through a code change and a reconnect, telling subscribers, the picture
+stopping when the project closes, and a new session and picture on reopening), "starting the workspace" (5: Home on a
+fresh install; the project from last time reopened; only the one shown of several a window kept before; a dev runner's
+project opened without keeping one; and the project told to main once claimed, and none once it closes) and "checking
+the start page's folders" (2: gone folders flagged and the example kept; checked again when the project closes).
+`chrome/command-state.test.ts` (Close project unavailable on Home and available while a project opens).
 `packages/settings/src/projects-file.test.ts` (7: nothing with no file, entries that don't read dropped, a file that
 isn't JSON, a project opened put first with its time and the list kept to its limit, a star kept after Remove all,
 unknown keys kept and text that doesn't parse never written over, and a window's change refused when it isn't one).
 `packages/settings/src/state-file.test.ts` (7: a window part's value kept as saved, unknown keys kept, tabs taken from
 the newest copy that's gone and not from one running, given to only one of two copies starting together, kept by a
 window that reloads, and forgotten after a week). `main/app-state.test.ts` (5: a star from a second copy kept after both
-close, one copy told of another's change, a crashed copy's tabs reopened in the next, a reload keeping its tabs while a
-copy beside it gets none, and no tabs kept for a window that never claimed any). `utility/start-folders.test.ts` (3:
-folders that aren't there or are files; the example found above where Parity runs once its packages are installed, and
-none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers' order;
-no components or frames, and no more than the most; no second phone beside a phone; a phone by its device or its width)
-and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in place
-of the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image refused;
-the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a folder).
-Stories: Parity/Start page (Home, signed in, a card flipping through screens, which plays, Home without pictures, the
-first time with and without the example, folders that are gone, which plays, Starred, Shared with you, a project's menu,
-New project, Open, a new tab), with the example project's pictures, Parity/App's On Home, New tab, No project open and
-Nothing opened yet, and the tab bar's On Home, With new tab and New tab tooltip. Gaps: no end-to-end test drives Home or
-a new tab yet; `reopening.e2e.ts` opens the project again with Home's Resume. Taking a picture, which waits on the
-canvas, has no test of its own: it was checked in `pnpm dev` on 2026-11-05, where opening the example kept its five
-screens (72 KB), Home showed Team members with Mobile Light, moving across its card flipped through Team members, Sign
-in and Pricing, and Team members' main frame set to Desktop Dark and saved with Ctrl+S showed dark on the card once
-taken again; chakra's Home screen, shorter than its window, was drawn as tall as its content. The first run and gone
-folders (PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with the example's tab closed and
-Recent empty, Home showed Acme, Bring your own app and No recent projects, and Open Acme opened the example; a listed
-folder that wasn't there showed greyed with Folder not found, and Enter on it showed where it was with Remove.
+close, one copy told of another's change, a crashed copy's project reopened in the next, a reload keeping its project
+while a copy beside it gets none, and none kept for a window that never claimed one). `utility/start-folders.test.ts`
+(3: folders that aren't there or are files; the example found above where Parity runs once its packages are installed,
+and none otherwise). `start/picture-screens.test.ts` (4: screens with a phone frame first, then the rest, in Layers'
+order; no components or frames, and no more than the most; no second phone beside a phone; a phone by its device or its
+width) and `utility/pictures.test.ts` (6: a picture kept with each frame cut to its window and read back; the latest in
+place of the one before; projects with none, or a file that can't be read, left out; a kept frame that isn't an image
+refused; the pictures of projects no longer listed let go, and partial files only once old; nothing kept without a
+folder). Stories: Parity/Chrome/Window/Title bar (One project, Project menu, which plays, Opening, Starting up, Failed
+to open, Unsaved changes, which plays, Long name and On Home); Parity/Chrome/Prompts/Unsaved changes (Closing the
+project, Opening another project, Quitting and Saving fails); Parity/Start page (Home, signed in, a card flipping
+through screens, which plays, Home without pictures, the first time with and without the example, folders that are gone,
+which plays, Starred, Shared with you, a project's menu, New project and Open), with the example project's pictures; and
+Parity/App's No project open and Nothing opened yet. Gaps: no end-to-end test drives Home yet; `reopening.e2e.ts` opens
+the project again with Home's Resume, after closing it with Ctrl+W. Taking a picture, which waits on the canvas, has no
+test of its own: it was checked in `pnpm dev` on 2026-11-05, where opening the example kept its five screens (72 KB),
+Home showed Team members with Mobile Light, moving across its card flipped through Team members, Sign in and Pricing,
+and Team members' main frame set to Desktop Dark and saved with Ctrl+S showed dark on the card once taken again;
+chakra's Home screen, shorter than its window, was drawn as tall as its content. The first run and gone folders
+(PAR-188) were checked in `pnpm dev` with a fresh profile on 2026-11-06: with the example closed and Recent empty, Home
+showed Acme, Bring your own app and No recent projects, and Open Acme opened the example; a listed folder that wasn't
+there showed greyed with Folder not found, and Enter on it showed where it was with Remove. One project per window
+(PAR-1241) was tried in `pnpm dev` on 2026-11-16 on the example: Tab from File reached the project's name, named
+"shadcn-vite, unsaved changes" with its dot, and Enter opened its menu; Ctrl+W asked to save and Escape kept the project
+open; opening `examples/rsbuild-chakra` asked the same, and Don't save opened it in the example's place; choosing the
+example under Recent opened it again without asking; Close project left the window on Home with nothing in the title
+bar's middle, Ctrl+W did nothing there, and Enter on Resume opened the example again.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
@@ -8806,12 +8836,12 @@ opened again.
 - **Closing a project** drops its guest's entry and the stylesheet the document adopted for it, so the next open makes
   its stylesheets anew. The offscreen renderer drops a project's last guest when that project's jobs come with a new
   address. A reopen waits for the closing builder's process to end, so a project never has two.
-- **Tabs and their views are given a tab's id,** not the tab: React keeps the props a list's parent drew last, so a
-  closed tab passed whole would keep its session, canvas included, until the window drew again.
-- **A closed tab's session lets go of its editor** (PAR-624). React also keeps the tabs a component last read, through
-  `useSyncExternalStore`, until it renders again, and through the editor that kept the canvas: the tldraw one the test
-  allowed for, and all of it when frames were still awake as the project closed. The example now ends about 170 nodes
-  after closing, where it was about 3,300.
+- **The project's views are given its id,** not the project: React keeps the props a parent drew last, so a closed
+  project passed whole would keep its session, canvas included, until the window drew again.
+- **A closed project's session lets go of its editor** (PAR-624). React also keeps the project a component last read,
+  through `useSyncExternalStore`, until it renders again, and through the editor that kept the canvas: the tldraw one
+  the test allowed for, and all of it when frames were still awake as the project closed. The example now ends about 170
+  nodes after closing, where it was about 3,300.
 - **Frames' and project icons' shadow roots stay unseen by Session Replay.** The recorder keeps every shadow root it
   watches for the whole session, and a frame's whole drawing with it. It sees one as it's attached, which
   `renderer/shadow.ts` hides (PAR-624), and on every element it records, even one it leaves out. So each shadow host
@@ -8820,20 +8850,20 @@ opened again.
   about 11,000 more nodes, 867,000 after an hour. `ModeView.test.ts` "a frame and Session Replay" checks that the
   frame's host sits inside an element replays leave out.
 - **A builder started again** from the processes list keeps its address when it's free, since the canvas it serves is
-  still open. When it isn't, it takes a port no guest has had, and the open tabs are told (`project.guestMoved`): each
-  loads the guest from the new address, swaps in its tokens and lets go of the old guest. A tab whose new guest won't
-  load keeps the old one and says so, and the service tells it again the next time the builder starts again, even on the
-  same port, as it compares with where the window draws the guest (`followGuest`). A tab still loading when its guest
+  still open. When it isn't, it takes a port no guest has had, and the window is told (`project.guestMoved`): it loads
+  the guest from the new address, swaps in its tokens and lets go of the old guest. A project whose new guest won't load
+  keeps the old one and says so, and the service tells it again the next time the builder starts again, even on the same
+  port, as it compares with where the window draws the guest (`followGuest`). A project still loading when its guest
   moves draws from the new address once it's ready; one reopened while the moved guest loads keeps what the reopen
-  loaded and lets the moved one go. When restarts overlap, the tab draws from the latest move, whichever guest loads
+  loaded and lets the moved one go. When restarts overlap, the project draws from the latest move, whichever guest loads
   first.
 
 Code: `serveBuilder` and `restartBuilder` in `openProjects`, `apps/desktop/src/utility/projects.ts`, with
 `newGuestPort`, `restartPort`, `guestMove` and `followGuest` in `guest-ports.ts`; `moveGuest` in
 `apps/desktop/src/renderer/workspace.ts`; `releaseGuest` in `apps/desktop/src/renderer/guest.ts`, called from
-`workspace.ts` and `render.ts`; `closeNow` in `workspace.ts`, which takes a closed tab's editor; `unrecordedShadow` in
-`apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
-reopened guest's bitmaps apart from the last one's; `ProjectView.tsx` and `chrome/TabBar.tsx`, which take a tab's id.
+`workspace.ts` and `render.ts`; `closeNow` in `workspace.ts`, which takes a closed project's editor; `unrecordedShadow`
+in `apps/desktop/src/renderer/shadow.ts`; `guestId` in `apps/desktop/src/renderer/canvas/frame-bitmaps.ts`, which keys a
+reopened guest's bitmaps apart from the last one's; `ProjectView.tsx`, which takes the project's id.
 
 Tests: `apps/desktop/e2e/reopening.e2e.ts` opens and closes the example project three times and checks the window keeps
 no more DOM nodes after the third close than after the first, give or take 5,000, and less than an open canvas and a
@@ -8844,13 +8874,13 @@ nodes, since frames showing bitmaps hold none of their own; since the boards gai
 stories an open canvas is about 19,000 and a closed one keeps about 16,000, so the allowance follows the canvas measured
 in the run (PAR-1106). `apps/desktop/src/utility/guest-ports.test.ts` covers which port a builder takes, skipping ports
 guests had, and when the windows are told a guest moved, and told again after a move they couldn't load;
-`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a tab still loading, one reopened meanwhile
-and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project folder through `openProjects`,
-with its builder, type checker and watcher standing in: its files, components and guest are read and served, what the
-type checker found is saved and taken on a reopen with nothing changed, a project file changed outside the canvas is
-told to the windows while the canvas's own save isn't, a `.par` outside the root (even in a sibling folder whose name
-starts with the root's) isn't saved, and closing stops the builder and the watcher before a reopen serves the project on
-a new port. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
+`apps/desktop/src/renderer/workspace.test.ts` covers `moveGuest`, including a project still loading, one reopened
+meanwhile and overlapping moves. `apps/desktop/src/utility/projects.test.ts` (6) opens a project folder through
+`openProjects`, with its builder, type checker and watcher standing in: its files, components and guest are read and
+served, what the type checker found is saved and taken on a reopen with nothing changed, a project file changed outside
+the canvas is told to the windows while the canvas's own save isn't, a `.par` outside the root (even in a sibling folder
+whose name starts with the root's) isn't saved, and closing stops the builder and the watcher before a reopen serves the
+project on a new port. Gaps: the offscreen renderer's side has no automated test, nor has `restartBuilder` sending
 `project.guestMoved` to the window. A project service started again forgets the ports, while the window keeps what it
 loaded from them.
 
@@ -9033,8 +9063,8 @@ extension reads it as the project opens (PAR-1226), so adding or changing one sh
   stylesheet's contents, a script in package.json or a version bump change nothing it compares, so they don't reopen the
   project. A package.json that's missing or half-written, as while it's rewritten, fails the read, which counts as no
   change.
-- **The tab opens the project again** when it changed (`project.detectionChanged`), as installing a library does
-  (`workspace.reload`): unsaved changes are saved first, and a tab whose changes can't be saved stays as it is. A tab
+- **The project opens again** when it changed (`project.detectionChanged`), as installing a library does
+  (`workspace.reload`): unsaved changes are saved first, and a project whose changes can't be saved stays as it is. One
   told while it's still loading asks again once it's ready, since what it loaded may have been read before the change.
 - **Each adapter names the files it watches** (`Adapter.watches`, PAR-826), and the service passes every registered
   adapter's into `detectionInputs`, so a new adapter needs no change to detection or the service. Vite's are
@@ -9061,44 +9091,46 @@ came from changed tells the windows, a file it didn't come from doesn't, a momen
 and opened again it has the new stylesheet; a config file the registered builder names tells the windows, and one no
 builder names doesn't; the builder's answer changing while it starts is told once the project is open).
 `packages/extension-vite/src/detect.test.ts` checks that each config name Vite finds is among `viteBuilder.watches`.
-`apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, a tab opens its project again only when the
-service says detection changed; a tab told while loading asks again once it's ready). Gaps: the handlers wiring
-`agent.open` and `project.detectionChanged` to the workspace is checked by reading; a `.storybook` folder added and a
-Vite config's contents aren't compared (Vite restarts its own server when its config changes).
+`apps/desktop/src/renderer/workspace.test.ts` (2: asked to detect again, the project opens again only when the service
+says detection changed; one told while loading asks again once it's ready). Gaps: the handlers wiring `agent.open` and
+`project.detectionChanged` to the workspace is checked by reading; a `.storybook` folder added and a Vite config's
+contents aren't compared (Vite restarts its own server when its config changes).
 
-### A tab closed while its project opens (PAR-427)
+### A project closed while it opens (PAR-427)
 
-Closing a tab whose project is still opening, as tabs restored at launch can be, closes the project once the service has
-it: its builder stops, it leaves the processes list, and the window lets go of the guest it loaded for it. Before, the
-service finished opening it and kept it, with its builder running and no tab. Opening the project again before the first
-open finishes keeps it open in the new tab. The same holds for a tab closed while it reopens, and for a guest that fails
-to load after its tab closed. Each open is tracked on its own, so an earlier open that was abandoned can't close or fill
-a newer tab for the same project. While another tab's open hasn't heard which project it is, as one opening the default
-project or a `.par` file hasn't, the close waits for it, since it may be the same project.
+Closing a project that's still opening, as one restored at launch can be, or opening another in its place, closes it in
+the service once the service has it: its builder stops, it leaves the processes list, and the window lets go of the
+guest it loaded for it. Before, the service finished opening it and kept it, with its builder running and nothing to
+show it in. Opening the project again before the first open finishes keeps it open. The same holds for a project closed
+while it reopens, and for a guest that fails to load after it closed. Each open is tracked on its own, so an earlier
+open that was abandoned can't close or fill a newer one for the same project. While a newer open hasn't heard which
+project it is, the close waits for it, since it may be the same project, as one opening the default project or a `.par`
+file can be.
 
-When the project service starts again, after a crash or a change to its code, each tab opens its project in the new
-service and loads its guest from there (`reconnect`). A tab closed meanwhile closes what the new service opened for it
-and lets go of the guest it loaded, so no builder runs on for it (PAR-978). One closed and opened again keeps the one
-project and draws the guest its new open loaded. When the service starts again during a reconnect, the tab draws from
-the latest one.
+When the project service starts again, after a crash or a change to its code, the project opens in the new service and
+loads its guest from there (`reconnect`). One closed meanwhile closes what the new service opened for it and lets go of
+the guest it loaded, so no builder runs on for it (PAR-978). One closed and opened again keeps the one project and draws
+the guest its new open loaded. When the service starts again during a reconnect, the project draws from the latest one.
 
 Code: `closeNow`, `open`, `reload` and `reconnect` in `apps/desktop/src/renderer/workspace.ts`, through its `attempts`
 and `settleDrops`.
 
-A reopen asked for while the tab is already opening or reopening is left to the one in flight, so closing the tab
-cancels it.
+A reopen asked for while the project is already opening or reopening is left to the one in flight, so closing the
+project cancels it.
 
 Tests: `apps/desktop/src/renderer/workspace.test.ts` (18: closed before the service answers, closed while the guest
-loads, opened again before the first open finished, the reopened tab closed too before either open finished, the default
-project opened again in a tab that doesn't know it yet, and closed once that tab turns out to be another project, the
-guest failing after its tab closed, closed while a reopen closes the project, while it opens it again and while it loads
-the guest, a reopen's guest failing after its tab closed, a second reopen asked for during one, closed while a reconnect
-opens the project and while it loads the guest, a reconnect's guest failing after its tab closed, closed and opened
-again during a reconnect, a second reconnect during one, and a project that finished opening, closed with its tab).
+loads, opened again before the first open finished, closed again too before either open finished, the default project
+opened again by an open that doesn't know it yet, and closed once that open turns out to be another project, the guest
+failing after it closed, closed while a reopen closes the project, while it opens it again and while it loads the guest,
+a reopen's guest failing after it closed, a second reopen asked for during one, closed while a reconnect opens the
+project and while it loads the guest, a reconnect's guest failing after it closed, closed and opened again during a
+reconnect, a second reconnect during one, and a project that finished opening, closed when it's closed). "one project
+per window" adds a project still opening closed by another opening, and closed in the service once the other says it's
+another.
 
-Not tested: a tab changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
-after its tab closed. Both were checked by reading `reload`: after saving it reads the tab again and stops only when
-it's gone or already reopening, and a failed `project.open` leaves no project to close.
+Not tested: a project changed or closed while a reopen saves its unsaved changes, and a reopen's `project.open` failing
+after it closed. Both were checked by reading `reload`: after saving it reads the project again and stops only when it's
+gone or already reopening, and a failed `project.open` leaves no project to close.
 
 ### The project service starts under Parity's copy of Electron (PAR-489)
 
