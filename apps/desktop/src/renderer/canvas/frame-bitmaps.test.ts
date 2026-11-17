@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
-import type { DesignJob } from "../../shared/protocol.ts"
+import type { DesignJob, PageJob } from "../../shared/protocol.ts"
 import { preloadAnswers } from "../service.ts"
 import { capture, failed, holdsFirstDraw, stored, type UndrawnFrame, want } from "./frame-bitmaps.ts"
 
@@ -92,6 +92,21 @@ describe("stored", () => {
     expect(await capture("restyled", job)).toBe("data:image/webp;base64,NEW")
     expect(request.mock.calls.map(([method]) => method)).toEqual(["frames.stored", "frames.capture"])
     want("restyled", -1)
+  })
+
+  it("asks the service again for a page's picture, which is named without its code, so a stale verdict holds", async () => {
+    // SAFETY: as `job`; only its kind is read.
+    const page = { kind: "page" } as PageJob
+
+    const answers = [
+      { src: "data:image/webp;base64,KEPT", height: 640 },
+      { src: "data:image/webp;base64,KEPT", height: 640, stale: true as const }
+    ]
+
+    const request = service({ "frames.stored": () => Promise.resolve(answers.shift()!) })
+    expect(await stored("page", page)).toEqual({ src: "data:image/webp;base64,KEPT", height: 640 })
+    expect(await stored("page", page)).toEqual({ src: "data:image/webp;base64,KEPT", height: 640, stale: true })
+    expect(request).toHaveBeenCalledTimes(2)
   })
 
   it("reads once for the frames that show the same bitmap", async () => {

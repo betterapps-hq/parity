@@ -481,7 +481,10 @@ function askStored(job: RenderJob): Promise<StoredAnswer> {
 
 async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | undefined> {
   const { src, height, stale } = await askStored(job)
-  const captured = bitmaps.get(key)
+  // A page's picture is named without the code it drew, so only the service's trace says whether it's current, each
+  // time it's asked: one read earlier can be of code changed since, as when the project is opened again.
+  const page = job.kind === "page"
+  const captured = page ? undefined : bitmaps.get(key)
 
   if (captured) {
     return captured.then((src) => {
@@ -499,6 +502,10 @@ async function readStored(key: string, job: RenderJob): Promise<KeptBitmap | und
 
   if (stale) {
     return { ...keptBitmap(src, height), stale }
+  }
+
+  if (page) {
+    return keptBitmap(src, height)
   }
 
   bitmaps.set(key, Promise.resolve(src))
