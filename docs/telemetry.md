@@ -226,7 +226,11 @@ extension's window module from the editor window, and every Node half from the s
 - **`extension.crashed`** is a Node half's process ending by itself, with how many times in a row and whether it starts
   again. After three, it's left stopped and its window module is deactivated too.
 - **`extension.callFailed`** is a listener, handler, command or call into a window module that threw, counted in its
-  tab, and **`extension.stoppedInTab`** the fifth, which stops the module there.
+  tab, and **`extension.stoppedInTab`** the fifth, which stops the module there. A canvas layer whose render throws is
+  one too, named `layer:<id>` (PAR-1257), and so is a camera, box or following listener.
+- **What a window module does on the canvas** is recorded by the core services it goes through, naming it as
+  `extension`: `follow.ended` for its followings, `dragPreview.settled` for its previews and `hold.released` for its
+  holds. `colors.generated` doesn't name it, since colors are the window's.
 - **`extension.halfUnavailable`** is a call to the other half while it's starting, restarting or stopped, which rejects
   at once. The window sends the first for an extension in a minute, then one in ten.
 - **`extension.manifestRefused`** is a built-in manifest that breaks one of internal extensions' rules, as it's read,
@@ -1028,14 +1032,14 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `extension.callFailed`
 
-| Attribute   | Type               | Meaning                                                    |
-| ----------- | ------------------ | ---------------------------------------------------------- |
-| `extension` | `string`           | The extension's id, its package name                       |
-| `api`       | `string`           | What core called, as `selection.onChange` or `node.status` |
-| `failures`  | `integer`          | How many calls into its window module failed in this tab   |
-| `stopped`   | `boolean`          | Whether this failure stopped it in the tab                 |
-| `message`   | `string`           | The error's message, scrubbed                              |
-| `stack`     | `string`, optional | The error's stack, when it has one                         |
+| Attribute   | Type               | Meaning                                                                                  |
+| ----------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| `extension` | `string`           | The extension's id, its package name                                                     |
+| `api`       | `string`           | What core called, as `selection.onChange`, `node.status` or `layer:multiplayer.pointers` |
+| `failures`  | `integer`          | How many calls into its window module failed in this tab                                 |
+| `stopped`   | `boolean`          | Whether this failure stopped it in the tab                                               |
+| `message`   | `string`           | The error's message, scrubbed                                                            |
+| `stack`     | `string`, optional | The error's stack, when it has one                                                       |
 
 ### `extension.capabilityMissing`
 
