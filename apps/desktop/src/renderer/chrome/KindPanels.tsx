@@ -55,20 +55,33 @@ const drawn: readonly StyleSection[] = ["effects", "motion", "rawCss"]
 /** The kinds with a panel of their own: a layer's type, or an icon, which is a code component from an icon set. */
 export type PanelKind = DesignNode["type"] | "icon"
 
-/** An image's or a video's style sections, the same for both. */
-const mediaOrder: readonly StyleSection[] = ["size", "spacing", ...position, "appearance", "stroke", ...drawn]
-
-/** Both kinds of component instance's style sections: a component design's and a code component's. */
-const instanceOrder: readonly StyleSection[] = [
+/**
+ * The style sections every kind shares, in one order after its own lead: its size and the box around it, where it sits,
+ * how it's drawn as a whole, the text inside it, its fill and stroke, and what's folded until set. Each kind leaves out
+ * what it doesn't have, and the capability table what its layers can't take.
+ */
+const shared: readonly StyleSection[] = [
   "size",
   "spacing",
   ...position,
-  "text",
   "appearance",
+  "text",
   "fill",
   "stroke",
   ...drawn
 ]
+
+/** The shared order without some sections, for a kind that doesn't have them. */
+const sharedWithout = (...left: StyleSection[]) => shared.filter((section) => !left.includes(section))
+
+/** Every style section in order: how a layout lays out its children, then the shared run. */
+export const styleOrder: readonly StyleSection[] = ["frameSize", "layout", ...shared]
+
+/** An image's or a video's style sections, the same for both. */
+const mediaOrder = sharedWithout("text", "fill")
+
+/** Both kinds of component instance's style sections: a component design's and a code component's. */
+const instanceOrder = shared
 
 /**
  * Each kind's style sections, in its order: its own panel's, and a selection of several layers of that one kind's
@@ -79,28 +92,28 @@ export const kindOrders = {
    * A layout (PAR-1057): how it lays out its children first, then its own size and the box around it, where it sits,
    * and how it's drawn. Typography, for the text inside it, folds until it's set. A frame's root starts with its size.
    */
-  layout: ["frameSize", "layout", "size", "spacing", ...position, "fill", "stroke", "appearance", "text", ...drawn],
+  layout: styleOrder,
   /**
    * A text layer (PAR-1058): its type and color, then how it sizes and where it sits, and how it's drawn. Fill is its
    * background, and folds until one is set.
    */
-  text: ["text", "size", "spacing", ...position, "appearance", "fill", "stroke", ...drawn],
+  text: ["text", ...sharedWithout("text")],
   /** An image or a video (PAR-1059, PAR-1060): no Fill, since the picture fills it. */
   image: mediaOrder,
   video: mediaOrder,
   /** An icon (PAR-1061): its color and stroke are its own, so it has no Typography, Fill or Stroke. */
-  icon: ["size", "spacing", ...position, "appearance", ...drawn],
+  icon: sharedWithout("text", "fill", "stroke"),
   /** A component instance (PAR-1062): no Layout; Typography is for the text inside it. */
   instance: instanceOrder,
   component: instanceOrder
 } satisfies Partial<Record<PanelKind, readonly StyleSection[]>>
 
-/** The order of layers' style sections when they're all of one kind that has one; none for layers of different kinds. */
-export function oneKindOrder(kinds: readonly PanelKind[]): readonly StyleSection[] | undefined {
+/** The order of layers' style sections: their kind's when they're all of one kind that has one, otherwise every section's. */
+export function oneKindOrder(kinds: readonly PanelKind[]): readonly StyleSection[] {
   const orders: Partial<Record<PanelKind, readonly StyleSection[]>> = kindOrders
   const [kind] = kinds
 
-  return kind !== undefined && kinds.every((each) => each === kind) ? orders[kind] : undefined
+  return (kind !== undefined && kinds.every((each) => each === kind) ? orders[kind] : undefined) ?? styleOrder
 }
 
 /** The style sections each of a layer type's own sections shows (`@parity-app/layer-types`). */

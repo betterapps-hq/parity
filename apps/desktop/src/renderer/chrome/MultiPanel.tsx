@@ -121,7 +121,7 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
  * Several layers of one design selected: their shared look, edited for all of them at once in the state being shown.
  * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value. Layers
  * of one kind show their style sections in that kind's order, as its own panel does; layers of different kinds show the
- * sections they all share, in the table's (PAR-1064).
+ * sections they all share, in the order every kind shares (PAR-1064).
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
   const session = useProject()

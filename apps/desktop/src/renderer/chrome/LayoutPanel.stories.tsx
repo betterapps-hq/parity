@@ -30,6 +30,10 @@ export const InALayout: Story = {
       expect.arrayContaining(["Layout", "Size", "Position", "Typography"])
     )
     await expect(titles[0]).toHaveTextContent("Layout")
+    const names = titles.map((title) => title.textContent ?? "")
+    // How it is drawn as a whole comes before the text inside it and its fill.
+    await expect(names.indexOf("Appearance")).toBeLessThan(names.indexOf("Typography"))
+    await expect(names.indexOf("Typography")).toBeLessThan(names.indexOf("Fill"))
     await expect(panel.queryByRole("combobox", { name: /font/i })).toBeNull()
     await expect(panel.getByRole("button", { name: "Add typography" })).toBeVisible()
   }

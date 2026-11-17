@@ -94,7 +94,7 @@ describe("describeElement", () => {
       name: "Region",
       detail: "nav",
       icon: "panels-top-left",
-      sections: ["landmark", "layout", "size", "fill", "stroke", "appearance"]
+      sections: ["landmark", "layout", "size", "appearance", "fill", "stroke"]
     })
   })
 

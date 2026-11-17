@@ -4837,26 +4837,26 @@ story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 ### Each layer kind's own panel (PAR-1057 to PAR-1064)
 
 Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
-the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout,
-then Size with Spacing, Position, Fill, Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A
-text layer's opens with Content and Typography, then Size, Position and Appearance, with Fill, its background, after
-them. An image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
-Position, Appearance and Stroke; it has no Fill, since the picture fills it. An icon's opens with Component instance,
-which icon it is and its set's props, and Attributes, as its accessible name, then Size, Position and Appearance; its
-color and stroke are its own, so it has no Typography, Fill or Stroke. A component instance's opens with Component
-instance, its props and the slots it fills, and Attributes, then Size, Position, Typography for the text inside it, and
-Appearance, with no Layout; when its component takes no `className`, a note stands in for its style sections. The
-capability table still leaves out what the layer can't take: a design's root has no Position, and a frame's root starts
-with its size. On a layout, a component or an instance, Typography folds to its title and + until it sets something; +
-opens it.
+the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). After each kind's own lead,
+every kind shares one order, leaving out what it doesn't have: Size with Spacing, Position, Appearance, Typography,
+Fill, Stroke, then Effects, Motion and CSS. A layout's opens with Layout. A text layer's opens with Content and
+Typography, with Fill, its background, after Appearance. An image's or a video's opens with Content, its file, alt text,
+fit and credit, and a video's controls, then Size, Position, Appearance and Stroke; it has no Typography or Fill, since
+the picture fills it. An icon's opens with Component instance, which icon it is and its set's props, and Attributes, as
+its accessible name, then Size, Position and Appearance; its color and stroke are its own, so it has no Typography, Fill
+or Stroke. A component instance's opens with Component instance, its props and the slots it fills, and Attributes, then
+Size, Position, Appearance, and Typography for the text inside it, with no Layout; when its component takes no
+`className`, a note stands in for its style sections. The capability table still leaves out what the layer can't take: a
+design's root has no Position, and a frame's root starts with its size. On a layout, a component or an instance,
+Typography folds to its title and + until it sets something; + opens it.
 
 A layer read from a component's element (read-only viewer) shows its type's own sections, from
-`@parity-app/layer-types`, with Spacing and Position after Size, as every box has them, Typography folded for a
-structure element, whose text inside inherits it, and Effects, Motion and CSS folded last. What a story draws takes
-edits to its props only: every kind's other sections are read-only there.
+`@parity-app/layer-types`, Appearance straight after Size as in the shared order, with Spacing and Position after Size,
+as every box has them, Typography folded for a structure element, whose text inside inherits it, and Effects, Motion and
+CSS folded last. What a story draws takes edits to its props only: every kind's other sections are read-only there.
 
 Several layers of one kind show their style sections in that kind's order, as its own panel does; several layers of
-different kinds show only the sections they all share, in the table's order, with Mixed where values differ (PAR-1064).
+different kinds show only the sections they all share, in the shared order, with Mixed where values differ (PAR-1064).
 
 Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from the sections before its style and its order
 (`LayoutPanel`, `TextPanel`, `MediaPanel` for images and videos, `IconPanel`, and `InstancePanel` for both kinds of
@@ -4864,17 +4864,18 @@ instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an
 for a layer read from an element; `kindOrders` and `oneKindOrder`, which `MultiLayerPanel` in `chrome/MultiPanel.tsx`
 uses too; `StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
 
-Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
-typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
-Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
-Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
-(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
-(Layers › Component instance): Code Component, Component instance then Attributes first and no Layout; Design Instance,
-Component instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography
-before Size; Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element):
-Button, Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography.
-Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
-`LayerPanel` with its own selection, to compare them while each kind's panel is built.
+Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first, Appearance before Typography, Fill
+and Stroke, and Typography folded behind Add typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers ›
+Text): Headline, Typography before Size and no Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image
+and Video, Content first, then Size, Position, Appearance and Stroke, with no Layout, Typography or Fill, and Video's
+Controls switch. `chrome/IconPanel.stories.tsx` (Layers › Icon): Check, Component instance first, with no Typography,
+Fill or Stroke. `chrome/InstancePanel.stories.tsx` (Layers › Component instance): Code Component, Component instance
+then Attributes first and no Layout; Design Instance, Component instance first. `chrome/MultiPanel.stories.tsx` (Layers
+› Several layers): Layers Of One Kind, Typography before Size; Layers Of Different Kinds, no Layout or Content.
+`chrome/ElementPanel.stories.tsx` (Layers › Element): Button, Typography, Size, Spacing, Position and Appearance;
+Section, Layout, Size, Spacing, Position and Typography. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every
+kind's panel side by side, each column the app's `LayerPanel` with its own selection, to compare them while each kind's
+panel is built.
 
 Tests:
 
@@ -8216,7 +8217,7 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   handlers it passes through to its element aren't listed. A layer inside it shows its type's sections: first the ones
   its attributes fill (`panelData`), as Link with its `href` and target, a Checkbox with its name and whether it's
   checked, or a video's Source and Playback, leaving out one with nothing set; then its text, for text; then the style
-  sections its type has, as a Button's Typography, Size, Fill, Stroke and Appearance. A layer of a page shows the Design
+  sections its type has, as a Button's Typography, Size, Appearance, Fill and Stroke. A layer of a page shows the Design
   tab's sections with its values. None of them edits it.
 - **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
   written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and
