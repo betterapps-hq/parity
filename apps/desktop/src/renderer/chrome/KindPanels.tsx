@@ -60,21 +60,22 @@ export const TextPanel = kindPanel(
 )
 
 /**
- * An image or a video (PAR-1059, PAR-1060): its file first, then its size, where it sits, its corners and opacity, and
- * its border. It has no Fill: the picture fills it.
+ * An image's or a video's sections: its size, where it sits, its corners and opacity, and its border, after its file. It
+ * has no Fill: the picture fills it.
  */
 const mediaSections: readonly StyleSection[] = ["size", "spacing", ...position, "appearance", "stroke", ...drawn]
 
-/** An image (PAR-1059). */
-export const ImagePanel = kindPanel("ImagePanel", mediaSections, LayerMedia)
+/** An image or a video (PAR-1059, PAR-1060): the same panel, since Content shows what differs, a video's controls. */
+export const MediaPanel = kindPanel("MediaPanel", mediaSections, LayerMedia)
 
 /**
  * The kinds of layer with a Design panel of their own, which `LayerPanel` draws; the others are drawn from
  * `panelParts`. Read when a panel draws, so the panels above are built by then.
  */
 export const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
-  image: ImagePanel,
+  image: MediaPanel,
   layout: LayoutPanel,
   route: RoutePanel,
-  text: TextPanel
+  text: TextPanel,
+  video: MediaPanel
 }
