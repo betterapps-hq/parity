@@ -182,14 +182,15 @@ export function projectTokenSets(
   })
 
   // A part a preset names by its token: one the fields list is that token; any other is what it comes to.
+  // A reference with a fallback (`var(--weight, 600)`) comes to the fallback where the project has no such token.
   const referred = (part: string, listed: readonly { name: string }[]): { token: string } | { written: string } => {
-    const name = /^var\(--([\w-]+)\)$/.exec(part.trim())?.[1]
+    const [, name, fallback] = /^var\(--([\w-]+)\s*(?:,\s*(.*))?\)$/.exec(part.trim()) ?? []
 
     if (name !== undefined && listed.some((token) => token.name === name)) {
       return { token: name }
     }
 
-    return { written: name === undefined ? part : (comesTo(byName, name) ?? part) }
+    return { written: name === undefined ? part : (comesTo(byName, name) ?? fallback?.trim() ?? part) }
   }
 
   const presetFont = (part: string): FontValue => {

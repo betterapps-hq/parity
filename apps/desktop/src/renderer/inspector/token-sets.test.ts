@@ -172,6 +172,21 @@ describe("the project's tokens as the Design tab's fields offer them", () => {
     })
   })
 
+  it("reads a part whose reference has a fallback as that fallback, where the project has no such token", () => {
+    const fallback = projectTokenSets(
+      [token("font-label", "font", "var(--weight-label, 600) 16px/1.5 Inter, sans-serif")],
+      length,
+      color
+    )
+
+    expect(fallback.typeStyle[0]?.values).toEqual({
+      font: { stack: "Inter, sans-serif" },
+      size: { px: 16 },
+      weight: { value: 600 },
+      lineHeight: { multiple: 1.5 }
+    })
+  })
+
   it("steps through Tailwind's hundreds where the project has no weights", () => {
     expect(projectTokenSets([], length, color).weight).toBe(tailwindWeights)
   })

@@ -14,8 +14,8 @@ import {
   presetStyle,
   tokenShown,
   trackingOf,
-  weightOf,
-  weightShown
+  typeShown,
+  weightOf
 } from "../style-values.ts"
 import type { SectionProps } from "./section-edits.ts"
 
@@ -49,13 +49,9 @@ export function TypographySection({ editor, edit, can }: SectionProps) {
   const follows = (field: TypeField) =>
     fromPreset?.[presetKeys[field]] !== undefined && sameValue(style[presetKeys[field]], fromPreset[presetKeys[field]])
 
-  const shown: TypeValues = {
-    font: tokenShown(style.fontFamily),
-    size: tokenShown(style.fontSize),
-    weight: weightShown(style.fontWeight),
-    lineHeight: tokenShown(style.lineHeight),
-    letterSpacing: tokenShown(style.letterSpacing)
-  }
+  // A value the preset wrote that it no longer gives is the layer's own, so it shows, and picking the preset again
+  // puts the preset's back.
+  const shown: TypeValues = typeShown(style)
 
   const own: TypeValues = Object.fromEntries(
     typeFields.flatMap(({ field }) => (follows(field) ? [] : [[field, shown[field]]]))

@@ -4624,10 +4624,10 @@ section with the group's own title leads it without a title of its own, and its 
   `@parity-app/tokens`, tested in `type-style.test.ts`). Picking one writes `typePreset` and its parts as one change,
   exactly as the preset gives them, a part it names by a token as that token and any other written out (`presetStyle` in
   `inspector/style-values.ts`, tested in `style-values.test.ts`); never `font`. A row still holding its part follows the
-  preset, and one that differs overrides it; picking it again takes back every override, and Detach keeps the values and
-  drops the link. Wrap, after Color, sets `textWrap`: Wrap, Balance, Pretty or No wrap; a text layer that hugs its width
-  has none, since it never wraps. Storybook's stories still list the stand-in project's presets. Not saved: the color's
-  opacity.
+  preset, and one that differs overrides it, a value written out showing as written (`typeShown`), so one the preset no
+  longer gives still shows; picking it again takes back every override, and Detach keeps the values and drops the link.
+  Wrap, after Color, sets `textWrap`: Wrap, Balance, Pretty or No wrap; a text layer that hugs its width has none, since
+  it never wraps. Storybook's stories still list the stand-in project's presets. Not saved: the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's

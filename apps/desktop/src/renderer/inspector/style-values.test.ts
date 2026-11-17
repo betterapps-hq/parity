@@ -16,6 +16,7 @@ import {
   sizeOf,
   sizeShown,
   trackingOf,
+  typeShown,
   weightOf
 } from "./style-values.ts"
 
@@ -144,6 +145,22 @@ describe("a typography preset's parts as the style holds them", () => {
       fontWeight: { value: 300 },
       lineHeight: { value: "1.167" },
       letterSpacing: { value: "-0.01em" }
+    })
+  })
+
+  it("reads a part written out back as its field shows it, so a value the preset no longer gives still shows", () => {
+    const parts = {
+      font: { stack: '"Roboto", sans-serif' },
+      size: { px: 96 },
+      weight: { value: 300 },
+      lineHeight: { multiple: 1.167 },
+      letterSpacing: { em: -0.01 }
+    }
+
+    expect(typeShown(presetStyle(parts))).toEqual(parts)
+    expect(typeShown({ lineHeight: { value: "24px" }, letterSpacing: { value: "1px" } })).toMatchObject({
+      lineHeight: { px: 24 },
+      letterSpacing: { px: 1 }
     })
   })
 })

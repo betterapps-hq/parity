@@ -285,6 +285,44 @@ export function optionOf<T extends string>(
 export const tokenShown = (value: Named | StoredLineHeight | undefined) =>
   value !== undefined && "token" in value ? { token: value.token } : undefined
 
+/** A number written with a unit (`24px`), or undefined where it's written another way. */
+function measured(written: string, unit: string): number | undefined {
+  const number = written.endsWith(unit) ? Number(written.slice(0, -unit.length)) : Number.NaN
+
+  return Number.isFinite(number) ? number : undefined
+}
+
+/**
+ * The type values a style holds, as their fields show them: a token, or what's written out, as a preset writes its
+ * parts. A value the fields can't show stays unset.
+ */
+export function typeShown(style: PresetStyle) {
+  const { fontFamily, fontSize, lineHeight, letterSpacing } = style
+  const sizePx = fontSize && "value" in fontSize ? measured(fontSize.value, "px") : undefined
+  const written = lineHeight && "value" in lineHeight ? lineHeight.value : undefined
+  const multiple = written === undefined || written.trim() === "" ? Number.NaN : Number(written)
+  const linePx = written === undefined ? undefined : measured(written, "px")
+  const spacing = letterSpacing && "value" in letterSpacing ? letterSpacing.value : undefined
+  const em = spacing === undefined ? undefined : measured(spacing, "em")
+  const spacingPx = spacing === undefined ? undefined : measured(spacing, "px")
+
+  const font: FontValue | undefined =
+    fontFamily && "value" in fontFamily ? { stack: fontFamily.value } : tokenShown(fontFamily)
+
+  const size: FontSize | undefined = sizePx === undefined ? tokenShown(fontSize) : { px: sizePx }
+
+  const line: LineHeight | undefined =
+    (lineHeight && "keyword" in lineHeight && lineHeight.keyword === "normal" && { keyword: "normal" }) ||
+    (Number.isFinite(multiple) && { multiple }) ||
+    (linePx !== undefined && { px: linePx }) ||
+    tokenShown(lineHeight)
+
+  const tracking: LetterSpacing | undefined =
+    (em !== undefined && { em }) || (spacingPx !== undefined && { px: spacingPx }) || tokenShown(letterSpacing)
+
+  return { font, size, weight: weightShown(style.fontWeight), lineHeight: line, letterSpacing: tracking }
+}
+
 /** Font as the style holds it: a font token. A stack of its own isn't offered, as the field takes tokens only. */
 export const fontOf = (value: FontValue | undefined): Named | undefined =>
   value !== undefined && "token" in value ? { token: value.token } : undefined
