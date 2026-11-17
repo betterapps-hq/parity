@@ -1,8 +1,16 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 03:03:00 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 03:18:25 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.76.1
+
+Tue, 17 Nov 2026 03:18:25 GMT
+
+### Patches
+
+- Typing next to an emoji in a shared text no longer splits it in two. (ajcraswell@gmail.com)
 
 ## 0.76.0
 

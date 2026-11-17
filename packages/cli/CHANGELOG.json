@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 03:18:25 GMT",
+      "version": "0.76.1",
+      "tag": "@parity-app/cli_v0.76.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "339168dcf21979735814bd37bdaf619712b7aba2",
+            "comment": "Typing next to an emoji in a shared text no longer splits it in two."
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 03:03:00 GMT",
       "version": "0.76.0",
       "tag": "@parity-app/cli_v0.76.0",
