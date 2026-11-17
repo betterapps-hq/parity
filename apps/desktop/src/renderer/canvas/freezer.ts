@@ -1,5 +1,5 @@
 import { type Channel, createChannel, domPort } from "@parity-app/channel"
-import { prepareCanvasCss } from "@parity-app/core"
+import { type ColorScheme, prepareCanvasCss } from "@parity-app/core"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
   type FrozenElement,
@@ -189,11 +189,28 @@ export function copySheets(copy: Pick<FrozenCopy, "sheets" | "origin">): CSSStyl
 
 /**
  * A web component's shadow-root styles in a copy, prepared as the copy's sheets are, so their media queries and viewport
- * units measure the copy's mode too. They've been through `sanitizePage`.
+ * units measure the copy's mode too. A `prefers-color-scheme` query is answered for the mode's scheme here, since the
+ * body the copy's sheets scope those rules to is outside the shadow root, and its roots stay its own `:host`. They've
+ * been through `sanitizePage`.
  */
-export function copyShadowStyle(copy: Pick<FrozenCopy, "origin">, css: string): string {
-  const prepared = prepareCanvasCss(css, { baseUrl: copy.origin })
-  addGlobals(`${copy.origin}\nshadow:${css}`, prepared.global)
+export function copyShadowStyle(
+  copy: Pick<FrozenCopy, "origin">,
+  css: string,
+  scheme: ColorScheme | undefined
+): string {
+  const answered = scheme
+    ? css.replaceAll(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (_query, asked: string) =>
+        asked.toLowerCase() === scheme ? "(min-width: 0px)" : "(max-width: -1px)"
+      )
+    : css
+
+  const prepared = prepareCanvasCss(answered, {
+    baseUrl: copy.origin,
+    colorSchemes: false,
+    qualifiedRoots: false
+  })
+
+  addGlobals(`${copy.origin}\nshadow:${answered}`, prepared.global)
 
   return prepared.scoped
 }

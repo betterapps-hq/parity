@@ -146,7 +146,7 @@ function showCopy(
   registry: CustomElementRegistry
 ): () => void {
   const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry })
-  const built = buildCopy(document, copy.body, registry, (css) => copyShadowStyle(copy, css))
+  const built = buildCopy(document, copy.body, registry, (css) => copyShadowStyle(copy, css, mode.scheme))
   const body = built.fragment.firstElementChild
 
   if (body) {
