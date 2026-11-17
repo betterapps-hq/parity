@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Typing next to an emoji in a shared text no longer splits it in two.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
