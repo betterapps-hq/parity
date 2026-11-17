@@ -133,7 +133,7 @@ const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
 
 /**
  * The style sections of a layer read from a component's element (read-only viewer), in order: its type's own, with
- * Spacing and Position after Size, as every box has them; Typography folded for a structure element, whose text inside
+ * Spacing and Position after Size, as every box has them; Typography for a structure element, whose text inside
  * inherits it, as a layout's; and Effects, Motion and CSS, folded until set, last.
  */
 export function elementOrder(element: LayerDefinition): readonly StyleSection[] {

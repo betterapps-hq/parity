@@ -6,7 +6,7 @@ import { pick, renderSection, sectionStage } from "./layer-stories.tsx"
 
 /**
  * A layout's Design panel (PAR-1057): Layout first, then its size and the box around it, where it sits and how it's
- * drawn. Typography folds until the layout sets it. Each section's own cases are in Sections.
+ * drawn. Each section's own cases are in Sections.
  */
 const meta = {
   title: "Parity/Inspector/Layers/Layout",
@@ -34,8 +34,8 @@ export const InALayout: Story = {
     // How it is drawn as a whole comes before the text inside it and its fill.
     await expect(names.indexOf("Appearance")).toBeLessThan(names.indexOf("Typography"))
     await expect(names.indexOf("Typography")).toBeLessThan(names.indexOf("Fill"))
-    await expect(panel.queryByRole("combobox", { name: /font/i })).toBeNull()
-    await expect(panel.getByRole("button", { name: "Add typography" })).toBeVisible()
+    // Typography shows the type the text inside it inherits, open like every other section.
+    await expect(panel.queryByRole("button", { name: "Add typography" })).toBeNull()
   }
 }
 

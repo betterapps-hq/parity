@@ -10,7 +10,7 @@ import { inspectorStage, renderInspector } from "./layer-stories.tsx"
 
 /**
  * A layer read from a component's element (read-only viewer): its type's sections, then Spacing and Position after Size,
- * as every box has them, and Effects, Motion and CSS folded last. A structure element folds Typography for the text
+ * as every box has them, and Effects, Motion and CSS folded last. A structure element shows Typography for the text
  * inside it, as a layout does.
  */
 const meta = {

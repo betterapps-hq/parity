@@ -4847,13 +4847,13 @@ its accessible name, then Size, Position and Appearance; its color and stroke ar
 or Stroke. A component instance's opens with Component instance, its props and the slots it fills, and Attributes, then
 Size, Position, Appearance, and Typography for the text inside it, with no Layout; when its component takes no
 `className`, a note stands in for its style sections. The capability table still leaves out what the layer can't take: a
-design's root has no Position, and a frame's root starts with its size. On a layout, a component or an instance,
-Typography folds to its title and + until it sets something; + opens it.
+design's root has no Position, and a frame's root starts with its size. Typography is always open, on a layout, a
+component or an instance as on a text layer.
 
 A layer read from a component's element (read-only viewer) shows its type's own sections, from
 `@parity-app/layer-types`, Appearance straight after Size as in the shared order, with Spacing and Position after Size,
-as every box has them, Typography folded for a structure element, whose text inside inherits it, and Effects, Motion and
-CSS folded last. What a story draws takes edits to its props only: every kind's other sections are read-only there.
+as every box has them, Typography for a structure element, whose text inside inherits it, and Effects, Motion and CSS
+folded last. What a story draws takes edits to its props only: every kind's other sections are read-only there.
 
 Several layers of one kind show their style sections in that kind's order, as its own panel does; several layers of
 different kinds show only the sections they all share, in the shared order, with Mixed where values differ (PAR-1064).
@@ -4865,7 +4865,7 @@ for a layer read from an element; `kindOrders` and `oneKindOrder`, which `MultiL
 uses too; `StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first, Appearance before Typography, Fill
-and Stroke, and Typography folded behind Add typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers ›
+and Stroke, and Typography open with no Add typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers ›
 Text): Headline, Typography before Size and no Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image
 and Video, Content first, then Size, Position, Appearance and Stroke, with no Layout, Typography or Fill, and Video's
 Controls switch. `chrome/IconPanel.stories.tsx` (Layers › Icon): Check, Component instance first, with no Typography,
