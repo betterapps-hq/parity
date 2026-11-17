@@ -178,6 +178,12 @@ describe("parity.agents", () => {
       design: "card",
       node: "title"
     })
+    expect(
+      agentEventOf(
+        { kind: "read", agentId: "a", ref: { owner: "design", type: "text", key: "main/sign-in/title" } },
+        (key) => key === "main/sign-in"
+      )
+    ).toMatchObject({ design: "main/sign-in", node: "title" })
   })
 })
 

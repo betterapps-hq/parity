@@ -1,6 +1,7 @@
 import type { Disposable, NodeRef } from "@parity-app/extension"
 import type { Agents, AgentStep, Point } from "@parity-app/extension/internal"
 import type { RecordSeamEvent } from "./events.ts"
+import { targetOf } from "./window-canvas.ts"
 import type { WindowSurface } from "./window-modules.ts"
 
 /*
@@ -70,16 +71,18 @@ export function agentStepOf(
   return step
 }
 
-/** What a step names, as the agent API's events do. */
-export function agentEventOf(step: AgentStep): AgentEventLike {
+/** What a step names, as the agent API's events do. `isDesign` keeps a slash in a design's key (see `targetOf`). */
+export function agentEventOf(step: AgentStep, isDesign?: (key: string) => boolean): AgentEventLike {
   const event: AgentEventLike = { kind: step.kind, agentId: step.agentId }
-  const slash = step.ref?.key.indexOf("/") ?? -1
+  const { ref } = step
+  const layer = ref && ref.type !== "design" && ref.key.includes("/")
+  const target = ref && layer ? targetOf(ref, isDesign) : undefined
 
-  if (step.ref && step.ref.type !== "design" && slash > 0) {
-    event.design = step.ref.key.slice(0, slash)
-    event.node = step.ref.key.slice(slash + 1)
-  } else if (step.ref) {
-    event.design = step.ref.key
+  if (target?.node !== undefined) {
+    event.design = target.design
+    event.node = target.node
+  } else if (ref) {
+    event.design = ref.key
   }
 
   for (const key of ["agent", "label", "state", "mode", "error"] as const) {

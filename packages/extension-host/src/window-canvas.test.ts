@@ -2,7 +2,7 @@ import { CapabilityMissingError, defineWindowModule, type FollowEnd } from "@par
 import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
 import { surfaceTestId, surfaceTestModule, surfaceTestPackage } from "./fixtures/window-surface-test.ts"
-import { driven, tab } from "./fixtures/window-tab.ts"
+import { driven, settle, tab } from "./fixtures/window-tab.ts"
 import { targetOf } from "./window-canvas.ts"
 
 describe("the surface test extension", () => {
@@ -36,6 +36,31 @@ describe("parity.canvas.layer", () => {
     await stop()
 
     expect(layers).toEqual([])
+  })
+
+  it("takes away at once a layer drawn after the module stopped, as a late activation can", async () => {
+    let resume: (() => void) | undefined
+    let drew = false
+    const resumed = new Promise<void>((resolve) => (resume = resolve))
+
+    const late = defineWindowModule({
+      async activateWindow(parity) {
+        const { canvas } = parity
+        await resumed
+        canvas.layer({ id: "late.layer", space: "page", order: "overDesigns" }, "late")
+        drew = true
+
+        return {}
+      }
+    })
+
+    const { layers, stop } = await tab(late)
+    await stop()
+    resume?.()
+    await settle()
+
+    expect(drew).toBe(true)
+    expect(layers.map((layer) => layer.id)).not.toContain("late.layer")
   })
 
   it("refuses a second layer with an id already drawn in the tab, and frees the id once it's taken away", async () => {
@@ -95,6 +120,19 @@ describe("parity.canvas boxes and points", () => {
     expect(() => targetOf({ owner: "@parity-app/extension-tanstack-router", type: "route", key: "/" })).toThrow(
       "isn't on the canvas"
     )
+  })
+
+  it("keeps a slash in a design's key when it's told which keys are designs'", () => {
+    const isDesign = (key: string) => key === "main/sign-in"
+
+    expect(targetOf({ owner: "design", type: "text", key: "main/sign-in/title" }, isDesign)).toEqual({
+      design: "main/sign-in",
+      node: "title"
+    })
+    expect(targetOf({ owner: "design", type: "text", key: "card/title" }, isDesign)).toEqual({
+      design: "card",
+      node: "title"
+    })
   })
 
   it("counts a box listener that throws as the extension's failure", async () => {
@@ -209,9 +247,13 @@ describe("parity.colors", () => {
   })
 
   it("lets the room assign numbers, and gives palettes and the hand-tuned count of each list", async () => {
-    const { parity } = await tab()
+    const { parity, layers } = await tab()
     const { colors } = parity()
+    let told = 0
+    layers[0]!.reads.onColors(() => (told += 1))
     colors.assign("peer-7", 5)
+
+    expect(told).toBe(1)
 
     expect(colors.claim("peer-7").n).toBe(5)
     expect(colors.palette(3).name).toBe("Person 3")
