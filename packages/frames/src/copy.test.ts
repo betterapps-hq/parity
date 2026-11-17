@@ -117,6 +117,21 @@ describe("buildCopy", () => {
     expect(built.drawn.nodeOf(shadow.querySelector("span")!)).toBeUndefined()
   })
 
+  it("passes each inline style through the board's preparation", () => {
+    const built = buildCopy(
+      document,
+      {
+        tag: "body",
+        attributes: [],
+        children: [{ tag: "section", attributes: [["style", "height: 100vh"]], children: [] }]
+      },
+      registry,
+      { inline: (css) => css.replace("100vh", "800px") }
+    )
+
+    expect(built.fragment.querySelector("section")!.getAttribute("style")).toBe("height: 800px")
+  })
+
   it("passes each shadow style through the board's preparation", () => {
     const host: FrozenElement = {
       tag: "price-tag",
@@ -125,9 +140,9 @@ describe("buildCopy", () => {
       shadow: { children: [], styles: ["@media (max-width: 600px) { span { color: red } }"] }
     }
 
-    const built = buildCopy(document, { tag: "body", attributes: [], children: [host] }, registry, (css) =>
-      css.replace("@media", "@container frame")
-    )
+    const built = buildCopy(document, { tag: "body", attributes: [], children: [host] }, registry, {
+      sheet: (css) => css.replace("@media", "@container frame")
+    })
 
     expect(built.fragment.querySelector("price-tag")!.shadowRoot!.querySelector("style")!.textContent).toBe(
       "@container frame (max-width: 600px) { span { color: red } }"

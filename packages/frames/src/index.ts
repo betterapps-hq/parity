@@ -1,4 +1,4 @@
-export { type BuiltCopy, buildCopy } from "./copy.ts"
+export { type BuiltCopy, buildCopy, type CopyPreparation } from "./copy.ts"
 
 export {
   type CopyKey,

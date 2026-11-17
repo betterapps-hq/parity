@@ -10,6 +10,12 @@ const namespaces = {
 const xlinkNamespace = "http://www.w3.org/1999/xlink"
 const xmlNamespace = "http://www.w3.org/XML/1998/namespace"
 
+/** How a board prepares a copy's CSS for its mode: shadow roots' stylesheets, and inline `style` attributes. */
+export interface CopyPreparation {
+  sheet?: (css: string) => string
+  inline?: (css: string) => string
+}
+
 /** A frozen copy's elements, ready to go into its shadow root, and the nodes they draw. */
 export interface BuiltCopy {
   fragment: DocumentFragment
@@ -22,15 +28,15 @@ export interface BuiltCopy {
  * root's own, so none is upgraded by a definition in Parity's window. Each element's id is its path from the body,
  * counting elements only (`0.3.1`). What's inside an `<svg>` has no id: its layer is the picture (`elementLayers`), so
  * selecting a shape in it finds the `<svg>`. An element's open shadow root is attached again, in the same registry,
- * with its own styles, each through `prepareStyle` (the board's media queries and viewport units, as the page's sheets
- * get); what's in it has no id either, as the page's DOM has none for it, so it selects its host. `body`
+ * with its own styles, each through `prepare.sheet` (the board's media queries and viewport units, as the page's sheets
+ * get); each inline `style` goes through `prepare.inline`; what's in it has no id either, as the page's DOM has none for it, so it selects its host. `body`
  * has been through `sanitizePage`.
  */
 export function buildCopy(
   document: Document,
   body: FrozenElement,
   registry: CustomElementRegistry,
-  prepareStyle: (css: string) => string = (css) => css
+  prepare: CopyPreparation = {}
 ): BuiltCopy {
   const ids: string[] = []
   const elements = new Map<string, Element>()
@@ -42,7 +48,7 @@ export function buildCopy(
 
   const standIn = create({ tag: "div", attributes: [], children: [] })
   standIn.setAttribute(bodyAttribute, "")
-  setAttributes(standIn, body.attributes)
+  setAttributes(standIn, body.attributes, prepare.inline)
   standIn.setAttribute("inert", "")
 
   interface Pending {
@@ -66,7 +72,7 @@ export function buildCopy(
 
     for (const text of shadow.styles) {
       const style = create({ tag: "style", attributes: [], children: [] })
-      style.textContent = prepareStyle(text)
+      style.textContent = prepare.sheet ? prepare.sheet(text) : text
       root.append(style)
     }
 
@@ -88,7 +94,7 @@ export function buildCopy(
       const id = next.parent === undefined ? String(index) : `${next.parent}.${index}`
       index += 1
       const element = create(child)
-      setAttributes(element, child.attributes)
+      setAttributes(element, child.attributes, prepare.inline)
       next.into.append(element)
 
       if (child.shadow) {
@@ -126,8 +132,14 @@ export function buildCopy(
 }
 
 /** Sets attributes as the page had them; `xlink:` and `xml:` names go in their namespaces, as the page parsed them. */
-function setAttributes(element: Element, attributes: readonly [string, string][]) {
-  for (const [name, value] of attributes) {
+function setAttributes(
+  element: Element,
+  attributes: readonly [string, string][],
+  inline: ((css: string) => string) | undefined
+) {
+  for (const [name, raw] of attributes) {
+    const value = name === "style" && inline ? inline(raw) : raw
+
     if (name.startsWith("xlink:")) {
       element.setAttributeNS(xlinkNamespace, name, value)
     } else if (name.startsWith("xml:")) {

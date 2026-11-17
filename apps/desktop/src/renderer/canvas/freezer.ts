@@ -1,5 +1,5 @@
 import { type Channel, createChannel, domPort } from "@parity-app/channel"
-import { prepareCanvasCss } from "@parity-app/core"
+import { bodyAttribute, prepareCanvasCss } from "@parity-app/core"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
   type FrozenElement,
@@ -178,7 +178,7 @@ export function copySheets(copy: Pick<FrozenCopy, "sheets" | "origin">): CSSStyl
 
       const prepared = prepareCanvasCss(sanitizeSheet(text, policy), { baseUrl: copy.origin })
       sheet = new CSSStyleSheet()
-      sheet.replaceSync(prepared.scoped)
+      sheet.replaceSync(throughCopyRoot(prepared.scoped))
       preparedSheets.set(key, sheet)
       addGlobals(key, prepared.global)
     }
@@ -209,6 +209,20 @@ export function copyShadowStyle(copy: Pick<FrozenCopy, "origin">, css: string, s
   addGlobals(`${copy.origin}\nshadow:${answered}`, prepared.global)
 
   return prepared.scoped
+}
+
+/** The attribute on the element around a copy's body that carries `<html>`'s classes and attributes. */
+export const copyRootAttribute = "data-copy-root"
+
+/**
+ * Prepared CSS with the root's children (`html > body`, which became `:host > [data-canvas-body]`) found through the
+ * element around a copy's body, which adds nothing to their specificity.
+ */
+export function throughCopyRoot(css: string): string {
+  return css.replaceAll(
+    new RegExp(String.raw`(:host(?:\([^()]*\))?)\s*>\s*(?=\[${bodyAttribute}\])`, "g"),
+    `$1 > :where([${copyRootAttribute}]) > `
+  )
 }
 
 function addGlobals(key: string, css: string): void {

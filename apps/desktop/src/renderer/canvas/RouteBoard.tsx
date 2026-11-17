@@ -1,4 +1,10 @@
-import { colorSchemeAttribute, type DesignNode, type FrameGeometry, type ResolvedMode } from "@parity-app/core"
+import {
+  colorSchemeAttribute,
+  type DesignNode,
+  rewriteFrameUnits,
+  type FrameGeometry,
+  type ResolvedMode
+} from "@parity-app/core"
 import {
   elementLayers,
   frozenSnapshots,
@@ -11,7 +17,7 @@ import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
-import { copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
+import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -146,7 +152,13 @@ function showCopy(
   registry: CustomElementRegistry
 ): () => void {
   const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry })
-  const built = buildCopy(document, copy.body, registry, (css) => copyShadowStyle(copy, css, mode.scheme))
+
+  // Inline styles' viewport lengths and `rem` measure the board, as its sheets' do.
+  const built = buildCopy(document, copy.body, registry, {
+    sheet: (css) => copyShadowStyle(copy, css, mode.scheme),
+    inline: rewriteFrameUnits
+  })
+
   const body = built.fragment.firstElementChild
 
   if (body) {
@@ -164,6 +176,7 @@ function showCopy(
   const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div", { customElementRegistry: registry })
   root.classList.add(...copy.root.classes)
   setAttributes(root, copy.root.attributes)
+  root.setAttribute(copyRootAttribute, "")
   root.setAttribute("style", "display: contents")
   root.append(built.fragment)
 
