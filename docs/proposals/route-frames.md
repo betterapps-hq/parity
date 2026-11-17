@@ -205,12 +205,12 @@ the copy until the freezer's replaces it. A menu left open or a typed value neve
 
 What a copy and its picture were made from, by builder:
 
-| Builder            | The trace's files                                                                                               |
-| ------------------ | --------------------------------------------------------------------------------------------------------------- |
-| Vite               | `loadedFiles` of the route's file and its parents' files, from `Route.file` and `Route.parent`                  |
-| webpack-compatible | The same, from its `loadedFiles`                                                                                |
-| Next.js            | No `loadedFiles`: every file under the route's folder and its parents' layouts, and the project's shared source |
-| Any, server code   | Loaders and server functions aren't in the client's module graph; the route's own file stands for them          |
+| Builder            | The trace's files                                                                                                                                                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Vite               | `loadedFiles` of the route's file and its parents' files, from `Route.file` and `Route.parent`                                                                                                                                              |
+| webpack-compatible | The same, from its `loadedFiles`                                                                                                                                                                                                            |
+| Next.js            | No `loadedFiles`: every file under the route's folder and its parents' layouts, and the project's shared source                                                                                                                             |
+| Any, server code   | Loaders and server functions import files the client never loads, such as a data module: the route file's imports in the server's module graph where the builder has one (Vite's SSR environment), and the whole project's source otherwise |
 
 With the lockfile, as design traces have. A builder that can't say for a route gives that route a trace of the whole
 project's source, so any change makes it stale: slower, never wrong.
@@ -302,10 +302,10 @@ export interface PageSnapshot {
   root: { classes: string[]; attributes: [name: string, value: string][]; style: string }
   /** `<body>` and everything in it, with every URL made absolute against the page's address. */
   body: FrozenElement
-  /** The page's stylesheets in document order, by content hash. Parity asks for the ones it hasn't got. */
-  sheets: string[]
-  /** The addresses of stylesheets on other origins, whose rules the page can't read, for main to fetch. */
-  remoteSheets: string[]
+  /** The page's stylesheets in document order, so the cascade holds: a readable sheet by content hash, which Parity
+   * asks for if it hasn't got it, or a sheet on another origin, whose rules the page can't read, by address, for main
+   * to fetch. */
+  sheets: ({ hash: string } | { href: string })[]
   /** A hash of `body`, which tells modes with the same markup apart from the rest. */
   markup: string
 }
@@ -522,20 +522,19 @@ Carrying `page` through takes, beside the types: the manifest reader's strict ob
 builder serves the modules through the same virtual modules as the guest's runtime packages, so they don't have to be in
 the project's dependencies.
 
-**With no page router,** the runtime uses its own: `navigate` calls `history.pushState` and dispatches `popstate`, which
-TanStack Router's and React Router's browser histories listen to, and it lands once the location matches and the DOM has
-been quiet for 100 ms. If the location doesn't change, the frame loads the URL instead, and spares for that project are
-loaded at the route they're for. **With no hydration module,** the app counts as hydrated once the document has loaded
-and the DOM has been quiet for 150 ms.
+**With no page router,** a frame can't be moved, since a changed URL doesn't show that anything rendered: an app that
+doesn't listen for `popstate` keeps the old page under the new address. So spares for that project are loaded at the
+route they're for and parked there, and going live anywhere else is a full load. **With no hydration module,** the app
+counts as hydrated once the document has loaded and the DOM has been quiet for 150 ms.
 
 Whether React has already loaded when Next runs `instrumentation-client`, and so which hydration signal Next needs, is
 checked in step 1. Where each page router finds its router is settled in step 2. What's known so far:
 
-| Router          | Where its router is in the page                                                                                 |
-| --------------- | --------------------------------------------------------------------------------------------------------------- |
-| TanStack Router | `window.__TSR_ROUTER__`, which TanStack Start sets; a plain TanStack app may not, and falls back to `pushState` |
-| React Router    | No global in library mode, which falls back to `pushState`; framework mode's to be found                        |
-| Next.js         | `window.next.router`, in the App and Pages Routers                                                              |
+| Router          | Where its router is in the page                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------- |
+| TanStack Router | `window.__TSR_ROUTER__`, which TanStack Start sets; a plain TanStack app may not, and then has no page router |
+| React Router    | No global in library mode, so no page router there yet; framework mode's to be found                          |
+| Next.js         | `window.next.router`, in the App and Pages Routers                                                            |
 
 ### Keys
 
@@ -657,7 +656,7 @@ placement are untried.
 - **The first visit to a route pays the builder's compile,** up to 37 s on Copacker. Spares and the freezer hide it from
   going live, but freezing every route when a project opens leans on the builder.
 - **Every router's landed signal, and Next's hydration, are their own,** and only TanStack's were tried. Apps whose
-  router has no global fall back to `pushState`, which works for browser history but not for a memory router.
+  router has no global get no page router, so their spares can't be moved and only parked spares are fast.
 
 ## Beyond routes
 
@@ -678,7 +677,7 @@ Each becomes an issue, in this order. Step 1 decides whether the rest goes ahead
      sees the zoom wheel and Escape when engaged;
    - whether Electron's Chromium has scoped custom element registries for shadow roots;
    - whether React has loaded when Next runs `instrumentation-client`;
-   - whether the `pushState` fallback moves the fixtures' TanStack and React Router apps.
+   - whether a plain TanStack app and React Router's library mode can hand the runtime their router.
 2. **The page runtime, its channel and the page modules.** `@parity-app/page-runtime` replaces `appPageModeScript` in
    the Vite, webpack-compatible and Next builders, with the handshake, `mode.set` without a reload, `page.height` in the
    mode's window and no scrollbar. TanStack Router's page router, React's hydration module, Next's hydration signal, and
