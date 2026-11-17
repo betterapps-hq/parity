@@ -125,6 +125,8 @@ describe("the overlay canvas", () => {
           const focus = document.activeElement
           const box = editor!.getSelectionScreenBounds()
           const camera = editor!.getCamera()
+          const rect = editor!.getContainer().getBoundingClientRect()
+          const viewport = editor!.getViewportScreenBounds()
 
           return {
             path: editor!.getPath(),
@@ -135,7 +137,10 @@ describe("the overlay canvas", () => {
             canvases: document.querySelectorAll(".tl-container").length,
             found,
             box: [box?.x, box?.y, box?.w, box?.h],
-            camera: [camera.x, camera.y, camera.z]
+            camera: [camera.x, camera.y, camera.z],
+            // Where the canvas is, and where tldraw thinks it is.
+            container: [rect.left, rect.top, rect.width, rect.height],
+            viewport: [viewport.x, viewport.y, viewport.w, viewport.h]
           }
         }, empty)
 
