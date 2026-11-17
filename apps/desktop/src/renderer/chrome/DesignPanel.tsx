@@ -26,6 +26,7 @@ import { LayerPanel } from "./LayerPanel.tsx"
 import { ArrangePanel, MultiLayerPanel } from "./MultiPanel.tsx"
 import { Name } from "./Name.tsx"
 import { NodePanel } from "./NodePanel.tsx"
+import { PageLinks } from "./PageLinks.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { ReferencePanel } from "./ReferencePanel.tsx"
@@ -158,6 +159,7 @@ function DesignPanel({ entry }: { entry: ContainerEntry }) {
         <DesignHeader entry={entry} />
         <RouteProps entry={entry} route={route} />
         <RouteSection route={route} />
+        <PageLinks entry={entry} route={route} />
         <DesignExport entry={entry} />
       </>
     )

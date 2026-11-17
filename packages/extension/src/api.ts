@@ -144,7 +144,10 @@ export interface Routes {
   onChange(listener: () => void): Disposable
 }
 
-/** A tab of a panel: Parity's own (`layers`, `components`, `icons`, `media`, `tokens`, `design`), or an extension's. */
+/**
+ * A tab of a panel: Parity's own (`layers`, `components`, `icons`, `media`, `tokens`, `design`), `routes` for the app's
+ * routes in Pages' Layers, or an extension's.
+ */
 export type TabId = string
 
 /** Moving around the window with the project open. Each waits for one. */

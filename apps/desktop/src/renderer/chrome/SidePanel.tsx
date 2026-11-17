@@ -1,9 +1,9 @@
 import { Tabs, TabsList, TabsTrigger, Tooltip, TooltipContent, TooltipTrigger } from "@buildkitgg/shadcn"
 import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from "lucide-react"
-import type { ComponentType, ReactNode } from "react"
+import { type ComponentType, type ReactNode, useEffect, useEffectEvent } from "react"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
-import { panelLimits, setLayout, useLayout } from "./layout.ts"
+import { onTabAsked, panelLimits, setLayout, useLayout } from "./layout.ts"
 
 export interface PanelTab {
   value: string
@@ -17,6 +17,8 @@ interface SidePanelProps {
   label: string
   tabs: PanelTab[]
   defaultTab: string
+  /** A tab this panel doesn't have, asked for: a lens with a narrower panel shows the lens whose panel has it. */
+  onOtherTab?: (tab: string) => void
   children: ReactNode
 }
 
@@ -25,8 +27,18 @@ interface SidePanelProps {
  * icon. A button collapses the panel, and its inner edge can be dragged to resize it. Collapsed, it becomes a slim
  * rail of the same tabs, so any of them is a click away. The open tab is remembered.
  */
-export function SidePanel({ side, label, tabs, defaultTab, children }: SidePanelProps) {
+export function SidePanel({ side, label, tabs, defaultTab, onOtherTab, children }: SidePanelProps) {
   const layout = useLayout()
+
+  // A tab this panel lacks, asked for while it shows.
+  const asked = useEffectEvent((on: "left" | "right", tab: string) => {
+    if (on === side && onOtherTab && !tabs.some((each) => each.value === tab)) {
+      onOtherTab(tab)
+    }
+  })
+
+  useEffect(() => onTabAsked(asked), [])
+
   const open = layout[side]
   const width = side === "left" ? layout.leftWidth : layout.rightWidth
   const tabKey = side === "left" ? "leftTab" : "rightTab"

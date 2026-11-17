@@ -39,7 +39,7 @@ function activate(parity: Parity): void {
   )
 
   parity.subscriptions.push(
-    parity.commands.register("react-router.showRoutes", () => parity.navigate.showTab("layers")),
+    parity.commands.register("react-router.showRoutes", () => parity.navigate.showTab("routes")),
     parity.commands.register("react-router.open", async (target) => {
       const route = routeOf(target, parity.selection.get())
 

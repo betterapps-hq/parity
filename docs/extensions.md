@@ -88,13 +88,14 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `onChange` listeners each time it changes. `set(refs)` selects nodes and brings them into view: designs, a route's
   page among them, as designs; layers of one design as layers; a route without a page, which the canvas draws as a
   group, a story or a mix, by ref. `highlight(refs)` points at a design or a layer as hovering its row does.
-- **`navigate`** (PAR-1092): `reveal(ref)` brings a node into view and `zoomTo(ref)` frames it; `openDesign(key)`;
-  `setMode(mode)` shows the selected design in a mode and `setState(design, state)` a design in a state, each by id or
-  name; `showTab(id)` opens a panel's tab, Parity's own (`layers`, `components`, `icons`, `media`, `tokens`, `design`,
-  `modes`, `accessibility`), the console, an extension's log by its id, or a tab an extension declares;
-  `openSettings(id?)` opens an extension's page in Settings; and `pageUrl(ref)` gives the URL the canvas draws a route's
-  page at. Each waits for a window with the project open. `pageUrl` is asynchronous, unlike the proposal's, since only
-  the window knows the pages.
+- **`navigate`** (PAR-1092): `reveal(ref)` brings a node into view and `zoomTo(ref)` frames it, first showing the lens
+  whose canvas draws it, as Pages for a route; `openDesign(key)`; `setMode(mode)` shows the selected design in a mode
+  and `setState(design, state)` a design in a state, each by id or name; `showTab(id)` opens a panel's tab, Parity's own
+  (`layers`, `components`, `icons`, `media`, `tokens`, `design`, `modes`, `accessibility`), `routes` for Pages with the
+  app's routes in its Layers (which the router extensions' Show routes opens), the console, an extension's log by its
+  id, or a tab an extension declares; `openSettings(id?)` opens an extension's page in Settings; and `pageUrl(ref)`
+  gives the URL the canvas draws a route's page at. Each waits for a window with the project open. `pageUrl` is
+  asynchronous, unlike the proposal's, since only the window knows the pages.
 - **`context.set(key, value)`:** sets a context key that menus' `when` and `enablement` test. A list of keys is true for
   the things it lists, such as the components that have stories.
 - **`facts.set(target, facts)`:** what the extension knows about a component, shown on its card.

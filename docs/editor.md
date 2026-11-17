@@ -1585,8 +1585,8 @@ A route that answers requests on the server and draws nothing is an API route: t
 leaving it out. TanStack Start's server routes, React Router's resource routes, and Next.js's route handlers and
 `pages/api` files are API routes. One with pages inside it is their layout or group, as before.
 
-- **Layers** lists them in their own section, API routes, under the app's pages and before its screens. A click selects
-  one, and the Design tab shows its path and file (`ApiRoutePanel`).
+- **Pages' Layers** lists them in their own section, API routes, under the app's pages; Screens' Layers doesn't. A click
+  selects one, and the Design tab shows its path and file (`ApiRoutePanel`).
 - **Nested by URL** (PAR-1185). Router extensions give an API route its layout or the root as its parent, so API routes
   have no tree among themselves. `routeOutline` in `@parity-app/core` nests routes by their `segments` alone, so they
   nest the same way for TanStack Router, React Router and Next.js. A route whose URL starts another's holds it and
@@ -8435,18 +8435,24 @@ The open project shows in the lens shell, as [lens-layout.md](proposals/lens-lay
 lens bar down the window's left edge, each open lens a tab over its canvas, and the left panel and inspector of the lens
 in focus beside them, over the status bar. The title bar stays above, as on Home.
 
-- **Screens is the one lens so far.** It's today's canvas with the console under it, Layers with its asset tabs, and the
-  inspector with Modes, unchanged: it still draws pages, stories and component boards until Pages, Stories and
-  Components have lenses of their own. The lens bar lists only lenses that are built. Opening a project shows Screens.
+- **Pages and Screens are the lenses so far,** and the lens bar lists only lenses that are built. Screens is today's
+  canvas, Layers with its asset tabs, and the inspector with Modes: it draws the designs, stories and component boards
+  until Stories and Components have lenses of their own. Pages has a canvas of its own (see Pages, a lens of its own).
+  Opening a project shows Screens.
+- **Each lens has a canvas of its own,** a tldraw editor drawing its part of the project. The project holds the editor
+  of the lens in focus, which Layers, the inspector, the menus and the shortcuts act on; N and Shift+N step through the
+  designs on it. What draws over a canvas, its outlines, the zoom bar, the drawing toolbar, extensions' layers and the
+  console docked under it, shows on the canvas in focus. What's selected is the project's, so it stays as lenses come
+  and go.
 - **The lens bar works as links do in a browser.** A click shows a lens in the tab in focus, and Ctrl+click or a middle
   click opens it in a new tab; one that's open is revealed where it is. Clicking the lens in front hides or shows the
-  left panel. Ctrl and a lens's number shows it, Ctrl+2 for Screens. The arrow keys, Home and End move between lenses.
-  Right-clicking one offers Show, Open in new tab, Split right and Close.
+  left panel. Ctrl and a lens's number shows it, Ctrl+1 for Pages and Ctrl+2 for Screens. The arrow keys, Home and End
+  move between lenses. Right-clicking one offers Show, Open in new tab, Split right and Close.
 - **Tabs** drag onto another group's tabs to join them, or onto a canvas's side to split. A tab's close button, or a
   middle click, closes it, the last one too.
 - **Every tab closed empties the window:** the left panel and the inspector go, and the canvas's place says No lens
-  open, with how to show one. The canvas closes with its tab, and showing Screens again draws it afresh, fitted to the
-  designs.
+  open, with how to show one. A canvas closes with its tab, or when another lens takes its tab's place, and showing its
+  lens again draws it afresh where its camera was.
 - **Lenses stay in the main window** until the desktop app has lens windows (PAR-1247): the menus don't offer Move to
   new window, and a tab let go outside the window stays where it was.
 - **The panels are the window's panel layout,** so the lens bar, Show Layers and the other panel commands, the View
@@ -8455,21 +8461,67 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
 - **Component previews** are made for as long as the project is open, whether or not Screens shows: once a canvas has
   come up, a lens closed doesn't hold them back as a canvas still loading does.
 
-Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`; `lenses/screens.tsx` is
-Screens (`screensLens`), whose views read the open project through `OpenProjectContext`. The shell is
-`lenses/LensWorkspace.tsx`, with `LensBar.tsx`, `LensTab.tsx`, `GroupActions.tsx` and `dock-adapter.ts`, the one file
-that calls Dockview; its decisions are `@parity-app/lenses`'s. Without a `popoutUrl`, `LensWorkspace` keeps lenses in
-its window.
+Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`, opening on Screens;
+`lenses/screens.tsx` is Screens (`screensLens`) and `lenses/pages.tsx` Pages (`pagesLens`). Their canvases are
+`ProjectCanvas` in `lenses/project-canvas.tsx`, which reads the open project through `OpenProjectContext`, gives the
+project its editor while its lens is in focus, and renders `CanvasEditor` with what it `draws` (`drawsDesign`, with
+`isRoutePage` in `canvas/route-pages.ts`). `CanvasEditor` keeps each canvas's camera as it goes (`keptCameras`). The
+shell is `lenses/LensWorkspace.tsx`, with `LensBar.tsx`, `LensTab.tsx`, `GroupActions.tsx` and `dock-adapter.ts`, the
+one file that calls Dockview; its decisions are `@parity-app/lenses`'s. Without a `popoutUrl`, `LensWorkspace` keeps
+lenses in its window.
 
-Tests: `e2e/window.e2e.ts` (the project in the lens shell: Screens the one lens and pressed, a click hiding and showing
-the left panel, closing its tab leaving No lens open with no Layers or designs, and Ctrl+2 drawing it again);
-`packages/lenses/src/decide.test.ts`, `state.test.ts` and `saved.test.ts` for the shell's decisions; and the Storybook
-stories Parity/Explorations/Lenses (Pages, Tabs, Components, Side by side and Empty), which render the same
-`LensWorkspace` with the exploration's lenses, and Parity/App's Example project. Tried in `pnpm dev` on 2026-11-17 on
-the example: the lens bar listed Screens alone, pressed; clicking it hid Layers and clicking again showed it; its menu
-offered Show Screens with Ctrl+2, Close, and Open in new tab and Split right unavailable; Close Screens and a middle
-click on its tab each left No lens open with the panels gone; Ctrl+2, and Enter on Screens in the lens bar, drew the
-canvas and panels again; the page didn't scroll.
+Tests: `e2e/window.e2e.ts` (the project opening on Screens in the lens shell, Pages and Screens listed and Screens
+pressed, a click hiding and showing the left panel, closing its tab leaving No lens open with no Layers or designs, and
+Ctrl+2 drawing it again); `e2e/keyboard.e2e.ts` (N going round Screens' designs); `packages/lenses/src/decide.test.ts`,
+`state.test.ts` and `saved.test.ts` for the shell's decisions; and the Storybook stories Parity/Explorations/Lenses
+(Pages, Tabs, Components, Side by side and Empty), which render the same `LensWorkspace` with the exploration's lenses,
+and Parity/App's Example project. Tried in `pnpm dev` on 2026-11-17 on the example: the lens bar listed Screens alone,
+pressed; clicking it hid Layers and clicking again showed it; its menu offered Show Screens with Ctrl+2, Close, and Open
+in new tab and Split right unavailable; Close Screens and a middle click on its tab each left No lens open with the
+panels gone; Ctrl+2, and Enter on Screens in the lens bar, drew the canvas and panels again; the page didn't scroll.
+
+### Pages, a lens of its own (PAR-1244)
+
+The app's routes and their pages have a lens of their own, Pages, as
+[lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it. Screens no longer draws them.
+
+- **Its canvas** draws each page as a screen, laid out in the router's tree with the lines between them and layouts
+  without a page as groups around theirs, as Screens drew them before. It's drawn the first time Pages shows, so opening
+  a project on Screens loads no page. Shown again after another lens took its place, it's where its camera was, with
+  what was selected still selected. A page is drawn from the app's code, so the canvas has no drawing toolbar: F and T
+  leave it on Move and select, and files dropped on it make nothing.
+- **Selecting stays on its canvas.** Select all, Select inverse and Select matching select only pages, and N steps
+  through them; layers kept selected from another lens's canvas count as nothing selected. A router's Show routes, and
+  its route count in the status bar, show Pages with its Layers, and an extension's `navigate.reveal` and `zoomTo` show
+  the lens whose canvas draws the node first. A page selected while another lens shows, from Search, shows Pages in that
+  lens's place with the page in view; a design selected while Pages shows, or made from its menu, shows Screens the same
+  way. A canvas showing part of what's selected never narrows it for the others.
+- **Its Layers** lists the routes and their pages' layers, as Layers' Routes group did; Screens' Layers no longer has
+  that group. Selecting a page there or on its canvas shows it in the inspector. Layers is its panel's only tab, so
+  asking for another from Pages, such as Show Components (Alt+2), the status bar's tokens, or an extension's tab, shows
+  Screens in its place with that tab open.
+- **The inspector** shows the selected page as before: its header, its path params as props, its route and Export. Under
+  them, its links: the components it places that have a board, each showing its board in Screens, selected, with Show
+  beside at the row's end splitting Screens to the right. A page places its route's components, whose boards Screens
+  doesn't draw, so the example's pages show none yet; links to screens and tables wait for what relates them
+  (Components, PAR-1245, and Data, PAR-40).
+
+Code: `lenses/pages.tsx` (`pagesLens`); `RouteLayerTree` in `chrome/LayerTree.tsx`, which lists `part` `pages`;
+`chrome/PageLinks.tsx`, under a page in `DesignPanel`; `canvasOf` in `canvas/CanvasEditor.tsx` and the selection
+following its lens in `ProjectCanvas`, with `revealOnceShown` in `chrome/reveal.ts`; `drawnInFocus` in
+`chrome/actions.ts` for the commands that select designs; `drawing` in `extension-editor.ts`, with `refDesign` in
+`chrome/reveal.ts` and `lensOf` in `lenses/lens-requests.ts`, for an extension's reveal and zoom; `onOtherTab` on
+`SidePanel`, heard through `onTabAsked` in `chrome/layout.ts`, for a tab Pages' panel lacks; `useLensActions` in
+`lenses/shell.ts` for views that may be shown outside the shell.
+
+Tests: `e2e/window.e2e.ts` (Screens drawing none of the pages, Ctrl+1 showing Pages in Screens' tab with every page and
+nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back; a page selected with Screens in
+front showing Pages, and Ctrl+A there selecting every page and nothing else; Alt+2 on Pages showing Screens with its
+Components tab). Tried in `pnpm dev` on 2026-11-17 on the example: Screens drew 68 designs and no Routes group; clicking
+Pages showed it in Screens' tab with its 8 pages, the page tree's lines and the Routes group alone in Layers; selecting
+Pricing there showed its route in the inspector; Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went
+to the next page; Ctrl+click on Screens opened it in a second tab and Split right put it beside Pages; the page didn't
+scroll.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
