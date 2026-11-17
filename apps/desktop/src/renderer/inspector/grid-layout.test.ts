@@ -32,6 +32,41 @@ describe("a grid as the canvas lays it out", () => {
     ])
   })
 
+  it("takes a child's cells from its lines where its box doesn't fill them", () => {
+    const narrow = { width: 40, height: 20 }
+    const auto = { start: "auto", end: "auto" }
+
+    const grid = measuredGrid({
+      columns: [100, 100, 100],
+      rows: [50, 50],
+      gap: { column: 10, row: 10 },
+      self: "lines",
+      items: {},
+      children: [
+        {
+          id: "lines",
+          name: "Lines",
+          auto: false,
+          box: { left: 0, top: 0, ...narrow },
+          lines: { column: { start: "1", end: "-1" }, row: auto }
+        },
+        {
+          id: "span",
+          name: "Span",
+          auto: true,
+          box: { left: 280, top: 60, ...narrow },
+          lines: { column: { start: "auto", end: "span 2" }, row: auto },
+          align: { x: "end" }
+        }
+      ]
+    })
+
+    expect(grid.children.map((child) => child.area)).toEqual([
+      { col: 0, cols: 3, row: 0, rows: 1 },
+      { col: 1, cols: 2, row: 1, rows: 1 }
+    ])
+  })
+
   it("reads where the grid puts its children in their cells", () => {
     expect(["normal", "start", "flex-end", "center", "stretch", "safe end"].map(selfAlign)).toEqual([
       undefined,

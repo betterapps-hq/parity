@@ -116,7 +116,10 @@ export function GridCellSection({
   // A row more than the children take, to place it in a new one.
   const rows = Math.max(grid.rows, ...grid.children.map((child) => child.area.row + child.area.rows)) + 1
   const endLines = draft.endLines ?? false
-  const auto = draft.colStart === undefined && draft.rowStart === undefined && draft.colSpan !== "all"
+
+  const auto =
+    draft.colStart === undefined && draft.rowStart === undefined && draft.colSpan !== "all" && draft.rowSpan !== "all"
+
   // What the table's fields say goes under the whole table, where it has room: each field's, by its label.
   const [messages, setMessages] = useState<Record<string, Message | undefined>>({})
 
@@ -129,7 +132,7 @@ export function GridCellSection({
   const [focusPointing, setFocusPointing] = useState<Pointing>()
   const pointing = hoverPointing ?? focusPointing
 
-  // Placed at an area: by its lines, or by its start and span, where All stays All while it still covers every column.
+  // Placed at an area: by its lines, or by its start and span, where All stays All while it still covers every track.
   const place = (to: Area) => {
     if (endLines) {
       set({ colStart: to.col + 1, colEnd: to.col + to.cols + 1, rowStart: to.row + 1, rowEnd: to.row + to.rows + 1 })
@@ -138,12 +141,13 @@ export function GridCellSection({
     }
 
     const all = draft.colSpan === "all" && to.col === 0 && to.cols === columns
+    const allRows = draft.rowSpan === "all" && to.row === 0 && to.rows === grid.rows
 
     set({
       colStart: all ? undefined : to.col + 1,
       colSpan: all ? "all" : spanOf(to.cols),
-      rowStart: to.row + 1,
-      rowSpan: spanOf(to.rows)
+      rowStart: allRows ? undefined : to.row + 1,
+      rowSpan: allRows ? "all" : spanOf(to.rows)
     })
   }
 

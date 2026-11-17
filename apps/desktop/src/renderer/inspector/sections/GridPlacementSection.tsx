@@ -1,15 +1,15 @@
 import { sizeEdit, type StyleValues } from "@parity-app/editor"
-import type { NodeStyle } from "@parity-app/style-schema"
 import type { Draft } from "../controls/data.ts"
 import { GridCellSection } from "../controls/grid-cell.tsx"
 import { sizeOf, sizeShown } from "../style-values.ts"
 import type { SectionProps } from "./section-edits.ts"
+import { SizeSection } from "./SizeSection.tsx"
 
 /** The grid lines and spans Grid placement changes together, as one edit. */
 const cellKeys = ["colSpan", "rowSpan", "colStart", "colEnd", "rowStart", "rowEnd"] as const
 
-/** Across every column: from the first line to the last, as `NodeStyle` holds All, which a span can't. */
-const isAll = (style: NodeStyle) => style.colStart === 1 && style.colEnd === -1
+/** Across every column or row: from the first line to the last, as `NodeStyle` holds All, which a span can't. */
+const isAll = (start: number | undefined, end: number | undefined) => start === 1 && end === -1
 
 /** A span as `NodeStyle` holds it: one, the default, unset. */
 const spanStored = (span: Draft["colSpan"]) => (span !== undefined && span !== "all" && span > 1 ? span : undefined)
@@ -19,25 +19,28 @@ const spanStored = (span: Draft["colSpan"]) => (span !== undefined && span !== "
  * as a map of the grid the canvas draws, auto-placed children and all, then where it sits in its cell. It reads and
  * writes the layer's `NodeStyle`: start and end lines, spans, All as lines 1 to -1, and Align and Justify self.
  */
-export function GridPlacementSection({ editor, edit }: SectionProps) {
+export function GridPlacementSection(props: SectionProps) {
+  const { editor, edit } = props
   const { style, parent } = editor.selection
   const { unit } = editor
   const grid = editor.grid?.()
 
+  // Several layers have no one map to draw; their sizes still change together.
   if (!grid) {
-    return null
+    return <SizeSection {...props} />
   }
 
-  const all = isAll(style)
-  const ends = !all && (style.colEnd !== undefined || style.rowEnd !== undefined)
+  const all = isAll(style.colStart, style.colEnd)
+  const allRows = isAll(style.rowStart, style.rowEnd)
+  const ends = (!all && style.colEnd !== undefined) || (!allRows && style.rowEnd !== undefined)
 
   const draft: Draft = {
     colStart: all ? undefined : style.colStart,
     colSpan: all ? "all" : style.colSpan,
     colEnd: all ? undefined : style.colEnd,
-    rowStart: style.rowStart,
-    rowSpan: style.rowSpan,
-    rowEnd: style.rowEnd,
+    rowStart: allRows ? undefined : style.rowStart,
+    rowSpan: allRows ? "all" : style.rowSpan,
+    rowEnd: allRows ? undefined : style.rowEnd,
     endLines: ends || undefined,
     childWidth: sizeShown(style.width, unit),
     childHeight: sizeShown(style.height, unit),
@@ -50,21 +53,30 @@ export function GridPlacementSection({ editor, edit }: SectionProps) {
   const set = (change: Partial<Draft>) => {
     if (cellKeys.some((key) => key in change) || "endLines" in change) {
       const next = { ...draft, ...change }
-      const across = next.colSpan === "all"
-      let colEnd = next.endLines ? next.colEnd : undefined
 
-      if (across) {
-        colEnd = -1
+      // Choosing End lines leaves All, so the lines it was given stay.
+      if (change.endLines) {
+        next.colSpan = change.colSpan === "all" ? "all" : undefined
+        next.rowSpan = change.rowSpan === "all" ? "all" : undefined
       }
 
+      const across = next.colSpan === "all"
+      const down = next.rowSpan === "all"
+
+      const lines = (all: boolean, start: number | undefined, end: number | undefined) =>
+        all ? { start: 1, end: -1 } : { start, end: next.endLines ? end : undefined }
+
+      const col = lines(across, next.colStart, next.colEnd)
+      const row = lines(down, next.rowStart, next.rowEnd)
+
       const values: StyleValues = {
-        colStart: across ? 1 : next.colStart,
-        colEnd,
-        rowStart: next.rowStart,
-        rowEnd: next.endLines ? next.rowEnd : undefined,
+        colStart: col.start,
+        colEnd: col.end,
+        rowStart: row.start,
+        rowEnd: row.end,
         // End lines say where it ends, so a span would only be in their way.
         colSpan: across || next.endLines ? undefined : spanStored(next.colSpan),
-        rowSpan: next.endLines ? undefined : spanStored(next.rowSpan)
+        rowSpan: down || next.endLines ? undefined : spanStored(next.rowSpan)
       }
 
       edit("cells", values, "Change grid cells")

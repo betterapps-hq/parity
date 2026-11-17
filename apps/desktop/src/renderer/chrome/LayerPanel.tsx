@@ -817,6 +817,11 @@ export function nodeGrid(
         id,
         name: nameOf(id) ?? child.localName,
         auto: style.gridColumnStart === "auto" && style.gridRowStart === "auto",
+        lines: {
+          column: { start: style.gridColumnStart, end: style.gridColumnEnd },
+          row: { start: style.gridRowStart, end: style.gridRowEnd }
+        },
+        align: { x: selfAlign(style.justifySelf), y: selfAlign(style.alignSelf) },
         box: {
           left: box.left / scale - left,
           top: box.top / scale - top,
