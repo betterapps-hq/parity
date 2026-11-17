@@ -622,6 +622,11 @@ export interface CanvasHost {
      */
     placed: (placed: ConnectorPlaced) => Promise<void>
   }
+  /** What route boards' frozen copies need of main (PAR-1262). */
+  pages: {
+    /** A stylesheet on another host a page links to, which the page can't read, or nothing; it never fails. */
+    sheet: (href: string) => Promise<string | null>
+  }
   /** The dev runner's requested project; an installed app otherwise starts with its recent tabs or the welcome page. */
   initialProject?: string
   /**

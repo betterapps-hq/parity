@@ -1,5 +1,5 @@
 import { bodyAttribute, type DrawnNodes } from "@parity-app/core"
-import type { FrozenElement } from "./snapshot.ts"
+import type { FrozenElement, FrozenShadow } from "./snapshot.ts"
 
 const namespaces = {
   html: "http://www.w3.org/1999/xhtml",
@@ -9,6 +9,12 @@ const namespaces = {
 
 const xlinkNamespace = "http://www.w3.org/1999/xlink"
 const xmlNamespace = "http://www.w3.org/XML/1998/namespace"
+
+/** How a board prepares a copy's CSS for its mode: shadow roots' stylesheets, and inline `style` attributes. */
+export interface CopyPreparation {
+  sheet?: (css: string) => string
+  inline?: (css: string) => string
+}
 
 /** A frozen copy's elements, ready to go into its shadow root, and the nodes they draw. */
 export interface BuiltCopy {
@@ -20,9 +26,18 @@ export interface BuiltCopy {
  * A copy's elements, made in `document` with `createElementNS` and `setAttribute` only, under a body stand-in marked
  * `inert`, and the `DrawnNodes` that maps their ids to them. Every element is created in `registry`, the copy's shadow
  * root's own, so none is upgraded by a definition in Parity's window. Each element's id is its path from the body,
- * counting elements only (`0.3.1`). `body` has been through `sanitizePage`.
+ * counting elements only (`0.3.1`). What's inside an `<svg>` has no id: its layer is the picture (`elementLayers`), so
+ * selecting a shape in it finds the `<svg>`. An element's open shadow root is attached again, in the same registry,
+ * with its own styles, each through `prepare.sheet` (the board's media queries and viewport units, as the page's sheets
+ * get); each inline `style` goes through `prepare.inline`; what's in it has no id either, as the page's DOM has none for it, so it selects its host. `body`
+ * has been through `sanitizePage`.
  */
-export function buildCopy(document: Document, body: FrozenElement, registry: CustomElementRegistry): BuiltCopy {
+export function buildCopy(
+  document: Document,
+  body: FrozenElement,
+  registry: CustomElementRegistry,
+  prepare: CopyPreparation = {}
+): BuiltCopy {
   const ids: string[] = []
   const elements = new Map<string, Element>()
   const parents = new Map<string, string>()
@@ -33,16 +48,42 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
 
   const standIn = create({ tag: "div", attributes: [], children: [] })
   standIn.setAttribute(bodyAttribute, "")
-  setAttributes(standIn, body.attributes)
+  setAttributes(standIn, body.attributes, prepare.inline)
   standIn.setAttribute("inert", "")
 
-  const pending: { frozen: FrozenElement; into: Element; parent: string | undefined }[] = [
-    { frozen: body, into: standIn, parent: undefined }
-  ]
+  interface Pending {
+    frozen: Pick<FrozenElement, "children">
+    into: Element | ShadowRoot
+    parent: string | undefined
+    /** Inside an `<svg>` or a shadow root, whose elements aren't layers of their own. */
+    unlayered: boolean
+  }
+
+  /** Attaches a host's shadow root, its styles first, and gives what to build into it, without ids. */
+  const shadowContent = (host: Element, shadow: FrozenShadow, id: string): Pending[] => {
+    let root: ShadowRoot
+
+    try {
+      root = host.attachShadow({ mode: "open", customElementRegistry: registry })
+    } catch {
+      // An element that can't hold a shadow root keeps only its own children.
+      return []
+    }
+
+    for (const text of shadow.styles) {
+      const style = create({ tag: "style", attributes: [], children: [] })
+      style.textContent = prepare.sheet ? prepare.sheet(text) : text
+      root.append(style)
+    }
+
+    return [{ frozen: shadow, into: root, parent: id, unlayered: true }]
+  }
+
+  const pending: Pending[] = [{ frozen: body, into: standIn, parent: undefined, unlayered: false }]
 
   for (let next = pending.pop(); next; next = pending.pop()) {
     let index = 0
-    const children: { frozen: FrozenElement; into: Element; parent: string | undefined }[] = []
+    const children: Pending[] = []
 
     for (const child of next.frozen.children) {
       if (!(child instanceof Object)) {
@@ -53,8 +94,18 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
       const id = next.parent === undefined ? String(index) : `${next.parent}.${index}`
       index += 1
       const element = create(child)
-      setAttributes(element, child.attributes)
+      setAttributes(element, child.attributes, prepare.inline)
       next.into.append(element)
+
+      if (child.shadow) {
+        children.push(...shadowContent(element, child.shadow, id))
+      }
+
+      if (next.unlayered) {
+        children.push({ frozen: child, into: element, parent: id, unlayered: true })
+        continue
+      }
+
       ids.push(id)
       elements.set(id, element)
       nodes.set(element, id)
@@ -63,7 +114,12 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
         parents.set(id, next.parent)
       }
 
-      children.push({ frozen: child, into: element, parent: id })
+      children.push({
+        frozen: child,
+        into: element,
+        parent: id,
+        unlayered: child.namespace === "svg" && child.tag === "svg"
+      })
     }
 
     pending.push(...children.reverse())
@@ -76,8 +132,14 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
 }
 
 /** Sets attributes as the page had them; `xlink:` and `xml:` names go in their namespaces, as the page parsed them. */
-function setAttributes(element: Element, attributes: readonly [string, string][]) {
-  for (const [name, value] of attributes) {
+function setAttributes(
+  element: Element,
+  attributes: readonly [string, string][],
+  inline: ((css: string) => string) | undefined
+) {
+  for (const [name, raw] of attributes) {
+    const value = name === "style" && inline ? inline(raw) : raw
+
     if (name.startsWith("xlink:")) {
       element.setAttributeNS(xlinkNamespace, name, value)
     } else if (name.startsWith("xml:")) {

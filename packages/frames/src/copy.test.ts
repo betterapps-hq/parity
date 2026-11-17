@@ -83,21 +83,76 @@ describe("buildCopy", () => {
     }
   })
 
-  it("gives each element its path from the body, parents before their children", () => {
+  it("gives each element its path from the body, parents before their children, and none inside an svg", () => {
     const { drawn, standIn } = copy()
 
-    expect(drawn.ids).toEqual(["0", "0.0", "1", "1.0", "1.1", "1.1.0", "1.1.1"])
+    expect(drawn.ids).toEqual(["0", "0.0", "1", "1.0", "1.1"])
     expect(drawn.elements("1.0")).toEqual([standIn.querySelector("pricing-card")])
+    expect(drawn.elements("1.1.0")).toEqual([])
     expect(drawn.elements("9")).toEqual([])
     expect(drawn.texts("0.0")).toEqual([])
-    expect(drawn.parent("1.1.0")).toBe("1.1")
+    expect(drawn.parent("1.1")).toBe("1")
     expect(drawn.parent("0")).toBeUndefined()
   })
 
-  it("finds the node an element belongs to, and none for the stand-in", () => {
+  it("attaches a shadow root with its styles and content, in the copy's registry, its elements without ids", () => {
+    const host: FrozenElement = {
+      tag: "price-tag",
+      attributes: [],
+      children: [],
+      shadow: {
+        children: [
+          { tag: "span", attributes: [], children: ["$9"] },
+          { tag: "slot", attributes: [], children: [] }
+        ],
+        styles: ["span { color: red }"]
+      }
+    }
+
+    const built = buildCopy(document, { tag: "body", attributes: [], children: [host] }, registry)
+    const shadow = built.fragment.querySelector("price-tag")!.shadowRoot!
+
+    expect(shadow.innerHTML).toBe("<style>span { color: red }</style><span>$9</span><slot></slot>")
+    expect(built.drawn.ids).toEqual(["0"])
+    expect(built.drawn.nodeOf(shadow.querySelector("span")!)).toBeUndefined()
+  })
+
+  it("passes each inline style through the board's preparation", () => {
+    const built = buildCopy(
+      document,
+      {
+        tag: "body",
+        attributes: [],
+        children: [{ tag: "section", attributes: [["style", "height: 100vh"]], children: [] }]
+      },
+      registry,
+      { inline: (css) => css.replace("100vh", "800px") }
+    )
+
+    expect(built.fragment.querySelector("section")!.getAttribute("style")).toBe("height: 800px")
+  })
+
+  it("passes each shadow style through the board's preparation", () => {
+    const host: FrozenElement = {
+      tag: "price-tag",
+      attributes: [],
+      children: [],
+      shadow: { children: [], styles: ["@media (max-width: 600px) { span { color: red } }"] }
+    }
+
+    const built = buildCopy(document, { tag: "body", attributes: [], children: [host] }, registry, {
+      sheet: (css) => css.replace("@media", "@container frame")
+    })
+
+    expect(built.fragment.querySelector("price-tag")!.shadowRoot!.querySelector("style")!.textContent).toBe(
+      "@container frame (max-width: 600px) { span { color: red } }"
+    )
+  })
+
+  it("finds the node an element belongs to, an svg's shape its svg, and none for the stand-in", () => {
     const { drawn, standIn } = copy()
 
-    expect(drawn.nodeOf(standIn.querySelector("use")!)).toBe("1.1.0")
+    expect(drawn.nodeOf(standIn.querySelector("use")!)).toBe("1.1")
     expect(drawn.nodeOf(standIn)).toBeUndefined()
   })
 

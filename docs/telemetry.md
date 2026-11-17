@@ -629,6 +629,9 @@ Some failures are recorded for you, so code doesn't record them again:
 | `room.left`                        | info  | all  | renderer                                | This copy leaves a room.                                                                                                                                                   |
 | `room.reconnected`                 | warn  | all  | renderer                                | The connection to the relay comes back.                                                                                                                                    |
 | `room.relayStarted`                | info  | all  | renderer                                | The window module asks its Node half for the relay, which starts it or finds one.                                                                                          |
+| `routeFrame.process`               | warn  | all  | renderer                                | A project's page process fails under its freezer frame.                                                                                                                    |
+| `routeFrame.refused`               | info  | all  | renderer                                | The freezer refuses a page's snapshot or gets none, so its board keeps what it had.                                                                                        |
+| `routeFrame.removed`               | debug | all  | renderer                                | The sanitizer takes anything out of a snapshot before its copy is built.                                                                                                   |
 | `service.degraded`                 | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it.                                                          |
 | `service.exited`                   | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.                                                                 |
 | `service.lag`                      | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                                                                                   |
@@ -1723,6 +1726,26 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ----------------------- | ------------------------------------------------------------ |
 | `result`  | `"started" \| "shared"` | Whether this copy started the relay, or found another copy's |
 | `port`    | `integer`               | The port the relay listens on                                |
+
+### `routeFrame.process`
+
+| Attribute | Type               | Meaning                                                            |
+| --------- | ------------------ | ------------------------------------------------------------------ |
+| `how`     | `"gone" \| "hung"` | Whether the page's process closed its channel or stopped answering |
+| `stopped` | `boolean`          | Whether Parity stopped opening frames for the project after it     |
+
+### `routeFrame.refused`
+
+| Attribute | Type                              | Meaning                                                                                  |
+| --------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| `reason`  | `"cap" \| "schema" \| "deadline"` | Why: past a snapshot's caps, not what the schema reads, or no answer before its deadline |
+
+### `routeFrame.removed`
+
+| Attribute    | Type      | Meaning                                                                   |
+| ------------ | --------- | ------------------------------------------------------------------------- |
+| `elements`   | `integer` | How many elements the sanitizer took out of the page's body               |
+| `attributes` | `integer` | How many attributes and classes the sanitizer took out of the page's root |
 
 ### `service.degraded`
 

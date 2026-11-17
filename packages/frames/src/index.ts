@@ -1,4 +1,4 @@
-export { type BuiltCopy, buildCopy } from "./copy.ts"
+export { type BuiltCopy, buildCopy, type CopyPreparation } from "./copy.ts"
 
 export {
   type CopyKey,
@@ -26,6 +26,7 @@ export {
 
 export {
   type FrozenElement,
+  type FrozenShadow,
   type FrozenNode,
   maxSheetText,
   maxSnapshotDepth,
@@ -42,5 +43,17 @@ export {
   parsePageSnapshot,
   type SheetEntry
 } from "./snapshot.ts"
+
+export {
+  freezeLoadDeadline,
+  freezeOrder,
+  freezeQuiet,
+  type FreezeRequest,
+  failureLimit,
+  failureWindow,
+  type Restart,
+  restartAfter,
+  restartDelays
+} from "./freezer.ts"
 
 export { type BoardTier, type BoardView, boardTier, frozenFrom, pictureBelow } from "./tiers.ts"

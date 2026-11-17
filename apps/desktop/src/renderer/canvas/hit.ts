@@ -1,9 +1,10 @@
 import { type DesignNode, isInnerPath, locateNode } from "@parity-app/core"
 import { type Picked, type Selection, unlockedPath } from "@parity-app/editor"
-import { type ContainerEntry, containerEntry, type ProjectDoc } from "@parity-app/multiplayer"
+import type { ContainerEntry, ProjectDoc } from "@parity-app/multiplayer"
 import type { Editor } from "tldraw"
 import { allFrames, findFrames, findNodeElement, nodeBox, nodeParent, nodesAt } from "../frame.ts"
 import type { Selected, Under } from "./pick.ts"
+import { shownEntry } from "./route-pages.ts"
 
 export interface Point {
   x: number
@@ -73,7 +74,8 @@ export function frameAt(
       continue
     }
 
-    const entry = containerEntry(doc, host.dataset.design ?? "")
+    // A page's layers hold what its frozen copy draws (PAR-1262).
+    const entry = shownEntry(doc, host.dataset.design ?? "")
 
     if (entry) {
       return { entry, host }

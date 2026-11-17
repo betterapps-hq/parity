@@ -431,6 +431,8 @@ export function installHost(): void {
     }),
     account: storyAccount,
     connectors: storyConnectors,
+    // Stories fetch no stylesheet from another host.
+    pages: { sheet: () => Promise.resolve(null) },
     serve: (handler) => {
       windowHandler = handler
     },

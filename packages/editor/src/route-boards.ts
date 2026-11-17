@@ -301,6 +301,24 @@ export function routeLayers(routes: readonly ProjectRoute[], page: ProjectRoute)
   return layers
 }
 
+/**
+ * A page's layers with what its frozen copy drew inside the route that draws the page (PAR-1262): `inside` as the
+ * innermost route layer's children. They're made again with each freeze and kept in the window, never saved.
+ */
+export function withCopyLayers(root: DesignNode, inside: DesignNode[]): DesignNode {
+  if (root.type !== "route") {
+    return root
+  }
+
+  const [only, ...rest] = root.children ?? []
+
+  if (only?.type === "route" && rest.length === 0) {
+    return { ...root, children: [withCopyLayers(only, inside)] }
+  }
+
+  return { ...root, children: inside }
+}
+
 /** The id of the screen a route is drawn in, which says it's a page rather than a design. */
 export function routeScreenId(route: Pick<ProjectRoute, "id">): string {
   return `route:${route.id}`

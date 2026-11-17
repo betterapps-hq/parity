@@ -112,6 +112,7 @@ import { usePageChannel } from "./page-channel.ts"
 import { PreviewHeader, type PreviewTarget, useSavedView } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
 import { pageLandings, routePagePath, routePageUrl, setPageLanding } from "./route-pages.ts"
+import { RouteBoard } from "./RouteBoard.tsx"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
 import { useZoomStyle } from "./zoom-style.ts"
@@ -1497,7 +1498,21 @@ const FrameTile = memo(function FrameTile({
         data-measured={height === undefined ? undefined : ""}
         data-asleep={awake && !waiting ? undefined : ""}
       >
-        {page ? (
+        {page && !interactive && (
+          <RouteBoard
+            url={page}
+            project={session.id}
+            design={entry.key}
+            state={state.id}
+            frame={frame}
+            mode={drawn}
+            scale={scale}
+            primary={primary}
+            rank={view.rank}
+            asleep={!awake || waiting}
+          />
+        )}
+        {page && interactive && (
           <PageFrame
             url={page}
             project={session.id}
@@ -1507,7 +1522,8 @@ const FrameTile = memo(function FrameTile({
             scale={scale}
             interactive={interactive}
           />
-        ) : (
+        )}
+        {!page && (
           <ModeView
             project={session.id}
             loaded={loaded}
@@ -1536,10 +1552,11 @@ const FrameTile = memo(function FrameTile({
 })
 
 /**
- * A page of the app in a screen's frame (PAR-1076): the app's own entry at the page's URL, in a document of its own, so
- * its router, layouts, loaders and redirects run as they do in a browser. It loads under the project's own
- * `.localhost` name (`pageFrameUrl`), so its pages run in a process of their own. It takes no pointer, so the canvas
- * pans and selects over it. The page runtime in it (`@parity-app/page-runtime`) says hello and gets a channel: the
+ * A page of the app in a screen's frame (PAR-1076), drawn live with the Interact tool only: otherwise a route board shows
+ * its frozen copy (`RouteBoard`, PAR-1262), until live frames come from the pool (route-frames.md, step 5). It's the
+ * app's own entry at the page's URL, in a document of its own, so its router, layouts, loaders and redirects run as
+ * they do in a browser. It loads under the project's own `.localhost` name (`pageFrameUrl`), so its pages run in a
+ * process of their own. The page runtime in it (`@parity-app/page-runtime`) says hello and gets a channel: the
  * mode changes over it without the page loading again, and the page says how tall it is in the mode's window, so the
  * frame grows to the page. It's never shorter than the window, unless the frame has been given a height, which it then
  * clips to. When the page lands somewhere other than its own path, as a route that redirects sends it, it notes where

@@ -70,6 +70,22 @@ describe("sanitizePage: elements", () => {
     expect(removed).toBe(1)
   })
 
+  it("sanitizes a shadow root's content and styles as the page's own", () => {
+    const host: FrozenElement = {
+      ...element("price-tag"),
+      shadow: {
+        children: [element("script", [], ["alert(1)"]), element("slot")],
+        styles: ["span { background: url(javascript:alert(1)) }"]
+      }
+    }
+
+    const { only, removed } = sanitizeOne(host)
+
+    expect(only.shadow?.children).toEqual([placeholder, element("slot")])
+    expect(only.shadow?.styles.join("")).not.toContain("javascript")
+    expect(removed).toBe(1)
+  })
+
   it("keeps HTML's content elements and their text", () => {
     const article = element("article", [], [element("h1", [], ["Plans"]), element("img"), "Pick one"])
 

@@ -13,6 +13,7 @@ import {
   placePages,
   projectHost,
   routeLayers,
+  withCopyLayers,
   routeScreens,
   routeTree,
   samplePath
@@ -351,6 +352,21 @@ describe("routeLayers", () => {
     const routes = [route("__root__", "/", undefined), route("/settings/", "/settings", "__root__", true)]
 
     expect(routeLayers(routes, routes[1]!).name).toBe("/")
+  })
+})
+
+describe("withCopyLayers", () => {
+  it("puts what the copy drew inside the innermost route that draws the page", () => {
+    const routes = [
+      { ...route("__root__", "/", undefined), component: "RootLayout" },
+      { ...route("/pricing", "/pricing", "__root__"), component: "Pricing" }
+    ]
+
+    const drawn = { type: "layout" as const, id: "0", name: "main", style: {}, children: [] }
+
+    const root = withCopyLayers(routeLayers(routes, routes[1]!), [drawn])
+
+    expect(root.type === "route" && root.children?.[0]).toMatchObject({ name: "Pricing", children: [drawn] })
   })
 })
 

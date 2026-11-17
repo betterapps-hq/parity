@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Route boards show frozen copies of the app's pages, made by one freezer frame per project, with selection, Layers and the Design panel reaching their elements",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

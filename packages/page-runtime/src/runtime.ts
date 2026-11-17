@@ -3,6 +3,8 @@ import type { PageHydration, PageLocation, PageRouter } from "@parity-app/extens
 import {
   type FrameRole,
   isObject,
+  maxSheetIds,
+  maxSnapshotWait,
   isPortFor,
   isText,
   type PageMethods,
@@ -15,6 +17,7 @@ import {
   readMode,
   readViewport
 } from "./protocol.ts"
+import { sheetsById, takeSnapshot } from "./snapshot.ts"
 
 /*
  * The page runtime (docs/proposals/route-frames.md, PAR-1260): what runs first in the app's own page when Parity draws
@@ -95,6 +98,8 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
   let going = 0
 
   const channel = createChannel<PageMethods, ParityMethods>({ checks: pageChecks() })
+  // The sheets the page's snapshots read, by hash, which `sheets.get` answers from.
+  const sheets = new Map<string, string>()
 
   const tell = <M extends keyof ParityMethods>(method: M, params: ParityMethods[M]["params"]) => {
     channel.request(method, params).catch(() => undefined)
@@ -203,7 +208,22 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
       page.scrollTo(0, top)
 
       return null
-    }
+    },
+    "snapshot.take": async ({ quiet: wait }) => {
+      const router = await ready
+
+      if (wait) {
+        await quietFor(page, wait.ms, wait.max, signal)
+      }
+
+      return takeSnapshot(page, {
+        mode: modes.current(),
+        viewport: viewport ?? { width: page.innerWidth, height: page.innerHeight },
+        location: located(router?.location() ?? windowLocation(page)),
+        sheets
+      })
+    },
+    "sheets.get": ({ ids }) => sheetsById(sheets, ids)
   })
 
   void ready.then((router) => {
@@ -285,8 +305,37 @@ function pageChecks(): Checks<PageMethods> {
       }
 
       return { top: Number(top) }
+    },
+    "snapshot.take": (params) => {
+      const quiet = isObject(params) && "quiet" in params ? params.quiet : undefined
+
+      if (quiet === undefined) {
+        return {}
+      }
+
+      const ms = isObject(quiet) && "ms" in quiet ? quiet.ms : undefined
+      const max = isObject(quiet) && "max" in quiet ? quiet.max : undefined
+
+      if (!isWait(ms) || !isWait(max)) {
+        throw new Error(`snapshot.take waits for quiet from 0 to ${maxSnapshotWait} ms`)
+      }
+
+      return { quiet: { ms, max } }
+    },
+    "sheets.get": (params) => {
+      const ids = isObject(params) && "ids" in params ? params.ids : undefined
+
+      if (!Array.isArray(ids) || ids.length > maxSheetIds || !ids.every(isText)) {
+        throw new Error(`sheets.get takes at most ${maxSheetIds} ids`)
+      }
+
+      return { ids }
     }
   }
+}
+
+function isWait(value: unknown): value is number {
+  return Number.isFinite(value) && Number(value) >= 0 && Number(value) <= maxSnapshotWait
 }
 
 /**
@@ -351,6 +400,7 @@ function modeApplier(page: Window) {
         }
       }
     },
+    current: () => applied,
     restore() {
       page.matchMedia = original
     }
@@ -380,7 +430,12 @@ async function hydrated(page: Window, hydration: readonly PageHydration[], signa
 }
 
 /** Resolves once the page has loaded and its DOM hasn't changed for `quietTime`, waiting at most `quietLimit`. */
-async function quiet(page: Window, signal: AbortSignal): Promise<void> {
+function quiet(page: Window, signal: AbortSignal): Promise<void> {
+  return quietFor(page, quietTime, quietLimit, signal)
+}
+
+/** Resolves once the page has loaded and its DOM hasn't changed for `ms`, waiting at most `max`. */
+async function quietFor(page: Window, ms: number, max: number, signal: AbortSignal): Promise<void> {
   await loaded(page)
 
   return new Promise((resolve) => {
@@ -395,12 +450,12 @@ async function quiet(page: Window, signal: AbortSignal): Promise<void> {
 
     const observer = new MutationObserver(() => {
       page.clearTimeout(timer)
-      timer = page.setTimeout(done, quietTime)
+      timer = page.setTimeout(done, ms)
     })
 
     observer.observe(page.document, { subtree: true, childList: true, attributes: true, characterData: true })
-    timer = page.setTimeout(done, quietTime)
-    const limit = page.setTimeout(done, quietLimit)
+    timer = page.setTimeout(done, ms)
+    const limit = page.setTimeout(done, max)
     signal.addEventListener("abort", done, { once: true })
   })
 }

@@ -1,6 +1,13 @@
 import { nodeStyle } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import { type ElementSnapshot, elementLayers, elementLayerType, layerName, styleOfElement } from "./element-layers.ts"
+import {
+  type ElementSnapshot,
+  elementLayers,
+  elementLayerType,
+  frozenSnapshots,
+  layerName,
+  styleOfElement
+} from "./element-layers.ts"
 
 function element(tag: string, children: ElementSnapshot[] = [], more: Partial<ElementSnapshot> = {}): ElementSnapshot {
   return { id: `${tag}-${children.length}`, tag, attributes: {}, style: {}, children, ...more }
@@ -147,5 +154,48 @@ describe("styleOfElement", () => {
       textWrap: "balance"
     })
     expect(nodeStyle.safeParse(style).success).toBe(true)
+  })
+})
+
+describe("frozenSnapshots", () => {
+  it("gives a copy's elements their path from the body as ids, keeping what names them, without styles", () => {
+    const body = {
+      tag: "body",
+      attributes: [],
+      children: [
+        " ",
+        {
+          tag: "main",
+          attributes: [["class", "hero"] as const, ["data-slot", "hero"] as const],
+          children: [
+            { tag: "h1", attributes: [], children: ["Pricing"] },
+            {
+              tag: "IMG",
+              attributes: [["src", "https://a.test/a.png"] as const, ["onerror", "x"] as const],
+              children: []
+            }
+          ]
+        }
+      ]
+    }
+
+    const [space, main] = frozenSnapshots(body)
+
+    expect(space).toMatchObject({ id: "body.t0", tag: "#text" })
+    expect(main).toEqual({
+      id: "0",
+      tag: "main",
+      attributes: { "data-slot": "hero" },
+      children: [
+        {
+          id: "0.0",
+          tag: "h1",
+          attributes: {},
+          children: [{ id: "0.0.t0", tag: "#text", text: "Pricing", attributes: {}, children: [] }]
+        },
+        { id: "0.1", tag: "img", attributes: { src: "https://a.test/a.png" }, children: [] }
+      ]
+    })
+    expect(elementLayers(frozenSnapshots(body)).map((layer) => layer.name)).toEqual(["hero"])
   })
 })

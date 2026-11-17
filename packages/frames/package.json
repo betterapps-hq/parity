@@ -5,7 +5,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./srcset": "./src/srcset.ts"
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",

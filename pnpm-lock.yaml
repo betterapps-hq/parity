@@ -421,6 +421,9 @@ importers:
       '@parity-app/extension-webpack':
         specifier: workspace:*
         version: link:../../packages/extension-webpack
+      '@parity-app/frames':
+        specifier: workspace:*
+        version: link:../../packages/frames
       '@parity-app/icons':
         specifier: workspace:*
         version: link:../../packages/icons

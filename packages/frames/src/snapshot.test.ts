@@ -44,6 +44,22 @@ describe("parsePageSnapshot", () => {
     expect(parsePageSnapshot({ ...snapshot(), body: body([svg]) }).body.children).toEqual([svg])
   })
 
+  it("keeps an element's shadow root, and counts its styles toward the text cap", () => {
+    const host: FrozenElement = {
+      tag: "price-tag",
+      attributes: [],
+      children: [],
+      shadow: { children: [{ tag: "span", attributes: [], children: ["$9"] }], styles: ["span { color: red }"] }
+    }
+
+    expect(parsePageSnapshot({ ...snapshot(), body: body([host]) }).body.children).toEqual([host])
+
+    const heavy = { ...host, shadow: { children: [], styles: ["x".repeat(maxSnapshotText)] } }
+    expect(() => parsePageSnapshot({ ...snapshot(), body: body([heavy]) })).toThrow(
+      `at most ${maxSnapshotText} characters`
+    )
+  })
+
   it("refuses a body that isn't <body>, or a node that's neither text nor an element", () => {
     expect(() => parsePageSnapshot({ ...snapshot(), body: { tag: "div", attributes: [], children: [] } })).toThrow(
       "expected the body element"

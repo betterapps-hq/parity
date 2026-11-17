@@ -52,6 +52,7 @@ import { keybindingsFile } from "./keybindings.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
+import { fetchPageSheet } from "./page-sheets.ts"
 import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { localPlacements } from "./placements.ts"
@@ -1068,6 +1069,7 @@ answerWindows<HostEvent, BrowserWindow>({
       return result.canceled ? undefined : result.filePath
     },
     showItem: (path) => shell.showItemInFolder(path),
+    pageSheet: (href) => fetchPageSheet(href, (url, init) => net.fetch(url, init)),
     openExternal: (url) => shell.openExternal(url),
     copiedFiles: () => copiedFiles({ platform: process.platform, raw: (format) => rawFormat(clipboard, format) }),
     openInEditor,

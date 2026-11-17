@@ -35,6 +35,11 @@ export interface FrameEnvironment {
   prepare?: PrepareCss
   /** The project's origin, which those stylesheets' `@import`s are read from. Without one, Parity's. */
   origin?: string
+  /**
+   * The shadow root's own custom element registry, so the guest's definitions in Parity's window don't upgrade what's
+   * made in it, as a frozen copy's elements (PAR-1262).
+   */
+  registry?: CustomElementRegistry
 }
 
 let rootSheet: CSSStyleSheet | undefined
@@ -198,7 +203,7 @@ export function prepareFrame(
   environment: FrameEnvironment
 ): HTMLElement {
   rewriteAddedRules()
-  const shadow = unrecordedShadow(host)
+  const shadow = unrecordedShadow(host, environment.registry)
   watchFrameStyles(shadow)
 
   const written = catchFrameStyles(
