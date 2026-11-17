@@ -424,7 +424,14 @@ describe("startPageRuntime", () => {
 })
 
 describe("passesBack", () => {
-  const key = (name: string, ctrl = false, meta = false) => ({ key: name, ctrl, meta, shift: false, alt: false })
+  const key = (name: string, ctrl = false, meta = false) => ({
+    key: name,
+    code: "",
+    ctrl,
+    meta,
+    shift: false,
+    alt: false
+  })
 
   it("passes back Escape and Ctrl or Cmd shortcuts, but not keys that edit or move through text", () => {
     expect(passesBack(key("Escape"))).toBe(true)

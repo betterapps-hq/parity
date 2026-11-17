@@ -170,6 +170,8 @@ interface Frame {
   location?: PageLocation
   /** Busy being moved, so the pool's plan leaves it be. */
   busy: boolean
+  /** The move it's making with the app's router, which going live waits for. */
+  moving?: Promise<void>
 }
 
 /** Fails a request that takes longer than `ms`, which `@parity-app/channel` leaves to the caller. */
@@ -372,6 +374,8 @@ export class Pool {
 
       frame.busy = true
       await withDeadline(frame.ready.promise, loadDeadline)
+      // A spare the pool or a hover is moving finishes that move first, so it's where it says it is.
+      await frame.moving
 
       if (frame.route !== route) {
         await this.send(frame, route)
@@ -547,11 +551,19 @@ export class Pool {
   }
 
   /** Moves a frame to `route` with the app's router, keeping where it ended. */
-  private async send(frame: Frame, route: string): Promise<void> {
+  private send(frame: Frame, route: string): Promise<void> {
     frame.route = route
-    const location = await withDeadline(frame.channel.request("route.go", { to: route }), pageDeadlines["route.go"])
-    frame.location = location
-    frame.route = location.path + location.search
+
+    const moving = withDeadline(frame.channel.request("route.go", { to: route }), pageDeadlines["route.go"]).then(
+      (location) => {
+        frame.location = location
+        frame.route = location.path + location.search
+      }
+    )
+
+    frame.moving = moving.catch(() => undefined)
+
+    return moving
   }
 
   /** Opens a frame at `url`, parked, with the runtime told what it's for. */
@@ -770,6 +782,7 @@ export class Pool {
     document.body.dispatchEvent(
       new KeyboardEvent("keydown", {
         key: key.key,
+        code: key.code,
         ctrlKey: key.ctrl,
         metaKey: key.meta,
         shiftKey: key.shift,
@@ -1007,7 +1020,12 @@ export class Pool {
     }
   }
 
+  /** Closes a spare, unless it has left the spares to go live, when going live owns it. */
   private closeSpare(frame: Frame): void {
+    if (this.spares.get(frame.id) !== frame) {
+      return
+    }
+
     this.spares.delete(frame.id)
 
     if (this.warming?.frame === frame) {

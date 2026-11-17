@@ -180,6 +180,8 @@ export interface ParityMethods {
 /** A key the page passes back to Parity, with its modifiers. */
 export interface PageKey {
   key: string
+  /** The physical key, which Parity's shortcuts for punctuation and digits match by. */
+  code: string
   ctrl: boolean
   meta: boolean
   shift: boolean

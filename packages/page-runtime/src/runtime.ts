@@ -211,7 +211,14 @@ export function startPageRuntime(options: PageRuntimeOptions = {}, page: Window 
         return
       }
 
-      const key = { key: event.key, ctrl: event.ctrlKey, meta: event.metaKey, shift: event.shiftKey, alt: event.altKey }
+      const key = {
+        key: event.key,
+        code: event.code,
+        ctrl: event.ctrlKey,
+        meta: event.metaKey,
+        shift: event.shiftKey,
+        alt: event.altKey
+      }
 
       if (!event.defaultPrevented && !event.isComposing && passesBack(key)) {
         tell("page.key", key)

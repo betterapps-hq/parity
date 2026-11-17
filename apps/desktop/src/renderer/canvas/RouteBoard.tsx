@@ -152,17 +152,6 @@ export function RouteBoard({
     }
   }, [id, interactive, project])
 
-  // A fixed header shows once, in the live window, rather than again on the copy around it.
-  useLayoutEffect(() => {
-    const root = host.current?.shadowRoot
-
-    if (!live || !copy || asleep || !root) {
-      return undefined
-    }
-
-    return hideFixed(root)
-  }, [asleep, copy, live])
-
   // Selecting, outlining and agents find the copy as they find a design's frames.
   useLayoutEffect(() => registerFrame(host.current!, design), [design])
 
@@ -177,6 +166,18 @@ export function RouteBoard({
 
     return showCopy(element, copy, drawn, viewport, registry.current)
   }, [asleep, copy, drawn, viewport])
+
+  // A fixed header shows once, in the live window, rather than again on the copy around it. After the copy is built, so
+  // a copy built again while the board is live is hidden too.
+  useLayoutEffect(() => {
+    const root = host.current?.shadowRoot
+
+    if (!live || !copy || asleep || !root) {
+      return undefined
+    }
+
+    return hideFixed(root)
+  }, [asleep, copy, drawn, live, viewport])
 
   // While it's live, where the live page went, or tried to go off the app's origin; otherwise where its copy landed.
   const landed = live?.location ?? copy?.location

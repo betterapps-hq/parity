@@ -28,6 +28,7 @@ const readZoom = parserFor(z.object({ deltaY: z.number().finite(), x: z.number()
 const readKey = parserFor(
   z.object({
     key: z.string().min(1).max(40),
+    code: z.string().max(40),
     ctrl: z.boolean(),
     meta: z.boolean(),
     shift: z.boolean(),
