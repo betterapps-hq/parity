@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Text typed on the canvas is written as it's typed, one undo step per pause, so others in a live room see it while it's typed",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
