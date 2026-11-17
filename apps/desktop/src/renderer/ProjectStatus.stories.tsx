@@ -46,6 +46,18 @@ export const LoadingComponents: Story = opening({
   progress: { steps: ["Starting Vite", "Loading components from Vite"], current: 1 }
 })
 
+/**
+ * With the Live room setting on, the project waits for the room: its relay and, for a copy that isn't hosting, the
+ * host's copy of the document (PAR-1276).
+ */
+export const JoiningTheLiveRoom: Story = opening({
+  progress: {
+    steps: ["Starting Vite", "Loading components from Vite", "Joining the live room"],
+    current: 2,
+    note: "If no one answers, it opens without the room."
+  }
+})
+
 /** Opening again after a library was added, so the builder picks it up. */
 export const AddingALibrary: Story = opening({
   progress: { steps: ["Loading Shadcn Nova", "Loading its components"], current: 0 }

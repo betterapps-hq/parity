@@ -129,6 +129,25 @@ describe("joinRoom", () => {
     expect(heard).toEqual(["a changes", "a presence Ana", "a missing AA==", "down", "reconnected 0"])
   })
 
+  it("says who left while the connection was down, before who's here, once it comes back", () => {
+    const relay = fakeRelay()
+    const room = joinRoom(relay.transport, "b")
+    const heard: string[] = []
+
+    room.on({
+      left: (peer) => heard.push(`left ${peer}`),
+      members: () => heard.push(`members ${room.peers.join(",")}`)
+    })
+
+    relay.say({ kind: "welcome", host: "a", peers: ["a", "b", "c"] })
+    relay.drop()
+    // `a` and `c` left meanwhile, and `d` came: the relay names only who's here now, with this copy hosting.
+    relay.say({ kind: "welcome", host: "b", peers: ["b", "d"] })
+
+    expect(heard).toEqual(["members a,b,c", "left a", "left c", "members b,d"])
+    expect(room.host).toBe("b")
+  })
+
   it("asks the host for what it missed, and nobody when it hosts", () => {
     const relay = fakeRelay()
     const room = joinRoom(relay.transport, "b")

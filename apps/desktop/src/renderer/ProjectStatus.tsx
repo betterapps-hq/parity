@@ -11,11 +11,12 @@ function projectOf(project: Project): { name?: string; folder?: string } {
 
 /**
  * A project while it opens: the editor's outline, faint, with what opening does over it, each step ticked off as it's
- * done. The outline follows the panels as they'll open, so the project fills in around it.
+ * done, and what happens if the step under way doesn't finish, as joining a live room. The outline follows the panels
+ * as they'll open, so the project fills in around it.
  */
 export function OpeningProject({ project }: { project: Project }) {
   const { name, folder } = projectOf(project)
-  const { steps, current } = project.progress ?? { steps: ["Opening the project"], current: 0 }
+  const { steps, current, note } = project.progress ?? { steps: ["Opening the project"], current: 0 }
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -37,6 +38,7 @@ export function OpeningProject({ project }: { project: Project }) {
               <Step key={step} label={step} state={stepState(index, current)} />
             ))}
           </ol>
+          {note && <p className="text-xs text-muted-foreground">{note}</p>}
         </div>
       </div>
     </div>

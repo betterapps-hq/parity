@@ -207,8 +207,8 @@ export interface Project {
   title: string
   status: "loading" | "ready" | "error"
   message?: string
-  /** While loading: what opening does, in order, and which of them it's doing now. */
-  progress?: { steps: string[]; current: number }
+  /** While loading: what opening does, in order, which of them it's doing now, and what happens if it doesn't. */
+  progress?: { steps: string[]; current: number; note?: string }
   session?: ProjectSession
 }
 
@@ -401,8 +401,13 @@ export class Workspace {
       this.moveAttempt(attempt, placeholder, info.id)
       current = info.id
       const builder = info.builder.name
-      this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const { session, recordLoaded } = await createSession(info, asked, () => this.reload(info.id), restored)
+      const steps = [`Starting ${builder}`, `Loading components from ${builder}`]
+      this.setProgress(info.id, steps, 1)
+
+      const { session, recordLoaded } = await createSession(info, asked, () => this.reload(info.id), {
+        restored,
+        joining: () => this.setJoining(info.id, steps)
+      })
 
       if (attempt.abandoned) {
         session.close()
@@ -627,8 +632,12 @@ export class Workspace {
         return this.dropAbandoned(info.id)
       }
 
-      this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const { session, recordLoaded } = await createSession(info, asked, () => this.reload(id))
+      const steps = [step, `Loading components from ${info.builder.name}`]
+      this.setProgress(id, steps, 1)
+
+      const { session, recordLoaded } = await createSession(info, asked, () => this.reload(id), {
+        joining: () => this.setJoining(id, steps)
+      })
 
       if (attempt.abandoned) {
         session.close()
@@ -1036,12 +1045,23 @@ export class Workspace {
   }
 
   /** Moves a loading project on to one of its steps. Its message says that step. */
-  private setProgress(id: string, steps: string[], current: number): void {
+  private setProgress(id: string, steps: string[], current: number, note?: string): void {
     const project = this.held(id)
 
     if (project) {
-      this.replace(id, { ...project, progress: { steps, current }, message: `${steps[current]}…` })
+      const progress = note === undefined ? { steps, current } : { steps, current, note }
+      this.replace(id, { ...project, progress, message: `${steps[current]}…` })
     }
+  }
+
+  /** A loading project waits for its live room: the room's relay and, for a copy that isn't hosting, the host's copy. */
+  private setJoining(id: string, before: string[]): void {
+    this.setProgress(
+      id,
+      [...before, "Joining the live room"],
+      before.length,
+      "If no one answers, it opens without the room."
+    )
   }
 
   private startAttempt(id: string): Attempt {
@@ -1237,7 +1257,7 @@ async function createSession(
   info: ProjectInfo,
   asked: Opening,
   reopen: () => Promise<void>,
-  restored = false
+  { restored = false, joining }: { restored?: boolean; joining?: () => void } = {}
 ): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
   const loaded = await loadGuest(info.guestUrl, info.theme, info.styles?.layer)
@@ -1275,6 +1295,12 @@ async function createSession(
   // Internal extensions' window modules start before the document opens, so the one that brings a live room can say
   // how it opens (PAR-1267).
   const modules = await startTabModules(info, { reopen })
+
+  // An extension that brings a live room holds the opening until the room answers, so it says what it's waiting for.
+  if (modules.joining) {
+    joining?.()
+  }
+
   const joined = await joinRoom(modules)
 
   // The modules stop with the session; one that never opens stops them here.

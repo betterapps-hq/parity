@@ -358,9 +358,10 @@ multiplayer is to become one.
   `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden (React's `Activity`), and a layer with
   `hideWhileEditing` hides while text is edited on the canvas. Layers take the pointer only where an element asks with
   `data-canvas-interactive`. A layer's id is unique in its tab. `box`, `onBoxChange` and `hit` say where designs and
-  their layers are, by `NodeRef`; `pageToScreen` and `screenToPage` convert points. `preview` shows someone else's drag
-  in their color (claimed from people's colors while it lasts), and `hold` (`hold`) holds a board while an agent moves
-  it, over the core previews and holds.
+  their layers are, by `NodeRef`; a layer's box asked with `caret` also says where a caret before that character of its
+  text stands, as the Multiplayer extension draws someone's caret (PAR-1275); `pageToScreen` and `screenToPage` convert
+  points. `preview` shows someone else's drag in their color (claimed from people's colors while it lasts), and `hold`
+  (`hold`) holds a board while an agent moves it, over the core previews and holds.
 - **What's drawn in a layer** reads it through [`@parity-app/canvas-layer`](../packages/canvas-layer/src/index.ts):
   `useCamera` (the zoom and what's in view, at most once a frame), `useBox`, `useColor`, which claims a color while it's
   mounted, and `useFrame`, which runs every `measure` in the tab, then every `draw`, once an animation frame while the
@@ -419,7 +420,8 @@ internal, with only a window module, activated `onStartup` in every project tab,
   agent, keyed by its id, or `${from}:${agentId}` for another copy's.
 - **What it draws.** One `overSelection` page layer, `agentPresence.agents`, with `@parity-app/presence-ui`'s
   `AgentPointer` and `AgentBadge`. It reads the camera and boxes through the layer, and claims each agent's color from
-  `parity.colors.agents` while its pointer is drawn.
+  `parity.colors.agents` while its pointer is drawn. In a live room the Multiplayer extension assigns those colors as
+  the host numbered them, under the same keys, so an agent is the same color in every copy (PAR-1277).
 - **Holds.** A move's board is held with `parity.canvas.hold` as its step is told, before the write lands, and let go
   once the pointer has dragged it, or as the extension stops.
 - **Turned off,** agents work without being drawn, and the rest of the canvas is unchanged.

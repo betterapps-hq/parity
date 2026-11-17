@@ -5680,8 +5680,9 @@ rather than the whole text), `textBack` and `follow` in `packages/multiplayer/sr
 typing, following this person's characters through the changes Loro reports as `texts`), and `TextEditor.tsx`, which
 feeds it the textarea's input and the document's changes and tells the room where the caret is. In a room: the text
 gesture `TextEditor.tsx` tells `parity.presence`, which the Multiplayer extension's `Selections` layer
-(`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, and `caretLine` in
-`canvas/text-caret.ts`.
+(`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, drawing their caret (`caretMark` in
+`people.ts`) where `parity.canvas.box` with `caret` says it stands: `caretLine` in `canvas/text-caret.ts`, read by
+`canvas/surface/measure-dom.ts` (PAR-1275).
 
 Tests:
 
@@ -6379,7 +6380,11 @@ the signed-in person's first name.
 - **The first copy in hosts.** Window modules start before the project's document opens (PAR-1267), so the extension
   says how it opens through `parity.sync`. The host opens the files in a new Loro document. A later copy opens on a
   snapshot, asked of the copies already there, so it starts from the same document, unsaved edits included. When the
-  host leaves, the copy that joined next takes over.
+  host leaves, the copy that joined next takes over. A copy that becomes host before its document is open, as when the
+  host leaves just after sending the snapshot, turns file writes on once it's open (PAR-1281).
+- **Joining shows.** While the project waits for the room, its opening screen adds the step "Joining the live room",
+  with "If no one answers, it opens without the room." under the steps (PAR-1276). It waits for the relay and, for a
+  copy that isn't hosting, the host's snapshot, up to 25 s, then opens alone.
 - **Edits merge.** Each copy sends the changes it commits, repairs included, and takes in the others', which show as
   `remote` changes: in neither person's undo. A copy that finds a gap asks the host for what it's missing. One whose
   connection comes back asks both ways: the host sends what it missed and asks in turn for what the copy sent while it
@@ -6394,13 +6399,19 @@ the signed-in person's first name.
 - **People.** Each person is drawn in the palette the host assigned them, so they're the same color in every copy, and
   colors never run out (`parity.colors.assign`). Their pointer glides between the positions sent, with a badge of their
   first name, and stays where it was, faded, when they leave the canvas. What they've selected, and the text they're
-  typing in, is outlined in their color with their name. Their marquee shows as they drag it. A drag shows through
-  `parity.canvas.preview`, with the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+  typing in, is outlined in their color with their name, with their caret where they're typing (PAR-1275). Their marquee
+  shows as they drag it. A drag shows through `parity.canvas.preview`, with the lift, carry and settle of a local drag
+  (PAR-1199), and settles on its write.
+- **Coming back.** A copy whose connection to the relay comes back drops everyone who left meanwhile as if it had heard
+  them leave: their pointer, a drag they were showing, following them, and their color (PAR-1282).
 - **Who's here.** The avatar stack sits at the canvas's top right. A face opens the person's card, with **Follow** and
   **Go to**. Following keeps the camera on what they see, with a frame and banner, until Esc, a pan or zoom, Stop, or
   they leave; a note then says why it ended.
 - **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
-  presence, where it's on, draws every copy's agents.
+  presence, where it's on, draws every copy's agents. The host numbers agents' colors as it does people's, by copy and
+  agent, so an agent is the same color in every copy (PAR-1277). Each copy assigns the numbers under the keys agent
+  presence claims colors with (`parity.colors.agents.assign`): the agent's id for its own agents, `copy:agentId` for
+  another copy's.
 - **In order, coalesced.** Changes, gestures, agents' steps and the host's colors go in order, one batch on its way at a
   time; presence goes with them, only the latest kept meanwhile. A move's write arrives before its end, so the preview
   settles on it, in the same batch or an earlier one.
@@ -6408,20 +6419,28 @@ the signed-in person's first name.
   `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`.
 
 Code: `packages/extension-multiplayer` (`window.tsx` wires the room, `room.ts` talks to the relay, `relay.ts` is the
-relay, `people.ts` and `follow.ts` keep who's here and following, `layers.tsx` draws them); `startTabModules` in
-`apps/desktop/src/renderer/window-modules.ts` and `joinRoom` in `renderer/workspace.ts` (opening through `parity.sync`,
-on Loro); `openDocSession` in `renderer/project-doc.ts` (the room's provider, and the saver writing files only while
-hosting); `setWritesFiles` and `written` in `packages/multiplayer`'s saver; and `openLoro`'s `snapshot`,
-`subscribeLocalUpdates`, `pending` and tokens map in `packages/multiplayer-loro`.
+relay, `people.ts` and `follow.ts` keep who's here and following, `agents.ts` the agents the host numbers, `hosting.ts`
+file writes following the host, `layers.tsx` draws them); `startTabModules` in
+`apps/desktop/src/renderer/window-modules.ts` and `joinRoom` and `setJoining` in `renderer/workspace.ts` (opening
+through `parity.sync`, on Loro, and saying so in `ProjectStatus.tsx`); `openDocSession` in `renderer/project-doc.ts`
+(the room's provider, and the saver writing files only while hosting); `setWritesFiles` and `written` in
+`packages/multiplayer`'s saver; and `openLoro`'s `snapshot`, `subscribeLocalUpdates`, `pending` and tokens map in
+`packages/multiplayer-loro`.
 
 Tests:
 
 - `packages/extension-multiplayer/src/room.test.ts`: who hosts and who's here, from the relay; one batch at a time, in
   order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
-  changes told, and a dropped connection and a reconnect noticed; asking the host for what's missing, and asking another
-  copy in turn when asked to.
+  changes told, and a dropped connection and a reconnect noticed; who left while the connection was down told before
+  who's here; asking the host for what's missing, and asking another copy in turn when asked to.
 - `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; each person's latest
-  presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node.
+  presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node; a caret's mark.
+- `packages/extension-multiplayer/src/agents.test.ts`: agents known by copy and id, forgotten with their copy, and kept
+  from another host's numbers; the host's numbers assigned under each copy's own keys.
+- `packages/extension-multiplayer/src/hosting.test.ts`: file writes turned on once the document opens for a copy that
+  became host before; left alone when the host is who it opened as; following the host once open; a failure said.
+- `apps/desktop/src/renderer/workspace.test.ts`, "opening in a live room (PAR-1276)": the joining step and its note
+  while the room holds the opening, and no room mentioned without one.
 - `packages/extension-multiplayer/src/relay.test.ts`: the relay's rooms, hosts and messages.
 - `apps/desktop/src/renderer/tab-slot.test.ts`: what window modules subscribe to before the document opens starts once
   it does, and stops with the tab.
@@ -6456,9 +6475,10 @@ land (PAR-1233). The project's canvas starts its own as it mounts (`surfaceOf(ed
 - **Boxes** say where a design's board, the frame a state and mode draws in, or a node in that frame is on the page,
   with its corner radius and its laid-out size in design pixels. With no frame in that state and mode, one in the mode
   is used, then the primary frame. A frame asleep, or a board culled out of view, gives the box to point at instead
-  (`asleep`), and one not on the canvas says so (`missing`). `onBoxChange` checks once a frame while anyone listens.
-  `hit` gives the design under a page point and the deepest node there, and `pageToScreen` and `screenToPage` convert
-  between the page and the canvas area's pixels.
+  (`asleep`), and one not on the canvas says so (`missing`). Asked with `caret`, a node's box also says where a caret
+  before that character of its text stands, when the text drawn reaches it (PAR-1275). `onBoxChange` checks once a frame
+  while anyone listens, and a caret moving counts as a change. `hit` gives the design under a page point and the deepest
+  node there, and `pageToScreen` and `screenToPage` convert between the page and the canvas area's pixels.
 
 Code: `createColors` in `packages/presence-colors/src/colors.ts`; the camera, following and measuring policy in
 `packages/editor/src/`: `canvas-surface.ts` (the shapes), `canvas-camera.ts` and `canvas-measure.ts`, each over a port;
@@ -6475,8 +6495,9 @@ Tests:
 - `packages/editor/src/canvas-camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling a zoom from a
   pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the person's pan
   or zoom; each other ending; fitting again on resize.
-- `packages/editor/src/canvas-measure.test.ts` (6): the frame fallback; boards, frames and nodes; a sleeping frame and a
-  culled board; changes told once a frame until disposed; hits on the deepest node.
+- `packages/editor/src/canvas-measure.test.ts` (7): the frame fallback; boards, frames and nodes; a sleeping frame and a
+  culled board; changes told once a frame until disposed; a caret in a node's text only when asked and when the text
+  reaches it, its moving told; hits on the deepest node.
 
 ### Presence components (PAR-1256)
 

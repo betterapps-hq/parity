@@ -13,6 +13,7 @@ import type { ProjectInfo, ServiceMethods } from "../shared/protocol.ts"
 import type * as ReportError from "./report-error.ts"
 import { preloadAnswers } from "./service.ts"
 import { tracedCommand, traceWith } from "./tracing.ts"
+import type * as WindowModules from "./window-modules.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 // docs/editor.md, Opening and closing projects: a project closed while it opens, as one restored at launch can be,
@@ -93,6 +94,28 @@ vi.mock("./chrome/unsaved.ts", () => ({
   }
 }))
 
+/** A live room the tab's window modules join as the project opens, and lets the project open alone when it's told. */
+const room = vi.hoisted(() => ({ joining: false, alone: (): void => undefined }))
+
+vi.mock("./window-modules.ts", async (original) => {
+  const real = await original<typeof WindowModules>()
+
+  return {
+    ...real,
+    startTabModules: async (...args: Parameters<typeof real.startTabModules>) => {
+      const modules = await real.startTabModules(...args)
+
+      return room.joining
+        ? {
+            ...modules,
+            joining: true,
+            opening: () => new Promise<undefined>((resolve) => (room.alone = () => resolve(undefined)))
+          }
+        : modules
+    }
+  }
+})
+
 const { Workspace } = await import("./workspace.ts")
 const { mediaFilesOf } = await import("./media/project-media.ts")
 
@@ -145,6 +168,7 @@ interface MainKeeps {
 let kept: MainKeeps
 
 beforeEach(() => {
+  room.joining = false
   tracked.length = 0
   pictures.length = 0
   unsaved.answer = "discard"
@@ -312,6 +336,45 @@ describe("recording a project as loaded (PAR-694)", () => {
     guest.loads[0]!(loaded)
     await opening
     expect(restored()).toEqual([])
+  })
+})
+
+describe("opening in a live room (PAR-1276)", () => {
+  it("says it's joining the live room while the room holds the opening, and that it opens alone if no one answers", async () => {
+    room.joining = true
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    guest.loads[0]!(loaded)
+    await settle()
+
+    expect(workspace.getProject()).toMatchObject({
+      status: "loading",
+      message: "Joining the live room…",
+      progress: {
+        steps: ["Starting Vite", "Loading components from Vite", "Joining the live room"],
+        current: 2,
+        note: "If no one answers, it opens without the room."
+      }
+    })
+
+    room.alone()
+    await opening
+    expect(workspace.getProject()?.status).toBe("ready")
+  })
+
+  it("doesn't mention a room when no extension brings one", async () => {
+    const workspace = new Workspace()
+    const opening = workspace.open(info.root)
+    opens[0]!(info)
+    await settle()
+    expect(workspace.getProject()?.progress).toEqual({
+      steps: ["Starting Vite", "Loading components from Vite"],
+      current: 1
+    })
+    guest.loads[0]!(loaded)
+    await opening
   })
 })
 

@@ -65,6 +65,9 @@ const agentStep = z.object({
   error: z.string().optional()
 })
 
+/** Palette numbers, by key. */
+const numbers = z.array(z.tuple([z.string(), z.number().int().nonnegative()]))
+
 /** One of the ordered events in a batch. */
 export const eventSchema = z.discriminatedUnion("kind", [
   /** A change committed in the sender's document, as `parity.sync` framed it, in base64. */
@@ -72,8 +75,11 @@ export const eventSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("gesture"), gesture: gestureSchema }),
   /** The sender's own agents' steps. */
   z.object({ kind: z.literal("agents"), steps: z.array(agentStep) }),
-  /** The host's palette numbers for everyone in the room, by peer. */
-  z.object({ kind: z.literal("colors"), assigned: z.array(z.tuple([z.string(), z.number().int().nonnegative()])) })
+  /**
+   * The host's palette numbers for everyone in the room, by peer, and for every agent at work in it, by
+   * `${copy}:${agentId}`.
+   */
+  z.object({ kind: z.literal("colors"), assigned: numbers, agents: numbers.optional() })
 ])
 
 export type RoomEvent = z.infer<typeof eventSchema>

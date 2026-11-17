@@ -7,8 +7,10 @@ import {
   type Preview,
   type WindowParity
 } from "@parity-app/extension/internal"
+import { localAgentKey, RoomAgents } from "./agents.ts"
 import type { RelayApi } from "./extension.ts"
 import { Follow } from "./follow.ts"
+import { fileWritesFollowHost } from "./hosting.ts"
 import { Faces, Following, Marquees, Pointers, Selections } from "./layers.tsx"
 import { assignColors, dragItems, People } from "./people.ts"
 import { fromBase64, type PersonPresence, toBase64 } from "./protocol.ts"
@@ -19,7 +21,7 @@ import { joinRoom, relayTransport, type Room } from "./room.ts"
  * With the Live room setting on, each project tab joins the project's room through the relay its Node half runs. The
  * first copy in opens the files and writes them; a later one opens on a snapshot of the host's document. It carries the
  * document's changes through `parity.sync`, catching up after a gap or a reconnect, and tells the room what this person
- * is doing and what this copy's agents do. Everyone else is drawn in the palette the host assigned them.
+ * is doing and what this copy's agents do. Everyone else, and every agent, is drawn in the palette the host assigned.
  */
 
 /** Where the relay listens. Every copy on the machine uses the same one. */
@@ -80,6 +82,19 @@ export default defineWindowModule({
       people.colors(next)
     }
 
+    // Agents, numbered by the host too, so an agent is the same color in every copy.
+    const agents = new RoomAgents()
+    let agentsAssigned = new Map<string, number>()
+
+    const applyAgentColors = (next: ReadonlyMap<string, number>) => {
+      agentsAssigned = new Map(next)
+
+      for (const [key, n] of next) {
+        agents.numbered(key)
+        parity.colors.agents.assign(localAgentKey(key, peer), n)
+      }
+    }
+
     // What this person is doing, the latest of each, sent with the next batch.
     const mine: PersonPresence = {
       name: parity.presence.self.name,
@@ -93,33 +108,55 @@ export default defineWindowModule({
     const opened = () => parity.sync.lineage !== ""
     let host = ""
 
+    const hosting = fileWritesFollowHost(
+      parity.sync,
+      () => room.host === peer,
+      (error) => parity.log.error(error)
+    )
+
     const hostChanged = () => {
       if (room.host === host) {
         return
       }
 
-      const wasHost = host === peer
+      const before = host
       host = room.host
 
-      if (wasHost !== (host === peer) || !opened()) {
+      if ((before === peer) !== (host === peer) || !opened()) {
         parity.telemetry.record("room.hostChanged", { becameHost: host === peer, peers: room.peers.length })
       }
 
-      // Only the copy that hosts writes files, so copies don't write the same files over each other.
-      if (opened() && parity.sync.writesFiles !== (host === peer)) {
-        void parity.sync.setWritesFiles(host === peer).catch((error) => parity.log.error(errorOf(error)))
+      // How the document opens follows from the host the relay first names; a change after that moves file writes.
+      if (before !== "") {
+        hosting.hostChanged()
       }
     }
 
-    // The host numbers everyone's colors, so each person is the same color in every copy.
+    // The host numbers everyone's colors, and every agent's, so each is the same color in every copy.
     const numberColors = () => {
       if (room.host !== peer) {
         return
       }
 
+      agents.keepOnly(room.peers)
       const next = assignColors(room.peers, assigned)
+      const nextAgents = assignColors(agents.keys(), agentsAssigned)
       applyColors(next)
-      room.send({ kind: "colors", assigned: [...next] })
+      applyAgentColors(nextAgents)
+      room.send({ kind: "colors", assigned: [...next], agents: [...nextAgents] })
+    }
+
+    /** An agent at work in `copy`: a new one is numbered, when this copy hosts. */
+    const agentSeen = (copy: string, steps: readonly { agentId: string }[]) => {
+      let added = false
+
+      for (const step of steps) {
+        added = agents.seen(copy, step.agentId) || added
+      }
+
+      if (added) {
+        numberColors()
+      }
     }
 
     const previews = new Map<string, Preview>()
@@ -286,12 +323,17 @@ export default defineWindowModule({
           }
 
           case "agents":
+            agentSeen(from, event.steps)
             // SAFETY: checked against the step's schema as it arrived.
             parity.agents.receive(event.steps as Parameters<WindowParity["agents"]["receive"]>[0], { from })
             break
           case "colors":
             if (from === room.host) {
               applyColors(new Map(event.assigned))
+
+              if (event.agents) {
+                applyAgentColors(new Map(event.agents))
+              }
             }
 
             break
@@ -368,6 +410,7 @@ export default defineWindowModule({
       parity.agents.onActivity((steps, from) => {
         // Only this copy's own: steps passed in from the room carry their `from`, so none goes back.
         if (from === undefined) {
+          agentSeen(peer, steps)
           room.send({ kind: "agents", steps })
         }
       }),
@@ -425,6 +468,7 @@ export default defineWindowModule({
 
       stopped = true
       clearInterval(latency)
+      hosting.dispose()
       stopRoom()
       follow.dispose()
 

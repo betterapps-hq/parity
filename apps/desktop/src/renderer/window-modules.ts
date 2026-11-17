@@ -77,6 +77,8 @@ export interface TabModules {
    * project then opens from files, alone.
    */
   opening(): Promise<Opening | undefined>
+  /** Whether an extension says how the project opens, as one bringing a live room does: `opening` waits for it. */
+  readonly joining: boolean
   /** The tab's session opened, on `document` when it opened as `opening` said. */
   opened(session: ProjectSession, document?: { sync: SyncDocument; lineage: string }): void
   /** The tab closed or reopens. The room doesn't count that as going away, so nothing is detached or saved for it. */
@@ -223,6 +225,9 @@ export async function startTabModules(
   return {
     slot,
     opening: () => seam.open(),
+    get joining() {
+      return seam.handled
+    },
     opened(session, document) {
       if (stopped) {
         return

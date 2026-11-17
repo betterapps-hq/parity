@@ -54,7 +54,7 @@ export interface RoomListeners {
   down(): void
   /** The connection came back after `downMs`: this copy may have missed changes. */
   reconnected(downMs: number): void
-  /** Someone left. */
+  /** Someone left, or wasn't there any more when the connection came back. */
   left(peer: string): void
 }
 
@@ -158,6 +158,8 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
 
     switch (message.kind) {
       case "welcome": {
+        // Whoever left while this copy was cut off gets no `left` of their own, so it's told for each here.
+        const gone = peers.filter((each) => each !== peer && !message.peers.includes(each))
         host = message.host
         peers = [...message.peers]
         const wasDown = downSince
@@ -175,6 +177,11 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
         }
 
         welcomes.clear()
+
+        for (const each of gone) {
+          tell("left", each)
+        }
+
         tell("members")
         break
       }
