@@ -33,6 +33,10 @@ const halfWaitMs = 10_000
 
 /** How long a copy waits for the relay to welcome it once it's started or found. */
 const welcomeWaitMs = 5000
+
+/** How often a copy that lost the relay tries to start it again. */
+const relayRetryMs = 2000
+
 const minuteMs = 60_000
 
 export default defineWindowModule({
@@ -170,6 +174,33 @@ export default defineWindowModule({
       stop()
     }
 
+    // The relay stops with the copy whose Node half started it, as when that copy closes the project: this copy starts
+    // another, or finds one a third copy started, and everyone rejoins it, the first back hosting.
+    let restarting = false
+    let restartedAt = -Infinity
+
+    const restartRelay = () => {
+      if (restarting || performance.now() - restartedAt < relayRetryMs || parity.host.state !== "ready") {
+        return
+      }
+
+      restarting = true
+      restartedAt = performance.now()
+      void parity.host
+        .api<RelayApi>()
+        .ensureRelay(relayPort)
+        .then((result) => {
+          if (result === "started") {
+            parity.log.info("The live room's relay stopped, so this copy started it again")
+            parity.telemetry.record("room.relayStarted", { result, port: relayPort })
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          restarting = false
+        })
+    }
+
     const stopRoom = room.on({
       members() {
         hostChanged()
@@ -202,6 +233,7 @@ export default defineWindowModule({
           parity.log.warn(`Couldn't send the changes another copy missed: ${errorOf(error).message}`)
         }
       },
+      down: restartRelay,
       reconnected(downMs) {
         parity.telemetry.record("room.reconnected", { downMs: Math.round(downMs) })
         askMissing()

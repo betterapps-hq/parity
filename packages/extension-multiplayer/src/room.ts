@@ -50,6 +50,8 @@ export interface RoomListeners {
   hello(from: string): void
   /** Another copy is missing changes since `version`. */
   missing(version: string, from: string): void
+  /** The connection to the relay dropped, or failed again while down: the relay may have stopped with its copy. */
+  down(): void
   /** The connection came back after `downMs`: this copy may have missed changes. */
   reconnected(downMs: number): void
   /** Someone left. */
@@ -216,6 +218,7 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
 
   const stop = transport.listen(heard, () => {
     downSince ??= now()
+    tell("down")
   })
 
   return {

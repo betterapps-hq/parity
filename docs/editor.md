@@ -6372,7 +6372,8 @@ the signed-in person's first name.
   says "Left the live room". Turning it on again reopens the project in the room. A copy that finds it holds another
   version of the project than the room leaves the same way.
 - **A room per project.** The Node half starts a relay on `127.0.0.1:5390`, or finds the one another copy started. Each
-  project tab joins its project's room, keyed by the project's folder.
+  project tab joins its project's room, keyed by the project's folder. The relay stops with the copy that started it, as
+  when that copy closes the project: the others start it again, and the first back hosts and writes files.
 - **The first copy in hosts.** Window modules start before the project's document opens (PAR-1267), so the extension
   says how it opens through `parity.sync`. The host opens the files in a new Loro document. A later copy opens on a
   snapshot, asked of the copies already there, so it starts from the same document, unsaved edits included. When the
@@ -6413,7 +6414,7 @@ Tests:
 
 - `packages/extension-multiplayer/src/room.test.ts`: who hosts and who's here, from the relay; one batch at a time, in
   order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
-  changes told, and a reconnect noticed; asking the host for what's missing.
+  changes told, and a dropped connection and a reconnect noticed; asking the host for what's missing.
 - `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; each person's latest
   presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node.
 - `packages/extension-multiplayer/src/relay.test.ts`: the relay's rooms, hosts and messages.

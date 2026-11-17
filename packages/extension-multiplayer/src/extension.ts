@@ -12,7 +12,10 @@ export interface RelayApi extends ExtensionApi {
   ensureRelay(port: number): Promise<"started" | "shared">
 }
 
-/** The relay this process started, by port, so a second tab finds it rather than starting another. */
+/**
+ * The relay this process started, by port, so a second tab finds it rather than starting another. One another copy
+ * runs isn't kept: it stops when that copy closes its project, and the next call starts one here.
+ */
 const relays = new Map<number, Promise<"started" | "shared">>()
 
 export default defineExtension({
@@ -24,7 +27,14 @@ export default defineExtension({
         if (!relay) {
           relay = startRoomRelay(port)
           relays.set(port, relay)
-          relay.catch(() => relays.delete(port))
+          relay.then(
+            (result) => {
+              if (result === "shared") {
+                relays.delete(port)
+              }
+            },
+            () => relays.delete(port)
+          )
         }
 
         return relay

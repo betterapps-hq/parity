@@ -101,7 +101,7 @@ describe("joinRoom", () => {
     ])
   })
 
-  it("tells listeners of another copy's events and presence, and says when the connection came back", () => {
+  it("tells listeners of another copy's events and presence, and says when the connection dropped and came back", () => {
     const relay = fakeRelay()
     const room = joinRoom(relay.transport, "b", () => 1000)
     const heard: string[] = []
@@ -109,6 +109,7 @@ describe("joinRoom", () => {
     room.on({
       event: (event, from) => heard.push(`${from} ${event.kind}`),
       presence: (presence, from) => heard.push(`${from} presence ${presence.name}`),
+      down: () => heard.push("down"),
       reconnected: (downMs) => heard.push(`reconnected ${downMs}`),
       missing: (version, from) => heard.push(`${from} missing ${version}`)
     })
@@ -125,7 +126,7 @@ describe("joinRoom", () => {
     // Something that isn't a message is ignored.
     relay.say({ kind: "batch", from: "a" })
 
-    expect(heard).toEqual(["a changes", "a presence Ana", "a missing AA==", "reconnected 0"])
+    expect(heard).toEqual(["a changes", "a presence Ana", "a missing AA==", "down", "reconnected 0"])
   })
 
   it("asks the host for what it missed, and nobody when it hosts", () => {
