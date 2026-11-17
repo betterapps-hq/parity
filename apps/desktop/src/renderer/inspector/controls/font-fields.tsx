@@ -635,12 +635,15 @@ const unitOf = (lineHeight: LineHeight | undefined): LineUnit => {
  */
 export function LineHeightField({
   value,
+  inherited,
   size,
   fontSize = 16,
   mixed = false,
   onChange
 }: {
   value: LineHeight | undefined
+  /** What the text draws with while this is unset, read from the canvas, shown faintly. */
+  inherited?: LineHeight
   /** The text's size token, whose paired line height shows while this is unset. */
   size: SizeToken | undefined
   /** The text's size in pixels, for converting between a multiple and pixels. */
@@ -794,6 +797,8 @@ export function LineHeightField({
   if (value === undefined && size && !mixed) {
     placeholder = unit === "px" ? String(size.lineHeight) : formatNumber(size.lineHeight / size.px)
     comesTo = "From size"
+  } else if (value === undefined && inherited && !("keyword" in inherited) && !mixed) {
+    placeholder = formatNumber(currentIn(inherited, unit) ?? 0)
   }
 
   // A multiple, or pixels off the spacing steps, is a value of its own, marked; whole pixels are a step.
@@ -1034,11 +1039,14 @@ const signed = (value: number) => (value < 0 ? `−${formatNumber(-value)}` : fo
  */
 export function LetterSpacingField({
   value,
+  inherited,
   fontSize = 16,
   mixed = false,
   onChange
 }: {
   value: LetterSpacing | undefined
+  /** What the text draws with while this is unset, read from the canvas, shown faintly. */
+  inherited?: LetterSpacing
   fontSize?: number
   mixed?: boolean
   onChange: (value: LetterSpacing | undefined) => void
@@ -1125,7 +1133,7 @@ export function LetterSpacingField({
         by: unit === "em" ? { step: 0.005, shiftStep: 0.025 } : { step: 0.5, shiftStep: 2.5 }
       }}
       shown={shown}
-      placeholder="0"
+      placeholder={formatNumber(inherited ? (currentIn(inherited, unit) ?? 0) : 0)}
       mixed={mixed}
       chip={tokenChip(held, token, {
         pick: (name) => onChange(asToken(name)),

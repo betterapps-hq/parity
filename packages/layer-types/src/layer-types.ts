@@ -277,7 +277,7 @@ const fieldSections = [
   "stroke"
 ] as const satisfies readonly PanelSection[]
 
-const boxSections = ["layout", "size", "appearance", "fill", "stroke"] as const satisfies readonly PanelSection[]
+const boxSections = ["size", "layout", "appearance", "fill", "stroke"] as const satisfies readonly PanelSection[]
 
 /** The sections each type's panel shows, in order: what's its own first, then what every box has. */
 export const elementTypeSections: Record<ElementType, readonly PanelSection[]> = {

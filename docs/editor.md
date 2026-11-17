@@ -4587,8 +4587,11 @@ section with the group's own title leads it without a title of its own, and its 
   Size, Weight with italic, Line height and Letter spacing, from the project's type tokens, and the text's Color. A
   layer with type of its own and no preset is offered the preset it matches, or the nearest within three steps summed
   over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
-  spacing). A layer that sets no type of its own is offered none. The presets listed are still the stand-in project's,
-  measured with the project's type tokens. Not saved: Preset, and the color's opacity.
+  spacing). A layer that sets no type of its own is offered none. A row the layer doesn't set shows faintly what its
+  text draws in, read from the canvas's computed style for its element, inherited values included (`nodeTypeStyle`,
+  `renderedType` in `inspector/controls/rendered-type.ts`, tested in `rendered-type.test.ts`); before the layer is
+  drawn, and in Storybook, it shows the stand-in project's defaults. The presets listed are still the stand-in
+  project's, measured with the project's type tokens. Not saved: Preset, and the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
@@ -4839,16 +4842,17 @@ story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
 the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). After each kind's own lead,
 every kind shares one order, leaving out what it doesn't have: Size with Spacing, Position, Appearance, Typography,
-Fill, Stroke, then Effects, Motion and CSS. A layout's opens with Layout. A text layer's opens with Content and
-Typography, with Fill, its background, after Appearance. An image's or a video's opens with Content, its file, alt text,
-fit and credit, and a video's controls, then Size, Position, Appearance and Stroke; it has no Typography or Fill, since
-the picture fills it. An icon's opens with Component instance, which icon it is and its set's props, and Attributes, as
-its accessible name, then Size, Position and Appearance; its color and stroke are its own, so it has no Typography, Fill
-or Stroke. A component instance's opens with Component instance, its props and the slots it fills, and Attributes, then
-Size, Position, Appearance, and Typography for the text inside it, with no Layout; when its component takes no
-`className`, a note stands in for its style sections. The capability table still leaves out what the layer can't take: a
-design's root has no Position, and a frame's root starts with its size. Typography is always open, on a layout, a
-component or an instance as on a text layer.
+Fill, Stroke, then Effects, Motion and CSS. A layout's has Layout after Position, as Penpot and Figma put a layer's own
+size and place first. A text layer's opens with Content and Typography, with Fill, its background, after Appearance. An
+image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
+Position, Appearance and Stroke; it has no Typography or Fill, since the picture fills it. An icon's opens with
+Component instance, which icon it is and its set's props, and Attributes, as its accessible name, then Size, Position
+and Appearance; its color and stroke are its own, so it has no Typography, Fill or Stroke. A component instance's opens
+with Component instance, its props and the slots it fills, and Attributes, then Size, Position, Appearance, and
+Typography for the text inside it, with no Layout; when its component takes no `className`, a note stands in for its
+style sections. The capability table still leaves out what the layer can't take: a design's root has no Position, and a
+frame's root starts with its size. Typography is always open, on a layout, a component or an instance as on a text
+layer.
 
 A layer read from a component's element (read-only viewer) shows its type's own sections, from
 `@parity-app/layer-types`, Appearance straight after Size as in the shared order, with Spacing and Position after Size,
@@ -4864,18 +4868,18 @@ instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an
 for a layer read from an element; `kindOrders` and `oneKindOrder`, which `MultiLayerPanel` in `chrome/MultiPanel.tsx`
 uses too; `StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
 
-Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first, Appearance before Typography, Fill
-and Stroke, and Typography open with no Add typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers ›
-Text): Headline, Typography before Size and no Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image
-and Video, Content first, then Size, Position, Appearance and Stroke, with no Layout, Typography or Fill, and Video's
-Controls switch. `chrome/IconPanel.stories.tsx` (Layers › Icon): Check, Component instance first, with no Typography,
-Fill or Stroke. `chrome/InstancePanel.stories.tsx` (Layers › Component instance): Code Component, Component instance
-then Attributes first and no Layout; Design Instance, Component instance first. `chrome/MultiPanel.stories.tsx` (Layers
-› Several layers): Layers Of One Kind, Typography before Size; Layers Of Different Kinds, no Layout or Content.
-`chrome/ElementPanel.stories.tsx` (Layers › Element): Button, Typography, Size, Spacing, Position and Appearance;
-Section, Layout, Size, Spacing, Position and Typography. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every
-kind's panel side by side, each column the app's `LayerPanel` with its own selection, to compare them while each kind's
-panel is built.
+Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Size first, Layout after Position, Appearance
+before Typography, Fill and Stroke, and Typography open with no Add typography; Root, no Position.
+`chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no Layout.
+`chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
+Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
+(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
+(Layers › Component instance): Code Component, Component instance then Attributes first and no Layout; Design Instance,
+Component instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography
+before Size; Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element):
+Button, Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography.
+Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
+`LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
 

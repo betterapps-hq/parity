@@ -35,7 +35,9 @@ async function mediaSections(canvasElement: HTMLElement, src: string) {
 /** A team photo in Pricing's hero: its file, alt text, fit and credit lead. */
 export const Image: Story = {
   loaders: [media({ type: "image", src: "/images/team-at-work.jpg" })],
-  play: ({ canvasElement }) => mediaSections(canvasElement, "/images/team-at-work.jpg")
+  play: async ({ canvasElement }) => {
+    await mediaSections(canvasElement, "/images/team-at-work.jpg")
+  }
 }
 
 /** A clip in the same place: an image's sections, and whether it shows the browser's controls. */

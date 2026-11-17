@@ -5,7 +5,7 @@ import { LayoutPanel } from "./KindPanels.tsx"
 import { pick, renderSection, sectionStage } from "./layer-stories.tsx"
 
 /**
- * A layout's Design panel (PAR-1057): Layout first, then its size and the box around it, where it sits and how it's
+ * A layout's Design panel (PAR-1057): its size and the box around it and where it sits, then Layout, and how it's
  * drawn. Each section's own cases are in Sections.
  */
 const meta = {
@@ -29,8 +29,10 @@ export const InALayout: Story = {
     await expect(titles.map((title) => title.textContent)).toEqual(
       expect.arrayContaining(["Layout", "Size", "Position", "Typography"])
     )
-    await expect(titles[0]).toHaveTextContent("Layout")
     const names = titles.map((title) => title.textContent ?? "")
+    // Its own size and where it sits come before how it lays out its children.
+    await expect(names[0]).toBe("Size")
+    await expect(names.indexOf("Position")).toBeLessThan(names.indexOf("Layout"))
     // How it is drawn as a whole comes before the text inside it and its fill.
     await expect(names.indexOf("Appearance")).toBeLessThan(names.indexOf("Typography"))
     await expect(names.indexOf("Typography")).toBeLessThan(names.indexOf("Fill"))

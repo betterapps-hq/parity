@@ -24,7 +24,7 @@ import {
   coveredBy,
   detachPreset,
   fieldLabel,
-  inherited,
+  inheritedBy,
   measured,
   overridesOf,
   type PresetLayer,
@@ -45,7 +45,7 @@ import {
   valueWords,
   viewportsOf
 } from "./preset-data.ts"
-import { findFont, projectFonts } from "./text-data.ts"
+import { stackFont } from "./rendered-type.ts"
 import type { FieldToken, TokenSetName } from "./tokens.ts"
 
 /*
@@ -563,12 +563,14 @@ function TypeControl({
   const type = typeOf(layer)
   const numbers = measured(type, sets)
   const set = <F extends TypeField>(name: F, value: TypeValues[F] | undefined) => onChange(setValue(layer, name, value))
+  // What the text draws in where the layer sets nothing, as each unset row shows it faintly.
+  const inherits = measured(inheritedBy(layer), sets)
 
   if (field === "font") {
     return (
       <FontFamilyField
         value={shownValue(layer, "font").value}
-        inherited={{ font: projectFonts[0]!, from: inheritsFrom }}
+        inherited={{ font: stackFont(inherits.stack), from: inheritsFrom }}
         onChange={(next) => set("font", next)}
         onPreview={noPreview}
       />
@@ -579,7 +581,7 @@ function TypeControl({
     return (
       <FontSizeField
         value={shownValue(layer, "size").value}
-        inherited={measured(inherited, sets).size}
+        inherited={inherits.size}
         onChange={(next) => set("size", next)}
       />
     )
@@ -588,8 +590,9 @@ function TypeControl({
   if (field === "weight") {
     return (
       <WeightField
-        font={findFont(numbers.font) ?? projectFonts[0]!}
+        font={stackFont(numbers.stack)}
         value={shownValue(layer, "weight").value}
+        inherited={inherits.weight}
         italic={layer.italic}
         onChange={(next) => set("weight", next)}
         onItalic={(italic) => onChange({ ...layer, italic })}
@@ -605,6 +608,7 @@ function TypeControl({
     return (
       <LineHeightField
         value={shownValue(layer, "lineHeight").value}
+        inherited={layer.inherited?.lineHeight}
         size={size}
         fontSize={numbers.size}
         onChange={(next) => set("lineHeight", next)}
@@ -615,6 +619,7 @@ function TypeControl({
   return (
     <LetterSpacingField
       value={shownValue(layer, "letterSpacing").value}
+      inherited={layer.inherited?.letterSpacing}
       fontSize={numbers.size}
       onChange={(next) => set("letterSpacing", next)}
     />

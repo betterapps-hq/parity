@@ -387,10 +387,13 @@ async function iconSetSource(
   const drawn = icons.render === "export" ? undefined : icons.render
   const module = drawn ? drawn.import : (icons.import ?? importName)
   const icon = drawn ? drawn.component : icons.prefer?.[0]
+
   const found =
     module === importName ? installed : await findPackage(root, packageNameOf(module)).catch(() => undefined)
+
   const subpath =
     found && module.length > packageNameOf(module).length ? `.${module.slice(packageNameOf(module).length)}` : "."
+
   const declaration = found && packageEntry(found, "types", subpath)
 
   return icon && declaration

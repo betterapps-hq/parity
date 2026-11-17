@@ -32,6 +32,7 @@ import { useExtensions } from "../extensions.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
+import type { TypeStyle } from "../inspector/controls/rendered-type.ts"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
@@ -742,6 +743,25 @@ export function placeNode(
     size: { width: Math.round(rect.width / scale), height: Math.round(rect.height / scale) },
     inFlow: { x: Math.round(rect.left / scale - left), y: Math.round(rect.top / scale - top) }
   }
+}
+
+/**
+ * The type a node's element draws with, as the canvas computes it in the frame it was picked in: its own styles, its
+ * classes' and what it inherits. Undefined when it isn't drawn.
+ */
+export function nodeTypeStyle(
+  editor: Editor | undefined,
+  design: string,
+  nodeId: string,
+  picked: { mode?: string; state?: string }
+): TypeStyle | undefined {
+  const area = editor?.getContainer().closest(".canvas-area")
+  const host = area ? selectionFrame(area, design, picked) : undefined
+
+  const element =
+    host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
+
+  return element ? getComputedStyle(element) : undefined
 }
 
 /** A picture's or a video's layer, which the section edits the same way. */

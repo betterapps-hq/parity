@@ -253,6 +253,7 @@ describe("icon sets", () => {
       [],
       renderer
     )
+
     expect(found.iconSets).toEqual({
       "glyphs/": {
         path: "glyphs",

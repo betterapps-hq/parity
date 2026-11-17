@@ -188,7 +188,7 @@ function SlotFill({
   ...box
 }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot } & Omit<
   HTMLAttributes<HTMLDivElement>,
-  "children" | "className" | "onChange"
+  "children" | "className" | "onChange" | "slot"
 >) {
   const session = useProject()
   const entries = useContainerEntries(session)

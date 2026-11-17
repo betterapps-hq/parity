@@ -74,8 +74,16 @@ const shared: readonly StyleSection[] = [
 /** The shared order without some sections, for a kind that doesn't have them. */
 const sharedWithout = (...left: StyleSection[]) => shared.filter((section) => !left.includes(section))
 
-/** Every style section in order: how a layout lays out its children, then the shared run. */
-export const styleOrder: readonly StyleSection[] = ["frameSize", "layout", ...shared]
+/**
+ * Every style section in order: the shared run, with how a layout lays out its children after where it sits, as Penpot
+ * and Figma put a layer's own size and place before its layout. A frame's root starts with its size.
+ */
+export const styleOrder: readonly StyleSection[] = [
+  "frameSize",
+  ...shared.slice(0, shared.indexOf("appearance")),
+  "layout",
+  ...shared.slice(shared.indexOf("appearance"))
+]
 
 /** An image's or a video's style sections, the same for both. */
 const mediaOrder = sharedWithout("text", "fill")
@@ -89,8 +97,8 @@ const instanceOrder = shared
  */
 export const kindOrders = {
   /**
-   * A layout (PAR-1057): how it lays out its children first, then its own size and the box around it, where it sits,
-   * and how it's drawn. Typography, for the text inside it, folds until it's set. A frame's root starts with its size.
+   * A layout (PAR-1057): its own size and the box around it and where it sits, then how it lays out its children, and
+   * how it's drawn. Typography is for the text inside it.
    */
   layout: styleOrder,
   /**

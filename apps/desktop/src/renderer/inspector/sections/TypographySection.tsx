@@ -27,7 +27,8 @@ export function TypographySection({ editor, edit }: SectionProps) {
   }
 
   const italic = style.fontStyle === "italic"
-  const layer: PresetLayer = { own, italic }
+  // Unset rows show what the text draws in, read from the canvas.
+  const layer: PresetLayer = { own, italic, inherited: editor.type?.() }
 
   const differs = (next: PresetLayer, field: TypeField) =>
     JSON.stringify(next.own[field]) !== JSON.stringify(own[field])
