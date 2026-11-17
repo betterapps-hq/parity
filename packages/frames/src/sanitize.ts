@@ -259,7 +259,7 @@ export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
   // Taking one rule out can join the text around it into another (`@im@import "";port …`), so until none is left.
   for (let last = ""; last !== css;) {
     last = css
-    css = css.replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')*;?/gi, "")
+    css = css.replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*')*;?/gi, "")
   }
 
   return sanitizeCss(css, policy)
@@ -453,7 +453,7 @@ function srcsetCandidates(value: string): { url: string; descriptor: string }[] 
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
   const urls = withoutComments(readLoadNames(css)).replace(
-    /\burl\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*\)/gi,
+    /\burl\(\s*(?:"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)'|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*\)/gi,
     (whole, double?: string, single?: string, bare?: string) =>
       allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
   )
@@ -505,7 +505,7 @@ function sanitizeImageSources(css: string, policy: SanitizePolicy): string {
     const parts = match[1]?.toLowerCase() === "src" ? [css.slice(start, end)] : topLevelParts(css.slice(start, end))
 
     const candidates = parts.map((candidate) => {
-      const leading = /^(\s*)(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/.exec(candidate)
+      const leading = /^(\s*)(?:"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)')/.exec(candidate)
 
       if (!leading) {
         return checkedImage.test(candidate) ? candidate : "none"
@@ -621,6 +621,11 @@ function readLoadNames(css: string): string {
 /** A CSS string's text with its escapes read, so `\6a avascript:` is checked as what it says. */
 function cssString(text: string): string {
   return text.replace(/\\([0-9a-f]{1,6}\s?|[\s\S])/gi, (_whole, escaped: string) => {
+    // A backslash before a newline continues the string onto the next line, and stands for nothing.
+    if (/^[\n\r\f]$/.test(escaped)) {
+      return ""
+    }
+
     const hex = escaped.trim()
 
     if (!/^[0-9a-f]+$/i.test(hex)) {

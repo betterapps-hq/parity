@@ -388,6 +388,15 @@ describe("sanitizeSheet", () => {
     )
   })
 
+  it("reads a backslash before a newline in a url() string as the string going on", () => {
+    expect(sanitizeSheet(`a { background: url("http:\\\n//evil.example/a.png") }`, policy)).toBe(
+      "a { background: none }"
+    )
+    expect(sanitizeSheet(`a { background: url('http:\\\r\n//evil.example/a.png') }`, policy)).toBe(
+      "a { background: none }"
+    )
+  })
+
   it("takes out an @import that taking out another would make", () => {
     expect(sanitizeSheet(`@im@import "";port "http://evil.example/a.css"; b{}`, policy)).toBe(" b{}")
   })
