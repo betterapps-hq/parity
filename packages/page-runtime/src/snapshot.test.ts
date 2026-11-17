@@ -73,6 +73,24 @@ describe("takeSnapshot", () => {
     ])
   })
 
+  it("makes the url()s in svg's presentation attributes absolute, keeping a fragment", async () => {
+    document.body.innerHTML = `<svg><rect fill="url(/paint.svg#g)" filter="url(#blur)"></rect></svg>`
+
+    const { body } = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: new Map() })
+
+    expect(body.children[0]).toMatchObject({
+      children: [
+        {
+          tag: "rect",
+          attributes: [
+            ["fill", `url("${window.location.origin}/paint.svg#g")`],
+            ["filter", "url(#blur)"]
+          ]
+        }
+      ]
+    })
+  })
+
   it("keeps svg's namespace and its tags' case", async () => {
     document.body.innerHTML = `<svg viewBox="0 0 1 1"><linearGradient id="g"></linearGradient></svg>`
 

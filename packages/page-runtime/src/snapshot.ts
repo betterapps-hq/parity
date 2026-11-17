@@ -225,7 +225,10 @@ function attributesOf(element: Element, base: string): [string, string][] {
   const attributes = new Map<string, string>()
 
   for (const attribute of element.attributes) {
-    attributes.set(attribute.name, absoluteAttribute(attribute.name, attribute.value, base))
+    attributes.set(
+      attribute.name,
+      absoluteAttribute(attribute.name, attribute.value, base, element.namespaceURI === svgNamespace)
+    )
   }
 
   if (element instanceof HTMLInputElement) {
@@ -249,7 +252,8 @@ function setFlag(attributes: Map<string, string>, name: string, on: boolean): vo
   }
 }
 
-function absoluteAttribute(name: string, value: string, base: string): string {
+/** An attribute's value with its URLs absolute: SVG's presentation attributes (`fill="url(…)"`) hold CSS `url()`s too. */
+function absoluteAttribute(name: string, value: string, base: string, svg: boolean): string {
   if (urlAttributes.has(name)) {
     return absoluteUrl(value, base)
   }
@@ -260,7 +264,7 @@ function absoluteAttribute(name: string, value: string, base: string): string {
       .join(", ")
   }
 
-  return name === "style" ? absoluteCss(value, base) : value
+  return name === "style" || (svg && value.includes("url(")) ? absoluteCss(value, base) : value
 }
 
 /** A URL made absolute against `base`, or as it was when it isn't one, as a `#hash` or a `javascript:` link. */
