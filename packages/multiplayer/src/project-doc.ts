@@ -10,10 +10,8 @@ import {
   type ReferenceSpec
 } from "@parity-app/core"
 import {
-  rebaseText,
   sameDesign,
   sameDocument,
-  spliceAt,
   sameTokenValues,
   sameValue,
   type TokenEdit,
@@ -178,35 +176,31 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
       }
 
       // And so are token values and typing someone else has changed since (see `undoing`).
-      const taken = skipping ? undoing(after, { op, expect }, skipping) : op
-
-      if (!taken) {
-        continue
-      }
-
-      try {
-        applied = applyOp(after, taken, index, recorder)
-      } catch (error) {
-        if (!(error instanceof OpProblem)) {
-          throw error
-        }
-
-        const retried = skipping && retry(after, op, index, recorder, error.problem, skipping)
-
-        if (!retried) {
-          if (skipping) {
-            continue
+      for (const taken of skipping ? undoing(after, { op, expect }, skipping) : [op]) {
+        try {
+          applied = applyOp(after, taken, index, recorder)
+        } catch (error) {
+          if (!(error instanceof OpProblem)) {
+            throw error
           }
 
-          return error.problem
+          const retried = skipping && retry(after, op, index, recorder, error.problem, skipping)
+
+          if (!retried) {
+            if (skipping) {
+              continue
+            }
+
+            return error.problem
+          }
+
+          applied = retried
         }
 
-        applied = retried
+        after = applied.state
+        inverse.push(applied.inverse.map((each) => guarded(each, after)))
+        plain.push(...applied.plain)
       }
-
-      after = applied.state
-      inverse.push(applied.inverse.map((each) => guarded(each, after)))
-      plain.push(...applied.plain)
     }
 
     return { after, inverse, plain }
@@ -834,16 +828,16 @@ function guarded(op: DocOp, after: DocState): Inverse {
  * What an inverse writes while undoing: only the step's own token values go back, and only the step's own typing comes
  * out of a text others have typed in since (PAR-1238). Nothing when there's nothing of the step's left.
  */
-function undoing(state: DocState, { op, expect }: Inverse, skipping: { kept: number }): DocOp | undefined {
+function undoing(state: DocState, { op, expect }: Inverse, skipping: { kept: number }): DocOp[] {
   if (expect && "tokens" in expect && op.op === "setTokens") {
-    return tokensBack(state.tokens, op.tokens, expect.tokens, skipping)
+    return [tokensBack(state.tokens, op.tokens, expect.tokens, skipping)]
   }
 
   if (expect && "text" in expect && op.op === "editText") {
     return textBack(state, op, expect.text, skipping)
   }
 
-  return op
+  return [op]
 }
 
 /** A text layer's text, or nothing when it's gone or isn't a text layer. */
@@ -855,34 +849,126 @@ function textIn(state: DocState, op: Extract<DocOp, { op: "editText" }>): string
 }
 
 /**
- * Undoing typing in a text others have typed in since: the step's own change comes out and theirs stays, merged as
- * typing is (`rebaseText`), written as the change from the text as it is now. When there's nothing of the step's left
- * to take out, it's skipped and counted.
+ * Undoing typing in a text others have typed in since: the step's own characters that are still there come out, and
+ * what it removed goes back where those characters were, wherever others' edits have moved them; theirs stay. Each
+ * character of the text as the step left it is followed to where it is now (`kept`), so edits others made on both
+ * sides of the typing, or inside it, stay apart. Written as changes to the text as it is now, last first so each
+ * position holds; when there's nothing of the step's left to take out, it's skipped and counted.
  */
 function textBack(
   state: DocState,
   op: Extract<DocOp, { op: "editText" }>,
   left: string,
   skipping: { kept: number }
-): DocOp | undefined {
+): DocOp[] {
   const now = textIn(state, op)
 
   if (now === undefined || now === left || op.edit.kind !== "splice") {
-    return op
+    return [op]
   }
 
   const { at, remove, insert } = op.edit
-  const back = rebaseText(left, left.slice(0, at) + insert + left.slice(at + remove), now, { start: 0, end: 0 }).text
+  const where = kept(left, now)
+  // The step's characters still there, in runs of neighbours.
+  const runs: { start: number; end: number }[] = []
 
-  if (back === now) {
-    skipping.kept += 1
+  for (let index = at; index < at + remove; index++) {
+    const position = where[index]!
+    const last = runs.at(-1)
 
-    return undefined
+    if (position < 0) {
+      continue
+    }
+
+    if (last && last.end === position) {
+      last.end += 1
+    } else {
+      runs.push({ start: position, end: position + 1 })
+    }
   }
 
-  const splice = spliceAt(now, back)
+  if (runs.length === 0 && insert === "") {
+    skipping.kept += 1
 
-  return { ...op, edit: { kind: "splice", at: splice.start, remove: splice.end - splice.start, insert: splice.insert } }
+    return []
+  }
+
+  // What the step removed goes back before the first character after its own that's still there.
+  let back = now.length
+
+  for (let index = at + remove; index < left.length; index++) {
+    if (where[index]! >= 0) {
+      back = where[index]!
+      break
+    }
+  }
+
+  const splice = (start: number, end: number, text: string): DocOp => ({
+    ...op,
+    edit: { kind: "splice", at: start, remove: end - start, insert: text }
+  })
+
+  return [
+    ...(insert === "" ? [] : [splice(back, back, insert)]),
+    ...runs.toReversed().map(({ start, end }) => splice(start, end, ""))
+  ]
+}
+
+/**
+ * Where each character of `before` is in `after`, or -1 for one that's gone: the longest run of characters they share,
+ * in order, after what they start and end with.
+ */
+function kept(before: string, after: string): number[] {
+  let head = 0
+
+  while (head < before.length && head < after.length && before[head] === after[head]) {
+    head++
+  }
+
+  let tail = 0
+
+  while (
+    tail < before.length - head &&
+    tail < after.length - head &&
+    before[before.length - 1 - tail] === after[after.length - 1 - tail]
+  ) {
+    tail++
+  }
+
+  const where = Array.from({ length: before.length }, () => -1)
+
+  for (let index = 0; index < head; index++) {
+    where[index] = index
+  }
+
+  for (let index = 0; index < tail; index++) {
+    where[before.length - 1 - index] = after.length - 1 - index
+  }
+
+  // The middles, by the longest common subsequence.
+  const a = before.slice(head, before.length - tail)
+  const b = after.slice(head, after.length - tail)
+  const lengths = Array.from({ length: a.length + 1 }, () => Array.from({ length: b.length + 1 }, () => 0))
+
+  for (let i = a.length - 1; i >= 0; i--) {
+    for (let j = b.length - 1; j >= 0; j--) {
+      lengths[i]![j] = a[i] === b[j] ? lengths[i + 1]![j + 1]! + 1 : Math.max(lengths[i + 1]![j]!, lengths[i]![j + 1]!)
+    }
+  }
+
+  for (let i = 0, j = 0; i < a.length && j < b.length;) {
+    if (a[i] === b[j]) {
+      where[head + i] = head + j
+      i++
+      j++
+    } else if (lengths[i + 1]![j]! >= lengths[i]![j + 1]!) {
+      i++
+    } else {
+      j++
+    }
+  }
+
+  return where
 }
 
 /**

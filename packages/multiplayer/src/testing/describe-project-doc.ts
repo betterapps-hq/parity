@@ -930,6 +930,37 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Oh, Hello" })
       })
 
+      it("undoes typing and a deletion apart from what the other wrote on both sides of it", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, remove: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove, insert }
+        })
+
+        apply(a, [splice(2, 0, "X")])
+        exchange()
+        apply(b, [splice(6, 0, "Y")])
+        apply(b, [splice(0, 0, "Z")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "ZHelloY" })
+
+        apply(a, [splice(3, 2, "")])
+        exchange()
+        apply(b, [splice(5, 0, "!")])
+        apply(b, [splice(0, 0, "Oh ")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Oh ZHelloY!" })
+      })
+
       it("lands two layers inserted before the same sibling, in the same order on both", () => {
         const { a, b, exchange } = together()
         apply(a, [{ op: "insert", design: "app.par#home", parent: "row", before: "b", node: text("x") }])
