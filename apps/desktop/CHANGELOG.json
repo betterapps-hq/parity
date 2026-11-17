@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 21:41:34 GMT",
+      "version": "0.108.0",
+      "tag": "@parity-app/desktop_v0.108.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a15a081b4048adb58ea73eee883bd8ae9cd8d7d4",
+            "comment": "The live room's avatar stack is one stack, your face first, beside the zoom controls at their height; a topRight edge layer sits on zoom's row"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 21:10:09 GMT",
       "version": "0.107.1",
       "tag": "@parity-app/desktop_v0.107.1",

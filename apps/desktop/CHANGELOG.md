@@ -1,8 +1,17 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 21:10:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 21:41:34 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.108.0
+
+Tue, 17 Nov 2026 21:41:34 GMT
+
+### Minor changes
+
+- The live room's avatar stack is one stack, your face first, beside the zoom controls at their height; a topRight edge
+  layer sits on zoom's row (ajcraswell@gmail.com)
 
 ## 0.107.1
 
