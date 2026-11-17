@@ -141,7 +141,8 @@ export function selectAll(session: ProjectDesigns, drawn: (key: string) => boole
   const current = selection.get()
   const entry = current.design ? containerEntry(doc, current.design) : undefined
 
-  if (entry && current.node) {
+  // Layers of a design another lens's canvas draws, kept selected as the lens changed, count as nothing selected here.
+  if (entry && current.node && drawn(entry.key)) {
     const siblings = siblingsOf(entry.container.root, current.node)
 
     if (siblings) {

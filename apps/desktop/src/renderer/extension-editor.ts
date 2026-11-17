@@ -16,6 +16,7 @@ import {
   selectedRefs,
   whenFactsOf
 } from "./extensions.ts"
+import { requestLens } from "./lenses/lens-requests.ts"
 import { marksOf } from "./route-marks.ts"
 import { request } from "./service.ts"
 import type { ProjectSession } from "./workspace.ts"
@@ -250,8 +251,18 @@ async function navigate(
   return {}
 }
 
-/** Opens a panel's tab: Parity's own, the console, an extension's log, or a tab an extension declares. */
+/**
+ * Opens a panel's tab: Parity's own, the console, an extension's log, or a tab an extension declares. `routes` shows
+ * Pages, whose Layers lists the app's routes.
+ */
 function showTab(session: ProjectSession, id: string): void {
+  if (id === "routes") {
+    requestLens("pages")
+    setLayout({ left: true, leftTab: "layers" })
+
+    return
+  }
+
   const side = panelTabs.get(id)
 
   if (side === "left") {

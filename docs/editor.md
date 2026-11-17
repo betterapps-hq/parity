@@ -8457,9 +8457,10 @@ The app's routes and their pages have a lens of their own, Pages, as
   what was selected still selected. A page is drawn from the app's code, so the canvas has no drawing toolbar: F and T
   leave it on Move and select, and files dropped on it make nothing.
 - **Selecting stays on its canvas.** Select all, Select inverse and Select matching select only pages, and N steps
-  through them. A page selected while another lens shows, from Search, shows Pages in that lens's place with the page in
-  view; a design selected while Pages shows, or made from its menu, shows Screens the same way. A canvas showing part of
-  what's selected never narrows it for the others.
+  through them; layers kept selected from another lens's canvas count as nothing selected. A router's Show routes, and
+  its route count in the status bar, show Pages with its Layers. A page selected while another lens shows, from Search,
+  shows Pages in that lens's place with the page in view; a design selected while Pages shows, or made from its menu,
+  shows Screens the same way. A canvas showing part of what's selected never narrows it for the others.
 - **Its Layers** lists the routes and their pages' layers, as Layers' Routes group did; Screens' Layers no longer has
   that group. Selecting a page there or on its canvas shows it in the inspector.
 - **The inspector** shows the selected page as before: its header, its path params as props, its route and Export. Under

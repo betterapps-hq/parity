@@ -434,6 +434,14 @@ function inFocus(session: DesignsInFocus, next: Selection): Selection {
   return designsSelection(keys.filter(drawnInFocus(session)))
 }
 
+/** What's selected, if the canvas in focus draws it; what's kept selected from another lens's canvas counts as nothing. */
+function selectedInFocus(session: DesignsInFocus): Selection {
+  const current = session.selection.get()
+  const key = current.note ?? current.reference ?? current.design
+
+  return key === undefined || drawnInFocus(session)(key) ? current : {}
+}
+
 function selectEverything(session: DesignsInFocus | undefined): void {
   if (session) {
     selectAll(session, drawnInFocus(session))
@@ -443,13 +451,13 @@ function selectEverything(session: DesignsInFocus | undefined): void {
 /** Ctrl+Shift+A: what Select all would select, less what's selected. */
 function selectInverse(session: DesignsInFocus | undefined): void {
   if (session) {
-    session.selection.set(inFocus(session, inverseSelection(session.doc, session.selection.get())))
+    session.selection.set(inFocus(session, inverseSelection(session.doc, selectedInFocus(session))))
   }
 }
 
 /** Ctrl+Alt+A: every layer in the design like the selected ones, or every design of the same kind. */
 function selectMatching(session: DesignsInFocus | undefined): void {
-  const next = session && matchingSelection(session.doc, session.selection.get())
+  const next = session && matchingSelection(session.doc, selectedInFocus(session))
 
   if (next) {
     session.selection.set(inFocus(session, next))

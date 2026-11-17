@@ -15,6 +15,7 @@ import { ZoomControls } from "../chrome/ZoomControls.tsx"
 import { useTool } from "../selection.ts"
 import { CanvasShown, WindowLayers } from "../window-canvas.tsx"
 import { workspace } from "../workspace.ts"
+import { onLensRequest } from "./lens-requests.ts"
 import { useLensWorkspace } from "./shell.ts"
 
 /** What the open project's lenses read from the window: which project, whether it shows, and how to reopen it. */
@@ -101,6 +102,9 @@ export function ProjectCanvas({
 
     return selection.subscribe(follow)
   }, [focused, selection, draws, lenses])
+
+  // A lens asked for from outside the shell, as by an extension's Show routes, shows as a link would.
+  useEffect(() => (focused ? onLensRequest((other) => lenses.followLink(other, false)) : undefined), [focused, lenses])
 
   // The canvas in focus is the project's.
   useEffect(() => {
