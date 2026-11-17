@@ -277,6 +277,12 @@ describe("the change typed in a text (PAR-1238)", () => {
     expect(spliceAt("Hello", "Helllo", 5)).toEqual({ start: 4, end: 4, insert: "l" })
   })
 
+  it("changes a character written as two code units whole", () => {
+    // The two emoji share their first code unit: the change is the whole emoji, not its second half.
+    expect(spliceAt("a😃b", "a😄b", 3)).toEqual({ start: 1, end: 3, insert: "😄" })
+    expect(rebaseText("a😃b", "a😄b", "a😅b", { start: 3, end: 3 }).text).toBe("a😅😄b")
+  })
+
   it("is the first place it could be without a caret, and covers a replaced selection", () => {
     expect(spliceAt("Hello", "Helllo")).toEqual({ start: 2, end: 2, insert: "l" })
     expect(spliceAt("Hello world", "Hello there", 11)).toEqual({ start: 6, end: 11, insert: "there" })
