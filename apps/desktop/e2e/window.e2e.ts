@@ -91,21 +91,23 @@ describe("the window", () => {
     await app.selectLayer("Members", "lin")
   })
   // docs/editor.md, The project's lenses (PAR-1243).
-  it("shows the project in the lens shell, with Screens its one lens, and empties the window when its tab closes", async () => {
+  it("opens the project on Screens in the lens shell, and empties the window when its tab closes", async () => {
     const { page } = app
     const lenses = page.getByRole("toolbar", { name: "Lenses" }).getByRole("button")
+    const screens = page.getByRole("toolbar", { name: "Lenses" }).getByRole("button", { name: "Screens", exact: true })
     const layers = page.locator("[role=tree][aria-label=Layers]")
     const empty = page.getByText("No lens open")
 
-    await expect.poll(() => lenses.count()).toBe(1)
-    expect(await lenses.first().getAttribute("aria-label")).toBe("Screens")
-    expect(await lenses.first().getAttribute("aria-pressed")).toBe("true")
+    await expect
+      .poll(() => lenses.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))))
+      .toEqual(["Pages", "Screens"])
+    expect(await screens.getAttribute("aria-pressed")).toBe("true")
 
     try {
       // Clicking the lens in front hides the left panel, and again shows it.
-      await lenses.first().click()
+      await screens.click()
       await expect.poll(() => layers.count()).toBe(0)
-      await lenses.first().click()
+      await screens.click()
       await expect.poll(() => layers.count()).toBe(1)
 
       // Closing its tab, the last, empties the window, and the panels go with it.
@@ -114,16 +116,62 @@ describe("the window", () => {
       expect(await layers.count()).toBe(0)
       expect(await page.locator(".container-view").count()).toBe(0)
     } finally {
-      // Ctrl+2 shows it again, with its canvas and panels, as the tests after this one need.
-      if ((await empty.count()) > 0) {
-        await page.keyboard.press("Control+2")
-      }
-
-      await expect.poll(() => layers.count()).toBe(1)
-      await expect.poll(() => page.evaluate(() => !!window.e2e!.session().editor)).toBe(true)
+      await showScreens()
     }
 
     expect(await empty.count()).toBe(0)
     await expect.poll(() => page.locator(".container-view").count()).toBeGreaterThan(0)
   })
+
+  // docs/editor.md, Pages, a lens of its own (PAR-1244).
+  it("draws the app's pages on Pages' canvas alone, keeping its camera when Screens takes its tab and gives it back", async () => {
+    const { page } = app
+
+    const pages = await app.page.evaluate(() =>
+      [...window.e2e!.session().doc.files()].flatMap(([file, canvas]) =>
+        file === "(pages)" ? canvas.containers.map((container) => `${file}#${container.id}`) : []
+      )
+    )
+
+    const drawn = () =>
+      page.evaluate(() =>
+        window
+          .e2e!.session()
+          .editor!.getCurrentPageShapes()
+          .flatMap((board) => (board.type === "canvas-container" ? [String(board.props.key)] : []))
+      )
+
+    expect(pages.length).toBeGreaterThan(0)
+    // Screens draws none of them.
+    expect((await drawn()).filter((key) => pages.includes(key))).toEqual([])
+
+    try {
+      // Ctrl+1 shows Pages in Screens' place, drawing the pages and nothing else.
+      await page.keyboard.press("Control+1")
+      await expect.poll(async () => (await drawn()).toSorted()).toEqual(pages.toSorted())
+      // In place, as a link opens: one tab, Pages.
+      expect(await page.locator(".dv-tab").allTextContents()).toEqual(["Pages"])
+      expect(await page.locator("[role=tree][aria-label=Layers]").getByText("Screens", { exact: true }).count()).toBe(0)
+
+      // Moved, then left for Screens and shown again, it's where it was.
+      await page.evaluate(() => window.e2e!.session().editor!.setCamera({ x: 120, y: 80, z: 0.2 }, { immediate: true }))
+      await page.keyboard.press("Control+2")
+      await expect.poll(async () => (await drawn()).some((key) => pages.includes(key))).toBe(false)
+      await page.keyboard.press("Control+1")
+      await expect.poll(async () => (await drawn()).length).toBe(pages.length)
+      const { x, y, z } = await app.camera()
+      expect({ x: Math.round(x), y: Math.round(y), z: Math.round(z * 100) / 100 }).toEqual({ x: 120, y: 80, z: 0.2 })
+    } finally {
+      await showScreens()
+    }
+  })
 })
+
+/** Screens back in front, with its canvas and panels, as the tests after these need. */
+async function showScreens(): Promise<void> {
+  await app.page.keyboard.press("Control+2")
+  await expect.poll(() => app.page.locator("[role=tree][aria-label=Layers]").count()).toBe(1)
+  await expect
+    .poll(() => app.page.evaluate(() => !!window.e2e!.session().editor?.getCurrentPageShapes().length))
+    .toBe(true)
+}

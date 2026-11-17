@@ -30,7 +30,8 @@ import {
   SelectionForegroundOverlayUtil,
   setUserPreferences,
   type TLComponents,
-  Tldraw
+  Tldraw,
+  useEditor
 } from "tldraw"
 import { holdWhileZooming } from "../replay.ts"
 import { useResolvedTheme } from "../theme.ts"
@@ -51,7 +52,7 @@ import { placedBoards } from "./placed-boards.ts"
 import { tellGesture } from "./presence-gestures.ts"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
-import { routePageLinks } from "./route-pages.ts"
+import { isRoutePage, routePageLinks } from "./route-pages.ts"
 import { startCanvasSurface } from "./surface/index.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
@@ -79,6 +80,20 @@ export function canvasIdFor(key: string): CanvasId {
 }
 
 /**
+ * What a canvas draws: the app's pages, drawn from its routes, with the lines of its page tree; or the rest, the designs,
+ * boards, notes and references (lens-layout.md).
+ */
+export type CanvasDraws = "pages" | "designs"
+
+/** Where each canvas's camera was as it went, by project and what it draws, so it comes back there. */
+const keptCameras = new Map<string, { x: number; y: number; z: number }>()
+
+/** Whether a canvas drawing these draws this design. */
+export function drawsDesign(draws: CanvasDraws, key: string): boolean {
+  return isRoutePage(key) === (draws === "pages")
+}
+
+/**
  * The infinite canvas. tldraw supplies the camera, dragging and snapping with its own UI hidden; the editor chrome is
  * ours. The project document is the source of truth: tldraw shapes are a projection of it, and the selection store
  * says what's selected.
@@ -96,10 +111,14 @@ const components: TLComponents = {
 
 /** tldraw's background, with internal extensions' layers under the designs drawn on it. */
 function CanvasBackground() {
+  const editor = useEditor()
+  const { editor: focused } = useProject()
+
+  // Internal extensions draw on the canvas in focus, whose editor the project holds.
   return (
     <>
       <DefaultBackground />
-      <WindowLayers order="underDesigns" />
+      {editor === focused && <WindowLayers order="underDesigns" />}
     </>
   )
 }
@@ -348,14 +367,19 @@ function boardTargets(editor: Editor): Extract<Gesture, { kind: "move" }>["targe
 
 export function CanvasEditor({
   onEditor,
+  draws = "designs",
   shown = true
 }: {
   onEditor: (editor: Editor | undefined) => void
+  /** What it draws: the app's pages, or the designs. */
+  draws?: CanvasDraws
   /** The canvas's tab is the one showing. Hidden a while, its frames sleep; shown again, those near the view wake. */
   shown?: boolean
 }) {
   const project = useProject()
-  const { id: tab, doc, selection, editor } = project
+  const { id: tab, doc, selection } = project
+  // This canvas's own editor, which the project holds only while its lens is in focus.
+  const [editor, setEditor] = useState<Editor>()
   const theme = useResolvedTheme()
 
   // tldraw draws its first frame in the app's theme, rather than in the light one it starts in until it's mounted. Its
@@ -397,6 +421,7 @@ export function CanvasEditor({
       // Out to 1%, past tldraw's 5%, so a project with dozens of screens fits in view at once.
       editor.setCameraOptions({ zoomSteps: [0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2, 4, 8] })
       hiddenTabs.set(editor, atom("tab hidden", false))
+      setEditor(editor)
 
       // Designs, notes and references come and go with undo and agents, so shapes follow the document rather than
       // being made once.
@@ -404,6 +429,10 @@ export function CanvasEditor({
         const wanted = new Map<CanvasId, Projected>()
 
         for (const { key, container } of containerEntries(doc)) {
+          if (!drawsDesign(draws, key)) {
+            continue
+          }
+
           // A board an agent moved stays where it was until the agent's cursor drags it over, and one someone else is
           // dragging follows their pointer (`placedBoards`).
           const at = placedBoards.at(tab, key) ?? container.position
@@ -412,11 +441,11 @@ export function CanvasEditor({
           wanted.set(canvasIdFor(key), { type: "canvas-container", key, ...at, locked })
         }
 
-        for (const { key, note } of noteEntries(doc)) {
+        for (const { key, note } of draws === "pages" ? [] : noteEntries(doc)) {
           wanted.set(canvasIdFor(key), { type: "canvas-note", key, ...note.position })
         }
 
-        for (const { key, reference } of referenceEntries(doc)) {
+        for (const { key, reference } of draws === "pages" ? [] : referenceEntries(doc)) {
           const { width: w, height: h } = referenceSize(reference)
           const size = { w, h }
           wanted.set(canvasIdFor(key), {
@@ -431,7 +460,7 @@ export function CanvasEditor({
         // The lines of the app's page tree, behind everything (PAR-1076).
         const pageLines = createCanvasId("page-links")
 
-        if (routePageLinks(tab).length > 0) {
+        if (draws === "pages" && routePageLinks(tab).length > 0) {
           wanted.set(pageLines, { type: "canvas-page-links", key: tab, x: 0, y: 0, locked: true })
         }
 
@@ -484,15 +513,22 @@ export function CanvasEditor({
       }
 
       sync()
+      const kept = keptCameras.get(`${tab}:${draws}`)
       // The canvas opens on the whole project, placed roughly by where its boards are before they've sized themselves, so
       // frames start at the zoom they're shown at: zoomed far out, a frame with a bitmap kept from an earlier session
       // sleeps on it without drawing its design first (PAR-179). It's fitted again once the boards have their sizes.
       // Boards not sized yet are small, so a small project would start zoomed in; that one starts where it did.
+      // Shown again, it's where it was.
       const opening = editor.getCamera()
-      editor.zoomToFit()
 
-      if (editor.getZoomLevel() > opening.z) {
-        editor.setCamera(opening, { immediate: true })
+      if (kept) {
+        editor.setCamera(kept, { immediate: true })
+      } else {
+        editor.zoomToFit()
+
+        if (editor.getZoomLevel() > opening.z) {
+          editor.setCamera(opening, { immediate: true })
+        }
       }
 
       const stopZoom = settleZoom(editor)
@@ -609,6 +645,12 @@ export function CanvasEditor({
         }
       })
 
+      // Whether what's selected is drawn here: a design on the other canvas leaves this one with nothing selected.
+      const drawsSelected = (current: Selection) =>
+        [current.note, current.reference, current.design, ...selectedDesigns(current)].some(
+          (key) => key !== undefined && editor.getShape(canvasIdFor(key)) !== undefined
+        )
+
       // tldraw's selection and ours stay in step, whichever side changes.
       const stopSelection = editor.sideEffects.registerAfterChangeHandler("instance_page_state", (previous, next) => {
         if (previous.selectedShapeIds === next.selectedShapeIds) {
@@ -649,7 +691,7 @@ export function CanvasEditor({
           if (current.reference !== picked.props.key) {
             selection.set({ reference: picked.props.key })
           }
-        } else if (ids.length === 0 && (current.design || current.note || current.reference)) {
+        } else if (ids.length === 0 && drawsSelected(current)) {
           selection.set({})
         }
       })
@@ -732,11 +774,12 @@ export function CanvasEditor({
       })
 
       // Containers size themselves after their content renders, so fit once they have.
-      const fit = setTimeout(() => editor.zoomToFit({ animation: { duration: 200 } }), 400)
+      const fit = kept ? undefined : setTimeout(() => editor.zoomToFit({ animation: { duration: 200 } }), 400)
       onEditor(editor)
 
       return () => {
         clearTimeout(fit)
+        keptCameras.set(`${tab}:${draws}`, editor.getCamera())
         stopZoom()
         stopSurface()
         stopZoomedOut()
@@ -768,7 +811,7 @@ export function CanvasEditor({
         onEditor(undefined)
       }
     },
-    [project, tab, doc, selection, onEditor]
+    [project, tab, doc, selection, onEditor, draws]
   )
 
   return (

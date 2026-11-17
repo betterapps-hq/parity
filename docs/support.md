@@ -318,8 +318,9 @@ folders and files as segments, `[id]`, `[...slug]` and `[[...slug]]`, nested lay
 `not-found` files, and `404`, `500` and `_error`, are named as the route's state files. Parallel `@slot` routes and
 intercepting `(.)`, `(..)` and `(...)` routes are read with their slot and the route they intercept, and left off the
 canvas. Private `_folders`, route handlers, `_document` and `api/` aren't routes. Its pages draw once a builder serves
-the app. Each page is a screen, laid out in the router's tree, whose frames load the app itself at the page's URL (see
-editor.md), with each path param's value set in Props.
+the app. Each page is a screen on the Pages lens's own canvas (PAR-1244), laid out in the router's tree, whose frames
+load the app itself at the page's URL (see editor.md), with each path param's value set in Props. Pages draws them the
+first time it's shown, and its Layers lists the routes.
 
 **Pages run the page runtime (PAR-1260),** which Vite, the webpack-compatible builders and Next serve first in the app's
 page, so a page changes mode without loading again and says how tall it is and where it went. Each project's pages load

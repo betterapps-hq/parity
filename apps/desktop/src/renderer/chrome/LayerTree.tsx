@@ -129,6 +129,9 @@ import { revealSelection } from "./reveal.ts"
 
 type Row = TreeRow<ContainerEntry>
 
+/** What a Layers panel lists: the app's pages, by route, or the designs, boards, stories and notes. */
+export type LayerPart = "pages" | "designs"
+
 /** Where dragged layers or designs would land relative to a row: just above it, just below it, or inside it. */
 type DropPosition = "before" | "after" | "inside"
 
@@ -337,9 +340,19 @@ function folderOfLine(line: Line): string | undefined {
  * nested inside. Selecting, hovering and renaming here act on the canvas too. Each group's heading has a + that makes a
  * new one, always showing, with its keys in the tooltip; an empty group's row is a button that makes
  * the first one (PAR-546). A search above the tree finds layers and designs by name, and Collapse all closes every
- * row. Only the rows in view are drawn (PAR-187).
+ * row. Only the rows in view are drawn (PAR-187). Pages' Layers lists the app's routes; Screens' the rest
+ * (lens-layout.md).
  */
 export function LayerTree() {
+  return <LayerList part="designs" />
+}
+
+/** Pages' Layers: the app's routes, and their pages' layers. */
+export function RouteLayerTree() {
+  return <LayerList part="pages" />
+}
+
+function LayerList({ part }: { part: LayerPart }) {
   const session = useProject()
   const { selection } = session
   const entries = useContainerEntries(session)
@@ -427,9 +440,9 @@ export function LayerTree() {
 
     const listed: Group[] = []
 
-    // Routes are listed once the app has some, as its router says.
-    if (routes.length > 0) {
-      listed.push({ id: "routes", title: "Routes", kind: "screen", none: "", entries: routes })
+    // Pages lists the app's routes, as its router says, and nothing else.
+    if (part === "pages") {
+      return [{ id: "routes", title: "Routes", kind: "screen", none: "No routes yet.", entries: routes }]
     }
 
     listed.push({
@@ -467,7 +480,7 @@ export function LayerTree() {
     }
 
     return listed
-  }, [entries, places, session.info])
+  }, [entries, places, session.info, part])
 
   const library = projectLibrary(session)
 
@@ -1165,7 +1178,7 @@ export function LayerTree() {
               )
             })}
           </div>
-          {notes.length > 0 && !search && (
+          {part === "designs" && notes.length > 0 && !search && (
             <div className="mb-2">
               <GroupLabel as="div" className="px-3 py-1">
                 Text on the canvas

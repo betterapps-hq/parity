@@ -21,8 +21,8 @@ export interface LensSideProps<Id extends string = string> {
 export interface LensView<Id extends string = string> extends Lens<Id> {
   /** Drawn in the lens bar, on its tab and in its menus. */
   Icon: ComponentType<{ className?: string; strokeWidth?: number }>
-  /** Its canvas, in its tab, in any window. */
-  Canvas: LensComponent<{ lens: Id }>
+  /** Its canvas, in its tab, in any window; `visible` while its tab is the one in front of its group. */
+  Canvas: LensComponent<{ lens: Id; visible: boolean }>
   /** Its left panel, beside the lens bar while it's in focus. */
   Panel: LensComponent<LensSideProps<Id>>
   /** Its inspector, at the window's right while it's in focus. */

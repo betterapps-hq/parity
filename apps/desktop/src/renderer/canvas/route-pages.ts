@@ -298,3 +298,8 @@ export function routeParams(info: Pick<ProjectInfo, "id" | "routes">, design: st
 
   return found && paramsOf(found)
 }
+
+/** Whether a design is one of the app's pages, drawn from its routes, by its key. */
+export function isRoutePage(key: string): boolean {
+  return key.startsWith(`${routePagesFile}#`)
+}

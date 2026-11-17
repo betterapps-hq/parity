@@ -435,7 +435,10 @@ function selectAdjacentDesign(
     return
   }
 
-  const key = adjacentDesign(containerEntries(session.doc), session.selection.get(), step)
+  // The designs on the canvas in focus: Pages steps through the app's pages, Screens through the rest.
+  const { editor } = session
+  const entries = containerEntries(session.doc).filter((entry) => editor?.getShape(canvasIdFor(entry.key)))
+  const key = adjacentDesign(entries, session.selection.get(), step)
 
   if (!key) {
     return

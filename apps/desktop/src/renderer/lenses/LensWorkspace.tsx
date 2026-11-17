@@ -261,12 +261,19 @@ function lensActions<Id extends string>({
 }
 
 /** A lens's canvas, as its tab's content. */
-function LensContent({ params }: IDockviewPanelProps<{ lens: string }>) {
+function LensContent({ params, api }: IDockviewPanelProps<{ lens: string }>) {
   const lens = useShell().lenses.get(params.lens)
+  const [visible, setVisible] = useState(api.isVisible)
+
+  useEffect(() => {
+    const subscription = api.onDidVisibilityChange(({ isVisible }) => setVisible(isVisible))
+
+    return () => subscription.dispose()
+  }, [api])
 
   return lens ? (
     <div className="flex size-full flex-col">
-      <lens.Canvas lens={lens.id} />
+      <lens.Canvas lens={lens.id} visible={visible} />
     </div>
   ) : null
 }

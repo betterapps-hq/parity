@@ -271,8 +271,8 @@ describe("next and previous design", () => {
   })
 
   it("goes round from the last design to the first, components first", async () => {
-    // Components come first, then screens, and the app's pages, drawn from its routes, after the screens it lists.
-    const designs = await app.designs()
+    // Components come first, then screens. The app's pages are on Pages' canvas, not Screens'.
+    const designs = (await app.designs()).filter((design) => !design.key.startsWith("(pages)#"))
     const first = designs.find((design) => design.kind === "component")!
     const last = designs.findLast((design) => design.kind !== "component")!
     // Selected by its key: a Storybook file's board can share a component design's name, as Button's does.
