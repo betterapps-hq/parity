@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 15:26:34 GMT",
+      "version": "0.107.0",
+      "tag": "@parity-app/desktop_v0.107.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4c3687a9722b2c7c0aa267fa9a6c06cf2e216e9e",
+            "comment": "Route boards show pictures of their pages when small on screen or away from the view, captured from their frozen copies and kept on disk"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 13:39:07 GMT",
       "version": "0.106.0",
       "tag": "@parity-app/desktop_v0.106.0",
