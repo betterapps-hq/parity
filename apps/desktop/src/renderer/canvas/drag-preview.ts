@@ -70,8 +70,8 @@ export interface PreviewSurface {
 interface Part {
   kind: PreviewKind
   move(items: PreviewItem[], options: PreviewOptions): void
-  /** Ends: `dropped` by its write, `back` to where the document has it, or `gone` at once. */
-  end(how: "dropped" | "back" | "gone"): void
+  /** Ends: `dropped` by its write (`covering`), `back` to where the document has it, or `gone` at once. */
+  end(how: "dropped" | "back" | "gone", covering?: PreviewChange): void
 }
 
 let previews = 0
@@ -117,13 +117,17 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
       const ending = endings[how]
 
       for (const part of parts) {
-        part.end(ending)
+        part.end(ending, covering)
       }
     }
   )
 
+  // The write that covered the drop, for where it put what moved.
+  let covering: PreviewChange | undefined
+
   const stopWrites = surface.writes.subscribe((change) => {
-    if (coversDesigns(change, designs)) {
+    if (coversDesigns(change, designs) && life.waiting) {
+      covering = change
       life.wrote()
     }
   })
@@ -311,7 +315,7 @@ function layersPart(
   hideAgain()
   let at = ""
   // The frame the layers would land in, last, where they're left empty until their picture lands.
-  let landing: HTMLElement | undefined
+  let landing: { host: HTMLElement; design: string } | undefined
 
   return {
     kind: absolute ? "absolute" : "layout",
@@ -340,7 +344,7 @@ function layersPart(
       const found = parent && findNode(parent, target.parent)
       const siblings = found && "children" in found ? found.children.map((child) => child.id) : []
 
-      landing = into
+      landing = into && target ? { host: into, design: target.design } : undefined
 
       if (target && into) {
         drop.show(into, { design: target.design, parent: target.parent, index: target.index }, siblings)
@@ -348,7 +352,7 @@ function layersPart(
         drop.clear()
       }
     },
-    end(how) {
+    end(how, covering) {
       // The picture is forgotten once it's landed, so its flight isn't cut short.
       const forget = () => carriedPictureSet.forget(key)
 
@@ -380,9 +384,17 @@ function layersPart(
         )
 
         if (!gone && landing) {
+          // Into another design, the layers have fresh ids, which the write that put them there added.
+          const landed =
+            landing.design === design
+              ? ids
+              : (covering?.layers.added ?? []).flatMap((added) =>
+                  added.design === landing?.design ? [added.node] : []
+                )
+
           hideLanded(
-            landing,
-            ids,
+            landing.host,
+            landed,
             () => gone,
             (put) => (show = put)
           )
