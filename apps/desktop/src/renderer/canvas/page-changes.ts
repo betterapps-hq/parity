@@ -1,3 +1,4 @@
+import { rewriteFrameUnits } from "@parity-app/core"
 import { type TokenPreview, tokenPreviewCss } from "@parity-app/frames"
 import { useEffect } from "react"
 import { resetWithWindow } from "../store.ts"
@@ -80,7 +81,9 @@ export function previewTokens(
 
   preview.tokens = tokens
   preview.themes = themes
-  preview.sheet.replaceSync(tokenPreviewCss(tokens, themes, "copy"))
+  // Lengths in a copy measure its board, as its own sheets' do: `10vw` the mode's window, `0.5rem` the page's root font.
+  const drawn = tokens.map((token) => ({ ...token, value: rewriteFrameUnits(token.value) }))
+  preview.sheet.replaceSync(tokenPreviewCss(drawn, themes, "copy"))
 
   const css = tokenPreviewCss(tokens, themes, "page")
 

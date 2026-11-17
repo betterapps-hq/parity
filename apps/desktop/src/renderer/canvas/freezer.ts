@@ -401,13 +401,22 @@ class Freezer {
       }
     }
 
-    const stale = staleCopies(paths, traced, { distance: new Map() })
+    const stale = staleCopies(paths, traced, { distance: new Map() }).map((key) => key.state)
+    const have = copies.get()
+
+    // A board whose first copy is still to come has no trace yet, so its snapshot, which may have been taken before the
+    // change, is taken again.
+    for (const need of this.needs.values()) {
+      if (!have.has(need.key)) {
+        stale.push(need.key)
+      }
+    }
 
     if (stale.length > 0) {
       this.changes++
 
       for (const key of stale) {
-        this.stale.set(key.state, this.changes)
+        this.stale.set(key, this.changes)
       }
     }
 
