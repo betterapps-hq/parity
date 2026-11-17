@@ -357,6 +357,17 @@ export function keptCharacters(before: string, after: string): number[] {
     where[head + i] = head + j
   }
 
+  // A character written as two code units is kept whole or not at all, so a change never splits it.
+  for (let index = 0; index + 1 < before.length; index++) {
+    const pair = /[\uD800-\uDBFF]/.test(before[index]!) && /[\uDC00-\uDFFF]/.test(before[index + 1]!)
+    const whole = where[index]! >= 0 && where[index + 1] === where[index]! + 1
+
+    if (pair && !whole) {
+      where[index] = -1
+      where[index + 1] = -1
+    }
+  }
+
   return where
 }
 

@@ -326,6 +326,13 @@ describe("taking someone else's change into text being typed", () => {
     expect(rebaseText("abc", "a中c", "ZabcY", caret(2))).toEqual({ text: "Za中cY", selection: caret(3) })
   })
 
+  it("never splits a character written as two code units", () => {
+    // Someone swapped the emoji for one sharing its first code unit while "X" was typed after it, or in its place:
+    // the emoji stays whole, and typing beside what they changed comes first, as at any one place.
+    expect(rebaseText("a😃b", "a😃Xb", "a😄b", caret(4))).toEqual({ text: "aX😄b", selection: caret(2) })
+    expect(rebaseText("a😃b", "aXb", "a😄b", caret(2))).toEqual({ text: "a😄Xb", selection: caret(4) })
+  })
+
   it("takes the change as it is when nothing's typed", () => {
     expect(rebaseText("Hello", "Hello", "Hello there", caret(2))).toEqual({ text: "Hello there", selection: caret(2) })
   })
