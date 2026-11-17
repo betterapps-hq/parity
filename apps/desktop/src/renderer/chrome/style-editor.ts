@@ -1,4 +1,4 @@
-import type { ContainerSpec } from "@parity-app/core"
+import { type ContainerSpec, findNode } from "@parity-app/core"
 import {
   frameRootShown,
   frameRootStored,
@@ -19,6 +19,7 @@ import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
 import type { TypeValues } from "../inspector/controls/preset-data.ts"
 import { renderedType, typeStyleKey } from "../inspector/controls/rendered-type.ts"
+import type { GridLayout } from "../inspector/grid-layout.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -29,7 +30,7 @@ import {
   rowChanged,
   rowValues
 } from "./inspector-events.ts"
-import { measureNode, nodeTypeStyle, placeNode } from "./LayerPanel.tsx"
+import { measureNode, nodeGrid, nodeTypeStyle, placeNode } from "./LayerPanel.tsx"
 
 /** One row's edit of every selected layer, with what Undo calls it. `undefined` in an edit clears a property. */
 export interface StyleChange<R extends StyleRow = StyleRow> {
@@ -78,6 +79,8 @@ export interface StyleEditor {
    * Typography's unset rows.
    */
   type?: () => Required<TypeValues> | undefined
+  /** With one layer selected in a grid, the grid as the canvas lays it out, for Grid placement's map. */
+  grid?: () => GridLayout | undefined
 }
 
 /** Where a layer sits in the box its insets count from, in pixels. */
@@ -292,6 +295,10 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     unit,
     measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined),
     place: () => (only ? placeNode(session.editor, entry.key, only, selected) : undefined),
+    grid: () =>
+      only
+        ? nodeGrid(session.editor, entry.key, only, selected, (id) => findNode(entry.container.root, id)?.name)
+        : undefined,
     type: () => {
       const style = only ? nodeTypeStyle(session.editor, entry.key, only, selected) : undefined
 

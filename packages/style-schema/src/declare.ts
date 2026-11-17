@@ -46,6 +46,14 @@ export interface StyleContext {
   anchors?: boolean
 }
 
+/** The CSS property each grid line writes. */
+const gridLineProperty = {
+  colStart: "grid-column-start",
+  colEnd: "grid-column-end",
+  rowStart: "grid-row-start",
+  rowEnd: "grid-row-end"
+} as const
+
 /**
  * A layer's style as CSS declarations, one for each property, in the order they're written. Where two keys write one
  * property, such as `fontSize` and `lineHeight` both writing `line-height`, the later one's value stands.
@@ -320,6 +328,20 @@ function box(css: Sheet, style: NodeStyle, { kind, parent, anchors }: StyleConte
 
   if (style.rowSpan !== undefined) {
     css.set("grid-row", `span ${style.rowSpan} / span ${style.rowSpan}`, "rowSpan")
+  }
+
+  // Lines after the spans, so a start with a span runs that many tracks from the start.
+  for (const key of ["colStart", "colEnd", "rowStart", "rowEnd"] as const) {
+    const line = style[key]
+
+    if (line !== undefined) {
+      css.set(gridLineProperty[key], String(line), key)
+    }
+  }
+
+  // Written as Tailwind's `justify-self-*` write it, which a grid takes as its own `start` and `end`.
+  if (style.justifySelf) {
+    css.set("justify-self", flexAlign[style.justifySelf], "justifySelf")
   }
 
   if (style.position === "absolute") {

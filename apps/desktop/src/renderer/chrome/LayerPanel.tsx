@@ -33,6 +33,7 @@ import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
 import type { TypeStyle } from "../inspector/controls/rendered-type.ts"
+import { type GridLayout, measuredGrid, selfAlign, trackSizes } from "../inspector/grid-layout.ts"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
@@ -762,6 +763,76 @@ export function nodeTypeStyle(
     host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
 
   return element ? getComputedStyle(element) : undefined
+}
+
+/**
+ * The grid a node is a child of, as the canvas lays it out in the frame it was picked in: its tracks, and where each
+ * of its children is drawn, auto-placed ones included, for Grid placement's map. Undefined when it isn't drawn in a
+ * grid. `nameOf` names a child by its layer's id.
+ */
+export function nodeGrid(
+  editor: Editor | undefined,
+  design: string,
+  nodeId: string,
+  picked: { mode?: string; state?: string },
+  nameOf: (id: string) => string | undefined
+): GridLayout | undefined {
+  const area = editor?.getContainer().closest(".canvas-area")
+  const host = area ? selectionFrame(area, design, picked) : undefined
+  const element =
+    host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
+  const parent = element?.parentElement
+
+  if (!host || !element || !parent) {
+    return undefined
+  }
+
+  const grid = getComputedStyle(parent)
+
+  if (!grid.display.endsWith("grid")) {
+    return undefined
+  }
+
+  // Screen pixels per the frame's own, as `placeNode` measures; boxes count from the grid's content edge.
+  const { scale } = frameGeometry(host)
+  const outer = parent.getBoundingClientRect()
+  const left = outer.left / scale + parseFloat(grid.borderLeftWidth) + parseFloat(grid.paddingLeft)
+  const top = outer.top / scale + parseFloat(grid.borderTopWidth) + parseFloat(grid.paddingTop)
+
+  const children = [...parent.children].flatMap((child, index) => {
+    const style = getComputedStyle(child)
+
+    // An absolutely placed child, or one not drawn, takes no cells.
+    if (!(child instanceof HTMLElement) || style.display === "none" || style.position === "absolute") {
+      return []
+    }
+
+    const id = child === element ? nodeId : (child.dataset.canvasNode ?? `child-${index}`)
+    const box = child.getBoundingClientRect()
+
+    return [
+      {
+        id,
+        name: nameOf(id) ?? child.localName,
+        auto: style.gridColumnStart === "auto" && style.gridRowStart === "auto",
+        box: {
+          left: box.left / scale - left,
+          top: box.top / scale - top,
+          width: box.width / scale,
+          height: box.height / scale
+        }
+      }
+    ]
+  })
+
+  return measuredGrid({
+    columns: trackSizes(grid.gridTemplateColumns),
+    rows: trackSizes(grid.gridTemplateRows),
+    gap: { column: parseFloat(grid.columnGap) || 0, row: parseFloat(grid.rowGap) || 0 },
+    children,
+    self: nodeId,
+    items: { x: selfAlign(grid.justifyItems), y: selfAlign(grid.alignItems) }
+  })
 }
 
 /** A picture's or a video's layer, which the section edits the same way. */

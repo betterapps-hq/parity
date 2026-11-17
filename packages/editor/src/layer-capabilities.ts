@@ -194,7 +194,7 @@ export type StyleSection =
   | "rawCss"
 
 /** The controls inside a section that show only for some layers. */
-export type StyleControl = "sizeFill" | "alignSelf" | "span" | "margin" | "tag" | "maxLines" | "resizing"
+export type StyleControl = "sizeFill" | "alignSelf" | "margin" | "tag" | "maxLines" | "resizing"
 
 /** A section or a conditional control, and what the selected layers need for it to show. */
 export type StylePart = ({ section: StyleSection } | { control: StyleControl }) & {
@@ -211,14 +211,13 @@ export const styleTable: readonly StylePart[] = [
   { section: "layerOrder", needs: (can) => !can.root },
   // Drawn inside Position, as how the layer is drawn where it sits.
   { section: "transform", needs: (can) => !can.root },
-  { section: "size", needs: (can) => !can.frame },
+  // A grid child's size is in Grid placement, with the cells it takes.
+  { section: "size", needs: (can) => !can.frame && !can.inGrid },
   // Fill in the Sizing menu: a parent to fill, or children to fill it with.
   { control: "sizeFill", needs: (can) => can.inFlex || can.inGrid || can.box },
   // In a flex parent; a grid child aligns itself in Grid placement.
   { control: "alignSelf", needs: (can) => can.inFlex },
   { section: "gridPlacement", needs: (can) => can.inGrid },
-  // Shown in Size until Grid placement has its own section.
-  { control: "span", needs: (can) => can.inGrid },
   // Drawn inside Size: the box around the layer, outside in.
   { section: "spacing", needs: () => true },
   { control: "margin", needs: (can) => !can.root },

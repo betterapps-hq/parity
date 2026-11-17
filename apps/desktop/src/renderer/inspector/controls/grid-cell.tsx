@@ -4,6 +4,7 @@ import { type KeyboardEvent, type PointerEvent, type ReactNode, useRef, useState
 import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
+import type { GridLayout } from "../grid-layout.ts"
 import { type Measured, type SectionProps, SizeField } from "./controls.tsx"
 import { clamp, stepCount, tint } from "./css-values.ts"
 import type { Draft, SelfAlign, Size, Span } from "./data.ts"
@@ -15,11 +16,10 @@ import {
   type Reading,
   type ScrubKeys,
   type SharedLine,
-  useTokenSets,
   ValueField
 } from "./field-parts.tsx"
 import { Field, Segments, TitleMenu } from "./field-row.tsx"
-import { type Area, columnTracks, placeChildren, rowCount, trackOf, trackWeights } from "./layout-controls.tsx"
+import { type Area, trackOf } from "./layout-controls.tsx"
 import { along, type Place, placeName, type PlaceSpot, SpotBox } from "./position-box.tsx"
 
 /*
@@ -103,16 +103,18 @@ const unsetPlace = { colStart: undefined, rowStart: undefined, colEnd: undefined
 export function GridCellSection({
   draft,
   set,
+  grid,
   measured
 }: SectionProps & {
+  /** The grid it's in: its columns, its rows and where its children sit, the selected one among them. */
+  grid: GridLayout
   /** The child's drawn size and its cell's width, from the canvas. */
   measured?: Measured
 }) {
-  const spacing = useTokenSets().spacing
-  const columns = columnTracks(draft, spacing).length
-  const children = placeChildren(draft, columns)
-  const area = children.find((child) => child.name === "Pro plan")!.area
-  const rows = Math.max(draft.rows?.length ?? 0, ...children.map((child) => child.area.row + child.area.rows)) + 1
+  const columns = grid.weights.length
+  const area = grid.children.find((child) => child.id === grid.self)?.area ?? { col: 0, row: 0, cols: 1, rows: 1 }
+  // A row more than the children take, to place it in a new one.
+  const rows = Math.max(grid.rows, ...grid.children.map((child) => child.area.row + child.area.rows)) + 1
   const endLines = draft.endLines ?? false
   const auto = draft.colStart === undefined && draft.rowStart === undefined && draft.colSpan !== "all"
   // What the table's fields say goes under the whole table, where it has room: each field's, by its label.
@@ -159,8 +161,8 @@ export function GridCellSection({
    * and takes back its stretch where the grid's children don't stretch.
    */
   const setSize = (axis: "x" | "y", size: Size) => {
-    const grid = axis === "x" ? draft.itemsX : draft.itemsY
-    const stretch = grid === undefined || grid === "stretch" ? undefined : ("stretch" as const)
+    const items = axis === "x" ? draft.itemsX : draft.itemsY
+    const stretch = items === undefined || items === "stretch" ? undefined : ("stretch" as const)
 
     if (axis === "x") {
       set(size === "fill" ? { childWidth: undefined, justifySelf: stretch } : { childWidth: size })
@@ -178,7 +180,7 @@ export function GridCellSection({
 
   const axisRow = (axis: "col" | "row") => {
     const across = axis === "col"
-    const count = across ? columns : rowCount(draft)
+    const count = across ? columns : grid.rows
     const start = across ? draft.colStart : draft.rowStart
     const span = across ? draft.colSpan : draft.rowSpan
     const end = across ? draft.colEnd : draft.rowEnd
@@ -322,6 +324,7 @@ export function GridCellSection({
           </div>
           <CellMap
             draft={draft}
+            grid={grid}
             columns={columns}
             rows={rows}
             area={area}
@@ -361,6 +364,7 @@ export function GridCellSection({
  */
 function CellMap({
   draft,
+  grid,
   columns,
   rows,
   area,
@@ -370,6 +374,7 @@ function CellMap({
   onAuto
 }: {
   draft: Draft
+  grid: GridLayout
   columns: number
   rows: number
   area: Area
@@ -378,9 +383,7 @@ function CellMap({
   onPlace: (area: Area) => void
   onAuto: () => void
 }) {
-  const spacing = useTokenSets().spacing
-  const weights = trackWeights(columnTracks(draft, spacing))
-  const children = placeChildren(draft, columns)
+  const { weights, children } = grid
   const cells = useRef<HTMLSpanElement>(null)
   const [dragged, setDragged] = useState<Area>()
   const [hovered, setHovered] = useState<Area>()
@@ -625,10 +628,10 @@ function CellMap({
             ))
           )}
           {children
-            .filter((child) => child.name !== "Pro plan")
+            .filter((child) => child.id !== grid.self)
             .map((child) => (
               <span
-                key={child.name}
+                key={child.id}
                 aria-hidden
                 className="flex min-w-0 items-center rounded-sm bg-muted-foreground/25 px-1 text-2xs text-muted-foreground"
                 style={{
@@ -639,7 +642,16 @@ function CellMap({
                 <span className="truncate">{child.name}</span>
               </span>
             ))}
-          {pointing && <Pointed pointing={pointing} area={area} columns={columns} rows={rows} draft={draft} />}
+          {pointing && (
+            <Pointed
+              pointing={pointing}
+              area={area}
+              columns={columns}
+              rows={rows}
+              rowTracks={grid.rows}
+              draft={draft}
+            />
+          )}
           {hovered && (
             <span
               aria-hidden
@@ -667,7 +679,7 @@ function CellMap({
               className={`flex min-w-0 items-center rounded-sm border px-1 text-2xs leading-none font-medium text-foreground ${auto && !dragged ? "border-dashed" : ""} ${sits.x === "fill" ? "flex-1" : ""} ${sits.y === "fill" ? "" : "h-3.5"}`}
               style={{ borderColor: layerColor, background: tint(layerColor, dragged ? 45 : 30) }}
             >
-              <span className="truncate">Pro plan</span>
+              <span className="truncate">{children.find((child) => child.id === grid.self)?.name}</span>
             </span>
             {(["left", "right", "top", "bottom"] as const).map((edge) => (
               <Edge key={edge} edge={edge} />
@@ -709,6 +721,7 @@ function Pointed({
   area,
   columns,
   rows,
+  rowTracks,
   draft
 }: {
   pointing: Pointing
@@ -716,10 +729,11 @@ function Pointed({
   columns: number
   rows: number
   draft: Draft
+  /** The grid's own rows, which a negative row line counts back from. */
+  rowTracks: number
 }) {
   const across = pointing.axis === "col"
-  // Rows have no count until they're set, so a negative row line counts from the rows there are, or one.
-  const count = across ? columns : rowCount(draft)
+  const count = across ? columns : rowTracks
 
   if (pointing.part === "span") {
     const from = across ? area.col : area.row

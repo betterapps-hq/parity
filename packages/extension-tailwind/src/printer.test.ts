@@ -42,6 +42,9 @@ describe("printing declarations as classes", () => {
     ["justify-content", "space-between", "justify-between"],
     ["grid-template-columns", "repeat(3, minmax(0, 1fr))", "grid-cols-3"],
     ["grid-column", "span 2 / span 2", "col-span-2"],
+    ["grid-column-start", "2", "col-start-2"],
+    ["grid-row-end", "-1", "-row-end-1"],
+    ["justify-self", "flex-end", "justify-self-end"],
     ["z-index", "10", "z-10"],
     ["text-transform", "uppercase", "uppercase"],
     ["rotate", "45deg", "rotate-45"]
