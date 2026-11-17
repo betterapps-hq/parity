@@ -62,7 +62,7 @@ describe("pageTraceFiles", () => {
     ])
   })
 
-  it("takes every file under the route's folder where routes are named by folder", () => {
+  it("takes every file under the route's folder where routes are named by folder, and the public folder's", () => {
     const next: PageTraceInput = {
       ...project,
       route: "/blog/[slug]",
@@ -79,7 +79,8 @@ describe("pageTraceFiles", () => {
         "app/blog/index/page.tsx",
         "app/layout.tsx",
         "package.json",
-        "pnpm-lock.yaml"
+        "pnpm-lock.yaml",
+        "public/logo.svg"
       ]
     }
 
@@ -90,6 +91,7 @@ describe("pageTraceFiles", () => {
       "app/layout.tsx",
       "package.json",
       "pnpm-lock.yaml",
+      "public/logo.svg",
       "src/styles.css"
     ])
   })

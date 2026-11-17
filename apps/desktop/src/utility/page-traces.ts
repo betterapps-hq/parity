@@ -14,7 +14,7 @@ import {
   traceDigest
 } from "@parity-app/project"
 import type { PageJob } from "../shared/protocol.ts"
-import type { OpenProjects } from "./projects.ts"
+import type { OpenProjects, PageProject } from "./projects.ts"
 
 /** How many hex digits of each file's hash a trace keeps, as a frame's does. */
 const fileHashDigits = 16
@@ -32,7 +32,10 @@ export interface PageTraces {
    * changed after the job's copy started loading, so what it drew may not be what they hold now.
    */
   trace(job: PageJob): Promise<FrameTrace | undefined>
-  /** Whether the files a trace lists hash to its digest now. */
+  /**
+   * Whether the files a trace lists hash to its digest now, and it lists every file the page's trace would now, so a
+   * file added since, such as a new layout around the route, makes it stale.
+   */
   holds(job: PageJob, trace: FrameTrace): Promise<boolean>
 }
 
@@ -54,6 +57,39 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
   const salt = (snapshot: CodeSnapshot) => `${snapshot.salt}\0${pageSalt}`
 
+  /** The files `pageTraceFiles` chooses for a job's page now. */
+  const filesOf = async (job: PageJob, project: PageProject, snapshot: CodeSnapshot) => {
+    const { root } = project
+    const tsconfig = readTsconfig(root)
+    const alias = (specifier: string) => resolvePathAlias(root, tsconfig, specifier)
+
+    const scan = async (path: string) => {
+      const { text } = await read(join(root, path))
+
+      return text === undefined ? [] : importedFiles(path, text, snapshot.files, alias)
+    }
+
+    const chain = routeChain(job.route, project.routes)
+
+    const [scanned, styles, loaded] = await Promise.all([
+      moduleClosure(chain, scan),
+      moduleClosure(project.stylesheets, scan),
+      chain.length > 0 ? projects.loadedFiles(job.projectId, chain) : Promise.resolve(undefined)
+    ])
+
+    return pageTraceFiles({
+      route: job.route,
+      landed: job.copy?.landed ?? true,
+      routes: project.routes,
+      folderRoutes: project.folderRoutes,
+      loaded,
+      scanned,
+      styles,
+      shared: sharedPreviewFiles(snapshot),
+      files: [...snapshot.files.keys()]
+    })
+  }
+
   return {
     async trace(job) {
       const project = projects.pageProject(job.projectId)
@@ -64,35 +100,7 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
       const { root } = project
       const snapshot = await project.code
-      const tsconfig = readTsconfig(root)
-      const alias = (specifier: string) => resolvePathAlias(root, tsconfig, specifier)
-
-      const scan = async (path: string) => {
-        const { text } = await read(join(root, path))
-
-        return text === undefined ? [] : importedFiles(path, text, snapshot.files, alias)
-      }
-
-      const chain = routeChain(job.route, project.routes)
-
-      const [scanned, styles, loaded] = await Promise.all([
-        moduleClosure(chain, scan),
-        moduleClosure(project.stylesheets, scan),
-        chain.length > 0 ? projects.loadedFiles(job.projectId, chain) : Promise.resolve(undefined)
-      ])
-
-      const files = pageTraceFiles({
-        route: job.route,
-        landed: job.copy?.landed ?? true,
-        routes: project.routes,
-        folderRoutes: project.folderRoutes,
-        loaded,
-        scanned,
-        styles,
-        shared: sharedPreviewFiles(snapshot),
-        files: [...snapshot.files.keys()]
-      })
-
+      const files = await filesOf(job, project, snapshot)
       const loadedAt = job.copy?.loadedAt
 
       if (loadedAt !== undefined && (await changedSince(root, files, loadedAt))) {
@@ -111,9 +119,16 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
         return false
       }
 
+      const snapshot = await project.code
+      const now = await filesOf(job, project, snapshot)
+
+      if (now.some((path) => !(path in trace.files))) {
+        return false
+      }
+
       const hashes = await hashesOf(project.root, Object.keys(trace.files))
 
-      return traceDigest(salt(await project.code), Object.entries(hashes)) === trace.digest
+      return traceDigest(salt(snapshot), Object.entries(hashes)) === trace.digest
     }
   }
 }

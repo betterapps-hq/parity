@@ -386,8 +386,8 @@ builder can say about a route:
 | Next.js                     | Every file under the route's folder, its layouts, and Parity's scan of their imports                        | ◐      |
 | Any, before it can say      | The whole project, so any change makes the picture stale                                                    | ◐      |
 
-Every trace also holds the project's stylesheets, its package.json, configs and lockfiles. Server code a loader reaches
-only through a dynamic import isn't in the scan.
+Every trace also holds the project's stylesheets, its package.json, configs and lockfiles, and its `public` folder.
+Server code a loader reaches only through a dynamic import isn't in the scan.
 
 **Copies follow the code, and show token edits (PAR-1264).** When the app's files change, its route copies are frozen
 again, nearest the view first, and a route whose modes drew the same markup takes one snapshot for all of them. Token

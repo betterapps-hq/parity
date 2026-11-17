@@ -90,4 +90,11 @@ describe("page traces (PAR-1200)", () => {
     await write("src/data/plans.ts", "export const plans = [1]\n")
     expect(await traces.holds(job, traced)).toBe(false)
   })
+
+  it("stops holding when a file it would now list is added, as a public asset the page draws by URL", async () => {
+    const traced = (await pageTraces(projects([])).trace(job))!
+    await write("public/logo.svg", "<svg />")
+    expect(Object.keys((await pageTraces(projects([])).trace(job))!.files)).toContain("public/logo.svg")
+    expect(await pageTraces(projects([])).holds(job, traced)).toBe(false)
+  })
 })

@@ -65,7 +65,8 @@ export function routeChain(route: string, routes: readonly TracedRoute[]): strin
  *   its parents' files (the layouts), and the scan.
  * - Otherwise, for a route that isn't known, or for a page that didn't land on its own route: the whole project.
  *
- * Each with the stylesheets and the files every page depends on.
+ * Each with the stylesheets, the files every page depends on, and the files in the root's `public` folder, which pages
+ * reach by URL rather than by import, as an image or a font, so no scan finds which one a page draws.
  */
 export function pageTraceFiles(input: PageTraceInput): string[] {
   const chain = routeChain(input.route, input.routes)
@@ -75,7 +76,8 @@ export function pageTraceFiles(input: PageTraceInput): string[] {
     return sorted(input.files)
   }
 
-  const common = [...chain, ...input.scanned, ...input.styles, ...input.shared]
+  const assets = input.files.filter((path) => path.startsWith("public/"))
+  const common = [...chain, ...input.scanned, ...input.styles, ...input.shared, ...assets]
 
   if (input.loaded !== undefined) {
     return sorted([...common, ...input.loaded])

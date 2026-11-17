@@ -84,6 +84,10 @@ export function usePagePicture(job: PageJob, copy: FrozenCopy | undefined, rank:
     ranked.current = rank
   })
 
+  // Asked again for each new copy, which the freezer makes when the code changes, so a picture current when the project
+  // opened is checked against its trace again rather than standing in for the new code.
+  const copied = copy ? copyNumber(copy) : 0
+
   useEffect(() => {
     let live = true
 
@@ -96,7 +100,7 @@ export function usePagePicture(job: PageJob, copy: FrozenCopy | undefined, rank:
     return () => {
       live = false
     }
-  }, [name])
+  }, [name, copied])
 
   const known = read?.name === name ? read : undefined
   const current = known?.kept && !known.kept.stale
