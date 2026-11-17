@@ -5,9 +5,12 @@ import {
   type WindowEditor,
   windowExtensions,
   type WindowModules,
-  windowModules
+  windowModules,
+  type WindowSurface
 } from "@parity-app/extension-host/window"
+import { windowAgents } from "@parity-app/extension-host/window-agents"
 import { windowCanvas } from "@parity-app/extension-host/window-canvas"
+import { windowPresence } from "@parity-app/extension-host/window-presence"
 import type { ExtensionStatus, LogLine } from "../shared/protocol.ts"
 import type { ServiceParams } from "../shared/service-params.ts"
 import type { EditorRequest } from "./extensions.ts"
@@ -17,6 +20,7 @@ import { request } from "./service.ts"
 import type { Store } from "./store.ts"
 import { notify } from "./toasts.tsx"
 import { windowCanvasPort } from "./window-canvas.tsx"
+import { windowAgentsPort, windowPresencePort } from "./window-seams.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -60,6 +64,7 @@ export async function runWindowCommand(
  */
 export function startWindowModules(session: ProjectSession, tab: string, extensions: TabExtensions): () => void {
   let modules: WindowModules | undefined
+  let stopAgents: (() => void) | undefined
 
   const follow = () => {
     const found = windowExtensions(extensions.store.get().extensions)
@@ -69,7 +74,12 @@ export function startWindowModules(session: ProjectSession, tab: string, extensi
       return
     }
 
-    modules ??= start(session, tab, extensions)
+    if (!modules) {
+      const agents = windowAgents(windowAgentsPort(session, tab))
+      stopAgents = () => agents.dispose()
+      modules = start(session, tab, extensions, agents)
+    }
+
     running.set(session, modules)
     modules.update(found)
   }
@@ -80,11 +90,11 @@ export function startWindowModules(session: ProjectSession, tab: string, extensi
   return () => {
     unsubscribe()
     running.delete(session)
-    void modules?.dispose()
+    void modules?.dispose().finally(() => stopAgents?.())
   }
 }
 
-function start(session: ProjectSession, tab: string, extensions: TabExtensions): WindowModules {
+function start(session: ProjectSession, tab: string, extensions: TabExtensions, agents: WindowSurface): WindowModules {
   const projectId = session.id
   const name = (id: string) => extensions.store.get().extensions.find((each) => each.id === id)?.displayName ?? id
 
@@ -103,8 +113,13 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions):
       return load()
     },
     editor: editorOf(session, extensions),
-    // The canvas, the camera and colors, for `parity.canvas`, `parity.camera` and `parity.colors`.
-    surfaces: windowCanvas(windowCanvasPort(session, tab)),
+    // The canvas, the camera and colors, this person, and agents. `parity.sync` waits for the document to open
+    // through it, so it isn't here yet.
+    surfaces: {
+      ...windowCanvas(windowCanvasPort(session, tab)),
+      presence: windowPresence(windowPresencePort(session)),
+      agents
+    },
     halves: {
       start: (extension, trigger) =>
         void request("extensions.startHalf", { projectId, extension, trigger }).catch(() => undefined),

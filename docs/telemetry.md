@@ -515,6 +515,8 @@ Some failures are recorded for you, so code doesn't record them again:
 | `account.storeFailed`              | warn  | all  | main                                    | The file that keeps accounts between launches can't be read or written.                                                                                                    |
 | `agent.called`                     | info  | all  | service                                 | The agent server answers a call from the CLI or MCP, from reading it to the answer.                                                                                        |
 | `agent.serverFailed`               | error | all  | service                                 | The agent server can't start, so agents can't reach this copy.                                                                                                             |
+| `agents.activity`                  | info  | all  | renderer                                | Once a minute while agents are working.                                                                                                                                    |
+| `agents.stepDropped`               | warn  | all  | renderer                                | A step passed in names a node that isn't here. At most one a minute.                                                                                                       |
 | `app.first_project`                | info  | all  | main                                    | The first project opened since the app started has its tab ready to draw. Not sent when the screen was locked, the computer slept or the window was minimized before then. |
 | `app.quit`                         | info  | all  | main                                    | The app quits.                                                                                                                                                             |
 | `app.started`                      | info  | all  | main                                    | The first window has painted and the project service is running. Not sent when the screen was locked, the computer slept or the window was minimized before then.          |
@@ -610,6 +612,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `setting.changed`                  | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                                                                                            |
 | `start.action`                     | info  | all  | renderer                                | A control on Home is used.                                                                                                                                                 |
 | `styles.imported`                  | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                                                                                             |
+| `sync.caughtUp`                    | info  | all  | renderer                                | `changesSince` is answered, or changes that were pending are applied.                                                                                                      |
+| `sync.detached`                    | warn  | all  | renderer                                | The room goes away: the document stays open here, alone, and this copy writes files.                                                                                       |
+| `sync.lineageRefused`              | warn  | all  | renderer                                | `sync.receive` refuses bytes from another lineage.                                                                                                                         |
+| `sync.openFailed`                  | warn  | all  | renderer                                | `sync.onOpen` rejects or takes over 30 s, so the project opens from files, alone, and sync is detached.                                                                    |
+| `sync.opened`                      | info  | all  | renderer                                | The project opens through an extension's `sync.onOpen`.                                                                                                                    |
+| `sync.pending`                     | warn  | all  | renderer                                | Changes passed in stay pending, waiting for others, for over 5 s.                                                                                                          |
+| `sync.receiveFailed`               | error | all  | renderer                                | `sync.receive` rejects for anything but another lineage.                                                                                                                   |
+| `sync.traffic`                     | info  | all  | renderer                                | Once a minute while the document is shared, when anything crossed.                                                                                                         |
+| `sync.writesFiles`                 | info  | all  | renderer                                | `sync.setWritesFiles` settles.                                                                                                                                             |
 | `text.edited`                      | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                                                                                                          |
 | `tokens.saved`                     | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                                                                                |
 | `update.checked`                   | info  | all  | main                                    | A check for an update finds one or finds none.                                                                                                                             |
@@ -718,6 +729,23 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ------------------ | ----------------------------------------- |
 | `message` | `string`           | Why it couldn't start                     |
 | `code`    | `string`, optional | The error's code, such as Node's `EACCES` |
+
+### `agents.activity`
+
+| Attribute       | Type      | Meaning                                           |
+| --------------- | --------- | ------------------------------------------------- |
+| `stepsHere`     | `integer` | Steps this copy's agents took                     |
+| `stepsReceived` | `integer` | Steps passed in from other copies                 |
+| `copies`        | `integer` | How many other copies steps came from             |
+| `listeners`     | `integer` | How many extensions listen to `agents.onActivity` |
+
+### `agents.stepDropped`
+
+| Attribute | Type      | Meaning                                                              |
+| --------- | --------- | -------------------------------------------------------------------- |
+| `kind`    | `string`  | The step's kind, as `move`                                           |
+| `from`    | `string`  | The copy it came from                                                |
+| `dropped` | `integer` | How many were dropped since the last one recorded, this one included |
 
 ### `app.first_project`
 
@@ -1646,6 +1674,87 @@ Some failures are recorded for you, so code doesn't record them again:
 | `package` | `string`           | The library, by its catalog ID or package name |
 | `version` | `string`, optional | The version installed, when known              |
 | `files`   | `string[]`         | The files it changed, by path                  |
+
+### `sync.caughtUp`
+
+| Attribute    | Type                       | Meaning                                                                                     |
+| ------------ | -------------------------- | ------------------------------------------------------------------------------------------- |
+| `role`       | `"asked" \| "answered"`    | `answered`: this copy gave another what it was missing; `asked`: this copy's gap was filled |
+| `bytes`      | `integer`                  | How many bytes                                                                              |
+| `durationMs` | `number`                   | How long it took, in milliseconds                                                           |
+| `trigger`    | `"reconnect" \| "pending"` | What started it: a gap seen in `receive`, or anything else                                  |
+
+### `sync.detached`
+
+| Attribute | Type                        | Meaning                                                              |
+| --------- | --------------------------- | -------------------------------------------------------------------- |
+| `why`     | `"stopped" \| "openFailed"` | Why: the extension that brought the room stopped, or never opened it |
+| `saved`   | `boolean`                   | Whether this copy then wrote everything that differed                |
+
+### `sync.lineageRefused`
+
+| Attribute | Type     | Meaning                                                           |
+| --------- | -------- | ----------------------------------------------------------------- |
+| `lineage` | `string` | The document's lineage, a random id every copy that shares it has |
+| `theirs`  | `string` | The lineage the bytes came from                                   |
+
+### `sync.openFailed`
+
+| Attribute   | Type                      | Meaning                                       |
+| ----------- | ------------------------- | --------------------------------------------- |
+| `extension` | `string`                  | The extension that brings the room, by its id |
+| `reason`    | `"rejected" \| "timeout"` | Whether `onOpen` rejected or took over 30 s   |
+| `waitMs`    | `number`                  | How long it waited, in milliseconds           |
+| `message`   | `string`, optional        | The error's message, scrubbed                 |
+| `stack`     | `string`, optional        | The error's stack, when it has one            |
+
+### `sync.opened`
+
+| Attribute       | Type                    | Meaning                                                           |
+| --------------- | ----------------------- | ----------------------------------------------------------------- |
+| `extension`     | `string`                | The extension that brings the room, by its id                     |
+| `from`          | `"files" \| "snapshot"` | What the project opened from                                      |
+| `waitMs`        | `number`                | How long the extension's `onOpen` took, in milliseconds           |
+| `snapshotBytes` | `integer`, optional     | The size of the snapshot it opened on                             |
+| `lineage`       | `string`                | The document's lineage, a random id every copy that shares it has |
+| `format`        | `string`                | The format of the bytes it carries, as `loro/1`                   |
+
+### `sync.pending`
+
+| Attribute      | Type      | Meaning                                             |
+| -------------- | --------- | --------------------------------------------------- |
+| `pendingMs`    | `number`  | How long changes have been pending, in milliseconds |
+| `pendingBytes` | `integer` | The bytes of the changes pending                    |
+
+### `sync.receiveFailed`
+
+| Attribute | Type               | Meaning                            |
+| --------- | ------------------ | ---------------------------------- |
+| `bytes`   | `integer`          | How many bytes                     |
+| `message` | `string`           | The error's message, scrubbed      |
+| `stack`   | `string`, optional | The error's stack, when it has one |
+
+### `sync.traffic`
+
+| Attribute         | Type      | Meaning                                                 |
+| ----------------- | --------- | ------------------------------------------------------- |
+| `changesOut`      | `integer` | Changes committed here and told to the extension        |
+| `changesIn`       | `integer` | Changes the extension passed in                         |
+| `bytesOut`        | `integer` | The bytes of the changes told                           |
+| `bytesIn`         | `integer` | The bytes of the changes passed in                      |
+| `pendingReceives` | `integer` | Changes passed in that waited for others                |
+| `maxPendingMs`    | `number`  | The longest anything stayed pending, in milliseconds    |
+| `receiveP95Ms`    | `number`  | How long taking in changes took, at the 95th percentile |
+
+### `sync.writesFiles`
+
+| Attribute           | Type                             | Meaning                                            |
+| ------------------- | -------------------------------- | -------------------------------------------------- |
+| `writes`            | `boolean`                        | Whether this copy now writes the project's files   |
+| `why`               | `"open" \| "host" \| "roomGone"` | What changed it                                    |
+| `filesWritten`      | `integer`                        | Files written as it took over                      |
+| `stylesheetWritten` | `boolean`                        | Whether the stylesheet was written as it took over |
+| `durationMs`        | `number`                         | How long it took to settle, in milliseconds        |
 
 ### `text.edited`
 

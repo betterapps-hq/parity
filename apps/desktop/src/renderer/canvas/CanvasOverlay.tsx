@@ -44,7 +44,7 @@ import { useProject } from "./context.ts"
 import { liftOf } from "./element-lift.ts"
 import { areaSpace, frameGeometry } from "./frame-geometry.ts"
 import { drawFrame, useFrameDrawing } from "./frame-tool.ts"
-import { followPress, gestures } from "./gesture.ts"
+import { followPress, type GestureDoc, gestures, type Press } from "./gesture.ts"
 import {
   frameAt,
   type Hit,
@@ -66,6 +66,7 @@ import { type Handles, noMarks, type OverlayMarks, type OverlayScene, overlayMar
 import { scheduleOverlay } from "./overlay-scheduler.ts"
 import { placeAtPoint } from "./paste-here.ts"
 import { hoverTarget, pickDeeper, pressTarget } from "./pick.ts"
+import { type GestureProject, inFrame, layerRef, resizing, type Started, telling } from "./presence-gestures.ts"
 import { formatPx, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { RoomTyping } from "./RoomTyping.tsx"
@@ -700,6 +701,17 @@ function readScene(
   return scene
 }
 
+/** `followPress` for a resize, telling it as this person's gesture (`parity.presence`) once it's a drag. */
+function followResize(
+  session: GestureProject,
+  said: () => Started | undefined,
+  doc: GestureDoc,
+  start: { clientX: number; clientY: number },
+  press: Press
+): void {
+  followPress(gestures.resize, doc, start, telling(session, press, said))
+}
+
 /**
  * Resizing by a handle, by `@parity-app/editor`'s rules: a frame's by `frameResize`, a layer's by `layerResize`. This
  * measures the layer or the frame when the drag begins, and for an absolutely placed layer where its sides are drawn
@@ -743,23 +755,36 @@ function startResize(
 
     const resize = frameResize({ design: entry.container, mode, edge, rect: drawn.rect, scale })
     const label = entry.container.kind === "frame" ? "Resize frame" : "Resize preview"
-    followPress(gestures.resize, doc, start, {
-      design: entry.key,
-      cursor: resizeCursors[edge],
-      move(moveEvent, { gesture }) {
-        const next = resize(pointer(moveEvent))
-        const serialized = JSON.stringify(next)
+    followResize(
+      session,
+      () =>
+        resizing(
+          editor,
+          { owner: "design", type: "design", key: entry.key },
+          inFrame(handles.state, handles.mode),
+          edge,
+          host.getBoundingClientRect()
+        ),
+      doc,
+      start,
+      {
+        design: entry.key,
+        cursor: resizeCursors[edge],
+        move(moveEvent, { gesture }) {
+          const next = resize(pointer(moveEvent))
+          const serialized = JSON.stringify(next)
 
-        if (serialized === last) {
-          return
+          if (serialized === last) {
+            return
+          }
+
+          last = serialized
+          updateContainer(doc, entry.key, label, (container) => withFrame(container, mode.viewport, next), {
+            gesture
+          })
         }
-
-        last = serialized
-        updateContainer(doc, entry.key, label, (container) => withFrame(container, mode.viewport, next), {
-          gesture
-        })
       }
-    })
+    )
 
     return
   }
@@ -794,42 +819,52 @@ function startResize(
   const snapping = boxes.drawn ? LayerSnapping.measure(editor, drawn, entry.container, layer) : undefined
   const resize = layerResize({ edge, layer: shown, ...boxes, scale, unit, snapping })
 
-  followPress(gestures.resize, doc, start, {
-    design: entry.key,
-    cursor: resizeCursors[edge],
-    move(moveEvent, drag) {
-      const { style, snapped } = resize({
-        ...pointer(moveEvent),
-        shift: moveEvent.shiftKey,
-        // From the middle, with the keymap's keys for it: Alt (PAR-169).
-        centre: holds(moveEvent, held.fromMiddle.keys),
-        snaps: snapping?.snaps(moveEvent) ?? false
-      })
+  followResize(
+    session,
+    () => {
+      const box = nodeBox(host, layer)
 
-      snapping?.show(snapped)
-
-      if (!style) {
-        return
-      }
-
-      const serialized = JSON.stringify(style)
-
-      if (serialized === last) {
-        return
-      }
-
-      last = serialized
-      updateContainer(
-        doc,
-        entry.key,
-        "Resize layer",
-        (container) => editNode(container, boardTarget(container, state.id), layer, { style }),
-        { gesture: drag.gesture }
-      )
+      return box && resizing(editor, layerRef(doc, entry.key, layer), inFrame(state?.id, handles.mode), edge, box)
     },
-    // The snap guides go when the drag ends, however it ends.
-    end: () => snapping?.clear()
-  })
+    doc,
+    start,
+    {
+      design: entry.key,
+      cursor: resizeCursors[edge],
+      move(moveEvent, drag) {
+        const { style, snapped } = resize({
+          ...pointer(moveEvent),
+          shift: moveEvent.shiftKey,
+          // From the middle, with the keymap's keys for it: Alt (PAR-169).
+          centre: holds(moveEvent, held.fromMiddle.keys),
+          snaps: snapping?.snaps(moveEvent) ?? false
+        })
+
+        snapping?.show(snapped)
+
+        if (!style) {
+          return
+        }
+
+        const serialized = JSON.stringify(style)
+
+        if (serialized === last) {
+          return
+        }
+
+        last = serialized
+        updateContainer(
+          doc,
+          entry.key,
+          "Resize layer",
+          (container) => editNode(container, boardTarget(container, state.id), layer, { style }),
+          { gesture: drag.gesture }
+        )
+      },
+      // The snap guides go when the drag ends, however it ends.
+      end: () => snapping?.clear()
+    }
+  )
 }
 
 /**
@@ -889,43 +924,58 @@ function resizeLayers(
 
   const start = { clientX: event.clientX, clientY: event.clientY }
   let last = ""
-  followPress(gestures.resize, doc, start, {
-    design: entry.key,
-    cursor: resizeCursors[edge],
-    move(moveEvent, drag) {
-      const styles = resize({
-        dx: moveEvent.clientX - start.clientX,
-        dy: moveEvent.clientY - start.clientY,
-        shift: moveEvent.shiftKey,
-        centre: holds(moveEvent, held.fromMiddle.keys),
-        snaps: false
-      })
+  followResize(
+    session,
+    () => {
+      const last = starts.at(-1)?.id
+      const box = last === undefined ? undefined : nodeBox(host, last)
 
-      if (styles.every((style) => style === undefined)) {
-        return
+      if (last === undefined || !box) {
+        return undefined
       }
 
-      const serialized = JSON.stringify(styles)
+      return resizing(editor, layerRef(doc, entry.key, last), inFrame(frame.state?.id, handles.mode), edge, box)
+    },
+    doc,
+    start,
+    {
+      design: entry.key,
+      cursor: resizeCursors[edge],
+      move(moveEvent, drag) {
+        const styles = resize({
+          dx: moveEvent.clientX - start.clientX,
+          dy: moveEvent.clientY - start.clientY,
+          shift: moveEvent.shiftKey,
+          centre: holds(moveEvent, held.fromMiddle.keys),
+          snaps: false
+        })
 
-      if (serialized === last) {
-        return
+        if (styles.every((style) => style === undefined)) {
+          return
+        }
+
+        const serialized = JSON.stringify(styles)
+
+        if (serialized === last) {
+          return
+        }
+
+        last = serialized
+        updateContainer(
+          doc,
+          entry.key,
+          "Resize layers",
+          (container) =>
+            starts.reduce((next, { id }, index) => {
+              const style = styles[index]
+
+              return style ? editNode(next, boardTarget(next, frame.state.id), id, { style }) : next
+            }, container),
+          { gesture: drag.gesture }
+        )
       }
-
-      last = serialized
-      updateContainer(
-        doc,
-        entry.key,
-        "Resize layers",
-        (container) =>
-          starts.reduce((next, { id }, index) => {
-            const style = styles[index]
-
-            return style ? editNode(next, boardTarget(next, frame.state.id), id, { style }) : next
-          }, container),
-        { gesture: drag.gesture }
-      )
     }
-  })
+  )
 }
 
 /**

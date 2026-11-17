@@ -49,6 +49,7 @@ import { insetSteps } from "./layer-measure.ts"
 import { layerPicture } from "./layer-picture.ts"
 import { LayerSnapping } from "./layer-snap.ts"
 import { endSlides, slideElements } from "./make-room.ts"
+import { type Drop, inFrame, layerRef, type Started, telling } from "./presence-gestures.ts"
 import { StylePreview } from "./style-preview.ts"
 
 /**
@@ -162,132 +163,189 @@ export function pressLayers(
   // Dropped into another design, the layers change that one too.
   const moves = { designs: [entry.key], layers: ids }
 
-  followPress(absolute ? gestures.absoluteDrag : gestures.layerDrag, session.doc, start, {
-    design: absolute ? entry.key : undefined,
-    moves,
-    cursor: "grabbing",
-    start(gesture) {
-      drag = ++drags
-      const { scale } = frameGeometry(host)
+  // What others see of this drag (`parity.presence`): each layer from the pointer, and where they'd land.
+  const pressed = new Map(ids.map((id) => [id, nodeBox(host, id)]))
 
-      if (absolute) {
-        placed = followAbsolute(session, entry, ids[0]!, host, gesture)
-        lifted = liftElements(elements, { origin: { x: start.clientX, y: start.clientY }, scale })
+  const describe = (): Started | undefined => {
+    const { editor } = session
 
-        return
-      }
+    if (!editor) {
+      return undefined
+    }
 
-      // A picture still flying from the last drag lands first, so layers it kept hidden until then are drawn again
-      // before they're pictured: grabbed again on their way back, they'd otherwise be carried unseen.
-      carriedPicture.finish()
-      layouts.measure(host, entry.container.root)
-      // The picture is taken before the layers are hidden, of the box it's carried by.
-      const picture = layerPicture(host, elements, scale, union)
+    const pointer = editor.screenToPage({ x: start.clientX, y: start.clientY })
+    const frame = inFrame(state?.id, current.mode)
 
-      if (picture) {
-        carriedPicture.pickUp({
-          area,
-          picture,
-          at: space.point({ x: union.left, y: union.top }),
-          grab: { x: start.clientX - union.left, y: start.clientY - union.top }
-        })
-      }
+    return {
+      kind: "move",
+      targets: ids.flatMap((id) => {
+        const rect = pressed.get(id)
 
-      preview = new DropPreview(host, elements, landingColor(area), reducedMotion())
-      view = { carried: true }
-    },
-    move(event) {
-      const delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
-
-      if (absolute) {
-        placed?.move(delta, event)
-        view = {}
-
-        return
-      }
-
-      carriedPicture.carry(space.point({ x: union.left + delta.x, y: union.top + delta.y }))
-      const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
-      target = found?.target
-      landing = found?.host
-      // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
-      const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
-      view = { carried: true }
-
-      if (found && !shown) {
-        view.line = { ...found.line, ...space.point(found.line) }
-      }
-    },
-    // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
-    end(kept, gesture) {
-      if (absolute) {
-        view = undefined
-
-        if (kept) {
-          placed?.end(true)
-          lifted?.drop()
-        } else {
-          lifted?.cancel(() => placed?.end(false))
+        if (!rect) {
+          return []
         }
 
-        return
-      }
+        const from = editor.screenToPage({ x: rect.left, y: rect.top })
+        const to = editor.screenToPage({ x: rect.right, y: rect.bottom })
+        const offset = { x: from.x - pointer.x, y: from.y - pointer.y }
 
-      const copies = preview?.spot(space)
-      // Called off, the row closes around where the layers come back; dropped, the move lays it out as it's shown.
-      preview?.end(!kept || !target)
-      const reduced = reducedMotion()
-
-      // Once the picture has landed, the layers' outlines come back, unless another drag has begun.
-      const landed = (put: () => void) => () => {
-        put()
-
-        if (drags === drag) {
-          view = undefined
-        }
-      }
-
-      if (!kept || !target) {
-        // Back where they were, they stay empty until the picture gets there.
-        const back = styleElements(elements, { opacity: "0" })
-        const home = corner(ids.flatMap((id) => nodeBox(host, id) ?? [])) ?? { x: union.left, y: union.top }
-        carriedPicture.letGo("cancelling", space.point(home), reduced, landed(back))
-
-        return
-      }
-
-      if (moveLayers(session, entry, ids, target, gesture.gesture) && target.design !== entry.key) {
-        moves.designs.push(target.design)
-      }
-
-      // Where they landed stays an outline, drawn over the canvas, until the picture gets there.
-      let unmark: (() => void) | undefined
-      let gone = false
-      const to = copies ?? carriedPicture.store.get()?.at
-
-      carriedPicture.letGo(
-        "dropping",
-        to ?? space.point({ x: union.left, y: union.top }),
-        reduced,
-        landed(() => {
-          gone = true
-          unmark?.()
-        }),
-        copies
-      )
-
-      if (!gone && landing) {
-        markLanded(session, landing, (put) => {
-          if (gone) {
-            put()
-          } else {
-            unmark = put
+        return [
+          {
+            ...frame,
+            ref: layerRef(session.doc, entry.key, id),
+            offset,
+            size: { width: to.x - from.x, height: to.y - from.y }
           }
-        })
-      }
-    },
-    click: onClick
-  })
+        ]
+      })
+    }
+  }
+
+  const landingOf = (): Drop | undefined =>
+    absolute || !target
+      ? undefined
+      : {
+          ...inFrame(state?.id, current.mode),
+          parent: layerRef(session.doc, target.design, target.parent),
+          index: target.index
+        }
+
+  followPress(
+    absolute ? gestures.absoluteDrag : gestures.layerDrag,
+    session.doc,
+    start,
+    telling(
+      session,
+      {
+        design: absolute ? entry.key : undefined,
+        moves,
+        cursor: "grabbing",
+        start(gesture) {
+          drag = ++drags
+          const { scale } = frameGeometry(host)
+
+          if (absolute) {
+            placed = followAbsolute(session, entry, ids[0]!, host, gesture)
+            lifted = liftElements(elements, { origin: { x: start.clientX, y: start.clientY }, scale })
+
+            return
+          }
+
+          // A picture still flying from the last drag lands first, so layers it kept hidden until then are drawn again
+          // before they're pictured: grabbed again on their way back, they'd otherwise be carried unseen.
+          carriedPicture.finish()
+          layouts.measure(host, entry.container.root)
+          // The picture is taken before the layers are hidden, of the box it's carried by.
+          const picture = layerPicture(host, elements, scale, union)
+
+          if (picture) {
+            carriedPicture.pickUp({
+              area,
+              picture,
+              at: space.point({ x: union.left, y: union.top }),
+              grab: { x: start.clientX - union.left, y: start.clientY - union.top }
+            })
+          }
+
+          preview = new DropPreview(host, elements, landingColor(area), reducedMotion())
+          view = { carried: true }
+        },
+        move(event) {
+          const delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
+
+          if (absolute) {
+            placed?.move(delta, event)
+            view = {}
+
+            return
+          }
+
+          carriedPicture.carry(space.point({ x: union.left + delta.x, y: union.top + delta.y }))
+          const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
+          target = found?.target
+          landing = found?.host
+          // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
+          const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
+          view = { carried: true }
+
+          if (found && !shown) {
+            view.line = { ...found.line, ...space.point(found.line) }
+          }
+        },
+        // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
+        end(kept, gesture) {
+          if (absolute) {
+            view = undefined
+
+            if (kept) {
+              placed?.end(true)
+              lifted?.drop()
+            } else {
+              lifted?.cancel(() => placed?.end(false))
+            }
+
+            return
+          }
+
+          const copies = preview?.spot(space)
+          // Called off, the row closes around where the layers come back; dropped, the move lays it out as it's shown.
+          preview?.end(!kept || !target)
+          const reduced = reducedMotion()
+
+          // Once the picture has landed, the layers' outlines come back, unless another drag has begun.
+          const landed = (put: () => void) => () => {
+            put()
+
+            if (drags === drag) {
+              view = undefined
+            }
+          }
+
+          if (!kept || !target) {
+            // Back where they were, they stay empty until the picture gets there.
+            const back = styleElements(elements, { opacity: "0" })
+            const home = corner(ids.flatMap((id) => nodeBox(host, id) ?? [])) ?? { x: union.left, y: union.top }
+            carriedPicture.letGo("cancelling", space.point(home), reduced, landed(back))
+
+            return
+          }
+
+          if (moveLayers(session, entry, ids, target, gesture.gesture) && target.design !== entry.key) {
+            moves.designs.push(target.design)
+          }
+
+          // Where they landed stays an outline, drawn over the canvas, until the picture gets there.
+          let unmark: (() => void) | undefined
+          let gone = false
+          const to = copies ?? carriedPicture.store.get()?.at
+
+          carriedPicture.letGo(
+            "dropping",
+            to ?? space.point({ x: union.left, y: union.top }),
+            reduced,
+            landed(() => {
+              gone = true
+              unmark?.()
+            }),
+            copies
+          )
+
+          if (!gone && landing) {
+            markLanded(session, landing, (put) => {
+              if (gone) {
+                put()
+              } else {
+                unmark = put
+              }
+            })
+          }
+        },
+        click: onClick
+      },
+      describe,
+      landingOf
+    )
+  )
 }
 
 /** The top-left corner of boxes, or nothing without any. */

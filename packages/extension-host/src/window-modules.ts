@@ -143,9 +143,9 @@ export interface WindowSurface {
 }
 
 /** What's on `WindowParity` through `options.surfaces`, which the app gives. */
-export type SurfaceName = "colors" | "canvas" | "camera"
+export type SurfaceName = "colors" | "canvas" | "camera" | "presence" | "sync" | "agents"
 
-const surfaceNames: readonly SurfaceName[] = ["colors", "canvas", "camera"]
+const surfaceNames: readonly SurfaceName[] = ["colors", "canvas", "camera", "presence", "sync", "agents"]
 
 /** Where a module is in a tab. */
 export type ModuleState = "loading" | "active" | "inactive"

@@ -102,6 +102,8 @@ export interface LoroBackend extends DocBackend {
   receive(bytes: Uint8Array): void
   /** What the last `receive` repaired. */
   repairs(): readonly Repair[]
+  /** Whether the last `receive` left changes waiting for others this replica hasn't got yet. */
+  pending(): boolean
   /** Every file and the modes as Loro holds them, read whole: what the plain values must equal. */
   read(): { files: ReadonlyMap<string, CanvasDocument>; modes: ModeSettings }
   /** The whole document, for another replica to open on. */
@@ -142,6 +144,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
   /** Changes to drawn files, which Loro's version doesn't see. */
   let drawnChanges = 0
   let lastRepairs: Repair[] = []
+  let lastPending = false
   const listeners = new Set<(change: BackendChange) => void>()
 
   const version = (): DocVersion => ({
@@ -742,7 +745,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     })
 
     try {
-      doc.import(bytes)
+      // Changes that need others not here yet wait inside Loro, and are applied once those arrive.
+      lastPending = (doc.import(bytes).pending?.size ?? 0) > 0
     } finally {
       unsubscribe()
     }
@@ -1001,6 +1005,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       scoped(() => receive(bytes))
     },
     repairs: () => lastRepairs,
+    pending: () => lastPending,
     read: readWhole,
     snapshot: () => doc.export({ mode: "snapshot" }),
     subscribeLocalUpdates: (listener) => doc.subscribeLocalUpdates(listener),

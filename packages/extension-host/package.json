@@ -9,7 +9,10 @@
     ".": "./src/index.ts",
     "./settings": "./src/settings.ts",
     "./window": "./src/window-modules.ts",
-    "./window-canvas": "./src/window-canvas.ts"
+    "./window-agents": "./src/window-agents.ts",
+    "./window-canvas": "./src/window-canvas.ts",
+    "./window-presence": "./src/window-presence.ts",
+    "./window-sync": "./src/window-sync.ts"
   },
   "dependencies": {
     "@parity-app/channel": "workspace:*",

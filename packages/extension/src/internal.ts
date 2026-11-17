@@ -300,6 +300,163 @@ export interface WindowColors extends Colors {
   readonly agents: Colors
 }
 
+/** Where a gesture's nodes are drawn: which design's frame, by state and mode. */
+export interface InFrame {
+  state?: string
+  mode?: string
+}
+
+/** A resize handle. */
+export type Handle = "top" | "right" | "bottom" | "left" | "topLeft" | "topRight" | "bottomLeft" | "bottomRight"
+
+/**
+ * What this person is doing with the pointer or the keyboard on the canvas: what it does and where it started. How it
+ * goes on is worked out from the pointer, so nothing in a gesture is sent every frame but the pointer itself.
+ */
+export type Gesture =
+  | {
+      kind: "move"
+      phase: "start" | "drop" | "end" | "cancel"
+      /** What moves, where each is from the pointer, and which frame it's in. */
+      targets: (InFrame & { ref: NodeRef; offset: Point; size: { width: number; height: number } })[]
+      /** Only for layers in a layout: where they'd land. A `drop` event comes each time this changes. */
+      drop?: InFrame & { parent: NodeRef; index: number }
+    }
+  | { kind: "resize"; phase: "start" | "end" | "cancel"; ref: NodeRef; frame?: InFrame; handle: Handle; from: Rect }
+  | { kind: "marquee"; phase: "start" | "end" | "cancel"; from: Point }
+  | {
+      kind: "text"
+      phase: "start" | "caret" | "end"
+      ref: NodeRef
+      frame?: InFrame
+      caret?: { anchor: number; focus: number }
+    }
+
+/** What this person is looking at: the design, and the state and mode it shows. */
+export interface Viewing {
+  design?: string
+  state?: string
+  mode?: string
+}
+
+/** What this person is doing (`presence` capability). Only about this person: showing others is the extension's job. */
+export interface Presence {
+  /** The person signed in, as others should see them. */
+  readonly self: { name: string; avatar?: string }
+  /**
+   * Told where the pointer is on the page, at most once a frame with the latest. Its leaving the canvas (`over: false`)
+   * is never dropped.
+   */
+  onPointer(listener: (pointer: { at: Point; over: boolean }) => void): Disposable
+  /**
+   * Told each gesture's start, its drop target changing, and its end or cancel, every one in order. A move's drop
+   * reaches `sync.onLocalChanges` before its `end` is told here.
+   */
+  onGesture(listener: (gesture: Gesture) => void): Disposable
+  /** Told each time the design, state or mode this person sees changes, every one in order. */
+  onViewing(listener: (viewing: Viewing) => void): Disposable
+}
+
+/** One step of an agent's work. */
+export interface AgentStep {
+  kind:
+    | "read"
+    | "write"
+    | "move"
+    | "screenshot"
+    | "measure"
+    | "accessibility"
+    | "problems"
+    | "console"
+    | "board"
+    | "start"
+    | "end"
+  /** The agent's id, unique in its copy. With `from`, it's unique in the room. */
+  agentId: string
+  /** Who's calling, as `Claude Code`. */
+  agent?: string
+  label?: string
+  /** What it works on: a design (`type: "design"`, its key) for a board, or a layer (`designKey/layerId`). */
+  ref?: NodeRef
+  state?: string
+  mode?: string
+  /** Where a moved design's board was and where it goes, on the page. */
+  from?: Point
+  to?: Point
+  error?: string
+}
+
+/** Agents' activity (`agents` capability): this copy's, and other copies' passed in. */
+export interface Agents {
+  /**
+   * Told each step of every agent working in this project: this copy's (no `from`), and other copies' passed in with
+   * `receive` (their `from`). This copy's steps come before the write they describe is applied.
+   */
+  onActivity(listener: (steps: AgentStep[], from?: string) => void): Disposable
+  /** Passes on another copy's agent steps, from the copy `from`. They're told through `onActivity`, in order. */
+  receive(steps: AgentStep[], options: { from: string }): void
+}
+
+/** How the project opens, as the extension that brings the room says. */
+export type OpenFrom = { from: "files" } | { from: "snapshot"; snapshot: Uint8Array; lineage: string }
+
+/** Bytes from a copy of another lineage: another document, though it may be the same project. */
+export class LineageError extends Error {
+  readonly lineage: string
+  readonly theirs: string
+
+  constructor(lineage: string, theirs: string) {
+    super(`These changes are from another copy of the document (${theirs}), not this one's (${lineage})`)
+    this.name = "LineageError"
+    this.lineage = lineage
+    this.theirs = theirs
+  }
+}
+
+/**
+ * Sharing the document (`sync` capability, with `contributes.sync`). The document stays in core: Loro, undo and saving.
+ * The extension brings the room: it says how the document opens, carries its changes, and says whether this copy
+ * writes files.
+ */
+export interface Sync {
+  /** The format of the bytes it carries, as `loro/1`. The extension passes them on without reading them. */
+  readonly format: string
+  /**
+   * Says how the project opens, before it does. Core waits up to 30 s. `{ from: "files" }` opens the project's files in
+   * a new document, with a new lineage, and this copy writes files; `{ from: "snapshot" }` opens on another copy's
+   * document, keeping its lineage, and this copy doesn't write files until told to. If the handler rejects or takes too
+   * long, the project opens from files, alone, and sync is detached until `reopen()`.
+   */
+  onOpen(handler: () => Promise<OpenFrom>): Disposable
+  /** The document's lineage: an id every copy that shares it has. Empty until the document opens through `onOpen`. */
+  readonly lineage: string
+  /**
+   * Told the bytes of every change committed here, in order, none dropped: the person's, an agent's, an extension's,
+   * repairs, and files reloaded from disk.
+   */
+  onLocalChanges(listener: (bytes: Uint8Array) => void): Disposable
+  /**
+   * Takes in another copy's changes, in the order called, waiting until the document is open. `pending` is true when
+   * some of them need changes this copy hasn't got yet; it keeps them and applies them when the gap is filled. Rejects
+   * with `LineageError` for bytes from another lineage.
+   */
+  receive(bytes: Uint8Array): Promise<{ pending: boolean }>
+  /** This copy's version: what it has of the document, to compare with another copy's. */
+  version(): Uint8Array
+  /** The changes another copy at `version` is missing. */
+  changesSince(version: Uint8Array): Uint8Array
+  /** The whole document, for a copy that's joining. Waits until the document is open. */
+  snapshot(): Promise<Uint8Array>
+  /**
+   * Whether this copy writes the project's files. `true` resolves once the files that differ from what was last written
+   * are written; `false` once writes in flight have finished.
+   */
+  setWritesFiles(writes: boolean): Promise<void>
+  readonly writesFiles: boolean
+  /** Closes the project and opens it again through `onOpen`. */
+  reopen(): Promise<void>
+}
+
 /**
  * What a window module gets, for one project tab. It has the Node half's reads (selection, settings, navigation) and
  * what only makes sense in the window. Files, processes, providers and edits stay in the Node half. What needs a
@@ -323,6 +480,12 @@ export interface WindowParity {
   readonly canvas: CanvasSurface
   /** `camera` capability. */
   readonly camera: Camera
+  /** `presence` capability. */
+  readonly presence: Presence
+  /** `sync` capability. */
+  readonly sync: Sync
+  /** `agents` capability. */
+  readonly agents: Agents
   readonly host: HostLink
   readonly extensions: WindowExtensions
 }

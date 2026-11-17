@@ -4,6 +4,7 @@ import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { followPress, gestures } from "./gesture.ts"
 import type { Hit } from "./hit.ts"
 import { boardClick, boxSelection, touchedBy } from "./pick.ts"
+import { telling } from "./presence-gestures.ts"
 
 /**
  * Follows a press on a frame's background, where no layer is. Released where it was pressed, it selects the board (or
@@ -24,37 +25,49 @@ export function pressBackground(
   // A locked layer isn't touched by the box (PAR-192).
   const layers = childNodes(hit.entry.container.root).flatMap((node) => (node.locked ? [] : [node.id]))
 
-  followPress(gestures.boxSelect, session.doc, start, {
-    move(event) {
-      const box = {
-        left: Math.min(start.clientX, event.clientX),
-        top: Math.min(start.clientY, event.clientY),
-        right: Math.max(start.clientX, event.clientX),
-        bottom: Math.max(start.clientY, event.clientY)
-      }
+  // Others see where the box started (`parity.presence`); the rest follows the pointer.
+  const from = editor?.screenToPage({ x: start.clientX, y: start.clientY })
 
-      if (editor) {
-        const from = editor.screenToPage({ x: box.left, y: box.top })
-        const to = editor.screenToPage({ x: box.right, y: box.bottom })
-        editor.updateInstanceState({ brush: { x: from.x, y: from.y, w: to.x - from.x, h: to.y - from.y } })
-      }
+  followPress(
+    gestures.boxSelect,
+    session.doc,
+    start,
+    telling(
+      session,
+      {
+        move(event) {
+          const box = {
+            left: Math.min(start.clientX, event.clientX),
+            top: Math.min(start.clientY, event.clientY),
+            right: Math.max(start.clientX, event.clientX),
+            bottom: Math.max(start.clientY, event.clientY)
+          }
 
-      // Measured on every move, since the camera can move while the box is drawn.
-      const boxes = layers.flatMap((id) => {
-        const rect = nodeBox(hit.host, id)
+          if (editor) {
+            const from = editor.screenToPage({ x: box.left, y: box.top })
+            const to = editor.screenToPage({ x: box.right, y: box.bottom })
+            editor.updateInstanceState({ brush: { x: from.x, y: from.y, w: to.x - from.x, h: to.y - from.y } })
+          }
 
-        return rect ? [{ id, box: rect }] : []
-      })
+          // Measured on every move, since the camera can move while the box is drawn.
+          const boxes = layers.flatMap((id) => {
+            const rect = nodeBox(hit.host, id)
 
-      selection.set(boxSelection(before, design, frame, touchedBy(box, boxes), event.shiftKey))
-    },
-    end(kept) {
-      editor?.updateInstanceState({ brush: null })
+            return rect ? [{ id, box: rect }] : []
+          })
 
-      if (!kept) {
-        selection.set(before)
-      }
-    },
-    click: () => selection.set(boardClick(before, design, start.shiftKey))
-  })
+          selection.set(boxSelection(before, design, frame, touchedBy(box, boxes), event.shiftKey))
+        },
+        end(kept) {
+          editor?.updateInstanceState({ brush: null })
+
+          if (!kept) {
+            selection.set(before)
+          }
+        },
+        click: () => selection.set(boardClick(before, design, start.shiftKey))
+      },
+      () => (from ? { kind: "marquee", from: { x: from.x, y: from.y } } : undefined)
+    )
+  )
 }

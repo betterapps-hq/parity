@@ -361,6 +361,23 @@ are to become internal extensions. None of the built-in extensions is one yet.
   `@parity-app/presence-colors`. `claim`, `release`, `assign`, `palette` and `tuned` work by key, never by color. Claims
   are counted per extension and tab: a key claimed twice keeps its color until it's released twice, and an extension's
   claims are given back when it stops in the tab.
+- **`parity.presence`** (`presence`) is this person in the tab: `self`, the pointer on the page at most once a frame
+  (the latest, with its leaving told at once), every gesture in order (a move of layers, with each change of where
+  they'd land, a resize and a box drawn to select, each started, ended or called off), and the design, state and mode
+  selected, on each change. Nothing is listened to while no module listens. A move's drop and end are told after the
+  changes committed before them.
+- **`parity.agents`** (`agents`) tells every step this copy's agents take in the tab, with no `from`, and the steps an
+  extension passes in with `receive(steps, { from })`, with that copy. Steps passed in are queued as this copy's are, so
+  the canvas draws their cursors, but never told again as this copy's, so nothing echoes back to the room. Steps naming
+  a design or layer that isn't here are dropped and recorded (`agents.stepDropped`, at most once a minute), and each
+  minute agents are active is recorded as `agents.activity`.
+- **`parity.sync`** is built and tested in [window-sync.ts](../packages/extension-host/src/window-sync.ts): `onOpen`
+  says how the project opens, from files or on a snapshot, within 30 seconds; `onLocalChanges`, `receive`, `version`,
+  `changesSince` and `snapshot` carry changes framed with the document's lineage; `setWritesFiles` says who writes
+  files; and when the module that brought the room stops, the document stays open alone and this copy writes files
+  again. The tab doesn't offer it yet: opening the document through it means starting window modules before the document
+  opens, in Loro. Until then, reading `parity.sync` throws that it isn't available in this window, and today's live room
+  keeps its own wiring.
 - **The two halves** call each other. The window module calls what its Node half's `activate` returned through
   `parity.host.api()`, and the Node half calls what `activateWindow` returned as `node` through `parity.window.api()`,
   JSON across processes, through the service. A call to a half that isn't `ready` rejects at once with
@@ -500,6 +517,15 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   claims counted and given back, assigned numbers telling the layers' color hooks, each list's palettes, a preview by
   `NodeRef` in a claimed color given back as it settles, where layers would land mapped, previews left open disposed of,
   and holds let go.
+- [window-seams.test.ts](../packages/extension-host/src/window-seams.test.ts) (PAR-1257), through the same test-only
+  extension: the pointer at most once a frame with its leaving kept, gestures in order with committed changes told
+  before a move's drop and end, viewing told only on a change, nothing listened to without a listener, a throwing
+  listener counted; agents' steps here without a copy and passed-in ones with theirs, steps naming what's gone dropped
+  and recorded, the minute's activity, and today's agent events mapped to steps and back; and `parity.sync` opening from
+  files or a snapshot, alone when nothing answers, calls made before the open applied in order once it does, changes
+  framed with their lineage, other lineages refused, pending changes recorded, files written as the room says, the
+  document kept open alone when the module stops, nothing detached as the project closes, a second `onOpen` refused, and
+  the minute's traffic.
 - [frame-loop.test.ts](../packages/canvas-layer/src/frame-loop.test.ts): every `measure` before any `draw`, the time
   since the frame before, resting while nothing runs or the tab is hidden, and a throwing frame given to its own
   handler.
