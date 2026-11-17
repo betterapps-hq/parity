@@ -6440,8 +6440,8 @@ Tests:
   the file holds, so one changed back since is written (PAR-1254).
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: a copy taking over after the
   host saved and left writes the file and token value it changed back since (PAR-1254).
-- `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (1), in Chrome: a guest that loaded a value
-  the host saved shows the room's, though it's the edit's original.
+- `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (2), in Chrome: a guest that loaded a value
+  the host saved shows the room's, though it's the edit's original; and shows a saved edit again on redo after undo.
 
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 

@@ -195,6 +195,24 @@ describe("joining a live room", () => {
 
     expect(result).toBe("black")
   })
+
+  it("shows a token edit again on redo in a guest that loaded the value it saved", async () => {
+    const result = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { open, guestSaved, declared } = tokens
+      // Red saved over the original black, and the guest loaded again with red: undo shows black, redo red again.
+      const { designs, tokens: first } = open()
+      first.store.set([{ name: "primary", theme: "default", value: "red" }])
+      const joined = guestSaved(designs, "red")
+      designs.doc.undo()
+      const undone = declared(joined.sheet, "primary")
+      designs.doc.redo()
+
+      return [undone, declared(joined.sheet, "primary")]
+    })
+
+    expect(result).toEqual(["black", "red"])
+  })
 })
 
 describe("animation keyframes", () => {
