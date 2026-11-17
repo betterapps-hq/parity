@@ -9,7 +9,6 @@ import {
 import { typeInContainer } from "@parity-app/multiplayer"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Attributes } from "../chrome/event-attributes.ts"
-import type { Typing } from "../live-room.ts"
 import { libraryOf } from "../project-doc.ts"
 import { track } from "../report-error.ts"
 import { useProject } from "./context.ts"
@@ -17,6 +16,7 @@ import { type AreaSpace, areaSpace, type ElementGeometry, frameGeometry } from "
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
 import { LiveText } from "./live-text.ts"
 import { scheduleOverlay } from "./overlay-scheduler.ts"
+import { inFrame, layerRef, tellGesture } from "./presence-gestures.ts"
 import { drawnText, textNodes } from "./text-caret.ts"
 
 /** How far letters can reach past their line, above and below, in the text's own size. */
@@ -62,6 +62,22 @@ export function TextEditor() {
   const opened = useRef<{ text: string; range: TextRange }>(undefined)
   const composing = useRef(false)
   const done = useRef(false)
+  /** Whether `parity.presence` has been told this person started typing here, so it's told when they stop. */
+  const told = useRef(false)
+
+  // That this person stopped typing, once, if they were told to have started.
+  const stopTelling = () => {
+    if (told.current) {
+      told.current = false
+      tellGesture(session, {
+        kind: "text",
+        phase: "end",
+        ref: layerRef(session.doc, editing.design, editing.node),
+        frame: inFrame(editing.state, undefined)
+      })
+    }
+  }
+
   /** Writes what's typed as it's typed, and takes in others' changes to the text. */
   const live = useRef<LiveText>(undefined)
   const [openedAt] = useState(() => performance.now())
@@ -209,29 +225,29 @@ export function TextEditor() {
       hidden.restore()
       // Closed some other way than `commit`, as when the layer goes: what's typed is kept.
       writer.close()
-      session.room?.setTyping(undefined)
+      stopTelling()
     }
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- `stopTelling` reads what's being edited, as these do.
   }, [editing, selection, doc, session])
 
-  // Where this person is typing, for the others in a live room to draw in their color (see `RoomTyping`).
+  // Where this person is typing, as a `text` gesture with its caret (PAR-1268), for others in a live room to see.
   const tellRoom = () => {
     const textarea = ref.current
 
     if (textarea && !done.current) {
       const forward = textarea.selectionDirection !== "backward"
 
-      const typing: Typing = {
-        design: editing.design,
-        node: editing.node,
-        anchor: forward ? textarea.selectionStart : textarea.selectionEnd,
-        focus: forward ? textarea.selectionEnd : textarea.selectionStart
-      }
-
-      if (editing.state !== undefined) {
-        typing.state = editing.state
-      }
-
-      session.room?.setTyping(typing)
+      tellGesture(session, {
+        kind: "text",
+        phase: told.current ? "caret" : "start",
+        ref: layerRef(session.doc, editing.design, editing.node),
+        frame: inFrame(editing.state, undefined),
+        caret: {
+          anchor: forward ? textarea.selectionStart : textarea.selectionEnd,
+          focus: forward ? textarea.selectionEnd : textarea.selectionStart
+        }
+      })
+      told.current = true
     }
   }
 
@@ -260,7 +276,7 @@ export function TextEditor() {
     // What's typed and not yet written is written, to the state it was read from by the same rule (see `textToEdit`),
     // and the last pause's step ends.
     live.current?.close(text)
-    session.room?.setTyping(undefined)
+    stopTelling()
     selection.setEditing(undefined)
     const original = opened.current?.text
 

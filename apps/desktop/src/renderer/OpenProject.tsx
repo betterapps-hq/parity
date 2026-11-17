@@ -5,11 +5,9 @@ import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { followSelection, sendRouteMarks } from "./extension-editor.ts"
-import { extensionsOf } from "./extensions.ts"
 import { appLenses } from "./lenses/app-lenses.ts"
 import { LensWorkspace } from "./lenses/LensWorkspace.tsx"
 import { OpenProjectContext } from "./lenses/screens.tsx"
-import { startWindowModules } from "./window-modules.ts"
 import type { Project, ProjectSession } from "./workspace.ts"
 
 /**
@@ -32,8 +30,6 @@ export function OpenProject({
   useEffect(() => followSelection(session), [session])
   // And the person's marks on its routes through `parity.routes` (PAR-1175, PAR-1176).
   useEffect(() => sendRouteMarks(session), [session])
-  // Internal extensions' window modules run in the open project (extensions-in-the-window.md).
-  useEffect(() => startWindowModules(session, project.id, extensionsOf(session)), [session, project.id])
 
   // Component previews are made in the background for as long as the project is open (PAR-207), and go when it closes.
   useEffect(() => startPreviews(session), [session])

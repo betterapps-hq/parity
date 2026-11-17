@@ -6,8 +6,7 @@
 //        pnpm dev:prod [project-root]  the window on React's production build, which is faster, but where a change to
 //                                      a component reloads the page (scripts/react-build.ts); it passes --react production
 //   PARITY_STANDARD_ELECTRON=1  run Electron as installed, not Parity's copy of it (scripts/parity-electron.ts)
-//   PARITY_ROOM=1               open the project in a live room with every other copy started this way, on Loro
-//                               (scripts/dev-room.ts); PARITY_ROOM_NAME names this copy's cursor
+//   PARITY_ROOM_NAME=Mia        the name on this copy's pointer in a live room, for two copies on one machine
 import { type ChildProcess, spawn } from "node:child_process"
 import { cpSync, existsSync, readFileSync } from "node:fs"
 import { createRequire } from "node:module"
@@ -18,7 +17,6 @@ import { createServer } from "vite"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { print } from "../../../scripts/output.ts"
 import { nodeHalfEntries } from "../src/shared/built-in-extensions.ts"
-import { startRoomRelay } from "./dev-room.ts"
 import { installedElectron, parityElectron } from "./parity-electron.ts"
 import { reactFlag, reactProductionMode } from "./react-build.ts"
 
@@ -42,20 +40,10 @@ const electronPath =
 
 print(`[dev] React's ${react} build`)
 
-// A live room: the window reads where the relay is from Vite's environment, so it's set before the UI server starts.
-if (process.env.PARITY_ROOM === "1") {
-  const roomPort = Number(process.env.PARITY_ROOM_PORT ?? "5390")
-  const relay = await startRoomRelay(roomPort)
-  process.env.VITE_PARITY_ROOM = `http://127.0.0.1:${roomPort}`
-
-  // The name on this copy's cursor; without one, the signed-in person's first name.
-  if (process.env.PARITY_ROOM_NAME) {
-    process.env.VITE_PARITY_ROOM_NAME = process.env.PARITY_ROOM_NAME
-  }
-
-  print(
-    `[dev] live room ${process.env.VITE_PARITY_ROOM} (${relay === "started" ? "relay started here" : "another copy's relay"})`
-  )
+// The name on this copy's pointer in a live room; without one, the signed-in person's first name. The window reads it
+// from Vite's environment, so it's set before the UI server starts.
+if (process.env.PARITY_ROOM_NAME) {
+  process.env.VITE_PARITY_ROOM_NAME = process.env.PARITY_ROOM_NAME
 }
 
 // The UI's Vite config gives the window React's production build in this mode, and the development build otherwise.
