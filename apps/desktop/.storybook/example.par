@@ -381,7 +381,7 @@
                     "id": "bUBEe",
                     "name": "Period toggle",
                     "type": "component",
-                    "component": "nova/ToggleGroup",
+                    "component": "shadcn/ToggleGroup",
                     "props": {
                       "variant": "outline",
                       "defaultValue": [
@@ -394,7 +394,7 @@
                         {
                           "id": "RgfBx",
                           "type": "component",
-                          "component": "nova/ToggleGroupItem",
+                          "component": "shadcn/ToggleGroupItem",
                           "props": {
                             "value": "monthly",
                             "children": "Monthly"
@@ -403,7 +403,7 @@
                         {
                           "id": "Gu8WU",
                           "type": "component",
-                          "component": "nova/ToggleGroupItem",
+                          "component": "shadcn/ToggleGroupItem",
                           "props": {
                             "value": "yearly",
                             "children": "Yearly"
@@ -656,7 +656,7 @@
                   }
                 },
                 "type": "component",
-                "component": "nova/Accordion",
+                "component": "shadcn/Accordion",
                 "props": {
                   "defaultValue": [
                     "trial"
@@ -667,7 +667,7 @@
                     {
                       "id": "ODbWM",
                       "type": "component",
-                      "component": "nova/AccordionItem",
+                      "component": "shadcn/AccordionItem",
                       "props": {
                         "value": "trial"
                       },
@@ -676,7 +676,7 @@
                           {
                             "id": "SAiHO",
                             "type": "component",
-                            "component": "nova/AccordionTrigger",
+                            "component": "shadcn/AccordionTrigger",
                             "props": {
                               "children": "How does the free trial work?"
                             }
@@ -684,7 +684,7 @@
                           {
                             "id": "vBBif",
                             "type": "component",
-                            "component": "nova/AccordionContent",
+                            "component": "shadcn/AccordionContent",
                             "props": {
                               "children": "Pro is free for 14 days, with no card needed. When it ends, pick a plan or stay on Starter."
                             }
@@ -695,7 +695,7 @@
                     {
                       "id": "htFWZ",
                       "type": "component",
-                      "component": "nova/AccordionItem",
+                      "component": "shadcn/AccordionItem",
                       "props": {
                         "value": "change"
                       },
@@ -704,7 +704,7 @@
                           {
                             "id": "chazv",
                             "type": "component",
-                            "component": "nova/AccordionTrigger",
+                            "component": "shadcn/AccordionTrigger",
                             "props": {
                               "children": "Can I change plans later?"
                             }
@@ -712,7 +712,7 @@
                           {
                             "id": "vHHIO",
                             "type": "component",
-                            "component": "nova/AccordionContent",
+                            "component": "shadcn/AccordionContent",
                             "props": {
                               "children": "Yes. Upgrades apply straight away, and downgrades at the end of your billing period."
                             }
@@ -723,7 +723,7 @@
                     {
                       "id": "MytqH",
                       "type": "component",
-                      "component": "nova/AccordionItem",
+                      "component": "shadcn/AccordionItem",
                       "props": {
                         "value": "seats"
                       },
@@ -732,7 +732,7 @@
                           {
                             "id": "QTSQL",
                             "type": "component",
-                            "component": "nova/AccordionTrigger",
+                            "component": "shadcn/AccordionTrigger",
                             "props": {
                               "children": "What counts as a seat?"
                             }
@@ -740,7 +740,7 @@
                           {
                             "id": "v1lm7",
                             "type": "component",
-                            "component": "nova/AccordionContent",
+                            "component": "shadcn/AccordionContent",
                             "props": {
                               "children": "Anyone you invite to edit. People who only view shared links are free."
                             }
@@ -751,7 +751,7 @@
                     {
                       "id": "Hqh7x",
                       "type": "component",
-                      "component": "nova/AccordionItem",
+                      "component": "shadcn/AccordionItem",
                       "props": {
                         "value": "sso"
                       },
@@ -760,7 +760,7 @@
                           {
                             "id": "VJjyZ",
                             "type": "component",
-                            "component": "nova/AccordionTrigger",
+                            "component": "shadcn/AccordionTrigger",
                             "props": {
                               "children": "Do you offer single sign-on?"
                             }
@@ -768,7 +768,7 @@
                           {
                             "id": "AjgMN",
                             "type": "component",
-                            "component": "nova/AccordionContent",
+                            "component": "shadcn/AccordionContent",
                             "props": {
                               "children": "SAML single sign-on comes with Business, and SCIM provisioning is available on request."
                             }
@@ -2555,7 +2555,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "nova/Skeleton"
+                                    "component": "shadcn/Skeleton"
                                   }
                                 ]
                               }
@@ -2711,7 +2711,7 @@
                                           }
                                         },
                                         "type": "component",
-                                        "component": "nova/Skeleton"
+                                        "component": "shadcn/Skeleton"
                                       },
                                       {
                                         "id": "b618x",
@@ -2724,7 +2724,7 @@
                                           }
                                         },
                                         "type": "component",
-                                        "component": "nova/Skeleton"
+                                        "component": "shadcn/Skeleton"
                                       },
                                       {
                                         "id": "LjBqO",
@@ -2737,7 +2737,7 @@
                                           }
                                         },
                                         "type": "component",
-                                        "component": "nova/Skeleton"
+                                        "component": "shadcn/Skeleton"
                                       }
                                     ]
                                   }
@@ -2989,7 +2989,7 @@
                                                               }
                                                             },
                                                             "type": "component",
-                                                            "component": "nova/Progress",
+                                                            "component": "shadcn/Progress",
                                                             "props": {
                                                               "value": 72,
                                                               "aria-label": "Website redesign progress"
@@ -3186,7 +3186,7 @@
                                                               }
                                                             },
                                                             "type": "component",
-                                                            "component": "nova/Progress",
+                                                            "component": "shadcn/Progress",
                                                             "props": {
                                                               "value": 38,
                                                               "aria-label": "Mobile app v2 progress"
@@ -3383,7 +3383,7 @@
                                                               }
                                                             },
                                                             "type": "component",
-                                                            "component": "nova/Progress",
+                                                            "component": "shadcn/Progress",
                                                             "props": {
                                                               "value": 91,
                                                               "aria-label": "Billing migration progress"
@@ -3580,7 +3580,7 @@
                                                               }
                                                             },
                                                             "type": "component",
-                                                            "component": "nova/Progress",
+                                                            "component": "shadcn/Progress",
                                                             "props": {
                                                               "value": 12,
                                                               "aria-label": "Design system progress"
@@ -3777,7 +3777,7 @@
                                                               }
                                                             },
                                                             "type": "component",
-                                                            "component": "nova/Progress",
+                                                            "component": "shadcn/Progress",
                                                             "props": {
                                                               "value": 55,
                                                               "aria-label": "Customer portal progress"
@@ -3903,7 +3903,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "nova/Skeleton"
+                                    "component": "shadcn/Skeleton"
                                   },
                                   {
                                     "id": "N22ov",
@@ -3916,7 +3916,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "nova/Skeleton"
+                                    "component": "shadcn/Skeleton"
                                   },
                                   {
                                     "id": "I3QWh",
@@ -3929,7 +3929,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "nova/Skeleton"
+                                    "component": "shadcn/Skeleton"
                                   },
                                   {
                                     "id": "nc1MN",
@@ -3942,7 +3942,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "nova/Skeleton"
+                                    "component": "shadcn/Skeleton"
                                   }
                                 ]
                               }
@@ -4947,7 +4947,7 @@
               {
                 "id": "LiOql",
                 "type": "component",
-                "component": "nova/Progress",
+                "component": "shadcn/Progress",
                 "props": {
                   "value": 70,
                   "aria-label": "Seats used"
@@ -5757,7 +5757,7 @@
                   {
                     "id": "Pn6fJ",
                     "type": "component",
-                    "component": "nova/Kbd",
+                    "component": "shadcn/Kbd",
                     "props": {
                       "children": "Ctrl K"
                     }
@@ -5916,7 +5916,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "nova/Skeleton"
+                    "component": "shadcn/Skeleton"
                   },
                   {
                     "id": "D3gxU",
@@ -6008,7 +6008,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "nova/Skeleton"
+                    "component": "shadcn/Skeleton"
                   }
                 ]
               }
@@ -6549,13 +6549,13 @@
                               }
                             },
                             "type": "component",
-                            "component": "nova/InputGroup",
+                            "component": "shadcn/InputGroup",
                             "slots": {
                               "children": [
                                 {
                                   "id": "h2gzC",
                                   "type": "component",
-                                  "component": "nova/InputGroupAddon",
+                                  "component": "shadcn/InputGroupAddon",
                                   "slots": {
                                     "children": [
                                       {
@@ -6573,7 +6573,7 @@
                                   "id": "waOw9",
                                   "name": "Search input",
                                   "type": "component",
-                                  "component": "nova/InputGroupInput",
+                                  "component": "shadcn/InputGroupInput",
                                   "props": {
                                     "id": "project-search",
                                     "type": "search",
@@ -6589,7 +6589,7 @@
                             "id": "ggLNA",
                             "name": "Status filter",
                             "type": "component",
-                            "component": "nova/ToggleGroup",
+                            "component": "shadcn/ToggleGroup",
                             "props": {
                               "variant": "outline",
                               "spacing": 0,
@@ -6603,7 +6603,7 @@
                                 {
                                   "id": "GBBsn",
                                   "type": "component",
-                                  "component": "nova/ToggleGroupItem",
+                                  "component": "shadcn/ToggleGroupItem",
                                   "props": {
                                     "value": "all",
                                     "children": "All"
@@ -6612,7 +6612,7 @@
                                 {
                                   "id": "G7K26",
                                   "type": "component",
-                                  "component": "nova/ToggleGroupItem",
+                                  "component": "shadcn/ToggleGroupItem",
                                   "props": {
                                     "value": "active",
                                     "children": "Active"
@@ -6621,7 +6621,7 @@
                                 {
                                   "id": "SJFQZ",
                                   "type": "component",
-                                  "component": "nova/ToggleGroupItem",
+                                  "component": "shadcn/ToggleGroupItem",
                                   "props": {
                                     "value": "archived",
                                     "children": "Archived"
@@ -6641,7 +6641,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "nova/ToggleGroup",
+                        "component": "shadcn/ToggleGroup",
                         "props": {
                           "variant": "outline",
                           "spacing": 0,
@@ -6655,7 +6655,7 @@
                             {
                               "id": "EBHN8",
                               "type": "component",
-                              "component": "nova/ToggleGroupItem",
+                              "component": "shadcn/ToggleGroupItem",
                               "props": {
                                 "value": "grid",
                                 "aria-label": "Grid view"
@@ -6676,7 +6676,7 @@
                             {
                               "id": "XMkCY",
                               "type": "component",
-                              "component": "nova/ToggleGroupItem",
+                              "component": "shadcn/ToggleGroupItem",
                               "props": {
                                 "value": "list",
                                 "aria-label": "List view"
@@ -7296,7 +7296,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "nova/Skeleton"
+                        "component": "shadcn/Skeleton"
                       },
                       {
                         "id": "xjcfY",
@@ -7361,7 +7361,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "nova/Skeleton"
+                            "component": "shadcn/Skeleton"
                           },
                           {
                             "id": "Wf2BE",
@@ -7375,7 +7375,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "nova/Skeleton"
+                            "component": "shadcn/Skeleton"
                           }
                         ]
                       }
@@ -7471,7 +7471,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "nova/Skeleton"
+                            "component": "shadcn/Skeleton"
                           },
                           {
                             "id": "NyZXy",
@@ -7485,7 +7485,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "nova/Skeleton"
+                            "component": "shadcn/Skeleton"
                           }
                         ]
                       },
@@ -7552,7 +7552,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "nova/Progress",
+                            "component": "shadcn/Progress",
                             "props": {
                               "value": 72,
                               "aria-label": "Website redesign progress"
@@ -7573,7 +7573,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "nova/Skeleton"
+                        "component": "shadcn/Skeleton"
                       }
                     ]
                   }
@@ -7761,7 +7761,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "nova/Skeleton"
+                        "component": "shadcn/Skeleton"
                       },
                       {
                         "id": "qaXRC",
@@ -7775,7 +7775,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "nova/Skeleton"
+                        "component": "shadcn/Skeleton"
                       }
                     ]
                   }
@@ -8015,7 +8015,7 @@
                             "name": "Sign in error",
                             "hidden": true,
                             "type": "component",
-                            "component": "nova/Alert",
+                            "component": "shadcn/Alert",
                             "props": {
                               "variant": "destructive"
                             },
@@ -8024,7 +8024,7 @@
                                 {
                                   "id": "xbyuO",
                                   "type": "component",
-                                  "component": "nova/AlertTitle",
+                                  "component": "shadcn/AlertTitle",
                                   "props": {
                                     "children": "Those details don't match"
                                   }
@@ -8032,7 +8032,7 @@
                                 {
                                   "id": "i9CCL",
                                   "type": "component",
-                                  "component": "nova/AlertDescription",
+                                  "component": "shadcn/AlertDescription",
                                   "props": {
                                     "children": "Check your email and password, or reset your password."
                                   }
@@ -8179,7 +8179,7 @@
                               {
                                 "id": "EXKGM",
                                 "type": "component",
-                                "component": "nova/Field",
+                                "component": "shadcn/Field",
                                 "slots": {
                                   "children": [
                                     {
@@ -8208,7 +8208,7 @@
                               {
                                 "id": "PXAcz",
                                 "type": "component",
-                                "component": "nova/Field",
+                                "component": "shadcn/Field",
                                 "slots": {
                                   "children": [
                                     {
@@ -8260,7 +8260,7 @@
                                       "name": "Password error",
                                       "hidden": true,
                                       "type": "component",
-                                      "component": "nova/FieldError",
+                                      "component": "shadcn/FieldError",
                                       "props": {
                                         "children": "That password is incorrect."
                                       }
@@ -8284,7 +8284,7 @@
                                     "id": "nlDnJ",
                                     "name": "Remember checkbox",
                                     "type": "component",
-                                    "component": "nova/Checkbox",
+                                    "component": "shadcn/Checkbox",
                                     "props": {
                                       "id": "remember",
                                       "defaultChecked": true
@@ -8320,7 +8320,7 @@
                                   "name": "Spinner",
                                   "hidden": true,
                                   "type": "component",
-                                  "component": "nova/Spinner"
+                                  "component": "shadcn/Spinner"
                                 },
                                 {
                                   "id": "zmiXp",
@@ -8634,13 +8634,13 @@
                                 "name": "Saved notice",
                                 "hidden": true,
                                 "type": "component",
-                                "component": "nova/Alert",
+                                "component": "shadcn/Alert",
                                 "slots": {
                                   "children": [
                                     {
                                       "id": "d5zha",
                                       "type": "component",
-                                      "component": "nova/AlertTitle",
+                                      "component": "shadcn/AlertTitle",
                                       "props": {
                                         "children": "Changes saved"
                                       }
@@ -8648,7 +8648,7 @@
                                     {
                                       "id": "KbSex",
                                       "type": "component",
-                                      "component": "nova/AlertDescription",
+                                      "component": "shadcn/AlertDescription",
                                       "props": {
                                         "children": "Your profile is up to date, and teammates will see it straight away."
                                       }
@@ -8830,7 +8830,7 @@
                                                     "id": "B0F5f",
                                                     "name": "First name field",
                                                     "type": "component",
-                                                    "component": "nova/Field",
+                                                    "component": "shadcn/Field",
                                                     "slots": {
                                                       "children": [
                                                         {
@@ -8858,7 +8858,7 @@
                                                     "id": "HTVRP",
                                                     "name": "Last name field",
                                                     "type": "component",
-                                                    "component": "nova/Field",
+                                                    "component": "shadcn/Field",
                                                     "slots": {
                                                       "children": [
                                                         {
@@ -8888,7 +8888,7 @@
                                                 "id": "jh0Bw",
                                                 "name": "Email field",
                                                 "type": "component",
-                                                "component": "nova/Field",
+                                                "component": "shadcn/Field",
                                                 "slots": {
                                                   "children": [
                                                     {
@@ -8915,7 +8915,7 @@
                                                       "id": "XkdNG",
                                                       "name": "Email hint",
                                                       "type": "component",
-                                                      "component": "nova/FieldDescription",
+                                                      "component": "shadcn/FieldDescription",
                                                       "props": {
                                                         "children": "We'll send a link to confirm a new address."
                                                       }
@@ -8925,7 +8925,7 @@
                                                       "name": "Email error",
                                                       "hidden": true,
                                                       "type": "component",
-                                                      "component": "nova/FieldError",
+                                                      "component": "shadcn/FieldError",
                                                       "props": {
                                                         "children": "Enter an email address like name@company.com."
                                                       }
@@ -8937,7 +8937,7 @@
                                                 "id": "NSUZT",
                                                 "name": "Bio field",
                                                 "type": "component",
-                                                "component": "nova/Field",
+                                                "component": "shadcn/Field",
                                                 "slots": {
                                                   "children": [
                                                     {
@@ -8952,7 +8952,7 @@
                                                     {
                                                       "id": "A5Hjz",
                                                       "type": "component",
-                                                      "component": "nova/Textarea",
+                                                      "component": "shadcn/Textarea",
                                                       "props": {
                                                         "id": "bio",
                                                         "defaultValue": "Product designer at Acme. I care about clear interfaces and good coffee."
@@ -8961,7 +8961,7 @@
                                                     {
                                                       "id": "NNPkJ",
                                                       "type": "component",
-                                                      "component": "nova/FieldDescription",
+                                                      "component": "shadcn/FieldDescription",
                                                       "props": {
                                                         "children": "Up to 160 characters. Shown on your profile and in mentions."
                                                       }
@@ -9003,7 +9003,7 @@
                                                     "id": "SVj9t",
                                                     "name": "Role field",
                                                     "type": "component",
-                                                    "component": "nova/Field",
+                                                    "component": "shadcn/Field",
                                                     "slots": {
                                                       "children": [
                                                         {
@@ -9018,7 +9018,7 @@
                                                         {
                                                           "id": "S05fi",
                                                           "type": "component",
-                                                          "component": "nova/NativeSelect",
+                                                          "component": "shadcn/NativeSelect",
                                                           "props": {
                                                             "id": "role",
                                                             "defaultValue": "Product design"
@@ -9028,7 +9028,7 @@
                                                               {
                                                                 "id": "HEaD9",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Product design",
                                                                   "children": "Product design"
@@ -9037,7 +9037,7 @@
                                                               {
                                                                 "id": "KhZ8y",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Engineering",
                                                                   "children": "Engineering"
@@ -9046,7 +9046,7 @@
                                                               {
                                                                 "id": "i8pUj",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Marketing",
                                                                   "children": "Marketing"
@@ -9055,7 +9055,7 @@
                                                               {
                                                                 "id": "YlFUf",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Operations",
                                                                   "children": "Operations"
@@ -9071,7 +9071,7 @@
                                                     "id": "iPVg2",
                                                     "name": "Time zone field",
                                                     "type": "component",
-                                                    "component": "nova/Field",
+                                                    "component": "shadcn/Field",
                                                     "slots": {
                                                       "children": [
                                                         {
@@ -9086,7 +9086,7 @@
                                                         {
                                                           "id": "D0ER9",
                                                           "type": "component",
-                                                          "component": "nova/NativeSelect",
+                                                          "component": "shadcn/NativeSelect",
                                                           "props": {
                                                             "id": "time-zone",
                                                             "defaultValue": "Pacific Time (UTC-8)"
@@ -9096,7 +9096,7 @@
                                                               {
                                                                 "id": "U6FUo",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Pacific Time (UTC-8)",
                                                                   "children": "Pacific Time (UTC-8)"
@@ -9105,7 +9105,7 @@
                                                               {
                                                                 "id": "wgf79",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Eastern Time (UTC-5)",
                                                                   "children": "Eastern Time (UTC-5)"
@@ -9114,7 +9114,7 @@
                                                               {
                                                                 "id": "Hbmfz",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Central European Time (UTC+1)",
                                                                   "children": "Central European Time (UTC+1)"
@@ -9123,7 +9123,7 @@
                                                               {
                                                                 "id": "gebzP",
                                                                 "type": "component",
-                                                                "component": "nova/NativeSelectOption",
+                                                                "component": "shadcn/NativeSelectOption",
                                                                 "props": {
                                                                   "value": "Japan Time (UTC+9)",
                                                                   "children": "Japan Time (UTC+9)"
@@ -9251,7 +9251,7 @@
                                                   {
                                                     "id": "gezbk",
                                                     "type": "component",
-                                                    "component": "nova/Switch",
+                                                    "component": "shadcn/Switch",
                                                     "props": {
                                                       "id": "mentions",
                                                       "defaultChecked": true
@@ -9322,7 +9322,7 @@
                                                   {
                                                     "id": "gXLP4",
                                                     "type": "component",
-                                                    "component": "nova/Switch",
+                                                    "component": "shadcn/Switch",
                                                     "props": {
                                                       "id": "updates",
                                                       "defaultChecked": false
@@ -9393,7 +9393,7 @@
                                                   {
                                                     "id": "kby5x",
                                                     "type": "component",
-                                                    "component": "nova/Switch",
+                                                    "component": "shadcn/Switch",
                                                     "props": {
                                                       "id": "summary",
                                                       "defaultChecked": true
@@ -9464,7 +9464,7 @@
                                                   {
                                                     "id": "kmGLF",
                                                     "type": "component",
-                                                    "component": "nova/Switch",
+                                                    "component": "shadcn/Switch",
                                                     "props": {
                                                       "id": "security",
                                                       "defaultChecked": true,
@@ -9515,7 +9515,7 @@
                                           "name": "Spinner",
                                           "hidden": true,
                                           "type": "component",
-                                          "component": "nova/Spinner"
+                                          "component": "shadcn/Spinner"
                                         },
                                         {
                                           "id": "S0Mt8",

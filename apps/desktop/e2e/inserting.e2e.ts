@@ -202,7 +202,7 @@ describe("the insert picker", () => {
     await expect.poll(() => app.undoLabel()).toBe("Add Badge")
     const added = (await app.children("Members", "page")).filter((id) => !before.includes(id))
     expect(added).toHaveLength(1)
-    expect(await app.node("Members", added[0]!)).toMatchObject({ type: "component", component: "nova/Badge" })
+    expect(await app.node("Members", added[0]!)).toMatchObject({ type: "component", component: "shadcn/Badge" })
 
     await app.selectDesign("Members")
     await open()

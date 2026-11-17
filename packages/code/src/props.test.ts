@@ -348,14 +348,14 @@ describe("a library's own props, declared beside the attributes it passes on (PA
   })
 
   it("reads Nova's sidebar as it ships in the example", () => {
-    // Where the package really is, as discovery finds it: pnpm links it from the store.
-    const folder = realpathSync(join(example, "node_modules/@buildkitgg/shadcn-baseui-nova"))
+    // Where the package really is, as discovery finds it: pnpm links it to the folder shadcn-sync generates.
+    const folder = realpathSync(join(example, "node_modules/@buildkitgg/shadcn"))
 
     const nova = (name: string) => ({
-      path: "@buildkitgg/shadcn-baseui-nova",
+      path: "@buildkitgg/shadcn",
       export: name,
       library: "nova",
-      declaration: relative(example, join(folder, "dist/ui/sidebar.d.ts")).replaceAll("\\", "/")
+      declaration: relative(example, join(folder, "ui/sidebar.d.ts")).replaceAll("\\", "/")
     })
 
     const sidebar = inferProps(example, {

@@ -4,7 +4,7 @@ import {
   Button,
   Input,
   Label,
-} from "@buildkitgg/shadcn-baseui-nova"
+} from "@buildkitgg/shadcn"
 
 import { PageHeader } from "@/components/page-header"
 import { signIn } from "@/lib/auth"
