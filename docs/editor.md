@@ -2186,8 +2186,9 @@ uses previews yet, and extensions can't reach either until the canvas surface is
   placed layer's picture is carried while the layer stays put, since the dragger's own writes move it. Updates draw at
   most once a frame.
 - **Settling.** `settleOnWrite` waits for the write that covers the drop: someone else's change to a design the preview
-  moves. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or when
-  it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
+  moves, or one that arrived after its last update and before it was told to settle, as a drop's write in a batch of its
+  own does. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or
+  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
 - **A hold** (`holds.hold(tab, design, at)`) keeps a board where it was while an agent's cursor drags it to where the
   agent put it, and `update` draws it along the way. Several holds on one board keep it where it's drawn until the last
   lets go. Each hold is let go after 10 s whatever happens. Grabbing a held board, by dragging it or its name, lets go
@@ -2211,10 +2212,10 @@ drawn, the 10 s limit, grabbing, disposing and sessions kept apart, and placed b
 previews open at once, and which writes cover a preview. `canvas/style-layers.test.ts`: two previews' values on one
 property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
 `canvas/drag-preview.test.ts`: a board's preview following updates once a frame without writing, settling on someone
-else's write to it, going back after 2 s without one, and two people's previews ending on their own.
+else's write to it, settling at once on a write that came between its last move and being told to settle, going back
+after 2 s without one, and two people's previews ending on their own.
 
-Gaps: previews aren't wired to the live room's remote drags yet; the multiplayer extension does that (PAR-1233, phase
-5). A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
+Gaps: A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
 yet; the story draws its look with the same carried pictures. Agent presence holds a board when a move is queued rather
 than just before its write, so a long queue can outlast the 10 s limit and the board lands before the cursor drags it;
 phase 4 moves agent presence onto activity delivered just before each write.
@@ -6320,7 +6321,8 @@ the signed-in person's first name.
 
 - **Turning it on or off.** Turning the setting on reopens open projects in the room. Turning it off leaves the room:
   the document stays open with every change and its undo, this copy writes files and saves what differs, and a toast
-  says "Left the live room".
+  says "Left the live room". Turning it on again reopens the project in the room. A copy that finds it holds another
+  version of the project than the room leaves the same way.
 - **A room per project.** The Node half starts a relay on `127.0.0.1:5390`, or finds the one another copy started. Each
   project tab joins its project's room, keyed by the project's folder.
 - **The first copy in hosts.** Window modules start before the project's document opens (PAR-1267), so the extension
@@ -6348,7 +6350,7 @@ the signed-in person's first name.
   presence, where it's on, draws every copy's agents.
 - **In order, coalesced.** Changes, gestures, agents' steps and the host's colors go in order, one batch on its way at a
   time; presence goes with them, only the latest kept meanwhile. A move's write arrives before its end, so the preview
-  settles on it.
+  settles on it, in the same batch or an earlier one.
 - **Telemetry.** `room.relayStarted`, `room.joined`, `room.left`, `room.hostChanged`, `room.reconnected` and
   `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`.
 

@@ -165,6 +165,8 @@ export default defineWindowModule({
     const leaveWith = (why: "lineage") => {
       leftWhy = why
       parity.log.error("This copy holds another version of the project, so it left the live room")
+      // The document stays open here, alone, and this copy writes files again.
+      opening.dispose()
       stop()
     }
 
@@ -278,29 +280,31 @@ export default defineWindowModule({
     }
 
     // What core asks before the project opens: from files when this copy hosts, or on the host's document.
-    parity.subscriptions.push(
-      parity.sync.onOpen(async () => {
-        await ready
+    const opening = parity.sync.onOpen(async () => {
+      await ready
 
-        if (room.host === peer) {
-          parity.telemetry.record("room.joined", {
-            host: true,
-            peers: room.peers.length,
-            waitMs: Math.round(performance.now() - began)
-          })
-
-          return { from: "files" }
-        }
-
-        const { snapshot, lineage } = await room.askSnapshot(snapshotWaitMs)
+      if (room.host === peer) {
         parity.telemetry.record("room.joined", {
-          host: false,
+          host: true,
           peers: room.peers.length,
           waitMs: Math.round(performance.now() - began)
         })
 
-        return { from: "snapshot", snapshot: fromBase64(snapshot), lineage }
-      }),
+        return { from: "files" }
+      }
+
+      const { snapshot, lineage } = await room.askSnapshot(snapshotWaitMs)
+      parity.telemetry.record("room.joined", {
+        host: false,
+        peers: room.peers.length,
+        waitMs: Math.round(performance.now() - began)
+      })
+
+      return { from: "snapshot", snapshot: fromBase64(snapshot), lineage }
+    })
+
+    parity.subscriptions.push(
+      opening,
       parity.sync.onLocalChanges((bytes) => room.send({ kind: "changes", bytes: toBase64(bytes) })),
       // What this person is doing, and what this copy's agents do.
       parity.presence.onPointer((pointer) => {

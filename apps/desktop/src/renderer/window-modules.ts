@@ -172,11 +172,20 @@ export async function startTabModules(
     }
   }
 
-  const seam = windowSync(syncPort(slot, port))
+  /**
+   * Whether the document is open through the seam, or reopening to, so a room that starts later reopens it once. Leaving
+   * the room clears it, so a room started again reopens the document in it too.
+   */
+  let throughSync = false
+
+  const seam = windowSync(
+    syncPort(slot, port, () => {
+      throughSync = false
+    })
+  )
+
   let modules: WindowModules | undefined
   let stopAgents: (() => void) | undefined
-  /** Whether the document opened through the seam, or is reopening to, so a room that starts later reopens it once. */
-  let throughSync = false
   let stopped = false
 
   const follow = () => {
@@ -258,7 +267,7 @@ export async function startTabModules(
 }
 
 /** The tab's side of `parity.sync`: its saver, reopening, and telling the person the room went away. */
-function syncPort(slot: TabSlot, port: TabSyncPort): SyncPort {
+function syncPort(slot: TabSlot, port: TabSyncPort, detached: () => void): SyncPort {
   return {
     format: "loro/1",
     setWritesFiles(writes) {
@@ -272,10 +281,15 @@ function syncPort(slot: TabSlot, port: TabSyncPort): SyncPort {
     },
     writesFiles: () => slot.session?.saver.writesFiles() ?? true,
     reopen: () => port.reopen(),
-    left: (saved) =>
-      saved
-        ? notify.info("Left the live room", { description: "Your copy has every change and is saved." })
-        : notify.warning("Left the live room", { description: "Your copy has every change. Save to keep them." }),
+    left(saved) {
+      detached()
+
+      if (saved) {
+        notify.info("Left the live room", { description: "Your copy has every change and is saved." })
+      } else {
+        notify.warning("Left the live room", { description: "Your copy has every change. Save to keep them." })
+      }
+    },
     record: track
   }
 }
