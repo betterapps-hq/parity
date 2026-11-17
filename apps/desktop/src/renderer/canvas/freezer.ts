@@ -317,7 +317,10 @@ interface FrameLoad {
 /** One project's freezer: its frame, its queue, its markup groups, the copies code changes made stale, its failures. */
 class Freezer {
   private readonly needs = new Map<string, CopyNeed>()
-  /** Copies refused for a cap or the schema, not asked for again until their board's mode or the code changes. */
+  /**
+   * Copies refused for a cap or the schema, by their key and the mode as drawn (`refusal`), not asked for again until
+   * their board's mode or the code changes.
+   */
   private readonly refused = new Set<string>()
   /** How many times the app's files have changed in a way that made a copy stale. */
   private changes = 0
@@ -447,14 +450,14 @@ class Freezer {
   private missing(): CopyNeed[] {
     const have = copies.get()
 
-    return [...this.needs.values()].filter((need) => this.wants(need, have) && !this.refused.has(need.key))
+    return [...this.needs.values()].filter((need) => this.wants(need, have) && !this.refused.has(refusal(need)))
   }
 
   /** What needs checking once nothing is missing: copies made from another mode's snapshot in their markup group. */
   private unchecked(): CopyNeed[] {
     const have = copies.get()
 
-    return [...this.needs.values()].filter((need) => have.get(need.key)?.unchecked && !this.refused.has(need.key))
+    return [...this.needs.values()].filter((need) => have.get(need.key)?.unchecked && !this.refused.has(refusal(need)))
   }
 
   private async run(): Promise<void> {
@@ -715,7 +718,7 @@ class Freezer {
     track("routeFrame.refused", { reason })
 
     for (const need of unit?.needs ?? []) {
-      this.refused.add(need.key)
+      this.refused.add(refusal(need))
     }
   }
 
@@ -741,6 +744,11 @@ class Freezer {
 
     this.poke(next.delay)
   }
+}
+
+/** A refused copy's entry: its key and the mode as drawn, so a board whose mode changes is asked for again. */
+function refusal(need: Pick<CopyNeed, "key" | "drawn">): string {
+  return `${need.key}\n${need.drawn}`
 }
 
 /** A route's needs as the modes they're drawn in, each with the needs that share it, in the needs' order. */

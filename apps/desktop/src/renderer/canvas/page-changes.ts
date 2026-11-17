@@ -132,8 +132,8 @@ export function tokenPreviewSheet(project: string): CSSStyleSheet {
 }
 
 /**
- * Has a live page of the project show its previewed token values, now and whenever they change, through `show`, which
- * sends them over the page's channel (`preview.set`). Returns what stops it.
+ * Calls `show` with the project's previewed token values as a page's CSS, now if there are any and whenever they change:
+ * a live page sends it over its channel (`preview.set`), and a copy measures its height again. Returns what stops it.
  */
 export function showTokenPreview(project: string, show: (css: string) => void): () => void {
   const pages = livePages.get(project) ?? new Set()

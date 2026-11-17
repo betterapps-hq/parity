@@ -17,11 +17,11 @@ import {
   styleOfElement
 } from "@parity-app/editor"
 import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
-import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
 import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
-import { tokenPreviewSheet, useTokenPreview } from "./page-changes.ts"
+import { showTokenPreview, tokenPreviewSheet, useTokenPreview } from "./page-changes.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -90,7 +90,9 @@ export function RouteBoard({
 
   const key = useMemo(() => ({ route: url, mode: mode.id, state }), [url, mode.id, state])
   const copy = useFrozenCopy(project, key, drawn, viewport, rank)
-  const height = frame.height ?? Math.max(viewport.height, copy?.pageHeight ?? 0)
+  // The copy's height while a token preview shows, which can make it taller or shorter than it was frozen.
+  const [previewed, setPreviewed] = useState<number>()
+  const height = frame.height ?? Math.max(viewport.height, previewed ?? copy?.pageHeight ?? 0)
 
   // Token values edited and not saved show in the copy as in the design frames, through the project's preview sheet.
   useTokenPreview(project, tokens)
@@ -109,6 +111,23 @@ export function RouteBoard({
 
     return showCopy(element, copy, drawn, viewport, registry.current, tokenPreviewSheet(project))
   }, [asleep, copy, drawn, viewport, project])
+
+  // A token preview can change the page's height, so the copy measures what it draws while one shows.
+  useEffect(() => {
+    if (!copy || asleep) {
+      return undefined
+    }
+
+    const stop = showTokenPreview(project, (css) => {
+      const root = host.current?.shadowRoot?.querySelector(`[${copyRootAttribute}]`)
+      setPreviewed(css === "" || !root ? undefined : Math.ceil(root.scrollHeight))
+    })
+
+    return () => {
+      stop()
+      setPreviewed(undefined)
+    }
+  }, [asleep, copy, project])
 
   const elsewhere = copy ? landedElsewhere(url, copy.location.path) : undefined
 
