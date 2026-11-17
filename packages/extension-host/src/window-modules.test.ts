@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks"
 import { memoryPorts } from "@parity-app/channel"
 import type { JsonValue, NodeRef, SettingValue } from "@parity-app/extension"
 import {
@@ -23,6 +24,9 @@ import { serveExtensionHost } from "./host.ts"
 import { type ExtensionHosts, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
 import { type WindowExtension, type WindowModules, windowExtensions, windowModules } from "./window-modules.ts"
 
+/** Carries an agent's call through the Node half's code in these tests. */
+const calls = new AsyncLocalStorage<number | undefined>()
+
 /** An event's attributes, as a test reads them. */
 const asRecord = z.record(z.string(), z.json().optional())
 
@@ -45,7 +49,7 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
     activates: ["onSetting:wtest.on"],
     capabilities: [],
     extensionDependencies: [],
-    commands: ["wtest.fail"],
+    commands: ["wtest.fail", "wtest.confirm"],
     settings: { "wtest.on": true },
     settingScopes: { "wtest.on": "app" },
     host: "running",
@@ -428,6 +432,40 @@ describe("window modules in a project tab", () => {
     expect(Object.values(runtime.states())).toEqual(["inactive"])
   })
 
+  it("tears down an overtaken activation that throws, without failing the one after it", async () => {
+    const first = Promise.withResolvers<void>()
+    let runs = 0
+
+    const throwing = defineWindowModule({
+      async activateWindow(parity) {
+        runs += 1
+        const run = runs
+        parity.subscriptions.push(parity.commands.register("wtest.fail", () => `run ${run}`))
+
+        if (run === 1) {
+          await first.promise
+          throw new Error("Gave up")
+        }
+
+        return {}
+      }
+    })
+
+    const { runtime, named } = tab({ "@parity-app/extension-window-test": throwing })
+
+    runtime.update([extension()])
+    await settle()
+    runtime.update([extension({ settings: { "wtest.on": false } })])
+    runtime.update([extension()])
+    first.resolve()
+    await settle()
+    await settle()
+
+    expect(named("extension.activateFailed")).toEqual([])
+    expect(Object.values(runtime.states())).toEqual(["active"])
+    await expect(runtime.run("wtest.fail")).resolves.toEqual({ handled: true, result: "run 2" })
+  })
+
   it("lets a slow activation that's been overtaken finish without undoing the one after it", async () => {
     const first = Promise.withResolvers<void>()
     let runs = 0
@@ -495,7 +533,9 @@ describe("an internal extension's two halves (the window test extension, in the 
         serveExtensionHost({
           port: host,
           load: () => Promise.resolve(Object.assign(Object.create(null), { default: windowTestNode })),
-          exit: () => end({ code: 0 })
+          exit: () => end({ code: 0 }),
+          // Carries an agent's call through the extension's code, as the host script does with Node's own.
+          calls: { run: (call, task) => calls.run(call, task), current: () => calls.getStore() }
         })
         ends.push((ending) => end(ending))
 
@@ -652,6 +692,17 @@ describe("an internal extension's two halves (the window test extension, in the 
     await expect(parities.get(id)?.commands.execute("wtest.fail")).rejects.toThrow("Failing on purpose")
     await expect(hosts.run("shop", "wtest.fail")).rejects.toThrow("Failing on purpose")
     await expect(hosts.runForAgent("shop", { name: "wtest.fail" }, "Claude")).rejects.toThrow("Failing on purpose")
+  })
+
+  it("keeps an agent's window command the agent's in what the window module asks of its Node half", async () => {
+    const { hosts, ready } = setUp()
+
+    await ready()
+
+    // The window module's command asks its Node half to ask the person, which nobody can answer during an agent's call.
+    await expect(hosts.runForAgent("shop", { name: "wtest.confirm" }, "Claude")).rejects.toThrow(
+      "There's nobody to ask: Claude is running Window test"
+    )
   })
 
   it("deactivates the window module once the Node half has crashed three times in a row", async () => {

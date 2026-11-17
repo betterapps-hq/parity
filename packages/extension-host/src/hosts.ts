@@ -452,6 +452,11 @@ interface Host<Project> {
   activatedAt?: number
   /** The activation event that started its current run, for `extension.activated`. */
   trigger?: string
+  /**
+   * An agent's call while its window module runs a command for that agent, so what the window module asks of its Node
+   * meanwhile is the agent's too: its edits are named after the agent, and it can't ask the person anything.
+   */
+  windowCall?: number
 }
 
 /** A host's process while it runs. */
@@ -1307,8 +1312,18 @@ export function extensionHosts<Project extends OpenedProject>(
     const { manifest } = host.extension.package
 
     // An internal extension's window module may have registered it, so the tab is asked first.
-    if (manifest.window !== undefined && options.window.runInWindow) {
-      const ran = await options.window.runInWindow(open.project.id, command, target)
+    const { window } = options
+
+    if (manifest.window !== undefined && window.runInWindow) {
+      const ran = await as(agent, async (call) => {
+        host.windowCall = call
+
+        try {
+          return (await window.runInWindow?.(open.project.id, command, target)) ?? { handled: false }
+        } finally {
+          delete host.windowCall
+        }
+      })
 
       if (ran.handled) {
         return ran.result
@@ -1641,7 +1656,11 @@ export function extensionHosts<Project extends OpenedProject>(
         throw new Error(`${name}'s Node half has no ${method}`)
       }
 
-      return readReturned(await running.channel.request("api.call", { method, args })).result
+      const call = host.windowCall
+
+      return readReturned(
+        await running.channel.request("api.call", call === undefined ? { method, args } : { method, args, call })
+      ).result
     },
     windowState(projectId, extension, state) {
       const open = projects.get(projectId)

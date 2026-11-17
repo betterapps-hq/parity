@@ -557,8 +557,10 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     } catch (error) {
       if (entry.run === run) {
         failedToActivate(entry, "activate", errorOf(error))
-        await teardown(entry)
       }
+
+      // Overtaken or not, what it set up before it threw goes, before any run after it starts.
+      await teardown(entry)
 
       return
     }

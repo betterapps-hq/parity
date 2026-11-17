@@ -20,7 +20,10 @@ export const windowTestPackage = {
     detect: { always: true },
     activates: ["onSetting:wtest.on"],
     contributes: {
-      commands: [{ id: "wtest.fail", title: "Fail on purpose" }],
+      commands: [
+        { id: "wtest.fail", title: "Fail on purpose" },
+        { id: "wtest.confirm", title: "Ask through the Node half" }
+      ],
       settings: { "wtest.on": { type: "boolean", default: false, scope: "app", title: "Turned on" } }
     }
   }
@@ -35,6 +38,8 @@ export interface WindowTestForNode extends ExtensionApi {
 export interface WindowTestNodeApi extends ExtensionApi {
   ping(): string
   windowStatus(): Promise<{ tab: string; selections: number }>
+  /** Asks the person, which fails during an agent's call. */
+  confirm(): Promise<boolean>
 }
 
 /** What its window module offers other window modules in the tab. */
@@ -54,7 +59,8 @@ export const windowTestModule = defineWindowModule<WindowTestWindowApi, WindowTe
       }),
       parity.commands.register("wtest.fail", () => {
         throw new Error("Failing on purpose")
-      })
+      }),
+      parity.commands.register("wtest.confirm", () => parity.host.api<WindowTestNodeApi>().confirm())
     )
 
     return {
@@ -79,6 +85,7 @@ export const windowTestNode = defineExtension<WindowTestNodeApi>({
 
     return {
       ping: () => "pong",
+      confirm: () => parity.ui.confirm("Go on?"),
       windowStatus: () => parity.window.api<WindowTestForNode>().status()
     }
   }

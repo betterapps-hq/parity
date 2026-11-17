@@ -320,6 +320,9 @@ are to become internal extensions. None of the built-in extensions is one yet.
   setting is on. It's deactivated when its setting goes off, its extension goes, its Node half stops for good, or the
   tab closes. Deactivating disposes of its `subscriptions`, newest first, then calls its `deactivateWindow`. The service
   never starts an internal extension's Node half by itself: it starts as the window module activates.
+- **Its commands.** A command a window module registers runs in its tab wherever it's run from: Search, another module's
+  `commands.execute`, a Node half, or an agent through `run_extension`. The service asks the tab first, then the Node
+  half. During an agent's run, what the module asks of its Node half counts as the agent's.
 - **`WindowParity`** ([`@parity-app/extension/internal`](../packages/extension/src/internal.ts)) gives the extension,
   the project, its `tab`, `subscriptions`, `commands` (its own, which run in the tab, and Parity's), `selection`,
   `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `host`, its own Node half,
@@ -414,7 +417,7 @@ out, as Portless does.
   out, a command run for an agent giving back what it returned with its change named after both, two agents' overlapping
   calls each named after its own agent, an extension started by an agent's call activating as the agent's, the same
   through another extension's API, a tool's input checked against its schema, questions failing while an agent runs it,
-  and what agents read of each extension.
+  what agents read of each extension, and a Node half starting though a dependency has only a window module.
 - [extension-storybook-a11y's extension.test.ts](../packages/extension-storybook-a11y/src/extension.test.ts): its
   manifest and a story's accessibility page. [dependencies.test.ts](../packages/extension-host/src/dependencies.test.ts)
   runs it with the Storybook extension in the real host code: Check accessibility in Storybook opening the panel through
@@ -433,8 +436,10 @@ out, as Portless does.
   and stopping when it goes off, `onStartup` in every tab, five failures stopping it in a tab, a throwing listener
   counted, `HalfUnavailableError` while its Node half isn't ready, a module without a Node half, a Node half stopping
   for good, calls from the Node half, a missing capability, a window module it builds on coming and going, settings, the
-  tab closing, and failing to activate. With its Node half in the real host code over in-memory ports: the Node half
-  started only with its window module, each half calling the other, and three crashes deactivating the window module.
+  tab closing, failing to activate, and an activation that's been overtaken, finishing or throwing, without undoing the
+  one after it. With its Node half in the real host code over in-memory ports: the Node half started only with its
+  window module, each half calling the other, a command the window module registered run by its module, the service and
+  an agent, the agent's call carried through to the Node half, and three crashes deactivating the window module.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
 own, nor has `renderer/window-modules.ts`, which no built-in extension uses yet. They were tried in the running app on
