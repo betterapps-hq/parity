@@ -241,7 +241,7 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
     extensionDependencies: [],
     commands: [],
     settings: {},
-    settingScopes: {},
+    declaredSettings: {},
     host: "crashed",
     ...change
   }
