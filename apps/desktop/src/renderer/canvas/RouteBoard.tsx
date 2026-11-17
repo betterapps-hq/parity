@@ -1,6 +1,7 @@
 import {
   colorSchemeAttribute,
   type DesignNode,
+  type DrawnNodes,
   rewriteFrameUnits,
   type FrameGeometry,
   type ResolvedMode
@@ -172,44 +173,64 @@ function showCopy(
 
   // `<html>`'s classes and attributes go on an element around the body, since selectors in the shadow root can't reach
   // the host: a page's `.font-page { … }` or `[data-theme]` rule for its root matches it and reaches the body by
-  // inheritance, as on the page, so the body's own rules still win over it.
+  // inheritance, as on the page, so the body's own rules still win over it. It's as tall as the mode's window, as the
+  // page's root was, so a body or `main` at `height: 100%` is too, while the rest of the page runs on below it.
   const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div", { customElementRegistry: registry })
   root.classList.add(...copy.root.classes)
   setAttributes(root, copy.root.attributes)
   root.setAttribute(copyRootAttribute, "")
-  root.setAttribute("style", "display: contents")
+  root.setAttribute("style", `display: block; height: ${viewport.height}px`)
   root.append(built.fragment)
 
   // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
   target.parentElement?.replaceWith(root)
   const unroot = rootOnHost(host, copy.root, mode)
   const nodes = new Map<string, Element | Text>()
+  const textParents = new Map<string, string | undefined>()
+  const ids: string[] = []
 
   // Text between elements is a layer of its own (`frozenSnapshots`), as `<parent>.t<index>`: its node is found by its
   // place among its parent's children, which `buildCopy` made in the snapshot's order.
-  const texts = (parent: Element, id: string) => {
+  const texts = (parent: Element, id: string, parentId: string | undefined) => {
     for (const [index, child] of [...parent.childNodes].entries()) {
       if (child instanceof Text) {
-        nodes.set(`${id}.t${index}`, child)
+        const textId = `${id}.t${index}`
+        nodes.set(textId, child)
+        textParents.set(textId, parentId)
+        ids.push(textId)
       }
     }
   }
 
   if (body) {
-    texts(body, "body")
+    texts(body, "body", undefined)
   }
 
   for (const id of built.drawn.ids) {
     const [element] = built.drawn.elements(id)
+    ids.push(id)
 
     if (element) {
       nodes.set(id, element)
-      texts(element, id)
+      texts(element, id, id)
     }
   }
 
+  // Clicking finds the text layers too, each drawn by its text node inside its element.
+  const drawn: DrawnNodes = {
+    ids,
+    elements: (id) => (textParents.has(id) ? [] : built.drawn.elements(id)),
+    texts: (id) => {
+      const node = textParents.has(id) ? nodes.get(id) : undefined
+
+      return node instanceof Text ? [node] : []
+    },
+    parent: (id) => (textParents.has(id) ? textParents.get(id) : built.drawn.parent(id)),
+    nodeOf: (element) => built.drawn.nodeOf(element)
+  }
+
   setInnerNodes(host, nodes)
-  setDrawnNodes(host, () => built.drawn)
+  setDrawnNodes(host, () => drawn)
 
   return () => {
     setDrawnNodes(host, undefined)

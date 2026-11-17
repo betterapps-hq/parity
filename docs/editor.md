@@ -8589,12 +8589,12 @@ A screen is named for the component its route draws, else its path.
   builds it with `buildCopy` in a shadow root from `prepareFrame`, with a custom element registry of its own, so the
   guest's definitions don't upgrade its elements; each sheet goes through `sanitizeSheet` and `prepareCanvasCss` once
   and is shared by every copy. `<html>`'s classes and attributes go on the frame's host and on an element around the
-  body stand-in, `<body>`'s on the stand-in, and the mode's on the host and the stand-in. A web component's open shadow
-  root comes with its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its
-  page in the mode's window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or
-  follows a link. Until it comes, a placeholder stands in at the window's height. A board that sleeps, zoomed far out,
-  lets go of its copy's elements and shows the placeholder until pictures come (step 6), building the copy again from
-  what it kept when it wakes.
+  body stand-in, as tall as the mode's window as the page's root was, `<body>`'s on the stand-in, and the mode's on the
+  host and the stand-in. A web component's open shadow root comes with its own styles, and a canvas comes as a picture
+  at the size it was drawn. A copy is as tall as its page in the mode's window, unless the board has a height of its
+  own, and it's inert, so nothing in it takes focus or follows a link. Until it comes, a placeholder stands in at the
+  window's height. A board that sleeps, zoomed far out, lets go of its copy's elements and shows the placeholder until
+  pictures come (step 6), building the copy again from what it kept when it wakes.
 - **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
   elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
   double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers
