@@ -57,7 +57,7 @@ describe("takeSnapshot", () => {
   })
 
   it("makes every URL absolute against the page's address", async () => {
-    document.body.innerHTML = `<a href="/plans">Plans</a><a href="#faq">FAQ</a><img src="logo.png" srcset="a.png 1x, /b.png 2x"><div style="background: url(bg.png)"></div>`
+    document.body.innerHTML = `<a href="/plans">Plans</a><a href="#faq">FAQ</a><img src="logo.png" srcset="a.png 1x, /b.png 2x, data:image/png;base64,AAAA 3x"><div style="background: url(bg.png)"></div>`
 
     const { body } = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: new Map() })
     const origin = window.location.origin
@@ -67,7 +67,7 @@ describe("takeSnapshot", () => {
       [["href", "#faq"]],
       [
         ["src", `${origin}/logo.png`],
-        ["srcset", `${origin}/a.png 1x, ${origin}/b.png 2x`]
+        ["srcset", `${origin}/a.png 1x, ${origin}/b.png 2x, data:image/png;base64,AAAA 3x`]
       ],
       [["style", `background: url("${origin}/bg.png")`]]
     ])

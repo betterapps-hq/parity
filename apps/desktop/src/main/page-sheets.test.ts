@@ -52,6 +52,22 @@ describe("fetchPageSheet", () => {
     )
   })
 
+  it("keeps an @import's supports() apart from the media after it", async () => {
+    const sheets = new Map([
+      [
+        "https://cdn.test/main.css",
+        `@import "grid.css" supports((display: grid) and (gap: 1px)) screen and (min-width: 600px);`
+      ],
+      ["https://cdn.test/grid.css", "main { display: grid }"]
+    ])
+
+    const text = await fetchPageSheet("https://cdn.test/main.css", async (url) => css(sheets.get(url) ?? ""))
+
+    expect(text).toBe(
+      "@supports ((display: grid) and (gap: 1px)) {\n@media screen and (min-width: 600px) {\nmain { display: grid }\n}\n}"
+    )
+  })
+
   it("refuses anything but https, without asking", async () => {
     let asked = 0
     const fetch = async () => (asked++, css("a{}"))

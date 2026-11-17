@@ -7,6 +7,7 @@ import type {
   PageSnapshot,
   SheetEntry
 } from "@parity-app/frames"
+import { srcsetCandidates } from "@parity-app/frames/srcset"
 
 /*
  * Taking a snapshot of the page (docs/proposals/route-frames.md, "The snapshot"): the body's tree as plain data with
@@ -220,14 +221,8 @@ function absoluteAttribute(name: string, value: string, base: string): string {
   }
 
   if (name === "srcset" || name === "imagesrcset") {
-    return value
-      .split(",")
-      .map((candidate) => {
-        const [url, ...descriptors] = candidate.trim().split(/\s+/)
-
-        return url ? [absoluteUrl(url, base), ...descriptors].join(" ") : ""
-      })
-      .filter(Boolean)
+    return srcsetCandidates(value)
+      .map(({ url, descriptor }) => [absoluteUrl(url, base), descriptor].filter(Boolean).join(" "))
       .join(", ")
   }
 

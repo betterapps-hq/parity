@@ -248,7 +248,12 @@ export function withCopyStyle<Entry extends { key: string; path: string }>(
   nodeId: string,
   node: DesignNode
 ): DesignNode {
-  if (entry.path !== routePagesFile || !node.element || Object.keys(node.style ?? {}).length > 0) {
+  // A text layer has no element of its own; its text node's id finds its parent's.
+  if (
+    entry.path !== routePagesFile ||
+    (!node.element && node.type !== "text") ||
+    Object.keys(node.style ?? {}).length > 0
+  ) {
     return node
   }
 

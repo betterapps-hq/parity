@@ -95,6 +95,27 @@ async function inlineImports(css: string, base: string, fetch: Fetch, depth: num
   return css.replace(importRule, () => inlined[index++] ?? "")
 }
 
+/** Where the parenthesis at `open` closes, counting nested ones, or -1 when it doesn't. */
+function closingParen(text: string, open: number): number {
+  let depth = 0
+
+  for (let index = open; index < text.length; index++) {
+    const char = text.charAt(index)
+
+    if (char === "(") {
+      depth += 1
+    } else if (char === ")") {
+      depth -= 1
+
+      if (depth === 0) {
+        return index
+      }
+    }
+  }
+
+  return -1
+}
+
 /** Rules inside an `@import`'s conditions: its media, then `supports()`, then its layer, outermost. */
 function conditioned(css: string, conditions: string): string {
   let rest = conditions.trim()
@@ -108,11 +129,13 @@ function conditioned(css: string, conditions: string): string {
     rest = rest.slice(layered[0].length).trim()
   }
 
-  const supported = /^supports\((.*)\)(?=\s|$)/i.exec(rest)
+  if (/^supports\(/i.test(rest)) {
+    const close = closingParen(rest, "supports(".length - 1)
 
-  if (supported) {
-    supports = supported[1]
-    rest = rest.slice(supported[0].length).trim()
+    if (close !== -1) {
+      supports = rest.slice("supports(".length, close)
+      rest = rest.slice(close + 1).trim()
+    }
   }
 
   let text = rest && rest !== "all" ? `@media ${rest} {\n${css}\n}` : css
