@@ -38,8 +38,10 @@ const stringRecord = z.record(z.string(), z.string())
 const guestComponentSource = z.object({ path: z.string(), export: z.string(), version: z.number().optional() })
 const frameViewport = z.object({ width: finiteNumber, height: finiteNumber })
 
-/** A frame the offscreen render window draws, to measure it or capture it. */
-export const renderJob = z.object({
+/** A design's frame the offscreen render window draws, to measure it or capture it. */
+export const designJob = z.object({
+  /** A design's frame, as every job was before pages had jobs of their own. */
+  kind: z.literal("design").optional(),
   /** The project drawn, so the render window lets go of its last guest when the project's moves to a new address. */
   projectId: z.string(),
   guestUrl: z.string(),
@@ -89,10 +91,58 @@ export const renderJob = z.object({
   design: z.object({ key: z.string(), state: z.string().optional(), mode: z.string().optional() }).optional()
 })
 
+export type DesignJob = z.infer<typeof designJob>
+
+/**
+ * A route's page as the copy its freezer made, which the render window builds and captures for its picture
+ * (docs/proposals/route-frames.md, "Pictures"). Asking for a kept picture names the page without the copy; capturing one
+ * carries the copy, as the window has it.
+ */
+export const pageJob = z.object({
+  kind: z.literal("page"),
+  projectId: z.string(),
+  /** The route's id, which the page's trace starts from. */
+  route: z.string(),
+  /** The route's path with its sample params, and its query: where on the builder's origin the page draws. */
+  path: z.string(),
+  /** The board's state, by id. */
+  state: z.string(),
+  /** The mode the page drew in: its frame's width and own height, its window, and what goes on `<html>`. */
+  mode: z.object({
+    width: finiteNumber,
+    height: finiteNumber.optional(),
+    viewport: frameViewport,
+    classes: z.array(z.string()),
+    attributes: stringRecord,
+    scheme: z.enum(["dark", "light"]).optional()
+  }),
+  scale: finiteNumber.positive(),
+  /** The copy to build, sanitized in the window, with its stylesheets' text in the page's order. */
+  copy: z
+    .object({
+      origin: z.string(),
+      pageHeight: finiteNumber,
+      root: z.object({
+        classes: z.array(z.string()),
+        attributes: z.array(z.tuple([z.string(), z.string()])),
+        style: z.string()
+      }),
+      /** The page's body, as `@parity-app/frames` reads it. It's sanitized again where it's built. */
+      body: z.unknown(),
+      sheets: z.array(z.object({ id: z.string(), text: z.string() }))
+    })
+    .optional()
+})
+
+export type PageJob = z.infer<typeof pageJob>
+
+/** A frame the offscreen render window draws: a design's, or a route's page from its copy. */
+export const renderJob = z.union([pageJob, designJob])
+
 export type RenderJob = z.infer<typeof renderJob>
 
 /** A component's preview to look up or make: the job that draws it, as inserting it would place it. */
-const previewJob = z.object({ component: z.string(), job: renderJob })
+const previewJob = z.object({ component: z.string(), job: designJob })
 
 export type PreviewJob = z.infer<typeof previewJob>
 

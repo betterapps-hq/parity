@@ -1,4 +1,4 @@
-import type { RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import type { DesignJob, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import type { PreviewDrawn } from "../shared/service.ts"
 import { mainProcess } from "./main-process.ts"
 
@@ -23,6 +23,6 @@ export async function renderOffscreen(
  * Draws a component preview in the offscreen render window, once every canvas bitmap and agent render waiting has had
  * its turn, and gives its pictures cropped to the element `crop` names, or why its component didn't draw (PAR-207).
  */
-export function renderPreview(job: RenderJob, crop: string, priority: "visible" | "idle"): Promise<PreviewDrawn> {
+export function renderPreview(job: DesignJob, crop: string, priority: "visible" | "idle"): Promise<PreviewDrawn> {
   return mainProcess.request("preview", { job, crop, priority })
 }

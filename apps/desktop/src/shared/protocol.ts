@@ -487,7 +487,15 @@ export type { ProjectInfo }
 
 export type { ExtensionStatus, LogLine }
 
-export type { PictureFrame, PictureScreen, PreviewJob, ProjectPicture, RenderJob } from "./service-params.ts"
+export type {
+  DesignJob,
+  PageJob,
+  PictureFrame,
+  PictureScreen,
+  PreviewJob,
+  ProjectPicture,
+  RenderJob
+} from "./service-params.ts"
 
 /**
  * Where a tab's edits stand (see `editStatus` in `@parity-app/editor`), with the revision as the agent API gives it:

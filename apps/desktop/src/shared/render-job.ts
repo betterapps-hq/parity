@@ -9,9 +9,10 @@ import {
   withoutEmptyLayoutMarks
 } from "@parity-app/core"
 import { isComposite } from "@parity-app/core/values/evaluate"
+import type { PageMode } from "@parity-app/frames"
 import type { TokenChange } from "@parity-app/tokens"
 import { z } from "zod"
-import type { RenderJob } from "./protocol.ts"
+import type { DesignJob, PageJob, RenderJob } from "./protocol.ts"
 
 /**
  * A render job (PAR-575): the frame the offscreen window draws, built here for the canvas's bitmaps, component previews
@@ -28,8 +29,8 @@ export interface JobGuest {
   projectId: string
   guestUrl: string
   /** Components the guest is given since it loaded, as the type checker found them. */
-  components?: RenderJob["components"]
-  theme: RenderJob["theme"]
+  components?: DesignJob["components"]
+  theme: DesignJob["theme"]
   /** The cascade layer the project's styling framework puts its classes in, when it names one. */
   layer?: string
 }
@@ -49,7 +50,7 @@ export interface JobFrame {
   /** Draw what the frame's components portal out of it inside it, as a component preview does (PAR-517). */
   inlinePortals?: boolean
   /** The design it draws, for the console messages it writes (PAR-147). */
-  design?: RenderJob["design"]
+  design?: DesignJob["design"]
   /**
    * It stands in for a frame on the canvas, as a bitmap does, so its empty layouts keep the size and dashes the canvas
    * gives them to be seen and dropped into (see core's `emptyLayoutAttribute`). Any other frame, an agent's screenshot,
@@ -59,12 +60,12 @@ export interface JobFrame {
 }
 
 /** The job that draws `frame` with `guest`. */
-export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
+export function renderJob(guest: JobGuest, frame: JobFrame): DesignJob {
   const { audit, colorTokens, tokens } = frame
   // SAFETY: every caller passes a tree core resolved for a frame; it's `unknown` only because it crosses processes.
   const tree = frame.canvas ? frame.tree : withoutEmptyLayoutMarks(frame.tree as RenderNode[])
 
-  const job: RenderJob = {
+  const job: DesignJob = {
     projectId: guest.projectId,
     guestUrl: guest.guestUrl,
     theme: guest.theme,
@@ -108,8 +109,8 @@ export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
  * The mode of a frame the offscreen window draws: the frame's size and window as core's `frameGeometry` resolved them,
  * so it draws as the live frame does, and the mode's classes, attributes and options.
  */
-export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): RenderJob["mode"] {
-  const jobMode: RenderJob["mode"] = {
+export function renderJobMode(mode: ResolvedMode, frame: FrameGeometry): DesignJob["mode"] {
+  const jobMode: DesignJob["mode"] = {
     width: frame.width,
     viewport: { width: frame.viewport.width, height: frame.viewport.height },
     classNames: mode.classNames,
@@ -155,8 +156,17 @@ export interface FrameKeys {
   key: string
 }
 
-/** A frame's names in the canvas's memory, for the job that draws it with `guest`. */
+/**
+ * A frame's names in the canvas's memory, for the job that draws it with `guest`. A page's picture draws no guest, and
+ * its names are its disk name: what its copy draws is the window's to tell apart.
+ */
 export function frameKeys(job: RenderJob, guest: DrawingGuest): FrameKeys {
+  if (job.kind === "page") {
+    const name = pageBitmapName(job)
+
+    return { drawn: name, key: name }
+  }
+
   const { mode } = job
 
   const drawn = [
@@ -189,6 +199,10 @@ export function bitmapName(
   job: RenderJob,
   served: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>
 ): string {
+  if (job.kind === "page") {
+    return pageBitmapName(job)
+  }
+
   // JSON leaves out a field that's `undefined`, so a job without one has the name it had before the field existed.
   const drawn = {
     projectId: job.projectId,
@@ -205,10 +219,73 @@ export function bitmapName(
 }
 
 /**
+ * What a page's picture on disk is named by (docs/proposals/route-frames.md, "Pictures"): the project, the route's path
+ * with its sample params, the mode as it resolved (the frame's width and own height, its window, and its classes,
+ * attributes and scheme), the state and the scale. Editing a mode changes it. The copy isn't in it, since a picture kept
+ * from an earlier session shows before the page is frozen again; its trace says whether it's current.
+ */
+export function pageBitmapName(job: PageJob): string {
+  const { mode } = job
+
+  // JSON leaves out `height` and `scheme` when they're `undefined`.
+  return JSON.stringify({
+    page: 1,
+    projectId: job.projectId,
+    path: job.path,
+    mode: {
+      width: mode.width,
+      height: mode.height,
+      viewport: { width: mode.viewport.width, height: mode.viewport.height },
+      classes: mode.classes,
+      attributes: mode.attributes,
+      scheme: mode.scheme
+    },
+    state: job.state,
+    scale: job.scale
+  })
+}
+
+/** What a page's picture is of, for `pageRenderJob`. */
+export interface PageShows {
+  projectId: string
+  /** The route's id. */
+  route: string
+  /** The address the page draws at; only its path and query name the picture, since its origin moves. */
+  url: string
+  state: string
+  mode: PageMode
+  /** The frame's size and window, as the board draws the copy. */
+  frame: FrameGeometry
+  scale: number
+}
+
+/** The job that captures a page's picture, without its copy, which only capturing it carries. */
+export function pageRenderJob({ projectId, route, url, state, mode, frame, scale }: PageShows): PageJob {
+  const address = new URL(url)
+
+  const jobMode: PageJob["mode"] = {
+    width: frame.width,
+    viewport: { width: frame.viewport.width, height: frame.viewport.height },
+    classes: mode.classes,
+    attributes: mode.attributes
+  }
+
+  if (frame.height !== undefined) {
+    jobMode.height = frame.height
+  }
+
+  if (mode.scheme) {
+    jobMode.scheme = mode.scheme
+  }
+
+  return { kind: "page", projectId, route, path: `${address.pathname}${address.search}`, state, mode: jobMode, scale }
+}
+
+/**
  * What a component preview is named by, beside the files it depends on (PAR-207): what it draws and how, less where
  * it's drawn from, what the guest was given and the tokens previewed.
  */
-export function previewName(job: RenderJob) {
+export function previewName(job: DesignJob) {
   // JSON leaves out a field that's `undefined`, as `bitmapName` relies on.
   return {
     theme: job.theme,
@@ -224,7 +301,7 @@ export function previewName(job: RenderJob) {
  * A job's mode as the disk names have it, field by field, so a field added to the mode is in neither. The names are
  * JSON, which leaves out `height`, `globals` and `touch` when they're `undefined`.
  */
-function drawnMode(mode: RenderJob["mode"]): RenderJob["mode"] {
+function drawnMode(mode: DesignJob["mode"]): DesignJob["mode"] {
   return {
     width: mode.width,
     height: mode.height,
@@ -244,13 +321,13 @@ function drawnMode(mode: RenderJob["mode"]): RenderJob["mode"] {
  * source for is listed as `null`.
  */
 export function drawnComponents(
-  tree: RenderJob["tree"],
+  tree: DesignJob["tree"],
   served: Readonly<Record<string, Pick<ComponentSource, "path" | "export">>>,
-  given: RenderJob["components"] = {}
+  given: DesignJob["components"] = {}
 ): [string, string | null][] {
   const ids = new Set<string>()
 
-  const visit = (value: RenderJob["tree"]): void => {
+  const visit = (value: DesignJob["tree"]): void => {
     if (Array.isArray(value)) {
       for (const item of value) {
         visit(item)

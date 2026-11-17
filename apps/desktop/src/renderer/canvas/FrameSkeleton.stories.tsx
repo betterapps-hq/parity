@@ -90,7 +90,7 @@ export const Swap: Story = onCanvas(
       "frames.capture": async ({ job }) => {
         const root = example().doc.design(design("Sign in"))?.root.id
 
-        if (!root || !JSON.stringify(job.tree).includes(`"nodeId":"${root}"`)) {
+        if (!root || job.kind === "page" || !JSON.stringify(job.tree).includes(`"nodeId":"${root}"`)) {
           return {}
         }
 

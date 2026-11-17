@@ -54,6 +54,7 @@ import {
   type AdapterFound,
   appFiles,
   changesLockfiles,
+  type CodeSnapshot,
   codeSnapshot,
   detectAdapters,
   detectContext,
@@ -78,6 +79,7 @@ import {
   readDesigns,
   readPackage,
   readTsconfig,
+  type TracedRoute,
   withComponentList
 } from "@parity-app/project"
 import { errorCode } from "@parity-app/telemetry"
@@ -411,6 +413,18 @@ export interface OpenProjects {
   previewProject: (projectId: string) => PreviewProject | undefined
   /** The project files the modules of `files` load, by its builder's account (PAR-994); none when it can't say. */
   loadedFiles: (projectId: string, files: string[]) => Promise<string[] | undefined>
+  /** What a route's page trace is made from, while the project is open (route-frames.md, "A page's trace"). */
+  pageProject: (projectId: string) => PageProject | undefined
+}
+
+/** What a route's page trace needs of an open project: its routes, its stylesheets and the code its guest was served. */
+export interface PageProject {
+  root: string
+  routes: readonly TracedRoute[]
+  /** Its router names routes by folder, as Next.js does. */
+  folderRoutes: boolean
+  stylesheets: string[]
+  code: Promise<CodeSnapshot>
 }
 
 /**
@@ -2171,7 +2185,29 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       }
     },
 
-    loadedFiles: (projectId, files) => projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined)
+    loadedFiles: (projectId, files) =>
+      projects.get(projectId)?.session.loadedFiles(files) ?? Promise.resolve(undefined),
+
+    pageProject(projectId) {
+      const project = projects.get(projectId)
+      const served = project?.fingerprints.get(project.drawnGuestUrl)
+
+      if (!project || !served) {
+        return undefined
+      }
+
+      const stylesheets = project.info.styles
+        ? [project.info.styles.stylesheet, ...project.stylesheets]
+        : project.stylesheets
+
+      return {
+        root: project.info.root,
+        routes: project.info.routes,
+        folderRoutes: project.info.router?.id === "nextjs",
+        stylesheets: [...new Set(stylesheets)],
+        code: served.code
+      }
+    }
   }
 }
 

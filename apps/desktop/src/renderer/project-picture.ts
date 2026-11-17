@@ -1,5 +1,5 @@
 import { containerEntries } from "@parity-app/multiplayer"
-import type { PictureFrame, PictureScreen, ProjectPicture, RenderJob } from "../shared/protocol.ts"
+import type { PictureFrame, PictureScreen, ProjectPicture, DesignJob } from "../shared/protocol.ts"
 import { bitmapsWaiting, type FrameShows, firstRowFrame, frameBitmap } from "./canvas/frame-bitmaps.ts"
 import { request } from "./service.ts"
 import { type PicturedScreen, picturedScreens } from "./start/picture-screens.ts"
@@ -157,7 +157,7 @@ async function screenPicture({ screen, main, phone }: ScreenFrames): Promise<Pic
 }
 
 /** A frame in a picture, which shows the top of it, as tall as its window or its own height when that's less. */
-function pictureFrame(src: string, mode: string, job: RenderJob): PictureFrame {
+function pictureFrame(src: string, mode: string, job: DesignJob): PictureFrame {
   const { width, height, viewport } = job.mode
 
   return { src, mode, width, height: Math.min(height ?? viewport.height, viewport.height) }

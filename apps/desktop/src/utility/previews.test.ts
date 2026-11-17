@@ -5,7 +5,7 @@ import { type CodeSnapshot, codeSnapshot } from "@parity-app/project"
 import { createTelemetry, createTestSink, registeredEvents } from "@parity-app/telemetry"
 import sharp from "sharp"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import type { PreviewJob, RenderJob } from "../shared/protocol.ts"
+import type { PreviewJob, DesignJob } from "../shared/protocol.ts"
 import type { PreviewDrawn } from "../shared/service.ts"
 import type { componentPreviews, PreviewProjects } from "./previews.ts"
 
@@ -14,7 +14,7 @@ interface OpenWindow {
   root: string
   snapshots: Map<string, Promise<CodeSnapshot>>
   draws: string[]
-  draw: (job: RenderJob) => Promise<PreviewDrawn>
+  draw: (job: DesignJob) => Promise<PreviewDrawn>
 }
 
 // The offscreen window, which needs Electron, stands in; the store and the keys are the real ones.
@@ -44,7 +44,7 @@ const project: PreviewProjects = {
 }
 
 vi.mock("./render.ts", () => ({
-  renderPreview: (job: RenderJob) => {
+  renderPreview: (job: DesignJob) => {
     open.draws.push(JSON.stringify(job.tree))
 
     return open.draw(job)

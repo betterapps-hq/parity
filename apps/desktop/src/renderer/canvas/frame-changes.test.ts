@@ -1,11 +1,11 @@
 import type { FrameChange, FrameId } from "@parity-app/change-detection"
 import { afterEach, describe, expect, it, vi } from "vite-plus/test"
-import type { RenderJob } from "../../shared/protocol.ts"
+import type { DesignJob } from "../../shared/protocol.ts"
 import { preloadAnswers } from "../service.ts"
 import { askChange, designChange, recordChange } from "./frame-changes.ts"
 
 // SAFETY: the functions under test only pass the job on, to the stubbed service.
-const job = {} as RenderJob
+const job = {} as DesignJob
 
 const frame = (design: string, mode: string): FrameId => ({ project: "shop", design, state: "default", mode })
 

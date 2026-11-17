@@ -243,3 +243,6 @@ export const parsePageSnapshot: DataParser<PageSnapshot> = parserFor(pageSnapsho
 
 /** Reads the stylesheets a page sent for `sheets.get`, refusing one past the cap. */
 export const parsePageSheets: DataParser<PageSheet[]> = parserFor(z.array(pageSheetSchema))
+
+/** Reads a copy's body that crossed processes on its way to be built, as a page's is read, caps and all. */
+export const parseFrozenBody: DataParser<FrozenElement> = parserFor(frozenBody)

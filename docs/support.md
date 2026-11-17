@@ -361,6 +361,21 @@ frames come from a pool (step 5 of [proposals/route-frames.md](proposals/route-f
 | Shadow roots, video frames, what shows on hover or focus | Not copied                                                                           | ❌     |
 | Pages past 50,000 elements, 256 deep or 8 MB of text     | Refused: the board keeps its placeholder                                             | ❌     |
 
+**Small route boards show pictures of their copies (PAR-1200).** A board small on screen or away from the view shows a
+picture, captured offscreen from its copy and kept on disk, and turns into its copy once it's near and readable. A kept
+picture shows as soon as the project opens, while its trace says it's current. What a trace holds depends on what the
+builder can say about a route:
+
+| Builder                     | A page's trace                                                                                              | Status |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------- | ------ |
+| Vite                        | What its module graph says the route's file and its parents' files load, and Parity's scan of their imports | ✅     |
+| webpack-compatible builders | The same, from their own `loadedFiles`                                                                      | ✅     |
+| Next.js                     | Every file under the route's folder, its layouts, and Parity's scan of their imports                        | ◐      |
+| Any, before it can say      | The whole project, so any change makes the picture stale                                                    | ◐      |
+
+Every trace also holds the project's stylesheets, its package.json, configs and lockfiles. Server code a loader reaches
+only through a dynamic import isn't in the scan.
+
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
 

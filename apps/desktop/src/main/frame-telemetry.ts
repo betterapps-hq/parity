@@ -20,7 +20,7 @@ interface FrameShown {
 
 /** What a frame drawn offscreen was asked to show, for its events. */
 function shown(job: RenderJob, priority: string): FrameShown {
-  const { design } = job
+  const design = job.kind === "page" ? undefined : job.design
   const attributes: FrameShown = { priority }
 
   if (design?.key) {

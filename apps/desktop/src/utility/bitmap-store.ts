@@ -57,7 +57,7 @@ export interface StoredBitmap {
  * holds, as when none of the files the frame read has changed (PAR-994). Showing it counts as using it.
  */
 export async function storedBitmap(
-  served: ServedCode,
+  served: Pick<ServedCode, "sources">,
   job: RenderJob,
   holds: (trace: FrameTrace) => Promise<boolean>
 ): Promise<StoredBitmap | undefined> {
@@ -109,7 +109,7 @@ function keptTrace(text: string | undefined): FrameTrace | undefined {
  * half a file.
  */
 export async function storeBitmap(
-  served: ServedCode,
+  served: Pick<ServedCode, "sources">,
   job: RenderJob,
   webp: Uint8Array,
   height: number,
@@ -415,10 +415,12 @@ function previewFile(projectId: string, key: string, size: PreviewSize): string 
 
 /**
  * A bitmap's file, named by the job as `bitmapName` names it, whatever code drew it: its trace says which (PAR-994). The
- * prefix keeps it apart from bitmaps kept before traces, named by the whole project's code, which age out.
+ * prefix keeps it apart from bitmaps kept before traces, named by the whole project's code, which age out. A page's
+ * picture goes by its page alone (route-frames.md, "Pictures"), since no guest draws it.
  */
-function bitmapFile(served: ServedCode, job: RenderJob): string {
-  const name = createHash("sha256").update("latest\0").update(bitmapName(job, served.sources)).digest("hex")
+function bitmapFile(served: Pick<ServedCode, "sources">, job: RenderJob): string {
+  const prefix = job.kind === "page" ? "page" : "latest"
+  const name = createHash("sha256").update(`${prefix}\0`).update(bitmapName(job, served.sources)).digest("hex")
 
-  return join(projectFolder(job.projectId), `latest-${name.slice(0, 40)}.webp`)
+  return join(projectFolder(job.projectId), `${prefix}-${name.slice(0, 40)}.webp`)
 }

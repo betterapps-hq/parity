@@ -2,7 +2,7 @@ import type { FrameGeometry, Guest, RenderNode, ResolvedMode } from "@parity-app
 import { offscreenWindows, turns } from "@parity-app/processes"
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { react } from "tldraw"
-import type { RenderJob, ServiceMethods } from "../../shared/protocol.ts"
+import type { DesignJob, RenderJob, ServiceMethods } from "../../shared/protocol.ts"
 import { type FrameKeys, frameKeys, renderJob } from "../../shared/render-job.ts"
 import { frameDrawsDesign } from "../frame-host.ts"
 import { request } from "../service.ts"
@@ -72,7 +72,7 @@ let nextGuest = 1
 
 /** What a frame shows, as keys, and the job that draws it offscreen. */
 export interface FrameShows extends FrameKeys {
-  job: RenderJob
+  job: DesignJob
 }
 
 /**
@@ -175,13 +175,14 @@ export interface FrameBitmap {
  * is kept with the bitmap; nothing while it isn't drawn. `holding` says whether the frame is holding off drawing its
  * design for the bitmap (`useFirstDrawWaits`): then nothing is being edited, so what it first shows is captured without
  * the wait (PAR-525). `rank` says how near the frame is to the middle of the view, so frames in view are captured first
- * (`useFrameView`, PAR-955).
+ * (`useFrameView`, PAR-955). `off` asks for none, as a route board's frame, which draws its page's picture instead.
  */
 export function useFrameBitmap(
   { key, job }: FrameShows,
   measure?: () => number | undefined,
   holding?: () => boolean,
-  rank?: () => number
+  rank?: () => number,
+  off = false
 ): FrameBitmap {
   const [shown, setShown] = useState<ShownBitmap>()
   // The key whose capture failed, until a later try gives its bitmap.
@@ -202,6 +203,10 @@ export function useFrameBitmap(
   }, [job, measure, holding, rank])
 
   useEffect(() => {
+    if (off) {
+      return undefined
+    }
+
     let current = true
     let timer: ReturnType<typeof setTimeout>
     let counted = true
@@ -278,7 +283,11 @@ export function useFrameBitmap(
       want(key, -1)
       clearTimeout(timer)
     }
-  }, [key])
+  }, [key, off])
+
+  if (off) {
+    return { pending: false }
+  }
 
   if (shown?.key === key && !shown.stale) {
     return { ...shown, pending: false }
@@ -580,7 +589,7 @@ export function capture(
       bitmaps.delete(key)
     }
 
-    failedRender(key, cause, job.design)
+    failedRender(key, cause, job.kind === "page" ? undefined : job.design)
 
     return failed
   })

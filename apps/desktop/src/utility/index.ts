@@ -6,7 +6,7 @@ import { errorCode, type EventAttributes, type EventName, type registeredEvents 
 import type { MessagePortMain } from "electron"
 import { z } from "zod"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
-import type { ExtensionUiRequest, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
+import type { ExtensionUiRequest, PageJob, ServiceMethods, WindowMethods } from "../shared/protocol.ts"
 import { changedFrames, storedJobs } from "../shared/service-checks.ts"
 import type { ConnectMessage } from "../shared/service.ts"
 import {
@@ -45,6 +45,7 @@ import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
 import { addLibrary, catalogFor, importStyles, previewFor, removeLibrary } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
+import { pageTraces } from "./page-traces.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
 import { freePort, portFree } from "./ports.ts"
 import { previewOffer, writePreviewFile } from "./preview-offer.ts"
@@ -216,6 +217,7 @@ async function closeProject(projectId: string): Promise<undefined> {
 
 const previews = componentPreviews(projects)
 const traces = frameTraces(projects)
+const pages = pageTraces(projects)
 
 // What each open project's frames' changes are counted from: its change detector's baseline, the last commit in a git
 // repository (PAR-1074), else each frame's trace when first looked at (PAR-997). When a detector's baseline moves, as a
@@ -304,6 +306,10 @@ const handlers: Handlers<ServiceMethods> = {
   "layers.export": (params) => exportLayers(editorWindow(), params),
   "layers.picture": (params) => layersPicture(editorWindow(), params),
   "frames.capture": async ({ job, height }) => {
+    if (job.kind === "page") {
+      return capturePage(job)
+    }
+
     // Taken before the capture, so a file changed meanwhile leaves the bitmap stale rather than current (PAR-994).
     const trace = await traces.trace(job).catch(() => undefined)
     const { frame, png } = await renderOffscreen(job, true)
@@ -359,6 +365,10 @@ const handlers: Handlers<ServiceMethods> = {
   "frames.stored": async ({ jobs }) => ({
     kept: await Promise.all(
       parseInput(storedJobs, jobs).map(async (job) => {
+        if (job.kind === "page") {
+          return storedPage(job)
+        }
+
         const served = projects.codeServedAt(job.projectId, job.guestUrl)
         const kept = served && (await storedBitmap(served, job, (trace) => traces.holds(job, trace)))
 
@@ -422,6 +432,52 @@ export function editorWindow(): WindowChannel {
  * Answers a window over its own port, and makes it the window agents act through. Project code shares the window's
  * page, so every request's params are checked before a handler sees them (PAR-565).
  */
+/** No guest draws a page's picture, so no component sources name it. */
+const noSources = { sources: {} }
+
+/**
+ * Captures a route's page from the copy its job carries (route-frames.md, "Pictures"), and keeps it on disk with the
+ * page's trace, taken first, so a file changed meanwhile leaves the picture stale rather than current. The height kept
+ * with it is the one the render window built the copy at: the page's, or the frame's own.
+ */
+async function capturePage(job: PageJob): Promise<{ src?: string; height?: number }> {
+  if (!job.copy) {
+    return {}
+  }
+
+  const trace = await pages.trace(job).catch(() => undefined)
+  const { frame, png } = await renderOffscreen(job, true)
+
+  if (frame.error || !png) {
+    return {}
+  }
+
+  const webp = await losslessWebp(Buffer.from(png, "base64")).catch(() => undefined)
+
+  if (!webp) {
+    return { src: `data:image/png;base64,${png}`, height: frame.height }
+  }
+
+  // Kept without its copy, which only capturing needs.
+  const { copy: _copy, ...named } = job
+  void storeBitmap(noSources, named, webp, frame.height, trace)
+
+  return { src: `data:image/webp;base64,${webp.toString("base64")}`, height: frame.height }
+}
+
+/** A route's page's picture kept on disk, stale when its trace doesn't hold. */
+async function storedPage(job: PageJob): Promise<{ src?: string; height?: number; stale?: true }> {
+  const kept = await storedBitmap(noSources, job, (trace) => pages.holds(job, trace))
+
+  if (!kept) {
+    return {}
+  }
+
+  const answer = { src: `data:image/webp;base64,${kept.webp}`, height: kept.height }
+
+  return kept.stale ? { ...answer, stale: true as const } : answer
+}
+
 function connect(port: MessagePortMain): void {
   const channel = windowChannel(handlers, nodePort(port, { wrapped: true }))
   port.on("close", () => {

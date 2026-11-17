@@ -11,7 +11,7 @@ import {
   sharedPreviewFiles,
   traceDigest
 } from "@parity-app/project"
-import type { RenderJob } from "../shared/protocol.ts"
+import type { DesignJob } from "../shared/protocol.ts"
 import type { OpenProjects } from "./projects.ts"
 
 /** How many hex digits of each file's hash a trace keeps: 64 bits, enough to tell one file's versions apart. */
@@ -23,9 +23,9 @@ export type TraceProjects = Pick<OpenProjects, "codeServedAt" | "previewProject"
 /** What frame traces do: take a job's trace before it's captured, and say whether a kept one still holds. */
 export interface FrameTraces {
   /** The files a job's frame reads and their digest now; none when its project or code isn't known. */
-  trace(job: RenderJob): Promise<FrameTrace | undefined>
+  trace(job: DesignJob): Promise<FrameTrace | undefined>
   /** Whether the files a trace lists hash to its digest now, with the renderer drawing the job. */
-  holds(job: RenderJob, trace: FrameTrace): Promise<boolean>
+  holds(job: DesignJob, trace: FrameTrace): Promise<boolean>
 }
 
 /**

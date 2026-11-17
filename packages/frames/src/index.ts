@@ -39,6 +39,7 @@ export {
   pageSheetSchema,
   type PageSnapshot,
   pageSnapshotSchema,
+  parseFrozenBody,
   parsePageSheets,
   parsePageSnapshot,
   type SheetEntry

@@ -8634,9 +8634,22 @@ A screen is named for the component its route draws, else its path.
   body stand-in, as tall as the mode's window as the page's root was, `<body>`'s on the stand-in, and the mode's on the
   host and the stand-in. A web component's open shadow root comes with its own styles, and a canvas comes as a picture
   at the size it was drawn. A copy is as tall as its page in the mode's window, unless the board has a height of its
-  own, and it's inert, so nothing in it takes focus or follows a link. Until it comes, a placeholder stands in at the
-  window's height. A board that sleeps, zoomed far out, lets go of its copy's elements and shows the placeholder until
-  pictures come (step 6), building the copy again from what it kept when it wakes.
+  own, and it's inert, so nothing in it takes focus or follows a link. Until its copy or picture comes, a placeholder
+  stands in at the window's height.
+- **Pictures (PAR-1200).** A board small on screen or away from the view shows a picture of its copy instead of the copy
+  itself, as [proposals/route-frames.md](proposals/route-frames.md) sets out. It turns into its copy once it's near the
+  view and wider than 440 screen pixels, and back into its picture once it's narrower than 360 or leaves the view
+  (`boardTier`), so a board resting between the two doesn't flip. The tier follows the camera as it zooms. A board with
+  no copy yet stays a picture. The picture is taken in an offscreen render window, which builds the copy with the same
+  `buildCopy` and `prepareFrame` as the board (`mountCopy`), at the mode's width and the page's full height, sanitized
+  again first, and captures it at a quarter of the board's size. No page loads there, and viewport units measure the
+  mode's window, so a section sized in `svh` keeps its height. Pictures are kept on disk as frames' bitmaps are, named
+  by the project, the route's path and query, the mode as it resolved, the state and the scale (`pageBitmapName`), with
+  the page's trace inside: what the builder says the route's files and its parents' load, Parity's scan of their
+  imports, the stylesheets and the shared config, or every file under the route's folder for Next, or the whole project
+  where the builder can't say (`pageTraceFiles`). A kept picture shows as soon as the project opens, before the freezer
+  has made the copies again; one whose trace doesn't hold shows until its board's copy comes and it's captured again.
+  Route boards ask for no design bitmaps of their own.
 - **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
   elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
   double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers
@@ -8666,6 +8679,13 @@ Region panel, and double-clicking the pricing cards on the canvas selected their
 read styles in the Design panel. Dashboard's row in Layers kept its warning from its copy's landing on `/login`. Mobile
 and dark modes and a failing page process weren't tried in the app.
 
+Pictures were tried in a development build on the example project (PAR-1200): zoomed out to 8% and 25%, all eight page
+boards showed pictures of their pages, with no page frame left once the freezer was done. Zooming in to 50% turned the
+board in view into its copy, and the boards outside the view stayed pictures. Zooming back out to 30% kept the copy, and
+20% turned it back into a picture. After reloading the window, all eight pictures showed from disk within 9 s of the
+reload, while the freezer was still on its first route. Copacker wasn't tried: its pages are server-rendered by TanStack
+Start, and the page runtime doesn't reach them yet, so its freezer gets no hello and none of its boards get a copy.
+
 The page runtime was tried in a development build on the example project (PAR-1260): all eight page frames loaded under
 the project's own `p….localhost` name, each with `window.parityFrame`, the mode's classes and no scrollbar, and App's
 frame grew to 849 from the page's `page.height`. Dashboard's warning came from its `page.ready`. Setting Desktop Light's
@@ -8681,19 +8701,25 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in `RouteBoard.tsx`, the freezer, `useFrozenCopy` and
 `copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and `shownEntry` in `route-pages.ts`, `takeSnapshot` in
 `packages/page-runtime/src/snapshot.ts`, `freezeOrder` and `restartAfter` in `packages/frames/src/freezer.ts`,
-`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in
-`apps/desktop/src/main/page-sheets.ts`, and the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`;
-`routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
-The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
-in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
-`reactRouterPage` in `packages/extension-react-router/src/page.ts`, with library mode's wrapped `react-router` in
-`src/page-wrap/react-router.ts`; `nextjsPage` in `packages/extension-nextjs/src/page.ts`; `reactHydration` in
-`packages/extension-react/src/page.ts`; each manifest's `page` and `pageWraps`, carried by `pageRouters` in
-`packages/extension-host/src/hosts.ts` and `pageModules` in `apps/desktop/src/utility/projects.ts` into the project's
-config; `pageEntrySource` in `packages/project/src/page-entry.ts`, served by `appPageRuntime` in
-`packages/extension-vite/src/app-page.ts`, `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and
-`copyPageModules` in `packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs
-before Vite's own resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
+`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`; pictures:
+`useBoardTier` in `RouteBoard.tsx`, `usePagePicture` in `page-bitmaps.ts`, `mountCopy` in
+`apps/desktop/src/renderer/page-copy.ts` and `copySheets` in `copy-sheets.ts`, both shared with the render window's
+`renderPage` in `render.ts`, the `pageJob` schema in `shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in
+`shared/render-job.ts`, `capturePage` and `storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in
+`utility/page-traces.ts`, `pageTraceFiles` in `packages/project/src/page-trace.ts`, and `boardTier` in
+`packages/frames/src/tiers.ts`; `fetchPageSheet` in `apps/desktop/src/main/page-sheets.ts`, and the `routeFrame` events
+in `packages/telemetry/src/route-frame-events.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`;
+`appPage` in `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
+`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
+in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
+with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `nextjsPage` in
+`packages/extension-nextjs/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each manifest's
+`page` and `pageWraps`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
+`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
+`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
+`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
+`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs before Vite's own
+resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
@@ -8756,14 +8782,26 @@ aborted; the document and an element in the page as roots; only `#__next` or the
 entries" and "serves a wrapped package to the app's own modules"), `server.test.ts` (`isPageOrigin`),
 `guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
 routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
-("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
-to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, the freezer, building and
-selecting copies, drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the
-bundling have no test of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%:
-every page's name and path read clearly, with each line meeting its page's top edge. Each page frame was checked on the
-example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in
-Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect)
-at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
+("bundles the page runtime and the built-in page modules"), and the pictures' (PAR-1200):
+`packages/frames/src/planners.test.ts` (each tier, and the gap between them), `packages/project/src/page-trace.test.ts`
+(5: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder says
+the files load, with their scan, styles and shared files; every file under the route's folder for routes named by
+folder; the whole project where the builder can't say or the route isn't known),
+`apps/desktop/src/utility/page-traces.test.ts` (3: the route's files, imports, loads, stylesheets and shared config; the
+whole project without the builder's word; holding until a file it lists changes), `render.test.ts` (4, "canvasRender
+with a page's copy": built at the mode's width and the page's full height with viewport units measuring the window;
+sanitized again so nothing in it runs; clipped at the frame's own height; why when there's no copy),
+`render-job.test.ts` (3, "a page's picture's name": by path and query, not the builder's address; changed by the mode,
+state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's picture in the store": kept while its trace
+holds and stale after; apart from frames' bitmaps and the page in another mode) and `copy-sheets.test.ts`, which moved
+from `freezer.test.ts`. Hydration and navigation in the fixtures' real apps are left to the end-to-end suite. Gaps:
+reading routes when the project opens, the page frames, the freezer, building and selecting copies, a board's tier as
+the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop, Layers' route
+tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example at
+5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
+was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
+checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
+redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 
