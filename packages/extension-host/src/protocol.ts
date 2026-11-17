@@ -22,6 +22,12 @@ import type {
   ImportedScreen,
   ProjectComponents,
   CssDeclaration,
+  CatalogLibrary,
+  DetectedLibrary,
+  LibraryRemoval,
+  LibraryRemovalPlan,
+  LibraryRequest,
+  LibrarySetupPlan,
   ProcessEnd,
   ProcessInfo,
   ProcessSpec,
@@ -39,6 +45,7 @@ import type {
   ViewData,
   ViewKind
 } from "@parity-app/extension"
+import type { HalfState } from "@parity-app/extension/internal"
 import { z } from "zod"
 
 /*
@@ -84,6 +91,11 @@ export interface ActivateParams {
   dependencies?: Dependency[]
   /** The agent's call that started it, when one did (see `Called`). */
   call?: number
+  /**
+   * Where its window module is in the project's tab, for an internal extension that has one, which `parity.window`
+   * gives until `window.state` changes it.
+   */
+  window?: HalfState
 }
 
 /**
@@ -139,6 +151,12 @@ export interface ProviderCalls {
   }
   addresses: { addresses: { params: ServerFacts[]; result: { server: string; addresses: ProvidedAddress[] }[] } }
   discovery: { discover: { params: { root: string }; result: DiscoveredServer[] } }
+  libraries: {
+    detect: { params: undefined; result: DetectedLibrary[] }
+    catalog: { params: undefined; result: CatalogLibrary[] }
+    add: { params: LibraryRequest; result: LibrarySetupPlan }
+    remove: { params: LibraryRemoval; result: LibraryRemovalPlan }
+  }
 }
 
 /** One call to a provider, with what its method takes when it takes anything. */
@@ -215,6 +233,8 @@ export interface HostMethods {
   "files.changed": { params: { id: number }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
   stop: { params: undefined; result: undefined }
+  /** Its window module in the project's tab started, became ready or stopped. */
+  "window.state": { params: { state: HalfState }; result: undefined }
 }
 
 /** A line in an extension's log. */
@@ -316,6 +336,8 @@ export interface HostServiceMethods {
   "commands.execute": { params: { command: string; target?: CommandTarget } & Called; result: undefined }
   /** Calls a function of the API of an extension its manifest names in `extensionDependencies`. */
   "extensions.call": { params: { extension: string; method: string; args: JsonValue[] } & Called; result: Returned }
+  /** Calls a function of what its window module returned as `node`, in the project's tab. */
+  "window.call": { params: { method: string; args: JsonValue[] } & Called; result: Returned }
 }
 
 const text = z.string().max(20_000)
@@ -562,6 +584,70 @@ const importedEntities = z.strictObject({
   sources: z.record(z.string().max(2000), z.strictObject({ path: filePath, export: z.string().max(500) })).optional()
 })
 
+const packageName = z.string().min(1).max(214)
+
+const dependencyRanges = z.record(packageName, z.string().min(1).max(1000))
+
+/** What a libraries provider found in the project. */
+const detectedLibrary: z.ZodType<DetectedLibrary> = z.strictObject({
+  registry: packageName,
+  package: packageName.optional(),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000),
+  tailwindEntry: filePath.optional(),
+  icons: packageName.optional()
+})
+
+/** A library a libraries provider can set up, with the settings it asks for. */
+const link = z.url({ protocol: /^https?$/ }).max(2000)
+
+const catalogLibrary: z.ZodType<CatalogLibrary> = z.strictObject({
+  id: z.string().min(1).max(200),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000),
+  package: packageName,
+  links: z
+    .strictObject({
+      website: link.optional(),
+      docs: link.optional(),
+      storybook: link.optional(),
+      source: link.optional()
+    })
+    .optional(),
+  version: z.string().min(1).max(200).optional(),
+  companion: z.string().min(1).max(200).optional(),
+  settings: z
+    .array(
+      z.strictObject({
+        id: z.string().min(1).max(100),
+        label: z.string().min(1).max(100),
+        options: z
+          .array(z.strictObject({ value: z.string().min(1).max(200), label: z.string().min(1).max(200) }))
+          .min(1)
+          .max(200),
+        value: z.string().max(200)
+      })
+    )
+    .max(20),
+  installed: z.boolean()
+})
+
+/** What setting a library up changes in the project. */
+const librarySetupPlan: z.ZodType<LibrarySetupPlan> = z.strictObject({
+  dependencies: dependencyRanges.optional(),
+  devDependencies: dependencyRanges.optional(),
+  packages: z.array(packageName).max(100).optional(),
+  scripts: z.record(z.string().min(1).max(200), z.string().max(10_000)).optional(),
+  styles: z.string().min(1).max(500).optional()
+})
+
+/** What taking a library out changes in the project. */
+const libraryRemovalPlan: z.ZodType<LibraryRemovalPlan> = z.strictObject({
+  packages: z.array(packageName).max(100).optional(),
+  scripts: z.record(z.string().min(1).max(200), z.string().max(10_000).nullable()).optional(),
+  styles: z.string().min(1).max(500).optional()
+})
+
 /** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
 const themeVariables = z.array(z.strictObject({ name: z.string().max(500), value: text })).max(100_000)
 
@@ -617,7 +703,13 @@ const providerResults = {
     )
   },
   addresses: { addresses: checkOf(providedAddresses) },
-  discovery: { discover: checkOf(discoveredServers) }
+  discovery: { discover: checkOf(discoveredServers) },
+  libraries: {
+    detect: checkOf(z.array(detectedLibrary).max(100)),
+    catalog: checkOf(z.array(catalogLibrary).max(100)),
+    add: checkOf(librarySetupPlan),
+    remove: checkOf(libraryRemovalPlan)
+  }
 } satisfies {
   [K in ProviderKind]: {
     // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: what the host answered, read here
@@ -642,6 +734,8 @@ export function readAnswer(call: ProviderCall, answer: ProviderAnswer): Provider
       return providerResults.builder[call.method](answer)
     case "entities":
       return providerResults.entities[call.method](answer)
+    case "libraries":
+      return providerResults.libraries[call.method](answer)
   }
 }
 
@@ -769,7 +863,10 @@ export const hostChecks: Checks<HostServiceMethods> = {
     ])
   ),
   "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional(), call })),
-  "extensions.call": checkOf(z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call }))
+  "extensions.call": checkOf(
+    z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call })
+  ),
+  "window.call": checkOf(z.strictObject({ method: name, args: z.array(jsonValue).max(100), call }))
 }
 
 /** Reads what an extension's code gave back, which could be anything its process posted. */

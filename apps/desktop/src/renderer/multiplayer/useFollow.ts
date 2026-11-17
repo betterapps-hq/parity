@@ -1,9 +1,5 @@
+import type { FollowState } from "@parity-app/presence-ui"
 import { useEffect, useState } from "react"
-
-/**
- * Where following someone stands: on, ended by you, ended because they left, or over once the note saying so has gone.
- */
-export type FollowState = "following" | "stopped" | "left" | "done"
 
 /** How long the note that following ended stays: longer when they left, since you didn't do it. */
 const followNoteMs = { stopped: 2000, left: 4000 }

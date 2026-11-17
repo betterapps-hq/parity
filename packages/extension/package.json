@@ -4,13 +4,17 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "What an extension is written against: its types, defineExtension, and the manifest check its tests run.",
+  "description": "What an extension is written against: its types, defineExtension, the manifest check its tests run, and helpers for writing stylesheets.",
   "exports": {
     ".": "./src/index.ts",
-    "./manifest": "./src/reader/index.ts"
+    "./manifest": "./src/reader/index.ts",
+    "./internal": "./src/internal.ts",
+    "./styles": "./src/styles.ts"
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/style-schema": "workspace:*",
+    "@parity-app/tokens": "workspace:*",
     "zod": "catalog:"
   }
 }

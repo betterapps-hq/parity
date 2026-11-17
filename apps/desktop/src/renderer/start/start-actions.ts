@@ -7,7 +7,7 @@ import { workspace } from "../workspace.ts"
 
 /** What the start page's controls do. In the window they act on the workspace; stories give their own. */
 export interface StartActions {
-  /** Opens a project in a tab, or switches to the tab it's already in. */
+  /** Opens a project in the window, in place of the open one. */
   open: (root: string) => void
   star: (root: string, starred: boolean) => void
   /** Takes a project off the recent list. */
@@ -24,9 +24,9 @@ export interface StartActions {
 
 type StartAction = "new-project" | "open-folder" | "open-file" | "recent-project" | "search" | "star" | "forget"
 
-/** Records a start page control's use, with whether it was on Home or a new tab (PAR-634). */
+/** Records a start page control's use (PAR-634). */
 function recordStart(action: StartAction): void {
-  recordInterface("start.action", { page: workspace.isHomeActive() ? "home" : "new", action })
+  recordInterface("start.action", { page: "home", action })
 }
 
 export const workspaceActions: StartActions = {

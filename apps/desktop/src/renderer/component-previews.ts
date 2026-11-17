@@ -266,7 +266,7 @@ class ProjectPreviews {
     clearTimeout(this.refreshTimer)
   }
 
-  /** Stops for good as the tab closes, forgetting every preview it kept. */
+  /** Stops for good as the project closes, forgetting every preview it kept. */
   dispose(): void {
     this.stop()
     this.disposed = true
@@ -511,7 +511,7 @@ class ProjectPreviews {
       return
     }
 
-    const settled = !!this.session.editor && workspace.getActive()?.session === this.session && bitmapsWaiting() === 0
+    const settled = !!this.session.editor && workspace.getProject()?.session === this.session && bitmapsWaiting() === 0
 
     const needed = this.components().flatMap((component) => {
       const entry = this.entries.get(component)
@@ -574,7 +574,7 @@ class ProjectPreviews {
   }
 }
 
-/** A project's previews, made the first time they're asked for and dropped when its tab closes. */
+/** A project's previews, made the first time they're asked for and dropped when its project closes. */
 export const previewsOf = projectPart((session: ProjectSession) => new ProjectPreviews(session))
 
 /** Starts making a project's previews while its tab is open; the function it gives stops them. */

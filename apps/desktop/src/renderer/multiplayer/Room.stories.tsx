@@ -1,13 +1,10 @@
+import { FaceStack, Marquee, Outlined, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type Marker, scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { PricingDesign } from "../stories/PricingDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import { FaceStack } from "./FaceStack.tsx"
-import { Marquee } from "./Marquee.tsx"
-import { Outlined } from "./Outlined.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
 import { members, presences } from "./story-kit.tsx"
 
 /**

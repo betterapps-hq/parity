@@ -62,7 +62,8 @@ function rightClick(row: LayersRow, current: Selection = {}): MenuEntry[] {
     placedReferences: 0,
     canvas: true,
     history: { canUndo: false, canRedo: false },
-    references: true
+    references: true,
+    held: true
   })
 
   return layersMenu(row, states, selection)

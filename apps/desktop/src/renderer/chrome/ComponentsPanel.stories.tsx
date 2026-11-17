@@ -7,12 +7,14 @@ import {
   failingToDraw,
   keepingLinks,
   makingPreviews,
-  openProjects,
+  openProject,
   ProjectStage
 } from "../stories/fixtures.tsx"
-import { service } from "../stories/host.ts"
+import { answerNext, service } from "../stories/host.ts"
+import { storyCatalog } from "../stories/libraries.ts"
 import { answerPreviews } from "../stories/previews.ts"
 import { ComponentsPanel } from "./AssetsPanel.tsx"
+import { slowly } from "./inspector-stories.tsx"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
 import { getPreferences } from "./preferences.ts"
@@ -49,7 +51,7 @@ const forever = 24 * 60 * 60 * 1000
 
 /** Opens the example on the Components tab. */
 async function openComponents(): Promise<void> {
-  await openProjects("example")
+  await openProject("example")
   setLayout({ leftTab: "components" })
 }
 
@@ -447,39 +449,88 @@ export const OpeningStorybook: Story = {
   }
 }
 
-/**
- * Adding a library: the catalog lists the component libraries that can be installed, with the ones the project has
- * already marked as added.
- */
+/** The component libraries the project can add, from the plus beside the search, Shadcn first. */
 export const AddingALibrary: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a library" }))
-    await within(document.body).findByText("Radix Themes")
+    const dialog = await openLibraries(canvasElement)
+    await within(dialog).findByRole("heading", { name: "Shadcn" }, slowly)
   }
 }
 
-/** The library catalog while the service lists it. */
+/** The component libraries while the service lists them. */
 export const CatalogLoading: Story = {
   loaders: [openComponents],
   beforeEach: keepingLinks,
   play: async ({ canvasElement }) => {
     service.latency = forever
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a library" }))
-    await within(document.body).findByRole("dialog")
+    await openLibraries(canvasElement)
   }
 }
 
-/** A library installing with the project's package manager, after Add was clicked in the catalog. */
+/** Opens the component libraries from the Components panel. */
+async function openLibraries(canvasElement: HTMLElement): Promise<HTMLElement> {
+  await userEvent.click(within(canvasElement).getByRole("button", { name: "Component libraries" }))
+
+  return within(document.body).findByRole("dialog")
+}
+
+/** A library installing with the project's package manager, after Add Mantine was clicked. */
 export const InstallingALibrary: Story = {
   loaders: [openComponents],
   beforeEach: keepingLinks,
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a library" }))
-    const radix = await within(document.body).findByText("Radix Themes")
+    const dialog = await openLibraries(canvasElement)
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Mantine" }, slowly))
     service.latency = forever
-    await userEvent.click(within(radix.closest("li")!).getByRole("button", { name: "Add" }))
-    await waitFor(() => expect(within(document.body).getByText("Installing Radix Themes…")).toBeVisible())
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add Mantine" }))
+    await waitFor(() => expect(within(document.body).getByText("Installing Mantine…")).toBeVisible())
+  }
+}
+
+/** A project that has Shadcn: Change opens its settings as the project has them, and Apply waits for one to change. */
+export const ChangingShadcn: Story = {
+  loaders: [openComponents],
+  beforeEach: () =>
+    answerNext("library.catalog", () =>
+      Promise.resolve(
+        storyCatalog({ added: ["shadcn"], shadcn: { base: "base", style: "mira", theme: "stone", icons: "phosphor" } })
+      )
+    ),
+  play: async ({ canvasElement }) => {
+    const dialog = await openLibraries(canvasElement)
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Change" }, slowly))
+    await expect(within(dialog).getByRole("button", { name: "Apply" })).toBeDisabled()
+  }
+}
+
+/** Shadcn setting up through shadcn-sync, after Add Shadcn was clicked in its settings. */
+export const AddingShadcnInstalling: Story = {
+  loaders: [openComponents],
+  beforeEach: keepingLinks,
+  play: async ({ canvasElement }) => {
+    const dialog = await openLibraries(canvasElement)
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Next" }, slowly))
+    service.latency = forever
+    await userEvent.click(within(dialog).getByRole("button", { name: "Add Shadcn" }))
+    await waitFor(() => expect(within(document.body).getByText("Installing Shadcn…")).toBeVisible())
+  }
+}
+
+/** A library the project has coming out, after Remove was confirmed. */
+export const RemovingALibrary: Story = {
+  loaders: [openComponents],
+  beforeEach: () => {
+    keepingLinks()
+    answerNext("library.catalog", () => Promise.resolve(storyCatalog({ added: ["mantine"] })))
+  },
+  play: async ({ canvasElement }) => {
+    const dialog = await openLibraries(canvasElement)
+    await userEvent.click(await within(dialog).findByRole("button", { name: "Mantine" }, slowly))
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
+    service.latency = forever
+    await userEvent.click(within(dialog).getByRole("button", { name: "Remove" }))
+    await waitFor(() => expect(within(document.body).getByText("Removing Mantine…")).toBeVisible())
   }
 }
 
@@ -509,7 +560,7 @@ export const BlankProject: Story = {
   parameters: { blank: true },
   loaders: [
     async () => {
-      await openProjects("empty")
+      await openProject("empty")
       setLayout({ leftTab: "components" })
     }
   ]

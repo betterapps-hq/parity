@@ -4,6 +4,10 @@ Status: draft for discussion, 2026-11-16. Nothing here is built. It follows [loa
 last change, "later". Andrew moved it up. It answers his question: should pages share one instance of the app with
 component and story frames, or have one of their own, given the visual tests planned for components and stories?
 
+Update, PAR-1249: [route-frames.md](route-frames.md) proposes that pages keep the app in its own document instead, live
+from a pool and frozen copies otherwise. If it's accepted, this proposal's page steps go and its part about components
+and stories stays.
+
 ## In one line
 
 Every frame on a project's canvas, whether a component, a story or a page, draws from one instance of the project's

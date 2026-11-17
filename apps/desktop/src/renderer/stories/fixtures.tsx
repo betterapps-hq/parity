@@ -13,13 +13,13 @@ import { startPreviews } from "../component-previews.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { resetWindowStores } from "../store.ts"
 import { notify } from "../toasts.tsx"
-import { type ProjectSession, useActiveTabId, useTabs, workspace } from "../workspace.ts"
+import { type ProjectSession, useProject, workspace } from "../workspace.ts"
 import { answering, projectInfo, resetHost, roots } from "./host.ts"
 
 /*
- * What stories share: opening projects fresh, finding the example's designs and layers, pointing the canvas at them,
- * the providers a tab gives, and changes that last until the story ends. The stand-in host is installed by the
- * preview, which also runs `restore` when each story ends.
+ * What stories share: opening a project fresh, finding the example's designs and layers, pointing the canvas at them,
+ * the providers the window gives a project, and changes that last until the story ends. The stand-in host is installed
+ * by the preview, which also runs `restore` when each story ends.
  */
 
 // For looking into a story from the browser's console.
@@ -28,33 +28,33 @@ Object.assign(window, { parity: { workspace } })
 export type ProjectName = keyof typeof roots
 
 /**
- * Starts a story from the same place every time: every tab closed, then the projects named opened in their own tabs,
- * the first active, once their components' props have been read. A slow project is left opening.
+ * Starts a story from the same place every time: the project closed, then the one named opened, once its components'
+ * props have been read. A slow project is left opening; with none named, the window is on Home.
  */
-export async function openProjects(...names: ProjectName[]): Promise<void> {
+export async function openProject(name?: ProjectName): Promise<void> {
   notify.close()
   await workspace.flush().catch(() => undefined)
+  await workspace.close()
 
-  for (const tab of workspace.getTabs()) {
-    await workspace.close(tab.id)
+  if (!name) {
+    return
   }
 
-  const opening = names.map((name, index) => workspace.open(roots[name], index === 0))
-  const tabs = await Promise.all(opening.filter((_, index) => names[index] !== "slow"))
+  const opening = workspace.open(roots[name])
 
-  if (names[0]) {
-    workspace.activate(roots[names[0]])
+  if (name === "slow") {
+    return
   }
+
+  const project = await opening
 
   // Props are read a moment after a project opens; waiting for them shows each panel as it settles.
-  for (const tab of tabs) {
-    for (let tries = 0; tab.session && tries < 100; tries++) {
-      if (Object.keys(tab.session.components.get()).length > 0) {
-        break
-      }
-
-      await pause(50)
+  for (let tries = 0; project?.session && tries < 100; tries++) {
+    if (Object.keys(project.session.components.get()).length > 0) {
+      break
     }
+
+    await pause(50)
   }
 }
 
@@ -63,9 +63,10 @@ export function example(): ProjectSession {
   return sessionAt(roots.example)
 }
 
-/** An open tab's project. */
+/** The window's project, when it's the one in `root`. */
 export function sessionAt(root: string): ProjectSession {
-  const session = workspace.getTab(root)?.session
+  const project = workspace.getProject()
+  const session = project?.id === root ? project.session : undefined
 
   if (!session) {
     throw new Error(`${root} isn't open`)
@@ -132,10 +133,10 @@ export function blankProjectAt(folder: string): ProjectInfo {
 }
 
 /**
- * Opens more projects in their own tabs after the ones open, one after another, without switching to them. They share
+ * Opens each project in turn in place of the window's, so the last stays open and the others are recent. They share
  * the example's inferred components, which are slow to copy.
  */
-export async function openAlso(...projects: ProjectInfo[]): Promise<void> {
+export async function openInTurn(...projects: ProjectInfo[]): Promise<void> {
   const ids = new Set(projects.map((project) => project.id))
   let components: Promise<ServiceMethods["project.components"]["result"]> | undefined
   answering({
@@ -144,7 +145,7 @@ export async function openAlso(...projects: ProjectInfo[]): Promise<void> {
   })
 
   for (const project of projects) {
-    await workspace.open(project.root, false)
+    await workspace.open(project.root)
   }
 }
 
@@ -205,7 +206,7 @@ export function onCanvas<Setup, Then>(designs: string[], setup?: () => Setup, th
   return {
     loaders: [
       async () => {
-        await openProjects("example")
+        await openProject("example")
         await Promise.resolve(setup?.())
       }
     ],
@@ -229,8 +230,8 @@ export function layerElement(designName: string, layerName: string): HTMLElement
 }
 
 /**
- * The app's providers and a project around what a story shows, as a tab gives them: the active tab's project unless
- * one is named. `className` lays out the stage, full height by default.
+ * The app's providers and a project around what a story shows, as the window gives them: the window's project, when
+ * it's the one named. `className` lays out the stage, full height by default.
  */
 export function ProjectStage({
   children,
@@ -241,9 +242,8 @@ export function ProjectStage({
   project?: ProjectName
   className?: string
 }) {
-  const active = useActiveTabId()
-  const id = project ? roots[project] : active
-  const session = useTabs().find((tab) => tab.id === id)?.session
+  const open = useProject()
+  const session = !project || open?.id === roots[project] ? open?.session : undefined
 
   if (!session) {
     return null

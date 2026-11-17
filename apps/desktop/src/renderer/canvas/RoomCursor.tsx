@@ -1,6 +1,6 @@
+import { AgentBadge, AgentPointer } from "@parity-app/presence-ui"
 import type { TLCursorProps } from "tldraw"
 import { agentPalettes } from "../agent/agent-colors.ts"
-import { AgentBadge, AgentPointer } from "../agent/AgentPointer.tsx"
 
 /**
  * Another person's cursor in a live room in development (live-room.ts), drawn as agents' cursors are: the pointer and a

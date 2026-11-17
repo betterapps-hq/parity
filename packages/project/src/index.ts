@@ -26,7 +26,7 @@ import {
 import { parseJsonc } from "@parity-app/registry"
 import { componentFor } from "./component-for.ts"
 import type { ProjectDetection } from "./detection.ts"
-import { describedTokens, findLibraries } from "./libraries.ts"
+import { type DetectedLibrary, describedTokens, findLibraries } from "./libraries.ts"
 import { findProjectPreview } from "./preview-file.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
@@ -45,7 +45,9 @@ export {
 export {
   type AdapterFound,
   addCommand,
+  removeCommand,
   cutoff,
+  installCommand,
   detectAdapters,
   detectContext,
   detectPackageManager,
@@ -119,7 +121,18 @@ export { detectionFingerprint, fingerprintInputs } from "./fingerprint.ts"
 
 export { changesLockfiles, findLockfiles, lockfileFolders } from "./lockfile.ts"
 
-export { type LibraryDefinition, libraryCatalog, withStylesImport } from "./libraries.ts"
+export {
+  type DetectedLibrary,
+  type LibraryDefinition,
+  libraryCatalog,
+  registryTokens,
+  withStylesImport,
+  withoutStylesImport
+} from "./libraries.ts"
+
+export { type PackageChanges, withPackageChanges } from "./setup-plan.ts"
+
+export { familiesOf, type LibraryPreview, libraryPreview, type PreviewedToken } from "./library-preview.ts"
 
 export {
   type EntryUse,
@@ -136,7 +149,7 @@ export {
 
 export { importFromPnp, type PnpProject, pnpNodeOptions, pnpProject } from "./pnp.ts"
 
-export { readStylesheet } from "./styles.ts"
+export { readStylesheet, stylesheetsFrom } from "./styles.ts"
 
 export { type ProjectTsconfig, readTsconfig, resolvePathAlias, type TsconfigFile } from "@parity-app/code"
 
@@ -158,6 +171,11 @@ export interface DiscoverOptions {
    * them. Unset, or settling to nothing, when the builder can't say, which leaves the canvas without global styles.
    */
   styles?: AppStyles | Promise<AppStyles | undefined>
+  /**
+   * What the project's extensions found that its dependencies' names alone don't identify, as the components shadcn-sync
+   * generates (`LibrariesProvider.detect`), each read with its registry file. None when unset.
+   */
+  libraries?: DetectedLibrary[] | Promise<DetectedLibrary[] | undefined>
   /**
    * The previews extensions name for their tools, such as Storybook's (PAR-98): frames draw in the first that's there
    * when the project has no `.parity/preview.*`.
@@ -181,15 +199,16 @@ export async function discoverProject(
   const tsconfig = readTsconfig(root)
 
   // The builder answers while the app's files are read, which is the slow part.
-  const [loaded, app, preview] = await Promise.all([
+  const [loaded, app, preview, detected] = await Promise.all([
     options.styles,
     findAppComponents(root, renderer, tsconfig, notes),
-    findProjectPreview(root, pkg, options.previews)
+    findProjectPreview(root, pkg, options.previews),
+    options.libraries
   ])
 
   const { styles, packageStyles } = loaded ?? { styles: [], packageStyles: [] }
   notes.unshift(stylesNote(loaded))
-  const libraries = await findLibraries(root, pkg, styles, renderer, packageStyles)
+  const libraries = await findLibraries(root, pkg, styles, renderer, { packageStyles, detected: detected ?? [] })
   notes.push(...libraries.notes)
   await addWorkspacePackages(root, pkg, renderer, libraries, notes)
   const documents = options.documents ? [...options.documents] : await findProjectDocuments(root)

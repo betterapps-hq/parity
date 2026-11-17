@@ -885,7 +885,7 @@ function canOpen(process: ProjectProcess): boolean {
 
 function describe(process: ProjectProcess): string {
   if (kindOf(process) === "builder") {
-    return `${process.name} builds ${process.project} for the canvas, inside Parity's project service. It stops when the project's tab closes.`
+    return `${process.name} builds ${process.project} for the canvas, inside Parity's project service. It stops when the project closes.`
   }
 
   if (process.lifetime === "task") {

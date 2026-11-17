@@ -168,9 +168,7 @@ describe("shortcutOf", () => {
     expect(shortcutOf("delete", true)).toBe("⌫")
   })
 
-  it("shows the keys the tab bar and the start page wrote out before they read the keymap", () => {
-    expect(shortcutOf("home", false)).toBe("Alt+Home")
-    expect(shortcutOf("newTab", false)).toBe("Ctrl+T")
+  it("shows the keys the start page wrote out before it read the keymap", () => {
     expect(shortcutOf("actions", false)).toBe("Ctrl+K")
     expect(shortcutOf("openFolder", false)).toBe("Ctrl+O")
     expect(shortcutOf("openFile", false)).toBe("Ctrl+Shift+O")

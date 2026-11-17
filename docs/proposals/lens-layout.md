@@ -1,12 +1,13 @@
 # Proposal: one project per window, its lenses down the left
 
 Status: draft for discussion, 2026-11-16, with a clickable exploration in Storybook, Parity/Explorations/Lenses, laid
-out by Dockview (PAR-1237). Nothing in the app is built; [Building it into the app](#building-it-into-the-app) plans it
-as PAR-1239 to PAR-1248. Andrew asked for routes, components and stories to have canvases and panels of their own, as
-the database's ERD, the API and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down the left as VS
-Code lists its views, and for a lens to move into a window on another monitor. He also asked that Parity have one
-project open at a time, so the window's project tabs go. This changes app-lenses.md's third decision, "each lens as its
-own canvas page, with links jumping between pages and the design canvas staying the main view".
+out by Dockview (PAR-1237). One project per window is built (PAR-1241); the rest isn't, and
+[Building it into the app](#building-it-into-the-app) plans it as PAR-1239, PAR-1240, PAR-1242 to PAR-1248 and PAR-1251.
+Andrew asked for routes, components and stories to have canvases and panels of their own, as the database's ERD, the API
+and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down the left as VS Code lists its views, and for
+a lens to move into a window on another monitor. He also asked that Parity have one project open at a time, so the
+window's project tabs go. This changes app-lenses.md's third decision, "each lens as its own canvas page, with links
+jumping between pages and the design canvas staying the main view".
 
 ## In one line
 
@@ -34,13 +35,15 @@ and following a link in the inspector, in place or beside.
 
 - **No project tabs.** The title bar keeps the menus on the left and the account menu on the right, and shows the
   project's name in the middle. The name opens the project's menu: Open project folder, recent projects and Close
-  project. Opening one closes the open one, asking to save first as closing a tab does today.
-- **Home is what a window shows with no project,** in place of its pinned tab: today's Home page under the title bar.
+  project. Opening one closes the open one, asking to save first as closing it does.
+- **Home is what a window shows with no project,** where it was a pinned tab before: Home's page under the title bar.
 - **Windows of one project.** A lens moved to a window of its own is the same project, so the rule holds: the app has
   one project open, in as many windows as its lenses need.
 
-What goes: the tab bar (`TabBar`), new tabs and their page, and the workspace's several open projects with their
-restore. The project service still could hold more than one project; the window would only ever ask for one.
+What went, with PAR-1241: the tab bar (`TabBar`), new tabs and their page, and the workspace's several open projects
+with their restore. The project service still could hold more than one project; the window only ever asks for one. Until
+lenses arrive, an extension's page shows in the project's place, under the title bar, with a button that closes it and
+shows the project again, since there's no tab for it to open in.
 
 ## Lenses down the left
 
@@ -105,6 +108,7 @@ background.
 ## What it needs
 
 - **One project per window,** and no tab bar: the workspace's open projects become one, and opening another replaces it.
+  Built in PAR-1241.
 - **A canvas per lens.** Today there's one tldraw canvas per project. A lens's canvas mounts when it first shows, and
   keeps its camera and selection after.
 - **Docking from Dockview** for the tabs, groups, splits, drag and drop, pop-out windows and saving the layout; see
@@ -140,19 +144,22 @@ apps/desktop/src/renderer/lenses/  the shell, and the only place that imports Do
 panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
 story shows the real shell. Extensions can add lenses the same way later, as they add panel tabs and pages today.
 
-| Step                                                             | Issue                        | Needs              |
-| ---------------------------------------------------------------- | ---------------------------- | ------------------ |
-| The decisions as data, with tests                                | PAR-1239                     |                    |
-| The shell in the app, behind a Dockview adapter and the registry | PAR-1240                     | PAR-1239           |
-| One project per window, with Home when none is open              | PAR-1241                     |                    |
-| The open project in the shell, with Screens as its first lens    | PAR-1243                     | PAR-1240, PAR-1241 |
-| Pages, Components and Stories as lenses of their own             | PAR-1244, PAR-1245, PAR-1246 | PAR-1243           |
-| Today's canvas tried in a lens's own window                      | PAR-1242                     |                    |
-| Lens windows in the desktop app                                  | PAR-1247                     | PAR-1242, PAR-1243 |
-| Each project's layout saved and restored                         | PAR-1248                     | PAR-1243           |
+The steps go in this order, each after the one before:
 
-Data's canvas, the ERD, comes with the Data lens's own work (PAR-40). Trying today's canvas in a lens's own window goes
-early, since it's the part most likely to change the plan.
+| Step                                                             | Issue    |
+| ---------------------------------------------------------------- | -------- |
+| One project per window, with Home when none is open (built)      | PAR-1241 |
+| The decisions as data, with tests                                | PAR-1239 |
+| The shell in the app, behind a Dockview adapter and the registry | PAR-1240 |
+| The open project in the shell, with today's canvas as one lens   | PAR-1243 |
+| Pages as a lens of its own                                       | PAR-1244 |
+| Stories as a lens of its own                                     | PAR-1246 |
+| Screens holding only designs                                     | PAR-1251 |
+| Components as a lens of its own                                  | PAR-1245 |
+
+Once Components lands, the rest follow: today's canvas tried in a lens's own window (PAR-1242), then lens windows in the
+desktop app (PAR-1247), and each project's layout saved and restored (PAR-1248). Data's canvas, the ERD, comes with the
+Data lens's own work (PAR-40).
 
 ## On Dockview
 

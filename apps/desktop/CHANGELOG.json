@@ -2,6 +2,147 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 03:17:30 GMT",
+      "version": "0.100.1",
+      "tag": "@parity-app/desktop_v0.100.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "339168dcf21979735814bd37bdaf619712b7aba2",
+            "comment": "Typing next to an emoji in a shared text no longer splits it in two."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 17 Nov 2026 03:02:36 GMT",
+      "version": "0.100.0",
+      "tag": "@parity-app/desktop_v0.100.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "34415c2cd130b325556e7cd7ad979fce349d2379",
+            "comment": "Hold one project per window, with Home when none is open: the title bar shows the open project's name and its menu, in place of project tabs"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d03e74a1eca7a0e00497db51ce7608808a90f7aa",
+            "comment": "Run internal extensions' window modules in each project tab, with their Node halves linked and their failures contained"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "912f388b3650cb5d20e75769b8f218c376cd54e1",
+            "comment": "Two people typing in the same text at once keep every letter: each key is written as it's typed, as the change at the caret, and Undo keeps what others typed since."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fa44288a613136cad6da5d34447ed83818e1a427",
+            "comment": "A window module's setting value is checked against the setting's schema, as the Node half checks it."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 17 Nov 2026 02:17:05 GMT",
+      "version": "0.99.0",
+      "tag": "@parity-app/desktop_v0.99.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c237a713e1c603c6dbf6e81abc91cf70ec0edffd",
+            "comment": "Spike the lens exploration on Dockview"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4fe3f1c0da405a513ebdaf41883c4d222c18a9a4",
+            "comment": "Move the Tailwind extension's class writer out of core, so it uses only @parity-app/extension (PAR-1130)"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c1606ebce993081ae20d447cacf0c3803e9a6730",
+            "comment": "Storybook previews written with definePreview compose with their addons, and Parity's own preview file can use definePreview (PAR-97)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1c23bc1fc592be9483a159c123cade14cf9df594",
+            "comment": "Text typed on the canvas is written as it's typed, one undo step per pause, so others in a live room see it while it's typed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1e75ed96777001a4c589514a97304f1a143678a5",
+            "comment": "Several drags show at once: other people's drags draw with the local lift, carry and settle in their color, and boards an agent moves are held through a core hold that lets go after 10 s or when grabbed"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "db959b1b7b2f66ecf3d719f93788072a80e498ba",
+            "comment": "Colors by key that never run out, the camera and following, and boxes and hits on the canvas, as core services (PAR-1236)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "c70d6965ee0dd0363da5907f5c2dec7b104dcb0f",
+            "comment": "Frames draw inside the project's Storybook preview when it has no .parity/preview, composed with Storybook's portable stories API as Storybook's extension names it (PAR-98)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "25d38af3fe05807edbe70c9e5fef38360c3f6332",
+            "comment": "Component libraries: add Shadcn, Mantine, Chakra UI, Fluent UI or Material UI from a dialog that previews each one's tokens, components and breakpoints, change Shadcn's settings, and remove a library; shadcn set up by hand is found by its extension"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "7258d10d1eeb804d8ea5d0f727eb892011e3f776",
+            "comment": "Keep Vite's prebundled dependencies per copy of Parity, bundle what only pages import before any page loads, and keep the warm-up's compiled modules"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "97bc6fd3853552e07098a0e0cd2f7f3d00534e24",
+            "comment": "In a live room, the copy that writes files saves everyone's edits, token values sync, and so does which state and mode a design shows."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "87b27e6e8bcfb729615780dc15988bf7a22ffcd5",
+            "comment": "The preview file offer looks inside fragments between the app's providers"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a8f372d6c60d06e640e129358105bb2dc6d2148b",
+            "comment": "Text being typed keeps what someone else in a live room wrote right where a deletion starts."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "123bbc0dd594cc03988506afcc05ec2fab1af987",
+            "comment": "End a builder as soon as its project service is gone, even while its main thread is busy"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 22:19:52 GMT",
       "version": "0.98.2",
       "tag": "@parity-app/desktop_v0.98.2",

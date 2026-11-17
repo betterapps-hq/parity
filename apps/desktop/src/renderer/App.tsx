@@ -17,7 +17,7 @@ import { offerLastCrashReport, ReportProblemDialog } from "./chrome/ReportProble
 import { restoreAsked } from "./chrome/restore.ts"
 import { RestorePrompt } from "./chrome/RestorePrompt.tsx"
 import { ShortcutsDialog } from "./chrome/ShortcutsDialog.tsx"
-import { TabBar } from "./chrome/TabBar.tsx"
+import { TitleBar } from "./chrome/TitleBar.tsx"
 import { cancelUnsaved } from "./chrome/unsaved.ts"
 import { UnsavedPrompt } from "./chrome/UnsavedPrompt.tsx"
 import { startUpdates } from "./chrome/updates.tsx"
@@ -27,8 +27,7 @@ import { LibraryBrowserHost } from "./library/LibraryBrowser.tsx"
 import { ProjectView } from "./ProjectView.tsx"
 import { SettingsBridge } from "./settings-project.ts"
 import { HomePage } from "./start/HomePage.tsx"
-import { NewTabPage } from "./start/NewTabPage.tsx"
-import { useActiveTabId, useHomeActive, useTabs, workspace } from "./workspace.ts"
+import { usePage, useProject, workspace } from "./workspace.ts"
 
 let started = false
 
@@ -66,7 +65,7 @@ export function WindowBoundary({ children }: { children: ReactNode }) {
   )
 }
 
-/** Saves every project's changes, then loads the window afresh. If saving fails, the window stays as it is. */
+/** Saves the project's changes, then loads the window afresh. If saving fails, the window stays as it is. */
 function reloadWindow(): void {
   void workspace.flush().then(
     () => location.reload(),
@@ -75,13 +74,13 @@ function reloadWindow(): void {
 }
 
 /**
- * The window's contents: the tabs, Home, each open project or new tab, and the app's dialogs. On first launch the
- * sign-in screen shows in Home's place, until the person signs in, goes on without, or opens a project another way.
+ * The window's contents: the title bar, then Home or the open project, an extension's page in the project's place
+ * while one shows, and the app's dialogs. On first launch the sign-in screen shows in Home's place, until the person
+ * signs in, goes on without, or opens a project another way.
  */
 export function AppWindow() {
-  const tabs = useTabs()
-  const active = useActiveTabId()
-  const home = useHomeActive()
+  const project = useProject()
+  const page = usePage()
   const account = useAccount()
   const signInScreen = account.place === "screen"
   useAppShortcuts()
@@ -90,12 +89,12 @@ export function AppWindow() {
     <TooltipProvider>
       <div className="flex h-full flex-col bg-background text-foreground">
         <ErrorBoundary
-          name="tab-bar"
-          label="Tabs"
+          name="title-bar"
+          label="Title bar"
           kind="strip"
           className="h-10 shrink-0 border-b bg-neutral-100 pr-[150px] [-webkit-app-region:drag] *:[-webkit-app-region:no-drag] dark:bg-[#0a0a0a]"
         >
-          <TabBar />
+          <TitleBar />
         </ErrorBoundary>
         {/* Over everything while this copy needs someone signed in: what's open stays as it is underneath. */}
         {signInScreen && (
@@ -103,38 +102,22 @@ export function AppWindow() {
             <SignInScreen state={account.state} />
           </ErrorBoundary>
         )}
-        <ErrorBoundary name="home" label="Home" kind="page" hidden={!home || signInScreen}>
-          <HomePage active={home && !signInScreen} />
+        <ErrorBoundary name="home" label="Home" kind="page" hidden={!!project || signInScreen}>
+          <HomePage active={!project && !signInScreen} />
         </ErrorBoundary>
-        {tabs.map((tab) => {
-          if (tab.page) {
-            return (
-              <ErrorBoundary
-                key={tab.id}
-                name="extension-page"
-                label={tab.title}
-                kind="page"
-                hidden={tab.id !== active || signInScreen}
-              >
-                <ExtensionPageView page={tab.page} active={tab.id === active && !signInScreen} />
-              </ErrorBoundary>
-            )
-          }
-
-          return tab.blank ? (
-            <ErrorBoundary
-              key={tab.id}
-              name="new-tab"
-              label="New tab"
-              kind="page"
-              hidden={tab.id !== active || signInScreen}
-            >
-              <NewTabPage active={tab.id === active && !signInScreen} />
-            </ErrorBoundary>
-          ) : (
-            <ProjectView key={tab.id} id={tab.id} active={tab.id === active && !signInScreen} />
-          )
-        })}
+        {project && page && (
+          <ErrorBoundary
+            key={`${page.extension}:${page.page}`}
+            name="extension-page"
+            label={page.title}
+            kind="page"
+            hidden={signInScreen}
+          >
+            <ExtensionPageView page={page} active={!signInScreen} />
+          </ErrorBoundary>
+        )}
+        {/* Under an extension's page it stays mounted, so its canvas is as it was when the page closes. */}
+        {project && <ProjectView key={project.id} id={project.id} active={!page && !signInScreen} />}
       </div>
       <Toaster />
       {/* Each dialog fails on its own, and closing what it shows closes it (PAR-667). */}

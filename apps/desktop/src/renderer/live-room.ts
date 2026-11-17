@@ -15,19 +15,43 @@ import { reportError } from "./report-error.ts"
  * `scripts/dev-room.ts`. The first copy in opens the files and hosts; a later one opens on the host's snapshot. Each
  * copy sends the Loro updates of its commits and takes in the others'. People's cursors are tldraw presence records,
  * drawn by `RoomCursor`; an agent's steps are passed on as they are to the agent presence queue, so the other copies
- * play its cursor as this one does. Only the host saves files.
+ * play its cursor as this one does. Only the host writes files, others' edits included, and token values and which state
+ * and mode a design shows sync with the rest (docs/proposals/extensions-in-the-window.md: Saving in a room).
  */
 
-/** Where someone's cursor is, in page coordinates, or nowhere when it's off the canvas. */
+/**
+ * Where someone's typing (docs/proposals/extensions-in-the-window.md, the `text` gesture): the text layer, in the state
+ * its editor writes to, and the selection in its text, as a textarea counts it. A caret has `anchor` and `focus` equal.
+ */
+const typingSchema = z.object({
+  design: z.string(),
+  node: z.string(),
+  state: z.string().optional(),
+  anchor: z.number().int().nonnegative(),
+  focus: z.number().int().nonnegative()
+})
+
+export type Typing = z.infer<typeof typingSchema>
+
+/** Where someone's cursor is, in page coordinates, or nowhere when it's off the canvas, and where they're typing. */
 const personSchema = z.object({
   id: z.string(),
   name: z.string(),
   /** Their palette's name, among the agents' palettes. */
   palette: z.string(),
-  cursor: z.object({ x: z.number(), y: z.number() }).optional()
+  cursor: z.object({ x: z.number(), y: z.number() }).optional(),
+  typing: typingSchema.optional()
 })
 
 type Person = z.infer<typeof personSchema>
+
+/** Someone else typing on the canvas, with the name and palette their cursor shows. */
+export interface Typist {
+  id: string
+  name: string
+  palette: string
+  typing: Typing
+}
 
 const point = z.object({ x: z.number(), y: z.number() })
 
@@ -88,8 +112,10 @@ type Outgoing =
 export interface LiveRoom {
   /** This copy, as the relay knows it. */
   readonly peer: string
-  /** Whether this copy saves files: the host does, and a copy that takes over when the host leaves. */
+  /** Whether this copy writes files: the host does, and a copy that takes over when the host leaves. */
   saves(): boolean
+  /** Told when this copy starts or stops writing files, as the host changes. */
+  onSavesChange(listener: (saves: boolean) => void): () => void
   /** Opens the project on Loro, on the host's snapshot unless this copy is the first in. */
   readonly provider: DocProvider
   /**
@@ -97,6 +123,11 @@ export interface LiveRoom {
    * project is open in here, showing other copies' agents there.
    */
   attachEditor(editor: Editor | undefined, tab: string): void
+  /** Sends where this person is typing, or that they've stopped, with their cursor. */
+  setTyping(typing: Typing | undefined): void
+  /** Who else is typing on the canvas, and where: the same array until it changes. */
+  typists(): readonly Typist[]
+  subscribeTypists(listener: () => void): () => void
   leave(): void
 }
 
@@ -202,6 +233,25 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
   const early: Uint8Array[] = []
   const askers: string[] = []
   const people = new Map<string, Person>()
+  const hostListeners = new Set<(saves: boolean) => void>()
+  let typists: readonly Typist[] = []
+  const typistListeners = new Set<() => void>()
+
+  // Who's typing, from `people`, told to listeners when it changes.
+  const retype = () => {
+    const next = [...people.values()].flatMap(({ id, name, palette, typing }) =>
+      typing ? [{ id, name, palette, typing }] : []
+    )
+
+    if (JSON.stringify(next) !== JSON.stringify(typists)) {
+      typists = next
+
+      for (const listener of typistListeners) {
+        listener()
+      }
+    }
+  }
+
   let stopEditor: () => void = nothing
   let stopLocal: () => void = nothing
 
@@ -229,6 +279,7 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
 
   const show = (person: Person) => {
     people.set(person.id, person)
+    retype()
 
     if (editor) {
       putPerson(editor, person)
@@ -237,7 +288,19 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
 
   const forget = (from: string) => {
     people.delete(from)
+    retype()
     editor?.store.mergeRemoteChanges(() => editor?.store.remove([InstancePresenceRecordType.createId(from)]))
+  }
+
+  const setHost = (next: string) => {
+    const saved = host === peer
+    host = next
+
+    if ((host === peer) !== saved) {
+      for (const listener of hostListeners) {
+        listener(host === peer)
+      }
+    }
   }
 
   listeners.add((message) => {
@@ -266,10 +329,10 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
       // A welcome comes again when the connection to a relay that restarted reconnects.
       case "welcome":
       case "joined":
-        host = message.host
+        setHost(message.host)
         break
       case "left":
-        host = message.host ?? peer
+        setHost(message.host ?? peer)
         forget(message.from)
         break
       default:
@@ -306,8 +369,12 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
     }
   }
 
-  const sendCursor = (cursor: Person["cursor"]) => {
-    const person: Person = { id: peer, name: name(), palette, cursor }
+  // This person as the others see them: their cursor and where they're typing, sent together.
+  let cursor: Person["cursor"]
+  let typing: Typing | undefined
+
+  const sendPerson = () => {
+    const person: Person = { id: peer, name: name(), palette, cursor, typing }
 
     queue((batch) => {
       batch.people = [...batch.people.filter((each) => each.id !== peer), person]
@@ -317,6 +384,11 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
   return {
     peer,
     saves: () => host === peer,
+    onSavesChange: (listener) => {
+      hostListeners.add(listener)
+
+      return () => hostListeners.delete(listener)
+    },
     provider,
     attachEditor: (next, of) => {
       stopEditor()
@@ -332,8 +404,17 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
       }
 
       const container = next.getContainer()
-      const move = (event: PointerEvent) => sendCursor(next.screenToPage({ x: event.clientX, y: event.clientY }))
-      const away = () => sendCursor(undefined)
+
+      const move = (event: PointerEvent) => {
+        cursor = next.screenToPage({ x: event.clientX, y: event.clientY })
+        sendPerson()
+      }
+
+      const away = () => {
+        cursor = undefined
+        sendPerson()
+      }
+
       container.addEventListener("pointermove", move)
       container.addEventListener("pointerleave", away)
 
@@ -342,12 +423,26 @@ export async function joinLiveRoom(url: string, project: string): Promise<LiveRo
         container.removeEventListener("pointerleave", away)
       }
     },
+    setTyping: (next) => {
+      if (JSON.stringify(next) !== JSON.stringify(typing)) {
+        typing = next
+        sendPerson()
+      }
+    },
+    typists: () => typists,
+    subscribeTypists: (listener) => {
+      typistListeners.add(listener)
+
+      return () => typistListeners.delete(listener)
+    },
     leave: () => {
+      typistListeners.clear()
       stopEditor()
       stopAgents()
       stopLocal()
       events.close()
       listeners.clear()
+      hostListeners.clear()
     }
   }
 }

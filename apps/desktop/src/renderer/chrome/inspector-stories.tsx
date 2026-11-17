@@ -2,7 +2,7 @@ import { type Selection, type StyleSection } from "@parity-app/editor"
 import type { ReactNode } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { type ContainerEntry } from "../project-doc.ts"
-import { example, openProjects, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
+import { example, openProject, type ProjectName, ProjectStage } from "../stories/fixtures.tsx"
 import { setLayout } from "./layout.ts"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { useStyleEditor } from "./style-editor.ts"
@@ -52,7 +52,7 @@ export async function openInspector(
   answer?: () => void
 ): Promise<void> {
   answer?.()
-  await openProjects(...names)
+  await openProject(...names)
   setLayout({ rightTab })
 }
 

@@ -1,7 +1,7 @@
+import { AgentBadge, AgentPointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { agentColors } from "./agent-colors.ts"
-import { AgentBadge, AgentPointer } from "./AgentPointer.tsx"
 
 /**
  * Which palette each agent at work gets. The palettes themselves, for people and agents alike, are in Multiplayer's

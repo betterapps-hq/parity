@@ -10,11 +10,12 @@ import {
   type ReferenceSpec
 } from "@parity-app/core"
 import {
-  noTokenEdits,
+  keptCharacters,
   sameDesign,
   sameDocument,
   sameTokenValues,
   sameValue,
+  type TokenEdit,
   type TokenEdits,
   withTidyView,
   withoutModes
@@ -38,7 +39,8 @@ import type {
   TransactOptions,
   TransactProblem,
   TransactResult,
-  UndoState
+  UndoState,
+  Written
 } from "./types.ts"
 import { fieldOf, pathOf } from "./values.ts"
 
@@ -49,10 +51,13 @@ import { fieldOf, pathOf } from "./values.ts"
  * draft, and takes back only this person's steps.
  */
 
-/** An inverse, with the value its target holds while nothing else has changed it, to tell when someone else has. */
+/**
+ * An inverse, with the value its target holds while nothing else has changed it, to tell when someone else has: a
+ * field's value, or the token values a token edit left.
+ */
 interface Inverse {
   op: DocOp
-  expect?: { value: JsonValue | undefined }
+  expect?: { value: JsonValue | undefined } | { tokens: TokenEdits } | { text: string }
 }
 
 interface Step {
@@ -87,15 +92,11 @@ interface GestureState {
 /** Origins whose changes are never steps. */
 const notSteps = new Set<ChangeOrigin>(["view", "code", "remote"])
 
-/** Origins whose changes aren't written. */
-const notWritten = new Set<ChangeOrigin>(["code", "file", "remote"])
+/** Origins whose changes come from the files, so the files already hold them. */
+const fromFiles = new Set<ChangeOrigin>(["code", "file"])
 
-export function createProjectDoc(
-  backend: DocBackend,
-  options: { undoLimit: number; main: string; tokens?: TokenEdits }
-): ProjectDoc {
+export function createProjectDoc(backend: DocBackend, options: { undoLimit: number; main: string }): ProjectDoc {
   const { main, undoLimit } = options
-  let tokens = options.tokens ?? noTokenEdits
   let undoStack: Step[] = []
   let redoStack: Step[] = []
   let steps = 0
@@ -110,7 +111,7 @@ export function createProjectDoc(
   const listeners = new Set<(change: DocChange) => void>()
   const gestureListeners = new Set<() => void>()
 
-  const state = (): DocState => ({ files: backend.files(), main, modes: backend.modes(), tokens })
+  const state = (): DocState => ({ files: backend.files(), main, modes: backend.modes(), tokens: backend.tokens() })
 
   const notify = (change: DocChange) => {
     for (const listener of listeners) {
@@ -149,8 +150,8 @@ export function createProjectDoc(
       origin: "remote",
       label: "",
       kind: "remote",
-      persist: false,
-      tokens: false,
+      // Not in this copy's files yet: the copy that writes files writes it like its own.
+      written: "no",
       kept: 0
     })
   })
@@ -170,34 +171,37 @@ export function createProjectDoc(
       let applied: Applied
 
       // Undoing: a field someone else has changed since is left as they left it.
-      if (skipping && expect && !sameValue(currentValue(after, op), expect.value)) {
+      if (skipping && expect && "value" in expect && !sameValue(currentValue(after, op), expect.value)) {
         skipping.kept += 1
         continue
       }
 
-      try {
-        applied = applyOp(after, op, index, recorder)
-      } catch (error) {
-        if (!(error instanceof OpProblem)) {
-          throw error
-        }
-
-        const retried = skipping && retry(after, op, index, recorder, error.problem, skipping)
-
-        if (!retried) {
-          if (skipping) {
-            continue
+      // And so are token values and typing someone else has changed since (see `undoing`).
+      for (const taken of skipping ? undoing(after, { op, expect }, skipping) : [op]) {
+        try {
+          applied = applyOp(after, taken, index, recorder)
+        } catch (error) {
+          if (!(error instanceof OpProblem)) {
+            throw error
           }
 
-          return error.problem
+          const retried = skipping && retry(after, op, index, recorder, error.problem, skipping)
+
+          if (!retried) {
+            if (skipping) {
+              continue
+            }
+
+            return error.problem
+          }
+
+          applied = retried
         }
 
-        applied = retried
+        after = applied.state
+        inverse.push(applied.inverse.map((each) => guarded(each, after)))
+        plain.push(...applied.plain)
       }
-
-      after = applied.state
-      inverse.push(applied.inverse.map((each) => guarded(each, after)))
-      plain.push(...applied.plain)
     }
 
     return { after, inverse, plain }
@@ -245,13 +249,10 @@ export function createProjectDoc(
       return problem
     }
 
-    const sent = result.plain.filter((op) => op.op !== "setTokens")
-
-    if (sent.length > 0) {
-      backend.apply(sent, origin)
+    if (result.plain.length > 0) {
+      backend.apply(result.plain, origin)
     }
 
-    tokens = result.after.tokens
     changeCount += 1
     history = undefined
 
@@ -260,7 +261,7 @@ export function createProjectDoc(
 
   const changeOf = (
     recorder: Recorder,
-    extra: Pick<DocChange, "origin" | "label" | "kind" | "persist" | "kept"> & {
+    extra: Pick<DocChange, "origin" | "label" | "kind" | "written" | "kept"> & {
       gesture?: GestureId
       meta?: JsonValue
     }
@@ -330,7 +331,7 @@ export function createProjectDoc(
       origin: options.origin,
       label,
       kind,
-      persist: (options.persist ?? true) && !notWritten.has(options.origin),
+      written: writtenOf(options),
       kept: 0,
       gesture: options.gesture,
       meta: options.meta
@@ -401,7 +402,7 @@ export function createProjectDoc(
       origin: step.origin,
       label: step.label,
       kind,
-      persist: true,
+      written: "no",
       kept: skipping.kept,
       meta: step.meta
     })
@@ -482,7 +483,7 @@ export function createProjectDoc(
       return parent ? { node: parent.id, slot: location.slot } : "design"
     },
     modes: () => backend.modes(),
-    tokens: () => tokens,
+    tokens: () => backend.tokens(),
     version: () => backend.version(),
 
     transact: (label, ops, options) => run(label, ops, options, "transaction"),
@@ -499,7 +500,7 @@ export function createProjectDoc(
         }
       }
 
-      return run(`Reload ${path}`, ops, { origin: "file", persist: false, undoable: true }, "replaceFile")
+      return run(`Reload ${path}`, ops, { origin: "file", written: "files", undoable: true }, "replaceFile")
     },
 
     beginGesture: () => {
@@ -802,11 +803,149 @@ function designIn(state: DocState, key: DesignKey): ContainerSpec | undefined {
   return split && state.files.get(split.path)?.containers.find((container) => container.id === split.id)
 }
 
-/** An inverse with the value its target holds now, for the fields an inverse sets back. */
+/** Where a transaction's content is already written. */
+function writtenOf(options: TransactOptions): Written {
+  return options.written ?? (fromFiles.has(options.origin) ? "files" : "no")
+}
+
+/** An inverse with the value its target holds now, for the fields and token values an inverse sets back. */
 function guarded(op: DocOp, after: DocState): Inverse {
+  if (op.op === "setTokens") {
+    return { op, expect: { tokens: after.tokens } }
+  }
+
+  if (op.op === "editText" && op.edit.kind === "splice") {
+    const text = textIn(after, op)
+
+    return text === undefined ? { op } : { op, expect: { text } }
+  }
+
   return op.op === "set" || op.op === "setDesign" || op.op === "setFileField"
     ? { op, expect: { value: currentValue(after, op) } }
     : { op }
+}
+
+/**
+ * What an inverse writes while undoing: only the step's own token values go back, and only the step's own typing comes
+ * out of a text others have typed in since (PAR-1238). Nothing when there's nothing of the step's left.
+ */
+function undoing(state: DocState, { op, expect }: Inverse, skipping: { kept: number }): DocOp[] {
+  if (expect && "tokens" in expect && op.op === "setTokens") {
+    return [tokensBack(state.tokens, op.tokens, expect.tokens, skipping)]
+  }
+
+  if (expect && "text" in expect && op.op === "editText") {
+    return textBack(state, op, expect.text, skipping)
+  }
+
+  return [op]
+}
+
+/** A text layer's text, or nothing when it's gone or isn't a text layer. */
+function textIn(state: DocState, op: Extract<DocOp, { op: "editText" }>): string | undefined {
+  const container = designIn(state, op.design)
+  const node = container && findNode(container.root, op.node)
+
+  return node?.type === "text" ? node.text : undefined
+}
+
+/**
+ * Undoing typing in a text others have typed in since: the step's own characters that are still there come out, and
+ * what it removed goes back where those characters were, wherever others' edits have moved them; theirs stay. Each
+ * character of the text as the step left it is followed to where it is now (`kept`), so edits others made on both
+ * sides of the typing, or inside it, stay apart. Written as changes to the text as it is now, last first so each
+ * position holds; when there's nothing of the step's left to take out, it's skipped and counted.
+ */
+function textBack(
+  state: DocState,
+  op: Extract<DocOp, { op: "editText" }>,
+  left: string,
+  skipping: { kept: number }
+): DocOp[] {
+  const now = textIn(state, op)
+
+  if (now === undefined || now === left || op.edit.kind !== "splice") {
+    return [op]
+  }
+
+  const { at, remove, insert } = op.edit
+  const where = keptCharacters(left, now)
+  // The step's characters still there, in runs of neighbours.
+  const runs: { start: number; end: number }[] = []
+
+  for (let index = at; index < at + remove; index++) {
+    const position = where[index]!
+    const last = runs.at(-1)
+
+    if (position < 0) {
+      continue
+    }
+
+    if (last && last.end === position) {
+      last.end += 1
+    } else {
+      runs.push({ start: position, end: position + 1 })
+    }
+  }
+
+  if (runs.length === 0 && insert === "") {
+    skipping.kept += 1
+
+    return []
+  }
+
+  // What the step removed goes back before the first character after its own that's still there.
+  let back = now.length
+
+  for (let index = at + remove; index < left.length; index++) {
+    if (where[index]! >= 0) {
+      back = where[index]!
+      break
+    }
+  }
+
+  const splice = (start: number, end: number, text: string): DocOp => ({
+    ...op,
+    edit: { kind: "splice", at: start, remove: end - start, insert: text }
+  })
+
+  return [
+    ...(insert === "" ? [] : [splice(back, back, insert)]),
+    ...runs.toReversed().map(({ start, end }) => splice(start, end, ""))
+  ]
+}
+
+/**
+ * The token values undoing a token edit leaves: each token the step changed goes back to what it was before, unless
+ * someone else has changed it since, and every other token stays as it is now.
+ */
+function tokensBack(now: TokenEdits, before: TokenEdits, left: TokenEdits, skipping: { kept: number }) {
+  const next = new Map(now)
+
+  for (const key of new Set([...before.keys(), ...left.keys()])) {
+    if (sameEdit(before.get(key), left.get(key))) {
+      continue
+    }
+
+    if (!sameEdit(now.get(key), left.get(key))) {
+      skipping.kept += 1
+      continue
+    }
+
+    const back = before.get(key)
+
+    if (back) {
+      next.set(key, back)
+    } else {
+      next.delete(key)
+    }
+  }
+
+  return { op: "setTokens", tokens: next } satisfies DocOp
+}
+
+function sameEdit(a: TokenEdit | undefined, b: TokenEdit | undefined): boolean {
+  return a === b || (a !== undefined && b !== undefined && a.value === b.value && a.original === b.original)
 }
 
 /** What the field an inverse sets back holds now. */

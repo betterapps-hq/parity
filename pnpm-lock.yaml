@@ -388,6 +388,9 @@ importers:
       '@parity-app/extension-rspack':
         specifier: workspace:*
         version: link:../../packages/extension-rspack
+      '@parity-app/extension-shadcn':
+        specifier: workspace:*
+        version: link:../../packages/extension-shadcn
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../../packages/extension-storybook
@@ -430,6 +433,9 @@ importers:
       '@parity-app/presence-colors':
         specifier: workspace:*
         version: link:../../packages/presence-colors
+      '@parity-app/presence-ui':
+        specifier: workspace:*
+        version: link:../../packages/presence-ui
       '@parity-app/processes':
         specifier: workspace:*
         version: link:../../packages/processes
@@ -833,6 +839,12 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/style-schema':
+        specifier: workspace:*
+        version: link:../style-schema
+      '@parity-app/tokens':
+        specifier: workspace:*
+        version: link:../tokens
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -851,6 +863,9 @@ importers:
       '@parity-app/processes':
         specifier: workspace:*
         version: link:../processes
+      '@parity-app/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -870,6 +885,12 @@ importers:
       next:
         specifier: ^16.0.0
         version: 16.4.6(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+
+  packages/extension-node:
+    dependencies:
+      '@parity-app/project':
+        specifier: workspace:*
+        version: link:../project
 
   packages/extension-portless:
     dependencies:
@@ -965,6 +986,18 @@ importers:
         specifier: ^1.4.0 || ^2.0.0
         version: 2.3.2(@swc/helpers@0.5.24)
 
+  packages/extension-shadcn:
+    dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      react:
+        specifier: ^18.0.0 || ^19.0.0
+        version: 19.3.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+
   packages/extension-storybook:
     dependencies:
       '@parity-app/core':
@@ -1010,24 +1043,19 @@ importers:
 
   packages/extension-tailwind:
     dependencies:
-      '@parity-app/core':
-        specifier: workspace:*
-        version: link:../core
       '@parity-app/extension':
         specifier: workspace:*
         version: link:../extension
-      '@parity-app/project':
+      '@parity-app/extension-node':
         specifier: workspace:*
-        version: link:../project
-      '@parity-app/style-schema':
-        specifier: workspace:*
-        version: link:../style-schema
-      '@parity-app/tokens':
-        specifier: workspace:*
-        version: link:../tokens
+        version: link:../extension-node
       tailwindcss:
         specifier: ^4.0.0
         version: 4.3.3
+    devDependencies:
+      '@parity-app/style-schema':
+        specifier: workspace:*
+        version: link:../style-schema
 
   packages/extension-tanstack-router:
     dependencies:
@@ -1119,6 +1147,9 @@ importers:
       '@parity-app/extension-rspack':
         specifier: workspace:*
         version: link:../extension-rspack
+      '@parity-app/extension-shadcn':
+        specifier: workspace:*
+        version: link:../extension-shadcn
       '@parity-app/extension-storybook':
         specifier: workspace:*
         version: link:../extension-storybook
@@ -1263,6 +1294,25 @@ importers:
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
+
+  packages/presence-ui:
+    dependencies:
+      '@buildkitgg/shadcn':
+        specifier: link:../../apps/desktop/node_modules/.buildkit/shadcn
+        version: link:../../apps/desktop/node_modules/.buildkit/shadcn
+      '@parity-app/presence-colors':
+        specifier: workspace:*
+        version: link:../presence-colors
+      lucide-react:
+        specifier: ^1.66.0
+        version: 1.66.0(@types/react@19.3.0)(react@19.3.1)
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/processes:
     dependencies:

@@ -19,6 +19,7 @@ export {
   setPosition,
   snapshotOf,
   snapshotOps,
+  typeInContainer,
   updateContainer,
   updateContainers,
   updateNote,
@@ -49,6 +50,13 @@ export { createProjectDoc } from "./project-doc.ts"
 
 export { Recorder } from "./recorder.ts"
 
-export { createProjectSaver, type Persistence, type ProjectSaver, saveDelay, type TokenWriter } from "./saver.ts"
+export {
+  createProjectSaver,
+  type Persistence,
+  type ProjectSaver,
+  type SavedBaseline,
+  saveDelay,
+  type TokenWriter
+} from "./saver.ts"
 
 export * from "./types.ts"

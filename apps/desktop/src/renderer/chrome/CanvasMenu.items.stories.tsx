@@ -2,7 +2,7 @@ import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from "@buildkitgg
 import { layersSelection, type Selection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"
-import { design, example, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { design, example, node, openProject, ProjectStage } from "../stories/fixtures.tsx"
 import { items, keysOf } from "./canvas-menu-stories.tsx"
 import type { MenuTarget } from "./canvas-menu.ts"
 import { CanvasMenuItems } from "./CanvasMenu.tsx"
@@ -59,7 +59,7 @@ function menuFor(
     args: { opened: { point: { x: 0, y: 0 } } },
     loaders: [
       async () => {
-        await openProjects("example")
+        await openProject("example")
 
         if (selection) {
           example().selection.set(selection())

@@ -21,7 +21,6 @@ import {
 } from "@parity-app/core"
 import { newestEntries, newestEntryFor, registryEntryFor, withEdits } from "@parity-app/registry"
 import { type ReadTokenFile, readDesignTokens, type SkippedToken } from "@parity-app/tokens"
-import { z } from "zod"
 import { exportedComponents, findPackage, type InstalledPackage, packageEntry } from "./packages.ts"
 import { readStylesheet } from "./styles.ts"
 
@@ -35,24 +34,24 @@ export interface LibraryDefinition {
   tailwindEntry?: string
   /** Icon libraries add icons rather than components to compose with. */
   kind?: "components" | "icons"
+  /** The version of the package its file was made for. */
+  version?: string
 }
 
 /**
  * Libraries that can be added to a project from the canvas: one per package in Parity's registry, from the file made
- * for its newest version. Buildkit's nova style comes first.
+ * for its newest version, components before icons. Buildkit's shadcn kits are left out: their files describe what
+ * shadcn-sync generates now, which the shadcn extension sets up instead (PAR-1227).
  */
 export async function libraryCatalog(): Promise<LibraryDefinition[]> {
   return (await newestEntries())
     .map((entry) => definitionOf(entry.manifest, entry.manifest.package!.name))
+    .filter((library) => !buildkitStyle.test(library.package))
     .sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name))
 }
 
 function rank(library: LibraryDefinition): number {
-  if (library.id === "nova") {
-    return 0
-  }
-
-  return library.kind === "icons" ? 2 : 1
+  return library.kind === "icons" ? 1 : 0
 }
 
 /**
@@ -69,6 +68,37 @@ export function withStylesImport(source: string, specifier: string): string | un
   lines.splice(tailwind + 1, 0, `@import "${specifier}";`)
 
   return lines.join("\n")
+}
+
+/**
+ * Each `@import` rule, with the spaces around it and the line break after it: its specifier quoted or in `url()`,
+ * quoted or not, as `@import url("a.css") layer(base);` imports `a.css`.
+ */
+const importRules = /[ \t]*@import\s+(?:url\(\s*["']?([^"')\s]+)["']?\s*\)|["']([^"']+)["'])[^;]*;[ \t]*(\r?\n)?/g
+
+/**
+ * A stylesheet without its imports of a library's styles, or `undefined` when it doesn't import them. Only the rule
+ * goes: a line it had to itself goes with it, and other rules on its line stay.
+ */
+export function withoutStylesImport(source: string, specifier: string): string | undefined {
+  let kept = ""
+  let last = 0
+
+  for (const rule of source.matchAll(importRules)) {
+    if ((rule[1] ?? rule[2]) !== specifier) {
+      continue
+    }
+
+    kept += source.slice(last, rule.index)
+    last = rule.index + rule[0].length
+
+    // A rule that starts its line takes the line's break with it; one after others on its line leaves the break.
+    if (rule.index > 0 && source[rule.index - 1] !== "\n") {
+      kept = kept.trimEnd() + (rule[3] ?? "")
+    }
+  }
+
+  return last === 0 ? undefined : kept + source.slice(last)
 }
 
 /** Buildkit publishes each shadcn style as its own package; any of them is recognized once installed. */
@@ -94,97 +124,64 @@ function buildkitDefinition(packageName: string): LibraryDefinition | undefined 
   }
 }
 
-/** The package shadcn-sync generates into each app, in whichever base and style the app chose. */
-const syncPackage = "@buildkitgg/shadcn"
-
-/** The part of the `manifest.json` shadcn-sync writes beside the components that says what it generated. */
-const syncManifest = z.object({
-  settings: z.object({
-    base: z.enum(["base", "radix", "aria"]),
-    style: z.string().regex(/^[a-z]+$/),
-    css: z.string().optional()
-  })
-})
-
-/** sync's bases, each with the name its Buildkit kits have in their package names and the primitives' own. */
-const syncBases = {
-  base: { kit: "baseui", primitives: "Base UI" },
-  radix: { kit: "radix", primitives: "Radix" },
-  aria: { kit: "aria", primitives: "React Aria" }
-} satisfies Record<z.infer<typeof syncManifest>["settings"]["base"], { kit: string; primitives: string }>
-
-/** What shadcn-sync generated in a package: the kit the registry describes it by, and a definition to fall back on. */
-interface SyncedStyle {
-  /** The Buildkit kit of the same base and style, such as `@buildkitgg/shadcn-baseui-nova`. */
-  kit: string
-  /** The library as it's shown when the registry has no file for the kit, as for a base no kit is published on. */
-  definition: LibraryDefinition
-}
-
 /**
- * What shadcn-sync generated, from its `manifest.json`. In Tailwind mode the app's Tailwind builds the components'
- * classes from the package's `tailwind.css`, which the app imports as it would a kit's; otherwise each component imports
- * its own CSS and there's nothing to import.
+ * A library an extension's libraries provider found that the project's dependencies' names alone don't identify, as
+ * the components shadcn-sync generates (`LibrariesProvider.detect`), which a file in Parity's registry describes.
  */
-async function syncedStyle(packageDir: string): Promise<SyncedStyle | undefined> {
-  let parsed: ReturnType<typeof syncManifest.safeParse>
-
-  try {
-    parsed = syncManifest.safeParse(JSON.parse(await readFile(join(packageDir, "manifest.json"), "utf8")))
-  } catch {
-    return undefined
-  }
-
-  if (!parsed.success) {
-    return undefined
-  }
-
-  const { base, style, css } = parsed.data.settings
-  const { kit, primitives } = syncBases[base]
-
-  return {
-    kit: `@buildkitgg/shadcn-${kit}-${style}`,
-    definition: {
-      id: style,
-      name: `Shadcn ${style.charAt(0).toUpperCase()}${style.slice(1)}`,
-      description: `Every shadcn component on ${primitives}, in the ${style} style.`,
-      package: syncPackage,
-      tailwindEntry: css === "tailwind" ? "tailwind.css" : undefined
-    }
-  }
+export interface DetectedLibrary {
+  /** The package whose newest registry file describes it, whether or not that package is installed. */
+  registry: string
+  /** The dependency its components are imported from. Left out when they're the app's own, so only tokens are read. */
+  package?: string
+  name: string
+  description: string
+  /** Its Tailwind entry, from the package's folder. */
+  tailwindEntry?: string
+  /** An icon package its components draw with, read as an icon library even when it isn't a dependency. */
+  icons?: string
 }
 
 /**
- * The registry's file for a dependency: for the components shadcn-sync generates, the newest file for the kit they
- * stand in for, whatever version is installed, since they follow upstream rather than the kit's releases.
+ * The registry's file for a dependency: for one an extension found, the newest file for the package that describes it,
+ * whatever version is installed, since what it describes follows its own releases rather than that package's.
  */
 function registryFileFor(
   packageName: string,
   version: string | undefined,
-  synced: SyncedStyle | undefined,
+  hint: DetectedLibrary | undefined,
   registry: string | undefined
 ) {
-  return synced ? newestEntryFor(synced.kit, registry) : registryEntryFor(packageName, version, registry)
+  return hint ? newestEntryFor(hint.registry, registry) : registryEntryFor(packageName, version, registry)
 }
 
-/** How a dependency is shown: sync's components under their kit's name, in their own package. */
+/**
+ * How a dependency is shown: one an extension found under its registry file's name, in its own package. Its components
+ * are named by that package (`shadcn/Button`), not the file, so choosing another style or base keeps designs' instances.
+ */
 function definitionFor(
   manifest: LibraryManifest | undefined,
   packageName: string,
-  synced: SyncedStyle | undefined
+  hint: DetectedLibrary | undefined
 ): LibraryDefinition | undefined {
-  if (!synced) {
+  if (!hint) {
     return manifest ? definitionOf(manifest, packageName) : buildkitDefinition(packageName)
   }
 
   if (!manifest) {
-    return synced.definition
+    return {
+      id: libraryId({ id: "" }, packageName),
+      name: hint.name,
+      description: hint.description,
+      package: packageName,
+      tailwindEntry: hint.tailwindEntry
+    }
   }
 
   return {
-    ...definitionOf(manifest, synced.kit),
+    ...definitionOf(manifest, hint.registry),
+    id: libraryId({ id: "" }, packageName),
     package: packageName,
-    tailwindEntry: synced.definition.tailwindEntry
+    tailwindEntry: hint.tailwindEntry
   }
 }
 
@@ -200,49 +197,96 @@ export interface FoundLibraries {
   notes: string[]
 }
 
+/** Where `findLibraries` looks, beyond the project's own dependencies. */
+export interface FindLibrariesOptions {
+  /** Packages' stylesheets the app loads, by specifier, so a library's counts as imported. */
+  packageStyles?: string[]
+  /** The registry's folder; the one Parity ships, unless a test gives another. */
+  registry?: string
+  /** What the project's extensions found that its dependencies' names don't identify. */
+  detected?: DetectedLibrary[]
+}
+
 /**
  * The libraries a project depends on, with the components each exports. A dependency is a library when it ships a
  * `.lib.par` manifest, or when Parity's registry has one for its package at the installed version. Either is found by
  * what the package really is, so an alias such as `@buildkitgg/shadcn-baseui-kit` resolves to the style it was
- * installed as.
+ * installed as. What an extension found (`detected`) is described by its registry file: a dependency of its package
+ * with that file's components, checked against what the package declares, one without a package by the file's tokens
+ * alone, and an icon package it draws with as an icon library, whether or not the project depends on it.
  */
 export async function findLibraries(
   root: string,
   pkg: PackageManifest,
   stylesheets: string[],
   renderer: RendererAdapter,
-  packageStyles: string[] = [],
-  /** The registry's folder; the one Parity ships, unless a test gives another. */
-  registry?: string
+  { packageStyles = [], registry, detected = [] }: FindLibrariesOptions = {}
 ): Promise<FoundLibraries> {
   // A library's stylesheet counts as imported from a theme file the entry stylesheet imports, too.
   const css = (await Promise.all(stylesheets.map((path) => readStylesheet(join(root, path))))).join("\n")
   const result: FoundLibraries = { libraries: [], components: {}, iconSets: {}, describedTokens: [], notes: [] }
   const dependencies = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
+  /** Where each library found was installed, by the name the project imports it by. */
+  const folders = new Map<string, string>()
 
-  for (const importName of dependencies) {
-    let installed: InstalledPackage | undefined
-
+  const find = async (from: string, importName: string) => {
     try {
-      installed = await findPackage(root, importName)
+      return await findPackage(from, importName)
     } catch (error) {
       result.notes.push(`${importName} was left out: ${errorText(error)}`)
-      continue
+
+      return undefined
+    }
+  }
+
+  for (const importName of dependencies) {
+    const installed = await find(root, importName)
+
+    if (installed) {
+      folders.set(importName, installed.dir)
+      await addLibrary(importName, installed)
+    }
+  }
+
+  for (const hint of detected) {
+    if (!hint.package) {
+      await addTokens(hint)
     }
 
-    if (!installed) {
-      continue
-    }
+    if (hint.icons && !folders.has(hint.icons)) {
+      // The components' own copy, where the project doesn't have one, as sync links into its package.
+      const beside = hint.package === undefined ? undefined : folders.get(hint.package)
+      const installed = (await find(root, hint.icons)) ?? (beside ? await find(beside, hint.icons) : undefined)
 
+      if (installed) {
+        folders.set(hint.icons, installed.dir)
+        await addLibrary(hint.icons, installed)
+      }
+    }
+  }
+
+  return result
+
+  /** The tokens of what an extension found that are the app's own components, as shadcn's CLI copies them. */
+  async function addTokens(hint: DetectedLibrary) {
+    const tokens = await registryTokens(hint.registry, result.notes, registry)
+
+    if (tokens && !result.describedTokens.some((described) => described.manifest === tokens.manifest)) {
+      result.describedTokens.push(tokens)
+    }
+  }
+
+  /** A package the project imports by `importName`, when it's a library, with its components and tokens. */
+  async function addLibrary(importName: string, installed: InstalledPackage) {
     const packageDir = installed.dir
     const { version } = installed.manifest
     const packageName = installed.manifest.name ?? importName
-    const synced = packageName === syncPackage ? await syncedStyle(packageDir) : undefined
-    // The registry describes sync's components by the kit they stand in for.
-    const describedAs = synced?.kit ?? packageName
+    const hint = detected.find((candidate) => candidate.package === packageName || candidate.package === importName)
+    // The registry describes what an extension found by the package its file is for.
+    const describedAs = hint?.registry ?? packageName
 
     const own = await libraryManifestIn(packageDir)
-    const fromRegistry = own ? undefined : await registryFileFor(packageName, version, synced, registry)
+    const fromRegistry = own ? undefined : await registryFileFor(packageName, version, hint, registry)
 
     const described = own ?? fromRegistry
 
@@ -261,10 +305,10 @@ export async function findLibraries(
       ? remapLibraryImports(edited.manifest, (specifier) => importOf(specifier, describedAs, importName))
       : undefined
 
-    const definition = definitionFor(manifest, packageName, synced)
+    const definition = definitionFor(manifest, packageName, hint)
 
     if (!definition || result.libraries.some((library) => library.id === definition.id)) {
-      continue
+      return
     }
 
     const manifestPath = own
@@ -307,7 +351,7 @@ export async function findLibraries(
         result.iconSets[iconSetPropsId(definition.id)] = icon
       }
 
-      continue
+      return
     }
 
     // TypeScript's own last resort is the package's `index.d.ts`.
@@ -317,12 +361,12 @@ export async function findLibraries(
     if (listed) {
       // A file made for another version still describes it: components the package doesn't export are left out,
       // and ones it has that the file doesn't list are found by name until the file is updated.
-      // sync's components are always checked: they're generated from upstream shadcn, which the kit's file may be
-      // ahead of or behind.
-      const mismatched = synced || fromRegistry?.older || fromRegistry?.newer
+      // What an extension found is always checked, as shadcn-sync's components are: they're generated from upstream
+      // shadcn, which the kit's file may be ahead of or behind.
+      const mismatched = hint || fromRegistry?.older || fromRegistry?.newer
       const differs = mismatched ? await otherExports(entry, renderer, listed.list) : undefined
 
-      if (differs && fromRegistry && !synced) {
+      if (differs && fromRegistry && !hint) {
         const made = fromRegistry.manifest.package?.version ?? "another version"
 
         const about = fromRegistry.older
@@ -355,7 +399,7 @@ export async function findLibraries(
         }
       }
 
-      continue
+      return
     }
 
     for (const component of await declaredComponents(entry, renderer)) {
@@ -367,8 +411,6 @@ export async function findLibraries(
       )
     }
   }
-
-  return result
 }
 
 /**
@@ -510,6 +552,22 @@ export async function describedTokens(
   }
 }
 
+/**
+ * The tokens the newest file in Parity's registry for a package describes, named `registry:<file>`, so they can be shown
+ * before the library is added. Undefined when the registry has no file for the package, or its file describes none.
+ * Each malformed token left out is added to `notes`.
+ */
+export async function registryTokens(
+  packageName: string,
+  notes: string[] = [],
+  /** The registry's folder; the one Parity ships, unless a test gives another. */
+  registry?: string
+): Promise<DescribedTokens | undefined> {
+  const entry = await newestEntryFor(packageName, registry)
+
+  return entry && describedTokens(dirname(entry.path), entry.path, entry.manifest, notes, `registry:${entry.file}`)
+}
+
 /** The `.lib.par` at a package's root, if it ships one that parses. */
 async function libraryManifestIn(packageDir: string): Promise<{ path: string; manifest: LibraryManifest } | undefined> {
   const entries = await readdir(packageDir).catch(() => [])
@@ -544,7 +602,8 @@ function definitionOf(manifest: LibraryManifest, packageName: string): LibraryDe
     description: manifest.description ?? "",
     package: packageName,
     tailwindEntry: tailwindEntry || undefined,
-    kind: icons ? "icons" : undefined
+    kind: icons ? "icons" : undefined,
+    version: manifest.package?.version
   }
 }
 

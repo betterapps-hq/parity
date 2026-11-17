@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Several drags show at once: other people's drags draw with the local lift, carry and settle in their color, and boards an agent moves are held through a core hold that lets go after 10 s or when grabbed",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

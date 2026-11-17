@@ -12,12 +12,12 @@ import { type ProjectDesigns, type ProjectSession, workspace } from "../workspac
 import { getPreferences } from "./preferences.ts"
 
 /**
- * What the window shares beyond its commands: the active tab's session, what's selected in it, and exporting, which the
+ * What the window shares beyond its commands: the project's session, what's selected in it, and exporting, which the
  * Export section runs at its own sizes. The commands themselves run only through `actions.ts`, which records them.
  */
 
 export function activeSession(): ProjectSession | undefined {
-  return workspace.getActive()?.session
+  return workspace.getProject()?.session
 }
 
 /**

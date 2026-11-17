@@ -3,7 +3,7 @@ import { refsSelection, routeScreenId } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Box } from "tldraw"
 import { AppWindow } from "../App.tsx"
-import { example, openProjects } from "../stories/fixtures.tsx"
+import { example, openProject } from "../stories/fixtures.tsx"
 import { answerNext } from "../stories/host.ts"
 import { canvasIdFor } from "./CanvasEditor.tsx"
 import { routePagesFile, routeRef } from "./route-pages.ts"
@@ -75,7 +75,7 @@ function pageTree({ zoom, selected, group }: { zoom?: number; selected?: string;
     loaders: [
       async () => {
         answerNext("project.open", async (_, real) => ({ ...(await real()), routes }))
-        await openProjects("example")
+        await openProject("example")
       }
     ],
     play: async () => {

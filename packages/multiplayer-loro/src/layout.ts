@@ -12,6 +12,7 @@ import {
   type NoteSpec,
   type ReferenceSpec
 } from "@parity-app/core"
+import type { TokenEdit, TokenEdits } from "@parity-app/editor"
 import { LoroMap, type LoroMovableList, LoroText, type LoroTree, type LoroTreeNode, type TreeID } from "loro-crdt"
 
 /*
@@ -96,6 +97,8 @@ export type ProjectContainers = {
   /** A file's path to its other fields; a file is in the project while it has an entry. */
   files: LoroMap<Record<string, FieldMap>>
   modes: FieldMap
+  /** Token values edited on the canvas, by `name theme`, each replaced whole. */
+  tokens: FieldMap
 }
 
 /** A design node's own field naming its file, beside the design's fields. */
@@ -492,6 +495,41 @@ export function readFile(
 export function listJson(list: ItemList): JsonValue[] {
   // SAFETY: notes and references are set from checked items, each whole.
   return list.toJSON() as JsonValue[]
+}
+
+/** The token values edited on the canvas, as the tokens map holds them. */
+export function readTokens(tokens: FieldMap): TokenEdits {
+  const edits = new Map<string, TokenEdit>()
+
+  for (const [key, value] of Object.entries(recordJson(tokens))) {
+    if (!isJsonRecord(value)) {
+      continue
+    }
+
+    const name = textOf(value.name)
+    const theme = textOf(value.theme)
+    const edit = textOf(value.value)
+
+    if (name === undefined || theme === undefined || edit === undefined) {
+      continue
+    }
+
+    const read: TokenEdit = { name, theme, value: edit }
+    const original = textOf(value.original)
+
+    if (original !== undefined) {
+      read.original = original
+    }
+
+    edits.set(key, read)
+  }
+
+  return edits
+}
+
+/** A token edit as the tokens map holds it, `original` null when the token had no value in its theme. */
+export function tokenJson({ name, theme, value, original }: TokenEdit) {
+  return { name, theme, value, original: original ?? null }
 }
 
 export function readModes(modes: FieldMap): ModeSettings {

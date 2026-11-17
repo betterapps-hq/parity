@@ -2,10 +2,10 @@ import { TooltipProvider } from "@buildkitgg/shadcn"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { OpeningProject, ProjectFailed } from "./ProjectStatus.tsx"
 import { roots } from "./stories/host.ts"
-import type { Tab } from "./workspace.ts"
+import type { Project } from "./workspace.ts"
 
 /**
- * What a project's tab shows before the project is ready: the steps of opening it over the editor's outline, or why it
+ * What the window shows before the project is ready: the steps of opening it over the editor's outline, or why it
  * couldn't open. Parity / App shows them in the whole window.
  */
 const meta = {
@@ -26,12 +26,12 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const opening = (tab: Partial<Tab>): Story => ({
-  render: () => <OpeningProject tab={{ id: roots.example, title: "shadcn-vite", status: "loading", ...tab }} />
+const opening = (project: Partial<Project>): Story => ({
+  render: () => <OpeningProject project={{ id: roots.example, title: "shadcn-vite", status: "loading", ...project }} />
 })
 
-const failed = (tab: Partial<Tab>): Story => ({
-  render: () => <ProjectFailed tab={{ id: roots.broken, title: "broken-app", status: "error", ...tab }} />
+const failed = (project: Partial<Project>): Story => ({
+  render: () => <ProjectFailed project={{ id: roots.broken, title: "broken-app", status: "error", ...project }} />
 })
 
 /** Before the service has said which project it is, as when the app starts with nothing to restore. */

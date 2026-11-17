@@ -1,0 +1,49 @@
+{
+  "name": "@parity-app/extension-shadcn",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "shadcn/ui in Parity: the components shadcn-sync generates or shadcn's CLI copies, read with their style's file, and Shadcn set up from the Components panel.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./shadcn": "./src/shadcn.ts",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@parity-app/extension": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "parity": {
+    "displayName": "shadcn/ui",
+    "prefix": "shadcn",
+    "icon": {
+      "viewBox": "0 0 256 256",
+      "path": "M180.7 28.7 203.3 51.3 51.3 203.3 28.7 180.7Z M196.7 116.7 219.3 139.3 139.3 219.3 116.7 196.7Z"
+    },
+    "activates": [
+      "onDetect"
+    ],
+    "permissions": {
+      "read": [
+        "package.json",
+        "components.json",
+        "node_modules/@buildkitgg/shadcn/manifest.json"
+      ]
+    },
+    "contributes": {
+      "providers": {
+        "libraries": {}
+      }
+    }
+  }
+}

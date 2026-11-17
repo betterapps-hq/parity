@@ -15,6 +15,7 @@ import {
 } from "@parity-app/core"
 import { findComponents } from "@parity-app/extension-react/components"
 import reactExtension from "@parity-app/extension-react/package.json" with { type: "json" }
+import { detectLibraries, readProjectFiles } from "@parity-app/extension-shadcn/shadcn"
 import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { exportStoryScreen, importStories, importStoryScreens } from "@parity-app/extension-storybook/screens"
 import { type ProjectStorybook, projectStorybook } from "@parity-app/extension-storybook/storybook"
@@ -220,7 +221,11 @@ async function discover(): Promise<{
     return detection.found ? [{ adapter: tool, detection }] : []
   })
 
-  const config = await discoverProject(root, renderer, pkg, { styles: builder.styles?.(detectContext(root, pkg)) })
+  const config = await discoverProject(root, renderer, pkg, {
+    styles: builder.styles?.(detectContext(root, pkg)),
+    libraries: detectLibraries(await readProjectFiles((path) => readFile(join(root, path), "utf8")))
+  })
+
   const stylesheet = config.styles[0]
   const source = stylesheet ? await readFile(join(root, stylesheet), "utf8") : ""
   // Tailwind reads the theme, as its extension's styles provider does in the app.

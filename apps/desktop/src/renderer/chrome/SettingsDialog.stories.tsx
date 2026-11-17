@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { openProjects, preferring } from "../stories/fixtures.tsx"
+import { openProject, preferring } from "../stories/fixtures.tsx"
 import { dialogStories, openOverExample } from "./chrome-fixtures.tsx"
 import { setPreferences } from "./preferences.ts"
 import { openSettings, SettingsDialog } from "./SettingsDialog.tsx"
@@ -22,7 +22,7 @@ type Story = StoryObj<typeof meta>
 export const AsTheyStart: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ theme: "dark", performanceStats: false })
     }
   ],
@@ -35,7 +35,7 @@ export const AsTheyStart: Story = {
 export const Changed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ theme: "system", autosave: true, performanceStats: false })
       setPreferences({ layoutGrid: true, exportSizes: [{ format: "png", scale: 3 }] })
     }
@@ -49,7 +49,7 @@ export const Changed: Story = {
 export const ProjectPage: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       preferring({ theme: "dark", performanceStats: false })
     }
   ],

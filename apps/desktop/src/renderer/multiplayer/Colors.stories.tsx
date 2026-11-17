@@ -7,15 +7,12 @@ import {
   palette,
   tunedAgentPalettes
 } from "@parity-app/presence-colors"
+import { gradient, type Member, MemberBadge, Outlined, RemotePointer } from "@parity-app/presence-ui"
 import { contrastRatio, parseHex, rgbaToOklch } from "@parity-app/tokens"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { Check, X } from "lucide-react"
 import { useId, useState } from "react"
 import { canvasBackground, type Theme, scrolls } from "../stories/canvas-kit.tsx"
-import { gradient, type Member } from "./member.ts"
-import { MemberBadge } from "./MemberBadge.tsx"
-import { Outlined } from "./Outlined.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
 
 /**
  * People and agents each have their own list of colors, handed out by number, so the same person is the same color in

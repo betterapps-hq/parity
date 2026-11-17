@@ -13,12 +13,13 @@ const readers = ["code", "project", "registry"]
 
 /**
  * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, Parity's own extensions,
- * which run in Node hosts of their own, the media player and fixtures.
+ * which run in Node hosts of their own, the media player, presence's components and fixtures.
  */
 const edge = [
   "agent",
   "builder-webpack-compatible",
   "cli",
+  "extension-node",
   "extension-react",
   "extension-rsbuild",
   "extension-rspack",
@@ -32,7 +33,8 @@ const edge = [
   "fixtures",
   "libgen",
   "media-player",
-  "next-builders"
+  "next-builders",
+  "presence-ui"
 ]
 
 const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)

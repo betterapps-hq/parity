@@ -3,6 +3,8 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   editableText,
   openingSelection,
+  rebaseText,
+  spliceAt,
   textSizing,
   textSizingKeys,
   textToEdit,
@@ -265,5 +267,84 @@ describe("withTextSizing", () => {
         expect(textSizing(next)).toBe(sizing)
       }
     }
+  })
+})
+
+describe("the change typed in a text (PAR-1238)", () => {
+  it("is the one ending at the caret, where a letter beside the same letter could be either", () => {
+    // "l" typed after the first "l" of "Hello": with the caret there, it's that "l", not the second.
+    expect(spliceAt("Hello", "Helllo", 3)).toEqual({ start: 2, end: 2, insert: "l" })
+    expect(spliceAt("Hello", "Helllo", 5)).toEqual({ start: 4, end: 4, insert: "l" })
+  })
+
+  it("changes a character written as two code units whole", () => {
+    // The two emoji share their first code unit: the change is the whole emoji, not its second half.
+    expect(spliceAt("a😃b", "a😄b", 3)).toEqual({ start: 1, end: 3, insert: "😄" })
+    expect(rebaseText("a😃b", "a😄b", "a😅b", { start: 3, end: 3 }).text).toBe("a😅😄b")
+  })
+
+  it("is the first place it could be without a caret, and covers a replaced selection", () => {
+    expect(spliceAt("Hello", "Helllo")).toEqual({ start: 2, end: 2, insert: "l" })
+    expect(spliceAt("Hello world", "Hello there", 11)).toEqual({ start: 6, end: 11, insert: "there" })
+    expect(spliceAt("Hello", "Helo", 3)).toEqual({ start: 3, end: 4, insert: "" })
+  })
+})
+
+describe("taking someone else's change into text being typed", () => {
+  const caret = (at: number) => ({ start: at, end: at })
+
+  it("keeps a change before the typing, and the caret moves along with the characters", () => {
+    // "Sign in" typed to "Sign in now", caret at the end, while someone wrote "Please " at the start.
+    expect(rebaseText("Sign in", "Sign in now", "Please sign in", caret(11))).toEqual({
+      text: "Please sign in now",
+      selection: caret(18)
+    })
+  })
+
+  it("keeps a change after the typing, and the caret stays put", () => {
+    expect(rebaseText("Sign in", "Sign up in", "Sign in today", caret(7))).toEqual({
+      text: "Sign up in today",
+      selection: caret(7)
+    })
+  })
+
+  it("puts the typing first when both write at the same place", () => {
+    expect(rebaseText("ab", "aXb", "aYb", caret(2))).toEqual({ text: "aXYb", selection: caret(2) })
+  })
+
+  it("keeps the typing after what the other wrote where they change the same characters", () => {
+    // Both replaced "in": the other with "up", the person with "out", caret after it.
+    expect(rebaseText("Sign in", "Sign out", "Sign up", caret(8))).toEqual({
+      text: "Sign upout",
+      selection: caret(10)
+    })
+  })
+
+  it("keeps what the other wrote where the person's deletion starts", () => {
+    // "a" deleted from "ab", while someone wrote "X" before it.
+    expect(rebaseText("ab", "b", "Xab", caret(0))).toEqual({ text: "Xb", selection: caret(1) })
+  })
+
+  it("moves a selection after a deletion before it", () => {
+    expect(rebaseText("one two three", "one two three!", "two three", { start: 4, end: 7 })).toEqual({
+      text: "two three!",
+      selection: { start: 0, end: 3 }
+    })
+  })
+
+  it("keeps the other's changes on both sides of the typing apart (PAR-1238)", () => {
+    // "b" composed into "中" while someone wrote "Z" before the text and "Y" after it.
+    expect(rebaseText("abc", "a中c", "ZabcY", caret(2))).toEqual({ text: "Za中cY", selection: caret(3) })
+  })
+
+  it("never splits a character written as two code units", () => {
+    // Someone swapped the emoji for one sharing its first code unit while "X" was typed after it, or in its place:
+    // the emoji stays whole, and typing beside what they changed comes first, as at any one place.
+    expect(rebaseText("a😃b", "a😃Xb", "a😄b", caret(4))).toEqual({ text: "aX😄b", selection: caret(2) })
+    expect(rebaseText("a😃b", "aXb", "a😄b", caret(2))).toEqual({ text: "a😄Xb", selection: caret(4) })
+  })
+
+  it("takes the change as it is when nothing's typed", () => {
+    expect(rebaseText("Hello", "Hello", "Hello there", caret(2))).toEqual({ text: "Hello there", selection: caret(2) })
   })
 })

@@ -9,8 +9,9 @@ import { restoreLabel, type TokenEdit, type TokenWrite } from "@parity-app/edito
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { changeTokens, restoreCopy, setModes, updateContainer } from "./callers.ts"
 import { createProjectDoc } from "./project-doc.ts"
-import { createProjectSaver } from "./saver.ts"
+import { createProjectSaver, type SavedBaseline } from "./saver.ts"
 import { plainProvider } from "./testing/plain-provider.ts"
+import type { BackendChange, DocBackend, DocOp } from "./types.ts"
 
 const home: ContainerSpec = {
   id: "home",
@@ -26,43 +27,70 @@ const smallModes: ModeSettings = {
   modes: [...defaultModeSettings.modes, { id: "small", name: "Small", values: { viewport: "mobile" } }]
 }
 
-function setup({ autosave = true } = {}) {
-  const doc = createProjectDoc(
-    plainProvider.open({
-      files: [
-        { path: "app.par", document: { ...emptyDocument(), containers: [home] } },
-        { path: "more.par", document: emptyDocument() }
-      ],
-      main: "app.par",
-      modes: defaultModeSettings
-    }),
-    { undoLimit: 200, main: "app.par" }
-  )
+/** A backend that also takes in changes made by another copy in a live room, as a provider that syncs does. */
+function inRoom(backend: DocBackend) {
+  const listeners = new Set<(change: BackendChange) => void>()
 
-  const writes: { path: string; document: CanvasDocument }[] = []
+  return {
+    backend: {
+      ...backend,
+      subscribe: (listener: (change: BackendChange) => void) => {
+        listeners.add(listener)
+
+        return () => listeners.delete(listener)
+      }
+    },
+    others: (ops: DocOp[]) => {
+      const change = backend.apply(ops, "remote")
+
+      for (const listener of listeners) {
+        listener(change)
+      }
+    }
+  }
+}
+
+const starting = (): { path: string; document: CanvasDocument }[] => [
+  { path: "app.par", document: { ...emptyDocument(), containers: [home] } },
+  { path: "more.par", document: emptyDocument() }
+]
+
+function setup({
+  autosave = true,
+  writesFiles,
+  saved
+}: { autosave?: boolean; writesFiles?: boolean; saved?: SavedBaseline } = {}) {
+  const room = inRoom(plainProvider.open({ files: starting(), main: "app.par", modes: defaultModeSettings }))
+  const doc = createProjectDoc(room.backend, { undoLimit: 200, main: "app.par" })
+
+  const writes: { path: string; document: CanvasDocument; fromOthers: number }[] = []
   const deletes: string[] = []
   let held: (() => void) | undefined
   const tokenWrites: TokenWrite[][] = []
   let failing: string | undefined
   let stylesheetFailing: string | undefined
 
-  const saver = createProjectSaver(doc, {
-    saveDocument: async (path, document) => {
-      if (failing) {
-        throw new Error(failing)
-      }
+  const saver = createProjectSaver(
+    doc,
+    {
+      saveDocument: async (path, document, { fromOthers }) => {
+        if (failing) {
+          throw new Error(failing)
+        }
 
-      if (held) {
-        await new Promise<void>((resolve) => (held = resolve))
-      }
+        if (held) {
+          await new Promise<void>((resolve) => (held = resolve))
+        }
 
-      writes.push({ path, document })
+        writes.push({ path, document, fromOthers })
+      },
+      deleteDocument: async (path) => {
+        deletes.push(path)
+      },
+      autosave: () => autosave
     },
-    deleteDocument: async (path) => {
-      deletes.push(path)
-    },
-    autosave: () => autosave
-  })
+    { writesFiles, saved }
+  )
 
   saver.writeTokensWith({
     path: "src/index.css",
@@ -78,6 +106,7 @@ function setup({ autosave = true } = {}) {
   return {
     doc,
     saver,
+    others: room.others,
     writes,
     deletes,
     tokenWrites,
@@ -103,6 +132,94 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
+})
+
+const renamedBy = (name: string): DocOp[] => [{ op: "setDesign", design: "app.par#home", path: ["name"], value: name }]
+
+describe("ProjectSaver in a live room", () => {
+  it("writes another copy's change a moment after it, counting it in the write", async () => {
+    const { saver, others, writes } = setup()
+    others(renamedBy("Theirs"))
+    others(renamedBy("Theirs again"))
+
+    expect(saver.unsaved()).toEqual(["app.par"])
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(writes).toEqual([expect.objectContaining({ path: "app.par", fromOthers: 2 })])
+    expect(writes[0]?.document.containers[0]?.name).toBe("Theirs again")
+    expect(saver.state()).toEqual({ status: "saved" })
+  })
+
+  it("writes another copy's token values to the stylesheet", async () => {
+    const { saver, others, tokenWrites } = setup()
+    others([{ op: "setTokens", tokens: new Map([["primary default", primary("red")]]) }])
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(tokenWrites).toEqual([[{ name: "primary", theme: "default", value: "red" }]])
+    expect(saver.hasUnsaved()).toBe(false)
+  })
+
+  it("writes nothing in a copy that doesn't write files, and has nothing of its own to save", async () => {
+    const { doc, saver, others, writes, tokenWrites } = setup({ writesFiles: false })
+    rename(doc, "Mine")
+    others(renamedBy("Theirs"))
+    changeTokens(doc, "Change primary", [primary("red")])
+    await vi.advanceTimersByTimeAsync(300)
+    await saver.flush()
+
+    expect(saver.writesFiles()).toBe(false)
+    expect(writes).toEqual([])
+    expect(tokenWrites).toEqual([])
+    expect(saver.unsaved()).toEqual([])
+    expect(saver.state()).toEqual({ status: "saved" })
+  })
+
+  it("writes every file that differs from what its files held when it takes over, and the stylesheet", async () => {
+    const { saver, others, writes, tokenWrites } = setup({
+      writesFiles: false,
+      saved: {
+        files: new Map(starting().map(({ path, document }) => [path, document])),
+        modes: defaultModeSettings,
+        tokens: new Map()
+      }
+    })
+
+    others(renamedBy("Theirs"))
+    others([{ op: "setTokens", tokens: new Map([["primary default", primary("red")]]) }])
+
+    await expect(saver.setWritesFiles(true)).resolves.toEqual({ filesWritten: 1, stylesheetWritten: true })
+    expect(writes).toEqual([expect.objectContaining({ path: "app.par", fromOthers: 1 })])
+    expect(tokenWrites).toHaveLength(1)
+    expect(saver.state()).toEqual({ status: "saved" })
+
+    others(renamedBy("Later"))
+    await vi.advanceTimersByTimeAsync(300)
+    expect(writes.at(-1)?.document.containers[0]?.name).toBe("Later")
+  })
+
+  it("writes what a copy that opened on another's document holds, though the document opened with it", async () => {
+    const opened = { files: new Map([["app.par", emptyDocument()]]), modes: defaultModeSettings, tokens: new Map() }
+    const { saver, writes } = setup({ writesFiles: false, saved: opened })
+
+    await saver.setWritesFiles(true)
+    expect(writes.map((write) => write.path).toSorted()).toEqual(["app.par", "more.par"])
+  })
+
+  it("lets go after the write in flight, and writes nothing after", async () => {
+    const { doc, saver, writes, hold, release } = setup()
+    hold()
+    rename(doc, "Mine")
+    await vi.advanceTimersByTimeAsync(300)
+
+    const letting = saver.setWritesFiles(false)
+    rename(doc, "Mine again")
+    release()
+    await letting
+    await vi.advanceTimersByTimeAsync(300)
+
+    expect(writes.map((write) => write.document.containers[0]?.name)).toEqual(["Mine"])
+    expect(saver.writesFiles()).toBe(false)
+  })
 })
 
 describe("ProjectSaver", () => {
