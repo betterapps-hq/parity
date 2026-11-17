@@ -466,7 +466,13 @@ async function otherExports(
   return {
     added: declared.filter((component) => !listedRoots.has(component.name)),
     gone,
-    files: new Map(declared.map((component) => [component.name, component.file]))
+    // Only where the file exports it by the same name: props are read by the export's name in its file, and an alias
+    // (`export { Card as Panel }`) points at a file that exports only `Card`.
+    files: new Map(
+      declared
+        .filter((component) => component.fileExport === component.export)
+        .map((component) => [component.export, component.file])
+    )
   }
 }
 
@@ -569,11 +575,18 @@ interface DeclaredComponent {
   name: string
   export: string
   file: string
+  /** The name its file exports it by. */
+  fileExport: string
 }
 
 /** The components a library's declarations export, through both kinds of re-export. */
 async function declaredComponents(entry: string, renderer: RendererAdapter): Promise<DeclaredComponent[]> {
   const exported = await exportedComponents(entry, renderer)
 
-  return [...exported].map(([name, component]) => ({ name: component.name, export: name, file: component.file }))
+  return [...exported].map(([name, component]) => ({
+    name: component.name,
+    export: name,
+    file: component.file,
+    fileExport: component.fileExport
+  }))
 }
