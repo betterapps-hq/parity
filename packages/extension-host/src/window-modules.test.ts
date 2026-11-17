@@ -778,6 +778,26 @@ describe("an internal extension's two halves (the window test extension, in the 
     )
   })
 
+  it("keeps each of two agents' overlapping window commands its own agent's", async () => {
+    const { hosts, ready } = setUp()
+
+    await ready()
+
+    const [first, second] = await Promise.allSettled([
+      hosts.runForAgent("shop", { name: "wtest.confirm" }, "Claude"),
+      hosts.runForAgent("shop", { name: "wtest.confirm" }, "Codex")
+    ])
+
+    expect(first).toMatchObject({
+      status: "rejected",
+      reason: { message: expect.stringContaining("Claude is running") }
+    })
+    expect(second).toMatchObject({
+      status: "rejected",
+      reason: { message: expect.stringContaining("Codex is running") }
+    })
+  })
+
   it("deactivates the window module once the Node half has crashed three times in a row", async () => {
     const { ends, ready, runtime, events } = setUp()
 

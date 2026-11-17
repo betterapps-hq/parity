@@ -457,6 +457,8 @@ interface Host<Project> {
    * meanwhile is the agent's too: its edits are named after the agent, and it can't ask the person anything.
    */
   windowCall?: number
+  /** Agents' window commands for it, one at a time, so each holds `windowCall` alone while it runs. */
+  windowTurn?: Promise<unknown>
 }
 
 /** A host's process while it runs. */
@@ -1301,6 +1303,14 @@ export function extensionHosts<Project extends OpenedProject>(
       candidate.extension.package.manifest.contributes.commands?.some((declared) => declared.id === command)
     )
 
+  /** Runs an agent's window command for an extension after any other agent's for it has finished. */
+  function agentTurn<T>(host: Host<Project>, task: () => Promise<T>): Promise<T> {
+    const next = (host.windowTurn ?? Promise.resolve()).then(task)
+    host.windowTurn = next.catch(() => undefined)
+
+    return next
+  }
+
   /** Runs an extension's command, starting its host first when it isn't running, and gives what it returned. */
   async function runCommand(
     open: OpenProject<Project>,
@@ -1320,15 +1330,23 @@ export function extensionHosts<Project extends OpenedProject>(
     const { window } = options
 
     if (manifest.window !== undefined && window.runInWindow) {
-      const ran = await as(agent, async (call) => {
-        host.windowCall = call
+      const inWindow = async () => (await window.runInWindow?.(open.project.id, command, target)) ?? { handled: false }
 
-        try {
-          return (await window.runInWindow?.(open.project.id, command, target)) ?? { handled: false }
-        } finally {
-          delete host.windowCall
-        }
-      })
+      // An agent's runs one at a time, each holding its call while it runs; the person's leave an agent's call alone.
+      const ran =
+        agent === undefined
+          ? await inWindow()
+          : await agentTurn(host, () =>
+              as(agent, async (call) => {
+                host.windowCall = call
+
+                try {
+                  return await inWindow()
+                } finally {
+                  delete host.windowCall
+                }
+              })
+            )
 
       if (ran.handled) {
         return ran.result
