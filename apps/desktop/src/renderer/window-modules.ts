@@ -7,6 +7,7 @@ import {
   type WindowModules,
   windowModules
 } from "@parity-app/extension-host/window"
+import { windowCanvas } from "@parity-app/extension-host/window-canvas"
 import type { ExtensionStatus, LogLine } from "../shared/protocol.ts"
 import type { ServiceParams } from "../shared/service-params.ts"
 import type { EditorRequest } from "./extensions.ts"
@@ -15,6 +16,7 @@ import { track } from "./report-error.ts"
 import { request } from "./service.ts"
 import type { Store } from "./store.ts"
 import { notify } from "./toasts.tsx"
+import { windowCanvasPort } from "./window-canvas.tsx"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -101,6 +103,8 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions):
       return load()
     },
     editor: editorOf(session, extensions),
+    // The canvas, the camera and colors, for `parity.canvas`, `parity.camera` and `parity.colors`.
+    surfaces: windowCanvas(windowCanvasPort(session, tab)),
     halves: {
       start: (extension, trigger) =>
         void request("extensions.startHalf", { projectId, extension, trigger }).catch(() => undefined),
