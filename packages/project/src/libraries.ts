@@ -382,7 +382,12 @@ export async function findLibraries(
           continue
         }
 
-        const declaration = component.declaration ? join(packageDir, component.declaration) : entry
+        // The package's own declarations, where they were read, over the file's: shadcn-sync's package keeps them in
+        // `ui/`, where the kit the file was made from kept them in `dist/ui/`.
+        const declaration =
+          differs?.files.get(name.split(".")[0]!) ??
+          (component.declaration ? join(packageDir, component.declaration) : entry)
+
         result.components[`${definition.id}/${name}`] = {
           ...librarySource(definition.id, name, component, listed.import ?? importName),
           declaration: posix.normalize(relative(root, declaration).replaceAll("\\", "/"))
@@ -438,11 +443,11 @@ async function otherExports(
   entry: string,
   renderer: RendererAdapter,
   list: LibraryComponents["list"]
-): Promise<{ added: DeclaredComponent[]; gone: Set<string> }> {
+): Promise<{ added: DeclaredComponent[]; gone: Set<string>; files: Map<string, string> }> {
   const declared = await declaredComponents(entry, renderer)
 
   if (declared.length === 0) {
-    return { added: [], gone: new Set() }
+    return { added: [], gone: new Set(), files: new Map() }
   }
 
   const names = new Set(declared.map((component) => component.name))
@@ -458,7 +463,11 @@ async function otherExports(
     })
   )
 
-  return { added: declared.filter((component) => !listedRoots.has(component.name)), gone }
+  return {
+    added: declared.filter((component) => !listedRoots.has(component.name)),
+    gone,
+    files: new Map(declared.map((component) => [component.name, component.file]))
+  }
 }
 
 /** What a library's components are imported by, written with the name the project depends on it by. */

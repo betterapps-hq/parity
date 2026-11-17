@@ -193,6 +193,25 @@ describe("libraries an extension found", () => {
     expect(found.notes).toEqual([])
   })
 
+  it("read each component's props from the package's own declarations, not the kit's paths in the file", async () => {
+    await synced('export { Button } from "./ui/button.js"')
+    await write("node_modules/@buildkitgg/shadcn/ui/button.d.ts", "export function Button(): unknown")
+    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+      version: 4,
+      id: "nova",
+      name: "Shadcn Nova",
+      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      components: { list: { Button: component({ declaration: "dist/ui/button.d.ts" }) } }
+    })
+
+    const found = await findLibraries(root, syncedApp, [], renderer, {
+      registry: join(root, "registry"),
+      detected: [nova]
+    })
+
+    expect(found.components["shadcn/Button"]?.declaration).toBe("node_modules/@buildkitgg/shadcn/ui/button.d.ts")
+  })
+
   it("with no registry file, are listed from their declarations, as the extension describes them", async () => {
     await synced("export function Button(): unknown")
 
