@@ -1,8 +1,17 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 13:39:43 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 15:27:12 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.83.0
+
+Tue, 17 Nov 2026 15:27:12 GMT
+
+### Minor changes
+
+- Route boards show pictures of their pages when small on screen or away from the view, captured from their frozen
+  copies and kept on disk (ajcraswell@gmail.com)
 
 ## 0.82.0
 

@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 15:27:12 GMT",
+      "version": "0.83.0",
+      "tag": "@parity-app/cli_v0.83.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "4c3687a9722b2c7c0aa267fa9a6c06cf2e216e9e",
+            "comment": "Route boards show pictures of their pages when small on screen or away from the view, captured from their frozen copies and kept on disk"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 13:39:43 GMT",
       "version": "0.82.0",
       "tag": "@parity-app/cli_v0.82.0",
