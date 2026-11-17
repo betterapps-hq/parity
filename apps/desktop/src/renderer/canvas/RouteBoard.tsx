@@ -2,6 +2,8 @@ import {
   colorSchemeAttribute,
   type DesignNode,
   type DrawnNodes,
+  remProperty,
+  rootFontSizeProperty,
   rewriteFrameUnits,
   type FrameGeometry,
   type ResolvedMode
@@ -180,7 +182,11 @@ function showCopy(
   root.classList.add(...copy.root.classes, ...mode.classes)
   setAttributes(root, [...copy.root.attributes, ...Object.entries(mode.attributes)])
   root.setAttribute(copyRootAttribute, "")
-  root.setAttribute("style", `display: block; height: ${viewport.height}px`)
+  // Its font size is the root's, which `rem` measures: a `.font-page { font-size: 10px }` on it sets the copy's rem.
+  root.setAttribute(
+    "style",
+    `display: block; height: ${viewport.height}px; ${rootFontSizeProperty}: 1em; ${remProperty}: var(${rootFontSizeProperty})`
+  )
   root.append(built.fragment)
 
   // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
