@@ -48,8 +48,9 @@ export function Hint({
   const says = label !== undefined && label !== null && label !== false && label !== ""
 
   return (
-    // A popup that can't be hovered is inert, which takes it out of hit testing.
-    <Tooltip open={open} onOpenChange={onOpenChange} disableHoverablePopup={passThrough}>
+    // A popup that can't be hovered is inert, which takes it out of hit testing. With nothing to say it never opens,
+    // since an open one takes the first Escape though nothing shows.
+    <Tooltip open={open} onOpenChange={onOpenChange} disableHoverablePopup={passThrough} disabled={!says}>
       <TooltipTrigger delay={wait ? 500 : undefined} {...trigger} render={children} />
       {says && !hidden && (
         <TooltipContent side={side} className={`wrap-anywhere ${detail ? "flex-col items-start gap-0.5" : ""}`}>

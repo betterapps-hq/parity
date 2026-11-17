@@ -6,10 +6,10 @@ const linger = 150
 
 /**
  * What can take the keyboard in a card, the first of which gets it when a key opens the card. A disabled control can't,
- * as a derived token's Edit button is.
+ * as a derived token's Edit button is, even with the `tabindex` the kit's buttons carry.
  */
 const focusable =
-  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+  'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"]):not(:disabled)'
 
 /**
  * Opens a card beside an element once the pointer has rested on it, and closes it shortly after the pointer leaves

@@ -1,16 +1,20 @@
-import type { DetectionCorrections } from "@parity-app/core"
+import type { DetectionCorrections, ProjectRoute } from "@parity-app/core"
 import { applyDocuments } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import {
   example,
   failingToDraw,
+  findTooltip,
+  holdToast,
   keepingLinks,
   makingPreviews,
+  never,
   openProject,
-  ProjectStage
+  ProjectStage,
+  tooltip
 } from "../stories/fixtures.tsx"
-import { answerNext, service } from "../stories/host.ts"
+import { answering, answerNext, askWindow, service } from "../stories/host.ts"
 import { storyCatalog } from "../stories/libraries.ts"
 import { answerPreviews } from "../stories/previews.ts"
 import { ComponentsPanel } from "./AssetsPanel.tsx"
@@ -111,15 +115,54 @@ async function openWithPreviews(): Promise<void> {
   makingPreviews()
 }
 
-/** The UI kit's Button row, the first of the example's rows named Button. */
-function kitButton(canvasElement: HTMLElement): HTMLElement {
-  return within(canvasElement).getAllByRole("button", { name: "Button" })[0]!
+/**
+ * Scrolls the open sources down until `find` finds what it's after, then centers it, since the list draws only the rows
+ * in view (PAR-1202). From the bottom it starts again at the top, in case it wasn't there yet.
+ */
+async function scrollUntil(canvasElement: HTMLElement, find: () => HTMLElement | undefined): Promise<HTMLElement> {
+  const list = canvasElement.querySelector("[data-line]")!.closest<HTMLElement>(".overflow-y-auto")!
+
+  for (let step = 0; step < 200; step++) {
+    const found = find()
+
+    if (found) {
+      found.scrollIntoView({ block: "center" })
+
+      return found
+    }
+
+    const before = list.scrollTop
+    list.scrollTop += 300
+
+    if (list.scrollTop === before) {
+      list.scrollTop = 0
+    }
+
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+  }
+
+  throw new Error("The Components panel never drew what the story looks for")
 }
 
-/** Closes the component designs, which have no pictures yet, so the UI kit's previews come first. */
+/** A row by its name, the first of that name, scrolled to. */
+function scrollToRow(canvasElement: HTMLElement, name: string): Promise<HTMLElement> {
+  return scrollUntil(canvasElement, () => within(canvasElement).queryAllByRole("button", { name })[0])
+}
+
+/** The UI kit's Button row, scrolled to. */
+function kitButton(canvasElement: HTMLElement): Promise<HTMLElement> {
+  return scrollToRow(canvasElement, "Button")
+}
+
+/**
+ * Closes the component designs, which have no pictures yet, and opens the UI kit, the example's Shadcn Nova, so its
+ * previews come first.
+ */
 async function showKit(canvasElement: HTMLElement): Promise<void> {
   await userEvent.click(source(canvasElement, "Local components"))
   await waitFor(() => expect(source(canvasElement, "Local components")).toHaveAttribute("aria-expanded", "false"))
+  await userEvent.click(source(canvasElement, "Shadcn Nova"))
+  await waitFor(() => expect(source(canvasElement, "Shadcn Nova")).toHaveAttribute("aria-expanded", "true"))
 }
 
 /**
@@ -133,11 +176,9 @@ export const ListView: Story = {
     await showKit(canvasElement)
     const view = within(canvasElement).getByRole("group", { name: "Show components as" })
     await expect(within(view).getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true")
-    await expect(
-      await within(canvasElement).findByRole("button", { name: "AvatarFallback Needs a provider" })
-    ).toBeVisible()
+    await expect(await scrollToRow(canvasElement, "AvatarFallback Needs a provider")).toBeVisible()
     await expect(within(canvasElement).getByRole("button", { name: "AvatarBadge Draws nothing" })).toBeVisible()
-    await expect(within(canvasElement).getByRole("button", { name: "CardAction Fails to draw" })).toBeVisible()
+    await expect(await scrollToRow(canvasElement, "CardAction Fails to draw")).toBeVisible()
   }
 }
 
@@ -170,9 +211,9 @@ export const ComponentCardOpen: Story = {
   loaders: [openWithPreviews],
   play: async ({ canvasElement }) => {
     await showKit(canvasElement)
-    await userEvent.hover(kitButton(canvasElement))
+    await userEvent.hover(await kitButton(canvasElement))
     const card = await within(document.body).findByRole("dialog")
-    await expect(within(card).getByText("src/components/ui/button.tsx")).toBeInTheDocument()
+    await expect(within(card).getByText("@buildkitgg/shadcn-baseui-nova")).toBeInTheDocument()
 
     for (const name of ["Insert", "Open file", "variant outline"]) {
       await expect(within(card).getByRole("button", { name })).toBeInTheDocument()
@@ -183,18 +224,22 @@ export const ComponentCardOpen: Story = {
 }
 
 /**
- * From the keyboard: the right arrow on a row opens its card and moves focus into it, Tab goes through its variants and
- * buttons, and Escape closes it, giving focus back to the row.
+ * From the keyboard: the right arrow on a row opens its card and moves focus into it, to the first variant, whose name
+ * shows in a tooltip. Tab goes through its variants and buttons. Escape closes the tooltip, then the card, giving focus
+ * back to the row.
  */
 export const ComponentCardFromKeyboard: Story = {
   loaders: [openWithPreviews],
   play: async ({ canvasElement }) => {
     await showKit(canvasElement)
-    const row = kitButton(canvasElement)
+    const row = await kitButton(canvasElement)
     row.focus()
     await userEvent.keyboard("{ArrowRight}")
     const card = await within(document.body).findByRole("dialog")
     await waitFor(() => expect(card.contains(document.activeElement)).toBe(true))
+    await findTooltip()
+    await userEvent.keyboard("{Escape}")
+    await waitFor(() => expect(tooltip()).toBeNull())
     await userEvent.keyboard("{Escape}")
     await waitFor(() => expect(row).toHaveFocus())
   }
@@ -213,9 +258,23 @@ export const ProjectComponents: Story = {
   }
 }
 
+/** A page of a Next.js app, at its URL, with the files its router draws in its place, as its router extension gives it. */
+function nextPage(path: string, file: string, stateFiles?: ProjectRoute["stateFiles"]): ProjectRoute {
+  const segments = path
+    .split("/")
+    .filter((part) => part !== "")
+    .map((part): ProjectRoute["segments"][number] =>
+      part.startsWith("[") ? { type: "param", name: part.slice(1, -1) } : { type: "static", value: part }
+    )
+
+  const page: ProjectRoute = { id: path, kind: "page", segments, path, file, index: false, loads: false, guards: false }
+
+  return stateFiles ? { ...page, stateFiles } : page
+}
+
 /**
- * A Next.js app's pages, under their routes and apart from its other components, until the routes lens can name them.
- * The example has none, so this story gives it four.
+ * A Next.js app's pages, under their routes and apart from its other components: a component is a page when its
+ * router's routes name its file (PAR-1163). The example has none, so this story gives it four, and their routes.
  */
 export const Pages: Story = {
   loaders: [
@@ -230,11 +289,15 @@ export const Pages: Story = {
         OrderPage: { path: "src/app/(shop)/orders/[id]/page.tsx", export: "default", lazy: true },
         "(shop)/ErrorPage": { path: "src/app/(shop)/error.tsx", export: "default", lazy: true }
       }
+      info.routes = [
+        nextPage("/", "src/app/page.tsx"),
+        nextPage("/orders", "src/app/(shop)/orders/page.tsx", { error: "src/app/(shop)/error.tsx" }),
+        nextPage("/orders/[id]", "src/app/(shop)/orders/[id]/page.tsx")
+      ]
     }
   ],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
-    await userEvent.click(source(canvasElement, "UI kit"))
     await userEvent.click(source(canvasElement, "Pages"))
     await waitFor(() => expect(source(canvasElement, "Pages")).toHaveAttribute("aria-expanded", "true"))
   }
@@ -267,11 +330,11 @@ export const SearchingAgain: Story = {
   play: async ({ canvasElement }) => {
     const field = within(canvasElement).getByRole("textbox", { name: "Search components" })
     await enter(field, "card")
-    await userEvent.click(source(canvasElement, "UI kit"))
-    await waitFor(() => expect(source(canvasElement, "UI kit")).toHaveAttribute("aria-expanded", "false"))
+    await userEvent.click(source(canvasElement, "Shadcn Nova"))
+    await waitFor(() => expect(source(canvasElement, "Shadcn Nova")).toHaveAttribute("aria-expanded", "false"))
     await enter(field, "")
     await enter(field, "card")
-    await waitFor(() => expect(source(canvasElement, "UI kit")).toHaveAttribute("aria-expanded", "true"))
+    await waitFor(() => expect(source(canvasElement, "Shadcn Nova")).toHaveAttribute("aria-expanded", "true"))
   }
 }
 
@@ -358,8 +421,8 @@ export const ListedByHand: Story = {
 export const ComponentMenu: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Local components"))
-    const button = kitButton(canvasElement)
+    await showKit(canvasElement)
+    const button = await kitButton(canvasElement)
     const box = button.getBoundingClientRect()
     // Where a pointer would be, so the menu opens beside the row.
     await fireEvent.contextMenu(button, { clientX: box.left + 48, clientY: box.top + box.height / 2 })
@@ -376,23 +439,23 @@ export const FailingToDraw: Story = {
     async () => {
       await openComponents()
       failingToDraw({
-        Card: "useSidebar must be used within a SidebarProvider.",
-        Table: "Cannot read properties of undefined (reading 'map')"
+        "nova/Card": "useSidebar must be used within a SidebarProvider.",
+        "nova/Table": "Cannot read properties of undefined (reading 'map')"
       })
     }
   ],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Local components"))
-    const [card] = await within(canvasElement).findAllByLabelText("Fails to draw")
-    await userEvent.hover(card!.closest("button")!)
+    await showKit(canvasElement)
+    const card = await scrollUntil(canvasElement, () => within(canvasElement).queryAllByLabelText("Fails to draw")[0])
+    await userEvent.hover(card.closest("button")!)
     const about = await within(document.body).findByRole("dialog", undefined, { timeout: 3000 })
     await expect(about).toHaveTextContent("Needs a provider, which a decorator can add")
   }
 }
 
 /**
- * Clicking a component design with nothing selected: it lands on the canvas, so a new screen named Stat card holds an
- * instance of it, and is selected, here in Layers, where it's listed under Screens (PAR-546).
+ * Clicking a component design with nothing selected: it lands on the canvas, so a new frame named Stat card holds an
+ * instance of it, and is selected, here in Layers, where it's listed under Frames (PAR-546).
  */
 export const AddingWithNothingSelected: Story = {
   loaders: [openComponents],
@@ -409,7 +472,7 @@ export const AddingWithNothingSelected: Story = {
       return found
     })
 
-    await expect(made?.kind).toBeUndefined()
+    await expect(made?.kind).toBe("frame")
     setLayout({ leftTab: "layers" })
   }
 }
@@ -429,8 +492,8 @@ export const StorybookLink: Story = {
     )
   ],
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Local components"))
-    await userEvent.hover(kitButton(canvasElement))
+    await showKit(canvasElement)
+    await userEvent.hover(await kitButton(canvasElement))
     await within(canvasElement).findByRole("button", { name: "Open in Storybook: Button" })
   }
 }
@@ -440,12 +503,29 @@ export const OpeningStorybook: Story = {
   loaders: [openComponents],
   beforeEach: keepingLinks,
   play: async ({ canvasElement }) => {
-    await userEvent.click(source(canvasElement, "Local components"))
-    service.latency = forever
+    await showKit(canvasElement)
+    // Its extension shows progress, and the command doesn't finish while Storybook starts.
+    answering({
+      "extensions.run": async ({ projectId }) => {
+        await askWindow({
+          projectId,
+          extension: "@parity-app/extension-storybook",
+          method: "ui.progress",
+          params: {
+            id: 1,
+            title: "Opening Storybook…",
+            detail: "If it isn't running yet, it starts first, which can take a minute."
+          }
+        })
+
+        return never()
+      }
+    })
     // Its row has focus, which brings its buttons, as pointing at it does.
-    kitButton(canvasElement).focus()
+    const row = await kitButton(canvasElement)
+    row.focus()
     await userEvent.click(await within(canvasElement).findByRole("button", { name: "Open in Storybook: Button" }))
-    await within(document.body).findByText("Opening Storybook…")
+    await holdToast("Opening Storybook…")
   }
 }
 

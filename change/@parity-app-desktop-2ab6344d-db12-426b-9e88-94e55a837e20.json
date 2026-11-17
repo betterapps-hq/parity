@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "A token's detail closes at the first Escape, and the right arrow moves into a derived token's detail",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
