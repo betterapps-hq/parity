@@ -128,9 +128,6 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     update()
     const subscriptions = [api.onDidLayoutChange(update), api.onDidActivePanelChange(update)]
 
-    // A lens's own window, once its group is in, takes the main window's theme and says what it holds.
-    subscriptions.push(api.onDidAddPopoutGroup(({ window: opened, group }) => dress(opened, group.activePanel?.title)))
-
     // A lens drawn from the lens bar drops where a tab would, in any window. A drag over a lens's own window is that
     // window's event, not an instance of this one's DragEvent, so it's told apart by having data.
     subscriptions.push(
@@ -143,8 +140,8 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
       })
     )
 
-    // A tab let go outside the window, where nothing takes it, opens in a window of its own there, as a browser's
-    // tab does.
+    // A tab let go outside its window, where nothing takes it, opens in a window of its own there, as a browser's
+    // tab does. A drag from a lens's own window ends in that window's document, so each window's is listened to.
     let dragged: IDockviewPanel | undefined
     subscriptions.push(api.onWillDragPanel((event) => (dragged = event.panel)))
 
@@ -159,14 +156,26 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
       void popOut(api, panel, { x: event.screenX, y: event.screenY })
     }
 
+    const documents = new Set([document])
     document.addEventListener("dragend", end, true)
+
+    // A lens's own window, once its group is in, takes the main window's theme, says what it holds and tears tabs off.
+    subscriptions.push(
+      api.onDidAddPopoutGroup(({ window: opened, group }) => {
+        dress(opened, group.activePanel?.title)
+        documents.add(opened.document)
+        opened.document.addEventListener("dragend", end, true)
+      })
+    )
 
     return () => {
       for (const subscription of subscriptions) {
         subscription.dispose()
       }
 
-      document.removeEventListener("dragend", end, true)
+      for (const each of documents) {
+        each.removeEventListener("dragend", end, true)
+      }
     }
   }, [api])
 
@@ -285,8 +294,8 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     )
   }
 
-  // A link shows its lens where it's open, in any window, else in the tab in focus, as a link does in a browser; beside,
-  // in a group to the right.
+  // A link shows its lens where it's open, in any window, else in the tab in focus, as a link does in a browser, in a
+  // lens's own window too, since the inspector follows that; beside, in a group to the right.
   const showLink = (ref: Ref, beside: boolean) => {
     setPeek(undefined)
     state.select(ref.lens, ref.id)
@@ -299,7 +308,7 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
     const group = api.activeGroup
 
     if (!beside || (panel && panel.group !== group)) {
-      show(api, ref.lens)
+      show(api, ref.lens, group)
     } else if (panel && group && group.panels.length > 1) {
       panel.api.moveTo({ group, position: "right" })
     } else if (!panel) {
@@ -392,12 +401,11 @@ function reveal(panel: IDockviewPanel): void {
 }
 
 /**
- * Shows a lens where it's open, or else in the tab in focus in the main window, in place of that tab's lens, as a link
- * opens in the tab it's clicked in.
+ * Shows a lens where it's open, or else in a group's tab in focus, in place of that tab's lens, as a link opens in the
+ * tab it's clicked in. The lens bar's group is the main window's, since it's in the main window.
  */
-function show(api: DockviewApi, lens: LensId): void {
+function show(api: DockviewApi, lens: LensId, group = mainGroup(api)): void {
   const panel = api.getPanel(lens)
-  const group = mainGroup(api)
   const before = group?.activePanel
 
   if (panel) {
@@ -410,14 +418,13 @@ function show(api: DockviewApi, lens: LensId): void {
     }).api.setActive()
     before.api.close()
   } else {
-    openTab(api, lens)
+    openTab(api, lens, group)
   }
 }
 
-/** Shows a lens where it's open, or else in a new tab in the main window's group in focus. */
-function openTab(api: DockviewApi, lens: LensId): void {
+/** Shows a lens where it's open, or else in a new tab in a group, the main window's in focus unless another is given. */
+function openTab(api: DockviewApi, lens: LensId, group = mainGroup(api)): void {
   const panel = api.getPanel(lens)
-  const group = mainGroup(api)
 
   if (panel) {
     reveal(panel)
@@ -449,16 +456,19 @@ function dress(opened: Window, lens: string | undefined) {
   opened.document.title = lens ? `${lens} — ${project.name}` : project.name
 }
 
-/** Whether a drag ended outside this window, as far as the browser says where it ended. */
+/** Whether a drag ended outside the window it came from, as far as the browser says where it ended. */
 function outsideWindow(event: DragEvent): boolean {
+  // The window the drag came from, the main one or a lens's own.
+  const from = event.view ?? window
+
   const outsideView =
-    event.clientX < 0 || event.clientY < 0 || event.clientX > window.innerWidth || event.clientY > window.innerHeight
+    event.clientX < 0 || event.clientY < 0 || event.clientX > from.innerWidth || event.clientY > from.innerHeight
 
   const outsideScreen =
-    event.screenX < window.screenX ||
-    event.screenY < window.screenY ||
-    event.screenX > window.screenX + window.outerWidth ||
-    event.screenY > window.screenY + window.outerHeight
+    event.screenX < from.screenX ||
+    event.screenY < from.screenY ||
+    event.screenX > from.screenX + from.outerWidth ||
+    event.screenY > from.screenY + from.outerHeight
 
   return outsideView || outsideScreen
 }
