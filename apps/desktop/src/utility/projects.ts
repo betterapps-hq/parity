@@ -36,6 +36,7 @@ import {
   type PageRouterRef,
   type ProjectConfig,
   parseCanvasDocument,
+  projectFileText,
   type CanvasDocument,
   type RendererAdapter,
   type RendererDescription,
@@ -2105,7 +2106,8 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
           ? withLibraryCanvas(JSON.parse(await readFile(target, "utf8")), parsed)
           : parsed
 
-        const text = `${JSON.stringify(value, null, 2)}\n`
+        // In the order the file has its keys now, so only what changed shows as changed (PAR-1288).
+        const text = projectFileText(value, project.known.get(path))
         await writeProjectFile(project.info.root, path, text)
         project.known.set(path, text)
       })
@@ -2275,7 +2277,7 @@ export async function saveDocumentCopy({
     throw new Error(`${path} is not a .par file`)
   }
 
-  await writeFile(path, `${JSON.stringify(parseCanvasDocument(document), null, 2)}\n`)
+  await writeFile(path, projectFileText(parseCanvasDocument(document)))
 
   return undefined
 }

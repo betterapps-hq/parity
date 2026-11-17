@@ -3,7 +3,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vite-plus/test"
 import { generateLibrary } from "./index.ts"
-import { buildkitStyles, presets } from "./presets.ts"
+import { presets, shadcnStyles } from "./presets.ts"
 
 const roots: string[] = []
 
@@ -38,26 +38,26 @@ async function syncedFolder(): Promise<string> {
 
 describe("a style shadcn-sync builds", () => {
   it("is generated with sync's settings for each of the eight styles", () => {
-    for (const style of buildkitStyles) {
-      expect(presets.get(`@buildkitgg/shadcn-baseui-${style}`)?.sync).toEqual({ base: "base", style })
+    for (const style of shadcnStyles) {
+      expect(presets.get(`shadcn-base-${style}`)?.sync).toEqual({ base: "base", style })
     }
   })
 
-  it("is described by its kit's name, with no range and sync's version", async () => {
+  it("is described by its base and style, with no range and sync's version", async () => {
     const root = await syncedFolder()
 
     const { manifest } = await generateLibrary({
       root,
       package: "@buildkitgg/shadcn",
-      describedAs: "@buildkitgg/shadcn-baseui-nova",
+      describedAs: "shadcn-base-nova",
       examples: false
     })
 
     expect(manifest.id).toBe("nova")
-    expect(manifest.package).toEqual({ name: "@buildkitgg/shadcn-baseui-nova", version: "0.2.0" })
+    expect(manifest.package).toEqual({ name: "shadcn-base-nova", version: "0.2.0" })
     expect(manifest.styles).toBe("tailwind.css")
     expect(manifest.decorators?.[0]).toEqual({
-      wrap: { import: "@buildkitgg/shadcn-baseui-nova", component: "TooltipProvider" }
+      wrap: { import: "shadcn-base-nova", component: "TooltipProvider" }
     })
   })
 
@@ -69,14 +69,14 @@ describe("a style shadcn-sync builds", () => {
       version: 4,
       id: "nova",
       name: "Shadcn Nova",
-      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      package: { name: "shadcn-base-nova", version: "0.5.0", range: "^0.5.0" },
       tokens
     }
 
     const { manifest, report } = await generateLibrary({
       root,
       package: "@buildkitgg/shadcn",
-      describedAs: "@buildkitgg/shadcn-baseui-nova",
+      describedAs: "shadcn-base-nova",
       examples: false,
       previous
     })

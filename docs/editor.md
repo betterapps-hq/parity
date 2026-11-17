@@ -5872,6 +5872,12 @@ Every change people or agents make goes into one history per project, and stays 
   the example), together. A token edit shows in every frame at once, since the stylesheet every frame shares is edited
   in place, but nothing is written until Save. Don't save, when closing the project or quitting, leaves the stylesheet
   as it was. With Save automatically on, token values are written about 300ms after the edit, as files are.
+- **A `.par` keeps its key order** (PAR-1288): each object is written with its keys in the order the file on disk has
+  them, and a new key goes after the key it follows, so a save changes only the lines that changed, also in a file
+  written by hand or by another tool (`projectFileText` in `packages/core/src/file-order.ts`, which `saveDocument` in
+  `apps/desktop/src/utility/projects.ts` writes with). Tested in `packages/core/src/file-order.test.ts`
+  ("projectFileText"): the file's order kept, a new key placed after the one it follows, a key taken out left out, an
+  array's items matched by `id` wherever they moved, and the value's order kept when the file isn't JSON.
 - **Undo after a save** puts the value back on the canvas, and the next Save writes the value the stylesheet had before.
   A value given to a theme that had none (a dark `--radius`), saved and then undone, is taken out of the stylesheet
   again by the next Save (PAR-420), from every block of that theme that declares it, and a block left empty goes with
@@ -6426,7 +6432,8 @@ the signed-in person's first name.
   ignore their own disk, recording it once per file (`sync.diskIgnored`), but take the file as what's saved (PAR-1254).
   When one takes over, it writes every file that differs from what it last read from disk, when it opened or as the host
   saved it since, and every token value edited: it can't tell which the host saved to the stylesheet, so it writes them
-  all.
+  all. Its document comes from the room, which doesn't keep the order of a design's props or params, but it writes each
+  file in the order the file has on disk, as every save does, so the diff shows only its edits (PAR-1288).
 - **A copy that joins shows the room's token values,** compared with the stylesheet it loaded, not the edits' originals,
   so a value the host saved and changed back shows as the room has it (PAR-1254).
 - **Everyone sees the same state and mode** (PAR-1231): which state and mode a design shows is an edit like any other.
@@ -6483,6 +6490,9 @@ Tests:
   room going away.
 - `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it; two documents kept in
   step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both.
+- `packages/multiplayer-loro/src/takeover-save.test.ts`, "a copy that takes over a live room" (2): a copy opened on the
+  host's snapshot takes over and saves an edit, and the text matches a copy that opened the file alone and saved the
+  same edit, byte for byte, with only the edited line changed from the file on disk (PAR-1288).
 - `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": others' changes written and counted in
   `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go; every token
   value edited written on taking over, one changed back to its original included; a file the host saved taken as what
@@ -7150,24 +7160,25 @@ stack, and token tiles keep even columns.
 
 What the registry's files don't say lives beside them in `packages/registry/libraries/catalog.json`: the order offered,
 each library's pages, logo (Simple Icons', and Fluent's mark from Microsoft's own), which of its tokens play which part
-in its look, the registry file that previews one an extension sets up (`@buildkitgg/shadcn-baseui-{style}`), and its
-icon set.
+in its look, the registry file that previews one an extension sets up (`shadcn-base-{style}`), and its icon set.
 
 The eight shadcn style files are made from what shadcn-sync builds, not from the retired kits:
-`parity lib @buildkitgg/shadcn-baseui-nova --registry` runs sync at npm's latest version (or the one given after an `@`)
-with `--base base --style nova` in Tailwind mode, in a folder cached under `~/.parity/cache/packages`, and describes the
-`@buildkitgg/shadcn` package it builds. The files keep their kits' names, so projects still on a kit and the `registry:`
-entries in saved files keep finding them. A style's file names no range, so it covers every version of its kit, and its
+`parity lib shadcn-base-nova --registry` runs sync at npm's latest version (or the one given after an `@`) with
+`--base base --style nova` in Tailwind mode, in a folder cached under `~/.parity/cache/packages`, and describes the
+`@buildkitgg/shadcn` package it builds. Each file is named by its base and style, as `shadcn-base-nova.lib.par`, the
+name the shadcn extension asks for (PAR-1292). A project still on a retired kit is read with its style's file:
+`registryName` maps `@buildkitgg/shadcn-baseui-nova` to `shadcn-base-nova`, and the file's imports, written under that
+name, come from the kit; `parity lib` takes a kit's name as its style's too. A style's file names no range, and its
 version is the sync release that built it. Its examples are shadcn's own, at the tag of the shadcn CLI release sync
 built with (`shadcn@4.23.0`), read from the snapshot sync records. Its tokens are kept from the file it replaces, the
 kits' DTCG tokens with their descriptions, since sync's stylesheet has the theme's values but not what each is for. A
 project still on a kit reads each component's props from the kit's `dist/ui/` declarations, since the file's `ui/` paths
 aren't in the kit. `fixtures/buildkit` stays on the kits, as the fixture for those projects.
 
-Code: `buildkitStyles` and `sync` in `packages/libgen/src/presets.ts`, `syncedStyle` in `published.ts`, `describedAs`
-and the kept tokens in `reviseLibrary` in `index.ts`, `tag` in `examples.ts`; `runLib` in `packages/cli/src/lib.ts`;
-`declarationsMoved` in `packages/project/src/libraries.ts`. Tests: `packages/libgen/src/synced.test.ts`; the kit case in
-`packages/project/src/library-files.test.ts`.
+Code: `shadcnStyles` and `sync` in `packages/libgen/src/presets.ts`, `syncedStyle` in `published.ts`, `describedAs` and
+the kept tokens in `reviseLibrary` in `index.ts`, `tag` in `examples.ts`; `runLib` in `packages/cli/src/lib.ts`;
+`declarationsMoved` in `packages/project/src/libraries.ts`; `registryName` in `packages/registry/src/index.ts`. Tests:
+`packages/libgen/src/synced.test.ts`; the kit case in `packages/project/src/library-files.test.ts`.
 
 Code: `chrome/AddLibraryDialog/` (the dialog, a file for each of its parts, `offeredLibraries`), `AddComponentLibrary`
 and `removeLibrary` in `chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and `removeLibrary` in

@@ -276,11 +276,12 @@ export async function findLibraries(
     const { version } = installed.manifest
     const packageName = installed.manifest.name ?? importName
     const hint = detected.find((candidate) => candidate.package === packageName || candidate.package === importName)
-    // The registry describes what an extension found by the package its file is for.
-    const describedAs = hint?.registry ?? packageName
 
     const own = await libraryManifestIn(packageDir)
     const fromRegistry = own ? undefined : await registryFileFor(packageName, version, hint, registry)
+    // A registry file's imports name what it describes: the package an extension found it for, or a retired kit's
+    // style, as `shadcn-base-nova` for `@buildkitgg/shadcn-baseui-nova`.
+    const describedAs = fromRegistry?.manifest.package?.name ?? hint?.registry ?? packageName
 
     const described = own ?? fromRegistry
 

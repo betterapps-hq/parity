@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "The registry's shadcn style files are named for their base and style, as shadcn-base-nova, and projects still on a retired Buildkit kit are read with their style's file",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

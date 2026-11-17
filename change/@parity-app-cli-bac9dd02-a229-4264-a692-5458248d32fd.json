@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Saving a project file keeps the key order it has on disk, so a copy that takes over a live room changes only the lines it edited",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

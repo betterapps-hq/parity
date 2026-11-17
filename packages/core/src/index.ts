@@ -280,6 +280,8 @@ export {
   stepFieldValue
 } from "./fields.ts"
 
+export { projectFileText } from "./file-order.ts"
+
 export {
   frameRules,
   type FrameRulesOptions,

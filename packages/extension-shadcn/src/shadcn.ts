@@ -11,16 +11,16 @@ import { z } from "zod"
  * What Parity knows of shadcn/ui, as functions of the project's files' text. shadcn-sync generates the components into
  * the app as `@buildkitgg/shadcn`, recording what it generated in that package's `manifest.json`; shadcn's own CLI
  * copies them into the app's source, recording its style in `components.json`. Either is read with the file Parity's
- * registry has for Buildkit's kit of the same style. Those files exist for the Base UI kits only, but a style's tokens
- * are the same on every base, so the app's own copies always use the Base UI kit's.
+ * registry has for that base and style, as `shadcn-base-nova`. Those files exist for Base UI only, but a style's tokens
+ * are the same on every base, so the app's own copies always use Base UI's.
  */
 
-/** sync's bases, each with the name its Buildkit kits have in their package names and the primitives' own. */
+/** sync's bases, each with its name and the primitives' package. */
 const bases = {
-  base: { kit: "baseui", label: "Base UI", package: undefined },
-  radix: { kit: "radix", label: "Radix", package: "radix-ui" },
-  aria: { kit: "aria", label: "React Aria", package: "react-aria-components" }
-} satisfies Record<string, { kit: string; label: string; package: string | undefined }>
+  base: { label: "Base UI", package: undefined },
+  radix: { label: "Radix", package: "radix-ui" },
+  aria: { label: "React Aria", package: "react-aria-components" }
+} satisfies Record<string, { label: string; package: string | undefined }>
 
 type Base = keyof typeof bases
 
@@ -188,12 +188,12 @@ export function detectLibraries(files: ProjectFiles): DetectedLibrary[] {
 }
 
 /**
- * The components sync generated, read with the file for Buildkit's kit of the same base and style. In Tailwind mode the
+ * The components sync generated, read with the registry's file for the same base and style. In Tailwind mode the
  * app's Tailwind builds their classes from the package's `tailwind.css`; otherwise each component imports its own CSS.
  */
 function syncedLibrary(settings: SyncSettings): DetectedLibrary {
   const library: DetectedLibrary = {
-    registry: `@buildkitgg/shadcn-${bases[settings.base].kit}-${settings.style}`,
+    registry: `shadcn-${settings.base}-${settings.style}`,
     package: syncedPackage,
     name: `Shadcn ${capitalized(settings.style)}`,
     description: `Every shadcn component on ${bases[settings.base].label}, in the ${settings.style} style.`
@@ -218,7 +218,7 @@ function copiedLibrary(registryStyle: string, iconLibrary: string | undefined): 
   const iconPackage = iconSetOf(iconLibrary)?.packages[0]
 
   const library: DetectedLibrary = {
-    registry: `@buildkitgg/shadcn-baseui-${id}`,
+    registry: `shadcn-base-${id}`,
     name: `Shadcn ${capitalized(id)}`,
     description: `shadcn/ui components copied into the app, in the ${id} style.`
   }

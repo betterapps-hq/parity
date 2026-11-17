@@ -3,9 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { describedTokens } from "./libraries.ts"
 
 // Buildkit's styles ship their tokens as a DTCG resolver (PAR-139), which `parity lib` copies into each registry file.
-const styles = (await newestEntries()).filter((entry) =>
-  entry.manifest.package?.name.startsWith("@buildkitgg/shadcn-baseui-")
-)
+const styles = (await newestEntries()).filter((entry) => entry.manifest.package?.name.startsWith("shadcn-base-"))
 
 describe("Buildkit's style tokens", () => {
   it("covers all eight styles", () => {

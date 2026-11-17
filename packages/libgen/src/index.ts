@@ -82,8 +82,8 @@ export interface GenerateOptions {
   /** The package to describe, by the name the project depends on it by. Unset describes the app at `root`. */
   package?: string
   /**
-   * The name the file describes the package by, when it isn't the package's own: the style's kit,
-   * `@buildkitgg/shadcn-baseui-nova`, for the `@buildkitgg/shadcn` package shadcn-sync built. It picks the preset and
+   * The name the file describes the package by, when it isn't the package's own: `shadcn-base-nova` for the
+   * `@buildkitgg/shadcn` package shadcn-sync built in that style. It picks the preset and
    * is the file's `package.name`.
    */
   describedAs?: string
