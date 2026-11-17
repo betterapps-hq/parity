@@ -1,8 +1,26 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 02:17:05 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 03:02:36 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.100.0
+
+Tue, 17 Nov 2026 03:02:36 GMT
+
+### Minor changes
+
+- Hold one project per window, with Home when none is open: the title bar shows the open project's name and its menu, in
+  place of project tabs (ajcraswell@gmail.com)
+- Run internal extensions' window modules in each project tab, with their Node halves linked and their failures
+  contained (ajcraswell@gmail.com)
+
+### Patches
+
+- Two people typing in the same text at once keep every letter: each key is written as it's typed, as the change at the
+  caret, and Undo keeps what others typed since. (ajcraswell@gmail.com)
+- A window module's setting value is checked against the setting's schema, as the Node half checks it.
+  (ajcraswell@gmail.com)
 
 ## 0.99.0
 

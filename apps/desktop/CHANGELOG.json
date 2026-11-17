@@ -2,6 +2,41 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 03:02:36 GMT",
+      "version": "0.100.0",
+      "tag": "@parity-app/desktop_v0.100.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "34415c2cd130b325556e7cd7ad979fce349d2379",
+            "comment": "Hold one project per window, with Home when none is open: the title bar shows the open project's name and its menu, in place of project tabs"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d03e74a1eca7a0e00497db51ce7608808a90f7aa",
+            "comment": "Run internal extensions' window modules in each project tab, with their Node halves linked and their failures contained"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "912f388b3650cb5d20e75769b8f218c376cd54e1",
+            "comment": "Two people typing in the same text at once keep every letter: each key is written as it's typed, as the change at the caret, and Undo keeps what others typed since."
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "fa44288a613136cad6da5d34447ed83818e1a427",
+            "comment": "A window module's setting value is checked against the setting's schema, as the Node half checks it."
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 02:17:05 GMT",
       "version": "0.99.0",
       "tag": "@parity-app/desktop_v0.99.0",

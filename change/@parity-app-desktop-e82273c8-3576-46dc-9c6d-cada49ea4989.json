@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Run internal extensions' window modules in each project tab, with their Node halves linked and their failures contained",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
