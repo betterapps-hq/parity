@@ -64,7 +64,7 @@ function sendMode(channel: Channel<ParityMethods, PageMethods> | undefined, mode
 
 /**
  * Talks to the page runtime in `frame`, which loads `src` and is named with `id`: answers its hello from `src`'s origin
- * with a port, and a second hello, after the page reloaded, with a new one. Each time the page connects and each time
+ * with a port, and a second hello, after the page reloaded, with a new one and the height forgotten. Each time the page connects and each time
  * the mode changes, it sets the mode, and it hears the page's height and location.
  */
 export function usePageChannel(
@@ -117,8 +117,10 @@ export function usePageChannel(
         }
       })
 
-      // A page that reloaded says hello again: its new port replaces the one before.
+      // A page that reloaded says hello again: its new port replaces the one before, and the frame goes back to the
+      // viewport's height so the new page, measured only at that height, can say how tall it is now.
       channel.current?.close(new Error("The page loaded again"))
+      setHeight(undefined)
       channel.current = connected
       connected.connect(domPort(ports.port1))
       page.postMessage({ parity: "port", frame: id }, origin, [ports.port2])
