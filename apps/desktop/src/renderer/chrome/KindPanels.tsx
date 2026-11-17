@@ -1,6 +1,8 @@
-import type { DesignNode } from "@parity-app/core"
+import type { DesignNode, LibraryInfo } from "@parity-app/core"
 import type { StyleSection } from "@parity-app/editor"
 import type { ComponentType } from "react"
+import { PropsSection } from "../inspector/sections/PropsSection.tsx"
+import { isIconLayer } from "./layer-kind.ts"
 import { LayerContent, LayerExport, LayerHeader, LayerMedia, LayerStyles } from "./LayerPanel.tsx"
 import { RoutePanel } from "./RoutePanel.tsx"
 
@@ -69,13 +71,25 @@ const mediaSections: readonly StyleSection[] = ["size", "spacing", ...position, 
 export const MediaPanel = kindPanel("MediaPanel", mediaSections, LayerMedia)
 
 /**
- * The kinds of layer with a Design panel of their own, which `LayerPanel` draws; the others are drawn from
- * `panelParts`. Read when a panel draws, so the panels above are built by then.
+ * An icon (PAR-1061): which icon it is and the props it sets, then its size and where it sits, and how it's drawn. Its
+ * color and stroke are the icon's own, so it has no Typography, Fill or Stroke.
  */
-export const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
+export const IconPanel = kindPanel("IconPanel", ["size", "spacing", ...position, "appearance", ...drawn], PropsSection)
+
+/** The kinds with a panel of their own: a layer's type, or an icon, which is a code component from an icon set. */
+export type PanelKind = DesignNode["type"] | "icon"
+
+/** Each kind's panel. Read when a panel draws, so the panels above are built by then. */
+export const kindPanels: Partial<Record<PanelKind, ComponentType>> = {
+  icon: IconPanel,
   image: MediaPanel,
   layout: LayoutPanel,
   route: RoutePanel,
   text: TextPanel,
   video: MediaPanel
+}
+
+/** Which kind's panel `LayerPanel` draws for a layer, when it has one of its own; the others are drawn from `panelParts`. */
+export function panelKind(node: DesignNode, libraries: readonly Pick<LibraryInfo, "id" | "kind">[]): PanelKind {
+  return isIconLayer(node, libraries) ? "icon" : node.type
 }

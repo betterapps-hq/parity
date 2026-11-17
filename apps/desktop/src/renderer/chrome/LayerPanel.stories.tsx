@@ -4,7 +4,7 @@ import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
 /**
  * The Design tab with one layer of each kind selected, one story each, named as its header names the kind: the
- * sections that kind gets. Layouts, text layers, images and videos have their own panels in Layers. Each section's own cases are in Sections, and a whole design's panel in Layers › Designs.
+ * sections that kind gets. Layouts, text layers, images, videos and icons have their own panels in Layers. Each section's own cases are in Sections, and a whole design's panel in Layers › Designs.
  */
 const meta = {
   title: "Parity/Inspector/Layers/Kinds",
@@ -22,6 +22,3 @@ type Story = StoryObj<typeof meta>
  * header's links, and its style.
  */
 export const ComponentInstance: Story = { name: "Component instance", loaders: [pick("Plan card", "Call to action")] }
-
-/** An icon from Lucide: its props aren't read from source, so only the ones it sets show. */
-export const Icon: Story = { loaders: [pick("Plan card", "lucide/Check")] }

@@ -51,7 +51,7 @@ import { Hint } from "./Hint.tsx"
 import { type LayerChange, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
-import { kindPanels } from "./KindPanels.tsx"
+import { kindPanels, panelKind } from "./KindPanels.tsx"
 import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
@@ -94,7 +94,7 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     return <ElementPanel element={layer.node.element} text={layer.node.type === "text"} />
   }
 
-  const KindPanel = kindPanels[layer.node.type]
+  const KindPanel = kindPanels[panelKind(layer.node, session.info.libraries)]
 
   if (KindPanel) {
     return <KindPanel />

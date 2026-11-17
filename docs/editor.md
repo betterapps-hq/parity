@@ -4830,25 +4830,29 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 
-### Each layer kind's own panel (PAR-1057, PAR-1058, PAR-1059, PAR-1060)
+### Each layer kind's own panel (PAR-1057, PAR-1058, PAR-1059, PAR-1060, PAR-1061)
 
-Layouts, text layers, images and videos each have a Design panel of their own, which puts the style sections in that
-kind's order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing,
+Layouts, text layers, images, videos and icons each have a Design panel of their own, which puts the style sections in
+that kind's order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing,
 Position, Fill, Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with
 Content and Typography, then Size, Position and Appearance, with Fill, its background, after them. An image's or a
 video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size, Position, Appearance
-and Stroke; it has no Fill, since the picture fills it. The capability table still leaves out what the layer can't take:
-a design's root has no Position, and a frame's root starts with its size. On a layout, a component or an instance,
-Typography folds to its title and + until it sets something; + opens it.
+and Stroke; it has no Fill, since the picture fills it. An icon's opens with Component instance, which icon it is and
+the props it sets, then Size, Position and Appearance; its color and stroke are its own, so it has no Typography, Fill
+or Stroke. The capability table still leaves out what the layer can't take: a design's root has no Position, and a
+frame's root starts with its size. On a layout, a component or an instance, Typography folds to its title and + until it
+sets something; + opens it.
 
 Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from its order and its content (`LayoutPanel`,
-`TextPanel`, and `MediaPanel` for images and videos), and its `kindPanels` says which kinds `LayerPanel` draws them for;
-`StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
+`TextPanel`, and `MediaPanel` for images and videos, `IconPanel`), and `kindPanels` with `panelKind` pick the one
+`LayerPanel` draws, an icon by `isIconLayer`;, `StyleSections`' `order`; the fold in
+`inspector/sections/TypographySection.tsx`.
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
 typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
 Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
-Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. Layers › All kinds
+Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
+(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. Layers › All kinds
 (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's `LayerPanel` with its own
 selection, to compare them while each kind's panel is built.
 
