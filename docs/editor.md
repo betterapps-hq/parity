@@ -4865,12 +4865,12 @@ typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text):
 Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
 Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
 (Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
-(Layers › Component instance): Code Component, Component instance first and no Layout; Design Instance, Component
-instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography before Size;
-Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element): Button,
-Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography. Layers ›
-All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's `LayerPanel` with
-its own selection, to compare them while each kind's panel is built.
+(Layers › Component instance): Code Component, Component instance then Attributes first and no Layout; Design Instance,
+Component instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography
+before Size; Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element):
+Button, Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography.
+Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
+`LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
 

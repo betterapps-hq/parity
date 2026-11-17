@@ -27,13 +27,13 @@ async function titles(canvasElement: HTMLElement) {
   return found.map((title) => title.textContent)
 }
 
-/** Plan card's call to action, a code component: Button's props lead, then its style, with Typography for its label. */
+/** Plan card's call to action, a code component: Button's props, then the attributes it passes on, then its style. */
 export const CodeComponent: Story = {
   name: "Code component",
   loaders: [pick("Plan card", "Call to action")],
   play: async ({ canvasElement }) => {
     const names = await titles(canvasElement)
-    await expect(names[0]).toBe("Component instance")
+    await expect(names.slice(0, 2)).toEqual(["Component instance", "Attributes"])
     await expect(names).toEqual(expect.arrayContaining(["Size", "Position", "Typography", "Appearance"]))
     await expect(names).not.toContain("Layout")
   }

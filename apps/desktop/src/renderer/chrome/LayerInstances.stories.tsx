@@ -35,7 +35,7 @@ export const ComponentWithoutStyle: Story = {
         "project.components": async (_params, usual) => {
           const components = await usual()
 
-          return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
+          return { ...components, "nova/Badge": { ...components["nova/Badge"]!, takesStyle: false } }
         }
       })
       await pick("Pricing", "Badge")()
