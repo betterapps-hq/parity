@@ -8,7 +8,7 @@ import {
   CardHeader,
   CardTitle,
   Separator,
-} from "@buildkitgg/shadcn-baseui-nova"
+} from "@buildkitgg/shadcn"
 
 export const Route = createFileRoute("/settings/billing")({
   component: Billing,

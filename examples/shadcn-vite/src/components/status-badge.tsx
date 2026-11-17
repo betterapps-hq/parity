@@ -1,4 +1,4 @@
-import { Badge } from "@buildkitgg/shadcn-baseui-nova"
+import { Badge } from "@buildkitgg/shadcn"
 
 import type { Project } from "@/data/projects"
 

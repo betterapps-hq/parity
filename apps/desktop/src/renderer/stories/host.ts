@@ -844,7 +844,7 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
       return edited("Import Shadcn Nova's styles", [
         "@@ -1,3 +1,4 @@",
         ' @import "tailwindcss";',
-        '+@import "@buildkitgg/shadcn-baseui-nova/styles.css";',
+        '+@import "@buildkitgg/shadcn/tailwind.css";',
         ' @import "tw-animate-css";',
         " "
       ])

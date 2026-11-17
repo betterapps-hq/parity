@@ -4,7 +4,7 @@ import {
   Button,
   Input,
   Label,
-} from "@buildkitgg/shadcn-baseui-nova"
+} from "@buildkitgg/shadcn"
 
 export const Route = createFileRoute("/settings/profile")({
   component: Profile,
