@@ -325,7 +325,7 @@ export interface HostServiceMethods {
   /** Calls a function of the API of an extension its manifest names in `extensionDependencies`. */
   "extensions.call": { params: { extension: string; method: string; args: JsonValue[] } & Called; result: Returned }
   /** Calls a function of what its window module returned as `node`, in the project's tab. */
-  "window.call": { params: { method: string; args: JsonValue[] }; result: Returned }
+  "window.call": { params: { method: string; args: JsonValue[] } & Called; result: Returned }
 }
 
 const text = z.string().max(20_000)
@@ -782,7 +782,7 @@ export const hostChecks: Checks<HostServiceMethods> = {
   "extensions.call": checkOf(
     z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call })
   ),
-  "window.call": checkOf(z.strictObject({ method: name, args: z.array(jsonValue).max(100) }))
+  "window.call": checkOf(z.strictObject({ method: name, args: z.array(jsonValue).max(100), call }))
 }
 
 /** Reads what an extension's code gave back, which could be anything its process posted. */

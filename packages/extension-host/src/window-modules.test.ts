@@ -778,6 +778,16 @@ describe("an internal extension's two halves (the window test extension, in the 
     )
   })
 
+  it("keeps an agent's Node command the agent's when its window module asks back of the Node half", async () => {
+    const { hosts, ready } = setUp()
+
+    await ready()
+
+    await expect(hosts.runForAgent("shop", { name: "wtest.askBack" }, "Claude")).rejects.toThrow(
+      "There's nobody to ask: Claude is running Window test"
+    )
+  })
+
   it("keeps each of two agents' overlapping window commands its own agent's", async () => {
     const { hosts, ready } = setUp()
 

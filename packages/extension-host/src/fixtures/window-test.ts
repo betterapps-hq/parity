@@ -22,7 +22,8 @@ export const windowTestPackage = {
     contributes: {
       commands: [
         { id: "wtest.fail", title: "Fail on purpose" },
-        { id: "wtest.confirm", title: "Ask through the Node half" }
+        { id: "wtest.confirm", title: "Ask through the Node half" },
+        { id: "wtest.askBack", title: "Ask through the window module" }
       ],
       settings: { "wtest.on": { type: "boolean", default: false, scope: "app", title: "Turned on" } }
     }
@@ -32,6 +33,8 @@ export const windowTestPackage = {
 /** What its window module offers its Node half. */
 export interface WindowTestForNode extends ExtensionApi {
   status(): { tab: string; selections: number }
+  /** Asks its Node half to ask the person, from the window module. */
+  askBack(): Promise<boolean>
 }
 
 /** What its Node half offers its window module. */
@@ -68,7 +71,10 @@ export const windowTestModule = defineWindowModule<WindowTestWindowApi, WindowTe
         greet: (name) => `Hello, ${name}`,
         pingNode: () => parity.host.api<WindowTestNodeApi>().ping()
       },
-      node: { status: () => ({ tab: parity.tab, selections }) }
+      node: {
+        status: () => ({ tab: parity.tab, selections }),
+        askBack: () => parity.host.api<WindowTestNodeApi>().confirm()
+      }
     }
   }
 })
@@ -82,6 +88,11 @@ export const windowTestNode = defineExtension<WindowTestNodeApi>({
     if (!isInternal(parity)) {
       throw new Error("The window test extension needs its window module")
     }
+
+    // Its own command, which asks through its window module: Node half, window module, then Node half again.
+    parity.subscriptions.push(
+      parity.commands.register("wtest.askBack", () => parity.window.api<WindowTestForNode>().askBack())
+    )
 
     return {
       ping: () => "pong",

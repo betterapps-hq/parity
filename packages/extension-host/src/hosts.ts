@@ -914,16 +914,39 @@ export function extensionHosts<Project extends OpenedProject>(
           )
         )
       },
-      async "window.call"({ method, args }: HostServiceMethods["window.call"]["params"]) {
+      async "window.call"({ method, args, call }: HostServiceMethods["window.call"]["params"]) {
         if (host.extension.package.manifest.window === undefined) {
           throw new Error(`${displayName} has no window module`)
         }
 
-        if (!options.window.callWindow) {
+        const { window } = options
+
+        if (!window.callWindow) {
           throw new Error("This window has no window modules")
         }
 
-        const result = await options.window.callWindow(projectId, id, method, args)
+        const send = async () => {
+          if (!window.callWindow) {
+            throw new Error("This window has no window modules")
+          }
+
+          return window.callWindow(projectId, id, method, args)
+        }
+
+        // During an agent's call, what the window module asks back of its Node half is the agent's too. A call already
+        // holding the turn, back from inside it, goes straight through; another agent's waits for its turn.
+        const result =
+          agentOf(call) === undefined || call === host.windowCall
+            ? await send()
+            : await agentTurn(host, async () => {
+                host.windowCall = call
+
+                try {
+                  return await send()
+                } finally {
+                  delete host.windowCall
+                }
+              })
 
         return result === undefined ? {} : { result }
       }

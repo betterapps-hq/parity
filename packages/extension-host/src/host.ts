@@ -79,7 +79,8 @@ const called = new Set<keyof HostServiceMethods>([
   "ui.pick",
   "ui.input",
   "ui.confirm",
-  "extensions.call"
+  "extensions.call",
+  "window.call"
 ])
 
 /** The host's link to the service, which its script uses to send what the extension's code prints to the log. */
