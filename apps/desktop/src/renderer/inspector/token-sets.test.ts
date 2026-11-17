@@ -154,6 +154,24 @@ describe("the project's tokens as the Design tab's fields offer them", () => {
     ])
   })
 
+  it("reads a preset that only names another as the one it names", () => {
+    const aliased = projectTokenSets(
+      [
+        token("font-base", "font", '600 1.25rem/1.4 "Geist", sans-serif'),
+        token("font-title", "font", "var(--font-base)")
+      ],
+      length,
+      color
+    )
+
+    expect(aliased.typeStyle.find((each) => each.name === "font-title")?.values).toEqual({
+      font: { stack: '"Geist", sans-serif' },
+      size: { px: 20 },
+      weight: { value: 600 },
+      lineHeight: { multiple: 1.4 }
+    })
+  })
+
   it("steps through Tailwind's hundreds where the project has no weights", () => {
     expect(projectTokenSets([], length, color).weight).toBe(tailwindWeights)
   })

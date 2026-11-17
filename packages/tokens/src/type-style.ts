@@ -55,7 +55,20 @@ function words(text: string): string[] {
     }
   }
 
-  return [...found, word].filter((part) => part !== "")
+  // A size and its line height are one word, however the slash between them is spaced: `16px / 1.5` is `16px/1.5`.
+  return [...found, word]
+    .filter((part) => part !== "")
+    .reduce<string[]>((joined, part) => {
+      const last = joined.at(-1)
+
+      if (last !== undefined && (last.endsWith("/") || part.startsWith("/"))) {
+        joined[joined.length - 1] = last + part
+      } else {
+        joined.push(part)
+      }
+
+      return joined
+    }, [])
 }
 
 /** A size as a shorthand writes one: a length, a keyword, or a `var()` or `calc()`, before an optional line height. */

@@ -240,10 +240,23 @@ export function projectTokenSets(
     return measurable(found.written) ? { px: length(found.written) } : undefined
   }
 
+  // A preset's shorthand, through tokens that only name another (`--font-heading: var(--font-base)`), keeping the
+  // references inside it.
+  const shorthandOf = (token: Token, seen = new Set<string>()): string => {
+    const written = token.values.default ?? Object.values(token.values)[0] ?? ""
+    const named = /^var\(--([\w-]+)\)$/.exec(written.trim())?.[1] ?? ""
+    const next = byName.get(named)
+
+    if (!next || seen.has(named)) {
+      return written
+    }
+
+    return shorthandOf(next, seen.add(token.name))
+  }
+
   // A typography preset: a token that sets a font, size and weight together, as a `font` shorthand writes them.
   const typeStyle: TypePreset[] = where((each) => each.kind === "type-style").flatMap((each) => {
-    const written = each.token.values.default ?? Object.values(each.token.values)[0] ?? ""
-    const parts = typeStyleParts(written)
+    const parts = typeStyleParts(shorthandOf(each.token))
     const sized = parts && presetSize(parts.size)
     const weighs = parts?.weight === undefined ? undefined : presetWeight(parts.weight)
 

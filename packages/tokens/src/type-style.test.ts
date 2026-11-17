@@ -29,6 +29,14 @@ describe("a typography preset token's parts", () => {
     })
   })
 
+  it("reads a size and line height however the slash between them is spaced", () => {
+    const parts = { weight: "600", size: "16px", lineHeight: "1.5", family: "Inter, sans-serif" }
+
+    expect(typeStyleParts("600 16px / 1.5 Inter, sans-serif")).toEqual(parts)
+    expect(typeStyleParts("600 16px/ 1.5 Inter, sans-serif")).toEqual(parts)
+    expect(typeStyleParts("600 16px /1.5 Inter, sans-serif")).toEqual(parts)
+  })
+
   it("reads nothing from a value that isn't a shorthand", () => {
     expect(typeStyleParts("inherit")).toBeUndefined()
     expect(typeStyleParts("caption")).toBeUndefined()
