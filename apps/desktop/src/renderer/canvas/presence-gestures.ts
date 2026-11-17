@@ -111,6 +111,24 @@ export function layerRef(
   return { owner: "design", type, key: `${design}/${node}` }
 }
 
+/**
+ * Where a move's layers would land: before the child at `index` of `parent`, in the frame of `landing`, the host they'd
+ * land in, which may be another state or mode than the one they were dragged from.
+ */
+export function dropIn(
+  doc: Parameters<typeof layerRef>[0],
+  landing: Pick<HTMLElement, "dataset">,
+  target: { design: string; parent: string; index: number }
+): Drop {
+  const { state, mode } = landing.dataset
+
+  return {
+    ...inFrame(state || undefined, mode || undefined),
+    parent: layerRef(doc, target.design, target.parent),
+    index: target.index
+  }
+}
+
 /** The frame something's drawn in, by state and mode, leaving out what isn't known. */
 export function inFrame(state: string | undefined, mode: string | undefined): InFrame {
   const frame: InFrame = {}

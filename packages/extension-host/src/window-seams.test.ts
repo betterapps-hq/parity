@@ -343,6 +343,33 @@ describe("parity.sync", () => {
     await expect(slow.sync().snapshot()).rejects.toThrow("open alone")
   })
 
+  it("opens alone when the module that says how stops before the document is attached, refusing a late opening", async () => {
+    let answer: (from: OpenFrom) => void = () => undefined
+    const { seam, sync, stop, named } = await room(() => new Promise((resolve) => (answer = resolve)))
+    const opening = seam.open()
+
+    await stop()
+
+    expect(await opening).toBeUndefined()
+
+    answer({ from: "files" })
+    await settle()
+    seam.attach(document().doc, "lineage-1")
+
+    await expect(sync().snapshot()).rejects.toThrow("open alone")
+    expect(named("sync.opened")).toEqual([])
+    expect(named("sync.openFailed")).toEqual([])
+    expect(named("sync.detached")).toEqual([{ why: "stopped", saved: true }])
+
+    const late = await room(() => Promise.resolve({ from: "files" }))
+    const opened = await late.seam.open()
+    await late.stop()
+    late.seam.attach(document().doc, opened!.lineage)
+
+    await expect(late.sync().snapshot()).rejects.toThrow("open alone")
+    expect(late.named("sync.detached")).toEqual([{ why: "stopped", saved: true }])
+  })
+
   it("lets the module call before the document opens, applying what it passed in, in order, once it does", async () => {
     const { seam, sync } = await room(() => Promise.resolve({ from: "files" }))
     const { doc, changes, bytes } = document()

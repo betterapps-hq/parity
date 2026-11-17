@@ -2187,7 +2187,8 @@ uses previews yet, and extensions can't reach either until the canvas surface is
 - **Settling.** `settleOnWrite` waits for the write that covers the drop: someone else's change to a design the preview
   moves, or one that arrived after its last update and before it was told to settle, as a drop's write in a batch of its
   own does. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or
-  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
+  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once, settling or not.
+  `onEnd` hears it end, however it does, so what showed it knows when it's gone.
 - **A hold** (`holds.hold(tab, design, at)`) keeps a board where it was while an agent's cursor drags it to where the
   agent put it, and `update` draws it along the way. Several holds on one board keep it where it's drawn until the last
   lets go. Each hold is let go after 10 s whatever happens. Grabbing a held board, by dragging it or its name, lets go
@@ -2213,7 +2214,7 @@ previews open at once, and which writes cover a preview. `canvas/style-layers.te
 property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
 `canvas/drag-preview.test.ts`: a board's preview following updates once a frame without writing, settling on someone
 else's write to it, settling at once on a write that came between its last move and being told to settle, going back
-after 2 s without one, and two people's previews ending on their own.
+after 2 s without one and saying it has ended, and two people's previews ending on their own.
 
 Gaps: A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
 yet; the story draws its look with the same carried pictures. Agent presence holds a board as its step is told, just
