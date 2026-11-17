@@ -40,13 +40,13 @@ import {
 } from "@parity-app/multiplayer"
 import { localProvider } from "@parity-app/multiplayer-local"
 import { useSyncExternalStore } from "react"
-import type { LiveRoom } from "./live-room.ts"
 import { track } from "./report-error.ts"
 
 /*
  * The project document an open project's designs live in (docs/proposals/multiplayer.md: How the session moves onto
  * it). This is the one place that picks the provider: the window stays on the local provider, and Loro comes in only
- * for a live room: today, the one `pnpm dev` opens with `PARITY_ROOM=1` (live-room.ts). Everything else edits through `@parity-app/multiplayer`'s functions for callers with
+ * when an extension brings a live room through `parity.sync` (PAR-1267). Everything else edits through
+ * `@parity-app/multiplayer`'s functions for callers with
  * `session.doc`, reads through its lookups, and saves through `session.saver`.
  */
 
@@ -69,10 +69,14 @@ export interface DocSession {
   readonly autosave: () => boolean
   /** Tells this session's revisions apart from another's, such as the same project's after it's reopened. */
   readonly epoch: string
-  /** The live room the project is open in, in development, or nothing. */
-  readonly room?: LiveRoom | undefined
-  /** Stops following who writes the room's files. */
-  readonly stopRoom?: (() => void) | undefined
+  /** The live room the project opened in, through `parity.sync`, or nothing. */
+  readonly room?: RoomOpening | undefined
+}
+
+/** How a project opens in a live room: on the room's provider, and whether this copy writes files from the start. */
+export interface RoomOpening {
+  provider: DocProvider
+  writesFiles: boolean
 }
 
 export interface OpenOptions {
@@ -85,8 +89,8 @@ export interface OpenOptions {
   main: string
   persistence: Persistence
   libraryDesigns?: readonly ContainerSpec[]
-  /** A live room to open the project in, on its provider, saving only while this copy hosts it. */
-  room?: LiveRoom | undefined
+  /** A live room to open the project in, on its provider, saving only while this copy writes files. */
+  room?: RoomOpening | undefined
 }
 
 /** What a document has done, for `projectDoc.closed`. */
@@ -149,11 +153,9 @@ export function openDocSession(options: OpenOptions): DocSession {
       libraryDesigns: options.libraryDesigns ?? [],
       autosave: () => options.persistence.autosave(),
       epoch: Math.random().toString(36).slice(2, 10).padEnd(8, "0"),
-      room,
-      stopRoom: room?.onSavesChange((saves) => void saver.setWritesFiles(saves))
+      room
     }
   } catch (error) {
-    room?.leave()
     track("projectDoc.openFailed", {
       provider: opener.name,
       files,
@@ -183,8 +185,6 @@ export function closeDocSession(session: DocSession): void {
     })
   }
 
-  session.stopRoom?.()
-  session.room?.leave()
   session.saver.dispose()
   doc.dispose()
 }
@@ -193,8 +193,8 @@ export function closeDocSession(session: DocSession): void {
  * How the saver starts in a live room: only the host writes files, so copies don't write the same files over each
  * other. A copy that joins opens on the host's document, so what its files hold is what it read from disk.
  */
-function roomSaving(room: LiveRoom | undefined, options: OpenOptions): Parameters<typeof createProjectSaver>[2] {
-  if (!room || room.saves()) {
+function roomSaving(room: RoomOpening | undefined, options: OpenOptions): Parameters<typeof createProjectSaver>[2] {
+  if (!room || room.writesFiles) {
     return {}
   }
 
@@ -395,14 +395,29 @@ function recordStep(name: "edit.undone" | "edit.redone", change: DocChange | und
   })
 }
 
+/** Files changed on this disk that a copy not writing files ignored, each said once (`sync.diskIgnored`). */
+const ignored = new WeakMap<DocSession, Set<string>>()
+
+function ignoredOnDisk(session: DocSession, path: string): void {
+  const said = ignored.get(session) ?? new Set<string>()
+  ignored.set(session, said)
+
+  if (!said.has(path)) {
+    said.add(path)
+    track("sync.diskIgnored", { path })
+  }
+}
+
 /**
  * A project file changed outside the canvas (an agent, git, a text editor): its content replaces what's here as one
  * undoable step. A file with unsaved changes here is left alone unless forced, and false says so, so the person can
  * choose which to keep.
  */
 export function reloadFile(session: DocSession, path: string, document: CanvasDocument, force = false): boolean {
-  // In a live room the copy that saves takes a changed file in, and the others get it from there.
-  if (session.room && !session.room.saves()) {
+  // In a live room the copy that writes files takes a changed file in, and the others get it from there.
+  if (!session.saver.writesFiles()) {
+    ignoredOnDisk(session, path)
+
     return true
   }
 

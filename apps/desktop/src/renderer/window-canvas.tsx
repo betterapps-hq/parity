@@ -28,6 +28,7 @@ import { ProjectContext } from "./canvas/context.ts"
 import { preview, type PreviewOptions } from "./canvas/drag-preview.ts"
 import { agentColors, personColors } from "./canvas/surface/colors.ts"
 import { surfaceOf } from "./canvas/surface/index.ts"
+import type { TabSlot } from "./tab-slot.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -78,23 +79,24 @@ class TabLayers {
   }
 }
 
-const tabLayers = new WeakMap<Pick<ProjectSession, "id">, TabLayers>()
+/** Each project's layers, by its id: a project is open in one tab, whose layers outlast a reopen's new session. */
+const tabLayers = new Map<string, TabLayers>()
 
 function layersOf(session: Pick<ProjectSession, "id">): TabLayers {
-  let layers = tabLayers.get(session)
+  let layers = tabLayers.get(session.id)
 
   if (!layers) {
     layers = new TabLayers()
-    tabLayers.set(session, layers)
+    tabLayers.set(session.id, layers)
   }
 
   return layers
 }
 
 /** The tab's canvas services, for its window modules' `parity.canvas`, `parity.camera` and `parity.colors`. */
-export function windowCanvasPort(session: ProjectSession, tab: string): WindowCanvasPort {
+export function windowCanvasPort(slot: TabSlot, tab: string): WindowCanvasPort {
   const canvas = (): CoreCanvas | undefined => {
-    const { editor } = session
+    const editor = slot.session?.editor
     const surface = editor && surfaceOf(editor)
 
     return editor && surface
@@ -108,22 +110,24 @@ export function windowCanvasPort(session: ProjectSession, tab: string): WindowCa
 
   return {
     canvas,
-    onCanvas(listener) {
-      let editor = session.editor
+    onCanvas: (listener) =>
+      slot.when((session) => {
+        let { editor } = session
 
-      // The canvas's surface starts as it mounts, before the tab is given its editor, and stops before it's taken.
-      return session.subscribe(() => {
-        if (session.editor !== editor) {
-          editor = session.editor
-          listener()
-        }
-      })
-    },
-    addLayer: (layer) => layersOf(session).add(layer),
+        // The canvas's surface starts as it mounts, before the tab is given its editor, and stops before it's taken.
+        return session.subscribe(() => {
+          if (session.editor !== editor) {
+            editor = session.editor
+            listener()
+          }
+        })
+      }),
+    addLayer: (layer) => layersOf(slot).add(layer),
     preview(items, options) {
-      const { editor } = session
+      const { session } = slot
+      const editor = session?.editor
 
-      if (!editor) {
+      if (!session || !editor) {
         throw new Error("canvas.preview needs the tab's canvas, which hasn't mounted yet")
       }
 
@@ -230,7 +234,8 @@ const placements: Record<Placement, string> = {
   topRight: "top-14 right-3",
   bottomLeft: "bottom-3 left-3",
   bottomRight: "bottom-3 right-3",
-  bottom: "bottom-20 left-1/2 -translate-x-1/2"
+  bottom: "bottom-20 left-1/2 -translate-x-1/2",
+  fill: "inset-0"
 }
 
 function placementOf(options: LayerOptions): Placement {

@@ -326,28 +326,36 @@ are to become internal extensions. None of the built-in extensions is one yet.
   setting is on. It's deactivated when its setting goes off, its extension goes, its Node half stops for good, or the
   tab closes. Deactivating disposes of its `subscriptions`, newest first, then calls its `deactivateWindow`. The service
   never starts an internal extension's Node half by itself: it starts as the window module activates.
+- **Before the document opens** (PAR-1267). A tab starts its window modules as it opens, from the project's extensions
+  as the service lists them (asked again every half second until the document opens, so a Node half getting ready
+  reaches its module), waits up to 5 seconds for the list and then for their activations, so a module can say how the
+  document opens through `parity.sync`. What a module listens to on the editor (the selection, the pointer, gestures)
+  starts once the document has opened, and again when the project reopens. A module whose activation takes the room
+  after the project opened, as turning a setting on does, reopens the project in it.
 - **Its commands.** A command a window module registers runs in its tab wherever it's run from: Search, another module's
   `commands.execute`, a Node half, or an agent through `run_extension`. The service asks the tab first, then the Node
   half. During an agent's run, what the module asks of its Node half, and another extension's command it runs, count as
   the agent's.
 - **`WindowParity`** ([`@parity-app/extension/internal`](../packages/extension/src/internal.ts)) gives the extension,
   the project, its `tab`, `subscriptions`, `commands` (its own, which run in the tab, and Parity's), `selection`,
-  `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `host`, its own Node half,
-  and `extensions.get(id)`, another window module in the tab that its `extensionDependencies` names, as it comes and
-  goes. Every module also gets `colors`; the rest is checked against `capabilities` as it's read (below). Reading one
-  that isn't declared throws `CapabilityMissingError`, naming the capability, and records `extension.capabilityMissing`
-  once per extension, API and session.
+  `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `telemetry`, which records
+  an event Parity's telemetry defines (checked against its schema; one it doesn't define is dropped with a warning),
+  `host`, its own Node half, and `extensions.get(id)`, another window module in the tab that its `extensionDependencies`
+  names, as it comes and goes. Every module also gets `colors`; the rest is checked against `capabilities` as it's read
+  (below). Reading one that isn't declared throws `CapabilityMissingError`, naming the capability, and records
+  `extension.capabilityMissing` once per extension, API and session.
 - **`parity.canvas`** (`canvas`) draws React in **layers** over the tab's canvas: `underDesigns`, in tldraw's background
   behind every board; `overDesigns`, over the boards and under the selection's outlines and handles; `overSelection`,
   over those and under the toolbar; and `edge`, in a corner of the screen or along the bottom, clear of the zoom
-  controls and the toolbar. Page layers are placed in page coordinates and move with the camera without drawing again.
-  Each layer is drawn in the tab's own React tree, so the kit, the theme and portals reach it, with an error boundary of
-  its own that counts a render that throws as `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden
-  (React's `Activity`), and a layer with `hideWhileEditing` hides while text is edited on the canvas. Layers take the
-  pointer only where an element asks with `data-canvas-interactive`. A layer's id is unique in its tab. `box`,
-  `onBoxChange` and `hit` say where designs and their layers are, by `NodeRef`; `pageToScreen` and `screenToPage`
-  convert points. `preview` shows someone else's drag in their color (claimed from people's colors while it lasts), and
-  `hold` (`hold`) holds a board while an agent moves it, over the core previews and holds.
+  controls and the toolbar, or over the whole canvas (`fill`), as a frame around it is. Page layers are placed in page
+  coordinates and move with the camera without drawing again. Each layer is drawn in the tab's own React tree, so the
+  kit, the theme and portals reach it, with an error boundary of its own that counts a render that throws as
+  `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden (React's `Activity`), and a layer with
+  `hideWhileEditing` hides while text is edited on the canvas. Layers take the pointer only where an element asks with
+  `data-canvas-interactive`. A layer's id is unique in its tab. `box`, `onBoxChange` and `hit` say where designs and
+  their layers are, by `NodeRef`; `pageToScreen` and `screenToPage` convert points. `preview` shows someone else's drag
+  in their color (claimed from people's colors while it lasts), and `hold` (`hold`) holds a board while an agent moves
+  it, over the core previews and holds.
 - **What's drawn in a layer** reads it through [`@parity-app/canvas-layer`](../packages/canvas-layer/src/index.ts):
   `useCamera` (the zoom and what's in view, at most once a frame), `useBox`, `useColor`, which claims a color while it's
   mounted, and `useFrame`, which runs every `measure` in the tab, then every `draw`, once an animation frame while the
@@ -375,9 +383,8 @@ are to become internal extensions. None of the built-in extensions is one yet.
   says how the project opens, from files or on a snapshot, within 30 seconds; `onLocalChanges`, `receive`, `version`,
   `changesSince` and `snapshot` carry changes framed with the document's lineage; `setWritesFiles` says who writes
   files; and when the module that brought the room stops, the document stays open alone and this copy writes files
-  again. The tab doesn't offer it yet: opening the document through it means starting window modules before the document
-  opens, in Loro. Until then, reading `parity.sync` throws that it isn't available in this window, and today's live room
-  keeps its own wiring.
+  again, with "Left the live room". The tab opens the document through it, in Loro, when a module handles `onOpen`
+  (PAR-1267); the Multiplayer extension is the one that does ([editor.md](editor.md#a-live-room-par-1179-par-1270)).
 - **The two halves** call each other. The window module calls what its Node half's `activate` returned through
   `parity.host.api()`, and the Node half calls what `activateWindow` returned as `node` through `parity.window.api()`,
   JSON across processes, through the service. A call to a half that isn't `ready` rejects at once with

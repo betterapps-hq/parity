@@ -38,6 +38,9 @@ function stubWindow(): void {
 // Previews wait for the canvas's bitmaps, whose cache loads tldraw, which needs a browser; none is waiting here.
 vi.mock("./canvas/frame-bitmaps.ts", () => ({ bitmapsWaiting: () => 0 }))
 
+// A tab's window modules draw on the canvas, which loads tldraw too; these sessions are made without opening a tab.
+vi.mock("./window-modules.ts", () => ({ startTabModules: () => Promise.reject(new Error("no tab here")) }))
+
 // The modules read the window as they load: the theme follows the system's.
 stubWindow()
 

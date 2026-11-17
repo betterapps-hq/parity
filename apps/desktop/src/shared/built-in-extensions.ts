@@ -1,3 +1,4 @@
+import multiplayerPackage from "@parity-app/extension-multiplayer/package.json" with { type: "json" }
 import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
@@ -50,7 +51,8 @@ export const builtInExtensions: readonly BuiltInExtension[] = [
   { packageJson: nextjsPackage, bundle: "nextjs" },
   { packageJson: storybookPackage, bundle: "storybook" },
   { packageJson: accessibilityPackage, bundle: "storybook-a11y" },
-  { packageJson: portlessPackage, bundle: "portless" }
+  { packageJson: portlessPackage, bundle: "portless" },
+  { packageJson: multiplayerPackage, bundle: "multiplayer" }
 ]
 
 /** A built-in extension as read, with its bundle's name. */
@@ -137,6 +139,7 @@ export function windowModulesSource(entries: Record<string, string> = windowModu
     "// `pnpm exec vp test run apps/desktop/src/shared/built-in-extensions.test.ts -u` to write it again.",
     "",
     "/** Internal extensions' window modules, by extension id, each loading its chunk when its extension activates. */",
+    "// oxlint-disable-next-line anti-slop/no-known-value-widening -- the window looks modules up by any extension id",
     `export const windowModules: Record<string, () => Promise<object>> = ${list}`,
     ""
   ].join("\n")

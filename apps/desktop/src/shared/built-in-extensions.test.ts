@@ -49,14 +49,16 @@ describe("the built-in list", () => {
     )
     expect(nodeHalves["extensions/room"]).toBe("room")
     expect(nodeHalves["extensions/presence"]).toBeUndefined()
-    expect(windows).toEqual({ presence: "presence/window", room: "room/window" })
+    expect(windows).toMatchObject({ presence: "presence/window", room: "room/window" })
     expect(windowModulesSource(windows)).toContain(
-      '= {\n  "presence": () => import("presence/window"),\n  "room": () => import("room/window")\n}'
+      '  "presence": () => import("presence/window"),\n  "room": () => import("room/window")\n}'
     )
   })
 
   it("lists the window modules for the window's build, as renderer/window-module-list.ts", async () => {
-    expect(windowModuleEntries()).toEqual({})
+    expect(windowModuleEntries()).toEqual({
+      "@parity-app/extension-multiplayer": "@parity-app/extension-multiplayer/window"
+    })
     await expect(windowModulesSource()).toMatchFileSnapshot("../renderer/window-module-list.ts")
   })
 

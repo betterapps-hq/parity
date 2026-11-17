@@ -204,6 +204,11 @@ beforeEach(() => {
           return Promise.resolve(detection.changed)
         }
 
+        // The window modules the tab starts before its document opens: none here.
+        if (method === "extensions.list") {
+          return Promise.resolve({ extensions: [], logs: {} })
+        }
+
         if (method === "start.check") {
           checked.push(params.roots!)
 

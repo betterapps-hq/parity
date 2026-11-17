@@ -5624,8 +5624,9 @@ in others' changes), `spliceAt` and `rebaseText` in `packages/editor/src/text-ed
 two changes and moving the selection), `typeInContainer` in `packages/multiplayer/src/callers.ts` (writing the change
 rather than the whole text), `textBack` in `packages/multiplayer/src/project-doc.ts` (undo keeping others' typing), and
 `TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room where the caret is.
-In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx` (the outline, name
-and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
+In a room: the text gesture `TextEditor.tsx` tells `parity.presence`, which the Multiplayer extension's `Selections`
+layer (`packages/extension-multiplayer/src/layers.tsx`) outlines with the typist's name, and `caretLine` in
+`canvas/text-caret.ts`.
 
 Tests:
 
@@ -6287,69 +6288,85 @@ Tests:
 - `apps/desktop/src/utility/projects.test.ts`: the service finds Storybook there, and asks the windows to open the
   project again when the folder changes.
 
-### A live room in development (PAR-1179)
+### A live room (PAR-1179, PAR-1270)
 
-Two copies of the app can edit one project together, each showing the other's cursor and agents, before rooms exist
-(docs/proposals/multiplayer.md, When Loro loads). It's for trying multiplayer on one machine, in development only.
+Copies of the app can edit one project together, each showing the others' pointers, selections, drags and agents. Rooms
+across machines don't exist yet, so it's for trying multiplayer on one machine. It's the Multiplayer extension
+(`@parity-app/extension-multiplayer`), an internal extension with a window module and a Node half, and it's off until
+the **Live room** setting is on (Settings → Extensions → Multiplayer, an app setting, `multiplayer.liveRoom`).
+
+Two copies on one machine, sharing their settings through one user data folder so the setting reaches both:
 
 ```bash
-PARITY_ROOM=1 pnpm dev
+PARITY_USER_DATA=/tmp/parity-room PARITY_ROOM_NAME=Andrew pnpm dev
 ```
 
 ```bash
-PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
+PARITY_USER_DATA=/tmp/parity-room PARITY_ROOM_NAME=Mia PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
 ```
 
-- **A room per project.** With `PARITY_ROOM=1`, `pnpm dev` starts a relay on `127.0.0.1:5390` (`PARITY_ROOM_PORT`), or
-  uses the one another copy started. Each copy that opens a project joins its room, keyed by the project's folder, and
-  opens it on the Loro provider rather than the local one.
-- **The first copy in hosts.** It opens the files. A later copy opens on a snapshot asked of the copies already there,
-  the first to answer, so it starts from the same Loro document, unsaved edits included. When the host leaves, the copy
-  that joined next takes over.
-- **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
-  show as `remote` changes: in neither person's undo. Token values edited on the canvas merge too, a token at a time,
-  and undoing a token edit puts back only the tokens that step changed and nobody has changed since (PAR-1231). Text is
-  written as it's typed (PAR-1230), so it arrives while it's typed, not when the editor closes.
-- **Only the host writes files** (PAR-1231), so copies don't write the same files over each other. It writes the others'
-  edits like its own, autosaving them on its usual delay, and writes the stylesheet. A change says where its content is
-  already written (`written`): `files` for a file reloaded from disk or code drawn again, which the saver takes as
-  saved, and `no` for everything else, the others' edits included. Only the host takes in a file changed on disk; the
-  others get it from there.
-- **A copy that doesn't write files has nothing to save.** It records nothing as saved, its name shows no unsaved dot,
-  closing it asks nothing, and Save says "Saved by the room". When the host leaves and it takes over, it writes every
-  file that differs from what it read from disk when it opened, and the stylesheet when token values do.
-- **Everyone sees the same state and mode** (PAR-1231). Which state and mode a design shows (its `view`) is an edit like
-  any other: picking a state or turning a mode on shows it in every copy, and the host's file saves it.
-- **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
-  a palette of the agents', named with the signed-in person's first name (`PARITY_ROOM_NAME` overrides it). It glides
-  between the positions sent.
-- **Agents.** What an agent does in one copy is passed on as it is to the others' agent presence, so each copy plays its
-  cursor the same way.
-- **In order, coalesced.** One batch is on its way at a time; what comes meanwhile goes in the next, with only the
-  latest of each cursor.
+Turn on Live room in the first, then start the second. `PARITY_ROOM_NAME` names each copy's pointer; without it, it's
+the signed-in person's first name.
 
-Without `PARITY_ROOM`, or in a packaged app, nothing changes: the window opens projects on the local provider.
+- **Turning it on or off.** Turning the setting on reopens open projects in the room. Turning it off leaves the room:
+  the document stays open with every change and its undo, this copy writes files and saves what differs, and a toast
+  says "Left the live room".
+- **A room per project.** The Node half starts a relay on `127.0.0.1:5390`, or finds the one another copy started. Each
+  project tab joins its project's room, keyed by the project's folder.
+- **The first copy in hosts.** Window modules start before the project's document opens (PAR-1267), so the extension
+  says how it opens through `parity.sync`. The host opens the files in a new Loro document. A later copy opens on a
+  snapshot, asked of the copies already there, so it starts from the same document, unsaved edits included. When the
+  host leaves, the copy that joined next takes over.
+- **Edits merge.** Each copy sends the changes it commits, repairs included, and takes in the others', which show as
+  `remote` changes: in neither person's undo. A copy that finds a gap asks the host for what it's missing, and so does
+  one whose connection comes back. Token values merge a token at a time, and text is written as it's typed (PAR-1230).
+- **Only the host writes files** (PAR-1231). It writes the others' edits like its own, autosaving them on its usual
+  delay, and writes the stylesheet. A copy that doesn't write files has nothing to save: its name shows no unsaved dot,
+  closing it asks nothing, and Save says "Saved by the room". When it takes over, it writes every file that differs from
+  what it read from disk. Only the host takes in a file changed on disk; the others ignore their own disk, recording it
+  once per file (`sync.diskIgnored`).
+- **Everyone sees the same state and mode** (PAR-1231): which state and mode a design shows is an edit like any other.
+- **People.** Each person is drawn in the palette the host assigned them, so they're the same color in every copy, and
+  colors never run out (`parity.colors.assign`). Their pointer glides between the positions sent, with a badge of their
+  first name, and stays where it was, faded, when they leave the canvas. What they've selected, and the text they're
+  typing in, is outlined in their color with their name. Their marquee shows as they drag it. A drag shows through
+  `parity.canvas.preview`, with the lift, carry and settle of a local drag (PAR-1199), and settles on its write.
+- **Who's here.** The avatar stack sits at the canvas's top right. A face opens the person's card, with **Follow** and
+  **Go to**. Following keeps the camera on what they see, with a frame and banner, until Esc, a pan or zoom, Stop, or
+  they leave; a note then says why it ended.
+- **Agents.** This copy's agents' steps go to the room, and steps from the room go to `parity.agents.receive`, so agent
+  presence, where it's on, draws every copy's agents.
+- **In order, coalesced.** Changes, gestures, agents' steps and the host's colors go in order, one batch on its way at a
+  time; presence goes with them, only the latest kept meanwhile. A move's write arrives before its end, so the preview
+  settles on it.
+- **Telemetry.** `room.relayStarted`, `room.joined`, `room.left`, `room.hostChanged`, `room.reconnected` and
+  `room.latency`, recorded through `parity.telemetry`, beside core's `sync.*`.
 
-Code: `apps/desktop/scripts/dev-room.ts` (the relay), `apps/desktop/src/renderer/live-room.ts`, `openDocSession` in
-`renderer/project-doc.ts` (the room's provider, and the saver writing files only while hosting), `setWritesFiles` and
-`written` in `packages/multiplayer`'s saver, `canvas/RoomCursor.tsx`, `onPush` in `agent/presence.ts`, and `openLoro`'s
-`snapshot`, `subscribeLocalUpdates` and tokens map in `packages/multiplayer-loro`.
+Code: `packages/extension-multiplayer` (`window.tsx` wires the room, `room.ts` talks to the relay, `relay.ts` is the
+relay, `people.ts` and `follow.ts` keep who's here and following, `layers.tsx` draws them); `startTabModules` in
+`apps/desktop/src/renderer/window-modules.ts` and `joinRoom` in `renderer/workspace.ts` (opening through `parity.sync`,
+on Loro); `openDocSession` in `renderer/project-doc.ts` (the room's provider, and the saver writing files only while
+hosting); `setWritesFiles` and `written` in `packages/multiplayer`'s saver; and `openLoro`'s `snapshot`,
+`subscribeLocalUpdates`, `pending` and tokens map in `packages/multiplayer-loro`.
 
 Tests:
 
-- `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it, edits the files given
-  don't have yet included; two documents kept in step through each one's local updates, delivered late as a relay does,
-  with a merge repaired the same on both and remote changes out of undo.
-- `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": another copy's change written a moment after
-  it and counted in `fromOthers`; another copy's token values written to the stylesheet; nothing written or unsaved in a
-  copy that doesn't write files; taking over writes every file that differs from what its files held, and the
-  stylesheet; letting go after the write in flight.
-- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: the other person's changes
-  arrive as not yet written; token values shared, with undo taking back only this person's; which state and mode a
-  design shows shared with the other's edits, and a mode the other took away dropped from it.
-- `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
-  copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
-  isn't one refused.
+- `packages/extension-multiplayer/src/room.test.ts`: who hosts and who's here, from the relay; one batch at a time, in
+  order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
+  changes told, and a reconnect noticed; asking the host for what's missing.
+- `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; each person's latest
+  presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node.
+- `packages/extension-multiplayer/src/relay.test.ts`: the relay's rooms, hosts and messages.
+- `apps/desktop/src/renderer/tab-slot.test.ts`: what window modules subscribe to before the document opens starts once
+  it does, and stops with the tab.
+- `packages/extension-host/src/window-modules.test.ts`, "says when every activation started so far has settled".
+- `packages/extension-host/src/window-seams.test.ts`: `parity.sync`'s opening, changes, catching up, lineage and the
+  room going away.
+- `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it; two documents kept in
+  step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both.
+- `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": others' changes written and counted in
+  `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go.
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro.
 
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 
@@ -6420,9 +6437,10 @@ them from the package.
   and a dropped connection share the banner.
 
 Code: `packages/presence-ui/src/`, with the glide in `glide.ts` and names, order and counts in `member.ts`. Agent
-presence (`renderer/agent/AgentPresence.tsx`), the live room's cursors (`canvas/RoomCursor.tsx`), remote typing
-(`canvas/RoomTyping.tsx`) and carried pictures (`canvas/CarriedPicture.tsx`) draw with it already. `useFollow`, which
-drives the Follow mode stories, stays with them; core's following is the camera's (PAR-1236).
+presence (`renderer/agent/AgentPresence.tsx`), the Multiplayer extension's layers
+(`packages/extension-multiplayer/src/layers.tsx`) and carried pictures (`canvas/CarriedPicture.tsx`) draw with it
+already. `useFollow`, which drives the Follow mode stories, stays with them; core's following is the camera's
+(PAR-1236).
 
 Tests:
 
