@@ -184,6 +184,8 @@ describe("a grid as the canvas lays it out", () => {
     expect([mapLine(1, grid.lines?.col), storedLine(2, grid.lines?.col), storedLine(1, grid.lines?.col)]).toEqual([
       2, 1, -5
     ])
+    // A negative line typed in a field already counts back from the end, so it stays.
+    expect(storedLine(-1, grid.lines?.col)).toBe(-1)
   })
 
   it("counts the tracks a template makes itself", () => {
