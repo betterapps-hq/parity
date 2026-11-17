@@ -2,6 +2,21 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 12:03:28 GMT",
+      "version": "0.81.1",
+      "tag": "@parity-app/cli_v0.81.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "b3a4e646d185e025115ecdfd656c7a4368dc1aa5",
+            "comment": "The registry's shadcn style files are made from what shadcn-sync builds, and projects still on a Buildkit kit read each component's props from the kit's own declarations"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 11:01:40 GMT",
       "version": "0.81.0",
       "tag": "@parity-app/cli_v0.81.0",
