@@ -754,8 +754,25 @@ Each is an issue, in this order.
    live page's snapshot doesn't stand in for it yet, since nothing makes copies stale before step 7. The freezer waits 2
    s after each `page.used` and 1.5 s after a board goes live or spares open or move. The events are `routeFrame.live`
    and `routeFrame.miss`.
-6. **Pictures.** Page jobs in the render pool built from copies, `RenderJob` as a union, page bitmap names, traces by
-   builder, and tiers by size on screen. This is where PAR-1200 lands.
+6. **Pictures** (PAR-1200), done: page jobs in the render pool built from copies, `RenderJob` as a union, page bitmap
+   names, traces by builder, and tiers by size on screen. Built: the page job is
+   `{ kind: "page", projectId, route, path, state, mode, scale }`, with `route` the route's id for its trace and `path`
+   its path and query. It carries the copy itself, its body, root and sheets' text, only when it's captured; asking for
+   a kept picture names the page without it, so the service keeps no copies. The render window sanitizes the copy again
+   and builds it with the board's own `mountCopy` and `copySheets`, moved out of `RouteBoard.tsx` and `freezer.ts` for
+   it. Pictures are kept beside frames' bitmaps as `page-<hash>.webp`, with the trace's files and digest inside. A trace
+   is `pageTraceFiles`'s choice (`@parity-app/project`): the builder's `loadedFiles` of the route's chain where it has
+   them, every file under the route's folder and those directly in each folder above it for Next, else the whole
+   project, each with the chain, Parity's scan of its imports, what mounts the app and its imports outside the routes
+   (`appEntries`), the stylesheets, the shared config and the `public` folder. A kept trace also stops holding when a
+   file it would now list is added, and a board checks its kept picture again with each new copy. A page that
+   redirected, or drew its not-found or error page, takes the whole project, since its chain doesn't lead to what it
+   drew. A copy notes when its page started loading, and a picture whose traced files changed after that is kept without
+   a trace. Server code is the scan's, since no builder's server graph is read yet. A stale picture is only found when
+   its board asks for it, and the window's copies still take the whole project as their trace, since page traces live in
+   the project service. Boards choose their tier with `boardTier` from the camera's zoom, `useFrameView`'s `near`, the
+   live frame and the pointer with Interact, and route boards ask for no design bitmaps. A capture that fails is tried
+   again after 2 s, doubling up to 16 s, as frames' are.
 7. **Code changes and previews** (PAR-1264), done: the watcher's changes reaching the window, stale copies by trace,
    starting frames again where pages don't update themselves, the second hello, markup groups, and style previews in
    copies and the live page. Built: the window hears `project.filesChanged`, the app's changed files 250 ms after the

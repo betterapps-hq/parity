@@ -9,15 +9,18 @@ import {
   type RenderNode,
   renderedComponents
 } from "@parity-app/core"
+import { parseFrozenBody, sanitizePage, sanitizeRoot } from "@parity-app/frames"
 import axe, { type CheckResult, type NodeResult, type RunOptions } from "axe-core"
 import { z } from "zod"
-import type { MeasuredNode, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import type { DesignJob, MeasuredNode, PageJob, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { frameBox, frameHeight } from "../shared/render-job.ts"
+import { sheetTexts } from "./copy-sheets.ts"
 import { frameBody, frameContent, type MountedFrame, mountFrame } from "./frame-host.ts"
 import { drawnNodeIds, findNodeElement, nodeBox, nodeOfElement, nodeParent } from "./frame.ts"
 import { loadGuest, releaseGuest, showTokenOverrides } from "./guest.ts"
 import { contentOutside, inlinePortalSheet, inlinePortals } from "./inline-portals.ts"
 import { isOutOfFlow, squeezedElement } from "./layout-checks.ts"
+import { mountCopy } from "./page-copy.ts"
 import { startTelemetry } from "./telemetry.ts"
 
 startTelemetry()
@@ -36,7 +39,7 @@ declare global {
 // with the frame, at the bottom of a component's preview (PAR-520). The window shows the frame and never scrolls.
 document.documentElement.style.overflow = "hidden"
 
-let current: MountedFrame | undefined
+let current: Pick<MountedFrame, "unmount"> | undefined
 
 /** Puts what the last frame portaled out of it, and a preview drew inside it, back where its library put it. */
 let putBack: (() => void) | undefined
@@ -48,20 +51,113 @@ let currentHost: HTMLElement | undefined
 const projectGuests = new Map<string, string>()
 
 /** The components each guest was given by the last job that carried them, to take back the ones a later job drops. */
-const givenComponents = new Map<string, NonNullable<RenderJob["components"]>>()
+const givenComponents = new Map<string, NonNullable<DesignJob["components"]>>()
 
 window.canvasSettle = async () => {
   await document.fonts.ready
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 }
 
-window.canvasRender = async (job) => {
+/** Takes down what the last job drew. */
+function clearLast(): void {
   putBack?.()
   putBack = undefined
   current?.unmount()
   current = undefined
   currentHost = undefined
   document.body.replaceChildren()
+}
+
+window.canvasRender = (job) => (job.kind === "page" ? renderPage(job) : renderDesign(job))
+
+/**
+ * Builds a route's page from its frozen copy, at the mode's width and the page's full height, as its board's copy is
+ * built (docs/proposals/route-frames.md, "Pictures", PAR-1200). No page loads here: the copy is plain data, sanitized
+ * again before it's built, and its viewport units measure the mode's window, so a section sized in `svh` keeps its
+ * height. A frame of its own height clips it, as on the board.
+ */
+async function renderPage(job: PageJob): Promise<RenderedFrame> {
+  clearLast()
+  const { mode } = job
+
+  const failed = (message: string): RenderedFrame => ({
+    width: mode.width,
+    height: 0,
+    nodes: [],
+    overflowsX: false,
+    unknownComponents: [],
+    error: message
+  })
+
+  if (!job.copy) {
+    return failed("There's no copy of the page to draw")
+  }
+
+  try {
+    const { copy } = job
+    const policy = { pageOrigin: copy.origin }
+    const body = sanitizePage(parseFrozenBody(copy.body), policy).body
+    const root = sanitizeRoot(copy.root, policy).root
+
+    for (const sheet of copy.sheets) {
+      sheetTexts.set(sheet.id, sheet.text)
+    }
+
+    const height = mode.height ?? Math.max(mode.viewport.height, copy.pageHeight)
+    const host = document.createElement("div")
+    host.style.width = `${mode.width}px`
+    host.style.height = `${height}px`
+    host.style.overflow = "hidden"
+    host.style.zoom = String(job.scale)
+    document.body.append(host)
+    currentHost = host
+
+    const page = { classes: mode.classes, attributes: mode.attributes, ...(mode.scheme && { scheme: mode.scheme }) }
+
+    const mounted = mountCopy(
+      host,
+      { root, body, sheets: copy.sheets.map((sheet) => sheet.id), origin: copy.origin },
+      page,
+      mode.viewport,
+      new CustomElementRegistry()
+    )
+
+    current = { unmount: mounted.unmount }
+    // The window is only as tall as its first size until the capture, so a lazy image below it wouldn't start loading.
+    eagerImages(host.shadowRoot)
+    await window.canvasSettle()
+    await Promise.race([imagesDecoded(images(host.shadowRoot)), new Promise((resolve) => setTimeout(resolve, 1500))])
+
+    return { width: mode.width, height, nodes: [], overflowsX: false, unknownComponents: [] }
+  } catch (error) {
+    return failed(error instanceof Error ? error.message : String(error))
+  }
+}
+
+/** Every image in `root` and in the shadow roots inside it, as a copied web component's. */
+function images(root: ParentNode | null): HTMLImageElement[] {
+  return [...(root?.querySelectorAll("*") ?? [])].flatMap((element) => [
+    ...(element instanceof HTMLImageElement ? [element] : []),
+    ...images(element.shadowRoot)
+  ])
+}
+
+/** Has every lazy image in `root`, and in the shadow roots inside it, load now, as the whole page is captured. */
+function eagerImages(root: ParentNode | null): void {
+  for (const image of images(root)) {
+    if (image.loading === "lazy") {
+      image.loading = "eager"
+    }
+  }
+}
+
+/** Once every one of `found` has loaded or failed. */
+async function imagesDecoded(found: readonly HTMLImageElement[]): Promise<void> {
+  await Promise.all(found.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined))))
+}
+
+async function renderDesign(job: DesignJob): Promise<RenderedFrame> {
+  clearLast()
   const last = projectGuests.get(job.projectId)
 
   if (last !== job.guestUrl) {

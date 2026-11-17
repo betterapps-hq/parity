@@ -1,13 +1,4 @@
-import {
-  colorSchemeAttribute,
-  type DesignNode,
-  type DrawnNodes,
-  remProperty,
-  rootFontSizeProperty,
-  rewriteFrameUnits,
-  type FrameGeometry,
-  type ResolvedMode
-} from "@parity-app/core"
+import type { DesignNode, DrawnNodes, FrameGeometry, ResolvedMode } from "@parity-app/core"
 import {
   elementLayers,
   frozenSnapshots,
@@ -16,37 +7,34 @@ import {
   readStyles,
   styleOfElement
 } from "@parity-app/editor"
-import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
+import { type BoardTier, boardTier, type PageMode } from "@parity-app/frames"
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
-import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
+import { useMaybeEditor, useValue } from "tldraw"
+import { pageRenderJob } from "../../shared/render-job.ts"
+import { copyRootAttribute } from "../copy-sheets.ts"
+import { findFrames, findNodeElements, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
+import { mountCopy } from "../page-copy.ts"
 import { useProject } from "./context.ts"
-import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
+import { bitmapScale } from "./frame-bitmaps.ts"
+import type { FrameView } from "./frame-view.ts"
+import { type FrozenCopy, useFrozenCopy } from "./freezer.ts"
 import { type LiveState, poolFor, useLiveBoard } from "./live-frames.ts"
+import { usePagePicture } from "./page-bitmaps.ts"
 import { showTokenPreview, tokenPreviewSheet, useTokenPreview } from "./page-changes.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
-/** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
-const hostAttributes = new Set([
-  "class",
-  "style",
-  "id",
-  "inert",
-  "data-frame",
-  "data-design",
-  "data-mode",
-  "data-state"
-])
-
 /**
- * A route board's frame drawn from a frozen copy of its page (docs/proposals/route-frames.md, PAR-1262): the page's DOM
- * without its scripts, made by the project's freezer frame, built in a shadow root from `prepareFrame` with a custom
- * element registry of its own, and styled with the page's own stylesheets through `prepareCanvasCss`. `<html>`'s
- * classes and attributes go on the host, `<body>`'s on the body stand-in, and the mode's on both. Its host is a frame,
- * registered under the page's design with its mode and state, so selection, hit-testing and outlines find the copy's
- * elements by their ids (`buildCopy`'s `DrawnNodes`). It's as tall as the page in the mode's window, unless the frame has
- * a height of its own, which clips it. It's inert, so its links and forms can't be followed or sent, and nothing in it
- * takes focus. Until its copy comes, a placeholder stands in at the window's height. Where the page landed, when it
- * isn't the route's own path, goes to the board's warning and Layers; the primary frame's copy gives Layers its layers.
+ * A route board's frame (docs/proposals/route-frames.md, PAR-1262, PAR-1200), drawn as a picture when it's small on
+ * screen or away from the view, and as a frozen copy of its page when it's near and readable (`boardTier`). The copy is
+ * the page's DOM without its scripts, made by the project's freezer frame, built in a shadow root from `prepareFrame`
+ * with a custom element registry of its own, and styled with the page's own stylesheets through `prepareCanvasCss`
+ * (`mountCopy`). The picture is a capture of the copy, kept on disk with the page's trace (`usePagePicture`). Its host is
+ * a frame, registered under the page's design with its mode and state, so selection, hit-testing and outlines find the
+ * copy's elements by their ids (`buildCopy`'s `DrawnNodes`). It's as tall as the page in the mode's window, unless the
+ * frame has a height of its own, which clips it. It's inert, so its links and forms can't be followed or sent, and
+ * nothing in it takes focus. Until its copy or picture comes, a placeholder stands in at the window's height. Where the
+ * page landed, when it isn't the route's own path, goes to the board's warning and Layers; the primary frame's copy gives
+ * Layers its layers.
  * Its copy is kept by `CopyKey`, its route, mode and state, and frozen again when the app's code changes (PAR-1264).
  *
  * With the Interact tool it can go live (PAR-1263): resting the pointer on it sends one of the project's spare frames
@@ -58,12 +46,13 @@ export function RouteBoard({
   url,
   project,
   design,
+  route,
   state,
   frame,
   mode,
   scale,
   primary,
-  rank,
+  view,
   asleep,
   interactive
 }: {
@@ -71,18 +60,17 @@ export function RouteBoard({
   project: string
   /** The page's design, by key. */
   design: string
+  /** The route's id, which the picture's trace starts from. */
+  route: string
   state: string
   frame: FrameGeometry
   mode: ResolvedMode
   scale: number
   /** The board's main frame, whose copy gives Layers what the page draws. */
   primary: boolean
-  /** How urgent the copy is, lowest first, from where the frame is against the view. */
-  rank: () => number
-  /**
-   * Whether the board sleeps, small on screen or out of view: it lets go of its copy's elements and shows a placeholder,
-   * until pictures come (route-frames.md, step 6), and builds the copy again from what it kept when it wakes.
-   */
+  /** Where the frame is against the view: how urgent its copy and picture are, and whether it's near. */
+  view: FrameView
+  /** Whether the board sleeps, as a hidden tab's do: it lets go of its copy's elements and shows its picture. */
   asleep: boolean
   /** With the Interact tool, the board goes live on a press, and warms a spare when the pointer rests on it. */
   interactive: boolean
@@ -99,14 +87,24 @@ export function RouteBoard({
     [frame.viewport.width, frame.viewport.height]
   )
 
+  const { rank } = view
   const key = useMemo(() => ({ route: url, mode: mode.id, state }), [url, mode.id, state])
   const copy = useFrozenCopy(project, key, drawn, viewport, rank)
+
+  const job = useMemo(
+    () => pageRenderJob({ projectId: project, route, url, state, mode: drawn, frame, scale: bitmapScale * scale }),
+    [project, route, url, state, drawn, frame, scale]
+  )
+
+  const picture = usePagePicture(job, copy, rank)
   // The copy's height while a token preview shows, which can make it taller or shorter than it was frozen.
   const [previewed, setPreviewed] = useState<number>()
-  const height = frame.height ?? Math.max(viewport.height, previewed ?? copy?.pageHeight ?? 0)
+  const height = frame.height ?? Math.max(viewport.height, previewed ?? copy?.pageHeight ?? picture.height ?? 0)
 
   // Token values edited and not saved show in the copy as in the design frames, through the project's preview sheet.
   useTokenPreview(project, tokens, loaded.themeAttributes)
+  // The pointer rests on it with Interact, which brings a picture up to its copy first.
+  const [pointed, setPointed] = useState(false)
   const drawnHeight = useRef(height)
 
   useEffect(() => {
@@ -136,8 +134,16 @@ export function RouteBoard({
     }
 
     const pool = poolFor(project)
-    const enter = () => pool.hover(id)
-    const leave = () => pool.unhover()
+
+    const enter = () => {
+      setPointed(true)
+      pool.hover(id)
+    }
+
+    const leave = () => {
+      setPointed(false)
+      pool.unhover()
+    }
 
     const down = (event: PointerEvent) => {
       if (event.button !== 0) {
@@ -160,24 +166,27 @@ export function RouteBoard({
     }
   }, [id, interactive, project])
 
+  const tier = useBoardTier(frame.width * scale, view, { copy: !!copy, live: !!live, pointed: interactive && pointed })
+  const frozen = tier !== "picture" && !asleep && !!copy
+
   // Selecting, outlining and agents find the copy as they find a design's frames.
   useLayoutEffect(() => registerFrame(host.current!, design), [design])
 
   useLayoutEffect(() => {
     const element = host.current
 
-    if (!copy || !element || asleep) {
+    if (!copy || !element || !frozen) {
       return undefined
     }
 
     registry.current ??= new CustomElementRegistry()
 
     return showCopy(element, copy, drawn, viewport, registry.current, tokenPreviewSheet(project))
-  }, [asleep, copy, drawn, viewport, project])
+  }, [frozen, copy, drawn, viewport, project])
 
   // A token preview can change the page's height, so the copy measures what it draws while one shows.
   useEffect(() => {
-    if (!copy || asleep) {
+    if (!copy || !frozen) {
       return undefined
     }
 
@@ -190,19 +199,19 @@ export function RouteBoard({
       stop()
       setPreviewed(undefined)
     }
-  }, [asleep, copy, project])
+  }, [frozen, copy, project])
 
   // A fixed header shows once, in the live window, rather than again on the copy around it. After the copy is built, so
   // a copy built again while the board is live is hidden too.
   useLayoutEffect(() => {
     const root = host.current?.shadowRoot
 
-    if (!live || !copy || asleep || !root) {
+    if (!live || !copy || !frozen || !root) {
       return undefined
     }
 
     return hideFixed(root)
-  }, [asleep, copy, drawn, live, viewport])
+  }, [frozen, copy, drawn, live, viewport])
 
   // While it's live, where the live page went, or tried to go off the app's origin; otherwise where its copy landed.
   const landed = live?.location ?? copy?.location
@@ -222,10 +231,13 @@ export function RouteBoard({
     }
   }, [copy, design, doc, primary])
 
+  const shown = !frozen && picture.src
+
   return (
     <div
       ref={box}
       className="mode-frame relative overflow-hidden bg-white shadow-lg ring-1 ring-black/15"
+      data-tier={frozen ? "frozen" : "picture"}
       data-live={liveAttribute(live)}
       data-ready={ready ? "" : undefined}
       style={{
@@ -243,14 +255,49 @@ export function RouteBoard({
           data-mode={mode.id}
           data-state={state}
           data-primary={primary}
-          data-copy={copy && !asleep ? "" : undefined}
+          data-copy={frozen ? "" : undefined}
           inert
           style={{ width: frame.width, height, zoom: scale }}
         />
       </div>
-      {(!copy || asleep) && <div className="frame-placeholder" data-placeholder aria-hidden />}
+      {shown && <img className="page-picture" data-picture="" src={shown} alt="" draggable={false} />}
+      {!frozen && !shown && <div className="frame-placeholder" data-placeholder aria-hidden />}
     </div>
   )
+}
+
+/**
+ * A board's tier from its width on screen, in CSS pixels at zoom 1, whether it's near the view, which follows the camera
+ * as it zooms, and what it has: a copy, the live frame, the pointer with Interact.
+ */
+function useBoardTier(
+  width: number,
+  view: FrameView,
+  has: { copy: boolean; live: boolean; pointed: boolean }
+): BoardTier {
+  const editor = useMaybeEditor()
+  const last = useRef<BoardTier>("picture")
+  const { copy, live, pointed } = has
+
+  const tier = useValue(
+    "board tier",
+    () =>
+      boardTier({
+        width: width * (editor?.getZoomLevel() ?? 1),
+        near: view.near.get(),
+        last: last.current,
+        copy,
+        live,
+        pointed
+      }),
+    [editor, width, view, copy, live, pointed]
+  )
+
+  useEffect(() => {
+    last.current = tier
+  })
+
+  return tier
 }
 
 /**
@@ -266,50 +313,7 @@ function showCopy(
   registry: CustomElementRegistry,
   preview: CSSStyleSheet
 ): () => void {
-  const target = prepareFrame(host, copySheets(copy), {
-    classNames: [],
-    attributes: {},
-    viewport,
-    registry,
-    sheets: [preview]
-  })
-
-  // Inline styles' viewport lengths and `rem` measure the board, as its sheets' do.
-  const built = buildCopy(document, copy.body, registry, {
-    sheet: (css) => copyShadowStyle(copy, css, mode.scheme),
-    inline: rewriteFrameUnits
-  })
-
-  const body = built.fragment.firstElementChild
-
-  if (body) {
-    body.classList.add(...mode.classes)
-    setAttributes(body, Object.entries(mode.attributes))
-
-    if (mode.scheme) {
-      body.setAttribute(colorSchemeAttribute, mode.scheme)
-    }
-  }
-
-  // `<html>`'s classes and attributes go on an element around the body, since selectors in the shadow root can't reach
-  // the host: a page's `.font-page { … }` or `[data-theme]` rule for its root matches it and reaches the body by
-  // inheritance, as on the page, so the body's own rules still win over it. It's as tall as the mode's window, as the
-  // page's root was, so a body or `main` at `height: 100%` is too, while the rest of the page runs on below it.
-  const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div", { customElementRegistry: registry })
-  // The mode's too, as the page had them on `<html>`, so `.dark body { … }` still finds the body.
-  root.classList.add(...copy.root.classes, ...mode.classes)
-  setAttributes(root, [...copy.root.attributes, ...Object.entries(mode.attributes)])
-  root.setAttribute(copyRootAttribute, "")
-  // Its font size is the root's, which `rem` measures: a `.font-page { font-size: 10px }` on it sets the copy's rem.
-  root.setAttribute(
-    "style",
-    `display: block; height: ${viewport.height}px; ${rootFontSizeProperty}: 1em; ${remProperty}: var(${rootFontSizeProperty})`
-  )
-  root.append(built.fragment)
-
-  // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
-  target.parentElement?.replaceWith(root)
-  const unroot = rootOnHost(host, copy.root, mode)
+  const { built, body, unmount } = mountCopy(host, copy, mode, viewport, registry, [preview])
   const nodes = new Map<string, Element | Text>()
   const textParents = new Map<string, string | undefined>()
   const ids: string[] = []
@@ -366,56 +370,7 @@ function showCopy(
   return () => {
     setDrawnNodes(host, undefined)
     setInnerNodes(host, new Map())
-    unroot()
-    // Nothing keeps the copy's elements once it's gone, as a sleeping frame keeps none.
-    host.shadowRoot?.replaceChildren()
-  }
-}
-
-/**
- * Puts `<html>`'s classes, attributes and inline style on the host, which the page's `html` and `:root` rules map to,
- * with the mode's classes and attributes. Returns what takes them off.
- */
-function rootOnHost(host: HTMLElement, root: PageRoot, mode: PageMode): () => void {
-  const classes = [...root.classes, ...mode.classes].filter((name) => !host.classList.contains(name))
-  host.classList.add(...classes)
-
-  const attributes = [...root.attributes, ...Object.entries(mode.attributes)].filter(
-    ([name]) => !hostAttributes.has(name) && !host.hasAttribute(name)
-  )
-
-  setAttributes(host, attributes)
-
-  const probe = document.createElement("div")
-  probe.setAttribute("style", root.style)
-
-  const properties: string[] = []
-
-  for (let index = 0; index < probe.style.length; index++) {
-    const name = probe.style.item(index)
-
-    if (name !== "width" && name !== "height" && name !== "zoom") {
-      host.style.setProperty(name, probe.style.getPropertyValue(name), probe.style.getPropertyPriority(name))
-      properties.push(name)
-    }
-  }
-
-  // The scheme the runtime put on `<html>` for the mode, which native controls draw in.
-  if (mode.scheme && !properties.includes("color-scheme")) {
-    host.style.setProperty("color-scheme", mode.scheme)
-    properties.push("color-scheme")
-  }
-
-  return () => {
-    host.classList.remove(...classes)
-
-    for (const [name] of attributes) {
-      host.removeAttribute(name)
-    }
-
-    for (const name of properties) {
-      host.style.removeProperty(name)
-    }
+    unmount()
   }
 }
 
@@ -451,16 +406,6 @@ function hideFixed(root: ShadowRoot): () => void {
   return () => {
     for (const { element, value, priority } of hidden) {
       element.style.setProperty("visibility", value, priority)
-    }
-  }
-}
-
-function setAttributes(element: Element, attributes: readonly (readonly [string, string])[]): void {
-  for (const [name, value] of attributes) {
-    try {
-      element.setAttribute(name, value)
-    } catch {
-      // A name the DOM won't take as an attribute's.
     }
   }
 }

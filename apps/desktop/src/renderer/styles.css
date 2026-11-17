@@ -549,6 +549,15 @@ textarea,
   display: block;
 }
 
+/* A route board small on screen or away from the view shows its picture, a capture of its page's copy (PAR-1200). */
+.page-picture {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
 /*
  * A frame zoomed far out that hasn't drawn its design shows a placeholder until its bitmap comes, rather than drawing
  * first (PAR-525). It's still, since a pulse on every frame would repaint the canvas while they wait.

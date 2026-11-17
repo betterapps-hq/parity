@@ -7,7 +7,7 @@ import {
   renderQueue
 } from "@parity-app/processes"
 import type { Span } from "@parity-app/telemetry"
-import type { ConsoleContext, RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import type { ConsoleContext, DesignJob, RenderedFrame, RenderJob } from "../shared/protocol.ts"
 import { deviceBox, devicePixels } from "../shared/render-job.ts"
 import type { PreviewDrawn, PreviewPictures } from "../shared/service.ts"
 import { currentTrace, inSpan } from "../shared/tracing.ts"
@@ -75,7 +75,7 @@ export interface RenderPool<Window extends RenderWindow> {
    * Draws a component preview and crops it to the element `crop` names, scaled down to the two sizes previews are kept
    * at (PAR-207). A component that fails to draw gives its error.
    */
-  preview(job: RenderJob, crop: string, priority: Exclude<RenderPriority, "render">): Promise<PreviewDrawn>
+  preview(job: DesignJob, crop: string, priority: Exclude<RenderPriority, "render">): Promise<PreviewDrawn>
   /** The windows open now. */
   windows(): Window[]
   /** Closes every window, as when the last app window closes, so the hidden ones don't keep the app running. */
@@ -83,7 +83,7 @@ export interface RenderPool<Window extends RenderWindow> {
 }
 
 /** The design a job draws, as what its window writes to the console is tagged (PAR-147). */
-function consoleContextOf(design: NonNullable<RenderJob["design"]>): ConsoleContext {
+function consoleContextOf(design: NonNullable<DesignJob["design"]>): ConsoleContext {
   const context: ConsoleContext = { design: design.key }
 
   if (design.state) {
@@ -200,7 +200,7 @@ export function createRenderPool<Window extends RenderWindow>({
       const width = devicePixels(job.mode.width, job.scale)
       window.setContentSize(width, 800)
 
-      if (job.design) {
+      if (job.kind !== "page" && job.design) {
         drawing.set(window, consoleContextOf(job.design))
       }
 
@@ -265,12 +265,15 @@ export function createRenderPool<Window extends RenderWindow>({
   }
 
   return {
-    render: (job, capture) =>
-      renderOffscreen("render", job, capture || !!job.audit, async (window, frame, width, height) => {
-        if (job.audit) {
+    render(job, capture) {
+      // A page's picture is never checked: it's a copy of what the app drew, not a design.
+      const audit = job.kind === "page" ? undefined : job
+
+      return renderOffscreen("render", job, capture || !!audit?.audit, async (window, frame, width, height) => {
+        if (audit?.audit) {
           const audited = await callPage(
             window,
-            `window.canvasAudit(${JSON.stringify(job.colorTokens ?? [])})`,
+            `window.canvasAudit(${JSON.stringify(audit.colorTokens ?? [])})`,
             auditResult
           )
 
@@ -295,7 +298,8 @@ export function createRenderPool<Window extends RenderWindow>({
         }
 
         return { frame, png: image.toPNG().toString("base64") }
-      }),
+      })
+    },
     async preview(job, crop, priority) {
       let pictures: PreviewPictures | undefined
       let empty = false

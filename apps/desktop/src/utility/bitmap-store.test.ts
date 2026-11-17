@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm, utimes, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
-import type { RenderJob } from "../shared/protocol.ts"
+import type { PageJob, RenderJob } from "../shared/protocol.ts"
 import type * as BitmapStore from "./bitmap-store.ts"
 
 let folder: string
@@ -132,6 +132,34 @@ function webpOf(width: number, height: number): Buffer {
 const key = "a".repeat(40)
 const newer = "b".repeat(40)
 const pictures = () => ({ thumb: webpOf(240, 40), large: webpOf(600, 100) })
+
+describe("a page's picture in the store (PAR-1200)", () => {
+  const page: PageJob = {
+    kind: "page",
+    projectId: "D:/shop",
+    route: "/pricing",
+    path: "/pricing",
+    state: "base",
+    mode: { width: 390, viewport: { width: 390, height: 844 }, classes: [], attributes: {} },
+    scale: 0.25
+  }
+
+  const noSources = { sources: {} }
+
+  it("gives back a picture kept for the page while its trace holds, and stale once it doesn't", async () => {
+    await store.storeBitmap(noSources, page, webp, 2532, trace("b2"))
+    expect(await store.storedBitmap(noSources, page, holdsFor("b2"))).toMatchObject({ height: 2532 })
+    expect(await store.storedBitmap(noSources, page, holdsFor("c3"))).toMatchObject({ height: 2532, stale: true })
+  })
+
+  it("keeps it apart from frames' bitmaps, and from the page in another mode", async () => {
+    await store.storeBitmap(noSources, page, webp, 2532, trace("b2"))
+    const files = await readdir(join(folder, (await readdir(folder))[0]!))
+    expect(files).toEqual([expect.stringMatching(/^page-[0-9a-f]{40}\.webp$/)])
+    const dark = { ...page, mode: { ...page.mode, classes: ["dark"] } }
+    expect(await store.storedBitmap(noSources, dark, holdsFor("b2"))).toBeUndefined()
+  })
+})
 
 describe("the component preview store", () => {
   it("gives a preview's pictures as parity-preview addresses, with the large one's size", async () => {

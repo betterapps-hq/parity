@@ -10,11 +10,14 @@ beforeAll(async () => {
   app = await App.connect()
 
   // Bitmaps are taken one frame at a time in the background, and a frame without one stays drawn, so a run that starts
-  // with this file waits for them all. A page's frame has a bitmap too, though it draws the app rather than a design
-  // (`[data-frame]`), so each design's frame is checked rather than the counts compared.
+  // with this file waits for them all. A route board shows a picture of its page's copy instead (PAR-1200), so each
+  // frame is checked for the one it shows rather than the counts compared.
   try {
     await app.page.waitForFunction(
-      () => [...document.querySelectorAll("[data-frame]")].every((host) => host.closest("[data-bitmap]")),
+      () =>
+        [...document.querySelectorAll("[data-frame]")].every(
+          (host) => host.closest("[data-bitmap]") || host.closest("[data-tier]")?.querySelector("img[data-picture]")
+        ),
       undefined,
       { timeout: 150_000, polling: 500 }
     )
@@ -22,7 +25,9 @@ beforeAll(async () => {
     // Which frames never got one, so a failure says where to look.
     const without = await app.page.evaluate(() =>
       [...document.querySelectorAll<HTMLElement>("[data-frame]")].flatMap((host) =>
-        host.closest("[data-bitmap]") ? [] : [`${host.dataset.design} ${host.dataset.state}/${host.dataset.mode}`]
+        host.closest("[data-bitmap]") || host.closest("[data-tier]")?.querySelector("img[data-picture]")
+          ? []
+          : [`${host.dataset.design} ${host.dataset.state}/${host.dataset.mode}`]
       )
     )
 
@@ -64,12 +69,13 @@ const frameSizes = () =>
   )
 
 /**
- * How many frames have bitmaps, how many sleep, and how many draw their designs. A frame whose design doesn't render
- * has no bitmap, so it never sleeps.
+ * How many designs' frames have bitmaps, how many sleep, and how many draw their designs. A frame whose design doesn't
+ * render has no bitmap, so it never sleeps. Route boards show their pages' pictures instead (PAR-1200), and aren't
+ * counted.
  */
 const frames = () =>
   app.page.evaluate(() => {
-    const hosts = [...document.querySelectorAll("[data-frame]")]
+    const hosts = [...document.querySelectorAll("[data-frame]")].filter((host) => !host.closest("[data-tier]"))
 
     return {
       all: hosts.length,

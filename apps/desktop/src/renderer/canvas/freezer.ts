@@ -1,5 +1,4 @@
 import { type Channel, createChannel, domPort } from "@parity-app/channel"
-import { bodyAttribute, prepareCanvasCss } from "@parity-app/core"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
   type CopyKey,
@@ -19,7 +18,6 @@ import {
   type SanitizePolicy,
   sanitizePage,
   sanitizeRoot,
-  sanitizeSheet,
   type SheetEntry,
   sharedMarkup,
   staleCopies,
@@ -38,6 +36,7 @@ import {
   snapshotDeadline
 } from "@parity-app/page-runtime/protocol"
 import { useEffect, useId, useRef } from "react"
+import { clearCopySheets, sheetTexts } from "../copy-sheets.ts"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { onPageFiles } from "./page-changes.ts"
@@ -72,6 +71,8 @@ export interface FrozenCopy {
   sheets: string[]
   /** The builder's origin, which the copy was sanitized against and its sheets prepared for. */
   origin: string
+  /** When its page started loading, in milliseconds since 1970: what code it drew is no newer than this. */
+  loadedAt: number
   /** The hash of the markup its snapshot drew, which puts its mode in a markup group. */
   markup: string
   /** The mode as drawn, its classes, attributes and window (`drawnAs`), which a changed mode no longer matches. */
@@ -145,8 +146,7 @@ resetWithWindow(() => {
 
   freezers.clear()
   holds.clear()
-  sheetTexts.clear()
-  preparedSheets.clear()
+  clearCopySheets()
 })
 
 /**
@@ -195,21 +195,6 @@ function freezerFor(project: string): Freezer {
   return freezer
 }
 
-/** The text of each stylesheet a copy lists, by its id: a page's own by content hash, another host's as `href:` and its address. */
-const sheetTexts = new Map<string, string>()
-
-/** Each stylesheet prepared for a copy's shadow root, by its origin and id, shared by every copy that lists it. */
-const preparedSheets = new Map<string, CSSStyleSheet>()
-
-/** The rules only the document can hold, `@font-face` and `@property`, from every copy's sheets, and their sheet. */
-interface CopyGlobals {
-  sheet?: CSSStyleSheet
-  /** Each prepared sheet's rules for the document, by its origin and id. */
-  texts: Map<string, string>
-}
-
-const copyGlobals: CopyGlobals = { texts: new Map() }
-
 /** A sheet entry's id among `sheetTexts`. */
 function sheetId(entry: SheetEntry): string {
   if ("hash" in entry) {
@@ -217,89 +202,6 @@ function sheetId(entry: SheetEntry): string {
   }
 
   return `href:${JSON.stringify([entry.href, entry.conditions ?? []])}`
-}
-
-/**
- * A copy's stylesheets, each sanitized and gone through `prepareCanvasCss` once per content hash and shared by every
- * copy that lists it, so its media queries, viewport units, fonts and root rules measure the copy's mode. What only the
- * document can hold goes into one sheet the document adopts.
- */
-export function copySheets(copy: Pick<FrozenCopy, "sheets" | "origin">): CSSStyleSheet[] {
-  const policy: SanitizePolicy = { pageOrigin: copy.origin }
-
-  return copy.sheets.flatMap((id) => {
-    const key = `${copy.origin}\n${id}`
-    let sheet = preparedSheets.get(key)
-
-    if (!sheet) {
-      const text = sheetTexts.get(id)
-
-      if (text === undefined) {
-        return []
-      }
-
-      const prepared = prepareCanvasCss(sanitizeSheet(text, policy), { baseUrl: copy.origin })
-      sheet = new CSSStyleSheet()
-      sheet.replaceSync(throughCopyRoot(prepared.scoped))
-      preparedSheets.set(key, sheet)
-      addGlobals(key, prepared.global)
-    }
-
-    return [sheet]
-  })
-}
-
-/**
- * A web component's shadow-root styles in a copy, prepared as the copy's sheets are, so their media queries and viewport
- * units measure the copy's mode too. A `prefers-color-scheme` query is answered for the mode's scheme here, since the
- * body the copy's sheets scope those rules to is outside the shadow root, and its roots stay its own `:host`. They've
- * been through `sanitizePage`.
- */
-export function copyShadowStyle(copy: Pick<FrozenCopy, "origin">, css: string, scheme: PageMode["scheme"]): string {
-  const answered = scheme
-    ? css.replaceAll(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (_query, asked: string) =>
-        asked.toLowerCase() === scheme ? "(min-width: 0px)" : "(max-width: -1px)"
-      )
-    : css
-
-  const prepared = prepareCanvasCss(answered, {
-    baseUrl: copy.origin,
-    colorSchemes: false,
-    qualifiedRoots: false
-  })
-
-  addGlobals(`${copy.origin}\nshadow:${answered}`, prepared.global)
-
-  return prepared.scoped
-}
-
-/** The attribute on the element around a copy's body that carries `<html>`'s classes and attributes. */
-export const copyRootAttribute = "data-copy-root"
-
-/**
- * Prepared CSS with the root's children (`html > body`, which became `:host > [data-canvas-body]`) found through the
- * element around a copy's body, which adds nothing to their specificity.
- */
-export function throughCopyRoot(css: string): string {
-  return css.replaceAll(
-    new RegExp(String.raw`(:host(?:\([^()]*\))?)\s*>\s*(?=\[${bodyAttribute}\])`, "g"),
-    `$1 > :where([${copyRootAttribute}]) > `
-  )
-}
-
-function addGlobals(key: string, css: string): void {
-  if (!css.trim() || copyGlobals.texts.has(key)) {
-    return
-  }
-
-  copyGlobals.texts.set(key, css)
-
-  if (!copyGlobals.sheet) {
-    copyGlobals.sheet = new CSSStyleSheet()
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, copyGlobals.sheet]
-  }
-
-  copyGlobals.sheet.replaceSync([...copyGlobals.texts.values()].join("\n"))
 }
 
 /** Why a snapshot was refused, as `routeFrame.refused` says it. */
@@ -532,6 +434,7 @@ class Freezer {
     const leaders = checking ? modes : pick(modes, groupLeaders(url, drawn, groups))
 
     const src = pageFrameUrl(url, this.project)
+    const loadedAt = Date.now()
     const origin = new URL(src).origin
     const id = `freezer-${crypto.randomUUID()}`
     const frame = document.createElement("iframe")
@@ -624,7 +527,14 @@ class Freezer {
               channel.request("mode.set", { mode: unit.mode, viewport: unit.viewport }),
               pageDeadlines["mode.set"]
             )
-            await this.snapshot(channel, url, unit, origin, changes, checking ? [] : others(url, unit, modes, groups))
+            await this.snapshot(
+              channel,
+              url,
+              unit,
+              { origin, loadedAt },
+              changes,
+              checking ? [] : others(url, unit, modes, groups)
+            )
             break
           } catch (error) {
             // The page loaded again under the request: wait for it to be ready, and ask again.
@@ -653,10 +563,11 @@ class Freezer {
     channel: Channel<ParityMethods, PageMethods>,
     url: string,
     unit: FreezeUnit,
-    origin: string,
+    page: Pick<FrozenCopy, "origin" | "loadedAt">,
     changes: number,
     group: readonly FreezeUnit[]
   ): Promise<void> {
+    const { origin, loadedAt } = page
     let taken: unknown
 
     try {
@@ -710,10 +621,12 @@ class Freezer {
       body: body.body,
       sheets: snapshot.sheets.map(sheetId),
       origin,
+      loadedAt,
       markup: snapshot.markup,
       drawn: unit.drawn,
       changes,
-      // Until traces by builder (route-frames.md, step 6), any change to the app's files makes a copy stale.
+      // Pages' traces by builder are the project service's (`pageTraces`); until the window has them, any change to
+      // the app's files makes a copy stale.
       trace: "all"
     }
 

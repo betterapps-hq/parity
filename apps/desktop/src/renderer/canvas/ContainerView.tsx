@@ -104,7 +104,7 @@ import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
 import { PreviewHeader, type PreviewTarget, useSavedView } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
-import { landingLabel, pageLandings, routePagePath, routePageUrl } from "./route-pages.ts"
+import { landingLabel, pageLandings, routePagePath, routePageRoute, routePageUrl } from "./route-pages.ts"
 import { RouteBoard } from "./RouteBoard.tsx"
 import { storyScreensFile } from "./story-screens.ts"
 import { containerModes, withModes } from "./view.ts"
@@ -1380,12 +1380,15 @@ const FrameTile = memo(function FrameTile({
   // The live frame's height as it's drawn when its bitmap is taken, which is kept with it.
   // Where the frame is against the view, so what's in view is captured and woken first (PAR-955).
   const view = useFrameView(tile)
+  // A page of the app draws the app itself at its URL, rather than a design (PAR-1076), and its picture is its copy's.
+  const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
 
   const kept = useFrameBitmap(
     shows,
     () => drawnHeight(tile.current, frame.width),
     () => holding.current,
-    view.rank
+    view.rank,
+    page !== undefined
   )
 
   const bitmap = kept.src
@@ -1458,8 +1461,6 @@ const FrameTile = memo(function FrameTile({
   }, [waiting])
   const placeholder = waiting && !showing && !skeleton
   const height = skeleton?.height ?? kept.height ?? (waiting ? (frame.height ?? frame.viewport.height) : undefined)
-  // A page of the app draws the app itself at its URL, rather than a design (PAR-1076).
-  const page = routePageUrl(session.id, entry.container.id, entry.container.view?.params)
   const tileStyle: CSSProperties = {}
 
   // How tall the frame was measured, or kept with its bitmap, for when it skips drawing before the browser has noted its
@@ -1500,8 +1501,9 @@ const FrameTile = memo(function FrameTile({
             frame={frame}
             mode={drawn}
             scale={scale}
+            route={routePageRoute(session.id, entry.container.id) ?? entry.container.id}
             primary={primary}
-            rank={view.rank}
+            view={view}
             asleep={!awake || waiting}
             interactive={interactive}
           />

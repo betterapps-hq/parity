@@ -1,13 +1,13 @@
 import type { MountOptions } from "@parity-app/core"
 import { frameAttributes, type ThemeAttributes } from "@parity-app/tokens"
-import type { RenderJob } from "../shared/protocol.ts"
+import type { DesignJob } from "../shared/protocol.ts"
 import type { FrameEnvironment } from "./frame.ts"
 
 /**
  * The mode a frame mounts in, as a render job carries it (`renderJobMode` in shared/render-job.ts): the canvas's frames
  * and the offscreen page's describe a frame the same way, so they mount it the same way.
  */
-export type FrameMode = Pick<RenderJob["mode"], "classNames" | "attributes" | "viewport" | "globals" | "touch">
+export type FrameMode = Pick<DesignJob["mode"], "classNames" | "attributes" | "viewport" | "globals" | "touch">
 
 /** What a frame is prepared with and what its guest mounts with, worked out from its mode. */
 export interface FrameSetup {

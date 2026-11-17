@@ -2,7 +2,7 @@ import type { Checks } from "@parity-app/channel"
 import { CodedError, jsonText, parseInput } from "@parity-app/core"
 import { z } from "zod"
 import type { ServiceMethods } from "./protocol.ts"
-import { renderJob, serviceParams } from "./service-params.ts"
+import { designJob, renderJob, serviceParams } from "./service-params.ts"
 
 /**
  * The project service's checks on what a window asks of it (PAR-565). The project's own code runs in the window's page,
@@ -19,7 +19,7 @@ export const changedFrames = jsonText(
   z.array(
     z.object({
       id: z.object({ project: z.string(), design: z.string(), state: z.string(), mode: z.string() }),
-      job: renderJob
+      job: designJob
     })
   )
 )

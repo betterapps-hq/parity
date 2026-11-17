@@ -2,7 +2,7 @@ import type { AgentReport, ReportSent } from "@parity-app/agent"
 import type { Found, SearchAnswer } from "@parity-app/connectors"
 import type { StoredSettings } from "@parity-app/extension-host/settings"
 import type { ConnectorFind, ConnectorPlaced } from "./connectors.ts"
-import type { ConsoleEntry, RenderedFrame, RenderJob } from "./protocol.ts"
+import type { ConsoleEntry, DesignJob, RenderedFrame, RenderJob } from "./protocol.ts"
 
 /** Messages from the main process to the project service that aren't requests: a window's port to the service. */
 export type ConnectMessage = { type: "connect" }
@@ -32,7 +32,7 @@ export interface MainMethods {
    * try may not hit.
    */
   preview: {
-    params: { job: RenderJob; crop: string; priority: "visible" | "idle" }
+    params: { job: DesignJob; crop: string; priority: "visible" | "idle" }
     result: PreviewDrawn
   }
   /** What code from a project's builder at `origin` wrote to the console, forgotten once read when `clear` is set. */

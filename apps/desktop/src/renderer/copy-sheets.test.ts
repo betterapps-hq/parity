@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { copyShadowStyle, throughCopyRoot } from "./freezer.ts"
+import { copyShadowStyle, throughCopyRoot } from "./copy-sheets.ts"
 
 const copy = { origin: "http://p1.localhost:5173" }
 const css = "@media (prefers-color-scheme: dark) { :host { color: white } span { color: white } }"

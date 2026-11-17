@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Route boards show pictures of their pages when small on screen or away from the view, captured from their frozen copies and kept on disk",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

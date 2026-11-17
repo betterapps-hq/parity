@@ -6,7 +6,7 @@ import {
   frameKey
 } from "@parity-app/change-detection"
 import { useEffect, useRef, useSyncExternalStore } from "react"
-import type { RenderJob } from "../../shared/protocol.ts"
+import type { DesignJob } from "../../shared/protocol.ts"
 import { request } from "../service.ts"
 import { type Signal, signal } from "../store.ts"
 
@@ -67,13 +67,13 @@ export function askChangesAgain(project: string): void {
 }
 
 /** Frames asked about in this task, waiting to be sent together once it's done. */
-let asking: { id: FrameId; job: RenderJob; answer: (change: FrameChange) => void }[] = []
+let asking: { id: FrameId; job: DesignJob; answer: (change: FrameChange) => void }[] = []
 
 /**
  * Asks for a frame's change together with every other asked for in the same task, as a canvas's frames all ask at once
  * when the code changes, as JSON text, which crosses to the service as one copy. A failed request answers unknown.
  */
-export function askChange(id: FrameId, job: RenderJob): Promise<FrameChange> {
+export function askChange(id: FrameId, job: DesignJob): Promise<FrameChange> {
   if (asking.length === 0) {
     queueMicrotask(() => {
       const asked = asking
@@ -94,7 +94,7 @@ export function askChange(id: FrameId, job: RenderJob): Promise<FrameChange> {
  * A frame's change and its nodes', asked for again whenever what it's drawn with changes, as its `key` says, and
  * whenever its project's baseline moves. Unknown until the service answers.
  */
-export function useFrameChange(id: FrameId, job: RenderJob, key: string): FrameChange | undefined {
+export function useFrameChange(id: FrameId, job: DesignJob, key: string): FrameChange | undefined {
   const { project, design, state, mode } = id
   const frame = frameKey(id)
   const latest = useRef(job)

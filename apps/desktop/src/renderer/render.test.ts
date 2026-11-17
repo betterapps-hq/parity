@@ -2,7 +2,7 @@ import { fileURLToPath } from "node:url"
 import { build } from "esbuild"
 import { type Browser, chromium, type Page } from "playwright-core"
 import { afterAll, beforeAll, describe, expect, it } from "vite-plus/test"
-import type { RenderedFrame, RenderJob } from "../shared/protocol.ts"
+import type { DesignJob, PageJob, RenderedFrame } from "../shared/protocol.ts"
 
 // The offscreen render window's page, in Chrome, as the main process drives it: `canvasRender` draws a job with a guest
 // that stands in for a project's, whose stylesheet makes an element as tall as the window (`100vh`) and which notes
@@ -133,8 +133,8 @@ afterAll(async () => {
 })
 
 /** Draws a job as the main process does: the frame, the window the guest was mounted in, and how tall `100vh` is. */
-async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewport" | "touch">, tree: unknown[] = []) {
-  const job: RenderJob = {
+async function render(mode: Pick<DesignJob["mode"], "width" | "height" | "viewport" | "touch">, tree: unknown[] = []) {
+  const job: DesignJob = {
     projectId: "app",
     guestUrl: "http://parity.test/guest.js",
     theme: [],
@@ -154,6 +154,100 @@ async function render(mode: Pick<RenderJob["mode"], "width" | "height" | "viewpo
     }
   }, job)
 }
+
+/** A page's job as a route board captures its picture: a 390px mode, dark, with the copy its freezer made. */
+function pageJob(mode: Partial<PageJob["mode"]> = {}, copy = true): PageJob {
+  const job: PageJob = {
+    kind: "page",
+    projectId: "app",
+    route: "/",
+    path: "/",
+    state: "base",
+    mode: { width: 390, viewport: { width: 390, height: 844 }, classes: ["dark"], attributes: {}, ...mode },
+    scale: 1
+  }
+
+  if (copy) {
+    job.copy = {
+      origin: "http://app.localhost:5173",
+      loadedAt: 0,
+      landed: true,
+      pageHeight: 2532,
+      root: { classes: [], attributes: [], style: "" },
+      body: {
+        tag: "body",
+        attributes: [],
+        children: [
+          { tag: "section", attributes: [["class", "hero"]], children: ["Plans"] },
+          {
+            tag: "img",
+            attributes: [
+              ["src", "javascript:alert(1)"],
+              ["onerror", "window.ran = true"],
+              ["loading", "lazy"]
+            ],
+            children: []
+          }
+        ]
+      },
+      sheets: [{ id: "sheet", text: ".hero { height: 300svh } .dark .hero { color: rgb(255, 255, 255) }" }]
+    }
+  }
+
+  return job
+}
+
+/** Draws a page's job, and reads its copy back from the render page. */
+function renderPage(job: PageJob) {
+  return page.evaluate(async (job) => {
+    const frame: RenderedFrame = await window.canvasRender(job)
+    const root = document.querySelector("div")?.shadowRoot
+    const hero = root?.querySelector(".hero")
+    const image = root?.querySelector("img")
+
+    return {
+      frame,
+      hero: hero?.getBoundingClientRect().height,
+      color: hero ? getComputedStyle(hero).color : undefined,
+      src: image?.getAttribute("src"),
+      onerror: image?.getAttribute("onerror"),
+      loading: image?.getAttribute("loading"),
+      ran: "ran" in window
+    }
+  }, job)
+}
+
+describe("canvasRender with a page's copy (PAR-1200)", () => {
+  it("builds the copy at the mode's width and the page's full height, its viewport units measuring the window", async () => {
+    const drawn = await renderPage(pageJob())
+    expect(drawn.frame.error).toBeUndefined()
+    expect(drawn.frame).toMatchObject({ width: 390, height: 2532 })
+    // Three of the mode's 844px windows, not three of a window as tall as the page.
+    expect(drawn.hero).toBe(2532)
+    expect(drawn.color).toBe("rgb(255, 255, 255)")
+  })
+
+  it("sanitizes the copy again before it's built, so nothing in it runs", async () => {
+    const drawn = await renderPage(pageJob())
+    expect(drawn.src).toBeNull()
+    expect(drawn.onerror).toBeNull()
+    expect(drawn.ran).toBe(false)
+  })
+
+  it("loads lazy images at once, since the whole page is captured from a window as tall as its first size", async () => {
+    expect((await renderPage(pageJob())).loading).toBe("eager")
+  })
+
+  it("clips the copy at the frame's own height", async () => {
+    const drawn = await renderPage(pageJob({ height: 600 }))
+    expect(drawn.frame).toMatchObject({ width: 390, height: 600 })
+  })
+
+  it("says why when the job carries no copy", async () => {
+    const drawn = await renderPage(pageJob({}, false))
+    expect(drawn.frame.error).toBe("There's no copy of the page to draw")
+  })
+})
 
 describe("canvasRender", () => {
   it("draws a frame that grows in the job's window, not one worked out from its width", async () => {
@@ -216,7 +310,7 @@ describe("canvasRender", () => {
 
 /** Draws the portal guest's component as a preview job does, or as any other job when `inline` is off. */
 async function renderPortal(inline: boolean) {
-  const job: RenderJob = {
+  const job: DesignJob = {
     projectId: "portals",
     guestUrl: "http://parity.test/portal-guest.js",
     theme: [],
@@ -274,7 +368,7 @@ describe("a preview's portals", () => {
 
 describe("a frame's layout", () => {
   it("marks what's squeezed narrower than its width by what's beside it, and which nodes are out of the flow (PAR-886)", async () => {
-    const job: RenderJob = {
+    const job: DesignJob = {
       projectId: "layout",
       guestUrl: "http://parity.test/layout-guest.js",
       theme: [],

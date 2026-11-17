@@ -8720,9 +8720,27 @@ A screen is named for the component its route draws, else its path.
   `<body>`'s on the stand-in, and the mode's on the host and the stand-in. A web component's open shadow root comes with
   its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its page in the mode's
   window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or follows a link.
-  Until it comes, a placeholder stands in at the window's height. A board that sleeps, zoomed far out, lets go of its
-  copy's elements and shows the placeholder until pictures come (step 6), building the copy again from what it kept when
-  it wakes.
+  Until its copy or picture comes, a placeholder stands in at the window's height.
+- **Pictures (PAR-1200).** A board small on screen or away from the view shows a picture of its copy instead of the copy
+  itself, as [proposals/route-frames.md](proposals/route-frames.md) sets out. It turns into its copy once it's near the
+  view and wider than 440 screen pixels, and back into its picture once it's narrower than 360 or leaves the view
+  (`boardTier`), so a board resting between the two doesn't flip. The tier follows the camera as it zooms. A board with
+  no copy yet stays a picture. The picture is taken in an offscreen render window, which builds the copy with the same
+  `buildCopy` and `prepareFrame` as the board (`mountCopy`), at the mode's width and the page's full height, sanitized
+  again first, with its lazy images loading at once, and captures it at a quarter of the board's size. No page loads
+  there, and viewport units measure the mode's window, so a section sized in `svh` keeps its height. Pictures are kept
+  on disk as frames' bitmaps are, named by the project, the route's path and query, the mode as it resolved, the state
+  and the scale (`pageBitmapName`), with the page's trace inside: what the builder says the route's files and its
+  parents' load, Parity's scan of their imports, what mounts the app and its imports outside the routes (`appEntries`)
+  with the root's `index.html`, the stylesheets, the shared config and the `public` folder, or every file under the
+  route's folder and those directly in each folder above it, such as a template, and those folders' parallel slots for
+  Next, or the whole project where the builder can't say or the page redirected or drew its not-found or error page
+  (`pageTraceFiles`). A picture whose traced files changed after its copy's page started loading is kept without a
+  trace, so it stands in, stale. A kept trace stops holding when a file it lists changes or a file the page's trace
+  would now list is added, such as a new layout. A copy standing in from another mode's snapshot until it's checked
+  isn't captured. A kept picture shows as soon as the project opens, before the freezer has made the copies again; it's
+  checked again with each new copy, and one whose trace doesn't hold shows until it's captured again. A capture that
+  fails is tried again after 2 s, doubling up to 16 s. Route boards ask for no design bitmaps of their own.
 - **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
   elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
   double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers
@@ -8820,6 +8838,13 @@ Login's live. Panned away, App's live page, live again by then, closed after 10 
 the spares, and coming back opened two again. A Ctrl shortcut passed back, an unfocused window and a page without a page
 router weren't tried.
 
+Pictures were tried in a development build on the example project (PAR-1200): zoomed out to 8% and 25%, all eight page
+boards showed pictures of their pages, with no page frame left once the freezer was done. Zooming in to 50% turned the
+board in view into its copy, and the boards outside the view stayed pictures. Zooming back out to 30% kept the copy, and
+20% turned it back into a picture. After reloading the window, all eight pictures showed from disk within 9 s of the
+reload, while the freezer was still on its first route. Copacker wasn't tried: its pages are server-rendered by TanStack
+Start, and the page runtime doesn't reach them yet, so its freezer gets no hello and none of its boards get a copy.
+
 The page runtime was tried in a development build on the example project (PAR-1260): all eight page frames loaded under
 the project's own `p….localhost` name, each with `window.parityFrame`, the mode's classes and no scrollbar, and App's
 frame grew to 849 from the page's `page.height`. Dashboard's warning came from its `page.ready`. Setting Desktop Light's
@@ -8843,11 +8868,16 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `packages/project/src/open-project.ts`, the watcher's `filesChanged` in `apps/desktop/src/utility/projects.ts`,
 `page-changes.ts` (`pageFilesChanged`, `previewTokens`), the pool's `filesChanged` in `live-frames.ts`, `staleCopies`,
 `groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and `updatesItself`
-in `packages/frames/src/preview.ts`, and `preview.set` and `page.reload` in `packages/page-runtime/src/runtime.ts`; and
-the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`; `routeLines` in
-`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`. The page
-runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration` in
-`packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
+in `packages/frames/src/preview.ts`, and `preview.set` and `page.reload` in `packages/page-runtime/src/runtime.ts`;
+pictures: `useBoardTier` in `RouteBoard.tsx`, `usePagePicture` in `page-bitmaps.ts`, `mountCopy` in
+`apps/desktop/src/renderer/page-copy.ts` and `copySheets` in `copy-sheets.ts`, both shared with the render window's
+`renderPage` in `render.ts`, the `pageJob` schema in `shared/service-params.ts`, `pageRenderJob` and `pageBitmapName` in
+`shared/render-job.ts`, `capturePage` and `storedPage` in `apps/desktop/src/utility/index.ts`, `pageTraces` in
+`utility/page-traces.ts`, `pageTraceFiles` in `packages/project/src/page-trace.ts`, and `boardTier` in
+`packages/frames/src/tiers.ts`; and the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`;
+`routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
+The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
+in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
 `reactRouterPage` in `packages/extension-react-router/src/page.ts`, with library mode's wrapped `react-router` in
 `src/page-wrap/react-router.ts`; `nextjsPage` in `packages/extension-nextjs/src/page.ts`; `reactHydration` in
 `packages/extension-react/src/page.ts`; each manifest's `page` and `pageWraps`, carried by `pageRouters` in
@@ -8937,14 +8967,29 @@ back, and text keys kept; `passesBack`), `apps/desktop/src/main/page-frames.test
 page's origin, with where it tried to go; moves on its origin let through; the window, a frame's first load and the
 app's own embeds left alone), and `e2e/route-boards.e2e.ts` (2: going live and engaged on a press with Interact, zooming
 with Ctrl and the wheel, and letting go on Escape; engaging again on a press and letting go on a press outside). The
-pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Gaps: reading routes when the project opens,
-the page frames, the freezer (its stale copies, markup groups and second hello included), building and selecting copies,
-drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test
-of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
-path read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide:
-App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
-(`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
-Pricing, Settings' group and Billing and hovering Projects.
+pool itself (`live-frames.ts`) has no unit test; it was tried in the app. Pictures (PAR-1200):
+`packages/frames/src/planners.test.ts` (each tier, and the gap between them), `packages/project/src/page-trace.test.ts`
+(8: a route's file and its parents', its own first; none for an unknown route, and a loop stopped; what the builder says
+the files load, with their scan, styles and shared files; every file under the route's folder, and those directly in the
+folders above it and their parallel slots, for routes named by folder; the whole project where the builder can't say or
+the route isn't known, and for a page that didn't land), `apps/desktop/src/utility/page-traces.test.ts` (7: the route's
+files, imports, loads, stylesheets and shared config; the whole project without the builder's word; none when a file
+changed after the copy's page started loading; holding until a file it lists changes; stopping when a file it would now
+list is added; a Next template's imports scanned; what mounts the app and its imports outside the routes),
+`render.test.ts` (5, "canvasRender with a page's copy": built at the mode's width and the page's full height with
+viewport units measuring the window; sanitized again so nothing in it runs; lazy images loaded at once; clipped at the
+frame's own height; why when there's no copy), `render-job.test.ts` (3, "a page's picture's name": by path and query,
+not the builder's address; changed by the mode, state and scale; without the copy), `bitmap-store.test.ts` (2, "a page's
+picture in the store": kept while its trace holds and stale after; apart from frames' bitmaps and the page in another
+mode), `frame-bitmaps.test.ts` (a page's picture asked of the service again each time, so a stale verdict holds) and
+`copy-sheets.test.ts`, which moved from `freezer.test.ts`. Gaps: reading routes when the project opens, the page frames,
+the freezer (its stale copies, markup groups and second hello included), building and selecting copies, a board's tier
+as the camera moves, `usePagePicture`, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
+route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
+at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
+was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
+checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
+redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

@@ -2,13 +2,14 @@ import { execute, type FrameRequest } from "@parity-app/agent"
 import {
   type ContainerSpec,
   defaultModeSettings,
+  type FrameGeometry,
   frameGeometry,
   type ModeSettings,
   parseInput,
   resolveModes
 } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
-import type { RenderJob } from "./protocol.ts"
+import type { DesignJob } from "./protocol.ts"
 import {
   bitmapName,
   deviceBox,
@@ -19,6 +20,8 @@ import {
   frameKeys,
   type JobFrame,
   type JobGuest,
+  pageBitmapName,
+  pageRenderJob,
   previewName,
   renderJob,
   renderJobMode
@@ -238,15 +241,15 @@ describe("a job's names", () => {
   const job = renderJob(guest, drawsText)
   const drawing = { id: 1 }
 
-  const names = (named: RenderJob) => ({
+  const names = (named: DesignJob) => ({
     memory: frameKeys(named, drawing),
     bitmap: bitmapName(named, {}),
     preview: JSON.stringify(previewName(named))
   })
 
   it("leave out a field the job gains, in the job or its mode, until this module names it", () => {
-    // SAFETY: a job with more fields than `RenderJob` names is still one; the extra fields are what's being tested.
-    const grown = { ...job, opacity: 0.5, mode: { ...job.mode, safeArea: 20 } } as RenderJob
+    // SAFETY: a job with more fields than `DesignJob` names is still one; the extra fields are what's being tested.
+    const grown = { ...job, opacity: 0.5, mode: { ...job.mode, safeArea: 20 } } as DesignJob
     expect(names(grown)).toEqual(names(job))
   })
 
@@ -269,7 +272,7 @@ describe("a job's names", () => {
   })
 
   it("change with what's drawn: the tree, the mode, the size and the scale", () => {
-    const changes: RenderJob[] = [
+    const changes: DesignJob[] = [
       { ...job, tree: [{ nodeId: "a", type: "text", text: "Sign up" }] },
       { ...job, mode: { ...job.mode, classNames: ["dark"] } },
       { ...job, mode: { ...job.mode, width: 321 } },
@@ -308,7 +311,7 @@ describe("a job's names", () => {
   it("name in memory the code of the components a frame draws, so a change to one redraws only its frames", () => {
     const drawsCard = { ...job, tree: [{ kind: "component", nodeId: "a", component: "Card", props: {}, slots: {} }] }
     const card = { path: "src/card.tsx", export: "Card" }
-    const drawn = (named: RenderJob) => frameKeys(named, drawing).drawn
+    const drawn = (named: DesignJob) => frameKeys(named, drawing).drawn
     // Given since the guest loaded, moved, or with its code changed on disk (PAR-165).
     expect(drawn({ ...drawsCard, components: { Card: card } })).not.toBe(drawn(drawsCard))
     expect(drawn({ ...drawsCard, components: { Card: { ...card, version: 2 } } })).not.toBe(
@@ -332,7 +335,12 @@ describe("a job's names", () => {
 
   it("name a bitmap as before PAR-575, so the bitmaps kept already are found", () => {
     // The job as the service read it, less the address and the components, then where each component comes from.
-    const checked = parseInput(storedJobs, JSON.stringify([renderJob(guest, { ...drawsText, tokens: [token] })]))[0]!
+    // SAFETY: the job read back is the design's job it was made from.
+    const checked = parseInput(
+      storedJobs,
+      JSON.stringify([renderJob(guest, { ...drawsText, tokens: [token] })])
+    )[0] as DesignJob
+
     const { guestUrl: _address, components: _given, ...drawn } = checked
     expect(bitmapName(checked, {})).toBe(`${JSON.stringify(drawn)}\0${JSON.stringify([])}`)
   })
@@ -359,5 +367,53 @@ describe("the scale", () => {
       height: 0.3
     })
     expect(frameHeight(50.1, 0.25)).toBe(201)
+  })
+})
+
+describe("a page's picture's name (PAR-1200)", () => {
+  const frame: FrameGeometry = { width: 390, viewport: { width: 390, height: 844 } }
+
+  const shows = {
+    projectId: "D:/shop",
+    route: "/pricing",
+    url: "http://shop.localhost:5173/pricing?plan=pro",
+    state: "base",
+    mode: { classes: ["dark"], attributes: { "data-theme": "dark" }, scheme: "dark" as const },
+    frame,
+    scale: 0.25
+  }
+
+  const name = (changed: Partial<typeof shows> = {}) => pageBitmapName(pageRenderJob({ ...shows, ...changed }))
+
+  it("goes by the route's path and query, not the builder's address, which moves", () => {
+    const job = pageRenderJob(shows)
+    expect(job).toMatchObject({ kind: "page", path: "/pricing?plan=pro" })
+    expect(name({ url: "http://shop.localhost:5199/pricing?plan=pro" })).toBe(name())
+    expect(name({ url: "http://shop.localhost:5173/pricing" })).not.toBe(name())
+  })
+
+  it("changes with the mode as it resolved, the state and the scale", () => {
+    expect(name({ mode: { ...shows.mode, classes: [] } })).not.toBe(name())
+    expect(name({ frame: { width: 834, viewport: { width: 834, height: 1112 } } })).not.toBe(name())
+    expect(name({ frame: { ...frame, height: 600 } })).not.toBe(name())
+    expect(name({ state: "empty" })).not.toBe(name())
+    expect(name({ scale: 0.5 })).not.toBe(name())
+  })
+
+  it("leaves out the copy, so a picture kept from an earlier session is found before the page is frozen again", () => {
+    const job = pageRenderJob(shows)
+
+    const copy = {
+      origin: "http://shop.localhost:5173",
+      loadedAt: 0,
+      landed: true,
+      pageHeight: 900,
+      root: { classes: [], attributes: [], style: "" },
+      body: {},
+      sheets: []
+    }
+
+    expect(pageBitmapName({ ...job, copy })).toBe(pageBitmapName(job))
+    expect(bitmapName(job, {})).toBe(pageBitmapName(job))
   })
 })

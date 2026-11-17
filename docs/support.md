@@ -374,6 +374,22 @@ it tried to go. A live page is closed when another board goes live or after 10 s
 | Shadow roots, video frames, what shows on hover or focus | Not copied                                                                           | ❌     |
 | Pages past 50,000 elements, 256 deep or 8 MB of text     | Refused: the board keeps its placeholder                                             | ❌     |
 
+**Small route boards show pictures of their copies (PAR-1200).** A board small on screen or away from the view shows a
+picture, captured offscreen from its copy and kept on disk, and turns into its copy once it's near and readable. A kept
+picture shows as soon as the project opens, while its trace says it's current. What a trace holds depends on what the
+builder can say about a route:
+
+| Builder                     | A page's trace                                                                                                          | Status |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------ |
+| Vite                        | What its module graph says the route's file and its parents' files load, and Parity's scan of their imports             | ✅     |
+| webpack-compatible builders | The same, from their own `loadedFiles`                                                                                  | ✅     |
+| Next.js                     | Every file under the route's folder, its layouts, the files in each folder above it, and Parity's scan of their imports | ◐      |
+| Any, before it can say      | The whole project, so any change makes the picture stale                                                                | ◐      |
+
+Every trace also holds what mounts the app (the scripts `index.html` names, or `src/main` and the like) and what it
+imports outside the routes, the project's stylesheets, its package.json, configs and lockfiles, and its `public` folder.
+Server code a loader reaches only through a dynamic import isn't in the scan.
+
 **Copies follow the code, and show token edits (PAR-1264).** When the app's files change, its route copies are frozen
 again, nearest the view first, and a route whose modes drew the same markup takes one snapshot for all of them. Token
 values edited and not yet saved show in every copy and in the page drawn with the Interact tool.
@@ -385,7 +401,7 @@ values edited and not yet saved show in every copy and in the page drawn with th
 | Next.js            | Copies frozen again; a page drawn with the Interact tool takes Next's updates   | ✅     |
 | Any                | Only the copies a change reaches are frozen again                               | ❌     |
 
-Until traces by builder come (step 6 of [proposals/route-frames.md](proposals/route-frames.md)), any change to the app's
+Copies don't read pages' traces yet ([proposals/route-frames.md](proposals/route-frames.md)), so any change to the app's
 files freezes every copy again. A theme a token preview reaches is one the page turns on with a class on its root.
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
