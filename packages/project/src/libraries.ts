@@ -68,20 +68,35 @@ export function withStylesImport(source: string, specifier: string): string | un
   return lines.join("\n")
 }
 
-/** An `@import`'s specifier, quoted or in `url()`, quoted or not: `@import url("a.css") layer(base);` imports `a.css`. */
-const importedSpecifier = /^@import\s+(?:url\(\s*["']?([^"')\s]+)["']?\s*\)|["']([^"']+)["'])/
+/**
+ * Each `@import` rule, with the spaces around it and the line break after it: its specifier quoted or in `url()`,
+ * quoted or not, as `@import url("a.css") layer(base);` imports `a.css`.
+ */
+const importRules = /[ \t]*@import\s+(?:url\(\s*["']?([^"')\s]+)["']?\s*\)|["']([^"']+)["'])[^;]*;[ \t]*(\r?\n)?/g
 
-/** A stylesheet without its import of a library's styles, or `undefined` when it doesn't import them. */
+/**
+ * A stylesheet without its imports of a library's styles, or `undefined` when it doesn't import them. Only the rule
+ * goes: a line it had to itself goes with it, and other rules on its line stay.
+ */
 export function withoutStylesImport(source: string, specifier: string): string | undefined {
-  const lines = source.split("\n")
+  let kept = ""
+  let last = 0
 
-  const kept = lines.filter((text) => {
-    const match = importedSpecifier.exec(text.trim())
+  for (const rule of source.matchAll(importRules)) {
+    if ((rule[1] ?? rule[2]) !== specifier) {
+      continue
+    }
 
-    return (match?.[1] ?? match?.[2]) !== specifier
-  })
+    kept += source.slice(last, rule.index)
+    last = rule.index + rule[0].length
 
-  return kept.length === lines.length ? undefined : kept.join("\n")
+    // A rule that starts its line takes the line's break with it; one after others on its line leaves the break.
+    if (rule.index > 0 && source[rule.index - 1] !== "\n") {
+      kept = kept.trimEnd() + (rule[3] ?? "")
+    }
+  }
+
+  return last === 0 ? undefined : kept + source.slice(last)
 }
 
 /** Buildkit publishes each shadcn style as its own package; any of them is recognized once installed. */

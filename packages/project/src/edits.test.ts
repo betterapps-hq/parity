@@ -244,4 +244,13 @@ describe("withoutStylesImport", () => {
     expect(withoutStylesImport(quoted, "@buildkitgg/shadcn/tailwind.css")).toBe(`@import "tailwindcss";\n`)
     expect(withoutStylesImport(bare, "@buildkitgg/shadcn/tailwind.css")).toBe(`:root {}\n`)
   })
+
+  it("drops only the import rule when others share its line", () => {
+    const mantine = "@mantine/core/styles.css"
+
+    expect(withoutStylesImport(`@import "${mantine}"; body { color: red; }\n`, mantine)).toBe("body { color: red; }\n")
+    expect(withoutStylesImport(`@import "tailwindcss"; @import "${mantine}";\n:root {}\n`, mantine)).toBe(
+      `@import "tailwindcss";\n:root {}\n`
+    )
+  })
 })
