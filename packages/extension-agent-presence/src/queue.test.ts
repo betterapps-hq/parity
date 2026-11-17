@@ -123,6 +123,7 @@ describe("the agent queue", () => {
     const step = queue.take("claude")!
     expect(queue.drags(step)).toBe(true)
     expect(queue.heldFor(step)).toBe(holdLimitMs - 2000)
+    expect(queue.pace("claude", step)).toBe(fastestPace)
   })
 
   it("skips the visits ahead of a held move that would leave its pointer no time to drag it", () => {

@@ -142,13 +142,14 @@ export class AgentQueue {
   }
 
   /**
-   * How fast an agent's pointer plays, as a share of its own pace: faster as steps pile up, and as fast as it goes
-   * while a moved board waits for it.
+   * How fast an agent's pointer plays `playing`, the step it took, as a share of its own pace: faster as steps pile up,
+   * and as fast as it goes while a moved board waits for it, the one it's dragging included.
    */
-  pace(agent: string): number {
+  pace(agent: string, playing?: QueuedStep): number {
     const queue = this.queues.get(agent) ?? []
+    const held = (step: QueuedStep) => this.held.has(step)
 
-    return queue.some((step) => this.held.has(step)) ? fastestPace : paceFor(queue.length)
+    return (playing && held(playing)) || queue.some(held) ? fastestPace : paceFor(queue.length)
   }
 
   /** The agents with a pointer: from their first step until they retire. */

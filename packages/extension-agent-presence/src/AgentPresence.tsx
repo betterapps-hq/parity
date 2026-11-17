@@ -282,7 +282,7 @@ function AgentCursor({
         return
       }
 
-      const pace = queue.pace(agent)
+      const pace = queue.pace(agent, event)
 
       try {
         const target = locate(layer, event)
@@ -324,7 +324,7 @@ function AgentCursor({
     }
 
     const visit = async (event: QueuedStep, kind: AgentStep["kind"]) => {
-      const pace = queue.pace(agent)
+      const pace = queue.pace(agent, event)
       const target = locate(layer, event)
 
       if (!target) {
