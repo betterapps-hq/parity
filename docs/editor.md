@@ -8462,7 +8462,9 @@ The app's routes and their pages have a lens of their own, Pages, as
   shows Pages in that lens's place with the page in view; a design selected while Pages shows, or made from its menu,
   shows Screens the same way. A canvas showing part of what's selected never narrows it for the others.
 - **Its Layers** lists the routes and their pages' layers, as Layers' Routes group did; Screens' Layers no longer has
-  that group. Selecting a page there or on its canvas shows it in the inspector.
+  that group. Selecting a page there or on its canvas shows it in the inspector. Layers is its panel's only tab, so
+  asking for another from Pages, such as Show Components (Alt+2), the status bar's tokens, or an extension's tab, shows
+  Screens in its place with that tab open.
 - **The inspector** shows the selected page as before: its header, its path params as props, its route and Export. Under
   them, its links: the components it places that have a board, each showing its board in Screens, selected, with Show
   beside at the row's end splitting Screens to the right. A page places its route's components, whose boards Screens
@@ -8472,16 +8474,18 @@ The app's routes and their pages have a lens of their own, Pages, as
 Code: `lenses/pages.tsx` (`pagesLens`); `RouteLayerTree` in `chrome/LayerTree.tsx`, which lists `part` `pages`;
 `chrome/PageLinks.tsx`, under a page in `DesignPanel`; `canvasOf` in `canvas/CanvasEditor.tsx` and the selection
 following its lens in `ProjectCanvas`, with `revealOnceShown` in `chrome/reveal.ts`; `drawnInFocus` in
-`chrome/actions.ts` for the commands that select designs; `useLensActions` in `lenses/shell.ts` for views that may be
-shown outside the shell.
+`chrome/actions.ts` for the commands that select designs; `onOtherTab` on `SidePanel`, heard through `onTabAsked` in
+`chrome/layout.ts`, for a tab Pages' panel lacks; `useLensActions` in `lenses/shell.ts` for views that may be shown
+outside the shell.
 
 Tests: `e2e/window.e2e.ts` (Screens drawing none of the pages, Ctrl+1 showing Pages in Screens' tab with every page and
 nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back; a page selected with Screens in
-front showing Pages, and Ctrl+A there selecting every page and nothing else). Tried in `pnpm dev` on 2026-11-17 on the
-example: Screens drew 68 designs and no Routes group; clicking Pages showed it in Screens' tab with its 8 pages, the
-page tree's lines and the Routes group alone in Layers; selecting Pricing there showed its route in the inspector;
-Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went to the next page; Ctrl+click on Screens opened
-it in a second tab and Split right put it beside Pages; the page didn't scroll.
+front showing Pages, and Ctrl+A there selecting every page and nothing else; Alt+2 on Pages showing Screens with its
+Components tab). Tried in `pnpm dev` on 2026-11-17 on the example: Screens drew 68 designs and no Routes group; clicking
+Pages showed it in Screens' tab with its 8 pages, the page tree's lines and the Routes group alone in Layers; selecting
+Pricing there showed its route in the inspector; Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went
+to the next page; Ctrl+click on Screens opened it in a second tab and Split right put it beside Pages; the page didn't
+scroll.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 

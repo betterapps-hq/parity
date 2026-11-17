@@ -6,6 +6,7 @@ import { RouteLayerTree } from "../chrome/LayerTree.tsx"
 import { SidePanel } from "../chrome/SidePanel.tsx"
 import { ProjectCanvas, useOpenProject } from "./project-canvas.tsx"
 import type { LensView } from "./registry.ts"
+import { useLensWorkspace } from "./shell.ts"
 
 /**
  * The app's routes and their pages, on a canvas of their own (lens-layout.md): drawn the first time the lens shows, with
@@ -27,6 +28,7 @@ export const pagesLens: LensView<"pages"> = {
 
 function PagesPanel() {
   const { reopen } = useOpenProject()
+  const lenses = useLensWorkspace()
 
   return (
     <ErrorBoundary name="left-panel" label="Left panel" onReopen={reopen} className="w-64 flex-none border-r">
@@ -35,6 +37,8 @@ function PagesPanel() {
         label="Pages"
         defaultTab="layers"
         tabs={[{ value: "layers", label: "Layers", icon: Layers }]}
+        // Components, assets, tokens and extensions' tabs are in Screens' panel, so asking for one shows Screens.
+        onOtherTab={() => lenses.followLink("screens", false)}
       >
         <TabsContent value="layers" className="flex min-h-0 flex-col">
           <ErrorBoundary name="left.layers" label="Layers">

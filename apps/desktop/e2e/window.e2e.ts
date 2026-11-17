@@ -199,6 +199,23 @@ describe("the window", () => {
       await showScreens()
     }
   })
+
+  // docs/editor.md, Pages, a lens of its own (PAR-1244).
+  it("shows Screens with its Components tab for Show Components asked for on Pages, whose panel has only Layers", async () => {
+    const { page } = app
+
+    try {
+      await page.keyboard.press("Control+1")
+      await expect.poll(() => page.locator(".dv-tab").allTextContents()).toEqual(["Pages"])
+
+      await page.keyboard.press("Alt+2")
+      await expect.poll(() => page.locator(".dv-tab").allTextContents()).toEqual(["Screens"])
+      await expect.poll(() => page.getByRole("tab", { name: "Components", selected: true }).count()).toBe(1)
+    } finally {
+      await page.keyboard.press("Alt+1")
+      await showScreens()
+    }
+  })
 })
 
 /** Screens back in front, with its canvas and panels, as the tests after these need. */
