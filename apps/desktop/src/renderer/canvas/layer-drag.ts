@@ -10,6 +10,7 @@ import {
 import {
   absoluteDrag,
   boardReader,
+  intoNeighbour,
   moveLayersAcross,
   moveLayersWithin,
   type MoveTarget,
@@ -201,6 +202,12 @@ export function pressLayers(
     }
   }
 
+  const into = intoNeighbour(start)
+  // The pointer last, so Ctrl pressed or let go without moving finds the target again.
+  let pointer = { x: start.clientX, y: start.clientY, ctrlKey: start.ctrlKey, metaKey: start.metaKey }
+  let retarget: (() => void) | undefined
+  let unlisten: (() => void) | undefined
+
   const landingOf = (): Drop | undefined =>
     absolute || !target || !landing ? undefined : dropIn(session.doc, landing, target)
 
@@ -243,6 +250,34 @@ export function pressLayers(
 
           preview = new DropPreview(host, elements, landingColor(area), reducedMotion())
           view = { carried: true }
+
+          retarget = () => {
+            const found = moveTarget(area, session, pointer, entry, ids, layouts, into(pointer))
+            target = found?.target
+            landing = found?.host
+            // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
+            const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
+            view = { carried: true }
+
+            if (found && !shown) {
+              view.line = { ...found.line, ...space.point(found.line) }
+            }
+          }
+
+          const onKey = (event: KeyboardEvent) => {
+            if (event.key === "Control" || event.key === "Meta") {
+              pointer = { x: pointer.x, y: pointer.y, ctrlKey: event.ctrlKey, metaKey: event.metaKey }
+              retarget?.()
+            }
+          }
+
+          window.addEventListener("keydown", onKey, { capture: true })
+          window.addEventListener("keyup", onKey, { capture: true })
+
+          unlisten = () => {
+            window.removeEventListener("keydown", onKey, { capture: true })
+            window.removeEventListener("keyup", onKey, { capture: true })
+          }
         },
         move(event) {
           const delta = { x: event.clientX - start.clientX, y: event.clientY - start.clientY }
@@ -255,19 +290,13 @@ export function pressLayers(
           }
 
           carriedPicture.carry(space.point({ x: union.left + delta.x, y: union.top + delta.y }))
-          const found = moveTarget(area, session, { x: event.clientX, y: event.clientY }, entry, ids, layouts)
-          target = found?.target
-          landing = found?.host
-          // The layouts reflow around a copy of the layers where they'd land; the line is only for when they can't.
-          const shown = found ? preview!.show(found.host, found.target, found.siblings) : (preview!.clear(), false)
-          view = { carried: true }
-
-          if (found && !shown) {
-            view.line = { ...found.line, ...space.point(found.line) }
-          }
+          pointer = { x: event.clientX, y: event.clientY, ctrlKey: event.ctrlKey, metaKey: event.metaKey }
+          retarget?.()
         },
         // Dropped, layers in a layout move, and so does an absolutely placed layer, which was previewed as it moved.
         end(kept, gesture) {
+          unlisten?.()
+
           if (absolute) {
             view = undefined
 
@@ -379,7 +408,8 @@ function landingColor(area: Element): string {
 
 /**
  * Where layers dropped at a point would go: in the frame under it, the layout and the slot under the point, by the
- * layouts as they were when the drag began (see `dropTargetAt`). The line to draw is in client coordinates.
+ * layouts as they were when the drag began (see `dropTargetAt`), and `into` the deepest layout there, even a neighbour.
+ * The line to draw is in client coordinates.
  */
 export function moveTarget(
   area: ParentNode,
@@ -387,11 +417,12 @@ export function moveTarget(
   point: Point,
   source: ContainerEntry,
   ids: readonly string[],
-  layouts: DragLayouts
+  layouts: DragLayouts,
+  into = false
 ): DropAt | undefined {
   const frame = frameAt(area, session.doc, point, session.editor)
 
-  return frame && dropInFrame(layouts, frame.entry, frame.host, point, source.key, ids)
+  return frame && dropInFrame(layouts, frame.entry, frame.host, point, source.key, ids, into)
 }
 
 /**

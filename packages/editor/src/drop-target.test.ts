@@ -1,7 +1,14 @@
 import type { DesignNode } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import type { Flow, Rect } from "./drop-slot.ts"
-import { type DropQuery, dropTargetAt, type FrameLayout, frameLayout, type MeasuredLayer } from "./drop-target.ts"
+import {
+  type DropQuery,
+  dropTargetAt,
+  type FrameLayout,
+  frameLayout,
+  intoNeighbour,
+  type MeasuredLayer
+} from "./drop-target.ts"
 
 const box = (left: number, top: number, width: number, height: number): Rect => ({
   left,
@@ -158,6 +165,57 @@ describe("dragging a card beside cards that are layouts", () => {
     expect(found?.target).toMatchObject({ parent: "users", index: 1 })
     const between = dropAt("instance", ["users"], { x: issues.left + 30, y: issues.top + 50 }, { source: "other" })
     expect(between?.target).toMatchObject({ parent: "stats", index: 2 })
+  })
+})
+
+describe("dropping a card into a neighbour on purpose (PAR-206)", () => {
+  const users = cardBox(1)
+  const issues = cardBox(2)
+
+  it("goes into the neighbour under the pointer, in the slot under it", () => {
+    const found = dropAt("layout", ["users"], { x: issues.left + 100, y: issues.top + 80 }, { into: true })
+    expect(found?.target).toEqual({ design: "board", parent: "issues", index: 1 })
+    expect(found?.siblings).toEqual(["issues-label"])
+  })
+
+  it("goes into the neighbour over the text inside it, which isn't a layout", () => {
+    const found = dropAt("layout", ["users"], { x: issues.left + 20, y: issues.top + 20 }, { into: true })
+    expect(found?.target).toMatchObject({ parent: "issues", index: 0 })
+  })
+
+  it("never goes into the card being dragged, nor anything inside it", () => {
+    // Over Users' own box, and over its label: it stays in the row, where it was.
+    for (const point of [
+      { x: users.left + 94, y: users.top + 80 },
+      { x: users.left + 20, y: users.top + 20 }
+    ]) {
+      expect(dropAt("layout", ["users"], point, { into: true })?.target).toEqual({
+        design: "board",
+        parent: "stats",
+        index: 2
+      })
+    }
+  })
+
+  it("changes places as before over a neighbour that isn't a layout", () => {
+    const found = dropAt("instance", ["users"], { x: issues.left + 188 * 0.8, y: issues.top + 50 }, { into: true })
+    expect(found?.target).toMatchObject({ parent: "stats", index: 3 })
+  })
+})
+
+describe("Ctrl asking a drag into a neighbour (PAR-206)", () => {
+  const up = { ctrlKey: false, metaKey: false }
+  const ctrl = { ctrlKey: true, metaKey: false }
+  const cmd = { ctrlKey: false, metaKey: true }
+
+  it("counts Ctrl or Cmd pressed during the drag, and not once it's let go", () => {
+    const into = intoNeighbour(up)
+    expect([into(up), into(ctrl), into(up), into(cmd)]).toEqual([false, true, false, true])
+  })
+
+  it("leaves out Ctrl held from the press, which picked the layer, until it's pressed again", () => {
+    const into = intoNeighbour(ctrl)
+    expect([into(ctrl), into(ctrl), into(up), into(ctrl)]).toEqual([false, false, false, true])
   })
 })
 
