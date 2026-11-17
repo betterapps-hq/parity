@@ -63,7 +63,7 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
     activates: ["onSetting:wtest.on"],
     capabilities: [],
     extensionDependencies: [],
-    commands: ["wtest.fail", "wtest.confirm"],
+    commands: ["wtest.fail", "wtest.confirm", "wtest.nested"],
     settings: { "wtest.on": true },
     settingScopes: { "wtest.on": "app" },
     host: "running",
@@ -513,6 +513,40 @@ describe("window modules in a project tab", () => {
     await expect(runtime.run("wtest.fail")).resolves.toEqual({ handled: true, result: "run 2" })
   })
 
+  it("tears down a module turned off while it activates at once, and stops what it listens to", async () => {
+    let disposed = false
+    let heard = 0
+
+    const stuck = defineWindowModule({
+      activateWindow(parity) {
+        parity.subscriptions.push(
+          parity.selection.onChange(() => {
+            heard += 1
+          }),
+          { dispose: () => void (disposed = true) }
+        )
+
+        // Never settles, as one waiting on its Node half might.
+        return new Promise<object>(() => undefined)
+      }
+    })
+
+    const { runtime, select } = tab({ "@parity-app/extension-window-test": stuck })
+
+    runtime.update([extension()])
+    await settle()
+    runtime.update([extension({ settings: { "wtest.on": false } })])
+    await settle()
+    select()
+
+    expect(disposed).toBe(true)
+    expect(heard).toBe(0)
+    expect(Object.values(runtime.states())).toEqual(["inactive"])
+
+    // Closing the tab doesn't wait on it either.
+    await runtime.dispose()
+  })
+
   it("lets a slow activation that's been overtaken finish without undoing the one after it", async () => {
     const first = Promise.withResolvers<void>()
     let runs = 0
@@ -539,8 +573,9 @@ describe("window modules in a project tab", () => {
     runtime.update([extension()])
     await settle()
 
-    // The second waits for the first, still activating, to finish and tear itself down.
-    expect(runs).toBe(1)
+    // The first was torn down as it was turned off, so the second starts at once, with a command of its own.
+    expect(runs).toBe(2)
+    await expect(runtime.run("wtest.fail")).resolves.toEqual({ handled: true, result: "run 2" })
 
     first.resolve()
     await settle()
@@ -786,6 +821,18 @@ describe("an internal extension's two halves (the window test extension, in the 
     await expect(hosts.runForAgent("shop", { name: "wtest.askBack" }, "Claude")).rejects.toThrow(
       "There's nobody to ask: Claude is running Window test"
     )
+  })
+
+  it("runs a command from inside an agent's window command without waiting behind it", async () => {
+    const { hosts, ready } = setUp()
+
+    await ready()
+
+    // The window module's command asks its Node half, which runs the Node half's own command, for the same agent.
+    const nested = hosts.runForAgent("shop", { name: "wtest.nested" }, "Claude")
+    const late = new Promise((resolve) => setTimeout(() => resolve("stuck"), 2000))
+
+    await expect(Promise.race([nested, late])).resolves.toBe("from the Node half")
   })
 
   it("keeps each of two agents' overlapping window commands its own agent's", async () => {

@@ -23,7 +23,9 @@ export const windowTestPackage = {
       commands: [
         { id: "wtest.fail", title: "Fail on purpose" },
         { id: "wtest.confirm", title: "Ask through the Node half" },
-        { id: "wtest.askBack", title: "Ask through the window module" }
+        { id: "wtest.askBack", title: "Ask through the window module" },
+        { id: "wtest.nested", title: "Run the Node half's command through it" },
+        { id: "wtest.nodeOnly", title: "The Node half's own command" }
       ],
       settings: { "wtest.on": { type: "boolean", default: false, scope: "app", title: "Turned on" } }
     }
@@ -43,6 +45,8 @@ export interface WindowTestNodeApi extends ExtensionApi {
   windowStatus(): Promise<{ tab: string; selections: number }>
   /** Asks the person, which fails during an agent's call. */
   confirm(): Promise<boolean>
+  /** Runs its own command, `wtest.nodeOnly`, and gives what it returned. */
+  runNested(): Promise<string>
 }
 
 /** What its window module offers other window modules in the tab. */
@@ -63,7 +67,8 @@ export const windowTestModule = defineWindowModule<WindowTestWindowApi, WindowTe
       parity.commands.register("wtest.fail", () => {
         throw new Error("Failing on purpose")
       }),
-      parity.commands.register("wtest.confirm", () => parity.host.api<WindowTestNodeApi>().confirm())
+      parity.commands.register("wtest.confirm", () => parity.host.api<WindowTestNodeApi>().confirm()),
+      parity.commands.register("wtest.nested", () => parity.host.api<WindowTestNodeApi>().runNested())
     )
 
     return {
@@ -91,12 +96,18 @@ export const windowTestNode = defineExtension<WindowTestNodeApi>({
 
     // Its own command, which asks through its window module: Node half, window module, then Node half again.
     parity.subscriptions.push(
-      parity.commands.register("wtest.askBack", () => parity.window.api<WindowTestForNode>().askBack())
+      parity.commands.register("wtest.askBack", () => parity.window.api<WindowTestForNode>().askBack()),
+      parity.commands.register("wtest.nodeOnly", () => "from the Node half")
     )
 
     return {
       ping: () => "pong",
       confirm: () => parity.ui.confirm("Go on?"),
+      runNested: async () => {
+        await parity.commands.execute("wtest.nodeOnly")
+
+        return "from the Node half"
+      },
       windowStatus: () => parity.window.api<WindowTestForNode>().status()
     }
   }

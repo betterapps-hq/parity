@@ -888,7 +888,7 @@ export function extensionHosts<Project extends OpenedProject>(
       // An extension's command run during an agent's call is the agent's too.
       async "commands.execute"({ call, ...params }: HostServiceMethods["commands.execute"]["params"]) {
         if (declarer(open, params.command)) {
-          await runCommand(open, params.command, params.target, agentOf(call))
+          await runCommand(open, params.command, params.target, agentOf(call), call)
         } else {
           await options.window.ui(projectId, id, "commands.execute", params)
         }
@@ -1339,7 +1339,8 @@ export function extensionHosts<Project extends OpenedProject>(
     open: OpenProject<Project>,
     command: string,
     target?: CommandTarget,
-    agent?: string
+    agent?: string,
+    within?: number
   ): Promise<JsonValue | undefined> {
     const host = declarer(open, command)
 
@@ -1357,7 +1358,8 @@ export function extensionHosts<Project extends OpenedProject>(
 
       // An agent's runs one at a time, each holding its call while it runs; the person's leave an agent's call alone.
       const ran =
-        agent === undefined
+        // One run from inside the agent's window command that holds the turn is part of it, so it goes straight through.
+        agent === undefined || (within !== undefined && within === host.windowCall)
           ? await inWindow()
           : await agentTurn(host, () =>
               as(agent, async (call) => {

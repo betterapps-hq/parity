@@ -191,25 +191,60 @@ interface Entry {
   failures: number
   /** Left off in this tab: it failed too often, or couldn't load or activate. */
   stopped: boolean
-  /** Bumped each time it starts or stops, so a slow load or activation that's been overtaken stops there. */
-  run: number
   began: number
+  /** Its latest run, loading or active; none while it's off. */
+  current?: Run
+  /** `extension.halfUnavailable` sent this minute, for its sampling. */
+  unavailable: { since: number; count: number }
+}
+
+/**
+ * What one activation of a module set up. Each run keeps its own, so one that's turned off while it loads is torn down
+ * at once, and when its `activateWindow` settles later it can only tear down its own.
+ */
+interface Run {
   module?: WindowModule
   activated?: Activated
-  subscriptions: Disposable[]
+  subscriptions: Subscriptions
   hostListeners: Set<(state: HalfState) => void>
   settingListeners: Map<string, Set<(value: SettingValue) => void>>
   /** Who it watches come and go among the modules it builds on, by their ids. */
   watching: Map<string, { available: Set<(api: ModuleApi) => void>; gone: Set<() => void> }>
   /** Its made surfaces, by name. */
   surfaces: Map<string, object>
-  /** `extension.halfUnavailable` sent this minute, for its sampling. */
-  unavailable: { since: number; count: number }
-  /**
-   * Its activations and teardowns, one after another: an activation that's been overtaken finishes and tears itself
-   * down before the next starts, so it never disposes of what its replacement set up.
-   */
-  settled: Promise<void>
+  /** Torn down: it hears nothing more, and what it subscribes to from now on is disposed at once. */
+  ended: boolean
+  /** Its `deactivateWindow` has been called, which happens once. */
+  deactivated: boolean
+}
+
+/** A run's `parity.subscriptions`: once the run has ended, whatever is pushed is disposed at once. */
+class Subscriptions extends Array<Disposable> {
+  ended = false
+
+  override push(...items: Disposable[]): number {
+    if (!this.ended) {
+      return super.push(...items)
+    }
+
+    for (const item of items) {
+      item.dispose()
+    }
+
+    return this.length
+  }
+}
+
+function newRun(): Run {
+  return {
+    subscriptions: new Subscriptions(),
+    hostListeners: new Set(),
+    settingListeners: new Map(),
+    watching: new Map(),
+    surfaces: new Map(),
+    ended: false,
+    deactivated: false
+  }
 }
 
 const json: z.ZodType<JsonValue> = z.json()
@@ -221,7 +256,16 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
   const now = options.now ?? (() => Date.now())
   const reported = options.reported ?? new Set<string>()
   const entries = new Map<string, Entry>()
-  const commands = new Map<string, { entry: Entry; handler: CommandHandler }>()
+  const commands = new Map<string, { entry: Entry; run: Run; handler: CommandHandler }>()
+
+  /** A command registered by a module's current run while it's active, if one is. */
+  const liveCommand = (command: string) => {
+    const registered = commands.get(command)
+
+    return registered && registered.entry.state === "active" && registered.entry.current === registered.run
+      ? registered
+      : undefined
+  }
 
   const logError = (entry: Entry, text: string, error: Error) => {
     options.log(entry.extension.id, "error", text, error.stack)
@@ -294,7 +338,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
   }
 
-  const hostLink = (entry: Entry): HostLink => {
+  const hostLink = (entry: Entry, run: Run): HostLink => {
     const call = async (method: string, args: JsonValue[]) => {
       const state: HalfState = entry.extension.node ? entry.half : "stopped"
 
@@ -324,9 +368,9 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         return methods as RemoteApi<Api>
       },
       onStateChange(listener) {
-        entry.hostListeners.add(listener)
+        run.hostListeners.add(listener)
 
-        return once(() => entry.hostListeners.delete(listener))
+        return once(() => run.hostListeners.delete(listener))
       }
     }
   }
@@ -341,7 +385,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     return scope
   }
 
-  const parityFor = (entry: Entry): WindowParity => {
+  const parityFor = (entry: Entry, run: Run): WindowParity => {
     const { extension } = entry
 
     const other = <Api extends object>(id: string): OtherWindowModule<Api> => {
@@ -349,8 +393,8 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         throw new Error(`${id} isn't in the manifest's extensionDependencies`)
       }
 
-      const watched = entry.watching.get(id) ?? { available: new Set(), gone: new Set() }
-      entry.watching.set(id, watched)
+      const watched = run.watching.get(id) ?? { available: new Set(), gone: new Set() }
+      run.watching.set(id, watched)
 
       return {
         id,
@@ -358,7 +402,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
           const found = entries.get(id)
 
           // SAFETY: `Api` is the caller's word for what that module returned as `window`.
-          return found?.state === "active" ? (found.activated?.window as Api | undefined) : undefined
+          return found?.state === "active" ? (found.current?.activated?.window as Api | undefined) : undefined
         },
         onAvailable(listener) {
           // SAFETY: as for `api`.
@@ -379,18 +423,22 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       extension: { id: extension.id, version: extension.version, displayName: extension.displayName },
       project: { root: options.project.root, name: options.project.name },
       tab,
-      subscriptions: entry.subscriptions,
+      subscriptions: run.subscriptions,
       commands: {
         register(id, handler) {
           if (!extension.commands.includes(id)) {
             throw new Error(`${id} isn't a command the manifest declares`)
           }
 
+          if (run.ended) {
+            return { dispose: () => undefined }
+          }
+
           if (commands.has(id)) {
             throw new Error(`${id} has a handler already`)
           }
 
-          const registered = { entry, handler }
+          const registered = { entry, run, handler }
           commands.set(id, registered)
 
           return once(() => {
@@ -402,9 +450,9 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         // One a window module in this tab registered runs here; any other goes to the window, which runs Parity's own
         // commands and sends other extensions' to the service.
         execute: async (command, target) => {
-          const registered = commands.get(command)
+          const registered = liveCommand(command)
 
-          if (registered && registered.entry.state === "active") {
+          if (registered) {
             await answered(registered.entry, `command:${command}`, () => registered.handler(target))
 
             return
@@ -419,7 +467,11 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         highlight: (refs) => options.editor.selection.highlight(refs),
         onChange(listener) {
           return once(
-            options.editor.selection.onChange((refs) => guarded(entry, "selection.onChange", () => listener(refs)))
+            options.editor.selection.onChange((refs) => {
+              if (!run.ended) {
+                guarded(entry, "selection.onChange", () => listener(refs))
+              }
+            })
           )
         }
       },
@@ -436,8 +488,8 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         },
         onChange<T extends SettingValue>(key: string, listener: (value: T) => void) {
           declaredSetting(entry, key)
-          const listeners = entry.settingListeners.get(key) ?? new Set()
-          entry.settingListeners.set(key, listeners)
+          const listeners = run.settingListeners.get(key) ?? new Set()
+          run.settingListeners.set(key, listeners)
           // SAFETY: as for `get`: each value sent for `key` fits its schema.
           const heard = listener as (value: SettingValue) => void
           listeners.add(heard)
@@ -460,7 +512,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             ? options.log(extension.id, "error", message.message, message.stack)
             : options.log(extension.id, "error", message)
       },
-      host: hostLink(entry),
+      host: hostLink(entry, run),
       extensions: { get: other }
     }
 
@@ -484,8 +536,8 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             throw new CapabilityMissingError(extension.displayName, surface.capability, `parity.${name}`)
           }
 
-          const made = entry.surfaces.get(name) ?? surface.make({ extension: extension.id, tab })
-          entry.surfaces.set(name, made)
+          const made = run.surfaces.get(name) ?? surface.make({ extension: extension.id, tab })
+          run.surfaces.set(name, made)
 
           return made
         }
@@ -505,18 +557,10 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       return event.startsWith("onSetting:") && extension.settings[event.slice("onSetting:".length)] === true
     })
 
-  /** Runs work on an entry's module after whatever it's still doing: an activation, or a teardown. */
-  const queued = (entry: Entry, work: () => Promise<void>) => {
-    const next = entry.settled.then(work)
-    entry.settled = next.catch(() => undefined)
-
-    return next
-  }
-
-  const activate = (entry: Entry, trigger: string) => {
+  const activate = async (entry: Entry, trigger: string) => {
     const { extension } = entry
-    entry.run += 1
-    const run = entry.run
+    const run = newRun()
+    entry.current = run
     entry.state = "loading"
     entry.began = now()
     entry.failures = 0
@@ -527,23 +571,12 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
 
     options.halves.state(extension.id, "starting")
 
-    return queued(entry, () => activateRun(entry, trigger, run))
-  }
-
-  const activateRun = async (entry: Entry, trigger: string, run: number) => {
-    const { extension } = entry
-
-    // Turned off or stopped while an earlier run finished.
-    if (entry.run !== run) {
-      return
-    }
-
     let module: WindowModule
 
     try {
       module = moduleOf(await options.load(extension.id))
     } catch (error) {
-      if (entry.run === run) {
+      if (entry.current === run) {
         failedToActivate(entry, "load", errorOf(error))
       }
 
@@ -551,35 +584,35 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
 
     // Turned off or stopped while it loaded.
-    if (entry.run !== run) {
+    if (entry.current !== run) {
       return
     }
 
-    entry.module = module
-    const parity = parityFor(entry)
+    run.module = module
     let activated: Activated
 
     try {
-      activated = await module.activateWindow(parity)
+      activated = await module.activateWindow(parityFor(entry, run))
     } catch (error) {
-      if (entry.run === run) {
+      if (entry.current === run) {
         failedToActivate(entry, "activate", errorOf(error))
       }
 
-      // Overtaken or not, what it set up before it threw goes, before any run after it starts.
-      await teardown(entry)
+      // Overtaken or not, what it set up before it threw goes.
+      await teardown(entry, run)
 
       return
     }
 
-    if (entry.run !== run) {
-      entry.activated = activated
-      await teardown(entry)
+    run.activated = activated
+
+    // Turned off while it activated: it was torn down then, and now that it has returned, its `deactivateWindow` runs.
+    if (entry.current !== run) {
+      await teardown(entry, run)
 
       return
     }
 
-    entry.activated = activated
     entry.state = "active"
     options.halves.state(extension.id, "ready")
     options.record?.("extension.activated", {
@@ -596,7 +629,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
 
     if (api !== undefined) {
       for (const watcher of entries.values()) {
-        for (const listener of watcher.watching.get(extension.id)?.available ?? []) {
+        for (const listener of watcher.current?.watching.get(extension.id)?.available ?? []) {
           guarded(watcher, "extensions.onAvailable", () => listener(api))
         }
       }
@@ -620,9 +653,15 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     options.stopped?.(entry.extension)
   }
 
-  /** Disposes of what a module subscribed to, newest first, then calls its `deactivateWindow`. */
-  const teardown = async (entry: Entry) => {
-    for (const subscription of entry.subscriptions.toReversed()) {
+  /**
+   * Disposes of what a run subscribed to, newest first, then calls its `deactivateWindow` once it has activated. Again
+   * on a run already torn down, it disposes of what was pushed since and calls `deactivateWindow` if it hasn't been.
+   */
+  const teardown = async (entry: Entry, run: Run) => {
+    run.ended = true
+    run.subscriptions.ended = true
+
+    for (const subscription of run.subscriptions.toReversed()) {
       try {
         subscription.dispose()
       } catch (thrown) {
@@ -631,62 +670,66 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       }
     }
 
-    entry.subscriptions.length = 0
-
-    try {
-      await entry.module?.deactivateWindow?.()
-    } catch (thrown) {
-      const error = errorOf(thrown)
-      logError(entry, `deactivateWindow failed: ${error.message}`, error)
-    }
+    run.subscriptions.length = 0
 
     for (const [id, registered] of commands) {
-      if (registered.entry === entry) {
+      if (registered.run === run) {
         commands.delete(id)
       }
     }
 
-    entry.hostListeners.clear()
-    entry.settingListeners.clear()
-    entry.watching.clear()
-    entry.surfaces.clear()
-    delete entry.module
-    delete entry.activated
+    run.hostListeners.clear()
+    run.settingListeners.clear()
+    run.watching.clear()
+    run.surfaces.clear()
+
+    if (run.activated && !run.deactivated) {
+      run.deactivated = true
+
+      try {
+        await run.module?.deactivateWindow?.()
+      } catch (thrown) {
+        const error = errorOf(thrown)
+        logError(entry, `deactivateWindow failed: ${error.message}`, error)
+      }
+    }
   }
 
   const deactivate = async (entry: Entry, why: Why) => {
     const was = entry.state
+    const run = entry.current
 
-    if (was === "inactive") {
+    if (was === "inactive" || !run) {
       return
     }
 
-    entry.run += 1
+    delete entry.current
     entry.state = "inactive"
     options.halves.state(entry.extension.id, "stopped")
 
+    // One still loading is torn down now; its `deactivateWindow` runs once its `activateWindow` returns.
     if (was !== "active") {
+      await teardown(entry, run)
+
       return
     }
 
-    await queued(entry, async () => {
-      const hadApi = entry.activated?.window !== undefined
-      await teardown(entry)
-      options.record?.("extension.deactivated", {
-        extension: entry.extension.id,
-        half: "window",
-        why,
-        uptimeMs: now() - entry.began
-      })
+    const hadApi = run.activated?.window !== undefined
+    await teardown(entry, run)
+    options.record?.("extension.deactivated", {
+      extension: entry.extension.id,
+      half: "window",
+      why,
+      uptimeMs: now() - entry.began
+    })
 
-      if (hadApi) {
-        for (const watcher of entries.values()) {
-          for (const listener of watcher.watching.get(entry.extension.id)?.gone ?? []) {
-            guarded(watcher, "extensions.onGone", () => listener())
-          }
+    if (hadApi) {
+      for (const watcher of entries.values()) {
+        for (const listener of watcher.current?.watching.get(entry.extension.id)?.gone ?? []) {
+          guarded(watcher, "extensions.onGone", () => listener())
         }
       }
-    })
+    }
   }
 
   /** The Node half's state as its window module sees it: starting again once it has been ready is restarting. */
@@ -716,7 +759,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     if (listening) {
       for (const [key, value] of Object.entries(extension.settings)) {
         if (before.settings[key] !== value) {
-          for (const listener of entry.settingListeners.get(key) ?? []) {
+          for (const listener of entry.current?.settingListeners.get(key) ?? []) {
             guarded(entry, `settings.onChange:${key}`, () => listener(value))
           }
         }
@@ -730,7 +773,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       if (half === "stopped" && extension.node) {
         void deactivate(entry, "crashed")
       } else if (listening) {
-        for (const listener of entry.hostListeners) {
+        for (const listener of entry.current?.hostListeners ?? []) {
           guarded(entry, "host.onStateChange", () => listener(half))
         }
       }
@@ -762,15 +805,8 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             half: halfOf(extension.host, "starting"),
             failures: 0,
             stopped: false,
-            run: 0,
             began: 0,
-            subscriptions: [],
-            hostListeners: new Set(),
-            settingListeners: new Map(),
-            watching: new Map(),
-            surfaces: new Map(),
-            unavailable: { since: 0, count: 0 },
-            settled: Promise.resolve()
+            unavailable: { since: 0, count: 0 }
           })
         }
       }
@@ -788,9 +824,9 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       }
     },
     async run(command, target) {
-      const registered = commands.get(command)
+      const registered = liveCommand(command)
 
-      if (!registered || registered.entry.state !== "active") {
+      if (!registered) {
         return { handled: false }
       }
 
@@ -812,7 +848,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         throw new HalfUnavailableError(state, "window")
       }
 
-      const api = entry.activated?.node
+      const api = entry.current?.activated?.node
       const found = api !== undefined && Object.hasOwn(api, method) ? api[method] : undefined
 
       if (!(found instanceof Function)) {
