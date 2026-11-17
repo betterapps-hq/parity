@@ -97,14 +97,14 @@ export function projectTokenSets(
   })
 
   const duration: DurationToken[] = where((each) => each.kind === "duration").flatMap((each) => {
-    const split = splitUnit(lookup(each.token.name)?.trim() ?? "")
+    const split = splitUnit(each.value.trim())
     const ms = split && (split.unit === "s" ? split.number * 1000 : split.number)
 
     return ms !== undefined && Number.isFinite(ms) ? [durationToken(each.token.name, ms)] : []
   })
 
   const easing: EasingToken[] = where((each) => each.kind === "easing").map((each) => {
-    const plot = easingValuePlot(lookup(each.token.name)?.trim() ?? "")
+    const plot = easingValuePlot(each.value.trim())
 
     return easingToken(each.token.name, plot?.kind === "bezier" ? plot.curve : undefined)
   })
