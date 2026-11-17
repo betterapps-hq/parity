@@ -265,6 +265,8 @@ type SheetPiece = { text: string; conditions: string[] } | { href: string; condi
  * in the order the cascade has them, with the conditions of every sheet and import around it.
  */
 function pageSheets(document: Document, kept: Map<string, string>): SheetEntry[] {
+  const anonymous = { count: 0 }
+
   // Each sheet's pieces apart, so a sheet every route links is one entry they share.
   const sheets = [...document.styleSheets, ...document.adoptedStyleSheets].map((sheet): SheetPiece[] => {
     if (sheet.disabled) {
@@ -274,7 +276,7 @@ function pageSheets(document: Document, kept: Map<string, string>): SheetEntry[]
     const conditions = mediaCondition(sheet.media.mediaText)
 
     return (
-      sheetPieces(sheet, sheet.href ?? document.baseURI, conditions) ??
+      sheetPieces(sheet, sheet.href ?? document.baseURI, conditions, anonymous) ??
       (sheet.href ? [{ href: sheet.href, conditions }] : [])
     )
   })
@@ -311,10 +313,16 @@ function pageSheets(document: Document, kept: Map<string, string>): SheetEntry[]
 
 /**
  * A sheet's rules as pieces in order, `url()`s absolute against `base` and readable `@import`s inlined inside their
- * conditions; an import the page can't read is a piece by its address where it stands. Undefined when the sheet itself
+ * conditions; an import the page can't read is a piece by its address where it stands. An import into an anonymous
+ * layer gets a name of its own, so its pieces stay one layer however they're split. Undefined when the sheet itself
  * can't be read.
  */
-function sheetPieces(sheet: CSSStyleSheet, base: string, conditions: readonly string[]): SheetPiece[] | undefined {
+function sheetPieces(
+  sheet: CSSStyleSheet,
+  base: string,
+  conditions: readonly string[],
+  anonymous: { count: number }
+): SheetPiece[] | undefined {
   let rules: CSSRuleList
 
   try {
@@ -333,14 +341,28 @@ function sheetPieces(sheet: CSSStyleSheet, base: string, conditions: readonly st
 
     const imported = rule.styleSheet
     const importBase = imported?.href ?? new URL(rule.href, base).href
-    const layer = rule.layerName === null ? [] : [`@layer${rule.layerName ? ` ${rule.layerName}` : ""}`]
-    const inside = [...conditions, ...layer, ...mediaCondition(rule.media.mediaText)]
-    const inner = imported ? sheetPieces(imported, importBase, inside) : undefined
+    const inside = [...conditions, ...importConditions(rule, anonymous), ...mediaCondition(rule.media.mediaText)]
+    const inner = imported ? sheetPieces(imported, importBase, inside, anonymous) : undefined
 
     pieces.push(...(inner ?? [{ href: importBase, conditions: inside }]))
   }
 
   return pieces
+}
+
+/** An `@import`'s layer and `supports()` as conditions, in the order the import applies them, before its media. */
+function importConditions(rule: CSSImportRule, anonymous: { count: number }): string[] {
+  const conditions: string[] = []
+
+  if (rule.layerName !== null && rule.layerName !== undefined) {
+    conditions.push(`@layer ${rule.layerName || `parity-anonymous-${++anonymous.count}`}`)
+  }
+
+  if (rule.supportsText) {
+    conditions.push(`@supports (${rule.supportsText})`)
+  }
+
+  return conditions
 }
 
 /** A media list as a condition, or none when it's all media. */

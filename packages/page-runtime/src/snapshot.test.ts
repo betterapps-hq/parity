@@ -177,6 +177,57 @@ describe("takeSnapshot", () => {
     }
   })
 
+  it("keeps an anonymous imported layer one named layer, inside its supports condition", async () => {
+    const unreadable = {
+      href: "https://cdn.test/more.css",
+      get cssRules(): never {
+        throw new DOMException("Cross-origin", "SecurityError")
+      }
+    }
+
+    const theme = {
+      href: "http://localhost/theme.css",
+      media: { mediaText: "" },
+      cssRules: [
+        { cssText: ".notice { color: red }" },
+        { href: "https://cdn.test/more.css", styleSheet: unreadable, media: { mediaText: "" }, layerName: null },
+        { cssText: "div { color: blue }" }
+      ]
+    }
+
+    const page = {
+      href: null,
+      disabled: false,
+      media: { mediaText: "" },
+      cssRules: [
+        {
+          href: "theme.css",
+          styleSheet: theme,
+          media: { mediaText: "" },
+          layerName: "",
+          supportsText: "display: grid"
+        }
+      ]
+    }
+
+    Object.defineProperty(document, "styleSheets", { configurable: true, value: [page] })
+
+    try {
+      const kept = new Map<string, string>()
+      const { sheets } = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: kept })
+      const texts = sheets.map((entry) => ("hash" in entry ? kept.get(entry.hash) : entry))
+      const inside = ["@layer parity-anonymous-1", "@supports (display: grid)"]
+
+      expect(texts).toEqual([
+        "@layer parity-anonymous-1 {\n@supports (display: grid) {\n.notice { color: red }\n}\n}",
+        { href: "https://cdn.test/more.css", conditions: inside },
+        "@layer parity-anonymous-1 {\n@supports (display: grid) {\ndiv { color: blue }\n}\n}"
+      ])
+    } finally {
+      Reflect.deleteProperty(document, "styleSheets")
+    }
+  })
+
   it("keeps an unreadable import where it stands, inside every condition around it", async () => {
     const unreadable = {
       href: "https://cdn.test/theme.css",
