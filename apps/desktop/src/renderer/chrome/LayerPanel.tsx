@@ -779,8 +779,10 @@ export function nodeGrid(
 ): GridLayout | undefined {
   const area = editor?.getContainer().closest(".canvas-area")
   const host = area ? selectionFrame(area, design, picked) : undefined
+
   const element =
     host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
+
   const parent = element?.parentElement
 
   if (!host || !element || !parent) {

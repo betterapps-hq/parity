@@ -53,6 +53,7 @@ function covered(edges: readonly { start: number; end: number }[], from: number,
     0,
     edges.findLastIndex((edge) => edge.start <= from + 0.5)
   )
+
   const last = edges.findIndex((edge) => edge.end >= to - 0.5)
 
   return { at: first, span: Math.max(1, (last === -1 ? edges.length - 1 : last) - first + 1) }
