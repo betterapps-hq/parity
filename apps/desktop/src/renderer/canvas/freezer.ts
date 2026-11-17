@@ -87,10 +87,14 @@ export interface FrozenCopy {
 /** Every copy the window has, by `copyStoreKey`. */
 const copies = windowStore<ReadonlyMap<string, FrozenCopy>>(() => new Map())
 
-/** A copy's key in the window: its project and its `CopyKey`. */
-export function copyStoreKey(project: string, key: CopyKey): string {
+/**
+ * A copy's key in the window: its project, its `CopyKey` and the mode as drawn (`drawnAs`), so two boards of a route,
+ * mode and state drawn at different widths or themes, as a duplicated design can be, each keep their own.
+ */
+export function copyStoreKey(project: string, key: CopyKey, drawn: string): string {
   return `${project}
-${copyId(key)}`
+${copyId(key)}
+${drawn}`
 }
 
 /** A mode as drawn, its classes, attributes and window, as one string: copies made in another are redone. */
@@ -156,8 +160,8 @@ export function useFrozenCopy(
   viewport: PageViewport,
   rank: () => number
 ): FrozenCopy | undefined {
-  const stored = copyStoreKey(project, key)
   const drawn = drawnAs(mode, viewport)
+  const stored = copyStoreKey(project, key, drawn)
   const ranked = useRef(rank)
   const id = useId()
 

@@ -228,6 +228,8 @@ export class Pool {
   private frameLoop = 0
   /** The project's previewed token values as a page's CSS, which each frame is shown when it connects (PAR-1264). */
   private preview = ""
+  /** Frames on their way to going live when the app's files changed, which reload once they're live (PAR-1264). */
+  private readonly outdated = new WeakSet<Frame>()
   private readonly stopListening: () => void
 
   constructor(project: string) {
@@ -464,6 +466,11 @@ export class Pool {
       this.setLiveState(state)
       this.place()
       this.setEngaged(true)
+
+      if (this.outdated.delete(frame)) {
+        this.reload(frame)
+      }
+
       this.startLoop()
       track("routeFrame.live", { from: pick.from satisfies LiveFrom, ms: Math.round(performance.now() - started) })
       this.refillSoon()
@@ -799,21 +806,33 @@ export class Pool {
     const live = this.live?.frame
 
     if (live && !updatesItself(live.router)) {
-      const { iframe, location } = live
+      this.reload(live)
+    }
 
-      const fallback = () => {
-        iframe.src = location
-          ? new URL(`${location.path}${location.search}${location.hash}`, iframe.src).href
-          : iframe.src
+    // A frame on its way to going live reloads once it's live, as going live waits on it as it is.
+    for (const frame of this.pendingFrames.values()) {
+      if (!updatesItself(frame.router)) {
+        this.outdated.add(frame)
       }
-
-      void withDeadline(live.channel.request("page.reload", {}), pageDeadlines["page.reload"]).catch(fallback)
     }
 
     if ([...this.spares.values()].some((frame) => !updatesItself(frame.router))) {
       this.closeSpares()
       this.plan()
     }
+  }
+
+  /** Loads a frame's page again where it is (`page.reload`), or at where it last said it was when it doesn't answer. */
+  private reload(frame: Frame): void {
+    const { iframe, location } = frame
+
+    const fallback = () => {
+      iframe.src = location
+        ? new URL(`${location.path}${location.search}${location.hash}`, iframe.src).href
+        : iframe.src
+    }
+
+    void withDeadline(frame.channel.request("page.reload", {}), pageDeadlines["page.reload"]).catch(fallback)
   }
 
   /** Sets a frame's mode to its board's, giving up past `mode.set`'s deadline, as a stuck page answers nothing. */

@@ -8681,17 +8681,18 @@ A screen is named for the component its route draws, else its path.
 - **Copies follow the code (PAR-1264).** The project service's watcher tells the window which of the app's files changed
   (`project.filesChanged`), 250 ms after the last, leaving out hidden folders such as `.git` and `.next`, installed
   packages, builders' output at the project's root (a `build` folder deeper down can be the app's), `.par` files and
-  TypeScript's build records (`pageSourceChange`). A copy is kept by its route, mode and state (`CopyKey`) with the
-  trace it was made from; until traces by builder come (step 6), every copy's trace is the whole project, so any change
-  makes the project's copies stale. A stale copy stays shown until the freezer has a new one, nearest the view first.
-  Modes whose snapshots drew the same markup form a markup group: a route frozen again takes one snapshot per group,
-  which every copy in the group shows at once with its own height, and each other mode is checked with a snapshot of its
-  own once nothing is missing or stale. Two states of a route share a copy. A page that loads again while it's frozen
-  says hello again with the same id: the freezer replaces its channel, waits for it to be ready and takes the snapshot
-  again, three times at most. With the Interact tool, a project's live and spare pages under Vite or a
-  webpack-compatible builder are loaded again where they are when the app's files change (`page.reload`, or its last
-  location when it doesn't answer), since it keeps the modules it loaded; a page whose router is Next's takes Next's hot
-  updates in place. The webpack-compatible builders' pages no longer poll and reload themselves.
+  TypeScript's build records (`pageSourceChange`). A copy is kept by its route, mode and state (`CopyKey`) and the mode
+  as drawn, so duplicated designs at other widths or themes keep their own, with the trace it was made from; until
+  traces by builder come (step 6), every copy's trace is the whole project, so any change makes the project's copies
+  stale. A stale copy stays shown until the freezer has a new one, nearest the view first. Modes whose snapshots drew
+  the same markup form a markup group: a route frozen again takes one snapshot per group, which every copy in the group
+  shows at once with its own height, and each other mode is checked with a snapshot of its own once nothing is missing
+  or stale. Two states of a route share a copy. A page that loads again while it's frozen says hello again with the same
+  id: the freezer replaces its channel, waits for it to be ready and takes the snapshot again, three times at most. With
+  the Interact tool, when the app's files change, a project's live page under Vite or a webpack-compatible builder,
+  which keeps the modules it loaded, is loaded again where it is (`page.reload`, or at its last location when it doesn't
+  answer), and a frame still going live once it's live; its spares are closed and opened again. A page whose router is
+  Next's takes Next's hot updates in place. The webpack-compatible builders' pages no longer poll and reload themselves.
 - **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
   design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
   every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
