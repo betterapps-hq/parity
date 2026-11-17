@@ -5,6 +5,7 @@
  */
 import { useSyncExternalStore } from "react"
 import { type DeclaredFace, declaredFaces } from "../../guest.ts"
+import { resetWithWindow, windowStore } from "../../store.ts"
 import { type FontFamily, stackFamilies } from "./text-data.ts"
 
 /** A face Local Font Access lists: its family and its style's name (`Semibold Italic`). */
@@ -104,9 +105,17 @@ export function installedFamilies(faces: readonly LocalFace[]): FontFamily[] {
   ).toSorted((a, b) => a.name.localeCompare(b.name))
 }
 
-let installed: FontFamily[] | undefined
+/** The computer's fonts once they've come; none until then. A window store, so a story starts without them. */
+const installed = windowStore<FontFamily[] | undefined>(() => undefined)
+
+/** Whether they've been asked for, and which ask is the latest, so one a reset outdated can't fill them in. */
 let asked = false
-const listeners = new Set<() => void>()
+let ask = 0
+
+resetWithWindow(() => {
+  asked = false
+  ask += 1
+})
 
 /** The project's own fonts, from the loaded project's stylesheets, as they are now. */
 export function projectFonts(): FontFamily[] {
@@ -124,37 +133,42 @@ export function askForInstalledFonts(): void {
   }
 
   asked = true
+  ask += 1
+  const thisAsk = ask
 
   // Local Font Access may be missing or refused; then no installed fonts are listed.
   void Promise.resolve(window.queryLocalFonts?.() ?? [])
     .then((faces) => installedFamilies(faces))
     .catch(() => [])
     .then((found) => {
-      installed = found
+      if (thisAsk !== ask) {
+        return
+      }
+
       asked = found.length > 0
-      listeners.forEach((listener) => listener())
+      installed.set(found)
     })
 }
 
 const subscribe = (listener: () => void) => {
-  listeners.add(listener)
+  const stop = installed.subscribe(listener)
   askForInstalledFonts()
 
-  return () => listeners.delete(listener)
+  return stop
 }
 
 const none: FontFamily[] = []
 
 /** The fonts installed on this computer, asked for the first time it's used; none until they come. */
 export function useInstalledFonts(): FontFamily[] {
-  return useSyncExternalStore(subscribe, () => installed ?? none)
+  return useSyncExternalStore(subscribe, () => installed.get() ?? none)
 }
 
 /** A font by its first family's name, ignoring case and quotes: the project's first, then the computer's. */
 export function findFont(name: string): FontFamily | undefined {
   const bare = (stackFamilies(name)[0] ?? name).toLowerCase()
 
-  return [...projectFonts(), ...(installed ?? [])].find((font) =>
+  return [...projectFonts(), ...(installed.get() ?? [])].find((font) =>
     [font.name, stackFamilies(font.stack)[0]].some((family) => family?.toLowerCase() === bare)
   )
 }
