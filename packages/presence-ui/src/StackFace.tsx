@@ -9,12 +9,16 @@ interface StackFaceProps {
   size: number
   following: boolean
   stale: boolean
-  defaultOpen: boolean
+  defaultOpen?: boolean
+  onFollow?: () => void
+  onGoTo?: () => void
 }
 
-/** A face in the stack: hover for who it is, click or Enter for their card. */
-export function StackFace({ presence, size, following, stale, defaultOpen }: StackFaceProps) {
+/** A face in the stack: hover or focus for who it is, click or Enter for their card. */
+export function StackFace({ presence, size, following, stale, defaultOpen, onFollow, onGoTo }: StackFaceProps) {
   const { member } = presence
+  const status = statusOf(presence)
+  const name = following ? `Following ${member.name}` : member.name
 
   return (
     <Popover defaultOpen={defaultOpen}>
@@ -23,11 +27,7 @@ export function StackFace({ presence, size, following, stale, defaultOpen }: Sta
           render={
             <PopoverTrigger
               render={
-                <button
-                  type="button"
-                  aria-label={[member.name, statusOf(presence)].filter(Boolean).join(", ")}
-                  className={faceButton}
-                >
+                <button type="button" aria-label={[name, status].filter(Boolean).join(", ")} className={faceButton}>
                   <Face member={member} size={size} away={stale || Boolean(presence.away)} following={following} />
                 </button>
               }
@@ -35,12 +35,12 @@ export function StackFace({ presence, size, following, stale, defaultOpen }: Sta
           }
         />
         <TooltipContent side="bottom" className="flex-col items-start gap-0.5">
-          <span className="font-medium">{following ? `Following ${member.name}` : member.name}</span>
-          {statusOf(presence) && <span className="text-background/70">{statusOf(presence)}</span>}
+          <span className="font-medium">{name}</span>
+          {status && <span className="text-background/70">{status}</span>}
         </TooltipContent>
       </Tooltip>
       <PopoverContent align="end" sideOffset={10} className="w-72 gap-0 overflow-hidden p-0">
-        <PersonCard presence={presence} following={following} />
+        <PersonCard presence={presence} following={following} onFollow={onFollow} onGoTo={onGoTo} />
       </PopoverContent>
     </Popover>
   )

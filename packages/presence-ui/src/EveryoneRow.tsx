@@ -6,12 +6,18 @@ import { type Presence, statusOf, whoseAgent } from "./member.ts"
 interface EveryoneRowProps {
   presence: Presence
   following: boolean
+  /** Follow them, or stop following them while you are. */
+  onFollow?: () => void
 }
 
-/** One of everyone, in the list the count opens: their face and name, whether they're away, and Follow on hover. */
-export function EveryoneRow({ presence, following }: EveryoneRowProps) {
+/**
+ * One of everyone, in the list the count opens: their face and name, whether they're away, and Follow, shown on hover
+ * or focus. Someone away can't be followed, so their row has no button; its space stays, so rows line up.
+ */
+export function EveryoneRow({ presence, following, onFollow }: EveryoneRowProps) {
   const { member, away } = presence
   const owner = whoseAgent(member)
+  const status = statusOf(presence)
 
   return (
     <li className="group/row flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted">
@@ -21,15 +27,18 @@ export function EveryoneRow({ presence, following }: EveryoneRowProps) {
           <span className="truncate text-sm">{member.name}</span>
           {owner && <span className="shrink-0 text-2xs text-muted-foreground">{owner}</span>}
         </span>
-        {statusOf(presence) && <span className="truncate text-xs text-muted-foreground">{statusOf(presence)}</span>}
+        {status && <span className="truncate text-xs text-muted-foreground">{status}</span>}
       </span>
-      {!away && (
+      {away ? (
+        <span className="size-6 shrink-0" />
+      ) : (
         <Button
           size="icon-xs"
           variant="ghost"
           aria-label={following ? `Stop following ${member.name}` : `Follow ${member.name}`}
           aria-pressed={following}
           className="opacity-0 group-hover/row:opacity-100 focus-visible:opacity-100 aria-pressed:opacity-100"
+          onClick={onFollow}
         >
           <Eye />
         </Button>

@@ -1,0 +1,23 @@
+{
+  "name": "@parity-app/presence-ui",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "How people and agents show on the canvas: pointers, faces, outlines, the avatar stack and following, built from the UI kit.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@buildkitgg/shadcn": "link:../../apps/desktop/node_modules/.buildkit/shadcn",
+    "@parity-app/presence-colors": "workspace:*",
+    "lucide-react": "^1.66.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  }
+}

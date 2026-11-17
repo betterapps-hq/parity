@@ -6395,6 +6395,44 @@ Tests:
 - `packages/editor/src/canvas-measure.test.ts` (6): the frame fallback; boards, frames and nodes; a sleeping frame and a
   culled board; changes told once a frame until disposed; hits on the deepest node.
 
+### Presence components (PAR-1256)
+
+How people and agents show on the canvas, in a package of their own, `@parity-app/presence-ui`, for the multiplayer and
+agent presence extensions to render (docs/proposals/extensions-in-the-window.md, "What moves out of core"). They're the
+approved Storybook designs (PAR-1188), made production components: they take who's here with each palette already
+resolved, never a palette's name or key, and hold no room or editor logic. The stories under `Parity/Multiplayer/*` draw
+them from the package.
+
+- **Pointers.** A person's arrow with their first name, and a short note only when the room knows it for certain
+  ("Typing…"); an agent's glows, and its badge has the icon for its step and what it says it's doing. Off the canvas a
+  pointer stays where it was left, faded with only the name, and glides back from there when they return: for longer the
+  further it is, from 280ms to 720ms, with positions arriving during the glide finishing it rather than restarting it.
+  With reduced motion it jumps back, and an idle agent doesn't breathe.
+- **Selections.** An outline in each person's color, several people on one layer a ring each with their name tags in a
+  row, and a marquee in the color of whoever drags it. Layers rows show who else has a layer selected, and say so to a
+  screen reader.
+- **The avatar stack** on the canvas's top-right: faces in the order people joined, each agent after whoever runs it,
+  whoever you follow first and anyone away last; past the most it shows, a count that opens everyone. A face opens its
+  card, with Follow and Go to; your own opens yours, with Present to everyone and whether others' pointers show. Each
+  action is a callback for the extension to answer.
+- **Following.** The canvas framed in the leader's color and a banner with Stop, which names Esc. When following ends
+  the banner says why: "Stopped following Mia", or "Mia left, so following stopped". Presenting, an invitation to follow
+  and a dropped connection share the banner.
+
+Code: `packages/presence-ui/src/`, with the glide in `glide.ts` and names, order and counts in `member.ts`. Agent
+presence (`renderer/agent/AgentPresence.tsx`), the live room's cursors (`canvas/RoomCursor.tsx`), remote typing
+(`canvas/RoomTyping.tsx`) and carried pictures (`canvas/CarriedPicture.tsx`) draw with it already. `useFollow`, which
+drives the Follow mode stories, stays with them; core's following is the camera's (PAR-1236).
+
+Tests:
+
+- `packages/presence-ui/src/glide.test.ts` (7): the glide's length by distance; the first position placed at once; steps
+  in a straight line; staying put and fading off the canvas; gliding back for longer the further it is; positions during
+  a glide finishing it; jumping back with reduced motion.
+- `packages/presence-ui/src/member.test.ts` (11): first names and agents' whole names; whose an agent is; names in a
+  sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
+  order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
+
 ## Tokens
 
 What the Tokens tab shows, and how a token is copied and edited from it.
@@ -10465,7 +10503,8 @@ precedence, names preserved verbatim and neutral fallbacks.
 
 Implementation: `packages/cli/src/caller.ts` selects declared names and bounds session ids; `client.ts` attaches the
 name/id to RPC, and `mcp.ts` supplies the initialize handshake name. `apps/desktop/src/utility/agent.ts` forwards that
-identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` and `AgentPointer.tsx`.
+identity to presence events, displayed by `renderer/agent/AgentPresence.tsx` with `AgentPointer` and `AgentBadge` from
+`@parity-app/presence-ui`.
 
 Coverage gaps: the unit tests exercise name selection and distinct bounded ids, not a full MCP-to-canvas session.
 Read-only CLI executions were checked in the running fencing-club app with inherited `CODEX_HOME`: without an explicit

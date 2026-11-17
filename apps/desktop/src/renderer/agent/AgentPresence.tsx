@@ -1,3 +1,4 @@
+import { ActionIcon, AgentBadge, AgentPointer } from "@parity-app/presence-ui"
 import { LoaderCircle, Sparkles } from "lucide-react"
 import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
@@ -6,7 +7,6 @@ import { areaSpace, frameGeometry } from "../canvas/frame-geometry.ts"
 import { scheduleOverlay } from "../canvas/overlay-scheduler.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { type AgentPalette, agentColors, agentPalettes } from "./agent-colors.ts"
-import { ActionIcon, AgentBadge, AgentPointer } from "./AgentPointer.tsx"
 import {
   arcPoint,
   type Box,
