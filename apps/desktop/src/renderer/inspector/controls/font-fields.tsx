@@ -28,6 +28,7 @@ import { askForInstalledFonts, findFont, projectFonts, useInstalledFonts } from 
 import { NumberField } from "./number-field.tsx"
 import { type FontFamily, genericOf, stackFamilies, weightName } from "./text-data.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
+import { namespacedName } from "./token-scale.ts"
 import {
   type FontToken,
   fontToken,
@@ -186,7 +187,7 @@ export function FontFamilyField({
                 {font.name}
               </span>
               {font.token !== undefined && (
-                <span className="font-mono text-2xs text-muted-foreground">font-{font.token}</span>
+                <span className="font-mono text-2xs text-muted-foreground">{namespacedName(font.token, "font-")}</span>
               )}
             </>
           )
@@ -208,7 +209,7 @@ export function FontFamilyField({
       const named = fonts.find(
         (font) =>
           font.name.toLowerCase() === words ||
-          (font.token !== undefined && (font.token === words || `font-${font.token}` === words))
+          (font.token !== undefined && tokenNamed([{ name: font.token }], words, "font-") !== undefined)
       )
 
       if (named) {
