@@ -147,7 +147,7 @@ export function syncedSettings(manifest: string | undefined): SyncSettings | und
  * are left out here too.
  */
 export function scriptSettings(script: string | undefined): Partial<SyncSettings> {
-  const run = script?.split("&&").find((part) => part.includes("shadcn-sync"))
+  const run = commandsOf(script ?? "").find(({ command }) => command.includes("shadcn-sync"))?.command
 
   if (!run) {
     return {}
@@ -394,26 +394,47 @@ export function shadcnRemoval(files: ProjectFiles): LibraryRemovalPlan {
   return plan
 }
 
-/** A script without the part that runs sync, or nothing when that was all it ran. */
-function withoutSync(script: string): string | undefined {
-  const rest = script
-    .split("&&")
-    .map((part) => part.trim())
-    .filter((part) => part && !part.includes("shadcn-sync"))
+/** A script's commands, each with the operator before it (`&&`, `||` or `;`), the first with none. */
+function commandsOf(script: string): { operator: string; command: string }[] {
+  const pieces = script.split(/(&&|\|\||;)/)
+  const commands = [{ operator: "", command: pieces[0]?.trim() ?? "" }]
 
-  return rest.length > 0 ? rest.join(" && ") : undefined
+  for (let index = 1; index < pieces.length; index += 2) {
+    commands.push({ operator: pieces[index] ?? "", command: pieces[index + 1]?.trim() ?? "" })
+  }
+
+  return commands.filter(({ command }) => command)
 }
 
+/** Joins commands back into a script, the first without its operator. */
+function scriptOf(commands: { operator: string; command: string }[]): string | undefined {
+  const text = commands
+    .map(({ operator, command }, index) => {
+      if (index === 0) {
+        return command
+      }
+
+      return operator === ";" ? `; ${command}` : ` ${operator} ${command}`
+    })
+    .join("")
+
+  return text || undefined
+}
+
+/** A script without the command that runs sync, or nothing when that was all it ran. */
+function withoutSync(script: string): string | undefined {
+  return scriptOf(commandsOf(script).filter(({ command }) => !command.includes("shadcn-sync")))
+}
+
+/** A script that runs sync as `command`: in place of the command that ran it, or after the rest. */
 function withSync(script: string | undefined, command: string): string {
-  if (!script?.trim()) {
-    return command
+  const commands = commandsOf(script ?? "")
+
+  if (!commands.some((part) => part.command.includes("shadcn-sync"))) {
+    commands.push({ operator: "&&", command })
   }
 
-  const parts = script.split("&&").map((part) => part.trim())
-
-  if (!parts.some((part) => part.includes("shadcn-sync"))) {
-    return `${script.trim()} && ${command}`
-  }
-
-  return parts.map((part) => (part.includes("shadcn-sync") ? command : part)).join(" && ")
+  return (
+    scriptOf(commands.map((part) => (part.command.includes("shadcn-sync") ? { ...part, command } : part))) ?? command
+  )
 }

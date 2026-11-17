@@ -316,7 +316,7 @@ export interface LibraryRequest {
 
 /**
  * What setting a library up changes in the project, as data. Parity merges the package.json fields into the project's,
- * replacing an entry of the same name, writes the files, imports `styles` into the app's stylesheet, and installs.
+ * replacing an entry of the same name, imports `styles` into the app's stylesheet, and installs.
  */
 export interface LibrarySetupPlan {
   /** Dependencies at the ranges given. */
@@ -326,8 +326,6 @@ export interface LibrarySetupPlan {
   packages?: string[]
   /** Scripts by name, each replacing the project's script of that name. */
   scripts?: Record<string, string>
-  /** Files to write, by their path from the project's root, with their whole text. */
-  files?: { path: string; content: string }[]
   /** A stylesheet the app's own stylesheet imports, by its specifier, as `@buildkitgg/shadcn/tailwind.css`. */
   styles?: string
 }

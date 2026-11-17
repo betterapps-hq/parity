@@ -1,10 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, fn, userEvent, within } from "storybook/test"
-import type { CatalogLibrary } from "../../shared/protocol.ts"
-import { storyCatalog, storyPreview } from "../stories/libraries.ts"
-import { AddLibraryDialog, offeredLibraries } from "./AddLibraryDialog.tsx"
-import { slowly } from "./inspector-stories.tsx"
+import type { CatalogLibrary } from "../../../shared/protocol.ts"
+import { storyCatalog, storyPreview } from "../../stories/libraries.ts"
+import { slowly } from "../inspector-stories.tsx"
+import { AddLibraryDialog } from "./AddLibraryDialog.tsx"
+import { offeredLibraries } from "./offeredLibraries.ts"
 
 /*
  * The component libraries dialog on its own, offering the registry's catalog. Each library shows what Parity's registry

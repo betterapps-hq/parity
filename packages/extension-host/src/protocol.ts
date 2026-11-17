@@ -628,10 +628,6 @@ const librarySetupPlan: z.ZodType<LibrarySetupPlan> = z.strictObject({
   devDependencies: dependencyRanges.optional(),
   packages: z.array(packageName).max(100).optional(),
   scripts: z.record(z.string().min(1).max(200), z.string().max(10_000)).optional(),
-  files: z
-    .array(z.strictObject({ path: filePath, content: fileText }))
-    .max(1000)
-    .optional(),
   styles: z.string().min(1).max(500).optional()
 })
 

@@ -2,7 +2,7 @@ import type { AdapterIcon } from "@parity-app/core"
 import { shadcnSettings } from "@parity-app/extension-shadcn/shadcn"
 import catalog from "@parity-app/registry/catalog.json"
 import type { CatalogLibrary, LibraryLook } from "../../shared/protocol.ts"
-import type { ShownPreview } from "../chrome/AddLibraryDialog.tsx"
+import type { ShownPreview } from "../chrome/AddLibraryDialog/offeredLibraries.ts"
 import { type PreviewToken, tokenSections } from "../chrome/token-previews.tsx"
 import previews from "./library-previews.json"
 

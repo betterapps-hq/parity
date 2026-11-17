@@ -184,6 +184,22 @@ describe("shadcnSetup", () => {
     })
   })
 
+  it("replaces sync's command in a postinstall that joins its commands with ; and ||", () => {
+    const plan = shadcnSetup(
+      {
+        packageJson: pkg({
+          devDependencies: { "@buildkitgg/shadcn-sync": "^0.1.5" },
+          scripts: { postinstall: `husky; ${sync} || true` }
+        })
+      },
+      { base: "base", style: "nova", theme: "neutral", icons: "lucide" }
+    )
+
+    expect(plan.scripts?.postinstall).toBe(
+      "husky; shadcn-sync sync --base base --icons lucide --style nova --theme neutral --css tailwind || true"
+    )
+  })
+
   it("gives sync Fluent icons through Buildkit's adapter, adding the adapter and Fluent's icons", () => {
     const plan = shadcnSetup({ packageJson: pkg({}) }, { ...chosen, base: "base", icons: "fluent" })
 
@@ -235,5 +251,15 @@ describe("shadcnRemoval", () => {
     })
 
     expect(plan.scripts).toEqual({ postinstall: null })
+  })
+
+  it("takes sync out of a postinstall that joins its commands with ; and ||", () => {
+    const removal = (postinstall: string) =>
+      shadcnRemoval({
+        packageJson: pkg({ devDependencies: { "@buildkitgg/shadcn-sync": "^0.1.4" }, scripts: { postinstall } })
+      }).scripts
+
+    expect(removal(`husky; ${sync}`)).toEqual({ postinstall: "husky" })
+    expect(removal(`${sync} || true; patch-package`)).toEqual({ postinstall: "true; patch-package" })
   })
 })

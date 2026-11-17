@@ -6748,18 +6748,18 @@ each library's pages, logo (Simple Icons', and Fluent's mark from Microsoft's ow
 in its look, the registry file that previews one an extension sets up (`@buildkitgg/shadcn-baseui-{style}`), and its
 icon set.
 
-Code: `chrome/AddLibraryDialog.tsx` (the dialog, `offeredLibraries`), `AddComponentLibrary` and `removeLibrary` in
-`chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and `removeLibrary` in `apps/desktop/src/utility/libraries.ts`;
-`libraryPreview` and `familiesOf` in `packages/project/src/library-preview.ts`; `withoutStylesImport` in
-`packages/project/src/libraries.ts`, `removeCommand` in `detect.ts`; `registryCatalog` in
+Code: `chrome/AddLibraryDialog/` (the dialog, a file for each of its parts, `offeredLibraries`), `AddComponentLibrary`
+and `removeLibrary` in `chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and `removeLibrary` in
+`apps/desktop/src/utility/libraries.ts`; `libraryPreview` and `familiesOf` in `packages/project/src/library-preview.ts`;
+`withoutStylesImport` in `packages/project/src/libraries.ts`, `removeCommand` in `detect.ts`; `registryCatalog` in
 `packages/registry/src/index.ts`.
 
 Tests: `packages/project/src/library-preview.test.ts` (a file's tokens with their kinds and themes, families,
 breakpoints, every look token the catalog names, nothing without a file); `registryCatalog` in
 `packages/registry/src/index.test.ts` (offered libraries and their icon sets have files; a library without a look is
 refused); `withoutStylesImport` in `packages/project/src/edits.test.ts`; `removeCommand` in `detect.test.ts`; script
-removal in `setup-plan.test.ts`. Storybook, `chrome/AddLibraryDialog.stories.tsx`: Shadcn, Mantine, MantineDark,
-ChakraUi, ChakraUiSpacing, FluentUi, MaterialUi, ShadcnSettings, ShadcnAdded and RemovingALibrary; and
+removal in `setup-plan.test.ts`. Storybook, `chrome/AddLibraryDialog/AddLibraryDialog.stories.tsx`: Shadcn, Mantine,
+MantineDark, ChakraUi, ChakraUiSpacing, FluentUi, MaterialUi, ShadcnSettings, ShadcnAdded and RemovingALibrary; and
 `chrome/ComponentsPanel.stories.tsx`: AddingALibrary, CatalogLoading, InstallingALibrary, ChangingShadcn,
 AddingShadcnInstalling and RemovingALibrary. Gaps: removing hasn't been run against a real project's install.
 

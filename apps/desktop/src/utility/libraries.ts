@@ -122,8 +122,8 @@ function providerOf({ info, pkg }: OpenProject) {
 
 /**
  * Adds a library to the project, with the registry's icon sets `companions` names in the same install. One an extension
- * sets up is set up with the settings chosen: the extension says what that changes in package.json and which files to
- * write, Parity writes them, then installs with the project's own package manager, whose install runs the scripts the
+ * sets up is set up with the settings chosen: the extension says what that changes in package.json, Parity writes
+ * it, then installs with the project's own package manager, whose install runs the scripts the
  * extension added. One from the registry is installed by name. Either has its Tailwind entry imported from the
  * project's stylesheet. The person asked for it from the canvas, so this changes their project.
  */
@@ -190,7 +190,7 @@ export async function addLibrary(
   )
 }
 
-/** Writes what setting a library up changes in package.json, and the files it adds, as one change. */
+/** Writes what setting a library up changes in package.json. */
 async function applySetup(
   project: OpenProject,
   name: string,
@@ -199,23 +199,15 @@ async function applySetup(
   const { root } = project.info
   const source = await readFile(join(root, "package.json"), "utf8")
   const content = withPackageChanges(source, plan)
-  const files: FileEdit[] = []
 
-  if (content !== source) {
-    files.push({ kind: "replace", path: "package.json", expected: source, content })
+  if (content === source) {
+    return undefined
   }
 
-  for (const file of plan.files ?? []) {
-    const existing = await readFile(join(root, file.path), "utf8").catch(() => undefined)
-
-    files.push(
-      existing === undefined
-        ? { kind: "create", path: file.path, content: file.content }
-        : { kind: "replace", path: file.path, expected: existing, content: file.content }
-    )
-  }
-
-  return files.length > 0 ? applyProjectEdit(project, { label: `Set up ${name}`, files }) : undefined
+  return applyProjectEdit(project, {
+    label: `Set up ${name}`,
+    files: [{ kind: "replace", path: "package.json", expected: source, content }]
+  })
 }
 
 /**

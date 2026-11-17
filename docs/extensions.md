@@ -133,9 +133,8 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   (PAR-1226) knows libraries the project's dependencies' names don't identify: `detect()` names the registry file that
   describes each, the dependency its components come from, if any, and an icon package they draw with; `catalog()`
   offers libraries to add, each with settings to choose; `add({ library, settings })` answers with what setting one up
-  changes in package.json and the files to write, which Parity writes before installing; and `remove({ library })`
-  answers with the packages to uninstall, the scripts to change or drop and the stylesheet import to remove, which
-  Parity writes before uninstalling.
+  changes in package.json, which Parity writes before installing; and `remove({ library })` answers with the packages to
+  uninstall, the scripts to change or drop and the stylesheet import to remove, which Parity writes before uninstalling.
 - **`ui`:** a toast (`notify`), progress with Cancel (`progress`), a choice from a list (`pick`), a field (`input`), a
   confirmation (`confirm`), and opening a page (`open`), in the person's browser or, with `where: "parity"`, in a window
   of Parity's own.
