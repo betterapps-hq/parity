@@ -6,7 +6,7 @@ import { useTokens } from "../controls/field-parts.tsx"
 import { eachLength, lengthPx, sizeOf, sizeShown } from "../style-values.ts"
 import { mixedOf, type SectionProps } from "./section-edits.ts"
 
-const limits = [
+export const limits = [
   { key: "minWidth", row: "min", label: "min width" },
   { key: "maxWidth", row: "max", label: "max width" },
   { key: "minHeight", row: "min", label: "min height" },
@@ -16,7 +16,7 @@ const limits = [
 type LimitKey = (typeof limits)[number]["key"]
 
 /** One limit set, or taken off, as the style holds it: steps of the spacing scale. */
-function limitValues(key: LimitKey, steps: number | undefined): StyleValues {
+export function limitValues(key: LimitKey, steps: number | undefined): StyleValues {
   const values: StyleValues = {}
   values[key] = steps === undefined ? undefined : { step: steps }
 

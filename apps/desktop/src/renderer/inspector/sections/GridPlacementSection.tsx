@@ -1,9 +1,10 @@
 import { sizeEdit, type StyleValues } from "@parity-app/editor"
 import type { Draft } from "../controls/data.ts"
+import { useTokens } from "../controls/field-parts.tsx"
 import { GridCellSection } from "../controls/grid-cell.tsx"
-import { sizeOf, sizeShown } from "../style-values.ts"
+import { lengthPx, sizeOf, sizeShown } from "../style-values.ts"
 import type { SectionProps } from "./section-edits.ts"
-import { SizeSection } from "./SizeSection.tsx"
+import { limits, limitValues, SizeSection } from "./SizeSection.tsx"
 
 /** The grid lines and spans Grid placement changes together, as one edit. */
 const cellKeys = ["colSpan", "rowSpan", "colStart", "colEnd", "rowStart", "rowEnd"] as const
@@ -24,6 +25,7 @@ export function GridPlacementSection(props: SectionProps) {
   const { style, parent } = editor.selection
   const { unit } = editor
   const grid = editor.grid?.()
+  const spacing = useTokens("spacing").tokens
 
   // Several layers have no one map to draw; their sizes still change together.
   if (!grid) {
@@ -44,6 +46,10 @@ export function GridPlacementSection(props: SectionProps) {
     endLines: ends || undefined,
     childWidth: sizeShown(style.width, unit),
     childHeight: sizeShown(style.height, unit),
+    minWidth: lengthPx(style.minWidth, unit, spacing),
+    maxWidth: lengthPx(style.maxWidth, unit, spacing),
+    minHeight: lengthPx(style.minHeight, unit, spacing),
+    maxHeight: lengthPx(style.maxHeight, unit, spacing),
     alignSelf: style.alignSelf,
     justifySelf: style.justifySelf,
     itemsX: grid.items.x,
@@ -89,6 +95,14 @@ export function GridPlacementSection(props: SectionProps) {
       if (key in change) {
         const size = change[key]
         edit(axis, sizeEdit(axis, size === undefined ? undefined : sizeOf(size, unit), parent), `Change ${axis}`)
+      }
+    }
+
+    for (const { key, row, label } of limits) {
+      if (key in change) {
+        const px = change[key]
+        const verb = px === undefined ? "Remove" : "Change"
+        edit(row, limitValues(key, px === undefined ? undefined : px / unit), `${verb} ${label}`)
       }
     }
 

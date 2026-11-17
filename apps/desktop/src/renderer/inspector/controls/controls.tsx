@@ -136,17 +136,7 @@ export function SizeSection({
     set({ aspect: near?.value ?? reducedRatio(shown, tall), height: undefined })
   }
 
-  const limits = [
-    { key: "minWidth", label: "Min width" },
-    { key: "maxWidth", label: "Max width" },
-    { key: "minHeight", label: "Min height" },
-    { key: "maxHeight", label: "Max height" }
-  ] as const
-
-  const addLimit = (axis: "Width" | "Height", which: "min" | "max") => {
-    const size = axis === "Width" ? measured?.width : measured?.height
-    set({ [`${which}${axis}`]: size ?? 100 })
-  }
+  const addLimit = addSizeLimit(set, measured)
 
   return (
     <PanelSection title="Size">
@@ -202,25 +192,7 @@ export function SizeSection({
             }}
           />
         </div>
-        {limits.map(
-          ({ key, label }) =>
-            draft[key] !== undefined && (
-              <Field key={key} label={label}>
-                <div className="flex items-center gap-1">
-                  <div className="min-w-0 flex-1">
-                    <PixelField
-                      label={label}
-                      spacing
-                      value={draft[key]}
-                      min={0}
-                      onChange={(next) => set({ [key]: next ?? 0 })}
-                    />
-                  </div>
-                  <RemoveButton label={`Remove ${label.toLowerCase()}`} onClick={() => set({ [key]: undefined })} />
-                </div>
-              </Field>
-            )
-        )}
+        <SizeLimits draft={draft} set={set} />
         {draft.aspect !== undefined && (
           <Field label="Ratio" hint="Height follows the width at this ratio. Type 16:9, 16/9, 16x9 or 1.78">
             <RatioField aspect={draft.aspect} onChange={(aspect) => set({ aspect })} />
@@ -228,6 +200,43 @@ export function SizeSection({
         )}
       </div>
     </PanelSection>
+  )
+}
+
+const sizeLimits = [
+  { key: "minWidth", label: "Min width" },
+  { key: "maxWidth", label: "Max width" },
+  { key: "minHeight", label: "Min height" },
+  { key: "maxHeight", label: "Max height" }
+] as const
+
+/** Adds a min or max to W or H, at the layer's drawn size, as Sizing's Add min and Add max do. */
+export const addSizeLimit =
+  (set: SectionProps["set"], measured: Measured | undefined) => (axis: "Width" | "Height", which: "min" | "max") => {
+    const size = axis === "Width" ? measured?.width : measured?.height
+    set({ [`${which}${axis}`]: size ?? 100 })
+  }
+
+/** A row for each min and max the layer has, under W and H, each with a button that takes it off. */
+export function SizeLimits({ draft, set }: SectionProps) {
+  return sizeLimits.map(
+    ({ key, label }) =>
+      draft[key] !== undefined && (
+        <Field key={key} label={label}>
+          <div className="flex items-center gap-1">
+            <div className="min-w-0 flex-1">
+              <PixelField
+                label={label}
+                spacing
+                value={draft[key]}
+                min={0}
+                onChange={(next) => set({ [key]: next ?? 0 })}
+              />
+            </div>
+            <RemoveButton label={`Remove ${label.toLowerCase()}`} onClick={() => set({ [key]: undefined })} />
+          </div>
+        </Field>
+      )
   )
 }
 

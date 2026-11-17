@@ -34,13 +34,59 @@ export function trackSizes(template: string): number[] {
     .map((part) => parseFloat(part))
 }
 
-/** Where each track starts and ends, from the grid's content edge, with the gap between tracks. */
-function trackEdges(sizes: readonly number[], gap: number): { start: number; end: number }[] {
-  let at = 0
+/** How a grid shares out room its tracks leave along one axis: its `justify-content` or `align-content`, and that room. */
+export interface Distribution {
+  /** The computed keyword: `normal`, `center`, `end`, `space-between` and the like. */
+  content: string
+  /** The grid's content box along the axis, in its own pixels. */
+  size: number
+}
+
+/** Where the first track starts and what goes between tracks beyond the gap, as the browser shares out spare room. */
+function shared(count: number, used: number, distribution: Distribution | undefined) {
+  const room = distribution ? Math.max(0, distribution.size - used) : 0
+  const word = distribution?.content.split(/\s+/).at(-1)
+
+  if (room === 0 || count === 0) {
+    return { offset: 0, between: 0 }
+  }
+
+  if (word === "center") {
+    return { offset: room / 2, between: 0 }
+  }
+
+  if (word === "end" || word === "flex-end" || word === "right") {
+    return { offset: room, between: 0 }
+  }
+
+  if (word === "space-between") {
+    return { offset: 0, between: count > 1 ? room / (count - 1) : 0 }
+  }
+
+  if (word === "space-around") {
+    return { offset: room / count / 2, between: room / count }
+  }
+
+  if (word === "space-evenly") {
+    return { offset: room / (count + 1), between: room / (count + 1) }
+  }
+
+  return { offset: 0, between: 0 }
+}
+
+/** Where each track starts and ends, from the grid's content edge, with the gap and any shared-out room between. */
+function trackEdges(
+  sizes: readonly number[],
+  gap: number,
+  distribution?: Distribution
+): { start: number; end: number }[] {
+  const used = sizes.reduce((total, size) => total + size, 0) + gap * Math.max(0, sizes.length - 1)
+  const { offset, between } = shared(sizes.length, used, distribution)
+  let at = offset
 
   return sizes.map((size) => {
     const edge = { start: at, end: at + size }
-    at += size + gap
+    at += size + gap + between
 
     return edge
   })
@@ -161,12 +207,14 @@ export function measuredGrid(grid: {
   columns: readonly number[]
   rows: readonly number[]
   gap: { column: number; row: number }
+  /** How it shares out room its tracks leave, across and down. */
+  distribution?: { x?: Distribution; y?: Distribution }
   children: readonly MeasuredChild[]
   self: string
   items: GridLayout["items"]
 }): GridLayout {
-  const columns = trackEdges(grid.columns, grid.gap.column)
-  const rows = trackEdges(grid.rows, grid.gap.row)
+  const columns = trackEdges(grid.columns, grid.gap.column, grid.distribution?.x)
+  const rows = trackEdges(grid.rows, grid.gap.row, grid.distribution?.y)
 
   return {
     weights: [...grid.columns],

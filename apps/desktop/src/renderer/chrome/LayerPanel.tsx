@@ -836,6 +836,17 @@ export function nodeGrid(
     columns: trackSizes(grid.gridTemplateColumns),
     rows: trackSizes(grid.gridTemplateRows),
     gap: { column: parseFloat(grid.columnGap) || 0, row: parseFloat(grid.rowGap) || 0 },
+    distribution: {
+      // Its content box, in its own pixels: inside its padding, as `clientWidth` is unscaled and inside its border.
+      x: {
+        content: grid.justifyContent,
+        size: parent.clientWidth - parseFloat(grid.paddingLeft) - parseFloat(grid.paddingRight)
+      },
+      y: {
+        content: grid.alignContent,
+        size: parent.clientHeight - parseFloat(grid.paddingTop) - parseFloat(grid.paddingBottom)
+      }
+    },
     children,
     self: nodeId,
     items: { x: selfAlign(grid.justifyItems), y: selfAlign(grid.alignItems) }

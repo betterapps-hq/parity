@@ -5,7 +5,7 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
 import type { GridLayout } from "../grid-layout.ts"
-import { type Measured, type SectionProps, SizeField } from "./controls.tsx"
+import { addSizeLimit, type Measured, type SectionProps, SizeField, SizeLimits } from "./controls.tsx"
 import { clamp, stepCount, tint } from "./css-values.ts"
 import type { Draft, SelfAlign, Size, Span } from "./data.ts"
 import {
@@ -116,6 +116,7 @@ export function GridCellSection({
   // A row more than the children take, to place it in a new one.
   const rows = Math.max(grid.rows, ...grid.children.map((child) => child.area.row + child.area.rows)) + 1
   const endLines = draft.endLines ?? false
+  const addLimit = addSizeLimit(set, measured)
 
   const auto =
     draft.colStart === undefined && draft.rowStart === undefined && draft.colSpan !== "all" && draft.rowSpan !== "all"
@@ -297,6 +298,9 @@ export function GridCellSection({
             value={draft.childWidth ?? (sitsIn(draft, "x") === "fill" ? "fill" : "hug")}
             measured={measured?.width}
             parent={measured?.parent}
+            takesPercent={false}
+            limits={{ min: draft.minWidth !== undefined, max: draft.maxWidth !== undefined }}
+            onAddLimit={(which) => addLimit("Width", which)}
             onChange={(size) => setSize("x", size)}
           />
           <SizeField
@@ -305,9 +309,13 @@ export function GridCellSection({
             value={draft.childHeight ?? (sitsIn(draft, "y") === "fill" ? "fill" : "hug")}
             measured={measured?.height}
             parent={undefined}
+            takesPercent={false}
+            limits={{ min: draft.minHeight !== undefined, max: draft.maxHeight !== undefined }}
+            onAddLimit={(which) => addLimit("Height", which)}
             onChange={(size) => setSize("y", size)}
           />
         </div>
+        <SizeLimits draft={draft} set={set} />
         <div className="flex flex-col gap-1">
           {/* How it's placed, as Penpot's Auto and Manual: Manual pins it where it is, which the map then moves. */}
           <div className="flex items-center justify-between gap-2">

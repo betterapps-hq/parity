@@ -67,6 +67,21 @@ describe("a grid as the canvas lays it out", () => {
     ])
   })
 
+  it("places tracks where the grid shares out its spare room", () => {
+    // Three 100px columns spread across 700px: they start at 0, 300 and 600.
+    const grid = measuredGrid({
+      columns: [100, 100, 100],
+      rows: [50],
+      gap: { column: 0, row: 0 },
+      distribution: { x: { content: "space-between", size: 700 } },
+      self: "middle",
+      items: {},
+      children: [{ id: "middle", name: "Middle", auto: true, box: { left: 300, top: 0, width: 100, height: 50 } }]
+    })
+
+    expect(grid.children[0]?.area).toEqual({ col: 1, cols: 1, row: 0, rows: 1 })
+  })
+
   it("reads where the grid puts its children in their cells", () => {
     expect(["normal", "start", "flex-end", "center", "stretch", "safe end"].map(selfAlign)).toEqual([
       undefined,
