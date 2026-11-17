@@ -3,5 +3,6 @@
 
 /** Internal extensions' window modules, by extension id, each loading its chunk when its extension activates. */
 export const windowModules = new Map<string, () => Promise<object>>([
-  ["@parity-app/extension-agent-presence", () => import("@parity-app/extension-agent-presence/window")]
+  ["@parity-app/extension-agent-presence", () => import("@parity-app/extension-agent-presence/window")],
+  ["@parity-app/extension-multiplayer", () => import("@parity-app/extension-multiplayer/window")]
 ])

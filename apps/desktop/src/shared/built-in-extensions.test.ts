@@ -58,7 +58,8 @@ describe("the built-in list", () => {
 
   it("lists the window modules for the window's build, as renderer/window-module-list.ts", async () => {
     expect(windowModuleEntries()).toEqual({
-      "@parity-app/extension-agent-presence": "@parity-app/extension-agent-presence/window"
+      "@parity-app/extension-agent-presence": "@parity-app/extension-agent-presence/window",
+      "@parity-app/extension-multiplayer": "@parity-app/extension-multiplayer/window"
     })
     await expect(windowModulesSource()).toMatchFileSnapshot("../renderer/window-module-list.ts")
   })

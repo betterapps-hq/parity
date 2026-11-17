@@ -1,5 +1,5 @@
-// The relay copies of the app in a live room talk through, in development only (PAR-1179; docs/editor.md, "A live room
-// in development"). `pnpm dev` starts it on 127.0.0.1 when `PARITY_ROOM=1`, unless another copy's already has the port.
+// The relay copies of the app in a live room talk through, on one machine (PAR-1179; docs/editor.md, "A live room"). The
+// Multiplayer extension's Node half starts it on 127.0.0.1, unless another copy's already has the port.
 //
 // A copy listens at `GET /events?room=…&peer=…`, a stream of server-sent events, and sends with
 // `POST /send?room=…&peer=…`, a JSON message that goes to `to` or to every other copy in the room, with `from` added.

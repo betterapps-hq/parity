@@ -23,7 +23,9 @@ import {
   prunedDocument,
   sameValue
 } from "@parity-app/editor"
+import type { SyncDocument } from "@parity-app/extension-host/window-sync"
 import { applyDocuments, changeSnapshot, containerEntries, type ProjectDoc, restoreCopy } from "@parity-app/multiplayer"
+import type { LoroBackend } from "@parity-app/multiplayer-loro"
 import {
   changeProjectsData,
   type ProjectNote,
@@ -48,9 +50,8 @@ import { askAboutUnsaved } from "./chrome/unsaved.ts"
 import { ComponentStore } from "./components-store.ts"
 import { designFailuresNow, onDesignFailures } from "./failures-store.ts"
 import { type LoadedGuest, loadGuest, releaseGuest } from "./guest.ts"
-import type { LiveRoom } from "./live-room.ts"
 import { type FirstFrame, type Opening, startOpening } from "./opening.ts"
-import { closeDocSession, type DocSession, openDocSession } from "./project-doc.ts"
+import { closeDocSession, type DocSession, openDocSession, type RoomOpening } from "./project-doc.ts"
 import { keepProjectPicture } from "./project-picture.ts"
 import { keepRecovery, type RecoveryKeeper } from "./recovery.ts"
 import { holdRecording } from "./replay.ts"
@@ -63,6 +64,7 @@ import { signal, type Store, createStore } from "./store.ts"
 import { notify } from "./toasts.tsx"
 import { TokenStore } from "./tokens-store.ts"
 import { currentTraceContext, keepTrace } from "./tracing.ts"
+import { startTabModules, type TabModules } from "./window-modules.ts"
 
 /** What can change in an open project while it's open, each part replaced whole. */
 export interface SessionParts {
@@ -400,9 +402,10 @@ export class Workspace {
       current = info.id
       const builder = info.builder.name
       this.setProgress(info.id, [`Starting ${builder}`, `Loading components from ${builder}`], 1)
-      const { session, recordLoaded } = await createSession(info, asked, restored)
+      const { session, recordLoaded } = await createSession(info, asked, () => this.reload(info.id), restored)
 
       if (attempt.abandoned) {
+        session.close()
         asked.dropped()
         this.dropAbandoned(info.id, info.guestUrl)
 
@@ -625,9 +628,10 @@ export class Workspace {
       }
 
       this.setProgress(id, [step, `Loading components from ${info.builder.name}`], 1)
-      const { session, recordLoaded } = await createSession(info, asked)
+      const { session, recordLoaded } = await createSession(info, asked, () => this.reload(id))
 
       if (attempt.abandoned) {
+        session.close()
         asked.dropped()
 
         return this.dropAbandoned(info.id, info.guestUrl)
@@ -1006,7 +1010,6 @@ export class Workspace {
     }
 
     this.updateSession(project, project.session, { editor })
-    project.session.room?.attachEditor(editor, id)
   }
 
   /** The project as agents see it, as the one tab they can name. */
@@ -1233,6 +1236,7 @@ function sayWhenSavesFail(session: ProjectSession): void {
 async function createSession(
   info: ProjectInfo,
   asked: Opening,
+  reopen: () => Promise<void>,
   restored = false
 ): Promise<{ session: ProjectSession; recordLoaded: () => void }> {
   const loading = performance.now()
@@ -1268,34 +1272,40 @@ async function createSession(
     }
   }
 
-  const room = await liveRoom(info.root)
+  // Internal extensions' window modules start before the document opens, so the one that brings a live room can say
+  // how it opens (PAR-1267).
+  const modules = await startTabModules(info, { reopen })
+  const joined = await joinRoom(modules)
 
-  const designs: DocSession = openDocSession({
-    room,
-    files: opening,
-    drawn: code.designs,
-    modes,
-    main: info.mainDocument,
-    persistence: {
-      // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
-      // stories are written back to their own files, through the adapter that read them.
-      saveDocument: (path, document, { exportMs, fromOthers }) => {
-        if (path === storyScreensFile) {
-          return request("entities.save", { projectId: info.id, document })
-        }
+  // The modules stop with the session; one that never opens stops them here.
+  const designs: DocSession = withStop(modules, () =>
+    openDocSession({
+      room: joined?.room,
+      files: opening,
+      drawn: code.designs,
+      modes,
+      main: info.mainDocument,
+      persistence: {
+        // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
+        // stories are written back to their own files, through the adapter that read them.
+        saveDocument: (path, document, { exportMs, fromOthers }) => {
+          if (path === storyScreensFile) {
+            return request("entities.save", { projectId: info.id, document })
+          }
 
-        return generatedFiles.has(path)
-          ? Promise.resolve()
-          : saveDocument(info.id, path, document, { exportMs, fromOthers, room })
+          return generatedFiles.has(path)
+            ? Promise.resolve()
+            : saveDocument(info.id, path, document, { exportMs, fromOthers, saver: designs.room && designs.saver })
+        },
+        // The service writes files and has no way to delete one, so a file taken out of the project stays on disk.
+        deleteDocument: () => Promise.resolve(),
+        // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
+        autosave: (): boolean => withProjectPreferences(getPreferences(), designs.doc.file(designs.doc.main)).autosave,
+        keepTrace
       },
-      // The service writes files and has no way to delete one, so a file taken out of the project stays on disk.
-      deleteDocument: () => Promise.resolve(),
-      // The project's own autosave, when its file sets one, wins over the person's (PAR-1085).
-      autosave: (): boolean => withProjectPreferences(getPreferences(), designs.doc.file(designs.doc.main)).autosave,
-      keepTrace
-    },
-    libraryDesigns: info.libraries.flatMap((library) => library.designs ?? [])
-  })
+      libraryDesigns: info.libraries.flatMap((library) => library.designs ?? [])
+    })
+  )
 
   const learnDrawn = keepCodeDesigns(designs.doc, fromCode)
   const components = new ComponentStore()
@@ -1317,6 +1327,8 @@ async function createSession(
     { info, loaded, tokens: tokenStore(info, loaded, designs), added: drawn }
   )
 
+  modules.opened(session, joined?.document())
+  session.untilClosed(() => modules.stop())
   sayWhenSavesFail(session)
   followCorrections(session)
   followRouteMarks(session, marks, learnDrawn)
@@ -1336,25 +1348,63 @@ async function createSession(
 }
 
 /**
- * The project's live room, in development with `PARITY_ROOM=1` (live-room.ts), or nothing. A room that can't be joined
- * leaves the project to open as it would without one.
+ * How the project opens, as the extension that brings a live room says through `parity.sync`: on Loro, from files or on
+ * another copy's snapshot. Nothing when no extension brings one, or when it failed, so the project opens as it would
+ * alone. Loro loads only then.
  */
-async function liveRoom(root: string): Promise<LiveRoom | undefined> {
-  // Set by `pnpm dev` with `PARITY_ROOM=1`. The room's code, and Loro with it, loads only then.
-  const url = import.meta.env.DEV ? import.meta.env.VITE_PARITY_ROOM : undefined
+async function joinRoom(
+  modules: TabModules
+): Promise<{ room: RoomOpening; document: () => { sync: SyncDocument; lineage: string } | undefined } | undefined> {
+  const opening = await modules.opening()
 
-  if (!url) {
+  if (!opening) {
     return undefined
   }
 
+  const loro = await import("@parity-app/multiplayer-loro")
+  let backend: LoroBackend | undefined
+  const snapshot = opening.from === "snapshot" ? opening.snapshot : undefined
+
+  return {
+    room: {
+      provider: {
+        name: loro.loroProvider.name,
+        sync: true,
+        open(options) {
+          backend = loro.openLoro(options, snapshot)
+
+          return backend
+        }
+      },
+      // Opened from files, this copy starts the room and writes them; on a snapshot, the host does.
+      writesFiles: opening.from === "files"
+    },
+    document: () => backend && { sync: loroSync(backend), lineage: opening.lineage }
+  }
+}
+
+/** What `open` gives, stopping the tab's window modules when it throws. */
+function withStop<T>(modules: TabModules, open: () => T): T {
   try {
-    const { joinLiveRoom } = await import("./live-room.ts")
-
-    return await joinLiveRoom(url, root)
+    return open()
   } catch (error) {
-    reportError(error, { operation: "liveRoom.join", title: "Couldn't join the live room" })
+    modules.stop()
+    throw error
+  }
+}
 
-    return undefined
+/** A Loro document as `parity.sync` reads and writes it. */
+function loroSync(backend: LoroBackend): SyncDocument {
+  return {
+    receive(bytes) {
+      backend.receive(bytes)
+
+      return { pending: backend.pending() }
+    },
+    version: () => backend.versionVector(),
+    changesSince: (version) => backend.updates(version),
+    snapshot: () => backend.snapshot(),
+    onLocalChanges: (listener) => backend.subscribeLocalUpdates(listener)
   }
 }
 
@@ -1587,7 +1637,7 @@ async function saveDocument(
   projectId: string,
   path: string,
   document: CanvasDocument,
-  { exportMs, fromOthers, room }: { exportMs: number; fromOthers: number; room: LiveRoom | undefined }
+  { exportMs, fromOthers, saver }: { exportMs: number; fromOthers: number; saver: DocSession["saver"] | undefined }
 ): Promise<void> {
   const start = performance.now()
   const bytes = JSON.stringify(document).length
@@ -1597,10 +1647,10 @@ async function saveDocument(
 
   try {
     await request("document.save", { projectId, path, document })
-    track("document.saved", room ? { ...measured(), exportMs, fromOthers } : { ...measured(), exportMs }, inTrace)
+    track("document.saved", saver ? { ...measured(), exportMs, fromOthers } : { ...measured(), exportMs }, inTrace)
   } catch (error) {
-    const failed: Attributes<"document.saveFailed"> = room
-      ? { ...measured(), inRoom: true, writesFiles: room.saves() }
+    const failed: Attributes<"document.saveFailed"> = saver
+      ? { ...measured(), inRoom: true, writesFiles: saver.writesFiles() }
       : measured()
 
     const code = errorCode(error)

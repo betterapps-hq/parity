@@ -376,6 +376,9 @@ importers:
       '@parity-app/extension-host':
         specifier: workspace:*
         version: link:../../packages/extension-host
+      '@parity-app/extension-multiplayer':
+        specifier: workspace:*
+        version: link:../../packages/extension-multiplayer
       '@parity-app/extension-nextjs':
         specifier: workspace:*
         version: link:../../packages/extension-nextjs
@@ -929,6 +932,28 @@ importers:
       '@parity-app/extension-storybook-a11y':
         specifier: workspace:*
         version: link:../extension-storybook-a11y
+
+  packages/extension-multiplayer:
+    dependencies:
+      '@parity-app/canvas-layer':
+        specifier: workspace:*
+        version: link:../canvas-layer
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      '@parity-app/presence-ui':
+        specifier: workspace:*
+        version: link:../presence-ui
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/extension-nextjs:
     dependencies:
