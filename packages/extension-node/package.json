@@ -1,0 +1,14 @@
+{
+  "name": "@parity-app/extension-node",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Helpers for an extension's Node code: finding the project's own installed packages.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/project": "workspace:*"
+  }
+}

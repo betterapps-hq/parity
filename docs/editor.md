@@ -10008,16 +10008,16 @@ container query, a `group-hover:` rule.
 
 Code: `packages/core/src/render.ts` resolves each element with its `declarations`, from `@parity-app/style-schema`'s
 `declarations`, and marks a layout whose child is Absolute (`anchors`). `packages/core/src/frame-rules.ts` has
-`frameRules` (a tree's rules, through `cssPrinter`), `previewRules`, `withClasses` and `writeClasses`.
-`apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and one for a preview, after the
-project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes a tree's rules in the
-project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a guest's frames and asks
-the service for the rest, naming the ones it has, so the stylesheet that comes back is whole even from a service started
-again since. It asks once the last ask is answered, since an answer's stylesheet replaces the one before
-(`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the styles provider's
-`classes`, whose printer's `css` compiles them). `ModeView.tsx` draws a live frame with both; `render.ts` draws an
-offscreen one from the rules. The React guest (`packages/extension-react/src/guest.ts`) gives an element its classes and
-no style.
+`frameRules` (a tree's rules, through `cssPrinter`), `previewRules` and `withClasses`; the Tailwind extension's
+`classes.ts` has `writeClasses`. `apps/desktop/src/renderer/frame.ts` gives each frame a stylesheet for its rules and
+one for a preview, after the project's and the classes' (`showFrameRules`, `previewFrameRules`); `guest.ts` there writes
+a tree's rules in the project's layer (`frameCss`, `rulesLayer`). `frame-classes.ts` keeps the classes written for a
+guest's frames and asks the service for the rest, naming the ones it has, so the stylesheet that comes back is whole
+even from a service started again since. It asks once the last ask is answered, since an answer's stylesheet replaces
+the one before (`styles.classes`, answered by `frameClasses` in `apps/desktop/src/utility/projects.ts` through the
+styles provider's `classes`, whose printer's `css` compiles them). `ModeView.tsx` draws a live frame with both;
+`render.ts` draws an offscreen one from the rules. The React guest (`packages/extension-react/src/guest.ts`) gives an
+element its classes and no style.
 
 Tests:
 

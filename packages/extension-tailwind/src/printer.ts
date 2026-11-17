@@ -1,12 +1,12 @@
-import type { ClassPrinter } from "@parity-app/core"
+import type { CssDeclaration } from "@parity-app/extension"
 import {
   comparableValue,
   type Condition,
-  type CssDeclaration,
   type Printed,
   type ReadBack,
   sameCondition
-} from "@parity-app/style-schema"
+} from "@parity-app/extension/styles"
+import type { ClassPrinter } from "./classes.ts"
 import type { CssNode, DesignSystem } from "./design-system.ts"
 
 // Declarations as Tailwind classes, and classes back into declarations, by the rules in
