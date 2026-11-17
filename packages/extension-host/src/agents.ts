@@ -2,6 +2,7 @@ import type { AgentToolContribution, Fact, JsonSchema, JsonValue } from "@parity
 import { z } from "zod"
 import type { ExtensionStatus, HostState } from "./hosts.ts"
 import type { LogLine } from "./protocol.ts"
+import type { ExtensionFacts, TabFacts } from "./window-snapshot.ts"
 
 /*
  * What agents see of a project's extensions through the agent API (PAR-1096): each extension found in the project, with
@@ -39,11 +40,11 @@ export interface AgentExtension {
   /** Its facts about components, by component. */
   facts: { component: string; facts: Fact[] }[]
   /** Its halves' states: its Node half's host, and its window module in the tab, for those it has. */
-  halves: { node?: HostState; window?: TabExtensionFacts["halves"]["window"] }
+  halves: { node?: HostState; window?: ExtensionFacts["halves"]["window"] }
   /** Its latest failures, oldest first, at most five of each half. */
   failures: AgentFailure[]
   /** The room's sync state in the tab, for the extension that brings it. */
-  room?: TabExtensionFacts["room"]
+  room?: ExtensionFacts["room"]
 }
 
 /**
@@ -144,24 +145,4 @@ export function readToolInput(tool: AgentToolContribution, input: unknown): Reco
   }
 
   return z.record(z.string(), z.json()).parse(fits.data)
-}
-
-// PLACEHOLDER until PAR-1283 lands: replaced by `TabFacts` and `ExtensionFacts` from ./window-snapshot.ts.
-interface TabExtensionFacts {
-  id: string
-  halves: { window: "loading" | "active" | "inactive" | "stopped" }
-  failures: { api: string; message: string; at: number }[]
-  room?: {
-    state: string
-    lineage: string
-    writesFiles: boolean
-    pending: boolean
-    versionBytes?: number
-    peers?: number
-  }
-}
-
-interface TabFacts {
-  tab: string
-  extensions: TabExtensionFacts[]
 }

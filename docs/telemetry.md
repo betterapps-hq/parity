@@ -566,6 +566,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `extension.activateFailed`         | error | all  | renderer, service                       | A half fails to load or its activation throws.                                                                                                                             |
 | `extension.activated`              | info  | all  | renderer, service                       | A half's `activate` or `activateWindow` returns.                                                                                                                           |
 | `extension.callFailed`             | warn  | all  | renderer                                | A listener, handler or call into a window module throws, caught by core.                                                                                                   |
+| `extension.called`                 | debug | all  | renderer                                | `PARITY_EXTENSIONS_DEBUG` names the extension and core calls into its window module, or the module calls back.                                                             |
 | `extension.capabilityMissing`      | warn  | all  | renderer                                | A window module calls an API its manifest's capabilities don't name. Once per extension, API and session.                                                                  |
 | `extension.crashed`                | warn  | all  | service                                 | A Node half's process ends by itself.                                                                                                                                      |
 | `extension.deactivated`            | info  | all  | renderer, service                       | A half stops.                                                                                                                                                              |
@@ -1092,6 +1093,18 @@ Some failures are recorded for you, so code doesn't record them again:
 | `stopped`   | `boolean`          | Whether this failure stopped it in the tab                                               |
 | `message`   | `string`           | The error's message, scrubbed                                                            |
 | `stack`     | `string`, optional | The error's stack, when it has one                                                       |
+
+### `extension.called`
+
+| Attribute    | Type              | Meaning                                                                                      |
+| ------------ | ----------------- | -------------------------------------------------------------------------------------------- |
+| `extension`  | `string`          | The extension's id, its package name                                                         |
+| `half`       | `"window"`        | Which half: its window module                                                                |
+| `direction`  | `"in" \| "out"`   | `in` when core called the module; `out` when the module called core or its Node half         |
+| `api`        | `string`          | What was called, as `selection.onChange`, `command:<id>`, `node.<method>` or `host.<method>` |
+| `durationMs` | `number`          | How long it took until it settled, in milliseconds                                           |
+| `outcome`    | `"ok" \| "error"` | Whether it returned or threw                                                                 |
+| `tab`        | `string`          | The project tab's id                                                                         |
 
 ### `extension.capabilityMissing`
 

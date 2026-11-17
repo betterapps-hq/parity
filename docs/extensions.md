@@ -292,10 +292,11 @@ An extension can offer an API to other extensions, and its commands and tools to
   Storybook does, greyed with "No story found" for a component without stories, and opens the component's first story
   with Storybook's accessibility panel open. Its agent tool, `a11y.page`, gives that page.
 - **Agents** read a project's extensions with `get_extensions` (`parity extensions`): each one's commands, agent tools
-  with their input schemas, node types, and facts about components. `run_extension` (`parity run`) runs a command by id,
-  for a component when it names one, or an agent tool by name with its input, which Parity checks against the tool's
-  schema first. Either starts the extension when it isn't running, and gives back what its handler returned: Open in
-  Storybook gives `{ url }`. The agent API reaches the same hosts the person's clicks do.
+  with their input schemas, node types, and facts about components, and for debugging its halves, latest failures and
+  the room ("Debugging extensions" below). `run_extension` (`parity run`) runs a command by id, for a component when it
+  names one, or an agent tool by name with its input, which Parity checks against the tool's schema first. Either starts
+  the extension when it isn't running, and gives back what its handler returned: Open in Storybook gives `{ url }`. The
+  agent API reaches the same hosts the person's clicks do.
 - **One undo step named after both.** While an agent's call runs an extension, its changes are named after the agent and
   the extension, as "Claude Code via Tidy: Rename layer", and so are changes made through another extension's API during
   that call. Each agent's call has an id the host carries through the extension's code across its awaits, so two agents'
@@ -433,11 +434,27 @@ What an extension is doing can be seen without Sentry, by the person and by an a
   `in selection.onChange 0.4 ms`, `out host.join 12 ms`, with `, failed` when it threw. `in` covers `activateWindow`,
   `deactivateWindow`, listeners, its commands and calls from its Node half (`node.<method>`); `out` covers calls to its
   Node half (`host.<method>`), `selection.set` and `highlight`, `navigate`, `settings.update` and `commands.execute`.
-  It's off unless set, and meant for development.
+  It's off unless set, and meant for development. Each traced call is also recorded as `extension.called`, so it's in
+  the local copy.
+- **For agents.** `parity extensions` (MCP's `get_extensions`) gives each extension's halves: `node` is its Node half's
+  host state, and `window` its window module in the tab (`loading`, `active`, `inactive`, or `stopped` after failing).
+  It gives its latest failures, oldest first, at most five of each half: the window module's from `extensions.json`, and
+  the Node half's errors from its log. For the extension that brings the room, it gives the room's sync state from
+  `extensions.json`: attached or not, whether this copy writes files, whether changes are pending, its peers and its
+  lineage. An agent debugging a live room sees what the person sees.
+
+```
+Multiplayer (@parity-app/extension-multiplayer), running
+  halves: Node running, window active
+  room: attached, writes files, 1 peer, nothing pending, lineage 7f3a9c
+  failed 2026-11-17T08:41:05.000Z window selection.onChange: Cannot read properties of undefined (reading 'id')
+```
 
 [`debug.ts`](../packages/extension-host/src/debug.ts) reads the variable and writes the lines, and
 [`window-modules.ts`](../packages/extension-host/src/window-modules.ts) times the calls. Main passes the variable to the
-editor window's preload, as it does `PARITY_PROJECT`.
+editor window's preload, as it does `PARITY_PROJECT`. For agents, the service asks the editor window for the tab's facts
+(`extensions.facts`, built by `extensionsSnapshot`), waiting at most 2 seconds, and
+[`agents.ts`](../packages/extension-host/src/agents.ts) adds them and the logs to each extension.
 
 ## Agent presence
 
@@ -555,6 +572,9 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   the Storybook extension's API, its processes handed over once Storybook's extension has activated, and its agent tool.
 - `packages/agent/src/dispatch.test.ts` "extensions" and `packages/cli/src/operations.test.ts`: `get_extensions` and
   `run_extension`, as `parity extensions` and `parity run`, with the caller named.
+  [agents.test.ts](../packages/extension-host/src/agents.test.ts) "agentExtensions for debugging" (PAR-1284): each
+  extension's halves, its latest failures from both halves, the room, and a window module the window couldn't report on;
+  `packages/cli/src/client.test.ts` "describeExtensions": the text an agent reads.
 - [manifest.test.ts](../packages/extension/src/reader/manifest.test.ts) (PAR-1235): an internal extension read from the
   built-in list, refused outside it, internal-only fields on one that isn't, the `sync` capability without
   `contributes.sync`, `onSetting` without a window module or naming what isn't a boolean app setting, a window module
