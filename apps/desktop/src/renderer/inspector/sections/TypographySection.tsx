@@ -1,73 +1,146 @@
+import { isHug } from "@parity-app/core"
 import { colorText, fieldColor } from "../color-values.ts"
+import { sameValue } from "../controls/css-values.ts"
 import { useTokens } from "../controls/field-parts.tsx"
-import type { PresetLayer, TypeField, TypeValues } from "../controls/preset-data.ts"
+import { Field } from "../controls/field-row.tsx"
+import { KeywordMenu, wrapChoices } from "../controls/keyword-sets.tsx"
+import { coveredBy, type PresetLayer, type TypeField, typeFields, type TypeValues } from "../controls/preset-data.ts"
 import { PresetTextSection } from "../controls/preset-text.tsx"
-import { fontOf, fontSizeOf, leadingOf, tokenShown, trackingOf, weightOf, weightShown } from "../style-values.ts"
+import {
+  fontOf,
+  fontSizeOf,
+  leadingOf,
+  type PresetStyle,
+  presetStyle,
+  trackingOf,
+  typeShown,
+  weightOf
+} from "../style-values.ts"
 import type { SectionProps } from "./section-edits.ts"
+
+/** The style key each row a preset sets is held in. */
+const presetKeys = {
+  font: "fontFamily",
+  size: "fontSize",
+  weight: "fontWeight",
+  lineHeight: "lineHeight",
+  letterSpacing: "letterSpacing"
+} as const satisfies Record<TypeField, keyof PresetStyle>
 
 /**
  * Typography, the approved section (PAR-186, call 6) as Storybook has it: Preset, then Font, Size, Weight with italic,
- * Line height, Letter spacing and Color. On a layout, a component or an instance, the text inside inherits it. It edits the
- * layers' `NodeStyle`, whose type fields take the project's tokens, so a value of its own lands on the nearest token. The
- * preset isn't saved until `NodeStyle` holds one (PAR-930).
+ * Line height, Letter spacing, Color and Wrap. On a layout, a component or an instance, the text inside inherits it. It
+ * edits the layers' `NodeStyle`, whose type fields take the project's tokens, so a value of its own lands on the nearest
+ * token. A preset is one of the project's typography tokens (PAR-930): picking it writes `typePreset` and its parts as
+ * the preset gives them, so a row still holding its part follows the preset, and one that differs overrides it.
  */
-export function TypographySection({ editor, edit }: SectionProps) {
+export function TypographySection({ editor, edit, can }: SectionProps) {
   const { style } = editor.selection
   const sizes = useTokens("size").tokens
   const leadings = useTokens("leading").tokens
   const trackings = useTokens("tracking").tokens
-  const fontPx = sizes.find((token) => token.name === tokenShown(style.fontSize)?.token)?.px ?? 16
+  const presets = useTokens("typeStyle").tokens
+  // Line height and letter spacing in pixels are worked out against the text size, a token's or one written out.
+  const ownSize = typeShown(style).size
 
-  const own: TypeValues = {
-    font: tokenShown(style.fontFamily),
-    size: tokenShown(style.fontSize),
-    weight: weightShown(style.fontWeight),
-    lineHeight: tokenShown(style.lineHeight),
-    letterSpacing: tokenShown(style.letterSpacing)
-  }
+  const fontPx =
+    (ownSize && "px" in ownSize ? ownSize.px : sizes.find((token) => token.name === ownSize?.token)?.px) ?? 16
+
+  const preset = presets.find((each) => each.name === style.typePreset?.token)
+  const fromPreset = preset && presetStyle(preset.values)
+
+  // A row still holding the preset's part follows it; the rest are the layer's own.
+  const follows = (field: TypeField) =>
+    fromPreset?.[presetKeys[field]] !== undefined && sameValue(style[presetKeys[field]], fromPreset[presetKeys[field]])
+
+  // A value the preset wrote that it no longer gives is the layer's own, so it shows, and picking the preset again
+  // puts the preset's back.
+  const shown: TypeValues = typeShown(style)
+
+  const own: TypeValues = Object.fromEntries(
+    typeFields.flatMap(({ field }) => (follows(field) ? [] : [[field, shown[field]]]))
+  )
 
   const italic = style.fontStyle === "italic"
   // Unset rows show what the text draws in, read from the canvas.
-  const layer: PresetLayer = { own, italic, inherited: editor.type?.() }
+  const layer: PresetLayer = { preset, own, italic, inherited: editor.type?.() }
 
-  const differs = (next: PresetLayer, field: TypeField) =>
-    JSON.stringify(next.own[field]) !== JSON.stringify(own[field])
+  // What a row comes to as the style holds it: the layer's own value, else the preset's part, exactly as it gives it.
+  const stored = (next: PresetLayer): PresetStyle => {
+    const parts = next.preset ? presetStyle(next.preset.values) : {}
 
-  // Each row changed on the layer is its own edit of the style.
+    return {
+      fontFamily: next.own.font === undefined ? parts.fontFamily : fontOf(next.own.font),
+      fontSize: next.own.size === undefined ? parts.fontSize : fontSizeOf(next.own.size, sizes),
+      fontWeight: next.own.weight === undefined ? parts.fontWeight : weightOf(next.own.weight),
+      lineHeight:
+        next.own.lineHeight === undefined ? parts.lineHeight : leadingOf(next.own.lineHeight, leadings, fontPx),
+      letterSpacing:
+        next.own.letterSpacing === undefined
+          ? parts.letterSpacing
+          : trackingOf(next.own.letterSpacing, trackings, fontPx)
+    }
+  }
+
+  const rowLabels: Record<TypeField, [row: "font" | "textSize" | "weight" | "lineHeight" | "letterSpacing", string]> = {
+    font: ["font", "Change font"],
+    size: ["textSize", "Change text size"],
+    weight: ["weight", "Change weight"],
+    lineHeight: ["lineHeight", "Change line height"],
+    letterSpacing: ["letterSpacing", "Change letter spacing"]
+  }
+
+  // The preset picked again with nothing shown to take back: the selection's overrides may differ from layer to layer.
+  const reapplied = (next: PresetLayer) =>
+    Boolean(next.italic) === italic &&
+    typeFields.every(({ field }) => sameValue(next.own[field], layer.own[field])) &&
+    coveredBy(next.preset).every((field) => next.own[field] === undefined)
+
   const onChange = (next: PresetLayer) => {
-    // A preset picked, used or detached isn't held yet, so it mustn't clear the rows it would set.
-    if (next.preset !== layer.preset) {
-      return
-    }
+    const values = stored(next)
+    const changed = typeFields.flatMap(({ field }) => (sameValue(next.own[field], layer.own[field]) ? [] : [field]))
+    const changes = Object.fromEntries(changed.map((field) => [presetKeys[field], values[presetKeys[field]]]))
 
-    if (differs(next, "font")) {
-      edit("font", { fontFamily: fontOf(next.own.font) }, "Change font")
-    }
+    if (next.preset?.name !== preset?.name && !next.preset && changed.length > 0 && changed.every((f) => next.own[f])) {
+      // Detach keeps every value the preset gave, so only the link goes.
+      edit("preset", { typePreset: undefined }, "Detach preset")
+    } else if (next.preset?.name !== preset?.name) {
+      // Picking a preset, or taking it off, changes it and the rows it sets together, as one change.
+      // A row that followed the old preset follows it no more; one the layer set stays its own.
+      const rows = new Set([...changed, ...coveredBy(next.preset), ...coveredBy(preset).filter(follows)])
 
-    if (differs(next, "size")) {
-      edit("textSize", { fontSize: fontSizeOf(next.own.size, sizes) }, "Change text size")
-    }
+      const swapped = Object.fromEntries(
+        [...rows].flatMap((field) => {
+          const key = presetKeys[field]
 
-    if (differs(next, "weight")) {
-      edit("weight", { fontWeight: weightOf(next.own.weight) }, "Change weight")
-    }
-
-    if (differs(next, "lineHeight")) {
-      edit("lineHeight", { lineHeight: leadingOf(next.own.lineHeight, leadings, fontPx) }, "Change line height")
-    }
-
-    if (differs(next, "letterSpacing")) {
-      edit(
-        "letterSpacing",
-        { letterSpacing: trackingOf(next.own.letterSpacing, trackings, fontPx) },
-        "Change letter spacing"
+          return sameValue(values[key], style[key]) ? [] : [[key, values[key]]]
+        })
       )
+
+      const label = next.preset ? "Apply preset" : "Remove preset"
+      edit("preset", { typePreset: next.preset && { token: next.preset.name }, ...swapped }, label)
+    } else if (next.preset && (changed.length > 1 || reapplied(next))) {
+      // Picking the preset applied again takes back every override, as one change. Overrides that differ across the
+      // selection don't show, so it writes every row the preset sets, putting the preset's back on each layer.
+      const covered = Object.fromEntries(
+        coveredBy(next.preset).map((field) => [presetKeys[field], values[presetKeys[field]]])
+      )
+
+      edit("preset", { typePreset: { token: next.preset.name }, ...changes, ...covered }, "Apply preset")
+    } else {
+      for (const field of changed) {
+        const [row, label] = rowLabels[field]
+        edit(row, { [presetKeys[field]]: values[presetKeys[field]] }, label)
+      }
     }
 
     if (Boolean(next.italic) !== italic) {
       edit("decoration", { fontStyle: next.italic ? "italic" : undefined }, "Toggle italic")
     }
   }
+
+  // Text as wide as its line never wraps, so a hugging text layer has no Wrap.
+  const wraps = !(can.text && isHug(style.width))
 
   return (
     <PresetTextSection
@@ -76,6 +149,31 @@ export function TypographySection({ editor, edit }: SectionProps) {
       onChange={onChange}
       color={style.color && colorText(style.color)}
       onColor={(text) => edit("textColor", (layer) => ({ color: fieldColor(text, layer.color) }), "Change text color")}
+      after={
+        wraps && (
+          <Field label="Wrap">
+            <KeywordMenu
+              label="Wrap"
+              property="text-wrap"
+              choices={wrapChoices}
+              value={style.textWrap && { option: style.textWrap }}
+              placeholder="Wrap"
+              inherits
+              onChange={(value) =>
+                edit(
+                  "wrap",
+                  { textWrap: wrapChoice(value && "option" in value ? value.option : undefined) },
+                  "Change wrap"
+                )
+              }
+            />
+          </Field>
+        )
+      }
     />
   )
 }
+
+/** A Wrap option as the style holds it. */
+const wrapChoice = (option: string | undefined) =>
+  (["wrap", "nowrap", "balance", "pretty"] as const).find((each) => each === option)

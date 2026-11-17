@@ -15,6 +15,7 @@ import {
   setOwnFields,
   slotAtPath,
   type StateSpec,
+  textTags,
   type VideoNode
 } from "@parity-app/core"
 import {
@@ -29,7 +30,7 @@ import {
   trackSizes
 } from "@parity-app/editor"
 import { describeElement, type ElementFacts, panelData } from "@parity-app/layer-types"
-import { updateView } from "@parity-app/multiplayer"
+import { type ProjectDoc, updateView } from "@parity-app/multiplayer"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
 import type { Editor } from "tldraw"
@@ -394,6 +395,7 @@ function CopyBar() {
  */
 export function LayerContent() {
   const layer = useSelectedLayer()
+  const { doc } = useProject()
 
   if (layer?.node.type !== "text") {
     return null
@@ -401,6 +403,7 @@ export function LayerContent() {
 
   const { entry, nodeId, node, override, change, reset, inner } = layer
   const usesProps = entry.container.kind === "component" && !inner
+  const tag = node.tag
 
   const withTextProp = (field: ReactNode) =>
     usesProps ? (
@@ -414,13 +417,28 @@ export function LayerContent() {
   return (
     <ContentSection
       text={node.text}
-      tag={undefined}
+      tag={tag}
       onText={(text) => change("Edit text", { text })}
-      onTag={() => undefined}
+      onTag={inner ? undefined : (next) => setTag(doc, entry, nodeId, next)}
       textChanged={override?.text === undefined ? undefined : { onReset: () => reset({ kind: "text" }) }}
       aroundText={(field) => withTextProp(field)}
     />
   )
+}
+
+/** Sets a text layer's tag, its own field, the same in every state; unset is a paragraph. */
+function setTag(doc: ProjectDoc, entry: ContainerEntry, nodeId: string, next: string | undefined) {
+  const tag = textTags.find((each) => each === next) ?? null
+
+  updateAndRecord(doc, entry.key, "Change tag", (container) => setOwnFields(container, nodeId, { tag }), {
+    field: "text.tag",
+    layers: [nodeId],
+    read: (container) => {
+      const text = findNode(container.root, nodeId)
+
+      return text?.type === "text" ? text.tag : undefined
+    }
+  })
 }
 
 /** An image's or a video's Content, for one of the design's own: inside an instance, its file belongs to the component. */

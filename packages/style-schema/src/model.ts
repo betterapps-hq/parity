@@ -355,6 +355,11 @@ export const nodeStyle = stored({
   transformOrigin: stored({ x: finiteNumber, y: finiteNumber }).optional(),
 
   // Type. Set on a layout, it applies to the text inside.
+  /**
+   * The typography preset the type follows: a token that sets a font, size and weight together. Its parts are written
+   * as the type keys below, so it writes nothing itself; a type key that differs from the preset's overrides it.
+   */
+  typePreset: tokenForm.optional(),
   fontFamily: named.optional(),
   fontSize: named.optional(),
   fontWeight: fontWeight.optional(),
@@ -372,6 +377,8 @@ export const nodeStyle = stored({
    * fit it, or `break-word`, only once it can't fit on a line of its own. Unset, a long word spills out.
    */
   overflowWrap: z.enum(["anywhere", "break-word"]).optional(),
+  /** How lines break: `wrap`, not at all (`nowrap`), evened out (`balance`), or without a lone last word (`pretty`). */
+  textWrap: z.enum(["wrap", "nowrap", "balance", "pretty"]).optional(),
 
   // Motion.
   /** How the layer moves from one look to the next, as a state change shows it. */

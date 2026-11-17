@@ -21,3 +21,5 @@ export * from "./token-order.ts"
 export * from "./tokens.ts"
 
 export * from "./values.ts"
+
+export * from "./type-style.ts"

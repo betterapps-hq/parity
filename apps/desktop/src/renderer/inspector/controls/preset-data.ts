@@ -26,7 +26,7 @@ import type { TokenSets } from "./tokens.ts"
 import { mergeWrites, type StoredObject, type Writes } from "./writes.ts"
 
 /** The project's tokens type values name, which a preset's and a layer's values are measured with. */
-export type TypeTokens = Pick<TokenSets, "font" | "size" | "weight" | "leading" | "tracking">
+export type TypeTokens = Pick<TokenSets, "font" | "size" | "weight" | "leading" | "tracking" | "typeStyle">
 
 export type TypeField = "font" | "size" | "weight" | "lineHeight" | "letterSpacing"
 
@@ -58,63 +58,13 @@ export interface TypePreset {
   wider?: { viewport: string; values: TypeValues }
 }
 
-/**
- * The stand-in project's presets, written as Tailwind project utilities (`type-heading`) or, for one that sets only a
- * size and its line height, a `--text-*` size (`text-label`). Display grows from Desktop up; Label sets no font or
- * weight, so those rows stay ordinary while it's applied.
- */
-export const typePresets: TypePreset[] = [
-  {
-    name: "display",
-    source: "the project",
-    values: {
-      font: { token: "brand" },
-      size: { token: "display" },
-      weight: { token: "bold" },
-      lineHeight: { px: 40 },
-      letterSpacing: { token: "tight" }
-    },
-    wider: { viewport: "Desktop", values: { size: { px: 48 }, lineHeight: { px: 48 } } }
-  },
-  {
-    name: "heading",
-    source: "the project",
-    values: {
-      font: { token: "sans" },
-      size: { token: "xl" },
-      weight: { token: "semibold" },
-      lineHeight: { px: 28 },
-      letterSpacing: { token: "tight" }
-    }
-  },
-  {
-    name: "body",
-    source: "the project",
-    values: { font: { token: "sans" }, size: { token: "base" }, weight: { token: "normal" }, lineHeight: { px: 24 } }
-  },
-  { name: "label", source: "the project", values: { size: { token: "sm" }, lineHeight: { px: 20 } } },
-  {
-    name: "caption",
-    source: "the project",
-    values: {
-      font: { token: "sans" },
-      size: { token: "xs" },
-      weight: { token: "medium" },
-      lineHeight: { px: 16 },
-      letterSpacing: { token: "wide" }
-    }
-  }
-]
-
-export const presetNamed = (name: string | undefined) => typePresets.find((preset) => preset.name === name)
-
 /** The rows a preset sets, in order. */
 export const coveredBy = (preset: TypePreset | undefined): TypeField[] =>
   preset ? typeFields.flatMap(({ field }) => (preset.values[field] === undefined ? [] : [field])) : []
 
 /** A text layer: the preset it follows, if any, and its own values, which override the preset's where it sets them. */
 export interface PresetLayer {
-  preset?: string
+  preset?: TypePreset
   own: TypeValues
   /** Weight's italic toggle, which no preset sets. */
   italic?: boolean
@@ -141,7 +91,7 @@ export function shownValue<F extends TypeField>(
   layer: PresetLayer,
   field: F
 ): { value: TypeValues[F] | undefined; source: Source } {
-  const preset = presetNamed(layer.preset)
+  const { preset } = layer
   const own = layer.own[field]
   const fromPreset = preset?.values[field]
 
@@ -159,7 +109,7 @@ export function setValue<F extends TypeField>(
   value: TypeValues[F] | undefined
 ): PresetLayer {
   const own = { ...layer.own }
-  const fromPreset = presetNamed(layer.preset)?.values[field]
+  const fromPreset = layer.preset?.values[field]
 
   if (value === undefined || (fromPreset !== undefined && sameValue(value, fromPreset))) {
     delete own[field]
@@ -183,24 +133,22 @@ export const resetValue = (layer: PresetLayer, field: TypeField) => setValue(lay
 
 /** The rows the layer overrides its preset in. */
 export const overridesOf = (layer: PresetLayer): TypeField[] =>
-  coveredBy(presetNamed(layer.preset)).filter((field) => layer.own[field] !== undefined)
+  coveredBy(layer.preset).filter((field) => layer.own[field] !== undefined)
 
 /** Picks a preset, or none: its rows follow it, so picking the one applied again takes back every override. */
-export function applyPreset(layer: PresetLayer, name: string | undefined): PresetLayer {
+export function applyPreset(layer: PresetLayer, preset: TypePreset | undefined): PresetLayer {
   const own = { ...layer.own }
 
-  for (const field of coveredBy(presetNamed(name))) {
+  for (const field of coveredBy(preset)) {
     delete own[field]
   }
 
-  return { ...layer, preset: name, own }
+  return { ...layer, preset, own }
 }
 
 /** Detach: the layer keeps every value its preset gave it, overrides included, as its own. */
 export function detachPreset(layer: PresetLayer): PresetLayer {
-  const preset = presetNamed(layer.preset)
-
-  return { own: { ...preset?.values, ...layer.own }, italic: layer.italic, inherited: layer.inherited }
+  return { own: { ...layer.preset?.values, ...layer.own }, italic: layer.italic, inherited: layer.inherited }
 }
 
 /* What the values come to */
@@ -335,7 +283,7 @@ export function closestPreset(layer: PresetLayer, tokens: TypeTokens): PresetMat
 
   const mine = measured(typeOf(layer), tokens)
 
-  const matches = typePresets.map((preset) => {
+  const matches = tokens.typeStyle.map((preset) => {
     const theirs = measured(presetType(preset), tokens)
 
     const steps = coveredBy(preset).map((field) => ({
@@ -420,7 +368,7 @@ const storedKeys: Record<TypeField, string> = {
  * same in every framework. The CSS is what the preset sets, then the overrides.
  */
 export function presetWrites(layer: PresetLayer): Writes {
-  const preset = presetNamed(layer.preset)
+  const { preset } = layer
   const parts: Record<string, Writes> = {}
 
   if (preset) {

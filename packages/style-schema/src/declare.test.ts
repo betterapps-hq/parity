@@ -676,6 +676,8 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
   ],
   ["fontStyle", { fontStyle: "italic" }, component, [["font-style", "italic", "fontStyle"]]],
   ["overflowWrap", { overflowWrap: "anywhere" }, component, [["overflow-wrap", "anywhere", "overflowWrap"]]],
+  ["textWrap", { textWrap: "balance" }, component, [["text-wrap", "balance", "textWrap"]]],
+  ["a preset writes nothing itself, only its parts", { typePreset: { token: "mui-font-h1" } }, component, []],
   ["what's switched off writes nothing", { fontStyle: "normal", flexWrap: "nowrap", grow: false }, layout, flexBox],
 
   [

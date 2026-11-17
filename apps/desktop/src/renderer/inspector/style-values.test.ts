@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import { sizeTokens } from "./controls/stand-in-tokens.ts"
 import { leadingToken, lengthToken, trackingToken } from "./controls/tokens.ts"
 import {
+  presetStyle,
   eachLength,
   eachSideOf,
   fontSizeOf,
@@ -15,6 +16,7 @@ import {
   sizeOf,
   sizeShown,
   trackingOf,
+  typeShown,
   weightOf
 } from "./style-values.ts"
 
@@ -114,6 +116,52 @@ describe("an edit worked out from each layer's own length, as Mixed+8 is", () =>
 
     expect(eachSideOf(steps(-1, 0, 0, 0), [0], less, unit, spacing, -Infinity)).toEqual(steps(-5, 0, 0, 0))
     expect(eachSideOf(steps(1, 0, 0, 0), [0], less, unit, spacing)).toEqual({ step: 0 })
+  })
+})
+
+describe("a typography preset's parts as the style holds them", () => {
+  it("keeps a part the preset names by a token as that token", () => {
+    expect(
+      presetStyle({ font: { token: "font-sans" }, size: { token: "text-xl" }, lineHeight: { token: "leading-tight" } })
+    ).toEqual({
+      fontFamily: { token: "font-sans" },
+      fontSize: { token: "text-xl" },
+      lineHeight: { token: "leading-tight" }
+    })
+  })
+
+  it("writes out a part of its own exactly, never moved to a nearby token", () => {
+    expect(
+      presetStyle({
+        font: { stack: '"Roboto", sans-serif' },
+        size: { px: 96 },
+        weight: { value: 300 },
+        lineHeight: { multiple: 1.167 },
+        letterSpacing: { em: -0.01 }
+      })
+    ).toEqual({
+      fontFamily: { value: '"Roboto", sans-serif' },
+      fontSize: { value: "96px" },
+      fontWeight: { value: 300 },
+      lineHeight: { value: "1.167" },
+      letterSpacing: { value: "-0.01em" }
+    })
+  })
+
+  it("reads a part written out back as its field shows it, so a value the preset no longer gives still shows", () => {
+    const parts = {
+      font: { stack: '"Roboto", sans-serif' },
+      size: { px: 96 },
+      weight: { value: 300 },
+      lineHeight: { multiple: 1.167 },
+      letterSpacing: { em: -0.01 }
+    }
+
+    expect(typeShown(presetStyle(parts))).toEqual(parts)
+    expect(typeShown({ lineHeight: { value: "24px" }, letterSpacing: { value: "1px" } })).toMatchObject({
+      lineHeight: { px: 24 },
+      letterSpacing: { px: 1 }
+    })
   })
 })
 

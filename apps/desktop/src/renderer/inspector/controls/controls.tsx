@@ -1387,7 +1387,7 @@ export function TextContentField({
   )
 }
 
-/** Content, a text layer's own section, shown only for one: its words, then its tag. */
+/** Content, a text layer's own section, shown only for one: its words, then its tag, where the layer is the design's own. */
 export function ContentSection({
   text,
   tag,
@@ -1399,7 +1399,8 @@ export function ContentSection({
   text: string
   tag: string | undefined
   onText: (text: string) => void
-  onTag: (tag: string | undefined) => void
+  /** Sets the tag; without it, as for text inside an instance, whose tag is its component's, there's no Tag. */
+  onTag?: (tag: string | undefined) => void
   textChanged?: { onReset: () => void }
   aroundText?: (field: ReactNode) => ReactNode
 }) {
@@ -1407,9 +1408,7 @@ export function ContentSection({
     <PanelSection title="Content">
       <div className="flex flex-col gap-2.5">
         <TextContentField text={text} onChange={onText} changed={textChanged} around={aroundText} />
-        <Unstored part="tag">
-          <TagField tag={tag} onChange={onTag} />
-        </Unstored>
+        {onTag && <TagField tag={tag} onChange={onTag} />}
       </div>
     </PanelSection>
   )
