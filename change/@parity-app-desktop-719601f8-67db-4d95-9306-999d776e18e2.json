@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Add @parity-app/presence-ui: the production components for people's and agents' presence on the canvas, from the approved multiplayer designs",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

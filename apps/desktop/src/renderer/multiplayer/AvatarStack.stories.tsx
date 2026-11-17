@@ -1,3 +1,4 @@
+import { FaceStack, type Presence } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
@@ -7,8 +8,6 @@ import { CanvasPane } from "../stories/CanvasPane.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useResolvedTheme } from "../theme.ts"
-import { FaceStack } from "./FaceStack.tsx"
-import type { Presence } from "./member.ts"
 import { members, presences } from "./story-kit.tsx"
 
 /**

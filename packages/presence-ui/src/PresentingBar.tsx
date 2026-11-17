@@ -1,10 +1,10 @@
 import { Button, Kbd } from "@buildkitgg/shadcn"
 import { MonitorPlay } from "lucide-react"
-import { shortcutOf } from "../chrome/keymap.ts"
+import { stopKey } from "./bar.tsx"
 import { CanvasBanner } from "./CanvasBanner.tsx"
 import { CanvasFrame } from "./CanvasFrame.tsx"
 import { Face } from "./Face.tsx"
-import { gradient, type Member } from "./member.ts"
+import { gradient, keyOf, type Member } from "./member.ts"
 
 interface PresentingBarProps {
   presenter: Member
@@ -38,7 +38,7 @@ export function PresentingBar({ presenter, followers, onStop }: PresentingBarPro
             <span className="flex items-center gap-1.5">
               <span className="flex" aria-hidden>
                 {shown.map((member, index) => (
-                  <span key={member.name} className={index > 0 ? "-ml-1" : ""}>
+                  <span key={keyOf(member)} className={index > 0 ? "-ml-1" : ""}>
                     <Face member={member} size={16} />
                   </span>
                 ))}
@@ -50,8 +50,15 @@ export function PresentingBar({ presenter, followers, onStop }: PresentingBarPro
           )
         }
       >
-        <Button size="xs" variant="secondary" onClick={onStop} aria-label="Stop presenting" className="gap-1.5">
-          Stop <Kbd>{shortcutOf("close")}</Kbd>
+        <Button
+          size="xs"
+          variant="secondary"
+          onClick={onStop}
+          aria-label="Stop presenting"
+          aria-keyshortcuts="Escape"
+          className="gap-1.5"
+        >
+          Stop <Kbd aria-hidden>{stopKey}</Kbd>
         </Button>
       </CanvasBanner>
     </>

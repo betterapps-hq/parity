@@ -1,7 +1,7 @@
+import { AgentPointer } from "@parity-app/presence-ui"
 import { HardDrive, House, Minus, Plus, Sparkles, Square, X } from "lucide-react"
 import { type CSSProperties, type ReactNode, useId } from "react"
 import { agentPalettes } from "../agent/agent-colors.ts"
-import { AgentPointer } from "../agent/AgentPointer.tsx"
 import { initials, type Person, type Project, type ScreenKind } from "./explore-data.ts"
 
 export { optionNamed } from "../inspector/controls/typing.ts"
