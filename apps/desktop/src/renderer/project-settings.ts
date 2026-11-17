@@ -36,9 +36,9 @@ export interface ProjectSettings {
 
 const noExtensions: ProjectExtensions = {}
 
-/** The active tab's project, or nothing on Home or while a project opens. */
+/** The window's project, or nothing on Home or while a project opens. */
 function activeSession() {
-  return workspace.getActive()?.session
+  return workspace.getProject()?.session
 }
 
 function activeDoc(): ProjectDoc | undefined {

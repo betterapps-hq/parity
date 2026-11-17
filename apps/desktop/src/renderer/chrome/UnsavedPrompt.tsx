@@ -13,7 +13,7 @@ import { useUnsavedQuestion } from "./unsaved.ts"
 /** Names projects as a sentence does: "a and b", "a, b, and c". */
 const listFormat = new Intl.ListFormat("en", { type: "conjunction" })
 
-/** Asks whether to save before closing a tab or quitting with unsaved changes. Escape or clicking away cancels. */
+/** Asks whether to save before closing a project or quitting with unsaved changes. Escape or clicking away cancels. */
 export function UnsavedPrompt() {
   const question = useUnsavedQuestion()
   const saveRef = useRef<HTMLButtonElement>(null)
@@ -42,7 +42,7 @@ export function UnsavedPrompt() {
               ? `${listFormat.format(names)} have changes that aren't saved.`
               : "Its changes aren't saved."}{" "}
             If you don&apos;t save, they&apos;re lost when{" "}
-            {shown?.action === "quit" ? "Parity closes" : "the tab closes"}.
+            {shown?.action === "quit" ? "Parity closes" : "the project closes"}.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>

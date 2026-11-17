@@ -22,6 +22,7 @@ import { reportError } from "./report-error.ts"
 import { request } from "./service.ts"
 import { createStore, type Store, useStore } from "./store.ts"
 import { notify } from "./toasts.tsx"
+import { runWindowCommand } from "./window-modules.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -406,6 +407,11 @@ export async function runCommand(
   target?: CommandTarget
 ): Promise<void> {
   try {
+    // A command an internal extension's window module registered runs in the tab, without its Node half.
+    if ((await runWindowCommand(session, command.id, target)).handled) {
+      return
+    }
+
     await request(
       "extensions.run",
       target ? { projectId: session.id, command: command.id, target } : { projectId: session.id, command: command.id }

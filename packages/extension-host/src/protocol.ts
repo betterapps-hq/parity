@@ -45,6 +45,7 @@ import type {
   ViewData,
   ViewKind
 } from "@parity-app/extension"
+import type { HalfState } from "@parity-app/extension/internal"
 import { z } from "zod"
 
 /*
@@ -90,6 +91,11 @@ export interface ActivateParams {
   dependencies?: Dependency[]
   /** The agent's call that started it, when one did (see `Called`). */
   call?: number
+  /**
+   * Where its window module is in the project's tab, for an internal extension that has one, which `parity.window`
+   * gives until `window.state` changes it.
+   */
+  window?: HalfState
 }
 
 /**
@@ -227,6 +233,8 @@ export interface HostMethods {
   "files.changed": { params: { id: number }; result: undefined }
   /** Disposes of the extension's subscriptions and calls its `deactivate`, then ends the host. */
   stop: { params: undefined; result: undefined }
+  /** Its window module in the project's tab started, became ready or stopped. */
+  "window.state": { params: { state: HalfState }; result: undefined }
 }
 
 /** A line in an extension's log. */
@@ -328,6 +336,8 @@ export interface HostServiceMethods {
   "commands.execute": { params: { command: string; target?: CommandTarget } & Called; result: undefined }
   /** Calls a function of the API of an extension its manifest names in `extensionDependencies`. */
   "extensions.call": { params: { extension: string; method: string; args: JsonValue[] } & Called; result: Returned }
+  /** Calls a function of what its window module returned as `node`, in the project's tab. */
+  "window.call": { params: { method: string; args: JsonValue[] } & Called; result: Returned }
 }
 
 const text = z.string().max(20_000)
@@ -853,7 +863,10 @@ export const hostChecks: Checks<HostServiceMethods> = {
     ])
   ),
   "commands.execute": checkOf(z.strictObject({ command: name, target: commandTarget.optional(), call })),
-  "extensions.call": checkOf(z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call }))
+  "extensions.call": checkOf(
+    z.strictObject({ extension: name, method: name, args: z.array(jsonValue).max(100), call })
+  ),
+  "window.call": checkOf(z.strictObject({ method: name, args: z.array(jsonValue).max(100), call }))
 }
 
 /** Reads what an extension's code gave back, which could be anything its process posted. */

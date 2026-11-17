@@ -34,8 +34,8 @@ async function nodes(): Promise<{ nodes: number; documents: number }> {
 }
 
 /**
- * Closes the tab from the keyboard. The browser keeps the element last pressed, here the tab's close button, whose
- * React props name the closed tab until the tab bar draws again, so a click would hold the last canvas for a while.
+ * Closes the project from the keyboard. The browser keeps the element last pressed, whose React props can name the
+ * closed project until the window draws again, so a click would hold the last canvas for a while.
  */
 async function closeProject(): Promise<void> {
   await app.page.keyboard.press("Control+W")
@@ -58,14 +58,14 @@ async function restoreProject(count: number): Promise<void> {
     return
   }
 
-  // An open that failed leaves its tab, with an error and no frames, which hides the start page it opens from. Home
-  // can't be closed, so only the tabs with a close button count.
-  const tabs = app.page.getByRole("tab").filter({ has: app.page.getByRole("button", { name: /^Close / }) })
+  // An open that failed leaves the project, with an error and no frames, in place of Home, which it opens from.
+  const home = app.page.getByRole("main", { name: "Home" })
 
-  for (let left = await tabs.count(); left > 0; left--) {
+  if (!(await home.isVisible())) {
     await app.page.keyboard.press("Control+W")
-    await expect.poll(() => tabs.count()).toBe(left - 1)
   }
+
+  await expect.poll(() => home.isVisible()).toBe(true)
 
   await openProject(count)
 }

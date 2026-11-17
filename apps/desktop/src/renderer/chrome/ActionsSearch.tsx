@@ -24,14 +24,7 @@ import { projectNodes } from "../project-nodes.ts"
 import { getEffectivePreferences, setEffectivePreference } from "../project-settings.ts"
 import { saved, saveState } from "../saved.ts"
 import { resetWithWindow } from "../store.ts"
-import {
-  type ProjectSession,
-  useActiveTabId,
-  useHomeActive,
-  useKnownProjects,
-  useTabs,
-  workspace
-} from "../workspace.ts"
+import { type ProjectSession, useKnownProjects, useProject, workspace } from "../workspace.ts"
 import { type ActionResult, actions, commandsFor } from "./actions.ts"
 import { closeDialog, openDialog, useOpenDialog } from "./app-dialogs.ts"
 import { selectionComponent, selectionPage } from "./command-offers.ts"
@@ -246,7 +239,7 @@ function projectItems(session: ProjectSession): Item[] {
             keywords: entry.container.name,
             detail: entry.container.name,
             searchOnly: true,
-            // The search is drawn outside the project's tab, so its icons are told which libraries are icon sets.
+            // The search is drawn outside the project's view, so its icons are told which libraries are icon sets.
             icon: <NodeIcon node={node} libraries={session.info.libraries} style={{ color: nodeColor(node) }} />,
             run: () => {
               session.selection.set(layersSelection(entry.key, [node.id]))
@@ -284,7 +277,7 @@ function projectItems(session: ProjectSession): Item[] {
         rememberAction({
           label: `Insert ${option.name}`,
           run: () => repeatInsert(option.key),
-          // Only in this project's tab: another project has its own selection, and may not have the component.
+          // Only in this project: another project has its own selection, and may not have the component.
           available: () => activeSession()?.info.root === session.info.root
         })
         insertOption(session, offer, option.key)
@@ -394,15 +387,13 @@ function gatherItems(session: ProjectSession | undefined, projects: readonly { r
  * Finds anything from one search (PAR-180): Ctrl+K or Ctrl+/, or Help > Search actions. It lists every action by name,
  * as Figma's actions menu, and the projects the window remembers; with a project open, its designs, and once something's
  * typed, their layers, the components it can insert and its tokens. What was picked lately comes first. What's typed
- * matches the start of words (`matchWords`); `findAnything` ranks and groups the matches. Projects come first on Home
- * and in a new tab, where opening one is what you're there for, and last in a project.
+ * matches the start of words (`matchWords`); `findAnything` ranks and groups the matches. Projects come first on Home,
+ * where opening one is what you're there for, and last in a project.
  */
 export function ActionsSearch() {
   const open = useOpenDialog() === "actions"
   const projects = useKnownProjects()
-  const tabs = useTabs()
-  const activeId = useActiveTabId()
-  const starting = useHomeActive() || !!tabs.find((tab) => tab.id === activeId)?.blank
+  const starting = !useProject()
   const [query, setQuery] = useState("")
   const [recent, setRecent] = useState(readRecent)
   const [scrolled, setScrolled] = useState<Edges>({ top: false, bottom: false })

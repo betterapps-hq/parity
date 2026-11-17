@@ -554,6 +554,13 @@ function activated(
     contributes: manifest.contributes,
     permissions: {},
     activates: manifest.activates,
+    version: "0.0.0",
+    internal: false,
+    window: false,
+    node: true,
+    capabilities: [],
+    extensionDependencies: [],
+    settings: {},
     settingProblems: [],
     activatedIn: 140,
     memory: 48 * 1_048_576,
@@ -931,6 +938,8 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
     }
 
     case "extensions.restart":
+    case "extensions.startHalf":
+    case "extensions.windowState":
     case "extensions.cancel":
     case "extensions.viewOpened":
     case "extensions.viewChanged":

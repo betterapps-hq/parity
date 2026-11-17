@@ -1,28 +1,13 @@
 import { z } from "zod"
 import { defineEvent } from "./events.ts"
 
-/** What a tab shows: Home, a project, or a new tab's start page. A project's folder isn't sent. */
-const tabKind = z.enum(["home", "project", "new"]).describe("What the tab shows: Home, a project, or a new tab")
-const tabCount = z.int().min(0).describe("How many tabs are open after it, not counting Home")
 const sentBy = ["renderer"] as const
 
-/** The interface and navigation events (PAR-634): tabs, panels, dialogs, modes, settings and the start page. */
+/**
+ * The interface and navigation events (PAR-634): panels, dialogs, modes, settings and the start page. A project
+ * opening and closing is `project.opened` and `project.closed`.
+ */
 export const interfaceEvents = [
-  defineEvent("tab.opened", z.object({ kind: tabKind, tabs: tabCount }), {
-    level: "info",
-    sentBy,
-    when: "A tab opens, for a project or as a new tab."
-  }),
-  defineEvent("tab.closed", z.object({ kind: tabKind, tabs: tabCount }), {
-    level: "info",
-    sentBy,
-    when: "A tab closes."
-  }),
-  defineEvent(
-    "tab.switched",
-    z.object({ from: tabKind.describe("What was in front before"), to: tabKind.describe("What is in front now") }),
-    { level: "info", sentBy, when: "Another tab, or Home, comes to the front." }
-  ),
   defineEvent(
     "panel.shown",
     z.object({
@@ -58,13 +43,15 @@ export const interfaceEvents = [
   defineEvent(
     "start.action",
     z.object({
-      page: z.enum(["home", "new"]).describe("The start page it came from: Home, or a new tab"),
+      page: z
+        .enum(["home", "new"])
+        .describe("The start page it came from: Home, or, before a window held one project, a new tab"),
       action: z
         .enum(["new-project", "open-folder", "open-file", "recent-project", "search", "star", "forget"])
         .describe(
           "What was done: start a project, open a folder or file, open a listed project, search, star or forget one"
         )
     }),
-    { level: "info", sentBy, when: "A control on Home or a new tab's start page is used." }
+    { level: "info", sentBy, when: "A control on Home is used." }
   )
 ] as const

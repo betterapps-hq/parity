@@ -11,7 +11,7 @@ import {
   holdToast,
   never,
   node,
-  openProjects
+  openProject
 } from "../stories/fixtures.tsx"
 import { answerNext, answering, pickingWith, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
@@ -39,7 +39,7 @@ type Story = StoryObj<typeof meta>
 
 /** The example with Pricing selected, as most commands here need. */
 const pricingSelected = async () => {
-  await openProjects("example")
+  await openProject("example")
   example().selection.set({ design: design("Pricing") })
 }
 
@@ -50,7 +50,7 @@ const exportFolder = "D:/exports/shadcn-vite"
 export const Saved: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       renameDesign("Pricing", "Pricing (annual)")
     }
   ],
@@ -65,7 +65,7 @@ export const Saved: Story = {
 export const SaveFailed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       renameDesign("Pricing", "Pricing (annual)")
       service.saveFails = true
     }
@@ -81,7 +81,7 @@ export const SaveFailed: Story = {
 export const SavedACopy: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       pickingWith({ saveFile: () => Promise.resolve("D:/projects/shadcn-vite copy.par") })
     }
   ],
@@ -96,7 +96,7 @@ export const SavedACopy: Story = {
 export const SaveACopyFailed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       pickingWith({ saveFile: () => Promise.resolve("C:/Program Files/shadcn-vite copy.par") })
       service.saveFails = true
     }
@@ -112,7 +112,7 @@ export const SaveACopyFailed: Story = {
 export const Exporting: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({ "designs.export": () => never() })
     }
@@ -128,7 +128,7 @@ export const Exporting: Story = {
 export const Exported: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
     }
   ],
@@ -143,7 +143,7 @@ export const Exported: Story = {
 export const ExportedWithWarnings: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({
         "designs.export": () => ({
@@ -167,7 +167,7 @@ export const ExportedWithWarnings: Story = {
 export const ExportFailed: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       pickingWith({ pickFolder: () => Promise.resolve(exportFolder) })
       answering({
         "designs.export": () => {
@@ -243,7 +243,7 @@ export const TooBigToCopyAsPng: Story = {
 export const CopiedStyle: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set(layersSelection(design("Pricing"), [node("Pricing", "Hero")]))
     }
   ],
@@ -258,7 +258,7 @@ export const CopiedStyle: Story = {
 export const NotALayoutToUnwrap: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set(layersSelection(design("Pricing"), [node("Pricing", "Headline")]))
     }
   ],
@@ -273,7 +273,7 @@ export const NotALayoutToUnwrap: Story = {
 export const CouldntReopen: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       answering({
         "project.open": () => {
           throw new Error("The project service couldn't start Vite: Cannot find module 'vite'")
@@ -309,7 +309,7 @@ function notificationButton(name: string): HTMLElement {
 
 /** A change Parity wrote into the project's files, here a library's styles imported: which file, why, and its diff. */
 export const ProjectFileChanged: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     void importNovaStyles()
     await holdToast("Changed a project file")
@@ -319,7 +319,7 @@ export const ProjectFileChanged: Story = {
 
 /** Undo on that notification: the file is put back, and the project reopened to draw without the styles. */
 export const ProjectFileChangeUndone: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     void importNovaStyles()
     await holdToast("Changed a project file")
@@ -332,7 +332,7 @@ export const ProjectFileChangeUndone: Story = {
 export const ProjectFileChangeNotUndone: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       answerNext("project.undoEdit", () => {
         throw new Error("src/index.css changed since this was made, so nothing was written")
       })

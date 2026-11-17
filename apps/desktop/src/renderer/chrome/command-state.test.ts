@@ -63,8 +63,8 @@ const entries: ContainerEntry[] = [
 const design = "app.par#dashboard"
 const layers = (ids: string[], state?: string) => layersSelection(design, ids, state ? { state } : {})
 
-/** A project tab with its canvas drawn, nothing to undo, nothing to repeat and a reference library connected. */
-const tab = (overrides: Partial<CommandContext> = {}): CommandContext => ({
+/** An open project with its canvas drawn, nothing to undo, nothing to repeat and a reference library connected. */
+const inProject = (overrides: Partial<CommandContext> = {}): CommandContext => ({
   selection: {},
   entries,
   notes: 0,
@@ -72,38 +72,44 @@ const tab = (overrides: Partial<CommandContext> = {}): CommandContext => ({
   canvas: true,
   history: { canUndo: false, canRedo: false },
   references: true,
+  held: true,
   ...overrides
 })
 
 const situations = {
-  "no project tab": tab({ selection: undefined, entries: [], canvas: false }),
-  "an empty canvas": tab({ entries: [] }),
-  "a canvas holding a note": tab({ entries: [], notes: 1 }),
-  "a canvas holding references": tab({ entries: [], placedReferences: 2 }),
-  "nothing selected": tab(),
-  "a layer": tab({ selection: layers(["title"]) }),
-  "two layers": tab({ selection: layers(["title", "chart"]) }),
-  "a hidden layer": tab({ selection: layers(["subtitle"]) }),
-  "a layer the state being edited hides": tab({ selection: layers(["title"], "loading") }),
-  "a locked layer": tab({ selection: layers(["badge"]) }),
-  "an instance": tab({ selection: layers(["users"]) }),
-  "a layer inside an instance": tab({ selection: layers(["users/value"]) }),
-  "the design's root": tab({ selection: layers(["root"]) }),
-  "a layer inside an instance beside one of the design's own": tab({ selection: layers(["users/value", "title"]) }),
-  "the root beside one of the design's own": tab({ selection: layers(["root", "title"]) }),
-  "a design's mode column": tab({ selection: { design, mode: "desktop" } }),
-  "a screen": tab({ selection: { design } }),
-  "a component": tab({ selection: { design: "app.par#stat-card" } }),
-  "a locked screen": tab({ selection: { design: "app.par#settings" } }),
-  "two designs": tab({ selection: designsSelection([design, "app.par#stat-card"]) }),
-  "three designs": tab({ selection: designsSelection(entries.map((entry) => entry.key)) }),
-  "a note": tab({ selection: { note: "note-1" } }),
-  "a reference": tab({ selection: { reference: "ref-1" } }),
-  "no reference library": tab({ references: false }),
-  "no canvas yet": tab({ canvas: false }),
-  "history to undo and redo": tab({ history: { canUndo: true, canRedo: true, undoLabel: "Move", redoLabel: "Wrap" } }),
-  "a change to repeat": tab({ repeat: { label: "Wrap in layout", enabled: true } }),
-  "a change that can't repeat now": tab({ repeat: { label: "Wrap in layout", enabled: false } })
+  Home: inProject({ selection: undefined, entries: [], canvas: false, held: false }),
+  "a project still opening": inProject({ selection: undefined, entries: [], canvas: false }),
+  "an empty canvas": inProject({ entries: [] }),
+  "a canvas holding a note": inProject({ entries: [], notes: 1 }),
+  "a canvas holding references": inProject({ entries: [], placedReferences: 2 }),
+  "nothing selected": inProject(),
+  "a layer": inProject({ selection: layers(["title"]) }),
+  "two layers": inProject({ selection: layers(["title", "chart"]) }),
+  "a hidden layer": inProject({ selection: layers(["subtitle"]) }),
+  "a layer the state being edited hides": inProject({ selection: layers(["title"], "loading") }),
+  "a locked layer": inProject({ selection: layers(["badge"]) }),
+  "an instance": inProject({ selection: layers(["users"]) }),
+  "a layer inside an instance": inProject({ selection: layers(["users/value"]) }),
+  "the design's root": inProject({ selection: layers(["root"]) }),
+  "a layer inside an instance beside one of the design's own": inProject({
+    selection: layers(["users/value", "title"])
+  }),
+  "the root beside one of the design's own": inProject({ selection: layers(["root", "title"]) }),
+  "a design's mode column": inProject({ selection: { design, mode: "desktop" } }),
+  "a screen": inProject({ selection: { design } }),
+  "a component": inProject({ selection: { design: "app.par#stat-card" } }),
+  "a locked screen": inProject({ selection: { design: "app.par#settings" } }),
+  "two designs": inProject({ selection: designsSelection([design, "app.par#stat-card"]) }),
+  "three designs": inProject({ selection: designsSelection(entries.map((entry) => entry.key)) }),
+  "a note": inProject({ selection: { note: "note-1" } }),
+  "a reference": inProject({ selection: { reference: "ref-1" } }),
+  "no reference library": inProject({ references: false }),
+  "no canvas yet": inProject({ canvas: false }),
+  "history to undo and redo": inProject({
+    history: { canUndo: true, canRedo: true, undoLabel: "Move", redoLabel: "Wrap" }
+  }),
+  "a change to repeat": inProject({ repeat: { label: "Wrap in layout", enabled: true } }),
+  "a change that can't repeat now": inProject({ repeat: { label: "Wrap in layout", enabled: false } })
 } satisfies Record<string, CommandContext>
 
 type Situation = keyof typeof situations
@@ -112,12 +118,15 @@ type Situation = keyof typeof situations
 type Row = [Situation, Command, boolean, string?]
 
 const rows: Row[] = [
-  // Nothing to act on outside a project.
-  ["no project tab", "paste", false],
-  ["no project tab", "save", false],
-  ["no project tab", "newTab", true],
-  ["no project tab", "zoomIn", false],
-  ["no project tab", "undo", false],
+  // Nothing to act on outside a project, which can be closed while it opens.
+  ["Home", "paste", false],
+  ["Home", "save", false],
+  ["Home", "closeTab", false],
+  ["Home", "openFolder", true],
+  ["Home", "zoomIn", false],
+  ["Home", "undo", false],
+  ["a project still opening", "closeTab", true],
+  ["a project still opening", "save", false],
 
   // Select all and Zoom to fit need something on the canvas.
   ["an empty canvas", "selectAll", false],
@@ -269,6 +278,6 @@ describe("each command's state", () => {
   })
 
   it("has a state for every command in the keymap", () => {
-    expect(Object.keys(commandStates(tab())).toSorted()).toEqual(Object.keys(keymap).toSorted())
+    expect(Object.keys(commandStates(inProject())).toSorted()).toEqual(Object.keys(keymap).toSorted())
   })
 })

@@ -6,7 +6,7 @@ import {
   textToEdit,
   withEditedText
 } from "@parity-app/editor"
-import { updateContainer } from "@parity-app/multiplayer"
+import { typeInContainer } from "@parity-app/multiplayer"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Attributes } from "../chrome/event-attributes.ts"
 import type { Typing } from "../live-room.ts"
@@ -140,8 +140,8 @@ export function TextEditor() {
 
         return now && textToEdit(now, editing.state, editing.node, libraryOf(session, editing.design))?.text
       },
-      write: (typed, gesture) =>
-        updateContainer(
+      write: (typed, splice, gesture) =>
+        typeInContainer(
           doc,
           editing.design,
           "Edit text",
@@ -162,6 +162,7 @@ export function TextEditor() {
 
             return renamed
           },
+          { node: editing.node, splice },
           { gesture }
         )
     })
@@ -299,7 +300,7 @@ export function TextEditor() {
       onMouseUp={tellRoom}
       onInput={(event) => {
         if (!composing.current) {
-          live.current?.input(event.currentTarget.value)
+          live.current?.input(event.currentTarget.value, event.currentTarget.selectionEnd)
           tellRoom()
         }
       }}
@@ -310,9 +311,10 @@ export function TextEditor() {
         composing.current = false
         const writer = live.current
 
+        // Others' changes made while it composed are taken in first, so what it composed is written where it is now.
         if (writer) {
-          writer.input(event.currentTarget.value)
           takeIn(event.currentTarget, writer)
+          writer.input(event.currentTarget.value, event.currentTarget.selectionEnd)
         }
       }}
       onKeyDown={(event) => {

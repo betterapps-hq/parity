@@ -1,6 +1,6 @@
 {
   "type": "patch",
-  "comment": "Text being typed keeps what someone else in a live room wrote right where a deletion starts.",
+  "comment": "A window module's setting value is checked against the setting's schema, as the Node half checks it.",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "patch"

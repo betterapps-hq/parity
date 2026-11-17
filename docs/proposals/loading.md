@@ -167,6 +167,9 @@ Moved up on 2026-11-16, and set out in [shared-app-instance.md](shared-app-insta
 the guest, with the app's real route tree in a memory router at its URL, so pages need no boot of their own and get
 sleep and bitmaps as frames do. Change 1 then covers only the pages that keep an iframe.
 
+Update, PAR-1249: [route-frames.md](route-frames.md) proposes pages in documents of their own instead, live from a pool
+and frozen copies or bitmaps otherwise. If it's accepted, it replaces this change, and change 1 becomes part of it.
+
 ## Not measured
 
 - Frame rate while panning: the window was behind others, so animation frames didn't run.

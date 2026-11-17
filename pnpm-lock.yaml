@@ -863,6 +863,9 @@ importers:
       '@parity-app/processes':
         specifier: workspace:*
         version: link:../processes
+      '@parity-app/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
       zod:
         specifier: 'catalog:'
         version: 4.6.7

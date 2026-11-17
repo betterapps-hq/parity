@@ -4,7 +4,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { undo } from "../project-doc.ts"
-import { clearNotifications, example, frameDesigns, openProjects } from "../stories/fixtures.tsx"
+import { clearNotifications, example, frameDesigns, openProject } from "../stories/fixtures.tsx"
 import { renameDesign, Window } from "./chrome-fixtures.tsx"
 import { askToRestore } from "./restore.ts"
 import { RestorePrompt } from "./RestorePrompt.tsx"
@@ -41,7 +41,7 @@ const keptAt = () => new Date(Date.now() - 12 * 60_000).toISOString()
  * them.
  */
 async function openWithCopy(): Promise<RecoveryCopy> {
-  await openProjects("example")
+  await openProject("example")
   const session = example()
   renameDesign("Pricing", "Pricing (annual)")
   const copy = session.saver.recoveryCopy()!

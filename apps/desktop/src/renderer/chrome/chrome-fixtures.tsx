@@ -1,5 +1,5 @@
 import { Toaster, TooltipProvider } from "@buildkitgg/shadcn"
-import { addNote as addNoteTo, type ProjectDoc, updateContainer } from "@parity-app/multiplayer"
+import { updateContainer } from "@parity-app/multiplayer"
 import type { Decorator } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { fireEvent, within } from "storybook/test"
@@ -11,7 +11,7 @@ import {
   design,
   example,
   frameDesigns,
-  openProjects,
+  openProject,
   ProjectStage
 } from "../stories/fixtures.tsx"
 import { type AppDialog, openDialog } from "./app-dialogs.ts"
@@ -67,11 +67,6 @@ export function renameDesign(name: string, to: string): void {
   updateContainer(example().doc, design(name), "Rename design", (container) => ({ ...container, name: to }))
 }
 
-/** Adds a text note to a project's canvas, leaving it unsaved. */
-export function addNote(doc: ProjectDoc, text: string): void {
-  addNoteTo(doc, doc.main, { id: "story-note", text, position: { x: 0, y: -240 } })
-}
-
 /** The window's chrome without a canvas: tooltips, notifications and the unsaved changes prompt, full height. */
 export const Chrome: Decorator = (Story) => <ChromeAround story={<Story />} />
 
@@ -107,7 +102,7 @@ export const dialogStories = {
 }
 
 /** The example, for a story that needs nothing else set up first. */
-export const exampleOpen = () => openProjects("example")
+export const exampleOpen = () => openProject("example")
 
 /**
  * Opens `dialog` over the example, as its menu item or keys do, once the canvas has framed Pricing and Dashboard, and

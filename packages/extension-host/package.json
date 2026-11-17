@@ -7,13 +7,15 @@
   "description": "The hosts each extension's code runs in, and what Parity keeps of extensions. Internal to Parity.",
   "exports": {
     ".": "./src/index.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./window": "./src/window-modules.ts"
   },
   "dependencies": {
     "@parity-app/channel": "workspace:*",
     "@parity-app/core": "workspace:*",
     "@parity-app/extension": "workspace:*",
     "@parity-app/processes": "workspace:*",
+    "@parity-app/telemetry": "workspace:*",
     "zod": "catalog:"
   },
   "devDependencies": {
