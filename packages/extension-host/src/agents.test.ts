@@ -472,7 +472,9 @@ describe("extensions for agents", () => {
         commands: [{ id: "stories.open", title: "Open in Stories" }],
         tools: [],
         nodeTypes: [{ id: "story", name: "Story" }],
-        facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }]
+        facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }],
+        halves: { node: "running" },
+        failures: []
       },
       {
         id: "parity-checks",
@@ -487,7 +489,9 @@ describe("extensions for agents", () => {
           }
         ],
         nodeTypes: [],
-        facts: []
+        facts: [],
+        halves: { node: "waiting" },
+        failures: []
       }
     ])
   })

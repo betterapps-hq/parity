@@ -5,6 +5,7 @@ import {
   describeComponents,
   describeConsole,
   describeExec,
+  describeExtensions,
   describeModes,
   describeProblems,
   describeStatus,
@@ -442,5 +443,66 @@ describe("describeExec", () => {
     expect(describeExec({ ...done, warnings: ["home/a: something"] })).toContain(
       "Warnings (fix these next):\n  home/a: something"
     )
+  })
+})
+
+describe("describeExtensions", () => {
+  it("gives each extension's halves, the room's sync state and its latest failures, for debugging (PAR-1284)", () => {
+    const text = describeExtensions({
+      tab,
+      extensions: [
+        {
+          id: "@parity-app/extension-multiplayer",
+          name: "Multiplayer",
+          state: "running",
+          commands: [],
+          tools: [],
+          nodeTypes: [],
+          facts: [],
+          halves: { node: "running", window: "active" },
+          room: { state: "attached", lineage: "7f3a9c", writesFiles: true, pending: false, peers: 2 },
+          failures: [
+            { half: "node", message: "join failed: timed out", at: Date.UTC(2026, 10, 17, 8, 41, 2) },
+            {
+              half: "window",
+              api: "selection.onChange",
+              message: "Cannot read properties of undefined (reading 'id')",
+              at: Date.UTC(2026, 10, 17, 8, 41, 5)
+            }
+          ]
+        }
+      ]
+    })
+
+    expect(text).toBe(
+      [
+        "Multiplayer (@parity-app/extension-multiplayer), running",
+        "  halves: Node running, window active",
+        "  room: attached, writes files, 2 peers, nothing pending, lineage 7f3a9c",
+        "  failed 2026-11-17T08:41:02.000Z node: join failed: timed out",
+        "  failed 2026-11-17T08:41:05.000Z window selection.onChange: Cannot read properties of undefined (reading 'id')"
+      ].join("\n")
+    )
+  })
+
+  it("leaves out what an extension without a window module doesn't have", () => {
+    const text = describeExtensions({
+      tab,
+      extensions: [
+        {
+          id: "parity-checks",
+          name: "Checks",
+          state: "waiting",
+          commands: [],
+          tools: [],
+          nodeTypes: [],
+          facts: [],
+          halves: { node: "waiting" },
+          failures: []
+        }
+      ]
+    })
+
+    expect(text).toBe("Checks (parity-checks), waiting\n  halves: Node waiting")
   })
 })
