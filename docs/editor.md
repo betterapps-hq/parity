@@ -4587,6 +4587,16 @@ section with the group's own title leads it without a title of its own, and its 
   a row of its own. Then Spacing, the box model, padding inside margin, or padding alone for a design's root, which has
   nothing around it to push away. Editing a side changes only that side of each selected layer. Not saved: the aspect
   lock.
+- **Grid placement** (PAR-927), a grid child's Size, titled Size: W and H with any min and max, then Cells, Auto or
+  Manual, over a map of the grid as the canvas lays it out, its columns at their widths and the other children where the
+  browser put them, auto-placed ones included. Each child's cells come from its lines and spans, counting negative lines
+  from the template's own tracks, with tracks placed where the grid's content alignment spreads them. Dragging across
+  cells, dragging the child or its edges places it; Start and Span, or End lines from the title's menu, type it; then
+  where it sits in its cell, Align and Justify self. It writes `colStart`, `colEnd`, `rowStart`, `rowEnd` and the spans
+  as one edit, and All as lines 1 to -1 (`GridPlacementSection`, `nodeGrid` in `chrome/LayerPanel.tsx`, and
+  `@parity-app/editor`'s `grid-layout.ts`, tested in `grid-layout.test.ts`; the control's cases in Rows › Grid
+  placement; the keys in `style-schema`'s `declare.test.ts` and `extension-tailwind`'s `printer.test.ts`). With several
+  layers selected, or without a drawn grid, as in Storybook's section stories, it shows Size.
 - **Layout:** the alignment box, with Type (vertical, horizontal, wrap or grid) and Gap beside it, and a grid's Columns
   and Rows under them as counts, Rows Auto when unset, as many as the layer's children need. A spread (between, around,
   evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Not saved: Reverse direction, Lines
@@ -5110,17 +5120,17 @@ the text-only controls.
 One table lists every section, and every control only some layers get, with what it needs, in the order the panel shows
 them. It's the agreed table in [proposals/design-panel-sections.md](proposals/design-panel-sections.md):
 
-- Frame size (`frame`); Position, Layer order and Transform (not `root`); Size (not `frame`), with Fill in its menu
-  (`inFlex`, `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), with Span; Spacing, with Margin
-  (not `root`); Layout (`box`); Text (`text` or `textInside`), with the tag, Max lines and Resizing (`text`);
-  Appearance; Fill, Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
+- Frame size (`frame`); Position, Layer order and Transform (not `root`); Size (not `frame` or `inGrid`), with Fill in
+  its menu (`inFlex`, `inGrid` or `box`) and Align self (`inFlex`); Grid placement (`inGrid`), a grid child's Size;
+  Spacing, with Margin (not `root`); Layout (`box`); Text (`text` or `textInside`), with the tag, Max lines and Resizing
+  (`text`); Appearance; Fill, Stroke, Effects, Motion and Raw CSS. Every one needs `styled`.
 - The text section is drawn as Typography, on text and on what its text inherits from. A text layer's tag is in its
   Content section, outside the style sections.
 - Transform is a section of its own in the table, for every layer but a design's root, drawn inside Position. Spacing is
   drawn inside Size and Filters inside Effects.
-- Grid placement and Raw CSS aren't built yet, so they show nothing. A frame's Frame size is today's Size, whose width
-  and height are the frame's. Since PAR-923 the panel draws only approved controls, so Align self, Span, Resizing and
-  Max lines, which have none yet, aren't drawn though the table still lists them.
+- Raw CSS isn't built yet, so it shows nothing. A frame's Frame size is today's Size, whose width and height are the
+  frame's. Since PAR-923 the panel draws only approved controls, so a flex child's Align self, Resizing and Max lines,
+  which have none yet, aren't drawn though the table still lists them.
 - `styled` isn't passed in yet: the layer panel doesn't give the components' `takesStyle`, so a component that takes no
   `className` still shows its sections, under the note that says they don't change it.
 
@@ -10132,7 +10142,8 @@ taken for the size or the keyword.
   `opacity: { step: 50 }` (a percentage; `{ value: 0.5 }` is the same from 0 to 1), `borderWidth: { step: 2 }` (whole
   pixels) and `fontWeight: { value: 600 }`.
 - **A number in one fixed unit stays a number:** `scale` in percent, a shadow's offsets in px, `rotate` in degrees,
-  `lineClamp`, `colSpan` and `rowSpan`.
+  `lineClamp`, `colSpan` and `rowSpan`; a grid line (`colStart`, `colEnd`, `rowStart`, `rowEnd`) is a whole number from
+  1, or from -1 after the last track.
 - **A grid's tracks are a list,** each a share of what's left or a length:
   `gridTemplateColumns: [{ fr: 1 }, { fr: 1 }]`.
 - **The lists** are `fills`, `boxShadow`, `filter`, `backdropFilter`, `transform` and `transition`. Each entry says what

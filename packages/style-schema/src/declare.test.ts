@@ -308,6 +308,19 @@ const cases: readonly (readonly [name: string, style: NodeStyle, context: StyleC
       ["grid-row", "span 3 / span 3", "rowSpan"]
     ]
   ],
+  [
+    "grid lines after spans, and its place across its cell",
+    { colSpan: 2, colStart: 2, colEnd: 4, rowStart: 1, rowEnd: -1, justifySelf: "end" },
+    component,
+    [
+      ["grid-column", "span 2 / span 2", "colSpan"],
+      ["grid-column-start", "2", "colStart"],
+      ["grid-column-end", "4", "colEnd"],
+      ["grid-row-start", "1", "rowStart"],
+      ["grid-row-end", "-1", "rowEnd"],
+      ["justify-self", "flex-end", "justifySelf"]
+    ]
+  ],
 
   [
     "position, placed against its parent's edges, stretching between both edges whatever size its classes give it",

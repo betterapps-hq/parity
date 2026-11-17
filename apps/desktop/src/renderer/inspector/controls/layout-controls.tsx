@@ -1,4 +1,5 @@
 import { Button, DropdownMenuCheckboxItem, Popover, PopoverContent, PopoverTrigger, Toggle } from "@buildkitgg/shadcn"
+import type { GridLayout } from "@parity-app/editor"
 import { formatNumber, isReadFailure, readTrackSize, type TrackSize } from "@parity-app/style-schema"
 import {
   ArrowDown,
@@ -1716,6 +1717,20 @@ export function placeChildren(draft: Draft, columns: number): { name: string; ar
 
 /** The rows a grid has to count a line from: those set, or one, as rows unset are added as children need them. */
 export const rowCount = (draft: Draft) => Math.max(1, draft.rows?.length ?? 0)
+
+/** Plans' grid, as Grid placement's map draws it in the stories: its stand-in columns and children, Pro plan selected. */
+export function demoGrid(draft: Draft, spacing: readonly LengthToken[]): GridLayout {
+  const tracks = columnTracks(draft, spacing)
+  const children = placeChildren(draft, tracks.length).map((child) => ({ ...child, id: child.name }))
+
+  return {
+    weights: trackWeights(tracks),
+    rows: rowCount(draft),
+    children,
+    self: "Pro plan",
+    items: { x: draft.itemsX, y: draft.itemsY }
+  }
+}
 
 /** Pro plan's start track and span on each axis, from its lines, its span, or All. */
 function proAxes(draft: Draft, columns: number) {

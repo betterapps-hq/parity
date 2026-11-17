@@ -14,6 +14,7 @@ import { useProjectImages } from "../inspector/image-source.ts"
 import { AppearanceSection } from "../inspector/sections/AppearanceSection.tsx"
 import { EffectsSection } from "../inspector/sections/effects.tsx"
 import { FillSection } from "../inspector/sections/FillSection.tsx"
+import { GridPlacementSection } from "../inspector/sections/GridPlacementSection.tsx"
 import { LayoutSection } from "../inspector/sections/LayoutSection.tsx"
 import { MotionSection } from "../inspector/sections/MotionSection.tsx"
 import { PositionSection } from "../inspector/sections/PositionSection.tsx"
@@ -29,8 +30,8 @@ import type { StyleEditor } from "./style-editor.ts"
 
 /**
  * Each section the app draws, by the table's name for it. Layer order draws inside Position, beside Placement, as the
- * approved section has it; the table lists them for the same layers. Grid placement and Raw CSS aren't built yet, and
- * draw nothing: PAR-924 to PAR-935 add them, with what `NodeStyle` can't hold yet.
+ * approved section has it; the table lists them for the same layers. Grid placement is a grid child's Size. Raw CSS
+ * isn't built yet, and draws nothing: PAR-924 to PAR-935 add the rest, with what `NodeStyle` can't hold yet.
  */
 const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> = {
   // Until Frame size is built, a frame's root's Size is the frame's own size (see `useStyleEditor`).
@@ -38,6 +39,7 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
   placement: PositionSection,
   transform: TransformSection,
   size: SizeSection,
+  gridPlacement: GridPlacementSection,
   layout: LayoutSection,
   spacing: SpacingSection,
   appearance: AppearanceSection,
@@ -55,7 +57,8 @@ const sectionViews: Partial<Record<StyleSection, ComponentType<SectionProps>>> =
 const groups: Partial<Record<StyleSection, { title: string; holds: StyleSection }>> = {
   placement: { title: "Position", holds: "transform" },
   frameSize: { title: "Size", holds: "spacing" },
-  size: { title: "Size", holds: "spacing" }
+  size: { title: "Size", holds: "spacing" },
+  gridPlacement: { title: "Size", holds: "spacing" }
 }
 
 /** The layer panel leaves out the design, since it never shows a design's root: no layer's id is empty. */

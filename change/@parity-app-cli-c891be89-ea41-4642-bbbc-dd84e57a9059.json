@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Grid placement is in the Design panel: a grid child's cells on a map of its grid, its lines and spans, and Align and Justify self",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -79,6 +79,11 @@ const placement = new Set<keyof NodeStyle>([
   "alignSelf",
   "colSpan",
   "rowSpan",
+  "colStart",
+  "colEnd",
+  "rowStart",
+  "rowEnd",
+  "justifySelf",
   "margin"
 ])
 
