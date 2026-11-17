@@ -144,13 +144,7 @@ function showCopy(
   const body = built.fragment.firstElementChild
 
   if (body) {
-    // `<html>`'s classes and attributes too: selectors in the shadow root can't reach the host, so a page's
-    // `.font-page { … }` or `[data-theme]` rule for its root matches the body and reaches what's in it.
-    body.classList.add(...copy.root.classes, ...mode.classes)
-    setAttributes(
-      body,
-      copy.root.attributes.filter(([name]) => !body.hasAttribute(name))
-    )
+    body.classList.add(...mode.classes)
     setAttributes(body, Object.entries(mode.attributes))
 
     if (mode.scheme) {
@@ -158,8 +152,17 @@ function showCopy(
     }
   }
 
+  // `<html>`'s classes and attributes go on an element around the body, since selectors in the shadow root can't reach
+  // the host: a page's `.font-page { … }` or `[data-theme]` rule for its root matches it and reaches the body by
+  // inheritance, as on the page, so the body's own rules still win over it.
+  const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div", { customElementRegistry: registry })
+  root.classList.add(...copy.root.classes)
+  setAttributes(root, copy.root.attributes)
+  root.setAttribute("style", "display: contents")
+  root.append(built.fragment)
+
   // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
-  target.parentElement?.replaceWith(built.fragment)
+  target.parentElement?.replaceWith(root)
   const unroot = rootOnHost(host, copy.root, mode)
   const nodes = new Map<string, Element | Text>()
 
