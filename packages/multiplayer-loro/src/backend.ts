@@ -8,7 +8,7 @@ import {
   type ModeSettings,
   nodeIds
 } from "@parity-app/core"
-import { noTokenEdits, sameTokenValues, type TokenEdits } from "@parity-app/editor"
+import { noTokenEdits, sameTokenValues, type TextSplice, type TokenEdits } from "@parity-app/editor"
 import {
   applyOp,
   applyPlain,
@@ -23,9 +23,19 @@ import {
   fileOps,
   type OpenOptions,
   Recorder,
-  splitKey
+  splitKey,
+  type TextChanges
 } from "@parity-app/multiplayer"
-import { LoroDoc, type LoroEvent, LoroMap, LoroMovableList, LoroText, type TreeID, VersionVector } from "loro-crdt"
+import {
+  type Delta,
+  LoroDoc,
+  type LoroEvent,
+  LoroMap,
+  LoroMovableList,
+  LoroText,
+  type TreeID,
+  VersionVector
+} from "loro-crdt"
 import {
   childrenOf,
   dataOf,
@@ -743,6 +753,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
 
     const roots = new Set<TreeID>()
     const touchedFiles = new Set<string>()
+    /** Others' changes to texts, by the node whose text they changed, for undo to follow (PAR-1258). */
+    const textChanges = new Map<TreeID, TextSplice[]>()
     let modesTouched = false
     let tokensTouched = false
 
@@ -765,10 +777,15 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
             }
           }
         } else {
-          const design = designFor(treeIdIn(second))
+          const id = treeIdIn(second)
+          const design = designFor(id)
 
           if (design !== undefined) {
             roots.add(design)
+          }
+
+          if (id !== undefined && event.diff.type === "text") {
+            textChanges.set(id, [...(textChanges.get(id) ?? []), ...splicesOf(event.diff.diff)])
           }
         }
       } else if (top === "notes" || top === "references" || top === "files") {
@@ -846,11 +863,28 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       return
     }
 
-    const change = { ...recorder.change(), version: version() }
+    const change = { ...recorder.change(), texts: textsOf(textChanges), version: version() }
 
     for (const listener of listeners) {
       listener(change)
     }
+  }
+
+  /** Others' changes to texts, by the layer whose text they changed. */
+  const textsOf = (changes: ReadonlyMap<TreeID, TextSplice[]>): TextChanges[] => {
+    const texts: TextChanges[] = []
+
+    for (const [id, splices] of changes) {
+      const root = designFor(id)
+      const design = root === undefined || !alive(id) ? undefined : designs.get(root)
+      const layer = design && textOf(dataOf(node(id)).get("id"))
+
+      if (design && layer !== undefined) {
+        texts.push({ address: { design: design.key, node: layer }, splices })
+      }
+    }
+
+    return texts
   }
 
   /** A file as Loro now holds it, reusing the plain value of each design the import didn't touch. */
@@ -1021,4 +1055,23 @@ function treeIdIn(part: string | number | undefined): TreeID | undefined {
 
 function isTreeId(part: string | number | undefined): part is TreeID {
   return /^\d+@\d+$/.test(String(part))
+}
+
+/** A Loro text change as the changes it makes, in order, each at its place in the text the ones before it left. */
+function splicesOf(delta: readonly Delta<string>[]): TextSplice[] {
+  const splices: TextSplice[] = []
+  let at = 0
+
+  for (const part of delta) {
+    if (part.retain !== undefined) {
+      at += part.retain
+    } else if (part.delete !== undefined) {
+      splices.push({ start: at, end: at + part.delete, insert: "" })
+    } else {
+      splices.push({ start: at, end: at, insert: part.insert })
+      at += part.insert.length
+    }
+  }
+
+  return splices
 }

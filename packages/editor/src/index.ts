@@ -495,6 +495,7 @@ export {
 export {
   editableText,
   keptCharacters,
+  movedThrough,
   openingSelection,
   type RebasedText,
   rebaseText,

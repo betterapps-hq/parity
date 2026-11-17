@@ -1,3 +1,4 @@
+import { inOrder, type Lens } from "@parity-app/lenses"
 import {
   AppWindow,
   Bookmark,
@@ -22,12 +23,11 @@ const shot = (name: string) => shots[`../canvas-container/shots/${name}.png`]!
 /** One of the kit's components, as the stories' previews drew it. */
 const preview = (name: string) => previews[`../../stories/previews/kit-${name}.webp`]!
 
-export interface LensInfo {
-  id: LensId
-  label: string
-  icon: LucideIcon
+/** A lens as `@parity-app/lenses` has it, with what the exploration draws it with. */
+export interface LensInfo extends Lens<LensId> {
+  Icon: LucideIcon
   /** The keys that show it, as the tabs' Ctrl+1 to Ctrl+9 did. */
-  keys: string
+  shortcut: string
   /** The left panel's first tab, which lists what the lens draws, and what it says with nothing to list. */
   outline: { label: string; search: string; none?: string }
   /** The inspector's first tab. */
@@ -38,16 +38,16 @@ export interface LensInfo {
   assets?: boolean
   /** It's drawn and edited with the canvas's tools. */
   tools?: boolean
-  /** Why the project has nothing for it yet, and what to do. */
-  missing?: { title: string; description: string; action: string }
 }
 
 export const lenses: Record<LensId, LensInfo> = {
   pages: {
     id: "pages",
-    label: "Pages",
-    icon: Route,
-    keys: "Ctrl+1",
+    name: "Pages",
+    Icon: Route,
+    icon: "route",
+    order: 1,
+    shortcut: "Ctrl+1",
     outline: { label: "Layers", search: "Search pages" },
     inspector: "Design",
     nothing: "Select a page on the canvas or in Layers.",
@@ -55,9 +55,11 @@ export const lenses: Record<LensId, LensInfo> = {
   },
   screens: {
     id: "screens",
-    label: "Screens",
-    icon: AppWindow,
-    keys: "Ctrl+2",
+    name: "Screens",
+    Icon: AppWindow,
+    icon: "app-window",
+    order: 2,
+    shortcut: "Ctrl+2",
     outline: { label: "Layers", search: "Search layers" },
     inspector: "Design",
     nothing: "Select a screen or frame on the canvas or in Layers.",
@@ -66,9 +68,11 @@ export const lenses: Record<LensId, LensInfo> = {
   },
   components: {
     id: "components",
-    label: "Components",
-    icon: Component,
-    keys: "Ctrl+3",
+    name: "Components",
+    Icon: Component,
+    icon: "component",
+    order: 3,
+    shortcut: "Ctrl+3",
     outline: { label: "Layers", search: "Search components" },
     inspector: "Design",
     nothing: "Select a component on the canvas or in Layers.",
@@ -76,31 +80,37 @@ export const lenses: Record<LensId, LensInfo> = {
   },
   stories: {
     id: "stories",
-    label: "Stories",
-    icon: Bookmark,
-    keys: "Ctrl+4",
+    name: "Stories",
+    Icon: Bookmark,
+    icon: "bookmark",
+    order: 4,
+    shortcut: "Ctrl+4",
     outline: { label: "Layers", search: "Search stories" },
     inspector: "Design",
     nothing: "Select a story on the canvas or in Layers."
   },
   data: {
     id: "data",
-    label: "Data",
-    icon: Database,
-    keys: "Ctrl+5",
+    name: "Data",
+    Icon: Database,
+    icon: "database",
+    order: 5,
+    shortcut: "Ctrl+5",
     outline: { label: "Tables", search: "Search tables" },
     inspector: "Schema",
     nothing: "Select a table on the canvas or in Tables."
   },
   api: {
     id: "api",
-    label: "API",
-    icon: Server,
-    keys: "Ctrl+6",
+    name: "API",
+    Icon: Server,
+    icon: "server",
+    order: 6,
+    shortcut: "Ctrl+6",
     outline: { label: "Endpoints", search: "Search endpoints", none: "No endpoints yet." },
     inspector: "Endpoint",
     nothing: "",
-    missing: {
+    unavailable: {
       title: "No OpenAPI document",
       description: "Add an openapi.yaml or openapi.json to the project, or choose the one the app serves.",
       action: "Choose a document…"
@@ -108,8 +118,10 @@ export const lenses: Record<LensId, LensInfo> = {
   }
 }
 
-/** The lenses in the lens bar's order: the ones the project has, then the ones it has nothing for. */
-export const lensOrder: LensId[] = ["pages", "screens", "components", "stories", "data", "api"]
+/** The lenses in order, as the View menu lists them. */
+export const lensList = inOrder(Object.values(lenses))
+
+export const lensOrder = lensList.map((lens) => lens.id)
 
 export interface Box {
   x: number
