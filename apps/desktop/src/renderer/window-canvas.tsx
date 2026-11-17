@@ -28,6 +28,7 @@ import { ProjectContext } from "./canvas/context.ts"
 import { preview, type PreviewOptions } from "./canvas/drag-preview.ts"
 import { agentColors, personColors } from "./canvas/surface/colors.ts"
 import { surfaceOf } from "./canvas/surface/index.ts"
+import { createStore, type Store, useStore } from "./store.ts"
 import type { TabSlot } from "./tab-slot.ts"
 import type { ProjectSession } from "./workspace.ts"
 
@@ -46,49 +47,43 @@ interface Drawn extends LayerRequest {
   key: number
 }
 
-/** A tab's layers, which its hosts draw. */
-class TabLayers {
-  private drawn: readonly Drawn[] = []
-  private readonly listeners = new Set<() => void>()
-  private next = 0
+/** A tab's layers, which its hosts draw, and its frames. */
+interface TabLayers {
+  drawn: Store<readonly Drawn[]>
   /** The tab's frames, for `useFrame`, paused while it's hidden. */
-  readonly frames: FrameLoop = createFrameLoop()
-
-  get = (): readonly Drawn[] => this.drawn
-
-  subscribe = (listener: () => void): (() => void) => {
-    this.listeners.add(listener)
-
-    return () => this.listeners.delete(listener)
-  }
-
-  add(layer: LayerRequest): () => void {
-    this.next += 1
-    const drawn: Drawn = { ...layer, key: this.next }
-    this.set([...this.drawn, drawn])
-
-    return () => this.set(this.drawn.filter((each) => each !== drawn))
-  }
-
-  private set(drawn: readonly Drawn[]) {
-    this.drawn = drawn
-
-    for (const listener of this.listeners) {
-      listener()
-    }
-  }
+  frames: FrameLoop
+  add(layer: LayerRequest): () => void
 }
 
-/** Each project's layers, by its id: a project is open in one tab, whose layers outlast a reopen's new session. */
+/**
+ * Each project's layers, by its id: window modules add them before the project's session opens, and a project is open
+ * in one tab, whose layers outlast a reopen's new session.
+ */
 const tabLayers = new Map<string, TabLayers>()
 
 function layersOf(session: Pick<ProjectSession, "id">): TabLayers {
-  let layers = tabLayers.get(session.id)
+  const kept = tabLayers.get(session.id)
 
-  if (!layers) {
-    layers = new TabLayers()
-    tabLayers.set(session.id, layers)
+  if (kept) {
+    return kept
   }
+
+  const drawn = createStore<readonly Drawn[]>(() => [])
+  let next = 0
+
+  const layers: TabLayers = {
+    drawn,
+    frames: createFrameLoop(),
+    add(layer) {
+      next += 1
+      const added: Drawn = { ...layer, key: next }
+      drawn.update((now) => [...now, added])
+
+      return () => drawn.update((now) => now.filter((each) => each !== added))
+    }
+  }
+
+  tabLayers.set(session.id, layers)
 
   return layers
 }
@@ -136,14 +131,25 @@ export function windowCanvasPort(slot: TabSlot, tab: string): WindowCanvasPort {
       const shown = preview(surface, items, { ...options, drop: dropOf(session, options.drop) })
 
       return {
-        update: (next, given) => shown.update(next, given && { ...given, drop: dropOf(session, given.drop) }),
+        // A drop is changed only when the update gives one, so changing a color or label keeps where it would land.
+        update(next, given) {
+          if (!given) {
+            shown.update(next)
+
+            return
+          }
+
+          const { drop, ...rest } = given
+          shown.update(next, "drop" in given ? { ...rest, drop: dropOf(session, drop) } : rest)
+        },
         settleOnWrite: () => shown.settleOnWrite(),
         cancel: () => shown.cancel(),
         [Symbol.dispose]: () => shown[Symbol.dispose]()
       }
     },
     hold: (design, at, extension) => holds.hold(tab, design, at, extension),
-    colors: { people: personColors, agents: agentColors }
+    colors: { people: personColors, agents: agentColors },
+    isDesign: (key) => slot.session?.doc.design(key) !== undefined
   }
 }
 
@@ -171,7 +177,7 @@ export function WindowLayers({ order }: { order: Order }) {
 
 function TabLayersOf({ session, order, shown }: { session: ProjectSession; order: Order; shown: boolean }) {
   const layers = layersOf(session)
-  const all = useSyncExternalStore(layers.subscribe, layers.get)
+  const all = useStore(layers.drawn)
   const editing = useSyncExternalStore(session.selection.subscribe, () => session.selection.getEditing() !== undefined)
 
   useEffect(() => layers.frames.setVisible(shown), [layers, shown])

@@ -1,6 +1,7 @@
 import { locateNode } from "@parity-app/core"
 import type { NodeRef } from "@parity-app/extension"
 import { agentEventOf, agentStepOf, type AgentsPort } from "@parity-app/extension-host/window-agents"
+import { targetOf } from "@parity-app/extension-host/window-canvas"
 import type { Pointer, PresencePort } from "@parity-app/extension-host/window-presence"
 import type { Viewing } from "@parity-app/extension/internal"
 import { firstName } from "./account/account.ts"
@@ -75,7 +76,7 @@ export function windowAgentsPort(slot: TabSlot, tab: string): AgentsPort {
     // Queued as another copy's steps are today, so the canvas draws their cursors and doesn't pass them on again.
     received: (steps) =>
       presence.push(
-        steps.map((step) => ({ ...agentEventOf(step), tab })),
+        steps.map((step) => ({ ...agentEventOf(step, (key) => slot.session?.doc.design(key) !== undefined), tab })),
         true
       ),
     exists: (ref) => (slot.session ? existsIn(slot.session, ref) : false),
@@ -83,16 +84,24 @@ export function windowAgentsPort(slot: TabSlot, tab: string): AgentsPort {
   }
 }
 
-/** Whether a design, or a design's layer, named by `NodeRef` is in the project. */
+/** Whether a design, or a design's layer, named by `NodeRef` is in the project. A design's key can hold a slash. */
 function existsIn(session: Pick<ProjectSession, "doc">, ref: NodeRef): boolean {
   if (ref.owner !== "design") {
     return true
   }
 
-  const slash = ref.type === "design" ? -1 : ref.key.indexOf("/")
-  const root = session.doc.design(slash > 0 ? ref.key.slice(0, slash) : ref.key)?.root
+  try {
+    const target = targetOf(ref, isDesignIn(session))
+    const root = session.doc.design(target.design)?.root
 
-  return Boolean(root && (slash <= 0 || locateNode(root, ref.key.slice(slash + 1))))
+    return Boolean(root && (target.node === undefined || locateNode(root, target.node)))
+  } catch {
+    return false
+  }
+}
+
+function isDesignIn(session: Pick<ProjectSession, "doc">): (key: string) => boolean {
+  return (key) => session.doc.design(key) !== undefined
 }
 
 /** Every move of the pointer over the tab's canvas, on the page, and its leaving, across the canvas remounting. */
