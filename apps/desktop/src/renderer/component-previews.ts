@@ -216,6 +216,8 @@ class ProjectPreviews {
   private readonly skipped = new Set<string>()
   private readonly stops: (() => void)[] = []
   private lastActivity = performance.now()
+  /** A canvas has been up: the project has opened, and a canvas missing since is a lens closed, not one loading. */
+  private canvasWasUp = false
   private timer: ReturnType<typeof setTimeout> | undefined
   private refreshTimer: ReturnType<typeof setTimeout> | undefined
   private making = false
@@ -256,6 +258,10 @@ class ProjectPreviews {
     this.stops.push(this.session.components.subscribe(() => this.refreshSoon()))
     // A new guest, new sources or newly added components.
     this.stops.push(this.session.subscribe(() => this.refreshSoon()))
+    // Noted as the canvas comes up, whatever the scheduler is doing then, so a lens closed soon after doesn't hold
+    // previews back.
+    this.canvasWasUp = !!this.session.editor
+    this.stops.push(this.session.subscribe(() => (this.canvasWasUp ||= !!this.session.editor)))
     // Previews are drawn in the mode matching Parity's light or dark theme, so a new theme looks them up again.
     this.stops.push(subscribeResolvedTheme(() => this.refreshSoon()))
     this.refreshSoon()
@@ -508,7 +514,7 @@ class ProjectPreviews {
 
   /**
    * Makes the next preview `nextPreview` picks, then asks again. The canvas comes first: nothing is made while the tab
-   * isn't the one shown, its canvas isn't up or a frame on it waits for its bitmap.
+   * isn't the one shown, its canvas hasn't come up since the project opened or a frame on it waits for its bitmap.
    */
   private async step(): Promise<void> {
     this.timer = undefined
@@ -517,7 +523,9 @@ class ProjectPreviews {
       return
     }
 
-    const settled = !!this.session.editor && workspace.getProject()?.session === this.session && bitmapsWaiting() === 0
+    const project = workspace.getProject()?.session
+    // With every lens closed there's no canvas to wait for, once one has been up.
+    const settled = this.canvasWasUp && project === this.session && bitmapsWaiting() === 0
 
     const needed = this.components().flatMap((component) => {
       const entry = this.entries.get(component)

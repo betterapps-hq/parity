@@ -28,7 +28,7 @@ import {
   type DockviewTheme,
   type IDockviewPanelProps
 } from "dockview-react"
-import { type Dispatch, type ReactNode, type SetStateAction, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { type Dock, dockAdapter } from "./dock-adapter.ts"
 import { GroupActions } from "./GroupActions.tsx"
 import { LensBar } from "./LensBar.tsx"
@@ -44,14 +44,30 @@ export interface LensWorkspaceProps<Id extends string> {
   lenses: readonly LensView<Id>[]
   /** The layout it opens on, as the project saved it. Without one, or with none of its lenses left, the first lens. */
   layout?: JsonValue | undefined
-  /** The page a lens's own window opens on, before Dockview moves the lens into it. */
-  popoutUrl: string
+  /**
+   * The page a lens's own window opens on, before Dockview moves the lens into it. Without one, lenses stay in this
+   * window: nothing offers to move one to a window of its own, and a tab let go outside the window stays where it was.
+   */
+  popoutUrl?: string
   /** The project's name, which a lens's own window is titled with, after its lens. */
   title: string
   /** Above the lenses, as the window's title bar, which reaches them with `useLensWorkspace`. */
   titleBar?: ReactNode
   /** Below the lenses, as the window's status bar. */
   statusBar?: ReactNode
+  /**
+   * Whether the left panel and the inspector show, when the window keeps that itself, as the app does with its panel
+   * layout, so its own commands show and hide them too. Without it, the shell keeps it.
+   */
+  panels?: Panels | undefined
+  /** Told when the shell shows or hides a panel, with `panels`. */
+  onPanels?: ((next: Panels) => void) | undefined
+}
+
+/** Whether the left panel and the inspector show. */
+export interface Panels {
+  left: boolean
+  right: boolean
 }
 
 /**
@@ -65,7 +81,9 @@ export function LensWorkspace<Id extends string>({
   popoutUrl,
   title,
   titleBar,
-  statusBar
+  statusBar,
+  panels: given,
+  onPanels
 }: LensWorkspaceProps<Id>) {
   const known = useMemo(() => new Map<string, LensView<Id>>(lenses.map((lens) => [lens.id, lens])), [lenses])
   const [opening] = useState(() => readLayout(saved, lenses))
@@ -73,7 +91,9 @@ export function LensWorkspace<Id extends string>({
   const [layout, setLayout] = useState<Layout<Id>>({ groups: [] })
   // The lens the panels show before Dockview has laid the window out.
   const [last, setLast] = useState(() => opening.groups[opening.focus ?? 0]?.open ?? barOrder(lenses)[0]?.id)
-  const [panels, setPanels] = useState({ left: true, right: true })
+  const [kept, setKept] = useState<Panels>({ left: true, right: true })
+  const panels = given ?? kept
+  const setPanels = (change: (before: Panels) => Panels) => (onPanels ?? setKept)(change(panels))
 
   // With every tab closed, no lens is in focus, and the panels that follow one go with it.
   const empty = dock !== undefined && isEmpty(layout)
@@ -96,13 +116,17 @@ export function LensWorkspace<Id extends string>({
         }
       },
       // A tab let go outside its window opens in a window of its own there, as a browser's tab does.
-      letGo: (lens, at) => dock.apply(toWindow(dock.layout(), lens, at)),
+      letGo: (lens, at) => {
+        if (popoutUrl !== undefined) {
+          dock.apply(toWindow(dock.layout(), lens, at))
+        }
+      },
       opened: (opened, lens) => {
         const name = lens === undefined ? undefined : known.get(lens)?.name
         dress(opened, name ? `${name} — ${title}` : title)
       }
     })
-  }, [dock, known, title])
+  }, [dock, known, title, popoutUrl])
 
   // Ctrl and a lens's number shows it, as clicking it in the lens bar does.
   useEffect(() => {
@@ -136,12 +160,12 @@ export function LensWorkspace<Id extends string>({
     }
   }
 
-  const actions = lensActions({ dock, layout, current, known, panels, setPanels })
+  const actions = lensActions({ dock, layout, current, known, windows: popoutUrl !== undefined, panels, setPanels })
   const hide = (side: "left" | "right") => setPanels((before) => ({ ...before, [side]: false }))
 
   return (
     <ShellContext value={{ lenses: known, layout, actions }}>
-      <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-background text-foreground">
         {titleBar}
         <div className="flex min-h-0 flex-1">
           <LensBar lenses={lenses} actions={actions} />
@@ -154,7 +178,7 @@ export function LensWorkspace<Id extends string>({
               defaultTabComponent={LensTab}
               rightHeaderActionsComponent={GroupActions}
               watermarkComponent={NoLens}
-              popoutUrl={popoutUrl}
+              {...(popoutUrl === undefined ? {} : { popoutUrl })}
               disableFloatingGroups
               onReady={onReady}
               onDidDrop={onDidDrop}
@@ -176,6 +200,7 @@ function lensActions<Id extends string>({
   layout,
   current,
   known,
+  windows,
   panels,
   setPanels
 }: {
@@ -183,8 +208,9 @@ function lensActions<Id extends string>({
   layout: Layout<Id>
   current: Id | undefined
   known: ReadonlyMap<string, LensView<Id>>
-  panels: { left: boolean; right: boolean }
-  setPanels: Dispatch<SetStateAction<{ left: boolean; right: boolean }>>
+  windows: boolean
+  panels: Panels
+  setPanels: (change: (before: Panels) => Panels) => void
 }): LensActions<Id> {
   // Decided on Dockview's layout as it is now, which a drag may have changed since the window last drew.
   const run = (decide: (now: Layout<Id>) => DockOperation<Id>[]) => {
@@ -217,7 +243,8 @@ function lensActions<Id extends string>({
     splitRight: (lens) => run((now) => splitRight(now, lens)),
     canSplit: (lens) => !!menu(lens)?.splitRight,
     toWindow: (lens) => run((now) => toWindow(now, lens)),
-    canMoveToWindow: (lens) => !!menu(lens)?.moveToNewWindow,
+    windows,
+    canMoveToWindow: (lens) => windows && !!menu(lens)?.moveToNewWindow,
     toMain: (lens) => run((now) => toMain(now, lens)),
     canMoveToMain: (lens) => !!menu(lens)?.moveToMainWindow,
     close: (lens) => run((now) => close(now, lens)),

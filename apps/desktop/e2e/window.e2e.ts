@@ -90,4 +90,40 @@ describe("the window", () => {
     // The canvas is where tldraw thinks it is: a click on a layer selects it.
     await app.selectLayer("Members", "lin")
   })
+  // docs/editor.md, The project's lenses (PAR-1243).
+  it("shows the project in the lens shell, with Screens its one lens, and empties the window when its tab closes", async () => {
+    const { page } = app
+    const lenses = page.getByRole("toolbar", { name: "Lenses" }).getByRole("button")
+    const layers = page.locator("[role=tree][aria-label=Layers]")
+    const empty = page.getByText("No lens open")
+
+    await expect.poll(() => lenses.count()).toBe(1)
+    expect(await lenses.first().getAttribute("aria-label")).toBe("Screens")
+    expect(await lenses.first().getAttribute("aria-pressed")).toBe("true")
+
+    try {
+      // Clicking the lens in front hides the left panel, and again shows it.
+      await lenses.first().click()
+      await expect.poll(() => layers.count()).toBe(0)
+      await lenses.first().click()
+      await expect.poll(() => layers.count()).toBe(1)
+
+      // Closing its tab, the last, empties the window, and the panels go with it.
+      await page.getByRole("button", { name: "Close Screens" }).click()
+      await expect.poll(() => empty.count()).toBe(1)
+      expect(await layers.count()).toBe(0)
+      expect(await page.locator(".container-view").count()).toBe(0)
+    } finally {
+      // Ctrl+2 shows it again, with its canvas and panels, as the tests after this one need.
+      if ((await empty.count()) > 0) {
+        await page.keyboard.press("Control+2")
+      }
+
+      await expect.poll(() => layers.count()).toBe(1)
+      await expect.poll(() => page.evaluate(() => !!window.e2e!.session().editor)).toBe(true)
+    }
+
+    expect(await empty.count()).toBe(0)
+    await expect.poll(() => page.locator(".container-view").count()).toBeGreaterThan(0)
+  })
 })

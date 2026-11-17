@@ -61,10 +61,9 @@ describe("the overlay canvas", () => {
   it("keeps the selection box while Shift is held down on the empty canvas", async () => {
     await app.show("Sign in", 0.1)
 
-    // Two designs in view selected, then a bare spot of canvas outside the box around them.
-    const empty = await app.page.evaluate(() => {
+    // Two designs in view selected.
+    const selected = await app.page.evaluate(() => {
       const editor = window.e2e!.session().editor!
-      const area = editor.getContainer().getBoundingClientRect()
       const viewport = editor.getViewportPageBounds()
 
       const inView = editor.getCurrentPageShapes().filter((item) => {
@@ -73,49 +72,78 @@ describe("the overlay canvas", () => {
         return bounds && viewport.collides(bounds)
       })
 
-      if (inView.length < 2) {
-        return undefined
-      }
-
       editor.select(...inView.slice(0, 2).map((item) => item.id))
-      const box = editor.getSelectionScreenBounds()!
 
-      for (let y = area.bottom - 20; y > area.top + 20; y -= 40) {
-        for (let x = area.right - 20; x > area.left + 20; x -= 40) {
-          if (x > box.minX - 40 && x < box.maxX + 40 && y > box.minY - 40 && y < box.maxY + 40) {
-            continue
-          }
-
-          // The canvas itself, not a control drawn over it, and no board near.
-          const under = document.elementFromPoint(x, y)
-
-          if (!under?.closest(".tl-canvas") || under.closest("button, .tl-shape, .design-title")) {
-            continue
-          }
-
-          if (!editor.getShapeAtPoint(editor.screenToPage({ x, y }), { hitInside: true, margin: 20 })) {
-            return { x, y }
-          }
-        }
-      }
-
-      return undefined
+      return inView.length
     })
 
-    if (!empty) {
-      throw new Error("No two designs and empty canvas in view")
+    expect(selected).toBeGreaterThanOrEqual(2)
+    await expect.poll(async () => (await overlayCanvas()).drawn).toBe(true)
+
+    // A bare spot of canvas outside the box around them, once the boards in view have taken their sizes: a board still
+    // sizing itself can grow over a spot that was bare.
+    const bareSpot = () =>
+      app.page.evaluate(() => {
+        const editor = window.e2e!.session().editor!
+        const area = editor.getContainer().getBoundingClientRect()
+        const box = editor.getSelectionScreenBounds()!
+
+        for (let y = area.bottom - 20; y > area.top + 20; y -= 40) {
+          for (let x = area.right - 20; x > area.left + 20; x -= 40) {
+            if (x > box.minX - 40 && x < box.maxX + 40 && y > box.minY - 40 && y < box.maxY + 40) {
+              continue
+            }
+
+            // The canvas itself, not a control drawn over it, and no board near.
+            const under = document.elementFromPoint(x, y)
+
+            if (!under?.closest(".tl-canvas") || under.closest("button, .tl-shape, .design-title")) {
+              continue
+            }
+
+            if (!editor.getShapeAtPoint(editor.screenToPage({ x, y }), { hitInside: true, margin: 40 })) {
+              return `${x},${y}`
+            }
+          }
+        }
+
+        return undefined
+      })
+
+    let spot = await bareSpot()
+
+    for (let tries = 0; tries < 20; tries++) {
+      await app.frames(10)
+      const again = await bareSpot()
+
+      if (again === spot) {
+        break
+      }
+
+      spot = again
     }
 
-    await expect.poll(async () => (await overlayCanvas()).drawn).toBe(true)
+    if (!spot) {
+      throw new Error("No empty canvas in view")
+    }
+
+    const [x = 0, y = 0] = spot.split(",").map(Number)
     // Pressing the empty canvas with Shift keeps the selection, and tldraw keeps drawing its box with no handles.
-    await app.page.mouse.move(empty.x, empty.y)
+    await app.page.mouse.move(x, y)
     await app.page.keyboard.down("Shift")
     await app.page.mouse.down()
 
     try {
-      await expect
-        .poll(() => app.page.evaluate(() => window.e2e!.session().editor!.isIn("select.pointing_canvas")))
-        .toBe(true)
+      // What tldraw made of the press, with what's selected when it isn't the canvas.
+      const pressed = () =>
+        app.page.evaluate(() => {
+          const editor = window.e2e!.session().editor!
+          const path = editor.getPath()
+
+          return path === "select.pointing_canvas" ? path : `${path} with ${editor.getSelectedShapeIds().join(", ")}`
+        })
+
+      await expect.poll(pressed).toBe("select.pointing_canvas")
       expect((await overlayCanvas()).drawn).toBe(true)
     } finally {
       await app.page.mouse.up()

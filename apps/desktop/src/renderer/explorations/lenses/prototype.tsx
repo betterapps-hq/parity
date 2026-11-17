@@ -58,14 +58,16 @@ export function LensesPrototype({ initial }: { initial: LensLayout }) {
 
   return (
     <TestLensProvider key={opened} selected={initial.selected}>
-      <LensWorkspace
-        lenses={testLenses}
-        layout={initial.focused === undefined ? { groups } : { groups, focus: initial.focused }}
-        popoutUrl={popoutUrl}
-        title={shown}
-        titleBar={<ProjectTitleBar name={shown} openProject={openProject} closeProject={closeProject} />}
-        statusBar={<StatusBar />}
-      />
+      <div className="flex h-screen flex-col">
+        <LensWorkspace
+          lenses={testLenses}
+          layout={initial.focused === undefined ? { groups } : { groups, focus: initial.focused }}
+          popoutUrl={popoutUrl}
+          title={shown}
+          titleBar={<ProjectTitleBar name={shown} openProject={openProject} closeProject={closeProject} />}
+          statusBar={<StatusBar />}
+        />
+      </div>
     </TestLensProvider>
   )
 }

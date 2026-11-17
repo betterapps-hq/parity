@@ -49,7 +49,7 @@ export interface Dock<Id extends string> {
 export function dockAdapter<Id extends string>(
   api: DockviewApi,
   isLens: (id: string | undefined) => id is Id,
-  popoutUrl: string
+  popoutUrl: string | undefined
 ): Dock<Id> {
   const add = (lens: Id, position?: AddPanelPositionOptions): IDockviewPanel => {
     const panel = { id: lens, component: "lens", title: lens, params: { lens } }
@@ -82,7 +82,7 @@ export function dockAdapter<Id extends string>(
       ? { left: Math.round(at.x - 120), top: Math.round(at.y - 18), ...windowSize }
       : { left: window.screenX + 80, top: window.screenY + 80, ...windowSize }
 
-    return api.addPopoutGroup(panel, { position, popoutUrl })
+    return api.addPopoutGroup(panel, popoutUrl === undefined ? { position } : { position, popoutUrl })
   }
 
   // Moves an open lens's tab. With no group named, its group joins the main window at the right.
