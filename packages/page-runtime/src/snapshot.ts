@@ -246,8 +246,17 @@ function absoluteUrl(value: string, base: string): string {
 
 /** CSS with every `url()` made absolute against `base`. */
 export function absoluteCss(css: string, base: string): string {
-  return css.replaceAll(/url\(\s*(['"]?)(.*?)\1\s*\)/g, (whole, _quote: string, url: string) =>
-    url.startsWith("data:") || url.startsWith("#") ? whole : `url("${absoluteUrl(url, base).replaceAll('"', "%22")}")`
+  const absolute = (url: string) => absoluteUrl(url, base).replaceAll('"', "%22")
+
+  const urls = css.replaceAll(/url\(\s*(['"]?)(.*?)\1\s*\)/g, (whole, _quote: string, url: string) =>
+    url.startsWith("data:") || url.startsWith("#") ? whole : `url("${absolute(url)}")`
+  )
+
+  // An `image-set()`'s candidates may be plain strings, which are URLs too, unless they're a `type()`'s.
+  return urls.replaceAll(/(?:-webkit-)?image-set\((?:[^()]|\([^()]*\))*\)/gi, (set) =>
+    set.replaceAll(/(type\(\s*)?(['"])(.*?)\2/g, (whole, type: string | undefined, quote: string, url: string) =>
+      type || url.startsWith("data:") ? whole : `${quote}${absolute(url)}${quote}`
+    )
   )
 }
 

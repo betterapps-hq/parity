@@ -83,21 +83,22 @@ describe("buildCopy", () => {
     }
   })
 
-  it("gives each element its path from the body, parents before their children", () => {
+  it("gives each element its path from the body, parents before their children, and none inside an svg", () => {
     const { drawn, standIn } = copy()
 
-    expect(drawn.ids).toEqual(["0", "0.0", "1", "1.0", "1.1", "1.1.0", "1.1.1"])
+    expect(drawn.ids).toEqual(["0", "0.0", "1", "1.0", "1.1"])
     expect(drawn.elements("1.0")).toEqual([standIn.querySelector("pricing-card")])
+    expect(drawn.elements("1.1.0")).toEqual([])
     expect(drawn.elements("9")).toEqual([])
     expect(drawn.texts("0.0")).toEqual([])
-    expect(drawn.parent("1.1.0")).toBe("1.1")
+    expect(drawn.parent("1.1")).toBe("1")
     expect(drawn.parent("0")).toBeUndefined()
   })
 
-  it("finds the node an element belongs to, and none for the stand-in", () => {
+  it("finds the node an element belongs to, an svg's shape its svg, and none for the stand-in", () => {
     const { drawn, standIn } = copy()
 
-    expect(drawn.nodeOf(standIn.querySelector("use")!)).toBe("1.1.0")
+    expect(drawn.nodeOf(standIn.querySelector("use")!)).toBe("1.1")
     expect(drawn.nodeOf(standIn)).toBeUndefined()
   })
 

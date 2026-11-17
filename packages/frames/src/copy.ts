@@ -20,7 +20,8 @@ export interface BuiltCopy {
  * A copy's elements, made in `document` with `createElementNS` and `setAttribute` only, under a body stand-in marked
  * `inert`, and the `DrawnNodes` that maps their ids to them. Every element is created in `registry`, the copy's shadow
  * root's own, so none is upgraded by a definition in Parity's window. Each element's id is its path from the body,
- * counting elements only (`0.3.1`). `body` has been through `sanitizePage`.
+ * counting elements only (`0.3.1`). What's inside an `<svg>` has no id: its layer is the picture (`elementLayers`), so
+ * selecting a shape in it finds the `<svg>`. `body` has been through `sanitizePage`.
  */
 export function buildCopy(document: Document, body: FrozenElement, registry: CustomElementRegistry): BuiltCopy {
   const ids: string[] = []
@@ -36,13 +37,19 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
   setAttributes(standIn, body.attributes)
   standIn.setAttribute("inert", "")
 
-  const pending: { frozen: FrozenElement; into: Element; parent: string | undefined }[] = [
-    { frozen: body, into: standIn, parent: undefined }
-  ]
+  interface Pending {
+    frozen: FrozenElement
+    into: Element
+    parent: string | undefined
+    /** Inside an `<svg>`, whose elements aren't layers of their own. */
+    inPicture: boolean
+  }
+
+  const pending: Pending[] = [{ frozen: body, into: standIn, parent: undefined, inPicture: false }]
 
   for (let next = pending.pop(); next; next = pending.pop()) {
     let index = 0
-    const children: { frozen: FrozenElement; into: Element; parent: string | undefined }[] = []
+    const children: Pending[] = []
 
     for (const child of next.frozen.children) {
       if (!(child instanceof Object)) {
@@ -55,6 +62,12 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
       const element = create(child)
       setAttributes(element, child.attributes)
       next.into.append(element)
+
+      if (next.inPicture) {
+        children.push({ frozen: child, into: element, parent: id, inPicture: true })
+        continue
+      }
+
       ids.push(id)
       elements.set(id, element)
       nodes.set(element, id)
@@ -63,7 +76,12 @@ export function buildCopy(document: Document, body: FrozenElement, registry: Cus
         parents.set(id, next.parent)
       }
 
-      children.push({ frozen: child, into: element, parent: id })
+      children.push({
+        frozen: child,
+        into: element,
+        parent: id,
+        inPicture: child.namespace === "svg" && child.tag === "svg"
+      })
     }
 
     pending.push(...children.reverse())

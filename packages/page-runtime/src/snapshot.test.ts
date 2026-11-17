@@ -293,6 +293,17 @@ describe("absoluteCss", () => {
       absoluteCss(`a { background: url('x.png'), url(data:image/png;base64,AA), url(#clip) }`, "https://a.test/css/")
     ).toBe(`a { background: url("https://a.test/css/x.png"), url(data:image/png;base64,AA), url(#clip) }`)
   })
+
+  it("makes an image-set()'s plain string candidates absolute, but not a type()", () => {
+    expect(
+      absoluteCss(
+        `a { background: image-set("./hero.png" 1x, 'hero@2x.avif' type("image/avif") 2x) }`,
+        "https://a.test/css/"
+      )
+    ).toBe(
+      `a { background: image-set("https://a.test/css/hero.png" 1x, 'https://a.test/css/hero@2x.avif' type("image/avif") 2x) }`
+    )
+  })
 })
 
 describe("snapshot.take and sheets.get over the channel", () => {
