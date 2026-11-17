@@ -4,6 +4,7 @@ import {
   editableText,
   openingSelection,
   rebaseText,
+  spliceAt,
   textSizing,
   textSizingKeys,
   textToEdit,
@@ -266,6 +267,20 @@ describe("withTextSizing", () => {
         expect(textSizing(next)).toBe(sizing)
       }
     }
+  })
+})
+
+describe("the change typed in a text (PAR-1238)", () => {
+  it("is the one ending at the caret, where a letter beside the same letter could be either", () => {
+    // "l" typed after the first "l" of "Hello": with the caret there, it's that "l", not the second.
+    expect(spliceAt("Hello", "Helllo", 3)).toEqual({ start: 2, end: 2, insert: "l" })
+    expect(spliceAt("Hello", "Helllo", 5)).toEqual({ start: 4, end: 4, insert: "l" })
+  })
+
+  it("is the first place it could be without a caret, and covers a replaced selection", () => {
+    expect(spliceAt("Hello", "Helllo")).toEqual({ start: 2, end: 2, insert: "l" })
+    expect(spliceAt("Hello world", "Hello there", 11)).toEqual({ start: 6, end: 11, insert: "there" })
+    expect(spliceAt("Hello", "Helo", 3)).toEqual({ start: 3, end: 4, insert: "" })
   })
 })
 

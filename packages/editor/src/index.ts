@@ -453,7 +453,9 @@ export {
   openingSelection,
   type RebasedText,
   rebaseText,
+  spliceAt,
   type TextRange,
+  type TextSplice,
   textSizing,
   textToEdit,
   withEditedText

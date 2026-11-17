@@ -5462,16 +5462,19 @@ picker.
 Text is written to the document while it's typed, not when the editor closes, so others in a live room (PAR-1179) see it
 as it's typed, and layers after it move with it (docs/proposals/extensions-in-the-window.md, Live text).
 
-- **A few writes a second.** The first key starts a write 150 ms later with whatever's typed by then, so a burst of keys
-  is one write, not one per key. The saver writes the file as it does any change, after its own 300 ms, so the file
-  isn't rewritten per key either.
+- **Each key is written as it's typed,** as the change it made at the caret (PAR-1238): the characters it inserted and
+  removed, not the whole text, so two people typing in one text at once both keep every letter. It used to be written a
+  few times a second, the whole text each time, so typing held back for a write could lose letters to the other
+  person's. Where the change could be in more than one place, as a letter typed beside the same letter, it's the one
+  ending at the caret. Text written to a state or inside an instance is still written whole. The saver writes the file
+  as it does any change, after its own 300 ms, so the file isn't rewritten per key.
 - **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
-  so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step.
+  so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step. Undo takes
+  out only this person's typing: what someone else typed in the text since stays (PAR-1238).
 - **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
-  their change is merged with what's typed and not yet written, and the caret moves with the characters around it, so it
-  stays where the person is typing. Where both changed the same characters, what either removed goes and the typing
-  follows what the other wrote. Their change isn't in this person's undo. While an input method is composing, the change
-  waits until it's done.
+  the editor shows it as it is and the caret moves with the characters around it, so it stays where the person is
+  typing. Their change isn't in this person's undo. While an input method is composing, the change waits until it's
+  done, and is merged with what was composed, which is then written where the text is now.
 - **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
   it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
   person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
@@ -5490,18 +5493,29 @@ as it's typed, and layers after it move with it (docs/proposals/extensions-in-th
 - **A frame named after its text** follows each write, as it did the closing one.
 - Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
 
-Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (the batching, the gesture per pause and taking in
-others' changes), `rebaseText` in `packages/editor/src/text-editing.ts` (merging the two changes and moving the
-selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room
-where the caret is. In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx`
-(the outline, name and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
+Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (writing each key, the gesture per pause and taking
+in others' changes), `spliceAt` and `rebaseText` in `packages/editor/src/text-editing.ts` (the change typed, and merging
+two changes and moving the selection), `typeInContainer` in `packages/multiplayer/src/callers.ts` (writing the change
+rather than the whole text), `textBack` in `packages/multiplayer/src/project-doc.ts` (undo keeping others' typing), and
+`TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room where the caret is.
+In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx` (the outline, name
+and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
 
 Tests:
 
-- `apps/desktop/src/renderer/canvas/live-text.test.ts` (6), on a test document: four keys 50 ms apart written twice; two
-  runs of typing a pause apart undone as two steps; closing with the text as it opened leaving no step; nothing written
-  once closed; someone else's change before the caret taken in with the typing and the caret kept after it, and Undo
-  taking back only the typing; and its own writes not taken in again.
+- `apps/desktop/src/renderer/canvas/live-text.test.ts` (8), on a test document: four keys written as four changes at the
+  caret; two runs of typing a pause apart undone as two steps; closing with the text as it opened leaving no step;
+  nothing written once closed; someone else's change before the caret taken in with the caret kept after the typing, and
+  Undo taking back only the typing; what an input method composed while someone else typed written where the text is
+  now; its own writes not taken in again; and, on Loro, two editors typing at the end of one text at once, a key each in
+  turn with the room passing keys on every other turn, ending with the same text holding every letter.
+- `packages/editor/src/text-editing.test.ts`, "the change typed in a text" (2): a letter typed beside the same letter
+  placed by the caret, and the first place without one, with a replaced selection and a deletion.
+- `packages/multiplayer/src/type-in-container.test.ts` (2): a layer's own text written as the change typed; a state's
+  text, and a change that doesn't make the text typed, written whole.
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", on Loro: two people typing the same keys in
+  40 orders of their own, carets moving and copies exchanging at times of their own, keeping every letter; and Undo
+  taking out only this person's typing, keeping what the other typed since.
 - `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
   the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
   characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
@@ -5509,13 +5523,13 @@ Tests:
   before, across text nodes and onto a wrapped line; at the right of the last character at the end and past it; and none
   in an element without text.
 
-Gaps: a selection someone else makes is drawn as their caret at its end, not as a highlight. Two people typing in the
-same text within the same 150 ms each write the whole text, so one of those writes can win over the other's before
-either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`: " today" typed into
-Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed after a pause came off
-with one Undo, " today" with the next, in both copies. Checked again the same day, after the first try in a room: in the
-typing copy one outline and the whole two-line heading, unclipped; in the other, Ana's outline, name and caret before
-"and" where hers was, in each of Pricing's three frames.
+Gaps: a selection someone else makes is drawn as their caret at its end, not as a highlight. Two people typing in a
+state's text or an instance's at once still each write it whole, so one can win over the other. Checked on 2026-11-16
+with two copies in a room through `scripts/drive.ts`: " today" typed into Pricing's title a key every 250 ms in one
+showed in the other a letter at a time, and "!" typed after a pause came off with one Undo, " today" with the next, in
+both copies. Checked again the same day, after the first try in a room: in the typing copy one outline and the whole
+two-line heading, unclipped; in the other, Ana's outline, name and caret before "and" where hers was, in each of
+Pricing's three frames.
 
 ### Auto width, auto height and fixed text (PAR-175)
 

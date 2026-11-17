@@ -10,8 +10,10 @@ import {
   type ReferenceSpec
 } from "@parity-app/core"
 import {
+  rebaseText,
   sameDesign,
   sameDocument,
+  spliceAt,
   sameTokenValues,
   sameValue,
   type TokenEdit,
@@ -56,7 +58,7 @@ import { fieldOf, pathOf } from "./values.ts"
  */
 interface Inverse {
   op: DocOp
-  expect?: { value: JsonValue | undefined } | { tokens: TokenEdits }
+  expect?: { value: JsonValue | undefined } | { tokens: TokenEdits } | { text: string }
 }
 
 interface Step {
@@ -175,11 +177,12 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
         continue
       }
 
-      // And so is a token value someone else has changed since: only the step's own token values go back.
-      const taken =
-        skipping && expect && "tokens" in expect && op.op === "setTokens"
-          ? tokensBack(after.tokens, op.tokens, expect.tokens, skipping)
-          : op
+      // And so are token values and typing someone else has changed since (see `undoing`).
+      const taken = skipping ? undoing(after, { op, expect }, skipping) : op
+
+      if (!taken) {
+        continue
+      }
 
       try {
         applied = applyOp(after, taken, index, recorder)
@@ -816,9 +819,70 @@ function guarded(op: DocOp, after: DocState): Inverse {
     return { op, expect: { tokens: after.tokens } }
   }
 
+  if (op.op === "editText" && op.edit.kind === "splice") {
+    const text = textIn(after, op)
+
+    return text === undefined ? { op } : { op, expect: { text } }
+  }
+
   return op.op === "set" || op.op === "setDesign" || op.op === "setFileField"
     ? { op, expect: { value: currentValue(after, op) } }
     : { op }
+}
+
+/**
+ * What an inverse writes while undoing: only the step's own token values go back, and only the step's own typing comes
+ * out of a text others have typed in since (PAR-1238). Nothing when there's nothing of the step's left.
+ */
+function undoing(state: DocState, { op, expect }: Inverse, skipping: { kept: number }): DocOp | undefined {
+  if (expect && "tokens" in expect && op.op === "setTokens") {
+    return tokensBack(state.tokens, op.tokens, expect.tokens, skipping)
+  }
+
+  if (expect && "text" in expect && op.op === "editText") {
+    return textBack(state, op, expect.text, skipping)
+  }
+
+  return op
+}
+
+/** A text layer's text, or nothing when it's gone or isn't a text layer. */
+function textIn(state: DocState, op: Extract<DocOp, { op: "editText" }>): string | undefined {
+  const container = designIn(state, op.design)
+  const node = container && findNode(container.root, op.node)
+
+  return node?.type === "text" ? node.text : undefined
+}
+
+/**
+ * Undoing typing in a text others have typed in since: the step's own change comes out and theirs stays, merged as
+ * typing is (`rebaseText`), written as the change from the text as it is now. When there's nothing of the step's left
+ * to take out, it's skipped and counted.
+ */
+function textBack(
+  state: DocState,
+  op: Extract<DocOp, { op: "editText" }>,
+  left: string,
+  skipping: { kept: number }
+): DocOp | undefined {
+  const now = textIn(state, op)
+
+  if (now === undefined || now === left || op.edit.kind !== "splice") {
+    return op
+  }
+
+  const { at, remove, insert } = op.edit
+  const back = rebaseText(left, left.slice(0, at) + insert + left.slice(at + remove), now, { start: 0, end: 0 }).text
+
+  if (back === now) {
+    skipping.kept += 1
+
+    return undefined
+  }
+
+  const splice = spliceAt(now, back)
+
+  return { ...op, edit: { kind: "splice", at: splice.start, remove: splice.end - splice.start, insert: splice.insert } }
 }
 
 /**

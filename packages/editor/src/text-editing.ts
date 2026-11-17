@@ -194,10 +194,34 @@ function steps(measured: number | undefined): Size | undefined {
 }
 
 /** One change to a text: the characters from `start` to `end` replaced by `insert`. */
-interface TextSplice {
+export interface TextSplice {
   start: number
   end: number
   insert: string
+}
+
+/**
+ * The one change that turns `before` into `after`, where the caret ended up at `caret` in `after`: typing ends at the
+ * caret, so where the change could be in more than one place, as a letter typed beside the same letter, it's the one
+ * that ends there. Without a caret it's the first place it could be.
+ */
+export function spliceAt(before: string, after: string, caret?: number): TextSplice {
+  const most = Math.min(before.length, after.length)
+  // What the two end with in common can't reach back past the caret.
+  const tailRoom = caret === undefined ? most : Math.min(most, Math.max(0, after.length - caret))
+  let tail = 0
+
+  while (tail < tailRoom && before[before.length - 1 - tail] === after[after.length - 1 - tail]) {
+    tail++
+  }
+
+  let start = 0
+
+  while (start < most - tail && before[start] === after[start]) {
+    start++
+  }
+
+  return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) }
 }
 
 /** The one change that turns `before` into `after`, around what they start and end with in common. */
