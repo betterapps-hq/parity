@@ -1509,6 +1509,7 @@ const FrameTile = memo(function FrameTile({
             scale={scale}
             primary={primary}
             rank={view.rank}
+            asleep={!awake || waiting}
           />
         )}
         {page && interactive && (

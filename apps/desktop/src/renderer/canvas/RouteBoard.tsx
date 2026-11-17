@@ -46,7 +46,8 @@ export function RouteBoard({
   mode,
   scale,
   primary,
-  rank
+  rank,
+  asleep
 }: {
   url: string
   project: string
@@ -60,6 +61,11 @@ export function RouteBoard({
   primary: boolean
   /** How urgent the copy is, lowest first, from where the frame is against the view. */
   rank: () => number
+  /**
+   * Whether the board sleeps, small on screen or out of view: it lets go of its copy's elements and shows a placeholder,
+   * until pictures come (route-frames.md, step 6), and builds the copy again from what it kept when it wakes.
+   */
+  asleep: boolean
 }) {
   const { doc } = useProject()
   const host = useRef<HTMLDivElement>(null)
@@ -80,14 +86,14 @@ export function RouteBoard({
   useLayoutEffect(() => {
     const element = host.current
 
-    if (!copy || !element) {
+    if (!copy || !element || asleep) {
       return undefined
     }
 
     registry.current ??= new CustomElementRegistry()
 
     return showCopy(element, copy, drawn, viewport, registry.current)
-  }, [copy, drawn, viewport])
+  }, [asleep, copy, drawn, viewport])
 
   const elsewhere = copy ? landedElsewhere(url, copy.location.path) : undefined
 
@@ -118,12 +124,12 @@ export function RouteBoard({
           data-mode={mode.id}
           data-state={state}
           data-primary={primary}
-          data-copy={copy ? "" : undefined}
+          data-copy={copy && !asleep ? "" : undefined}
           inert
           style={{ width: frame.width, height, zoom: scale }}
         />
       </div>
-      {!copy && <div className="frame-placeholder" data-placeholder aria-hidden />}
+      {(!copy || asleep) && <div className="frame-placeholder" data-placeholder aria-hidden />}
     </div>
   )
 }
@@ -196,6 +202,8 @@ function showCopy(
     setDrawnNodes(host, undefined)
     setInnerNodes(host, new Map())
     unroot()
+    // Nothing keeps the copy's elements once it's gone, as a sleeping frame keeps none.
+    host.shadowRoot?.replaceChildren()
   }
 }
 
