@@ -287,6 +287,29 @@ describe("window modules in a project tab", () => {
     expect(states).toEqual(["ready", "restarting"])
   })
 
+  it("tells a module its Node half's state while it activates, so activateWindow can wait for it", async () => {
+    const waiting = defineWindowModule({
+      activateWindow: (parity) =>
+        new Promise<object>((resolve) => {
+          const subscription = parity.host.onStateChange((state) => {
+            if (state === "ready") {
+              subscription.dispose()
+              resolve({})
+            }
+          })
+        })
+    })
+
+    const { runtime } = tab({ "@parity-app/extension-window-test": waiting })
+
+    runtime.update([extension({ host: "waiting" })])
+    await settle()
+    runtime.update([extension({ host: "running" })])
+    await settle()
+
+    expect(Object.values(runtime.states())).toEqual(["active"])
+  })
+
   it("gives a module without a Node half a stopped host, and keeps it running", async () => {
     const { runtime, parities, halves } = tab()
     const id = "@parity-app/extension-window-test"

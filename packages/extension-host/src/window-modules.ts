@@ -710,7 +710,10 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     entry.extension = extension
     const half = halfOf(extension.host, entry.half)
 
-    if (entry.state === "active") {
+    // While it activates too: an `activateWindow` may wait for a setting or its Node half before it returns.
+    const listening = entry.state === "active" || entry.state === "loading"
+
+    if (listening) {
       for (const [key, value] of Object.entries(extension.settings)) {
         if (before.settings[key] !== value) {
           for (const listener of entry.settingListeners.get(key) ?? []) {
@@ -726,7 +729,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       // A Node half that stopped for good, after crashing three times in a row, stops its window module too.
       if (half === "stopped" && extension.node) {
         void deactivate(entry, "crashed")
-      } else if (entry.state === "active") {
+      } else if (listening) {
         for (const listener of entry.hostListeners) {
           guarded(entry, "host.onStateChange", () => listener(half))
         }
