@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Route copies are frozen again when the app's code changes, a route frozen again takes one snapshot per markup group, and token edits show in copies and in the page drawn with the Interact tool.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

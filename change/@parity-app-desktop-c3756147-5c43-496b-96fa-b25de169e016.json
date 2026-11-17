@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Following reaches someone whose view changes every frame, and Esc ends following before it steps out of the selection.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

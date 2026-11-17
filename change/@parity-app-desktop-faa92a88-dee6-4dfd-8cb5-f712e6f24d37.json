@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "The registry's shadcn style files are made from what shadcn-sync builds, and projects still on a Buildkit kit read each component's props from the kit's own declarations",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

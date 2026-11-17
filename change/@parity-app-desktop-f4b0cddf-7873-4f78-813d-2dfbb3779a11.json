@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Route boards go live with the Interact tool, from a pool of spare frames of the app's own page",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

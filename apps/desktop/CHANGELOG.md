@@ -1,8 +1,27 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 11:01:09 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 13:39:07 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.106.0
+
+Tue, 17 Nov 2026 13:39:07 GMT
+
+### Minor changes
+
+- Route copies are frozen again when the app's code changes, a route frozen again takes one snapshot per markup group,
+  and token edits show in copies and in the page drawn with the Interact tool. (ajcraswell@gmail.com)
+- Pages has a lens of its own: the app's routes on a canvas of their own, listed in its panel, with the selected page in
+  the inspector. The Screens canvas no longer draws pages. (ajcraswell@gmail.com)
+- Route boards go live with the Interact tool, from a pool of spare frames of the app's own page (ajcraswell@gmail.com)
+
+### Patches
+
+- Following reaches someone whose view changes every frame, and Esc ends following before it steps out of the selection.
+  (ajcraswell@gmail.com)
+- The registry's shadcn style files are made from what shadcn-sync builds, and projects still on a Buildkit kit read
+  each component's props from the kit's own declarations (ajcraswell@gmail.com)
 
 ## 0.105.0
 

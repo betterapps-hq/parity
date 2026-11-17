@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Pages has a lens of its own: the app's routes on a canvas of their own, listed in its panel, with the selected page in the inspector. The Screens canvas no longer draws pages.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
