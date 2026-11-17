@@ -110,7 +110,12 @@ export const relayedSchema = z.discriminatedUnion("kind", [
     data: z.object({ snapshot: z.string(), lineage: z.string() })
   }),
   /** Asks for the changes a copy at `version` is missing. */
-  z.object({ kind: z.literal("missing"), from: z.string(), data: z.object({ version: z.string() }) }),
+  // `back`: and ask this copy for what the asked one is missing in turn, as after the relay was down.
+  z.object({
+    kind: z.literal("missing"),
+    from: z.string(),
+    data: z.object({ version: z.string(), back: z.boolean().optional() })
+  }),
   z.object({ kind: z.literal("batch"), from: z.string(), data: batchSchema })
 ])
 
@@ -120,7 +125,7 @@ export type Relayed = z.infer<typeof relayedSchema>
 export type Outgoing =
   | { kind: "hello"; to: string }
   | { kind: "snapshot"; to: string; data: { snapshot: string; lineage: string } }
-  | { kind: "missing"; to: string; data: { version: string } }
+  | { kind: "missing"; to: string; data: { version: string; back?: boolean } }
   | { kind: "batch"; to?: string; data: Batch }
 
 export function toBase64(bytes: Uint8Array): string {

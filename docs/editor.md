@@ -6381,8 +6381,10 @@ the signed-in person's first name.
   snapshot, asked of the copies already there, so it starts from the same document, unsaved edits included. When the
   host leaves, the copy that joined next takes over.
 - **Edits merge.** Each copy sends the changes it commits, repairs included, and takes in the others', which show as
-  `remote` changes: in neither person's undo. A copy that finds a gap asks the host for what it's missing, and so does
-  one whose connection comes back. Token values merge a token at a time, and text is written as it's typed (PAR-1230).
+  `remote` changes: in neither person's undo. A copy that finds a gap asks the host for what it's missing. One whose
+  connection comes back asks both ways: the host sends what it missed and asks in turn for what the copy sent while it
+  was cut off, so those edits reach the copy writing files. Token values merge a token at a time, and text is written as
+  it's typed (PAR-1230).
 - **Only the host writes files** (PAR-1231). It writes the others' edits like its own, autosaving them on its usual
   delay, and writes the stylesheet. A copy that doesn't write files has nothing to save: its name shows no unsaved dot,
   closing it asks nothing, and Save says "Saved by the room". When it takes over, it writes every file that differs from
@@ -6416,7 +6418,8 @@ Tests:
 
 - `packages/extension-multiplayer/src/room.test.ts`: who hosts and who's here, from the relay; one batch at a time, in
   order, with only the latest presence; the first snapshot opened on; another copy's events, presence and missing
-  changes told, and a dropped connection and a reconnect noticed; asking the host for what's missing.
+  changes told, and a dropped connection and a reconnect noticed; asking the host for what's missing, and asking another
+  copy in turn when asked to.
 - `packages/extension-multiplayer/src/people.test.ts`: colors kept and given out lowest first; each person's latest
   presence, gesture and color; dragged nodes placed from the pointer; selections grouped by node.
 - `packages/extension-multiplayer/src/relay.test.ts`: the relay's rooms, hosts and messages.

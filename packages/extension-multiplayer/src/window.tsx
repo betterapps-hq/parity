@@ -226,17 +226,26 @@ export default defineWindowModule({
           .then((snapshot) => room.answerSnapshot(from, toBase64(snapshot), parity.sync.lineage))
           .catch(() => undefined)
       },
-      missing(version, from) {
+      missing(version, from, back) {
         try {
           room.sendTo(from, [{ kind: "changes", bytes: toBase64(parity.sync.changesSince(fromBase64(version))) }])
         } catch (error) {
           parity.log.warn(`Couldn't send the changes another copy missed: ${errorOf(error).message}`)
         }
+
+        // The other copy was cut off too, and may hold changes whose batches failed meanwhile.
+        if (back && opened()) {
+          room.askMissing(toBase64(parity.sync.version()), { of: from })
+        }
       },
       down: restartRelay,
       reconnected(downMs) {
         parity.telemetry.record("room.reconnected", { downMs: Math.round(downMs) })
-        askMissing()
+
+        // Both ways: what this copy sent while the relay was down never arrived.
+        if (opened()) {
+          room.askMissing(toBase64(parity.sync.version()), { back: true })
+        }
       },
       presence(presence, from) {
         people.presence(from, presence)

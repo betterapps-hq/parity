@@ -139,4 +139,28 @@ describe("joinRoom", () => {
 
     expect(relay.posted).toEqual([{ kind: "missing", to: "a", data: { version: "AA==" } }])
   })
+
+  it("asks another copy in turn when asked to, as after the relay was down, so changes made on both sides meet", () => {
+    const relay = fakeRelay()
+    const room = joinRoom(relay.transport, "a")
+    const asked: string[] = []
+    room.on({ missing: (version, from, back) => asked.push(`${from} ${version} ${back}`) })
+    relay.say({ kind: "welcome", host: "a", peers: ["a", "b"] })
+
+    relay.say({ kind: "missing", from: "b", data: { version: "AA==", back: true } })
+    relay.say({ kind: "missing", from: "b", data: { version: "AQ==" } })
+    room.askMissing("Ag==", { of: "b" })
+
+    expect(asked).toEqual(["b AA== true", "b AQ== false"])
+    expect(relay.posted).toEqual([{ kind: "missing", to: "b", data: { version: "Ag==" } }])
+  })
+
+  it("asks the host for what it missed and to be asked back, once the relay is back", () => {
+    const relay = fakeRelay()
+    const room = joinRoom(relay.transport, "b")
+    relay.say({ kind: "welcome", host: "a", peers: ["a", "b"] })
+    room.askMissing("AA==", { back: true })
+
+    expect(relay.posted).toEqual([{ kind: "missing", to: "a", data: { version: "AA==", back: true } }])
+  })
 })

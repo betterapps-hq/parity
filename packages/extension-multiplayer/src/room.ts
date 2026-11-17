@@ -48,8 +48,8 @@ export interface RoomListeners {
   presence(presence: PersonPresence, from: string): void
   /** A copy that's joining asks for the document. */
   hello(from: string): void
-  /** Another copy is missing changes since `version`. */
-  missing(version: string, from: string): void
+  /** Another copy is missing changes since `version`, and with `back`, wants to be asked for what this one is missing. */
+  missing(version: string, from: string, back: boolean): void
   /** The connection to the relay dropped, or failed again while down: the relay may have stopped with its copy. */
   down(): void
   /** The connection came back after `downMs`: this copy may have missed changes. */
@@ -74,8 +74,11 @@ export interface Room {
   /** Sends events to one copy, as changes another copy asked for. */
   sendTo(to: string, events: RoomEvent[]): void
   answerSnapshot(to: string, snapshot: string, lineage: string): void
-  /** Asks the host for the changes since `version`. */
-  askMissing(version: string): void
+  /**
+   * Asks `of` (the host, unless given) for the changes since `version`. With `back`, it asks this copy in turn for
+   * what it's missing, so changes made on both sides while the relay was down reach both.
+   */
+  askMissing(version: string, options?: { of?: string; back?: boolean }): void
   /** Sets what this person is doing; sent with the next batch. */
   presence(presence: PersonPresence): void
   on(listeners: Partial<RoomListeners>): () => void
@@ -198,7 +201,7 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
         snapshots.clear()
         break
       case "missing":
-        tell("missing", message.data.version, message.from)
+        tell("missing", message.data.version, message.from, message.data.back === true)
         break
       case "batch":
         for (const event of message.data.events) {
@@ -267,9 +270,10 @@ export function joinRoom(transport: Transport, peer: string, now: () => number =
     answerSnapshot(to, snapshot, lineage) {
       void transport.post({ kind: "snapshot", to, data: { snapshot, lineage } }).catch(() => undefined)
     },
-    askMissing(version) {
-      if (host && host !== peer) {
-        void transport.post({ kind: "missing", to: host, data: { version } }).catch(() => undefined)
+    askMissing(version, { of = host, back = false } = {}) {
+      if (of && of !== peer) {
+        const data = back ? { version, back } : { version }
+        void transport.post({ kind: "missing", to: of, data }).catch(() => undefined)
       }
     },
     presence(presence) {
