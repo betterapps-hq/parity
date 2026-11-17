@@ -4830,7 +4830,7 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 
-### Each layer kind's own panel (PAR-1057 to PAR-1062)
+### Each layer kind's own panel (PAR-1057 to PAR-1064)
 
 Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
 the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout,
@@ -4845,10 +4845,14 @@ component takes no `className`, a note stands in for its style sections. The cap
 layer can't take: a design's root has no Position, and a frame's root starts with its size. On a layout, a component or
 an instance, Typography folds to its title and + until it sets something; + opens it.
 
+Several layers of one kind show their style sections in that kind's order, as its own panel does; several layers of
+different kinds show only the sections they all share, in the table's order, with Mixed where values differ (PAR-1064).
+
 Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from the sections before its style and its order
 (`LayoutPanel`, `TextPanel`, `MediaPanel` for images and videos, `IconPanel`, and `InstancePanel` for both kinds of
-instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an icon by `isIconLayer`; `StyleSections`'
-`order`; the fold in `inspector/sections/TypographySection.tsx`.
+instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an icon by `isIconLayer`; `kindOrders` and
+`oneKindOrder`, which `MultiLayerPanel` in `chrome/MultiPanel.tsx` uses too; `StyleSections`' `order`; the fold in
+`inspector/sections/TypographySection.tsx`.
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
 typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
@@ -4856,8 +4860,10 @@ Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and 
 Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
 (Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
 (Layers › Component instance): Code Component, Component instance first and no Layout; Design Instance, Component
-instance first. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column
-the app's `LayerPanel` with its own selection, to compare them while each kind's panel is built.
+instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography before Size;
+Layers Of Different Kinds, no Layout or Content. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's
+panel side by side, each column the app's `LayerPanel` with its own selection, to compare them while each kind's panel
+is built.
 
 Tests:
 

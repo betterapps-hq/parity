@@ -37,65 +37,75 @@ const position: readonly StyleSection[] = ["placement", "layerOrder", "transform
 /** How a layer is drawn after its fill and stroke, folded until each is set. */
 const drawn: readonly StyleSection[] = ["effects", "motion", "rawCss"]
 
-/**
- * A layout (PAR-1057): how it lays out its children first, then its own size and the box around it, where it sits, and
- * how it's drawn. Typography, for the text inside it, folds until it's set. A frame's root starts with the frame's size.
- */
-export const LayoutPanel = kindPanel("LayoutPanel", [
-  "frameSize",
-  "layout",
+/** The kinds with a panel of their own: a layer's type, or an icon, which is a code component from an icon set. */
+export type PanelKind = DesignNode["type"] | "icon"
+
+/** An image's or a video's style sections, the same for both. */
+const mediaOrder: readonly StyleSection[] = ["size", "spacing", ...position, "appearance", "stroke", ...drawn]
+
+/** Both kinds of component instance's style sections: a component design's and a code component's. */
+const instanceOrder: readonly StyleSection[] = [
   "size",
   "spacing",
   ...position,
+  "text",
+  "appearance",
   "fill",
   "stroke",
-  "appearance",
-  "text",
   ...drawn
-])
+]
 
 /**
- * A text layer (PAR-1058): the text it shows, its type and color, then how it sizes and where it sits, and how it's
- * drawn. Fill is its background, and folds until one is set.
+ * Each kind's style sections, in its order: its own panel's, and a selection of several layers of that one kind's
+ * (`MultiLayerPanel`). The capability table still leaves out what the layers can't take.
  */
-export const TextPanel = kindPanel(
-  "TextPanel",
-  ["text", "size", "spacing", ...position, "appearance", "fill", "stroke", ...drawn],
-  [LayerContent]
-)
+export const kindOrders = {
+  /**
+   * A layout (PAR-1057): how it lays out its children first, then its own size and the box around it, where it sits,
+   * and how it's drawn. Typography, for the text inside it, folds until it's set. A frame's root starts with its size.
+   */
+  layout: ["frameSize", "layout", "size", "spacing", ...position, "fill", "stroke", "appearance", "text", ...drawn],
+  /**
+   * A text layer (PAR-1058): its type and color, then how it sizes and where it sits, and how it's drawn. Fill is its
+   * background, and folds until one is set.
+   */
+  text: ["text", "size", "spacing", ...position, "appearance", "fill", "stroke", ...drawn],
+  /** An image or a video (PAR-1059, PAR-1060): no Fill, since the picture fills it. */
+  image: mediaOrder,
+  video: mediaOrder,
+  /** An icon (PAR-1061): its color and stroke are its own, so it has no Typography, Fill or Stroke. */
+  icon: ["size", "spacing", ...position, "appearance", ...drawn],
+  /** A component instance (PAR-1062): no Layout; Typography is for the text inside it. */
+  instance: instanceOrder,
+  component: instanceOrder
+} satisfies Partial<Record<PanelKind, readonly StyleSection[]>>
+
+/** The order of layers' style sections when they're all of one kind that has one; none for layers of different kinds. */
+export function oneKindOrder(kinds: readonly PanelKind[]): readonly StyleSection[] | undefined {
+  const orders: Partial<Record<PanelKind, readonly StyleSection[]>> = kindOrders
+  const [kind] = kinds
+
+  return kind !== undefined && kinds.every((each) => each === kind) ? orders[kind] : undefined
+}
+
+/** A layout's panel (PAR-1057). */
+export const LayoutPanel = kindPanel("LayoutPanel", kindOrders.layout)
+
+/** A text layer's panel (PAR-1058): the text it shows, then its style. */
+export const TextPanel = kindPanel("TextPanel", kindOrders.text, [LayerContent])
+
+/** An image's or a video's panel (PAR-1059, PAR-1060): its file first; Content shows what differs, a video's controls. */
+export const MediaPanel = kindPanel("MediaPanel", mediaOrder, [LayerMedia])
+
+/** An icon's panel (PAR-1061): which icon it is and the props it sets, then its style. */
+export const IconPanel = kindPanel("IconPanel", kindOrders.icon, [PropsSection])
 
 /**
- * An image's or a video's sections: its size, where it sits, its corners and opacity, and its border, after its file. It
- * has no Fill: the picture fills it.
+ * A component instance's panel (PAR-1062), of a component design or of a code component: its props, with the slots it
+ * fills, and what it passes on to its element, then its style. A code component that takes no `className` says so in
+ * place of its style sections, which the capability table leaves out.
  */
-const mediaSections: readonly StyleSection[] = ["size", "spacing", ...position, "appearance", "stroke", ...drawn]
-
-/** An image or a video (PAR-1059, PAR-1060): the same panel, since Content shows what differs, a video's controls. */
-export const MediaPanel = kindPanel("MediaPanel", mediaSections, [LayerMedia])
-
-/**
- * An icon (PAR-1061): which icon it is and the props it sets, then its size and where it sits, and how it's drawn. Its
- * color and stroke are the icon's own, so it has no Typography, Fill or Stroke.
- */
-export const IconPanel = kindPanel(
-  "IconPanel",
-  ["size", "spacing", ...position, "appearance", ...drawn],
-  [PropsSection]
-)
-
-/**
- * A component instance (PAR-1062), of a component design or of a code component: its props, with the slots it fills,
- * and what it passes on to its element, then its size, where it sits, the text inside it and how it's drawn. A code
- * component that takes no `className` says so in place of its style sections, which the capability table leaves out.
- */
-export const InstancePanel = kindPanel(
-  "InstancePanel",
-  ["size", "spacing", ...position, "text", "appearance", "fill", "stroke", ...drawn],
-  [PropsSection, AttributesSection, LayerNoStyle]
-)
-
-/** The kinds with a panel of their own: a layer's type, or an icon, which is a code component from an icon set. */
-export type PanelKind = DesignNode["type"] | "icon"
+export const InstancePanel = kindPanel("InstancePanel", instanceOrder, [PropsSection, AttributesSection, LayerNoStyle])
 
 /** Each kind's panel. Read when a panel draws, so the panels above are built by then. */
 export const kindPanels: Partial<Record<PanelKind, ComponentType>> = {
