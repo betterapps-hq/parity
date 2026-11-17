@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 21:10:27 GMT",
+      "version": "0.83.1",
+      "tag": "@parity-app/cli_v0.83.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "5551684cecfc7b3db782d2c3f1335dad12874163",
+            "comment": "The registry's shadcn style files are named for their base and style, as shadcn-base-nova, and projects still on a retired Buildkit kit are read with their style's file"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "fdffb5b2dc0727997062a38420174810191184e1",
+            "comment": "Saving a project file keeps the key order it has on disk, so a copy that takes over a live room changes only the lines it edited"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 15:27:12 GMT",
       "version": "0.83.0",
       "tag": "@parity-app/cli_v0.83.0",

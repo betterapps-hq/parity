@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 15:27:12 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 21:10:27 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.83.1
+
+Tue, 17 Nov 2026 21:10:27 GMT
+
+### Patches
+
+- The registry's shadcn style files are named for their base and style, as shadcn-base-nova, and projects still on a
+  retired Buildkit kit are read with their style's file (ajcraswell@gmail.com)
+- Saving a project file keeps the key order it has on disk, so a copy that takes over a live room changes only the lines
+  it edited (ajcraswell@gmail.com)
 
 ## 0.83.0
 
