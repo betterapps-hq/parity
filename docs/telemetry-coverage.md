@@ -49,7 +49,8 @@ Across all of them:
   derives the location when that's on: country, and also region and city where it can.
 - **Sentry's own sessions** come from main, so crash-free rates exist for the app. The CLI sends none.
 - **Nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their own, and
-  every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option.
+  every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. One event samples itself:
+  `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every other ending.
 
 ### Report a problem
 

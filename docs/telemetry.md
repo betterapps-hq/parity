@@ -383,6 +383,19 @@ Editing on the canvas and in the inspector is recorded once per thing done, neve
   that pastes nothing is `clipboard.failed` with why.
 - **`text.edited` comes from the text editor on the canvas** as it closes.
 
+## Others on the canvas
+
+The canvas records how what it draws for others ends (PAR-1234), once each, from the renderer's primitives that the
+multiplayer and agent presence extensions draw through:
+
+- **`dragPreview.settled` comes from `canvas/preview-life.ts`** as a preview of someone else's drag ends. One that ends
+  by its write is recorded one time in ten, since nearly all should; a `timeout`, a `cancel` or a `disposed` always is.
+  A `timeout` means the write covering the drop never came within 2 s, the first sign that activity and writes arrive
+  out of order. `concurrent` counts the previews open at once, this one among them.
+- **`hold.released` comes from `canvas/board-holds.ts`** as each hold on a board ends: let go, after the 10 s limit,
+  grabbed by the person, or disposed. A `timeout` means an agent's write never came, or agent presence's queue outlasted
+  the limit. `extension` is `agent-presence` for agents' holds.
+
 ## Signing in
 
 Main records the `account.*` events from `main/account.ts` and `main/session-store.ts` (PAR-807). They describe an
@@ -503,6 +516,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `document.loadedFromDisk`          | info  | all  | renderer                                | The person chooses Load from disk after a conflict, putting away their unsaved changes.                                                                                    |
 | `document.saveFailed`              | warn  | all  | renderer                                | A design file couldn't be saved.                                                                                                                                           |
 | `document.saved`                   | info  | all  | renderer                                | A design file is saved.                                                                                                                                                    |
+| `dragPreview.settled`              | info  | all  | renderer                                | A preview of someone else's drag ends. One in ten that end by their write is recorded; every other ending is.                                                              |
 | `edit.redone`                      | info  | all  | renderer                                | A step undone is redone.                                                                                                                                                   |
 | `edit.undone`                      | info  | all  | renderer                                | A step is undone.                                                                                                                                                          |
 | `error.caught`                     | error | all  | renderer                                | A failure is shown as an error notification.                                                                                                                               |
@@ -513,6 +527,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `frame.rendered`                   | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it.                                                               |
 | `gesture.ended`                    | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                                                                                       |
 | `gesture.ran`                      | info  | all  | renderer                                | A press on the canvas becomes a drag, until the drag ends.                                                                                                                 |
+| `hold.released`                    | info  | all  | renderer                                | A hold on a board an agent moves ends.                                                                                                                                     |
 | `insert.done`                      | info  | all  | renderer                                | Something is inserted onto the canvas.                                                                                                                                     |
 | `inspector.changed`                | info  | all  | renderer                                | A field in the inspector changes a layer, a design or a token.                                                                                                             |
 | `installId.unsaved`                | warn  | all  | main                                    | A new install ID can't be saved to `settings.json` yet, so a start before it's saved makes another.                                                                        |
@@ -894,6 +909,17 @@ Some failures are recorded for you, so code doesn't record them again:
 | `bytes`      | `integer`          | The document's size as JSON                                           |
 | `exportMs`   | `number`, optional | Time to produce the file's content from the document, in milliseconds |
 
+### `dragPreview.settled`
+
+| Attribute    | Type                                             | Meaning                                                                                                                            |
+| ------------ | ------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `extension`  | `string`                                         | What showed it or made it: an internal extension's id, `agent-presence`, or `core` for Parity's own                                |
+| `kind`       | `"board" \| "layout" \| "absolute"`              | What it moved: boards, layers in a layout, or an absolutely placed layer                                                           |
+| `items`      | `integer`                                        | How many nodes it moved                                                                                                            |
+| `how`        | `"write" \| "timeout" \| "cancel" \| "disposed"` | How it ended: settled by the write covering the drop, given up on after 2 s without one, called off, or disposed by what showed it |
+| `durationMs` | `number`                                         | From when it showed to when it ended, in milliseconds                                                                              |
+| `concurrent` | `integer`                                        | Previews open at once when it ended, this one among them                                                                           |
+
 ### `edit.redone`
 
 | Attribute | Type       | Meaning                                                                   |
@@ -1008,6 +1034,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ------------------ | --------------------------------------------------- |
 | `gesture` | `string`           | The gesture's kind, as `canvas/gesture.ts` names it |
 | `how`     | `string`, optional | How it ended: release, escape or interrupted        |
+
+### `hold.released`
+
+| Attribute   | Type                                                 | Meaning                                                                                                   |
+| ----------- | ---------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `extension` | `string`                                             | What showed it or made it: an internal extension's id, `agent-presence`, or `core` for Parity's own       |
+| `how`       | `"released" \| "timeout" \| "grabbed" \| "disposed"` | How it ended: let go, after the 10 s limit, by the person grabbing the board, or disposed by what made it |
+| `heldMs`    | `number`                                             | How long the board was held, in milliseconds                                                              |
 
 ### `insert.done`
 

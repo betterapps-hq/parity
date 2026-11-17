@@ -135,20 +135,28 @@ export function liftElements(
     }
   }
 
+  /**
+   * What this lift still holds: an element lifted again since, as by someone else's drag of the same board, is the
+   * newer lift's, which putting this one down leaves alone.
+   */
+  const live = () => lifted.filter(({ element, restore }) => settling.get(element) === restore)
+
   /** Puts them down, as `drawn` says for each, and takes everything off once `ms` have passed. */
   const putDown = (ms: number, drawn: (entry: (typeof lifted)[number]) => Written) => {
+    const held = live()
+
     if (reduced) {
-      lifted.forEach(({ restore }) => restore())
+      held.forEach(({ restore }) => restore())
 
       return
     }
 
-    for (const entry of lifted) {
+    for (const entry of held) {
       write(entry.style, drawn(entry))
       grown.delete(entry.element)
     }
 
-    lifted.forEach(({ settle }) => settle(ms))
+    held.forEach(({ settle }) => settle(ms))
   }
 
   return {
@@ -179,10 +187,13 @@ export function liftElements(
         })
 
         // Where it was let go, at once, then back to where it was, settling as it goes.
-        lifted.forEach(({ element, style, held }, index) => {
-          const from = translated(held, away[index]!)
+        const held = live()
 
-          if (!reduced && from) {
+        lifted.forEach((entry, index) => {
+          const from = translated(entry.held, away[index]!)
+
+          if (!reduced && from && held.includes(entry)) {
+            const { element, style } = entry
             write(style, { transition: "none", translate: from })
             element.getBoundingClientRect()
           }
@@ -239,34 +250,57 @@ function pinned(
   return translated(translate, toOwn({ x: at.x - goes.x, y: at.y - goes.y }))
 }
 
+/** What `styleElements` wrote over, by element and property: the value before the first wrote, and how many write. */
+const styled = new WeakMap<CSSStyleDeclaration, Map<string, { value: string; priority: string; by: number }>>()
+
 /**
  * Writes `values` on elements of the canvas's own, such as the look of where layers landed, until what it gives back is
- * called, which puts back what was there.
+ * called, which puts back what was there. Several drags can write one property, as two people's previews called off on
+ * one layer; what was there before any of them comes back once the last lets go.
  */
 export function styleElements(elements: readonly Element[], values: Readonly<Record<string, string>>): () => void {
-  const saved = elements.flatMap((element) => {
+  const written = elements.flatMap((element) => {
     if (!(element instanceof HTMLElement || element instanceof SVGElement)) {
       return []
     }
 
     const { style } = element
+    const properties = styled.get(style) ?? new Map<string, { value: string; priority: string; by: number }>()
+    styled.set(style, properties)
 
-    return Object.keys(values).map((name) => ({
-      style,
-      name,
-      value: style.getPropertyValue(name),
-      priority: style.getPropertyPriority(name)
-    }))
+    return Object.keys(values).map((name) => {
+      const saved = properties.get(name) ?? {
+        value: style.getPropertyValue(name),
+        priority: style.getPropertyPriority(name),
+        by: 0
+      }
+
+      saved.by++
+      properties.set(name, saved)
+      style.setProperty(name, values[name]!, "important")
+
+      return { style, name, saved }
+    })
   })
 
-  for (const { style, name } of saved) {
-    style.setProperty(name, values[name]!, "important")
-  }
+  let put = false
 
   return () => {
-    for (const { style, name, value, priority } of saved) {
-      if (value) {
-        style.setProperty(name, value, priority)
+    if (put) {
+      return
+    }
+
+    put = true
+
+    for (const { style, name, saved } of written) {
+      if (--saved.by > 0) {
+        continue
+      }
+
+      styled.get(style)?.delete(name)
+
+      if (saved.value) {
+        style.setProperty(name, saved.value, saved.priority)
       } else {
         style.removeProperty(name)
       }

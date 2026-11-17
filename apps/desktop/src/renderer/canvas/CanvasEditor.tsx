@@ -30,9 +30,9 @@ import {
   type TLComponents,
   Tldraw
 } from "tldraw"
-import { heldBoards } from "../agent/held-boards.ts"
 import { holdWhileZooming } from "../replay.ts"
 import { useResolvedTheme } from "../theme.ts"
+import { holds } from "./board-holds.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
 import { isFarZoom } from "./frame-bitmaps.ts"
@@ -44,6 +44,7 @@ import { redrawLayer } from "./layer-redraw.ts"
 import { NoteUtil } from "./NoteUtil.tsx"
 import { sizeWhileShown } from "./overlay-canvas.ts"
 import { PageLinksUtil } from "./PageLinksUtil.tsx"
+import { placedBoards } from "./placed-boards.ts"
 import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
 import { RoomCursor } from "./RoomCursor.tsx"
@@ -361,8 +362,9 @@ export function CanvasEditor({
         const wanted = new Map<CanvasId, Projected>()
 
         for (const { key, container } of containerEntries(doc)) {
-          // A board an agent moved stays where it was until the agent's cursor drags it over.
-          const at = heldBoards.at(tab, key) ?? container.position
+          // A board an agent moved stays where it was until the agent's cursor drags it over, and one someone else is
+          // dragging follows their pointer (`placedBoards`).
+          const at = placedBoards.at(tab, key) ?? container.position
           // A locked design's board is a locked shape, which tldraw neither selects nor moves (PAR-192).
           const locked = container.locked === true
           wanted.set(canvasIdFor(key), { type: "canvas-container", key, ...at, locked })
@@ -399,14 +401,27 @@ export function CanvasEditor({
               editor.deleteShapes(stale.map((item) => item.id))
             }
 
+            // What the person is dragging stays under their pointer: their drag wins over a hold they grabbed.
+            const dragged = new Set([
+              ...(editor.isIn("select.translating") ? editor.getSelectedShapeIds() : []),
+              ...[...designDrag.designs].map(canvasIdFor)
+            ])
+
             for (const [id, { type, key, x, y, locked = false, size, link }] of wanted) {
               const placed = editor.getShape(id)
               const meta = link ? { link } : {}
 
+              const moved =
+                !dragged.has(id) && (Math.abs((placed?.x ?? x) - x) >= 1 || Math.abs((placed?.y ?? y) - y) >= 1)
+
               if (!placed) {
                 editor.createShape({ id, type, x, y, isLocked: locked, props: { key, ...size }, meta })
-              } else if (Math.abs(placed.x - x) >= 1 || Math.abs(placed.y - y) >= 1 || placed.isLocked !== locked) {
-                editor.updateShape({ id, type: placed.type, x, y, isLocked: locked })
+              } else if (moved || placed.isLocked !== locked) {
+                editor.updateShape(
+                  moved
+                    ? { id, type: placed.type, x, y, isLocked: locked }
+                    : { id, type: placed.type, isLocked: locked }
+                )
               }
 
               if (!placed && type === "canvas-page-links") {
@@ -444,7 +459,7 @@ export function CanvasEditor({
       const stopZoomedOut = markZoomedOut(editor)
       const stopOverlays = sizeOverlays(editor)
       const stopDoc = doc.subscribe(() => sync())
-      const stopHeld = heldBoards.subscribe(sync)
+      const stopHeld = placedBoards.subscribe(sync)
 
       // A pan or a zoom is a gesture of its own, recorded once the camera settles (PAR-640).
       const camera = new CameraGestures()
@@ -505,7 +520,17 @@ export function CanvasEditor({
 
         const gesture = translating ? translation?.gesture : undefined
 
-        if (next.type === "canvas-container" && !heldBoards.at(tab, next.props.key)) {
+        // The person dragging a board themselves, not a hold or preview placing it.
+        const grabbed =
+          next.type === "canvas-container" && translating && editor.getSelectedShapeIds().includes(next.id)
+
+        // Grabbing a held board lets go of it, and the person's drag wins.
+        if (grabbed) {
+          holds.grab(tab, next.props.key)
+        }
+
+        // A placed board is drawn where it's held or previewed, which isn't written back; the person's own drag is.
+        if (next.type === "canvas-container" && (grabbed || !placedBoards.at(tab, next.props.key))) {
           setPosition(doc, next.props.key, { x: next.x, y: next.y }, { gesture })
         }
 
