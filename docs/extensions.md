@@ -14,7 +14,8 @@ breaks a rule, naming the field by its JSON pointer (`/parity/contributes/comman
 - **`displayName`, `prefix` and `icon`.** The icon is path data and a `viewBox`, drawn in the text's color, never a file
   or markup.
 - **`activates`:** `onDetect` (the project has the extension's tool), `onStartup`, `onCommand:<id>`, `onView:<id>` or
-  `onNodeType:<type>`. An event naming a command, tab or page has to name one the manifest declares.
+  `onNodeType:<type>`. An event naming a command, tab or page has to name one the manifest declares. An internal
+  extension's window module also takes `onSetting:<key>` (below).
 - **`detect`** (PAR-1128) says how Parity finds the extension's tool, with no code of the extension's and nothing Parity
   knows of the tool ([`detect.ts`](../packages/extension-host/src/detect.ts)). It's found when any rule holds: `peers`,
   the project's package.json declares a package its peer dependencies name (what an extension without `detect` gets, as
@@ -301,6 +302,54 @@ An extension can offer an API to other extensions, and its commands and tools to
   parity.agentTools.register("a11y.page", async ({ component }) => ({ url: await pageOf(String(component)) }))
   ```
 
+## Internal extensions and window modules
+
+Parity's own extensions can be **internal** (PAR-1235,
+[proposals/extensions-in-the-window.md](proposals/extensions-in-the-window.md)): built and released with the app, so
+they share its React, kit and theme, and promise nothing beyond the build they ship in. Multiplayer and agents' pointers
+are to become internal extensions. None of the built-in extensions is one yet.
+
+- **One list.** Parity's built-in extensions are listed once, in
+  [`shared/built-in-extensions.ts`](../apps/desktop/src/shared/built-in-extensions.ts). The service's hosts, the bundles
+  of their Node halves that `scripts/build.ts` and `scripts/dev.ts` make, and the window modules the window's build
+  compiles ([`renderer/window-module-list.ts`](../apps/desktop/src/renderer/window-module-list.ts), generated from it)
+  all come from it. Each window module is a chunk of its own.
+- **The manifest.** `internal: true` is refused unless the extension is in that list. Only an internal extension may
+  have `window`, the package export of its window module (`./window`), `capabilities`, `detect: { always: true }`, which
+  finds it in every project, `contributes.sync`, which says it brings the room, or `onSetting:<key>`, which must name
+  one of its boolean `app` settings. An internal extension may have no `main`, and so no Node half. A manifest that
+  breaks one of these rules is left out and recorded as `extension.manifestRefused`, naming the rule, and so are both of
+  two that bring the room.
+- **When a window module runs.** Each project tab loads, on the main thread, the window modules whose activation holds,
+  each with a `WindowParity` of its own for that tab: `onStartup`, in every tab, or `onSetting:<key>`, while that
+  setting is on. It's deactivated when its setting goes off, its extension goes, its Node half stops for good, or the
+  tab closes. Deactivating disposes of its `subscriptions`, newest first, then calls its `deactivateWindow`. The service
+  never starts an internal extension's Node half by itself: it starts as the window module activates.
+- **Its commands.** A command a window module registers runs in its tab wherever it's run from: Search, another module's
+  `commands.execute`, a Node half, or an agent through `run_extension`. The service asks the tab first, then the Node
+  half. During an agent's run, what the module asks of its Node half, and another extension's command it runs, count as
+  the agent's.
+- **`WindowParity`** ([`@parity-app/extension/internal`](../packages/extension/src/internal.ts)) gives the extension,
+  the project, its `tab`, `subscriptions`, `commands` (its own, which run in the tab, and Parity's), `selection`,
+  `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `host`, its own Node half,
+  and `extensions.get(id)`, another window module in the tab that its `extensionDependencies` names, as it comes and
+  goes. The canvas, the camera, presence, sync and agents' activity come later, each checked against `capabilities` as
+  it's read: reading one that isn't declared throws, naming the capability, and records `extension.capabilityMissing`.
+- **The two halves** call each other. The window module calls what its Node half's `activate` returned through
+  `parity.host.api()`, and the Node half calls what `activateWindow` returned as `node` through `parity.window.api()`,
+  JSON across processes, through the service. A call to a half that isn't `ready` rejects at once with
+  `HalfUnavailableError`, rather than waiting. Window modules in one tab call each other directly, with any values.
+- **Containment.** Every call core makes into a window module (listeners, its commands, calls from its Node half) is
+  wrapped: a failure is logged against the extension, sent to Sentry tagged `extension`, `extension_half` and `tab`, and
+  counted. After five in a tab, the module is stopped there with "Multiplayer stopped working in this tab", and stays
+  stopped until the project is opened again. A module that can't load or activate is left off the same way. A Node half
+  that crashes three times in a row is left stopped, as any host is, and its window module is deactivated.
+  [docs/telemetry.md](telemetry.md#extensions) lists the lifecycle events.
+
+The runtime, [`window-modules.ts`](../packages/extension-host/src/window-modules.ts), takes the window's loader, the
+editor's selection and navigation, and its link to the Node halves as arguments, so its tests run without Electron;
+[`renderer/window-modules.ts`](../apps/desktop/src/renderer/window-modules.ts) gives it the tab's.
+
 ## Portless
 
 [packages/extension-portless](../packages/extension-portless) is Portless as an extension, built in. It starts for a
@@ -383,18 +432,39 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   out, a command run for an agent giving back what it returned with its change named after both, two agents' overlapping
   calls each named after its own agent, an extension started by an agent's call activating as the agent's, the same
   through another extension's API, a tool's input checked against its schema, questions failing while an agent runs it,
-  and what agents read of each extension.
+  what agents read of each extension, and a Node half starting though a dependency has only a window module.
 - [extension-storybook-a11y's extension.test.ts](../packages/extension-storybook-a11y/src/extension.test.ts): its
   manifest and a story's accessibility page. [dependencies.test.ts](../packages/extension-host/src/dependencies.test.ts)
   runs it with the Storybook extension in the real host code: Check accessibility in Storybook opening the panel through
   the Storybook extension's API, its processes handed over once Storybook's extension has activated, and its agent tool.
 - `packages/agent/src/dispatch.test.ts` "extensions" and `packages/cli/src/operations.test.ts`: `get_extensions` and
   `run_extension`, as `parity extensions` and `parity run`, with the caller named.
+- [manifest.test.ts](../packages/extension/src/reader/manifest.test.ts) (PAR-1235): an internal extension read from the
+  built-in list, refused outside it, internal-only fields on one that isn't, the `sync` capability without
+  `contributes.sync`, `onSetting` without a window module or naming what isn't a boolean app setting, a window module
+  without a Node half, and both of two that bring the room refused.
+- [built-in-extensions.test.ts](../apps/desktop/src/shared/built-in-extensions.test.ts): every built-in read, the
+  service's hosts, the Node halves' bundles and the window module list coming from the one list, and
+  `renderer/window-module-list.ts` being what the list generates, which `-u` writes again.
+- [window-modules.test.ts](../packages/extension-host/src/window-modules.test.ts): a test-only internal extension
+  ([fixtures/window-test.ts](../packages/extension-host/src/fixtures/window-test.ts)) activating while its setting is on
+  and stopping when it goes off, `onStartup` in every tab, five failures stopping it in a tab, failures from a replaced
+  run logged without stopping the next, a throwing listener counted, `HalfUnavailableError` while its Node half isn't
+  ready, its Node half's state heard while it activates, a module without a Node half, a Node half stopping for good,
+  calls from the Node half, a missing capability, a window module it builds on coming and going, and gone before its
+  slow teardown rather than after it's back, settings, a project setting's change kept under the prefix as the Node
+  half's are, the tab closing, failing to activate, a module turned off while it activates torn down at once, and an
+  activation that's been overtaken, finishing or throwing, without undoing the one after it. With its Node half in the
+  real host code over in-memory ports: the Node half started only with its window module, the Node half told the window
+  module's state while it activates, each half calling the other, a command the window module registered run by its
+  module, the service and an agent, the agent's call carried through to the Node half and back from it through the
+  window module, two agents' overlapping calls each kept apart, a command run from inside an agent's window command
+  without waiting behind it, and three crashes deactivating the window module.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
-own. They were tried in the running app on 2026-11-14, on `examples/shadcn-vite`: the status item, the component card's
-facts and menu, Open in Storybook starting Storybook and opening it, the log tab, and killing the host 3 times, which
-left it stopped with a toast whose Restart brought it back while the canvas carried on. Settings was tried there on
-2026-11-14 too: Storybook's page drawn from its manifest in Settings' own view, Open stories in saved to
-`settings.json`, the config folder an unsaved undo step, the editor page's attempt to change the app setting refused,
-and a page opened in Parity's own window.
+own, nor has `renderer/window-modules.ts`, which no built-in extension uses yet. They were tried in the running app on
+2026-11-14, on `examples/shadcn-vite`: the status item, the component card's facts and menu, Open in Storybook starting
+Storybook and opening it, the log tab, and killing the host 3 times, which left it stopped with a toast whose Restart
+brought it back while the canvas carried on. Settings was tried there on 2026-11-14 too: Storybook's page drawn from its
+manifest in Settings' own view, Open stories in saved to `settings.json`, the config folder an unsaved undo step, the
+editor page's attempt to change the app setting refused, and a page opened in Parity's own window.

@@ -10,17 +10,20 @@
 //                               (scripts/dev-room.ts); PARITY_ROOM_NAME names this copy's cursor
 import { type ChildProcess, spawn } from "node:child_process"
 import { cpSync, existsSync, readFileSync } from "node:fs"
+import { createRequire } from "node:module"
 import { join, resolve } from "node:path"
 import { parseEnv } from "node:util"
 import { type BuildContext, type BuildOptions, context, type Plugin } from "esbuild"
 import { createServer } from "vite"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { print } from "../../../scripts/output.ts"
+import { nodeHalfEntries } from "../src/shared/built-in-extensions.ts"
 import { startRoomRelay } from "./dev-room.ts"
 import { installedElectron, parityElectron } from "./parity-electron.ts"
 import { reactFlag, reactProductionMode } from "./react-build.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
+const require = createRequire(join(appDir, "package.json"))
 const repoDir = resolve(appDir, "../..")
 
 // A second copy of the app, such as the one `pnpm perf` starts, bundles into its own folder: Electron restarts the
@@ -145,20 +148,10 @@ const builds: BuildContext[] = [
       "props-worker": join(appDir, "src/utility/props-worker.ts"),
       "builder-process": join(appDir, "src/utility/builder-process.ts"),
       "extension-host": join(appDir, "src/utility/extension-host.ts"),
-      // Parity's own extensions, which a host loads only when one activates.
-      "extensions/react": join(appDir, "../../packages/extension-react/src/extension.ts"),
-      "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts"),
-      "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts"),
-      "extensions/tailwind": join(appDir, "../../packages/extension-tailwind/src/extension.ts"),
-      "extensions/shadcn": join(appDir, "../../packages/extension-shadcn/src/extension.ts"),
-      "extensions/vite": join(appDir, "../../packages/extension-vite/src/extension.ts"),
-      "extensions/rspack": join(appDir, "../../packages/extension-rspack/src/extension.ts"),
-      "extensions/rsbuild": join(appDir, "../../packages/extension-rsbuild/src/extension.ts"),
-      "extensions/turbopack": join(appDir, "../../packages/extension-turbopack/src/extension.ts"),
-      "extensions/webpack": join(appDir, "../../packages/extension-webpack/src/extension.ts"),
-      "extensions/tanstack-router": join(appDir, "../../packages/extension-tanstack-router/src/extension.ts"),
-      "extensions/react-router": join(appDir, "../../packages/extension-react-router/src/extension.ts"),
-      "extensions/portless": join(appDir, "../../packages/extension-portless/src/extension.ts")
+      // Parity's own extensions' Node halves, from the built-in list, which a host loads only when one activates.
+      ...Object.fromEntries(
+        Object.entries(nodeHalfEntries()).map(([bundle, specifier]) => [bundle, require.resolve(specifier)])
+      )
     },
     format: "esm",
     outExtension: { ".js": ".mjs" },

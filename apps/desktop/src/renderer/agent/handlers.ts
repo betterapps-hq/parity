@@ -21,6 +21,7 @@ import { clearProjectExtensionSetting, setProjectExtensionSetting } from "../pro
 import { reportIds } from "../replay.ts"
 import { track } from "../report-error.ts"
 import { notify } from "../toasts.tsx"
+import { runWindowCommand, windowModulesFor } from "../window-modules.ts"
 import { type ProjectSession, type Tab, workspace } from "../workspace.ts"
 import { presence } from "./presence.ts"
 
@@ -187,6 +188,23 @@ const handlers: Handlers = {
       asked.extension
 
     return answerExtension(name, asked)
+  },
+  "extensions.windowCall": async ({ projectId, extension, method, args }) => {
+    const session = sessionOf(projectId)
+    const modules = session && windowModulesFor(session)
+
+    if (!modules) {
+      throw new Error(`No tab has project ${projectId} open with window modules`)
+    }
+
+    const result = await modules.callFromNode(extension, method, args)
+
+    return result === undefined ? {} : { result }
+  },
+  "extensions.windowRun": async ({ projectId, command, target, call }) => {
+    const session = sessionOf(projectId)
+
+    return session ? runWindowCommand(session, command, target, call) : { handled: false }
   },
   "extensions.transact": ({ projectId, label, operations }) => {
     const session = sessionOf(projectId)

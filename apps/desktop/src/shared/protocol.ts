@@ -30,7 +30,7 @@ import type {
   RecoveryCopy,
   ReferenceAdded
 } from "@parity-app/editor"
-import type { ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension"
+import type { CommandTarget, ParityRole, ProcessInfo, ProcessState, SettingValue } from "@parity-app/extension"
 import type {
   ExtensionStatus,
   HostServiceMethods,
@@ -170,6 +170,12 @@ export interface ServiceMethods {
   "extensions.run": { params: ServiceParams["extensions.run"]; result: undefined }
   /** Ends an extension's host and starts it again, as after it crashed or got stuck. */
   "extensions.restart": { params: ServiceParams["extensions.restart"]; result: undefined }
+  /** An internal extension's window module activated in the project's tab, so its Node half starts too. */
+  "extensions.startHalf": { params: ServiceParams["extensions.startHalf"]; result: undefined }
+  /** A window module calls a function of what its Node half's `activate` returned. */
+  "extensions.callHalf": { params: ServiceParams["extensions.callHalf"]; result: { result?: JsonValue } }
+  /** Where an internal extension's window module is in the project's tab, which its Node half's `parity.window` gives. */
+  "extensions.windowState": { params: ServiceParams["extensions.windowState"]; result: undefined }
   /** The person cancelled an extension's task shown with `parity.ui.progress`. */
   "extensions.cancel": { params: ServiceParams["extensions.cancel"]; result: undefined }
   /** One of an extension's tabs or pages opened, which starts an extension that activates on it. */
@@ -411,6 +417,16 @@ export interface WindowMethods {
   }
   /** An extension asks to open the tab or page that holds one of its views. */
   "extensions.reveal": { params: { projectId: string; extension: string; view: string }; result: undefined }
+  /** An internal extension's Node half calls a function of what its window module in the project's tab returned as `node`. */
+  "extensions.windowCall": {
+    params: { projectId: string; extension: string; method: string; args: JsonValue[] }
+    result: { result?: JsonValue }
+  }
+  /** Runs a command an internal extension's window module registered in the project's tab; `handled` is false otherwise. */
+  "extensions.windowRun": {
+    params: { projectId: string; command: string; target?: CommandTarget; call?: number }
+    result: { handled: boolean; result?: JsonValue }
+  }
 }
 
 /** What an extension asks of the window, by method, with what the host sent. */
@@ -462,7 +478,9 @@ export const windowMethods = Object.keys({
   "extensions.transact": true,
   "extensions.edited": true,
   "extensions.setting": true,
-  "extensions.reveal": true
+  "extensions.reveal": true,
+  "extensions.windowCall": true,
+  "extensions.windowRun": true
 } satisfies Record<WindowMethod, true>) as WindowMethod[]
 
 export type { ProjectInfo }

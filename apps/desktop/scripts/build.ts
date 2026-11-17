@@ -18,6 +18,7 @@ import { parseManifest } from "@parity-app/core"
 import { build, type BuildOptions } from "esbuild"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
+import { nodeHalfEntries } from "../src/shared/built-in-extensions.ts"
 import { installedElectron } from "./parity-electron.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -58,21 +59,10 @@ await build({
     "props-worker": join(appDir, "src/utility/props-worker.ts"),
     "builder-process": join(appDir, "src/utility/builder-process.ts"),
     "extension-host": join(appDir, "src/utility/extension-host.ts"),
-    // Parity's own extensions, which a host loads only when one activates.
-    "extensions/react": require.resolve("@parity-app/extension-react"),
-    "extensions/storybook": require.resolve("@parity-app/extension-storybook"),
-    "extensions/storybook-a11y": require.resolve("@parity-app/extension-storybook-a11y"),
-    "extensions/tailwind": require.resolve("@parity-app/extension-tailwind"),
-    "extensions/shadcn": require.resolve("@parity-app/extension-shadcn"),
-    "extensions/vite": require.resolve("@parity-app/extension-vite"),
-    "extensions/rspack": require.resolve("@parity-app/extension-rspack"),
-    "extensions/rsbuild": require.resolve("@parity-app/extension-rsbuild"),
-    "extensions/turbopack": require.resolve("@parity-app/extension-turbopack"),
-    "extensions/webpack": require.resolve("@parity-app/extension-webpack"),
-    "extensions/tanstack-router": require.resolve("@parity-app/extension-tanstack-router"),
-    "extensions/react-router": require.resolve("@parity-app/extension-react-router"),
-    "extensions/nextjs": require.resolve("@parity-app/extension-nextjs"),
-    "extensions/portless": require.resolve("@parity-app/extension-portless")
+    // Parity's own extensions' Node halves, from the built-in list, which a host loads only when one activates.
+    ...Object.fromEntries(
+      Object.entries(nodeHalfEntries()).map(([bundle, specifier]) => [bundle, require.resolve(specifier)])
+    )
   }
 })
 
