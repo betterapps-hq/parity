@@ -721,11 +721,11 @@ since the room's document is the truth, and say so once.
 sends, and the Loro backend has no tokens. They move into a Loro container, so they sync. Only the copy that writes
 files writes the stylesheet.
 
-**What each person sees: their own state and mode.** Which state and mode a design shows is a `view` field on the
-design, saved in the file. In a room:
-- changes from the `view` origin aren't sent to the room
-- a `view` field arriving from another copy is ignored
-- the copy that writes files saves its own person's view, which is as close as a file can get
+**State and mode are shared.** Which state and mode a design shows is a `view` field on the design, saved in the
+file. In a room it syncs like any other edit: picking a state or turning a mode on shows it in every copy, and the copy
+that writes files saves it (PAR-1231, #770). Removing a mode takes it off every board in every copy. A person who wants
+to look at another state without changing it for everyone does so through presence (`InFrame` on their gesture and
+`onViewing`), not by changing `view`.
 
 **Live text.** Typing writes as it's typed:
 - one undo step per pause, rather than one per key
@@ -1229,7 +1229,7 @@ In short:
 - saving in a room
 - tokens in Loro, with the stylesheet written only by the copy that writes files
 - live text
-- each person's own state and mode
+- state and mode shared through the room, saved by the copy that writes files
 
 **Phase 2, window modules**
 - `internal`, `window` and the one built-in list
@@ -1269,5 +1269,4 @@ In short:
 ## Open questions
 
 1. **Avatar stack: on the canvas or in the title bar?** This draft puts it on the canvas, in an `edge` layer.
-2. **Whose view is saved in a room?** This draft saves the view of whoever's copy writes files. Leaving `view` out of
-   the files while in a room would be the other choice.
+2. **Settled: state and mode are shared** in a room and saved like any other edit (PAR-1231).
