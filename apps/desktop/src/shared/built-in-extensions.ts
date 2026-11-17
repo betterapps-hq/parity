@@ -4,6 +4,7 @@ import reactRouterPackage from "@parity-app/extension-react-router/package.json"
 import reactPackage from "@parity-app/extension-react/package.json" with { type: "json" }
 import rsbuildPackage from "@parity-app/extension-rsbuild/package.json" with { type: "json" }
 import rspackPackage from "@parity-app/extension-rspack/package.json" with { type: "json" }
+import shadcnPackage from "@parity-app/extension-shadcn/package.json" with { type: "json" }
 import accessibilityPackage from "@parity-app/extension-storybook-a11y/package.json" with { type: "json" }
 import storybookPackage from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import tailwindPackage from "@parity-app/extension-tailwind/package.json" with { type: "json" }
@@ -43,6 +44,7 @@ export const builtInExtensions: readonly BuiltInExtension[] = [
   { packageJson: webpackPackage, bundle: "webpack" },
   { packageJson: reactPackage, bundle: "react" },
   { packageJson: tailwindPackage, bundle: "tailwind" },
+  { packageJson: shadcnPackage, bundle: "shadcn" },
   { packageJson: routerPackage, bundle: "tanstack-router" },
   { packageJson: reactRouterPackage, bundle: "react-router" },
   { packageJson: nextjsPackage, bundle: "nextjs" },

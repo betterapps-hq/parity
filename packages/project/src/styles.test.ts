@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, join } from "node:path"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { readStylesheet } from "./styles.ts"
+import { readStylesheet, stylesheetsFrom } from "./styles.ts"
 
 let root: string
 
@@ -29,5 +29,19 @@ describe("readStylesheet", () => {
 
   it("reads a missing file as empty", async () => {
     expect(await readStylesheet(join(root, "nowhere.css"))).toBe("")
+  })
+})
+
+describe("stylesheetsFrom", () => {
+  it("gives the entry and each stylesheet it imports, once each, without missing ones", async () => {
+    const globals = '@import "./theme.css";\n@import "./gone.css";\n.a {}'
+    const theme = '@import "@buildkitgg/shadcn/tailwind.css";\n@import "./globals.css";'
+    await write("app/globals.css", globals)
+    await write("app/theme.css", theme)
+
+    expect(await stylesheetsFrom(join(root, "app/globals.css"))).toEqual([
+      { path: join(root, "app/globals.css"), source: globals },
+      { path: join(root, "app/theme.css"), source: theme }
+    ])
   })
 })

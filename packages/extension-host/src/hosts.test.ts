@@ -115,6 +115,19 @@ const portless = readExtension({
   }
 })
 
+const shadcn = readExtension({
+  name: "@parity-app/extension-shadcn",
+  version: "1.0.0",
+  main: "src/extension.ts",
+  parity: {
+    displayName: "shadcn/ui",
+    prefix: "shadcn",
+    icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+    activates: ["onDetect"],
+    contributes: { providers: { libraries: {} } }
+  }
+})
+
 /** A store in memory, which a test can look into. */
 function memoryState(): ExtensionStateStore & { saved: Map<string, JsonValue> } {
   const saved = new Map<string, JsonValue>()
@@ -174,7 +187,14 @@ function setUp(modules: Record<string, ExtensionModule>, options: Partial<Extens
   })
 
   const hosts = extensionHosts<OpenedProject>({
-    extensions: [installed(storybook), installed(timings), installed(tidy), installed(router), installed(portless)],
+    extensions: [
+      installed(storybook),
+      installed(timings),
+      installed(tidy),
+      installed(router),
+      installed(portless),
+      installed(shadcn)
+    ],
     start(extension) {
       const [service, host] = memoryPorts()
       let end: (ending: ChildEnd) => void = () => undefined
@@ -343,7 +363,8 @@ describe("extension hosts", () => {
       "timings",
       "tidy",
       "tanstack-router",
-      "portless"
+      "portless",
+      "shadcn"
     ])
     expect(installed[0]).toMatchObject({
       id: "@parity-app/extension-storybook",
@@ -1335,6 +1356,49 @@ describe("providers (PAR-1095)", () => {
       "/0/id: expected a string"
     )
     expect(lines.at(-1)?.line.text).toMatch(/^Its router failed to answer routes/)
+  })
+
+  it("asks a libraries provider what it found, how to set one up and take it out, and refuses a plan that isn't one", async () => {
+    const nova = {
+      registry: "@buildkitgg/shadcn-baseui-nova",
+      package: "@buildkitgg/shadcn",
+      name: "Shadcn Nova",
+      description: "Every shadcn component on Base UI, in the nova style."
+    }
+
+    const { hosts } = setUp({
+      "@parity-app/extension-shadcn": {
+        activate(parity) {
+          parity.providers.register("libraries", {
+            detect: () => Promise.resolve([nova]),
+            catalog: () => Promise.resolve([]),
+            add: ({ settings }) =>
+              // SAFETY: an extension's code can answer anything; a style other than nova answers what a plan isn't.
+              Promise.resolve(
+                settings.style === "nova" ? { scripts: { postinstall: "sync" } } : ({ run: "x" } as never)
+              ),
+            remove: () => Promise.resolve({ packages: ["@buildkitgg/shadcn-sync"], scripts: { postinstall: null } })
+          })
+        }
+      }
+    })
+
+    hosts.open(project)
+
+    expect(await hosts.provide("shop", { kind: "libraries", method: "detect" })).toEqual([nova])
+    expect(
+      await hosts.provide("shop", {
+        kind: "libraries",
+        method: "add",
+        params: { library: "shadcn", settings: { style: "nova" } }
+      })
+    ).toEqual({ scripts: { postinstall: "sync" } })
+    await expect(
+      hosts.provide("shop", { kind: "libraries", method: "add", params: { library: "shadcn", settings: {} } })
+    ).rejects.toThrow(/run/)
+    expect(await hosts.provide("shop", { kind: "libraries", method: "remove", params: { library: "shadcn" } })).toEqual(
+      { packages: ["@buildkitgg/shadcn-sync"], scripts: { postinstall: null } }
+    )
   })
 
   it("hands the processes list a process provider, asks it through provide, and hears when it changes or goes", async () => {

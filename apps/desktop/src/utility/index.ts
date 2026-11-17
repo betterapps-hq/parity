@@ -42,7 +42,7 @@ import {
 import { frameTraces } from "./frame-traces.ts"
 import { gitDetector } from "./git-detector.ts"
 import { importImage, removeImage, saveImageFrom, scanImages } from "./images.ts"
-import { addLibrary, catalogFor, importStyles } from "./libraries.ts"
+import { addLibrary, catalogFor, importStyles, previewFor, removeLibrary } from "./libraries.ts"
 import { mainProcess } from "./main-process.ts"
 import { keepOnlyPictures, readPictures, storePicture } from "./pictures.ts"
 import { freePort, portFree } from "./ports.ts"
@@ -386,8 +386,10 @@ const handlers: Handlers<ServiceMethods> = {
   "accessibility.check": (params) => checkAccessibility(editorWindow(), params),
   "project.components": ({ projectId }) => projects.components(projectId),
   "project.correctComponents": projects.correctComponents,
-  "library.catalog": ({ projectId }) => catalogFor(projects.get(projectId)),
-  "library.add": (params) => addLibrary(projects.get(params.projectId), params),
+  "library.catalog": ({ projectId }) => catalogFor(projects.get(projectId), projectProviders(extensions)),
+  "library.add": (params) => addLibrary(projects.get(params.projectId), projectProviders(extensions), params),
+  "library.preview": previewFor,
+  "library.remove": (params) => removeLibrary(projects.get(params.projectId), projectProviders(extensions), params),
   "library.importStyles": (params) => importStyles(projects.get(params.projectId), params),
   "tokens.save": projects.saveTokens,
   "styles.classes": projects.frameClasses,

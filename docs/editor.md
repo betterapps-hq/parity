@@ -1330,9 +1330,10 @@ A project's own providers, such as a styled-components theme built from the app'
 from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity runs without Storybook.
 
 - **Storybook's exports.** `decorators`, `loaders`, `parameters`, `globalTypes` and `initialGlobals`, named or as the
-  default export's properties, as Storybook takes them. Moving to Storybook later means moving the file to
-  `.storybook/preview.tsx`. A project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with
-  several, `preview.tsx` is the one used.
+  default export's properties, as Storybook takes them, or the input of a `definePreview` default export, whose `addons`
+  Parity's runtime leaves out (PAR-97). Moving to Storybook later means moving the file to `.storybook/preview.tsx`. A
+  project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with several, `preview.tsx` is the
+  one used.
 - **Inside the libraries' decorators,** so a project's provider overrides a library's default. In its list, as in
   Storybook's, the last decorator wraps the ones before.
 - **Storybook's context.** A decorator gets `globals`, the frame's mode values over `globalTypes`' `defaultValue`s and
@@ -1397,6 +1398,10 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
   Storybook's own hooks (`useEffect` from `storybook/preview-api`) run once the frame has drawn, as Storybook runs them
   when a story has rendered, and are cleaned up when the frame goes.
 - **Inside the libraries' decorators,** as Parity's file is. Decorators get `canvasElement`, the frame's stand-in body.
+- **`definePreview` previews too (PAR-97).** A preview written with Storybook's newer `definePreview` default-exports
+  Storybook's preview object rather than its annotations. The guest gives the portable stories API what that object
+  composed: its own annotations, its `addons`' and the renderer's, so an addon's decorators wrap the preview's own, as
+  in Storybook.
 - **Loaders and `beforeEach` run before the frame draws,** and the guest's `loaded()` waits for them. Loaders that fail
   say why and the frame stays empty. Storybook keeps one list of `beforeEach` cleanups for every composed story, so a
   frame mounting runs the cleanups of the frames before it.
@@ -1408,8 +1413,8 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
 - **Only `.storybook`.** A config folder the `storybook dev` script names with `-c`, or the extension's
   `storybook.configDir` setting, isn't followed for the preview, since the manifest is read before the extension runs.
 
-Not yet: `definePreview` previews (PAR-97), a stories file's decorators on its component's designs (PAR-99), and
-add-ons' annotations, such as MSW's (PAR-112).
+Not yet: a stories file's decorators on its component's designs (PAR-99), and add-ons' annotations a preview doesn't
+list in `definePreview`'s `addons`, such as MSW's (PAR-112).
 
 Code: `PreviewContribution` in `packages/extension/src/manifest.ts`, checked in `reader/manifest.ts`;
 `contributes.providers.preview` in `packages/extension-storybook/package.json`; `extensionPreview` in
@@ -1427,8 +1432,9 @@ preview Storybook's extension names" in `apps/desktop/src/utility/projects.test.
 `packages/project/src/guest-module.test.ts`; "the project's Storybook preview, composed with its portable stories API"
 in `packages/extension-react/src/guest-storybook-preview.test.ts`, against Storybook's own `@storybook/react`: the
 nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next,
-Storybook's own hooks' effects, each frame composed with its own project's preview, and what didn't load.
-`examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through it.
+Storybook's own hooks' effects, each frame composed with its own project's preview, a `definePreview` preview with an
+addon (PAR-97), and what didn't load. `examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests
+in CI open frames through it.
 
 ### A preview file offered from the app's providers (PAR-104)
 
@@ -5563,8 +5569,9 @@ picker.
   line, up to its maximum width if it has one, where it wraps as the text does. Its font, size, weight, line height,
   letter spacing, alignment, case and decoration follow the text's at the zoom shown.
 - **Leaving keeps the edit.** Escape keeps what's typed, as notes do, and so do Enter and clicking away. Shift+Enter
-  types a new line. The layer stays selected. An edit is one undo step, Edit text, written to the state and variant the
-  editor opened on (PAR-164, below); leaving without a change writes nothing.
+  types a new line. The layer stays selected. Typing is written to the state and variant the editor opened on (PAR-164,
+  below) as it's typed, one Edit text step per pause (PAR-1230, below); leaving with the text as it opened leaves no
+  step.
 - **It reads and writes the same state** (PAR-585). The text it opens on and the place the edit goes are worked out by
   one rule, `editingState`: the state the layer was picked in, else the state the board shows, else the base state. A
   picked state that's gone, as when an agent deletes it while the editor is open, used to show the board's text but
@@ -5572,6 +5579,67 @@ picker.
 - **Input methods.** While an input method is composing (Japanese, Chinese, Korean), Enter and Escape are left to it, to
   take or drop what's composed, and don't close the editor. The editor tracks composition by its `compositionstart` and
   `compositionend` events, and by the key event's own `isComposing`.
+
+### Typing written as it's typed (PAR-1230)
+
+Text is written to the document while it's typed, not when the editor closes, so others in a live room (PAR-1179) see it
+as it's typed, and layers after it move with it (docs/proposals/extensions-in-the-window.md, Live text).
+
+- **A few writes a second.** The first key starts a write 150 ms later with whatever's typed by then, so a burst of keys
+  is one write, not one per key. The saver writes the file as it does any change, after its own 300 ms, so the file
+  isn't rewritten per key either.
+- **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
+  so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step.
+- **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
+  their change is merged with what's typed and not yet written, and the caret moves with the characters around it, so it
+  stays where the person is typing. Where both changed the same characters, what either removed goes and the typing
+  follows what the other wrote. Their change isn't in this person's undo. While an input method is composing, the change
+  waits until it's done.
+- **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
+  it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
+  person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
+  draw their caret before the character it's at, in every frame drawing the text: a 1.5px line in that color, a little
+  shorter than the letters, blinking once it rests, as a text field's caret does (steady with reduced motion). It goes
+  when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
+- **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
+  used to draw a thick 2px outline over it.
+- **Letters aren't cut off.** The editor's box is the text's, but it draws letters up to 0.3em past it
+  (`overflow-clip-margin`), as a heading set solid has them, so their tops and descenders show and the text doesn't
+  shift up when the caret moves.
+- **Hugging text grows as it's typed.** Text on one line whose box hugs it in a wider layout, as a heading centred in a
+  column does, is edited growing along the line up to the room its layout has and its own maximum width, from the side
+  it sits on (its middle when it's centred), as the frame draws it once it's written. Text that wraps, or sits in a box
+  wider than it, keeps its width. It used to wrap at the width it opened with until the next write measured it again, so
+  what was typed past it jumped onto a second line and back.
+- **A frame named after its text** follows each write, as it did the closing one.
+- Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
+
+Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (the batching, the gesture per pause and taking in
+others' changes), `rebaseText` in `packages/editor/src/text-editing.ts` (merging the two changes and moving the
+selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room
+where the caret is. In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx`
+(the outline, name and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
+
+Tests:
+
+- `apps/desktop/src/renderer/canvas/live-text.test.ts` (6), on a test document: four keys 50 ms apart written twice; two
+  runs of typing a pause apart undone as two steps; closing with the text as it opened leaving no step; nothing written
+  once closed; someone else's change before the caret taken in with the typing and the caret kept after it, and Undo
+  taking back only the typing; and its own writes not taken in again.
+- `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
+  the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
+  characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
+- `apps/desktop/src/renderer/canvas/text-caret-drawn.test.ts` (3), in Chrome: a caret at the left of the character it's
+  before, across text nodes and onto a wrapped line; at the right of the last character at the end and past it; and none
+  in an element without text.
+
+Gaps: a selection someone else makes is drawn as their caret at its end, not as a highlight. Two people typing in the
+same text within the same 150 ms each write the whole text, so one of those writes can win over the other's before
+either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`: " today" typed into
+Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed after a pause came off
+with one Undo, " today" with the next, in both copies. Checked again the same day, after the first try in a room: in the
+typing copy one outline and the whole two-line heading, unclipped; in the other, Ana's outline, name and caret before
+"and" where hers was, in each of Pricing's three frames.
 
 ### Auto width, auto height and fixed text (PAR-175)
 
@@ -5636,20 +5704,20 @@ Tests:
   "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over the text's 560px
   box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and Ctrl and the wheel
   zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text step with the layer
-  still selected; Enter and Escape during a composition leave it open and change nothing, and Enter after
-  `compositionend` keeps it. The test of switching from Resizing went with the control (PAR-923).
+  still selected; what's typed before a composition is written as it's typed, Enter and Escape during it leave the
+  editor open and write nothing more, and Enter after `compositionend` keeps it. The test of switching from Resizing
+  went with the control (PAR-923).
 
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
 been tried. With several layers selected, a switch measures each text layer in its own box, changes only the text layers
 of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, and with the
 Resizing control gone, nothing drives a switch end to end. The resize handles changing the mode follows from reading it
 from the width and height, and has no test of its own. A text layer's own new lines, typed with Shift+Enter, are kept in
-the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). While the editor is
-open the text under it doesn't reflow as it's typed in, so layers after it move only once the edit is kept. Checked in
-an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and
-a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and
-Resizing showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923
-took Resizing out of the panel).
+the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). Checked in an isolated
+copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to
+110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and Resizing
+showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923 took
+Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
@@ -6221,7 +6289,8 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   the first to answer, so it starts from the same Loro document, unsaved edits included. When the host leaves, the copy
   that joined next takes over.
 - **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
-  show as `remote` changes: in neither person's undo.
+  show as `remote` changes: in neither person's undo. Text is written as it's typed (PAR-1230), so it arrives while it's
+  typed, not when the editor closes.
 - **Only the host saves,** so copies don't write the same files over each other, and only the host takes in a file
   changed on disk; the others get it from there.
 - **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
@@ -6764,6 +6833,88 @@ Tests: `packages/registry/src/index.test.ts` ("uses the oldest newer file for a 
 `packages/project/src/library-files.test.ts` ("keeps a file made for a newer version, with its decorators");
 `packages/code/src/package-exports.test.ts` (each way a package exports a name). No example app is on an older version
 than its library's file.
+
+### Component libraries, added, changed and removed (PAR-1227)
+
+The plus beside the Components panel's search opens **Component libraries**: the popular component libraries Parity has
+registry files for, Shadcn, Mantine, Chakra UI, Fluent UI and Material UI, in one list with their logos, the ones the
+project has marked Added. Headless kits, charts and icon sets aren't offered here; icon sets have the Icons tab's own
+plus. Choosing one shows what its registry file holds, before anything is installed:
+
+- **Its look,** a card drawn with nothing but its tokens (surface, text, borders, corners, font, shadow, main color), in
+  each of its themes: a Light and Dark switch, or a list for Fluent's five.
+- **What it has, counted:** components, tokens, themes and breakpoints.
+- **Every token,** a tab for each of the Tokens panel's sections with its count, drawn as the Tokens panel's tiles are,
+  with names and values. Colors are a wall of swatches, named on hover. Motion plays while a tile is hovered or focused,
+  as there, and pressing it keeps it playing; an animation runs its library's keyframes where they're known, which
+  registry files don't hold yet, so it holds still in the app.
+- **Every component,** by family, with how many parts each has: the family its file names, else its namespace, else the
+  shortest component its name starts with.
+- **Its breakpoints** on a ruler from nothing to the widest, each label ending at its own tick on a line of its own.
+
+Its header links to its website, docs, Storybook and source. A library with an icon set of its own offers it alongside,
+as Fluent icons beside Fluent UI, added in the same install. A library that asks for settings, as Shadcn does, takes
+them in a second step with Next, and its look follows the theme chosen; an installed one shows Change, then Apply once a
+setting differs. **Remove** on an installed library asks first, naming the package it uninstalls, then changes
+package.json's scripts and the stylesheet that imports it, the app's or one it imports, as one change, and uninstalls
+with the project's package manager. The layout follows the dialog's width: the list narrows to logos, the settings
+stack, and token tiles keep even columns.
+
+What the registry's files don't say lives beside them in `packages/registry/libraries/catalog.json`: the order offered,
+each library's pages, logo (Simple Icons', and Fluent's mark from Microsoft's own), which of its tokens play which part
+in its look, the registry file that previews one an extension sets up (`@buildkitgg/shadcn-baseui-{style}`), and its
+icon set.
+
+Code: `chrome/AddLibraryDialog/` (the dialog, a file for each of its parts, `offeredLibraries`), `AddComponentLibrary`
+and `removeLibrary` in `chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and `removeLibrary` in
+`apps/desktop/src/utility/libraries.ts`; `libraryPreview` and `familiesOf` in `packages/project/src/library-preview.ts`;
+`withoutStylesImport` in `packages/project/src/libraries.ts`, `removeCommand` in `detect.ts`; `registryCatalog` in
+`packages/registry/src/index.ts`.
+
+Tests: `packages/project/src/library-preview.test.ts` (a file's tokens with their kinds and themes, families,
+breakpoints, every look token the catalog names, nothing without a file); `registryCatalog` in
+`packages/registry/src/index.test.ts` (offered libraries and their icon sets have files; a library without a look is
+refused); `withoutStylesImport` in `packages/project/src/edits.test.ts`, `stylesheetsFrom` in `styles.test.ts`;
+`removeCommand` in `detect.test.ts`; script removal in `setup-plan.test.ts`. Storybook,
+`chrome/AddLibraryDialog/AddLibraryDialog.stories.tsx`: Shadcn, Mantine, MantineDark, ChakraUi, ChakraUiSpacing,
+FluentUi, MaterialUi, ShadcnSettings, ShadcnAdded and RemovingALibrary; and `chrome/ComponentsPanel.stories.tsx`:
+AddingALibrary, CatalogLoading, InstallingALibrary, ChangingShadcn, AddingShadcnInstalling and RemovingALibrary. Gaps:
+removing hasn't been run against a real project's install.
+
+### shadcn found by its extension, and added from the catalog (PAR-1226, PAR-1227)
+
+Parity's core knows nothing of shadcn. The shadcn/ui extension (`packages/extension-shadcn`), built in and started for
+any React project, gives a `libraries` provider. Its `detect` tells Parity which registry file describes what the
+project has: shadcn-sync's components, by the base and style its `manifest.json` records, read with that Buildkit kit's
+file and imported from `@buildkitgg/shadcn`, with its icon set read as an icon library; or components shadcn's CLI
+copied, by the style `components.json` names, which add only the Base UI kit's tokens, since a style's tokens are the
+same on every base. Without a file for the kit, as on React Aria, sync's components are listed from their declarations.
+Either way sync's components are named by its package, as `shadcn/Button`, so choosing another style or base keeps the
+instances designs have. Its `catalog` offers Shadcn in Component libraries, asking its theme (shadcn's style), color,
+base and icons, set to what the project uses now, Fluent icons among them through Buildkit's adapter; its `add` says
+what setting it up changes: sync as a dev dependency, the icon set and the base's primitives, a `postinstall` that runs
+sync with those settings, and in a project with Tailwind, its `tailwind.css` to import. Parity writes package.json as
+one change, installs with the project's package manager, which runs sync, and imports the stylesheet. An installed
+Shadcn shows Change, which applies new settings the same way. Its `remove` uninstalls sync and the components it
+generated, drops its part of `postinstall` and its stylesheet import, and keeps the icon set and primitives, which the
+app may use itself. The retired Buildkit kits are no longer offered.
+
+Code: `packages/extension-shadcn/src/shadcn.ts` (what it reads and plans, as functions of the files' text) and
+`extension.ts`; `LibrariesProvider` in `packages/extension/src/providers.ts`, checked in
+`packages/extension-host/src/protocol.ts`; `findLibraries` and `registryTokens` in `packages/project/src/libraries.ts`;
+`withPackageChanges` in `packages/project/src/setup-plan.ts`; `catalogFor` and `addLibrary` in
+`apps/desktop/src/utility/libraries.ts`; `readProject` in `apps/desktop/src/utility/projects.ts`, which asks `detect`.
+
+Tests: `packages/extension-shadcn/src/shadcn.test.ts` (its manifest; sync's components with their kit, base, CSS mode
+and icons; the CLI's copies by style, an old style as nova; nothing without them; the catalog's defaults, settings in
+order and values from sync's manifest or script; the setup plan for a new project, for changing one and for Fluent
+icons, settings sync refuses, and the removal plan); `packages/project/src/library-files.test.ts` ("libraries an
+extension found": read with their registry file and checked against the package's exports, listed from declarations
+without one, tokens alone for the app's own copies, the preview of a file's tokens, and an icon package linked into
+sync's package); `packages/project/src/setup-plan.test.ts`; `installCommand` in `packages/project/src/detect.test.ts`;
+`packages/extension-host/src/hosts.test.ts` (a libraries provider asked to set up and take out, and a plan that isn't
+one refused). Storybook: as in Component libraries above. Gaps: adding Shadcn hasn't been run end to end against a real
+project's install.
 
 ### Placing a library's design, linked or detached (PAR-126)
 
@@ -8840,8 +8991,8 @@ Problems found nothing in either mode. Before, every solid button was transparen
 An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: the
 builder naming other global stylesheets after a file its answer came from changed, a dependency added or removed, or a
 builder's config file, such as `vite.config.ts`, added or taken away. Before, any of these changed nothing in an open
-project until Parity restarted. Parity doesn't read shadcn's `components.json` (PAR-1133), so adding or changing one is
-no change.
+project until Parity restarted. Parity's detection doesn't read shadcn's `components.json` (PAR-1133); the shadcn/ui
+extension reads it as the project opens (PAR-1226), so adding or changing one shows when the project next opens.
 
 - **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's and packages'
   stylesheets as the builder names them (asking it again), the dependencies' names and which of the builders' config

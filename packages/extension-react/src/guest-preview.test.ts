@@ -158,6 +158,15 @@ describe("a project's preview file", () => {
     await vi.waitFor(() => expect(target.textContent).toBe("theme: loaded dark"))
   })
 
+  it("reads a file written with Storybook's definePreview from its preview object's input (PAR-97)", async () => {
+    const preview = { _tag: "Preview", input: { decorators: [box("inner"), box("outer")] }, composed: {} }
+    mount({ default: preview })
+
+    await vi.waitFor(() => expect(target.textContent).toBe("theme: none"))
+
+    expect(nesting()).toEqual(["main", "outer", "inner"])
+  })
+
   it("says why it didn't load, and the frame draws in the libraries' decorators without it", async () => {
     const onError = vi.fn<NonNullable<MountOptions["onError"]>>()
     mount({ loadError: "Unexpected token" }, { onError })
