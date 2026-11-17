@@ -2187,7 +2187,8 @@ uses previews yet, and extensions can't reach either until the canvas surface is
 - **Settling.** `settleOnWrite` waits for the write that covers the drop: someone else's change to a design the preview
   moves, or one that arrived after its last update and before it was told to settle, as a drop's write in a batch of its
   own does. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or
-  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
+  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once, settling or not.
+  `onEnd` hears it end, however it does, so what showed it knows when it's gone.
 - **A hold** (`holds.hold(tab, design, at)`) keeps a board where it was while an agent's cursor drags it to where the
   agent put it, and `update` draws it along the way. Several holds on one board keep it where it's drawn until the last
   lets go. Each hold is let go after 10 s whatever happens. Grabbing a held board, by dragging it or its name, lets go
@@ -2213,7 +2214,7 @@ previews open at once, and which writes cover a preview. `canvas/style-layers.te
 property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
 `canvas/drag-preview.test.ts`: a board's preview following updates once a frame without writing, settling on someone
 else's write to it, settling at once on a write that came between its last move and being told to settle, going back
-after 2 s without one, and two people's previews ending on their own.
+after 2 s without one and saying it has ended, and two people's previews ending on their own.
 
 Gaps: A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
 yet; the story draws its look with the same carried pictures. Agent presence holds a board as its step is told, just
@@ -4720,7 +4721,7 @@ Tests:
 - `inspector/token-sets.test.ts` (26): one table of every set the controls offer from one project, each token under its
   real name with what it comes to: colors, radii with Full, spacing without the scale's base and steps, containers,
   breakpoints, text sizes, weights, line heights, letter spacing, fonts, shadows of each kind with their layers read,
-  blurs, layer orders in the order they stack, gradients, durations and easings without Tailwind's own, and nothing for
+  blurs, layer orders in the order they stack, gradients, durations and easings with the theme's own, and nothing for
   the kinds the project can't have yet; then a text size's paired line height, Tailwind's hundreds for a project with no
   weights, and a shadow value's layers.
 - `inspector/controls/stand-in-tokens.test.ts` (1): nothing `StyleSections` draws imports the stand-in tokens.
@@ -5272,15 +5273,18 @@ as above.
 
 ### Transitions (PAR-934)
 
-Motion lists the selected layers' transitions, on the approved Transition list. **+** adds Colors at Tailwind's defaults
-(150ms and its default curve), shown faintly. Each entry opens its details: Changes (a set or a property), Duration,
-Easing (Tailwind's, the project's, a curve, steps or a spring) and Delay. The eye turns an entry off without removing
-it, and an entry can be dragged to another place.
+Motion lists the selected layers' transitions, on the approved Transition list. **+** adds Colors at the project's
+defaults (150ms and its default curve), shown faintly. Each entry opens its details: Changes (a set or a property),
+Duration, Easing (one of CSS's keywords, the project's, a curve, steps or a spring) and Delay. The eye turns an entry
+off without removing it, and an entry can be dragged to another place.
 
 - **What it writes.** The list goes into the layer's style in the state being edited, as `transition`, a list. A state
   can give a layer transitions of its own, and resetting the state's change takes them back.
-- **Tokens.** Duration and Easing offer the project's duration and easing tokens. Tailwind's own easings are presets,
-  not tokens, and Tailwind's defaults are what an unset field shows. Neither field offers Create token yet.
+- **Tokens.** Duration and Easing offer the project's duration and easing tokens. CSS's easing keywords (Linear, Ease,
+  Ease in, Ease out, Ease in out) are presets, each drawn and written as the project's token of its name where it has
+  one, as Tailwind's theme defines `--ease-out`, else as CSS's own (`var(--ease-out, ease-out)`). An unset field shows
+  the theme's `default-transition-duration` and `default-transition-timing-function`, else 150ms and CSS's `ease`.
+  Neither field lists those tokens, nor offers Create token yet (PAR-1278).
 - **On the canvas.** Each frame draws the transitions as inline CSS, so an edit that changes a frame's look plays them.
   Opacity changed in a state fades over that state's frame, for example. The board draws each state as its own frame, so
   there's no single frame going from one state to the next.
@@ -5295,10 +5299,10 @@ Code: the `transition` schema, `transitionCss` and the spring solver in `package
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
-Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
-a curve of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through the
-schema, and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving
-out an entry turned off. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+Tests: `packages/style-schema/src/motion.test.ts` (6): the project's defaults and each set's properties, tokens'
+variables, a curve of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through
+the schema, and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration,
+leaving out an entry turned off. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.
@@ -8482,8 +8486,9 @@ A screen is named for the component its route draws, else its path.
   (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
   script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
   Next from its `instrumentation-client`, which every client entry runs before React. With it come the extensions' page
-  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`), and
-  the renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
+  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`, React
+  Router's `window.__reactRouterDataRouter` or the router library mode made, and Next's `window.next.router`), and the
+  renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
   waits for the first commit to the app's root, never to Next's development overlay). The frame's name is `parity:` and
   JSON with the protocol's version, the frame's id, Parity's origin, and the mode and window it opens in. The runtime
   posts its hello to Parity's origin only, and Parity checks the hello's origin and source, hands it a `MessagePort` and
@@ -8492,6 +8497,20 @@ A screen is named for the component its route draws, else its path.
   loaded and its DOM has been quiet for 150 ms. After that it says where it moves by itself, by its router or by its
   address, and that someone used it, at most once a second. Anywhere other than a frame Parity named, the runtime does
   nothing.
+- **Each router's page module (PAR-1260, PAR-1265).** A router's move is done once the new page is in the DOM, not when
+  the router first says so. TanStack Router's waits for the router to resolve where it ended. React Router's waits for a
+  commit, heard on `__REACT_DEVTOOLS_GLOBAL_HOOK__`, of the tree holding the `RouterProvider` given the app's router,
+  with the new location in its state. `RouterProvider` hands React the new state in a transition, and a route that
+  suspends keeps the old page, with no commit, until it's ready; another root's commit, as an embedded widget's, doesn't
+  count. Where its hooks can't be read, that tree committing counts. Without a hook it waits for the page's first
+  change, or 100 ms without one. Next's App Router writes the address with the tree it commits, a new one each commit,
+  so its module waits for a write carrying a new tree, redirected anywhere, and not for the app's own writes, which
+  carry none or a copy of the last, and the Pages Router's `push` resolves once the new page has committed. Library mode
+  puts no router on the page's window, so Vite and the webpack-compatible builders serve the app's own imports of
+  `react-router` through Parity's module (`pageWraps` in the manifest), which re-exports React Router and hands what
+  `createBrowserRouter` and `createHashRouter` make to `window.__parityDataRouter`. That module gets the app's own copy
+  of React Router, and packages' own imports are left alone. A page whose router isn't found, as with React Router's
+  `<BrowserRouter>`, says so in `page.ready`, and is moved only by loading it at the route.
 - **Modes reach the page, without a reload.** The frame opens in its mode, and when the mode changes Parity sends it
   with `mode.set`: the runtime puts the mode's classes and attributes on `<html>`, takes off the last mode's, and
   answers `prefers-color-scheme` with the mode's scheme, telling the app's queries when the answer changes. An app that
@@ -8571,11 +8590,14 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
 The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
 in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
-`reactHydration` in `packages/extension-react/src/page.ts`; each manifest's `page`, carried by `pageRouters` in
+`reactRouterPage` in `packages/extension-react-router/src/page.ts`, with library mode's wrapped `react-router` in
+`src/page-wrap/react-router.ts`; `nextjsPage` in `packages/extension-nextjs/src/page.ts`; `reactHydration` in
+`packages/extension-react/src/page.ts`; each manifest's `page` and `pageWraps`, carried by `pageRouters` in
 `packages/extension-host/src/hosts.ts` and `pageModules` in `apps/desktop/src/utility/projects.ts` into the project's
 config; `pageEntrySource` in `packages/project/src/page-entry.ts`, served by `appPageRuntime` in
 `packages/extension-vite/src/app-page.ts`, `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and
-`copyPageModules` in `packages/next-builders/src/start.ts`; and `pageEntries` in
+`copyPageModules` in `packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs
+before Vite's own resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
@@ -8602,33 +8624,49 @@ read refused; the height told in the mode's window, rounded up, and not once the
 without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
 app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
 `route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
-second), `packages/page-runtime/src/snapshot.test.ts` (13, PAR-1262: the body's tree as plain data without scripts or
+second), `packages/page-runtime/src/snapshot.test.ts` (14, PAR-1262: the body's tree as plain data without scripts or
 styles; every URL made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>`
 without the mode or the runtime's style; sheets by content hash for `sheets.get`, one it can't read by address with its
-media, and an unreadable import where it stands inside every condition around it; the same markup hash for the same
-tree; `url()`s made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's
-deadline), `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting
-after 1 s and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts`
-("gives a copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the
-innermost route"), `apps/desktop/src/main/page-sheets.test.ts` (5: its `@import`s inlined in their layer and media;
-another host's sheet over https, its `url()`s absolute against where it came from; anything else refused unasked;
-nothing for a failed answer, one that isn't CSS, or a request that fails),
+media, an unreadable import where it stands inside every condition around it, and an anonymous imported layer kept one
+named layer inside its `supports()`; the same markup hash for the same tree; `url()`s made absolute; a snapshot and its
+sheets over the channel; a wait or too many ids refused; the snapshot's deadline), `packages/frames/src/freezer.test.ts`
+(5: nearest route first, each once; nothing with no boards; restarting after 1 s and 5 s, stopping after three failures
+in two minutes, and forgetting older ones), `element-layers.test.ts` ("gives a copy's elements their path from the body
+as ids"), `route-boards.test.ts` ("puts what the copy drew inside the innermost route"),
+`apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and `supports()` kept
+apart from the media after it; another host's sheet over https, its `url()`s absolute against where it came from;
+anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
 `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
 resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
 not when it's first idle; one given up when aborted; the watcher told until it stops),
-`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
-Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
-`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
-page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the
-page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules") and
-`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
-the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
-the freezer, building and selecting copies, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
-route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
-at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
-was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
-checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
-redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
+`packages/extension-react-router/src/page.test.ts` (10, with React Router's own router: framework mode's router found or
+not; library mode's through the wrapped `createBrowserRouter`, with the rest of React Router passed through; not-found
+for an unmatched path and a loader's error; a navigation resolved once React commits the new page, a redirect included;
+one React commits without changing the page; one waiting as long as React takes to commit, as when a route suspends; not
+done by another root's commit or one of the old location; without React's hook, the page's first change or a moment
+without one; one given up when aborted while a loader is pending; the watcher told until it stops),
+`packages/extension-nextjs/src/page.test.ts` (11: either router found or not; where the page is; an App Router
+navigation resolved when it commits, redirected or not, a redirect back to where it started included, and not by the
+app's own writes to the address; its not-found and other fallbacks; one given up when aborted, with `history` left as it
+was; a Pages Router navigation with its 404 and error pages; one given up when aborted; each router's watcher told until
+it stops), `packages/extension-vite/src/app-page.test.ts` (6: a wrapped package served to the app's own modules, not to
+packages'; the wrapping module's own import sent to the app's copy; nothing without wrapped packages; the wrapping
+modules' folders allowed; and, through a real Vite server, the app's import reaching the wrapper ahead of Vite's own
+resolver and the wrapper's reaching the app's installed copy), `packages/extension-react/src/page.test.ts` (4: the first
+commit to the app's root, never to a root in a shadow root, as Next's overlay's, with real React; giving up when
+aborted; the document and an element in the page as roots; only `#__next` or the document under Next),
+`packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the page runtime first in each of the app's
+entries" and "serves a wrapped package to the app's own modules"), `server.test.ts` (`isPageOrigin`),
+`guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
+routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
+("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
+to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, the freezer, building and
+selecting copies, drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the
+bundling have no test of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%:
+every page's name and path read clearly, with each line meeting its page's top edge. Each page frame was checked on the
+example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in
+Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect)
+at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

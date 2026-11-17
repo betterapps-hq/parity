@@ -87,6 +87,10 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
     options.pageEntry = pageEntry
   }
 
+  if (pageModules?.wraps) {
+    options.pageWraps = pageModules.wraps
+  }
+
   const compiler = bundler.compiler(guestConfig(config, bundler, options))
 
   const build = buildState()

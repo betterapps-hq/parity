@@ -63,7 +63,9 @@ export {
   extensionRenderer,
   detectPeers,
   packageExport,
-  type PageModuleRef
+  type PageModuleRef,
+  type PageRouterRef,
+  type PageWrapRef
 } from "./adapters.ts"
 
 export {
@@ -410,6 +412,7 @@ export {
   type ExtensionDecorator,
   type PageModuleFile,
   type PageModules,
+  type PageWrapFile,
   iconSetPropsId,
   type PreviewComposer,
   type LibraryInfo,

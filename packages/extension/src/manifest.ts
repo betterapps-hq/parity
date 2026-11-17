@@ -317,6 +317,12 @@ export interface RouterContribution {
   decorators?: FrameDecorator[]
   /** The module that drives this router inside the app's page (`PageRouter`), and its export. */
   page?: PageModuleContribution
+  /**
+   * Packages the app's own code imports that the builder serves through a module of this extension's in the app's
+   * page, by the package's name: the package export of a module that re-exports the package and hands the page router
+   * what it makes, as React Router's library mode puts no router on the page's window.
+   */
+  pageWraps?: Record<string, string>
 }
 
 /**

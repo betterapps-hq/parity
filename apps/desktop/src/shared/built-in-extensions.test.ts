@@ -4,6 +4,7 @@ import {
   builtInExtensions,
   nodeHalfEntries,
   pageEntries,
+  pageExternals,
   readBuiltIns,
   windowModuleEntries,
   windowModulesSource
@@ -64,12 +65,17 @@ describe("the built-in list", () => {
     await expect(windowModulesSource()).toMatchFileSnapshot("../renderer/window-module-list.ts")
   })
 
-  it("bundles the page runtime and the built-in page modules for the app's page (PAR-1260)", () => {
+  it("bundles the page runtime and the built-in page modules for the app's page (PAR-1260, PAR-1265)", () => {
     expect(pageEntries()).toEqual({
       "page-runtime": "@parity-app/page-runtime",
       "page/react": "@parity-app/extension-react/page",
-      "page/tanstack-router": "@parity-app/extension-tanstack-router/page"
+      "page/tanstack-router": "@parity-app/extension-tanstack-router/page",
+      "page/react-router": "@parity-app/extension-react-router/page",
+      "page/react-router--react-router": "@parity-app/extension-react-router/page-wrap/react-router",
+      "page/nextjs": "@parity-app/extension-nextjs/page"
     })
+    // The module that wraps React Router imports the app's copy, so its bundle leaves it out.
+    expect(pageExternals()).toEqual(["react-router"])
   })
 
   it("refuses both of two built-in extensions that bring the room", () => {

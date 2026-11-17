@@ -10,7 +10,7 @@ import { newEntryId, previewTransition, TransitionsSection } from "./transitions
 
 /**
  * Motion's Transitions (PAR-652's Transition list), on its own: Motion is a title with + until something's set, and +
- * adds Colors at Tailwind's defaults (150ms, its default curve), shown faintly. Each entry says what changes (All,
+ * adds Colors at the project's defaults (150ms, its default curve), shown faintly. Each entry says what changes (All,
  * Colors, Opacity, Transform, Shadow, or a property), then its timing, with the eye, which turns it off without
  * deleting it, and −, as every list's rows do; with two entries or more, it's picked up by its handle or its body and
  * carried to another place, or moved with Up and Down on its handle. The entry opens its details: Changes, one field
@@ -69,10 +69,10 @@ function Transitions({ start }: { start: Omit<TransitionEntry, "id">[] }) {
   )
 }
 
-/** No transitions: Motion is a title with +, which adds Colors at Tailwind's defaults. */
+/** No transitions: Motion is a title with +, which adds Colors at the project's defaults. */
 export const Empty: Story = { render: () => <Transitions start={[]} /> }
 
-/** Colors at Tailwind's defaults, shown faintly: `transition-colors`, and nothing else written. */
+/** Colors at the project's defaults, shown faintly: `transition-colors`, and nothing else written. */
 export const DefaultTiming: Story = { render: () => <Transitions start={[{ property: "colors" }]} /> }
 
 /** DefaultTiming, with what the control stores and writes as CSS beside it, updated as it's used. */

@@ -125,7 +125,10 @@ export function windowSync(port: SyncPort): SyncSeam {
   const now = port.now ?? (() => performance.now())
   const newLineage = port.lineage ?? (() => crypto.randomUUID())
   let state: State = { kind: "waiting" }
-  let handler: { open: () => Promise<OpenFrom>; context: SurfaceContext } | undefined
+  /** What says how the project opens; `ended` settles once its registration is disposed or its extension stops. */
+  let handler: { open: () => Promise<OpenFrom>; context: SurfaceContext; ended: Waiter } | undefined
+  /** What gave the opening `open` returned, which must still be there when the document is attached. */
+  let openedBy: typeof handler
   const opened = waiter()
   /** Receives and snapshots, one after another in the order called. */
   let receiving: Promise<unknown> = Promise.resolve()
@@ -312,10 +315,12 @@ export function windowSync(port: SyncPort): SyncSeam {
             throw new Error("Another extension already says how this project opens")
           }
 
-          const mine = { open, context }
+          const mine = { open, context, ended: waiter() }
           handler = mine
 
           const handle = once(() => {
+            mine.ended.resolve()
+
             if (handler !== mine) {
               return
             }
@@ -394,7 +399,9 @@ export function windowSync(port: SyncPort): SyncSeam {
           asked.open(),
           new Promise<never>((_resolve, reject) => {
             timer = timers.set(() => reject(new TimedOut()), openWaitMs)
-          })
+          }),
+          // Its extension stopped while it was asked: whatever it answers late, nothing would carry the changes.
+          asked.ended.promise.then(() => Promise.reject(new Stopped()))
         ])
 
         const waitMs = Math.round(now() - began)
@@ -417,9 +424,18 @@ export function windowSync(port: SyncPort): SyncSeam {
         }
 
         port.record?.("sync.opened", recorded)
+        openedBy = asked
 
         return opening
       } catch (error) {
+        if (error instanceof Stopped) {
+          port.record?.("sync.detached", { why: "stopped", saved: true })
+          state = { kind: "detached", lineage: "" }
+          opened.reject(new Error("The room went away before the project opened, so it's open alone here"))
+
+          return undefined
+        }
+
         const failed: SeamAttributes<"sync.openFailed"> = {
           extension: asked.context.extension,
           reason: "timeout",
@@ -447,6 +463,15 @@ export function windowSync(port: SyncPort): SyncSeam {
         return
       }
 
+      // The extension that opened it stopped before it was attached: it stays open here, alone.
+      if (openedBy && handler !== openedBy) {
+        port.record?.("sync.detached", { why: "stopped", saved: true })
+        state = { kind: "detached", lineage }
+        opened.reject(new Error("The room went away before the project opened, so it's open alone here"))
+
+        return
+      }
+
       const stopLocal = document.onLocalChanges((bytes) => {
         const frame = framed(lineage, bytes)
         traffic.changesOut += 1
@@ -471,6 +496,8 @@ export function windowSync(port: SyncPort): SyncSeam {
 }
 
 class TimedOut extends Error {}
+
+class Stopped extends Error {}
 
 /** Changes passed in that wait for others: since when, how many bytes, and the timer that warns of them. */
 interface Pending {

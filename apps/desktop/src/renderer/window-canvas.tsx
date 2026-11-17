@@ -144,6 +144,7 @@ export function windowCanvasPort(slot: TabSlot, tab: string): WindowCanvasPort {
         },
         settleOnWrite: () => shown.settleOnWrite(),
         cancel: () => shown.cancel(),
+        onEnd: (listener) => ({ dispose: shown.onEnd(listener) }),
         [Symbol.dispose]: () => shown[Symbol.dispose]()
       }
     },

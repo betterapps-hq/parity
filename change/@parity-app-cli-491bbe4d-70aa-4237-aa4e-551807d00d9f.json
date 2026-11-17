@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Read a shadcn-sync package's component props from its own declarations, not the kit's paths in the registry file",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

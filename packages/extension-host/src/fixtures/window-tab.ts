@@ -98,6 +98,15 @@ export function colors(name: string): CoreColors & { owners(key: string): string
   }
 }
 
+/** A core preview the stand-in made: what it shows, how it ended, and its write landing. */
+interface Shown {
+  items: CorePreviewItem[]
+  options: CorePreviewOptions
+  how: string[]
+  /** Its covering write lands, ending a preview that's settling. */
+  land(): void
+}
+
 /** A tab's canvas services, recording what's asked of them. */
 export function services() {
   const log: string[] = []
@@ -106,7 +115,8 @@ export function services() {
   const boxListeners = new Set<(box: BoxResult) => void>()
   const canvasListeners = new Set<() => void>()
   const followEnds = new Set<(why: FollowEnd) => void>()
-  const previews: { items: CorePreviewItem[]; options: CorePreviewOptions; how: string[] }[] = []
+  const previews: Shown[] = []
+
   let view: CameraView = { x: 0, y: 0, width: 1000, height: 800 }
 
   const listening = <T>(set: Set<T>, listener: T): Disposable => {
@@ -175,14 +185,44 @@ export function services() {
     },
     preview(items, options) {
       const how: string[] = []
-      const shown = { items, options, how }
+      const ends = new Set<() => void>()
+      let settling = false
+      let ended = false
+
+      const end = (why: string) => {
+        if (ended) {
+          return
+        }
+
+        ended = true
+        how.push(why)
+        ends.forEach((listener) => listener())
+      }
+
+      const shown = {
+        items,
+        options,
+        how,
+        land: () => {
+          if (settling) {
+            end("landed")
+          }
+        }
+      }
+
       previews.push(shown)
 
       return {
         update: (next) => void (shown.items = next),
-        settleOnWrite: () => void shown.how.push("settle"),
-        cancel: () => void shown.how.push("cancel"),
-        [Symbol.dispose]: () => void shown.how.push("dispose")
+        settleOnWrite: () => {
+          if (!ended && !settling) {
+            settling = true
+            how.push("settle")
+          }
+        },
+        cancel: () => end("cancel"),
+        onEnd: (listener) => listening(ends, listener),
+        [Symbol.dispose]: () => end("dispose")
       }
     },
     hold(design, at, extension) {

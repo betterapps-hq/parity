@@ -1,8 +1,22 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 06:39:04 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 07:35:37 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.79.0
+
+Tue, 17 Nov 2026 07:35:37 GMT
+
+### Minor changes
+
+- Multiplayer is an internal extension: turn on Live room to open projects through parity.sync, with other people's
+  pointers, selections, drags and Follow drawn on the canvas (ajcraswell@gmail.com)
+
+### Patches
+
+- Read a shadcn-sync package's component props from its own declarations, not the kit's paths in the registry file
+  (ajcraswell@gmail.com)
 
 ## 0.78.0
 

@@ -31,7 +31,9 @@ import {
   libraryManifestExtension,
   type PackageManifest,
   type PageModuleFile,
+  type PageModules,
   type PageModuleRef,
+  type PageRouterRef,
   type ProjectConfig,
   parseCanvasDocument,
   type CanvasDocument,
@@ -80,7 +82,7 @@ import {
 } from "@parity-app/project"
 import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
-import { pageModuleBundle, pageRuntimeBundle } from "../shared/built-in-extensions.ts"
+import { pageModuleBundle, pageRuntimeBundle, pageWrapBundle } from "../shared/built-in-extensions.ts"
 import { logNote } from "../shared/log.ts"
 import type {
   FrameClassesWritten,
@@ -184,7 +186,7 @@ export interface ProjectProviders {
   /** What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152). */
   decorators(project: ProviderProject): ExtensionDecorator[]
   /** The page modules of the project's routers, from their manifests (PAR-1260). */
-  pageRouters(project: ProviderProject): (PageModuleRef & { extension: string })[]
+  pageRouters(project: ProviderProject): PageRouterRef[]
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
@@ -485,19 +487,36 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     return !devRunner && existsSync(bundled) ? bundled : require.resolve(specifier)
   }
 
-  /** The page runtime, the routers' page modules and the renderer's hydration module, each by its file. */
-  function pageModules(renderer: RendererAdapter, routers: readonly (PageModuleRef & { extension: string })[]) {
+  /**
+   * The page runtime, the routers' page modules, the renderer's hydration module, and the modules routers serve in place
+   * of the app's packages, each by its file.
+   */
+  function pageModules(renderer: RendererAdapter, routers: readonly PageRouterRef[]): PageModules {
     const file = (extension: string, ref: PageModuleRef): PageModuleFile => ({
       extension,
       file: pageFile(pageModuleBundle(extension), ref.module),
       export: ref.export
     })
 
-    return {
+    const wraps = routers.flatMap(({ extension, wraps }) =>
+      (wraps ?? []).map((wrap) => ({
+        extension,
+        package: wrap.package,
+        file: pageFile(pageWrapBundle(extension, wrap.package), wrap.module)
+      }))
+    )
+
+    const modules: PageModules = {
       runtime: pageFile(pageRuntimeBundle, "@parity-app/page-runtime"),
       routers: routers.map((router) => file(router.extension, router)),
       hydration: renderer.pageModule ? [file(renderer.id, renderer.pageModule)] : []
     }
+
+    if (wraps.length > 0) {
+      modules.wraps = wraps
+    }
+
+    return modules
   }
 
   /** Tells telemetry why the project can't be opened, and returns the error that says so. */

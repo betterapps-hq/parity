@@ -318,7 +318,7 @@ tab-1`
 })
 
 describe("parity.canvas.preview", () => {
-  it("shows a drag by NodeRef in the person's claimed color, giving the color back as it settles", async () => {
+  it("shows a drag by NodeRef in the person's claimed color, giving the color back once it has settled", async () => {
     const test = driven()
     const { previews, people } = await tab(test.module)
     const shown = test.api.previewBoard("card", "peer-3")
@@ -329,11 +329,33 @@ describe("parity.canvas.preview", () => {
 
     shown.update([{ ref: { owner: "design", type: "text", key: "card/title" }, at: { x: 5, y: 5 } }])
     shown.settleOnWrite()
-    shown.dispose()
+    shown.update([{ ref: { owner: "design", type: "design", key: "card" }, at: { x: 9, y: 9 } }])
 
     expect(previews[0]?.items).toEqual([{ target: { design: "card", node: "title" }, at: { x: 5, y: 5 } }])
-    expect(previews[0]?.how).toEqual(["settle"])
+    expect(people.owners("peer-3")).toEqual([`${surfaceTestId}\ntab-1`])
+
+    previews[0]?.land()
+
+    expect(previews[0]?.how).toEqual(["settle", "landed"])
     expect(people.owners("peer-3")).toEqual([])
+  })
+
+  it("closes a preview still settling when it's disposed or the module stops, giving its color back", async () => {
+    const test = driven()
+    const { previews, people, stop } = await tab(test.module)
+    const disposed = test.api.previewBoard("card", "peer-5")
+    test.api.previewBoard("menu", "peer-6").settleOnWrite()
+    disposed.settleOnWrite()
+    disposed.dispose()
+
+    expect(previews[0]?.how).toEqual(["settle", "dispose"])
+    expect(people.owners("peer-5")).toEqual([])
+    expect(people.owners("peer-6")).toEqual([`${surfaceTestId}\ntab-1`])
+
+    await stop()
+
+    expect(previews[1]?.how).toEqual(["settle", "dispose"])
+    expect(people.owners("peer-6")).toEqual([])
   })
 
   it("maps where layers would land, and disposes of previews still open when the module stops", async () => {

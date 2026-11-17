@@ -1,3 +1,4 @@
+import { join } from "node:path"
 import type { z } from "zod"
 import { appEntries, appPagePlugin } from "./app-pages.ts"
 import { babelFromRoot } from "./babel.ts"
@@ -30,6 +31,11 @@ export interface GuestConfigOptions {
   renderer: { file: string; loader: string }
   /** The page runtime's entry, absolute, which each of the app's entries runs first (`pageEntrySource`). */
   pageEntry?: string
+  /**
+   * Packages the app's own modules get through a module of Parity's instead, absolute, which re-exports the package and
+   * hands the page router what it makes (PAR-1265).
+   */
+  pageWraps?: readonly { package: string; file: string }[]
   /** The extensions a component's file may have, with the dot. */
   componentExtensions: readonly string[]
   /**
@@ -140,7 +146,8 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
         },
         ...(extract ? rules.map((rule) => withExtraction(rule, extract.loader)) : rules).map((rule) =>
           babelFromRoot(rule, options.root)
-        )
+        ),
+        ...pageWrapRuleList(pageWrapRules(options.pageWraps ?? [], options.root))
       ]
     },
     resolve: { ...config.resolve, alias: withAliases(config.resolve?.alias, options.dedupe) },
@@ -159,6 +166,46 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
       ...standInPlugins(bundler, options.standIns)
     ]
   }
+}
+
+/** A rule that resolves the app's own modules' imports of each wrapped package to Parity's module instead. */
+interface AppModulesRule {
+  exclude: RegExp[]
+  resolve: { alias: Record<string, string> }
+}
+
+/** A rule that resolves Parity's modules' own imports of the wrapped packages from the project, as the app's copy. */
+interface WrapperRule {
+  test: RegExp[]
+  resolve: { modules: string[] }
+}
+
+/**
+ * The rules that serve the wrapped packages through Parity's modules (PAR-1265): the app's own modules resolve each
+ * package to its module, and the module itself resolves the package from the project, as the app's copy. None without
+ * wrapped packages.
+ */
+export function pageWrapRules(
+  wraps: readonly { package: string; file: string }[],
+  root: string
+): { appModules: AppModulesRule; wrappers: WrapperRule } | undefined {
+  if (wraps.length === 0) {
+    return undefined
+  }
+
+  const files = wraps.map(({ file }) => new RegExp(`^${escape(file)}$`))
+
+  return {
+    appModules: {
+      exclude: [/[\\/]node_modules[\\/]/, ...files],
+      resolve: { alias: Object.fromEntries(wraps.map((wrap) => [`${wrap.package}$`, wrap.file])) }
+    },
+    wrappers: { test: files, resolve: { modules: [join(root, "node_modules"), "node_modules"] } }
+  }
+}
+
+function pageWrapRuleList(rules: ReturnType<typeof pageWrapRules>): (AppModulesRule | WrapperRule)[] {
+  return rules ? [rules.appModules, rules.wrappers] : []
 }
 
 /** A plugin's class name, which says what it is without importing the tool that made it. */

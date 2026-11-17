@@ -966,6 +966,10 @@ importers:
       next:
         specifier: ^16.0.0
         version: 16.4.6(@babel/core@7.29.7(supports-color@10.2.2))(@opentelemetry/api@1.10.0)(@types/node@24.19.2)(babel-plugin-macros@3.1.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+    devDependencies:
+      happy-dom:
+        specifier: 'catalog:'
+        version: 21.0.4
 
   packages/extension-node:
     dependencies:
@@ -1024,12 +1028,16 @@ importers:
       '@parity-app/extension':
         specifier: workspace:*
         version: link:../extension
-      react-router:
-        specifier: ^7.0.0 || ^8.0.0
-        version: 8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       typescript:
         specifier: 6.0.3
         version: 6.0.3
+    devDependencies:
+      happy-dom:
+        specifier: 'catalog:'
+        version: 21.0.4
+      react-router:
+        specifier: ^8.5.1
+        version: 8.5.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
 
   packages/extension-rsbuild:
     dependencies:

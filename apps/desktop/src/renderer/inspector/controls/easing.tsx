@@ -42,10 +42,12 @@ import {
   easingPlot,
   easingPresets,
   easingValuePlot,
+  listedMotion,
+  presetCurve,
   type Spring,
   springSettle
 } from "./motion-data.ts"
-import { easingClass, easingIsLong } from "./motion-writes.ts"
+import { easingIsLong } from "./motion-writes.ts"
 import { NumberField } from "./number-field.tsx"
 import { Card, PreviewStage } from "./preview-card.tsx"
 import { type EasingToken, easingToken, type FieldToken, hexOf } from "./tokens.ts"
@@ -138,17 +140,18 @@ export function CurveThumb({
   )
 }
 
-/** Tailwind's easings as the token list offers them: by the class each writes, drawn from its own curve. */
-const presetTokens: FieldToken[] = easingPresets.map((preset) => ({
-  name: easingClass({ keyword: preset.keyword }),
-  kind: "easing",
-  value: bezierCss(preset.curve),
-  detail: preset.label
-}))
+/** CSS's easing keywords as the token list offers them, by name, each drawn as the project draws it. */
+const presetTokens = (tokens: readonly EasingToken[]): FieldToken[] =>
+  easingPresets.map((preset) => ({
+    name: preset.keyword,
+    kind: "easing",
+    value: bezierCss(presetCurve(preset.keyword, tokens)),
+    detail: preset.label
+  }))
 
-/** The easing a token list's name stands for: one of Tailwind's by its class, or a project token. */
+/** The easing a token list's name stands for: one of CSS's keywords, or a project token. */
 function picked(name: string): Easing {
-  const preset = easingPresets.find((option) => easingClass({ keyword: option.keyword }) === name)
+  const preset = easingPresets.find((option) => option.keyword === name)
 
   return preset ? { keyword: preset.keyword } : { token: name }
 }
@@ -161,17 +164,14 @@ function readEasing(text: string, tokens: readonly EasingToken[]): Easing | unde
     .replaceAll(/[\s_]+/g, "-")
 
   const preset = easingPresets.find(
-    (option) =>
-      option.keyword === words ||
-      option.label.toLowerCase().replaceAll(" ", "-") === words ||
-      `ease-${option.keyword}` === words
+    (option) => option.keyword === words || option.label.toLowerCase().replaceAll(" ", "-") === words
   )
 
   if (preset) {
     return { keyword: preset.keyword }
   }
 
-  const token = tokenNamed(tokens, words, namespace)
+  const token = tokenNamed(listedMotion(tokens), words, namespace)
 
   if (token) {
     return { token: token.name }
@@ -213,26 +213,26 @@ export function EasingField({
   let current = name
 
   if (value !== undefined && "keyword" in value) {
-    current = easingClass(value)
+    current = value.keyword
   }
 
-  // One of Tailwind's easings is a chip, as a project token is, since the list offers both alike: Backspace takes it
-  // off whole and typing replaces it, rather than its name being text to erase a letter at a time.
-  const preset = presetTokens.find((option) => option.name === current)
+  // A keyword is a chip, as a project token is, since the list offers both alike: Backspace takes it off whole and
+  // typing replaces it, rather than its name being text to erase a letter at a time.
+  const presets = presetTokens(tokens)
+  const preset = presets.find((option) => option.name === current)
   const chipName = name ?? preset?.name
 
   if (preset) {
     comesTo = preset.detail
   }
 
-  // Up and Down go through Tailwind's easings, then the project's, in order, Shift to the first or last; a curve of its
-  // own or none steps from Ease in out.
-  const listed = [...presetTokens, ...tokens]
+  // Up and Down go through the keywords, then the project's easings, in order, Shift to the first or last; a curve of
+  // its own or none steps from Ease in out.
+  const listed = [...presets, ...listedMotion(tokens)]
 
   const step = (up: boolean, { shift }: ScrubKeys) => {
     const held =
-      listed.find((option) => option.name === current) ??
-      presetTokens.find((option) => option.name === easingClass({ keyword: "ease-in-out" }))
+      listed.find((option) => option.name === current) ?? presets.find((option) => option.name === "ease-in-out")
 
     if (held) {
       onChange(picked(stepToken(listed, held, up, shift).name))
@@ -436,7 +436,7 @@ function EasingEditor({
         {/* Each tab starts with its graph, drawn the same, and what sets it comes under it. One the easing isn't yet
             shows its default, faint, as Spring does. */}
         <CurveEditor
-          curve={plot.kind === "bezier" ? plot.curve : defaultCurve}
+          curve={plot.kind === "bezier" ? plot.curve : defaultCurve(tokens)}
           faint={value === undefined || plot.kind !== "bezier"}
           onChange={(curve) => onChange({ value: bezierCss(curve) })}
         />
@@ -455,18 +455,21 @@ function EasingEditor({
                 onClick={() => onChange({ keyword: preset.keyword })}
                 {...rowProps(preset.keyword)}
               >
-                <CurveThumb plot={{ kind: "bezier", curve: preset.curve }} playing={live(preset.keyword)} />
+                <CurveThumb
+                  plot={{ kind: "bezier", curve: presetCurve(preset.keyword, tokens) }}
+                  playing={live(preset.keyword)}
+                />
                 {preset.label}
               </Button>
             ))}
           </div>
-          {tokens.length > 0 && (
+          {listedMotion(tokens).length > 0 && (
             <div className="flex flex-col gap-1">
               <GroupLabel as="p" className="px-1">
                 {"The project's easings"}
               </GroupLabel>
               <div className="grid grid-cols-2 gap-1">
-                {tokens.map((token) => (
+                {listedMotion(tokens).map((token) => (
                   <Button
                     key={token.name}
                     variant={isSelected({ token: token.name }) ? "secondary" : "ghost"}
