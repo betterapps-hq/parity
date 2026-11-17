@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "parity extensions and get_extensions give each extension's halves, latest failures and the room's sync state",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
