@@ -67,8 +67,10 @@ export function PanelFrame({
       aria-label={label}
     >
       <Tabs value={current} onValueChange={(value: string) => onTab(value)} className="min-h-0 flex-1 gap-0">
-        <div className={`flex items-center gap-1 border-b p-2 ${side === "right" ? "flex-row-reverse" : ""}`}>
-          <TabsList className="min-w-0 bg-transparent" aria-label={label}>
+        <div
+          className={`flex h-9 shrink-0 items-center gap-1 border-b px-2 ${side === "right" ? "flex-row-reverse" : ""}`}
+        >
+          <TabsList className="min-w-0 bg-transparent group-data-horizontal/tabs:h-7" aria-label={label}>
             {tabs.map(({ value, label: name, icon: Icon }) => {
               const trigger = (
                 <TabsTrigger key={value} value={value} aria-label={name} className="flex-none">

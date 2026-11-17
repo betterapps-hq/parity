@@ -7,7 +7,6 @@ import { scheduleOverlay } from "../canvas/overlay-scheduler.ts"
 import { findFrames, findNodeElement } from "../frame.ts"
 import { type AgentPalette, agentColors, agentPalettes } from "./agent-colors.ts"
 import { ActionIcon, AgentBadge, AgentPointer } from "./AgentPointer.tsx"
-import { heldBoards } from "./held-boards.ts"
 import {
   arcPoint,
   type Box,
@@ -279,7 +278,7 @@ function AgentCursor({
           still ? 0 : Math.max(1000, travelMs({ x: 0, y: 0 }, { x: span, y: 0 }) * 1.6) * pace,
           (t) => {
             const now = arcPoint(from, to, easeInOutCubic(t), bend)
-            heldBoards.set(tab, design, now)
+            presence.drawHeld(event, now)
             show({ x: grab.x + (now.x - from.x) * zoom, y: grab.y + (now.y - from.y) * zoom })
           },
           alive
@@ -288,7 +287,7 @@ function AgentCursor({
         press(false)
         await pause(500 * pace)
       } finally {
-        heldBoards.finish(tab, design, to)
+        presence.letGo(event, to)
       }
     }
 

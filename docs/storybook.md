@@ -152,9 +152,9 @@ components open on their docs page.
 ## What's planned
 
 - **The rest of the project's preview on the canvas.** Parity composes `.storybook/preview.*` with Storybook's portable
-  stories API now (PAR-98). Still to come: its global types as mode variables (PAR-105), `definePreview` previews
-  (PAR-97), a stories file's decorators (PAR-99) and add-ons' annotations (PAR-112). Panel-only add-ons are ignored. See
-  [decorators.md](proposals/decorators.md).
+  stories API now (PAR-98). `definePreview` previews compose too (PAR-97). Still to come: its global types as mode
+  variables (PAR-105), a stories file's decorators (PAR-99) and add-ons' annotations (PAR-112). Panel-only add-ons are
+  ignored. See [decorators.md](proposals/decorators.md).
 - **`.parity/preview.tsx` for projects without Storybook,** built in PAR-100 (see [editor.md](editor.md)). It has the
   same exports as Storybook's preview, runs on a small runtime of Parity's own, and moves to `.storybook/preview.tsx`
   unchanged. With no Parity file, Storybook's preview is used as it is (PAR-98). When both exist, Parity's file wins and
