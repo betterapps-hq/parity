@@ -138,10 +138,6 @@ function CanvasArea({ projectId, shown }: { projectId: string; shown: boolean })
       <div
         className={`canvas-area relative isolate z-[5] min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
         data-tool={tool}
-        // Dockview moves a lens's canvas without resizing it, as when tabs or a split appear, and tldraw keeps where the
-        // canvas was until it next measures; it's told where it is before it takes a press or the pointer.
-        onPointerDownCapture={() => measureCanvas(session?.editor)}
-        onPointerEnter={() => measureCanvas(session?.editor)}
       >
         <CanvasShown value={shown}>
           <CanvasEditor onEditor={onEditor} shown={shown} />
@@ -169,9 +165,4 @@ function CanvasArea({ projectId, shown }: { projectId: string; shown: boolean })
       </div>
     </CanvasMenu>
   )
-}
-
-/** Tells tldraw where its canvas is on the screen now. */
-function measureCanvas(editor: Editor | undefined): void {
-  editor?.updateViewportScreenBounds(editor.getContainer())
 }
