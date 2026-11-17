@@ -236,4 +236,12 @@ describe("withoutStylesImport", () => {
     expect(withoutStylesImport(source, "@mantine/core/styles.css")).toBe(`@import "tailwindcss";\n\n:root {}\n`)
     expect(withoutStylesImport(source, "@chakra-ui/react/styles.css")).toBeUndefined()
   })
+
+  it("drops a library's import written with url(), quoted or not", () => {
+    const quoted = `@import "tailwindcss";\n@import url("@buildkitgg/shadcn/tailwind.css") layer(components);\n`
+    const bare = `@import url(@buildkitgg/shadcn/tailwind.css);\n:root {}\n`
+
+    expect(withoutStylesImport(quoted, "@buildkitgg/shadcn/tailwind.css")).toBe(`@import "tailwindcss";\n`)
+    expect(withoutStylesImport(bare, "@buildkitgg/shadcn/tailwind.css")).toBe(`:root {}\n`)
+  })
 })

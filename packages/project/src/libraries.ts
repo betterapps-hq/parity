@@ -68,10 +68,18 @@ export function withStylesImport(source: string, specifier: string): string | un
   return lines.join("\n")
 }
 
+/** An `@import`'s specifier, quoted or in `url()`, quoted or not: `@import url("a.css") layer(base);` imports `a.css`. */
+const importedSpecifier = /^@import\s+(?:url\(\s*["']?([^"')\s]+)["']?\s*\)|["']([^"']+)["'])/
+
 /** A stylesheet without its import of a library's styles, or `undefined` when it doesn't import them. */
 export function withoutStylesImport(source: string, specifier: string): string | undefined {
   const lines = source.split("\n")
-  const kept = lines.filter((text) => /^@import\s+["']([^"']+)["']/.exec(text.trim())?.[1] !== specifier)
+
+  const kept = lines.filter((text) => {
+    const match = importedSpecifier.exec(text.trim())
+
+    return (match?.[1] ?? match?.[2]) !== specifier
+  })
 
   return kept.length === lines.length ? undefined : kept.join("\n")
 }
