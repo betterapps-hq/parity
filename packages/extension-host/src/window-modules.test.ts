@@ -6,6 +6,7 @@ import {
   type JsonValue,
   type NodeRef,
   type Parity,
+  type SettingContribution,
   type SettingValue
 } from "@parity-app/extension"
 import {
@@ -65,7 +66,7 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
     extensionDependencies: [],
     commands: ["wtest.fail", "wtest.confirm", "wtest.nested"],
     settings: { "wtest.on": true },
-    settingScopes: { "wtest.on": "app" },
+    declaredSettings: { "wtest.on": { type: "boolean", scope: "app", title: "On" } },
     host: "running",
     ...change
   }
@@ -185,7 +186,7 @@ describe("window modules in a project tab", () => {
   it("activates an onStartup module in every tab, each with its own parity", async () => {
     const first = tab()
     const second = tab()
-    const startup = extension({ activates: ["onStartup"], settings: {}, settingScopes: {} })
+    const startup = extension({ activates: ["onStartup"], settings: {}, declaredSettings: {} })
 
     first.runtime.update([startup])
     second.runtime.update([startup])
@@ -507,17 +508,23 @@ describe("window modules in a project tab", () => {
     })
 
     const { runtime, parities, updates } = tab({ "@parity-app/extension-window-test": reading })
-    const scopes = { "wtest.on": "app", "wtest.mode": "project" } as const
 
-    runtime.update([extension({ settings: { "wtest.on": true, "wtest.mode": "a" }, settingScopes: scopes })])
+    const declared = {
+      "wtest.on": { type: "boolean", scope: "app", title: "On" },
+      "wtest.mode": { type: "string", scope: "project", title: "Mode", enum: ["a", "b", "c"] }
+    } satisfies Record<string, SettingContribution>
+
+    runtime.update([extension({ settings: { "wtest.on": true, "wtest.mode": "a" }, declaredSettings: declared })])
     await settle()
-    runtime.update([extension({ settings: { "wtest.on": true, "wtest.mode": "b" }, settingScopes: scopes })])
+    runtime.update([extension({ settings: { "wtest.on": true, "wtest.mode": "b" }, declaredSettings: declared })])
     const settings = parities.get("@parity-app/extension-window-test")?.settings
 
     expect(settings?.get("wtest.mode")).toBe("b")
     expect(heard).toEqual(["b"])
     expect(() => settings?.get("wtest.other")).toThrow("isn't a setting")
     await expect(settings?.update("wtest.on", false)).rejects.toThrow("only Settings changes it")
+    await expect(settings?.update("wtest.mode", "z")).rejects.toThrow(`wtest.mode can't be set to "z"`)
+    await expect(settings?.update("wtest.mode", 3)).rejects.toThrow("can't be set to 3")
 
     // A `.par` keeps it under the prefix, by its key without the prefix.
     await settings?.update("wtest.mode", "c")
