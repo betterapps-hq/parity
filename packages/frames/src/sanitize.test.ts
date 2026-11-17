@@ -405,6 +405,30 @@ describe("sanitizeSheet", () => {
     )
   })
 
+  it("reads a function's name inside a string as text, so no string hides a load after it", () => {
+    expect(
+      sanitizeSheet(`a{content: 'image-set(none'; background-image: image-set("http://evil.example/a.png" 1x)}`, policy)
+    ).toBe(`a{content: 'image-set(none'; background-image: image-set(none 1x)}`)
+    expect(
+      sanitizeSheet(
+        `a{content:'url("https://cdn.example/a.png?'; background:url(http://evil.example/x.png);z:")"}`,
+        policy
+      )
+    ).toBe(`a{content:'url("https://cdn.example/a.png?'; background:none;z:")"}`)
+  })
+
+  it("ends a string at a newline, as CSS does, and checks what follows", () => {
+    expect(sanitizeSheet(`a{content:"x\n;background:url(http://evil.example/x.png)}`, policy)).toBe(
+      `a{content:"x\n;background:none}`
+    )
+  })
+
+  it("refuses an unquoted url() that ends before a quote it holds", () => {
+    expect(sanitizeSheet(`a{background:url(https://cdn.example/a"b);c:url(http://evil.example/x.png)}`, policy)).toBe(
+      "a{background:none;c:none}"
+    )
+  })
+
   it("disarms an @import that taking out another would make", () => {
     expect(sanitizeSheet(`@im@import "";port "http://evil.example/a.css"; b{}`, policy)).toBe(
       `@-parity-removed-import "http://evil.example/a.css"; b{}`

@@ -254,7 +254,7 @@ export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): SanitizedR
 
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
-  const css = withoutComments(readLoadNames(text)).replace(
+  const css = withoutComments(readLoadNames(cssNewlines(text))).replace(
     /@import\b(?:[^;"']|"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*')*;?/gi,
     ""
   )
@@ -453,24 +453,106 @@ function srcsetCandidates(value: string): { url: string; descriptor: string }[] 
  */
 const cssEscape = String.raw`\\(?:(?:[0-9a-f]{6}|[0-9a-f]{1,5}(?![0-9a-f]))\s?|[^\n0-9a-f])`
 
-/** A `url()`, quoted or not. It or its string may run to the end of the text unclosed, which CSS still reads as a URL. */
-const cssUrl = new RegExp(
-  String.raw`\burl\(\s*(?:"((?:[^"\\]|\\[\s\S])*)(?:"|$)|'((?:[^'\\]|\\[\s\S])*)(?:'|$)|((?:[^)"'\s\\]|${cssEscape})*))\s*(?:\)|$)`,
-  "gi"
-)
-
 /**
- * CSS with each `url()` and `image-set()` string outside the policy replaced by `none`. A stylesheet or inline style
- * loads images and fonts, so any `https:` host is allowed.
+ * CSS with each `url()`, `image-set()` and `src()` load outside the policy replaced by `none`. A stylesheet or inline
+ * style loads images and fonts, so any `https:` host is allowed.
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
-  const urls = withoutComments(readLoadNames(css)).replace(
-    cssUrl,
-    (whole, double?: string, single?: string, bare?: string) =>
-      allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
-  )
+  return sanitizeLoads(withoutComments(readLoadNames(cssNewlines(css))), policy)
+}
 
-  return sanitizeImageSources(urls, policy)
+/** CSS with CR LF, CR and form feed as LF, as CSS reads its text before anything else, so an escape before one holds. */
+function cssNewlines(css: string): string {
+  return css.replace(/\r\n?|\f/g, "\n")
+}
+
+/** The CSS functions that load what they're given. */
+const loadOpening = /url\(|(?:-webkit-)?image-set\(|src\(/iy
+
+/** A character that would make a function's name part of a longer identifier. */
+const identifierPart = /[\w-]/
+
+/**
+ * CSS with every load the policy doesn't allow replaced, read forward once as CSS reads it: a string is skipped whole,
+ * so a function's name inside one is only text, and each `url()`, `image-set()` and `src()` is read to where CSS ends
+ * it, so nothing in one can hide the next.
+ */
+function sanitizeLoads(css: string, policy: SanitizePolicy): string {
+  let out = ""
+  let from = 0
+
+  for (let at = 0; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+      continue
+    }
+
+    if (char === '"' || char === "'") {
+      at = stringEnd(css, at)
+      continue
+    }
+
+    loadOpening.lastIndex = at
+    const opening = identifierPart.test(css.charAt(at - 1)) ? null : loadOpening.exec(css)
+
+    if (!opening) {
+      continue
+    }
+
+    const start = at + opening[0].length
+
+    const load = /^url\($/i.test(opening[0])
+      ? sanitizeUrl(css, at, start, policy)
+      : sanitizeImageSource(css, at, start, policy)
+
+    out += `${css.slice(from, at)}${load.text}`
+    from = load.end
+    at = load.end - 1
+  }
+
+  return out + css.slice(from)
+}
+
+/** A load's text as it stays, and where in the CSS it ended. */
+interface CheckedLoad {
+  text: string
+  end: number
+}
+
+/** `url()` with a string or without one, as CSS reads each: `none` when it loads what the policy doesn't allow. */
+function sanitizeUrl(css: string, open: number, start: number, policy: SanitizePolicy): CheckedLoad {
+  let at = start
+
+  while (at < css.length && /\s/.test(css.charAt(at))) {
+    at += 1
+  }
+
+  const quote = css.charAt(at)
+
+  if (quote === '"' || quote === "'") {
+    // Before a string, `url(` is a function, which ends at its balanced closing parenthesis.
+    const end = Math.min(closingParenthesis(css, start) + 1, css.length)
+    const close = stringEnd(css, at)
+    const value = css.slice(at + 1, close > at && css.charAt(close) === quote ? close : close + 1)
+
+    return { text: allowedUrl(cssString(value), "image", policy) ? css.slice(open, end) : "none", end }
+  }
+
+  // Without one, the URL runs to the first `)`, and a quote, `(` or space in it makes a bad URL, which loads nothing.
+  let close = at
+
+  while (close < css.length && css.charAt(close) !== ")") {
+    close += css.charAt(close) === "\\" ? 2 : 1
+  }
+
+  close = Math.min(close, css.length)
+  const end = Math.min(close + 1, css.length)
+  const value = css.slice(at, close).trimEnd()
+  const bad = /["'(\s]/.test(value.replace(new RegExp(cssEscape, "gi"), ""))
+
+  return { text: !bad && allowedUrl(cssString(value), "image", policy) ? css.slice(open, end) : "none", end }
 }
 
 /** CSS with each comment outside a string replaced by a space, as CSS reads one, so no pattern after can miss a load. */
@@ -497,45 +579,40 @@ function withoutComments(css: string): string {
   return out + css.slice(from)
 }
 
-/** An `image-set()` candidate whose image is a gradient or a `url()`, which the `url()` pass has already checked. */
-const checkedImage = /^\s*(?:url\(|none\b|(?:-webkit-)?(?:repeating-)?(?:linear|radial|conic)-gradient\()/i
+/** An image that loads nothing: none, or a gradient. */
+const inertImage = /^\s*(?:none\b|(?:-webkit-)?(?:repeating-)?(?:linear|radial|conic)-gradient\()/i
 
 /**
- * CSS with each `image-set()` candidate and `src()` source the policy doesn't allow given `none` instead. Each is read
- * to its balanced closing parenthesis. A candidate's image is its leading string, checked as a URL; a string later in
- * it, as in `type("image/png")`, is a descriptor. A `url()` or a gradient stays, and any other image, such as `var()`
- * or `attr()`, which would only say what it loads once it's drawn, goes.
+ * `image-set()` or `src()`, read to its balanced closing parenthesis, with each candidate the policy doesn't allow
+ * given `none`. A candidate's image is its leading string, checked as a URL; a string later in it, as in
+ * `type("image/png")`, is a descriptor. A `url()` is checked as anywhere else, a gradient stays, and any other image,
+ * such as `var()` or `attr()`, which would only say what it loads once it's drawn, goes.
  */
-function sanitizeImageSources(css: string, policy: SanitizePolicy): string {
-  const opening = /\b((?:-webkit-)?image-set|src)\(/gi
-  let out = ""
-  let from = 0
+function sanitizeImageSource(css: string, open: number, start: number, policy: SanitizePolicy): CheckedLoad {
+  const close = closingParenthesis(css, start)
+  const inner = css.slice(start, close)
+  const parts = /^src\($/i.test(css.slice(open, start)) ? [inner] : topLevelParts(inner)
 
-  for (let match = opening.exec(css); match; match = opening.exec(css)) {
-    const start = match.index + match[0].length
-    const end = closingParenthesis(css, start)
-    const parts = match[1]?.toLowerCase() === "src" ? [css.slice(start, end)] : topLevelParts(css.slice(start, end))
+  const candidates = parts.map((candidate) => {
+    const leading = /^(\s*)(?:"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)')/.exec(candidate)
 
-    const candidates = parts.map((candidate) => {
-      const leading = /^(\s*)(?:"((?:[^"\\]|\\[\s\S])*)"|'((?:[^'\\]|\\[\s\S])*)')/.exec(candidate)
+    if (leading) {
+      return allowedUrl(cssString(leading[2] ?? leading[3] ?? ""), "image", policy)
+        ? candidate
+        : `${leading[1]}none${candidate.slice(leading[0].length)}`
+    }
 
-      if (!leading) {
-        return checkedImage.test(candidate) ? candidate : "none"
-      }
+    if (/^\s*url\(/i.test(candidate)) {
+      return sanitizeLoads(candidate, policy)
+    }
 
-      if (allowedUrl(cssString(leading[2] ?? leading[3] ?? ""), "image", policy)) {
-        return candidate
-      }
+    return inertImage.test(candidate) ? candidate : "none"
+  })
 
-      return `${leading[1]}none${candidate.slice(leading[0].length)}`
-    })
-
-    out += `${css.slice(from, start)}${candidates.join(",")}`
-    from = end
-    opening.lastIndex = end
+  return {
+    text: `${css.slice(open, start)}${candidates.join(",")}${close < css.length ? ")" : ""}`,
+    end: Math.min(close + 1, css.length)
   }
-
-  return out + css.slice(from)
 }
 
 /** Where the parenthesis opened just before `start` closes, skipping strings and escapes, or the text's end. */
@@ -563,15 +640,22 @@ function closingParenthesis(css: string, start: number): number {
   return css.length
 }
 
-/** The index of the quote that closes the string opened at `start`, or the text's last index. */
+/**
+ * The index of the quote that closes the string opened at `start`, or of its last character when a newline or the
+ * text's end cuts it short, as CSS ends a string; what follows a newline is read as CSS again.
+ */
 function stringEnd(css: string, start: number): number {
   const quote = css.charAt(start)
 
   for (let at = start + 1; at < css.length; at += 1) {
-    if (css.charAt(at) === "\\") {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
       at += 1
-    } else if (css.charAt(at) === quote) {
+    } else if (char === quote) {
       return at
+    } else if (char === "\n" || char === "\r" || char === "\f") {
+      return at - 1
     }
   }
 
