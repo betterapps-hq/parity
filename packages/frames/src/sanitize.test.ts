@@ -353,6 +353,16 @@ describe("sanitizeSheet", () => {
     expect(sanitizeSheet(css, policy)).toBe(css)
   })
 
+  it("checks every image-set() candidate past a url() one, and leaves type() descriptors alone", () => {
+    const css = `a { background: image-set(url(https://cdn.example/a.png) 1x, "http://evil.example/b.png" 2x) }`
+
+    expect(sanitizeSheet(css, policy)).toBe(`a { background: image-set(url(https://cdn.example/a.png) 1x, none 2x) }`)
+
+    const typed = `a { background: image-set("${policy.pageOrigin}/a.avif" type("image/avif"), "${policy.pageOrigin}/a.png" type("image/png")) }`
+
+    expect(sanitizeSheet(typed, policy)).toBe(typed)
+  })
+
   it("checks image-set()'s strings as it does url()s", () => {
     expect(
       sanitizeSheet(

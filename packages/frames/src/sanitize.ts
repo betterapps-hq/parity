@@ -453,15 +453,105 @@ function sanitizeCss(css: string, policy: SanitizePolicy): string {
       allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
   )
 
-  return urls.replace(/(image-set\()([^)]*)\)/gi, (_whole, open: string, inner: string) => {
-    const strings = inner.replace(
-      /"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'/g,
-      (quoted, double?: string, single?: string) =>
-        allowedUrl(cssString(double ?? single ?? ""), "image", policy) ? quoted : "none"
-    )
+  return sanitizeImageSets(urls, policy)
+}
 
-    return `${open}${strings})`
-  })
+/**
+ * CSS with each `image-set()` candidate whose image is a string outside the policy given `none` instead. Each
+ * `image-set()` is read to its balanced closing parenthesis, and only a candidate's leading string is its image: a
+ * string later in it, as in `type("image/png")`, is a descriptor. A `url()` candidate was checked with the rest.
+ */
+function sanitizeImageSets(css: string, policy: SanitizePolicy): string {
+  const opening = /image-set\(/gi
+  let out = ""
+  let from = 0
+
+  for (let match = opening.exec(css); match; match = opening.exec(css)) {
+    const start = match.index + match[0].length
+    const end = closingParenthesis(css, start)
+
+    const candidates = topLevelParts(css.slice(start, end)).map((candidate) => {
+      const leading = /^(\s*)(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/.exec(candidate)
+
+      if (!leading || allowedUrl(cssString(leading[2] ?? leading[3] ?? ""), "image", policy)) {
+        return candidate
+      }
+
+      return `${leading[1]}none${candidate.slice(leading[0].length)}`
+    })
+
+    out += `${css.slice(from, start)}${candidates.join(",")}`
+    from = end
+    opening.lastIndex = end
+  }
+
+  return out + css.slice(from)
+}
+
+/** Where the parenthesis opened just before `start` closes, skipping strings and escapes, or the text's end. */
+function closingParenthesis(css: string, start: number): number {
+  let depth = 1
+
+  for (let at = start; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      at = stringEnd(css, at)
+    } else if (char === "(") {
+      depth += 1
+    } else if (char === ")") {
+      depth -= 1
+
+      if (depth === 0) {
+        return at
+      }
+    }
+  }
+
+  return css.length
+}
+
+/** The index of the quote that closes the string opened at `start`, or the text's last index. */
+function stringEnd(css: string, start: number): number {
+  const quote = css.charAt(start)
+
+  for (let at = start + 1; at < css.length; at += 1) {
+    if (css.charAt(at) === "\\") {
+      at += 1
+    } else if (css.charAt(at) === quote) {
+      return at
+    }
+  }
+
+  return css.length - 1
+}
+
+/** A function's arguments split at its top-level commas, outside nested functions and strings. */
+function topLevelParts(inner: string): string[] {
+  const parts: string[] = []
+  let depth = 0
+  let from = 0
+
+  for (let at = 0; at < inner.length; at += 1) {
+    const char = inner.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      at = stringEnd(inner, at)
+    } else if (char === "(") {
+      depth += 1
+    } else if (char === ")") {
+      depth -= 1
+    } else if (char === "," && depth === 0) {
+      parts.push(inner.slice(from, at))
+      from = at + 1
+    }
+  }
+
+  return [...parts, inner.slice(from)]
 }
 
 /** A CSS identifier, escapes and all, as a function's or an at-rule's name can be written. */
