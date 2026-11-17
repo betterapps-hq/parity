@@ -1037,7 +1037,8 @@ export function describeExtensions({ extensions }: ExtensionsResponse): string {
         ...(halves?.window === undefined ? [] : [`window ${halves.window}`])
       ]
 
-      if (halfStates.length > 0) {
+      // Only one with a window module has two halves to tell apart; a Node half alone is the state above.
+      if (halves?.window !== undefined) {
         lines.push(`  halves: ${halfStates.join(", ")}`)
       }
 

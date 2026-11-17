@@ -485,7 +485,7 @@ describe("describeExtensions", () => {
     )
   })
 
-  it("leaves out what an extension without a window module doesn't have", () => {
+  it("leaves out the halves of an extension without a window module, whose state says it", () => {
     const text = describeExtensions({
       tab,
       extensions: [
@@ -503,6 +503,6 @@ describe("describeExtensions", () => {
       ]
     })
 
-    expect(text).toBe("Checks (parity-checks), waiting\n  halves: Node waiting")
+    expect(text).toBe("Checks (parity-checks), waiting")
   })
 })
