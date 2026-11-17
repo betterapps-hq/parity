@@ -148,6 +148,16 @@ export function useLiveBoard(board: LiveBoard): LiveBoardState {
     pool.redraw(latest.current.id)
   }, [pool, drawn])
 
+  // A board sent to another URL, as a param set in Props does, leaves its live page and any spare warming on it behind.
+  const first = useRef(board.url)
+
+  useEffect(() => {
+    if (first.current !== board.url) {
+      first.current = board.url
+      pool.retarget(latest.current.id)
+    }
+  }, [pool, board.url])
+
   const live = useStore(liveStates).get(board.project)
   const ready = useStore(readyBoards).get(board.project) === board.id
 
@@ -278,6 +288,17 @@ export class Pool {
     }
 
     this.plan()
+  }
+
+  /** A board now draws another URL: its live page ends and its board shows its copy at the new URL. */
+  retarget(id: string): void {
+    if (this.warming?.board === id) {
+      this.unwarm()
+    }
+
+    if (this.live?.board === id) {
+      this.endLive()
+    }
   }
 
   /** A board's mode or window changed: when it holds the live frame, the page takes the new mode, sized to its window. */
