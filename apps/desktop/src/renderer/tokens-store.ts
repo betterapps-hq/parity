@@ -116,7 +116,7 @@ export class TokenStore {
       return
     }
 
-    const differences = tokenDifferences(this.shown, edits)
+    const differences = tokenDifferences(asLoaded(this.shown, edits, this.loaded), edits)
 
     // A value set to nothing takes the declaration out again, which a value the sheet never had leaves alone.
     for (const { name, theme, value } of differences) {
@@ -128,6 +128,26 @@ export class TokenStore {
     this.overrides = withTokenOverrides(this.overrides, differences, this.loaded)
     this.changes.notify()
   }
+}
+
+/**
+ * The edits the stylesheet shows, with each token edited now that it doesn't show yet at the value the stylesheet had
+ * when its guest loaded, not the edit's original: a copy that joined a live room after the host saved loaded the saved
+ * value, which can differ from the original the room's edits carry (PAR-1254).
+ */
+function asLoaded(shown: TokenEdits, edits: TokenEdits, loaded: readonly Token[]): TokenEdits {
+  let from: Map<string, TokenEdit> | undefined
+
+  for (const [key, edit] of edits) {
+    const value = loaded.find((token) => token.name === edit.name)?.values[edit.theme]
+
+    if (!shown.has(key) && value !== undefined && value !== edit.original) {
+      from ??= new Map(shown)
+      from.set(key, { ...edit, value })
+    }
+  }
+
+  return from ?? shown
 }
 
 /**

@@ -6374,10 +6374,13 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   edits like its own, autosaving them on its usual delay, and writes the stylesheet. A change says where its content is
   already written (`written`): `files` for a file reloaded from disk or code drawn again, which the saver takes as
   saved, and `no` for everything else, the others' edits included. Only the host takes in a file changed on disk; the
-  others get it from there.
+  others get it from there, and take it as what the file holds (PAR-1254).
 - **A copy that doesn't write files has nothing to save.** It records nothing as saved, its name shows no unsaved dot,
   closing it asks nothing, and Save says "Saved by the room". When the host leaves and it takes over, it writes every
-  file that differs from what it read from disk when it opened, and the stylesheet when token values do.
+  file that differs from what it last read from disk, when it opened or as the host saved it since, and every token
+  value edited: it can't tell which the host saved to the stylesheet, so it writes them all (PAR-1254).
+- **A copy that joins shows the room's token values,** compared with the stylesheet it loaded, not the edits' originals,
+  so a value the host saved and changed back shows as the room has it (PAR-1254).
 - **Everyone sees the same state and mode** (PAR-1231). Which state and mode a design shows (its `view`) is an edit like
   any other: picking a state or turning a mode on shows it in every copy, and the host's file saves it.
 - **Cursors.** Each person's cursor is a tldraw presence record, drawn as an agent's is, with the pointer and badge, in
@@ -6403,10 +6406,14 @@ Tests:
 - `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": another copy's change written a moment after
   it and counted in `fromOthers`; another copy's token values written to the stylesheet; nothing written or unsaved in a
   copy that doesn't write files; taking over writes every file that differs from what its files held, and the
-  stylesheet; letting go after the write in flight.
+  stylesheet; every token value edited written on taking over, one changed back to its original included; a file the
+  host saved taken as what the file holds, so one changed back since is written; letting go after the write in flight.
+- `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (1), in Chrome: a guest that loaded a value
+  the host saved shows the room's, though it's the edit's original.
 - `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: the other person's changes
   arrive as not yet written; token values shared, with undo taking back only this person's; which state and mode a
-  design shows shared with the other's edits, and a mode the other took away dropped from it.
+  design shows shared with the other's edits, and a mode the other took away dropped from it; a copy taking over after
+  the host saved and left writing the file and token value it changed back since (PAR-1254).
 - `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
   copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
   isn't one refused.
