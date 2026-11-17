@@ -35,6 +35,22 @@ export function paceFor(waiting: number): number {
   return waiting <= 2 ? 1 : Math.max(fastestPace, 1 - (waiting - 2) * 0.08)
 }
 
+/** How far behind its agent a pointer gets, in ms, before it skips the steps that waited longer for the latest. */
+export const behindLimitMs = 6000
+
+/** How far behind its agent a pointer gets, in ms, before it hurries to catch up. */
+const hurryAfterMs = 3000
+
+/**
+ * How much faster to play a step that waited `behindMs` for its turn: full speed while the pointer keeps up, down to
+ * the fastest as it nears `behindLimitMs` behind, so motion stays close to what the agent is doing.
+ */
+export function paceBehind(behindMs: number): number {
+  const share = (behindMs - hurryAfterMs) / (behindLimitMs - hurryAfterMs)
+
+  return share <= 0 ? 1 : Math.max(fastestPace, 1 - share * (1 - fastestPace))
+}
+
 /**
  * A point along a gentle arc from `from` to `to`. `bend` is how far the arc bows out, as a share of the distance,
  * to one side or the other by its sign: people rarely move a mouse in a straight line.

@@ -7,6 +7,9 @@ import {
   easeInOutSettle,
   focusOffset,
   glanceOffset,
+  behindLimitMs,
+  fastestPace,
+  paceBehind,
   paceFor,
   travelMs
 } from "./motion.ts"
@@ -92,5 +95,14 @@ describe("agent cursor motion", () => {
     expect(paceFor(2)).toBe(1)
     expect(paceFor(6)).toBeLessThan(1)
     expect(paceFor(100)).toBe(0.35)
+  })
+
+  it("plays faster the further behind its agent a pointer is, as fast as it goes near the limit", () => {
+    expect(paceBehind(0)).toBe(1)
+    expect(paceBehind(3000)).toBe(1)
+    expect(paceBehind(4500)).toBeLessThan(1)
+    expect(paceBehind(4500)).toBeGreaterThan(fastestPace)
+    expect(paceBehind(behindLimitMs)).toBe(fastestPace)
+    expect(paceBehind(60_000)).toBe(fastestPace)
   })
 })
