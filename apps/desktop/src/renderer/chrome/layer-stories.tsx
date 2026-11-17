@@ -131,8 +131,8 @@ export const media = (layer: Pick<ImageNode, "type" | "src"> | Pick<VideoNode, "
     return layersSelection(key, ["hero-media"])
   })
 
-/** Finds a media layer's fields by their labels, as a screen reader names them. */
-export async function mediaFields(canvasElement: HTMLElement) {
+/** Checks a media layer's fields by their labels, as a screen reader names them. */
+export async function mediaFields(canvasElement: HTMLElement): Promise<void> {
   const panel = within(canvasElement)
   await expect(await panel.findByRole("textbox", { name: "File" }, slowly)).toBeVisible()
   await expect(panel.getByRole("textbox", { name: "Alt text" })).toHaveValue(
@@ -140,6 +140,4 @@ export async function mediaFields(canvasElement: HTMLElement) {
   )
   await expect(panel.getByRole("combobox", { name: "Fit" })).toHaveTextContent("Contain, shown whole")
   await expect(panel.getByRole("button", { name: "Hide layer" })).toBeVisible()
-
-  return panel
 }

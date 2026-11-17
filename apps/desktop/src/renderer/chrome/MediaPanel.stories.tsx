@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { expect } from "storybook/test"
+import { expect, within } from "storybook/test"
 import { MediaPanel } from "./KindPanels.tsx"
 import { media, mediaFields, renderSection, sectionStage } from "./layer-stories.tsx"
 
@@ -20,7 +20,8 @@ type Story = StoryObj<typeof meta>
 
 /** The sections both kinds get: Content first, then Size, Position, Appearance and Stroke, with nothing painted over it. */
 async function mediaSections(canvasElement: HTMLElement, src: string) {
-  const panel = await mediaFields(canvasElement)
+  await mediaFields(canvasElement)
+  const panel = within(canvasElement)
   await expect(panel.getByRole("textbox", { name: "File" })).toHaveValue(src)
   const titles = (await panel.findAllByRole("heading", { level: 3 })).map((title) => title.textContent)
   await expect(titles[0]).toBe("Content")
