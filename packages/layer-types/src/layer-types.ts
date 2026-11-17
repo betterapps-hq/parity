@@ -272,12 +272,12 @@ const fieldSections = [
   "input",
   "typography",
   "size",
+  "appearance",
   "fill",
-  "stroke",
-  "appearance"
+  "stroke"
 ] as const satisfies readonly PanelSection[]
 
-const boxSections = ["layout", "size", "fill", "stroke", "appearance"] as const satisfies readonly PanelSection[]
+const boxSections = ["size", "layout", "appearance", "fill", "stroke"] as const satisfies readonly PanelSection[]
 
 /** The sections each type's panel shows, in order: what's its own first, then what every box has. */
 export const elementTypeSections: Record<ElementType, readonly PanelSection[]> = {
@@ -286,25 +286,25 @@ export const elementTypeSections: Record<ElementType, readonly PanelSection[]> =
   table: boxSections,
   list: boxSections,
   overlay: boxSections,
-  divider: ["size", "stroke", "appearance"],
-  text: ["typography", "size", "fill", "appearance"],
-  link: ["link", "typography", "size", "fill", "appearance"],
+  divider: ["size", "appearance", "stroke"],
+  text: ["typography", "size", "appearance", "fill"],
+  link: ["link", "typography", "size", "appearance", "fill"],
   button: fieldSections,
   textField: fieldSections,
   select: fieldSections,
   datePicker: fieldSections,
   colorPicker: fieldSections,
   filePicker: fieldSections,
-  checkbox: ["input", "size", "fill", "stroke", "appearance"],
-  radio: ["input", "size", "fill", "stroke", "appearance"],
-  switch: ["input", "size", "fill", "stroke", "appearance"],
-  slider: ["input", "size", "fill", "appearance"],
-  progress: ["input", "size", "fill", "appearance"],
-  image: ["source", "size", "stroke", "appearance"],
+  checkbox: ["input", "size", "appearance", "fill", "stroke"],
+  radio: ["input", "size", "appearance", "fill", "stroke"],
+  switch: ["input", "size", "appearance", "fill", "stroke"],
+  slider: ["input", "size", "appearance", "fill"],
+  progress: ["input", "size", "appearance", "fill"],
+  image: ["source", "size", "appearance", "stroke"],
   vector: ["source", "size", "appearance"],
-  video: ["source", "playback", "size", "stroke", "appearance"],
+  video: ["source", "playback", "size", "appearance", "stroke"],
   audio: ["source", "playback", "size", "appearance"],
-  embed: ["source", "size", "stroke", "appearance"]
+  embed: ["source", "size", "appearance", "stroke"]
 }
 
 const byTag = new Map(elementTypes.flatMap((type) => elementTypeTags[type].map((tag) => [tag, type] as const)))

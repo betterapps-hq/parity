@@ -1,10 +1,9 @@
 import { defaultModeSettings, type ProjectRoute, resolveMode, type RouteSegment } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import {
-  pageFrameName,
+  pageFrameUrl,
   pageGroupBox,
-  pageHeightMessage,
-  pageLandedMessage,
+  pageMode,
   landedElsewhere,
   pageLinkLine,
   pageLinksLit,
@@ -12,6 +11,7 @@ import {
   type PageNode,
   pageTree,
   placePages,
+  projectHost,
   routeLayers,
   routeScreens,
   routeTree,
@@ -291,40 +291,6 @@ describe("pageGroupBox", () => {
   })
 })
 
-describe("pageHeightMessage", () => {
-  it("reads the height a page's frame posts, rounded up", () => {
-    expect(pageHeightMessage.parse({ parity: "page-height", height: 1240.4 })).toBe(1241)
-  })
-
-  it("takes no other message, nor a height that isn't a positive number", () => {
-    for (const message of [
-      { parity: "other", height: 900 },
-      { parity: "page-height", height: 0 },
-      { parity: "page-height", height: "900" },
-      "page-height",
-      null
-    ]) {
-      expect(pageHeightMessage.safeParse(message).success).toBe(false)
-    }
-  })
-})
-
-describe("pageLandedMessage", () => {
-  it("reads the path a page's frame posts", () => {
-    expect(pageLandedMessage.parse({ parity: "page-landed", path: "/settings/profile" })).toBe("/settings/profile")
-  })
-
-  it("takes no other message, nor a path that isn't one", () => {
-    for (const message of [
-      { parity: "page-height", path: "/" },
-      { parity: "page-landed", path: "settings" },
-      { parity: "page-landed" }
-    ]) {
-      expect(pageLandedMessage.safeParse(message).success).toBe(false)
-    }
-  })
-})
-
 describe("landedElsewhere", () => {
   it("gives the path a page landed on when it isn't the page's own", () => {
     expect(landedElsewhere("http://localhost:5173/settings", "/settings/profile")).toBe("/settings/profile")
@@ -388,20 +354,34 @@ describe("routeLayers", () => {
   })
 })
 
-describe("pageFrameName", () => {
+describe("pageMode", () => {
   const mode = (id: string) =>
     resolveMode(
       defaultModeSettings,
       defaultModeSettings.modes.find((each) => each.id === id)!
     )
 
-  it("names a frame with its mode's classes, attributes and scheme", () => {
-    expect(JSON.parse(pageFrameName(mode("desktop-dark")).slice("parity:".length))).toEqual({
+  it("gives a mode's classes, attributes and scheme, as the app's page draws in them", () => {
+    expect(pageMode(mode("desktop-dark"))).toEqual({
       classes: ["dark"],
       attributes: { lang: "en", dir: "ltr" },
       scheme: "dark"
     })
-    expect(JSON.parse(pageFrameName(mode("desktop-light")).slice("parity:".length))).toMatchObject({ scheme: "light" })
+    expect(pageMode(mode("desktop-light"))).toMatchObject({ scheme: "light" })
+  })
+})
+
+describe("pageFrameUrl", () => {
+  it("loads a page under its project's own .localhost name, on its builder's port", () => {
+    const url = pageFrameUrl("http://127.0.0.1:5173/settings?tab=team", "D:/code/copacker")
+
+    expect(url).toMatch(/^http:\/\/p[0-9a-f]{16}\.localhost:5173\/settings\?tab=team$/)
+    expect(pageFrameUrl("http://127.0.0.1:5173/", "D:/code/copacker")).toBe(url.replace("/settings?tab=team", "/"))
+  })
+
+  it("gives each project a name of its own", () => {
+    expect(projectHost("D:/code/copacker")).not.toBe(projectHost("D:/code/harbor"))
+    expect(projectHost("/Users/sam/app")).toMatch(/^p[0-9a-f]{16}$/)
   })
 })
 

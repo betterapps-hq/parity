@@ -58,7 +58,7 @@ export const NumberAsContent: Story = {
   ]
 }
 
-/** An icon from Lucide, whose props aren't read from source: only what it sets shows, and any prop can be added. */
+/** An icon from Lucide, with the props its set's icons share, read from one of them: its size and stroke options. */
 export const IconProps: Story = { loaders: [pick("Plan card", "lucide/Check")] }
 
 /** A component that takes no props of its own and sets none: there's nothing to set. */
@@ -89,11 +89,14 @@ export const ChoosingAVariant: Story = {
   }
 }
 
-/** Adding to an icon, whose props aren't known: whatever is typed can be added as a prop. */
-export const AddingAnyProp: Story = {
+/** Adding to an icon: its color and stroke width are SVG attributes it passes on, found in Attributes. */
+export const AddingAnIconAttribute: Story = {
   loaders: [pick("Plan card", "lucide/Check")],
   play: async ({ canvasElement }) => {
-    await userEvent.click(within(canvasElement).getByRole("button", { name: "Add a prop" }))
-    await search(await within(document.body).findByPlaceholderText("Search props", undefined, slowly), "strokeWidth")
+    await userEvent.click(await within(canvasElement).findByRole("button", { name: "Add an attribute" }, slowly))
+    await search(
+      await within(document.body).findByPlaceholderText("Search attributes", undefined, slowly),
+      "strokeWidth"
+    )
   }
 }

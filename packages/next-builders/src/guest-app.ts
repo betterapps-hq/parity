@@ -1,5 +1,4 @@
 import { posix } from "node:path"
-import { appPageModeScript } from "@parity-app/project"
 import {
   elementSourcesConfigFile,
   elementSourcesConfigSource,
@@ -52,6 +51,11 @@ export interface GuestAppOptions {
   origin: string
   /** The guest module's source, written `bundled`: it exports `guestParts()` (`@parity-app/project`'s `guestModule`). */
   guestSource: string
+  /**
+   * The page runtime's entry (`@parity-app/project`'s `pageEntrySource`), importing its modules from the guest app's
+   * folder, which the project's pages run first. None when the project has no page modules.
+   */
+  pageSource?: string
   /** The project's global stylesheets, by path from the root. */
   styles: readonly string[]
   /** Packages' global stylesheets, by the specifier the app imports them by. */
@@ -97,10 +101,10 @@ export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
       text: stylesPage(options.styles.map((path) => `../../../${projectImport(path)}`))
     },
     { path: `${guestRouteGroup}/parity-guest/package-styles/page.tsx`, text: stylesPage(options.packageStyles) },
-    // The project's pages draw in their frame's mode, and say how tall they are and where they landed, as Vite's do.
-    // Next runs this in the browser before a page's own code, in place of the project's own client instrumentation,
-    // which reports errors and analytics the canvas has no business sending.
-    { path: "instrumentation-client.js", text: instrumentationSource }
+    // The project's pages run the page runtime, as Vite's do. Next runs this in the browser before a page's own code,
+    // React's included, in place of the project's own client instrumentation, which reports errors and analytics the
+    // canvas has no business sending.
+    { path: "instrumentation-client.js", text: instrumentationSource(options.pageSource ?? "") }
   ]
 
   if (options.tsconfig) {
@@ -183,18 +187,20 @@ export default {
 }
 
 /**
- * The guest app's `instrumentation-client`: the page script, and in a canvas frame, Next's development overlay hidden,
- * since a frame draws the page and nothing over it. The mode the script puts on `<html>` before the page hydrates is one
- * of the issues Next would show there.
+ * The guest app's `instrumentation-client`: the page runtime, and in a canvas frame, Next's development overlay hidden,
+ * since a frame draws the page and nothing over it. The mode the runtime puts on `<html>` before the page hydrates is
+ * one of the issues Next would show there.
  */
-const instrumentationSource = `// Written by Parity's Next.js builder each time it starts.
-${appPageModeScript}
+function instrumentationSource(pageSource: string): string {
+  return `// Written by Parity's Next.js builder each time it starts.
+${pageSource}
 if (window.name.startsWith("parity:")) {
   const hidden = document.createElement("style")
   hidden.textContent = "nextjs-portal { display: none !important }"
   document.head.append(hidden)
 }
 `
+}
 
 const layoutSource = `import type { ReactNode } from "react"
 

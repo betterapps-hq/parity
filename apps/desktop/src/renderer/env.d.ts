@@ -7,6 +7,8 @@ declare global {
     canvasHost: CanvasHost
     /** Missing outside Electron, as in Storybook. */
     parityTelemetry?: TelemetryHost
+    /** Local Font Access: the fonts installed on this computer, a face each. Chromium's, so Electron has it. */
+    queryLocalFonts?: () => Promise<{ family: string; style: string }[]>
   }
 
   interface ImportMetaEnv {

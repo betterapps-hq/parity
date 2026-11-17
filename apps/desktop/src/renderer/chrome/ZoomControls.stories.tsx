@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
 import { clearNotifications, design, example, frameDesigns, openProject, tooltip } from "../stories/fixtures.tsx"
+import { answerNext } from "../stories/host.ts"
 import { Window } from "./chrome-fixtures.tsx"
 import { ZoomControls } from "./ZoomControls.tsx"
 
@@ -54,11 +55,22 @@ export const ActualSize: Story = {
   }
 }
 
-/** A project with no designs or notes: zooming works, but Zoom to fit has nothing to fit, so it's unavailable (PAR-971). */
+/**
+ * A project with no designs, notes or components: zooming works, but Zoom to fit has nothing to fit, so it's unavailable
+ * (PAR-971).
+ */
 export const NothingToFit: Story = {
-  loaders: [() => openProject("designless")],
+  loaders: [
+    async () => {
+      // Without components in its code too, since each would be drawn on a board of its own.
+      answerNext("project.open", async (_, real) => ({ ...(await real()), sources: {} }))
+      await openProject("designless")
+    }
+  ],
   play: async () => {
-    await waitFor(() => expect(body().getByRole("button", { name: /^Zoom in/ })).toBeEnabled())
+    // With no design to frame, nothing else waits for the canvas to draw.
+    const zoomIn = await body().findByRole("button", { name: /^Zoom in/ }, { timeout: 10_000 })
+    await waitFor(() => expect(zoomIn).toBeEnabled())
     await expect(body().getByRole("button", { name: /^Zoom to fit/ })).toBeDisabled()
   }
 }

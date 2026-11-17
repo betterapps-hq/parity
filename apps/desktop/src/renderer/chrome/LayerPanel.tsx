@@ -1,5 +1,6 @@
 import { Button, Kbd } from "@buildkitgg/shadcn"
 import {
+  componentInfoOf,
   type DesignNode,
   designStates,
   editsDesign,
@@ -17,12 +18,7 @@ import {
   type VideoNode
 } from "@parity-app/core"
 import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
-import {
-  describeElement,
-  type ElementFacts,
-  type PanelSection as TypeSection,
-  panelData
-} from "@parity-app/layer-types"
+import { describeElement, type ElementFacts, panelData } from "@parity-app/layer-types"
 import { updateView } from "@parity-app/multiplayer"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
 import { type ComponentType, type ReactNode, useState } from "react"
@@ -36,6 +32,7 @@ import { useExtensions } from "../extensions.ts"
 import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
+import type { TypeStyle } from "../inspector/controls/rendered-type.ts"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
@@ -51,27 +48,25 @@ import { Hint } from "./Hint.tsx"
 import { type LayerChange, updateAndRecord } from "./inspector-events.ts"
 import { SlotPanel } from "./instance-slots.tsx"
 import { keymap, shortcutOf } from "./keymap.ts"
+import { elementOrder, kindPanels, panelKind } from "./KindPanels.tsx"
 import { type HeaderAction, layerActions, layerComponent, type LayerKind, layerKind } from "./layer-kind.ts"
-import { LayoutPanel } from "./LayoutPanel.tsx"
 import { Name, NameInput } from "./Name.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { PhotoCredit } from "./PhotoCredit.tsx"
 import { readFromCode, writesProps } from "./read-from-code.ts"
 import { revealSelection } from "./reveal.ts"
-import { RoutePanel } from "./RoutePanel.tsx"
 import { useSelectedLayer } from "./selected-layer.ts"
 import { HeaderActions, headingIcon, headingName, SelectionHeading } from "./SelectionHeading.tsx"
 import { MakeSlot } from "./slot-props.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
 import { TextWithProp } from "./text-prop.tsx"
-import { TextPanel } from "./TextPanel.tsx"
 
 /**
  * A selected layer's properties. Edits apply to the state being shown: in the base state they change the design; in
  * any other state they're saved as that state's changes, marked, and each can be reset. A variant shown on a
- * component's board takes edits the same way. Inside an instance, edits change only that copy. A layout and a text
- * layer each have a panel of their own (`LayoutPanel`, `TextPanel`, PAR-1056). For the other kinds, which sections show,
+ * component's board takes edits the same way. Inside an instance, edits change only that copy. Layouts, text layers and
+ * images each have a panel of their own (`KindPanels.tsx`, PAR-1056). For the other kinds, which sections show,
  * in what order, is `panelParts` in `@parity-app/editor`, from what the layer can do (PAR-1032); each takes the selected
  * layer itself (`useSelectedLayer`), so a story draws one alone (PAR-1031).
  */
@@ -96,7 +91,7 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
     return <ElementPanel element={layer.node.element} text={layer.node.type === "text"} />
   }
 
-  const KindPanel = kindPanels[layer.node.type]
+  const KindPanel = kindPanels[panelKind(layer.node, session.info.libraries)]
 
   if (KindPanel) {
     return <KindPanel />
@@ -105,7 +100,7 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
   const can = selectionCapabilities(
     layer.entry.container,
     [{ id: layer.nodeId, node: layer.node, parent: undefined }],
-    (component) => components[component]?.takesStyle
+    (component) => componentInfoOf(components, component)?.takesStyle
   )
 
   // What a story draws takes its args as props, which are written back to its file; nothing else of it is.
@@ -128,27 +123,12 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
   })
 }
 
-/** The style sections that show each of a layer type's sections that come from its styles. */
-const typeStyleSections: Record<TypeSection, readonly StyleSection[]> = {
-  landmark: [],
-  link: [],
-  input: [],
-  source: [],
-  playback: [],
-  layout: ["layout", "spacing"],
-  typography: ["text"],
-  size: ["size"],
-  fill: ["fill"],
-  stroke: ["stroke"],
-  appearance: ["appearance", "effects"]
-}
-
 /**
  * The panel of a layer read from a component's element (read-only viewer): its header, named for its type, the sections
  * its attributes fill (`panelData`), its text, and the style sections its type has, in that order.
  */
 function ElementPanel({ element, text }: { element: ElementFacts; text: boolean }) {
-  const order = describeElement(element).sections.flatMap((section) => typeStyleSections[section])
+  const order = elementOrder(describeElement(element))
 
   return (
     <>
@@ -168,13 +148,6 @@ function ElementPanel({ element, text }: { element: ElementFacts; text: boolean 
       <LayerStyles order={order} />
     </>
   )
-}
-
-/** The kinds of layer with a Design panel of their own (PAR-1056); the others are drawn from `panelParts`. */
-const kindPanels: Partial<Record<DesignNode["type"], ComponentType>> = {
-  layout: LayoutPanel,
-  route: RoutePanel,
-  text: TextPanel
 }
 
 /** What draws each of a layer's sections; a design's own, as States and Modes, aren't a layer's. */
@@ -441,7 +414,7 @@ export function LayerContent() {
 }
 
 /** An image's or a video's Content, for one of the design's own: inside an instance, its file belongs to the component. */
-function LayerMedia() {
+export function LayerMedia() {
   const layer = useSelectedLayer()
 
   if (!layer || layer.inner || (layer.node.type !== "image" && layer.node.type !== "video")) {
@@ -451,12 +424,18 @@ function LayerMedia() {
   return <MediaSection entry={layer.entry} node={layer.node} />
 }
 
-/** That a code component taking no `style` can't be sized or styled here, before the style sections. */
-function LayerNoStyle() {
+/**
+ * That a code component taking no `style` can't be sized or styled here, in place of the style sections, which the
+ * capability table leaves out for it. Nothing for one that takes it, or isn't known not to.
+ */
+export function LayerNoStyle() {
+  const session = useProject()
+  const components = useComponents(session.components)
   const layer = useSelectedLayer()
 
   return (
-    layer?.node.type === "component" && (
+    layer?.node.type === "component" &&
+    componentInfoOf(components, layer.node.component)?.takesStyle === false && (
       <NoStyleNote component={layer.node.component} wrap={layer.inner === undefined} />
     )
   )
@@ -491,7 +470,7 @@ function LayerStyleSections({
       <StyleSections
         editor={styleEditor}
         container={entry.container}
-        takesStyle={(component) => components[component]?.takesStyle}
+        takesStyle={(component) => componentInfoOf(components, component)?.takesStyle}
         order={order}
       />
     )
@@ -764,6 +743,25 @@ export function placeNode(
     size: { width: Math.round(rect.width / scale), height: Math.round(rect.height / scale) },
     inFlow: { x: Math.round(rect.left / scale - left), y: Math.round(rect.top / scale - top) }
   }
+}
+
+/**
+ * The type a node's element draws with, as the canvas computes it in the frame it was picked in: its own styles, its
+ * classes' and what it inherits. Undefined when it isn't drawn.
+ */
+export function nodeTypeStyle(
+  editor: Editor | undefined,
+  design: string,
+  nodeId: string,
+  picked: { mode?: string; state?: string }
+): TypeStyle | undefined {
+  const area = editor?.getContainer().closest(".canvas-area")
+  const host = area ? selectionFrame(area, design, picked) : undefined
+
+  const element =
+    host && area ? nodeInFrames(area, design, nodeId, host).find((item) => item.picked)?.element : undefined
+
+  return element ? getComputedStyle(element) : undefined
 }
 
 /** A picture's or a video's layer, which the section edits the same way. */

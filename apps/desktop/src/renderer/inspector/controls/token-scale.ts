@@ -40,6 +40,13 @@ export function stepToken<T extends FieldToken>(tokens: readonly T[], current: T
 }
 
 /**
+ * A token's whole name, with the field's namespace once, whichever way the tokens are named: a project's `font-heading`
+ * stays as it is, and a bare `sans` becomes `font-sans`.
+ */
+export const namespacedName = (name: string, namespace: string) =>
+  name.startsWith(namespace) ? name : `${namespace}${name}`
+
+/**
  * The token a typed name names, with the field's namespace or without it, whichever way the tokens are named:
  * `lg` and `radius-lg` both find `radius-lg` in Radius, and `xl` and `text-xl` both find `xl` in Size. Case doesn't
  * matter, and spaces around it don't either.

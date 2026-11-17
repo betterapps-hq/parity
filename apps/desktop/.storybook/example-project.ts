@@ -273,7 +273,7 @@ async function discover(): Promise<{
   const { stories } = await importStories(projectSource(root, config.components))
   const storybook = projectStorybook(pkg.scripts, ".storybook", stories)
 
-  return { config, info, components: inferProps(root, config.components), storybook }
+  return { config, info, components: inferProps(root, { ...config.components, ...config.iconSets }), storybook }
 }
 
 /** Storybook's designs under the example's file name. */

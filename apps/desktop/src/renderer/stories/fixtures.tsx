@@ -86,15 +86,20 @@ export function design(name: string): string {
   return entry.key
 }
 
+/** A library component's export, without its library's path: `Badge` for `nova/Badge`. */
+function exportName(component: string): string {
+  return component.slice(component.lastIndexOf("/") + 1)
+}
+
 /**
- * The id of a design's first layer with a name, its first instance of a component, or its first text that says it,
- * as the Layers panel names them: inside layouts and inside components' slots alike.
+ * The id of a design's first layer with a name, its first instance of a component, by its id or its export's name, or
+ * its first text that says it, as the Layers panel names them: inside layouts and inside components' slots alike.
  */
 export function node(designName: string, name: string): string {
   const find = (current: DesignNode): string | undefined => {
     if (
       current.name === name ||
-      (current.type === "component" && current.component === name) ||
+      (current.type === "component" && (current.component === name || exportName(current.component) === name)) ||
       (current.type === "text" && current.text === name)
     ) {
       return current.id

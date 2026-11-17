@@ -1,12 +1,12 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, within } from "storybook/test"
 import { slowly } from "./inspector-stories.tsx"
+import { LayoutPanel } from "./KindPanels.tsx"
 import { pick, renderSection, sectionStage } from "./layer-stories.tsx"
-import { LayoutPanel } from "./LayoutPanel.tsx"
 
 /**
- * A layout's Design panel (PAR-1057): Layout first, then its size and the box around it, where it sits and how it's
- * drawn. Typography folds until the layout sets it. Each section's own cases are in Sections.
+ * A layout's Design panel (PAR-1057): its size and the box around it and where it sits, then Layout, and how it's
+ * drawn. Each section's own cases are in Sections.
  */
 const meta = {
   title: "Parity/Inspector/Layers/Layout",
@@ -29,9 +29,15 @@ export const InALayout: Story = {
     await expect(titles.map((title) => title.textContent)).toEqual(
       expect.arrayContaining(["Layout", "Size", "Position", "Typography"])
     )
-    await expect(titles[0]).toHaveTextContent("Layout")
-    await expect(panel.queryByRole("combobox", { name: /font/i })).toBeNull()
-    await expect(panel.getByRole("button", { name: "Add typography" })).toBeVisible()
+    const names = titles.map((title) => title.textContent ?? "")
+    // Its own size and where it sits come before how it lays out its children.
+    await expect(names[0]).toBe("Size")
+    await expect(names.indexOf("Position")).toBeLessThan(names.indexOf("Layout"))
+    // How it is drawn as a whole comes before the text inside it and its fill.
+    await expect(names.indexOf("Appearance")).toBeLessThan(names.indexOf("Typography"))
+    await expect(names.indexOf("Typography")).toBeLessThan(names.indexOf("Fill"))
+    // Typography shows the type the text inside it inherits, open like every other section.
+    await expect(panel.queryByRole("button", { name: "Add typography" })).toBeNull()
   }
 }
 

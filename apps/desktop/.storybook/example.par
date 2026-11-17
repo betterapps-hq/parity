@@ -170,7 +170,7 @@
                       {
                         "id": "hmSoL",
                         "type": "component",
-                        "component": "Button",
+                        "component": "nova/Button",
                         "props": {
                           "variant": "ghost",
                           "size": "sm",
@@ -180,7 +180,7 @@
                       {
                         "id": "iNGyB",
                         "type": "component",
-                        "component": "Button",
+                        "component": "nova/Button",
                         "props": {
                           "variant": "ghost",
                           "size": "sm",
@@ -190,7 +190,7 @@
                       {
                         "id": "xD2ah",
                         "type": "component",
-                        "component": "Button",
+                        "component": "nova/Button",
                         "props": {
                           "variant": "ghost",
                           "size": "sm",
@@ -200,7 +200,7 @@
                       {
                         "id": "sVoKm",
                         "type": "component",
-                        "component": "Button",
+                        "component": "nova/Button",
                         "props": {
                           "variant": "ghost",
                           "size": "sm",
@@ -231,7 +231,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "Button",
+                    "component": "nova/Button",
                     "props": {
                       "variant": "ghost",
                       "size": "sm",
@@ -241,7 +241,7 @@
                   {
                     "id": "n9QBe",
                     "type": "component",
-                    "component": "Button",
+                    "component": "nova/Button",
                     "props": {
                       "size": "sm",
                       "children": "Get started"
@@ -254,7 +254,7 @@
           {
             "id": "yys91",
             "type": "component",
-            "component": "Separator"
+            "component": "nova/Separator"
           },
           {
             "id": "t3Reo",
@@ -304,7 +304,7 @@
               {
                 "id": "P07mQ",
                 "type": "component",
-                "component": "Badge",
+                "component": "nova/Badge",
                 "props": {
                   "variant": "secondary",
                   "children": "Pricing"
@@ -415,7 +415,7 @@
                   {
                     "id": "hATcq",
                     "type": "component",
-                    "component": "Badge",
+                    "component": "nova/Badge",
                     "props": {
                       "variant": "outline",
                       "children": "Save 20% yearly"
@@ -784,7 +784,7 @@
           {
             "id": "FoHFL",
             "type": "component",
-            "component": "Separator"
+            "component": "nova/Separator"
           },
           {
             "id": "VOp8T",
@@ -942,13 +942,13 @@
         "id": "DqTiU",
         "name": "Plan card",
         "type": "component",
-        "component": "Card",
+        "component": "nova/Card",
         "slots": {
           "children": [
             {
               "id": "QFhbB",
               "type": "component",
-              "component": "CardHeader",
+              "component": "nova/CardHeader",
               "slots": {
                 "children": [
                   {
@@ -960,7 +960,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "CardTitle",
+                    "component": "nova/CardTitle",
                     "props": {
                       "children": "Starter"
                     }
@@ -974,7 +974,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "CardDescription",
+                    "component": "nova/CardDescription",
                     "props": {
                       "children": "For individuals and small side projects."
                     }
@@ -982,14 +982,14 @@
                   {
                     "id": "nvJHA",
                     "type": "component",
-                    "component": "CardAction",
+                    "component": "nova/CardAction",
                     "slots": {
                       "children": [
                         {
                           "id": "TxhOz",
                           "name": "Popular",
                           "type": "component",
-                          "component": "Badge",
+                          "component": "nova/Badge",
                           "props": {
                             "children": "Most popular"
                           }
@@ -1003,7 +1003,7 @@
             {
               "id": "SYQ9B",
               "type": "component",
-              "component": "CardContent",
+              "component": "nova/CardContent",
               "slots": {
                 "children": [
                   {
@@ -1110,7 +1110,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "Button",
+                        "component": "nova/Button",
                         "props": {
                           "variant": "outline",
                           "children": "Start for free"
@@ -1119,7 +1119,7 @@
                       {
                         "id": "MtAUO",
                         "type": "component",
-                        "component": "Separator"
+                        "component": "nova/Separator"
                       },
                       {
                         "id": "G2lg3",
@@ -1375,7 +1375,7 @@
               }
             },
             "type": "component",
-            "component": "Separator",
+            "component": "nova/Separator",
             "props": {
               "orientation": "vertical"
             }
@@ -1405,7 +1405,7 @@
                 "id": "QQ7jf",
                 "name": "Top bar edge",
                 "type": "component",
-                "component": "Separator"
+                "component": "nova/Separator"
               },
               {
                 "id": "AXqFW",
@@ -1536,7 +1536,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "Button",
+                            "component": "nova/Button",
                             "props": {
                               "variant": "outline"
                             },
@@ -1563,7 +1563,7 @@
                             "id": "C7E9z",
                             "name": "New project button",
                             "type": "component",
-                            "component": "Button",
+                            "component": "nova/Button",
                             "slots": {
                               "children": [
                                 {
@@ -1837,19 +1837,19 @@
                           }
                         },
                         "type": "component",
-                        "component": "Card",
+                        "component": "nova/Card",
                         "slots": {
                           "children": [
                             {
                               "id": "skB1j",
                               "type": "component",
-                              "component": "CardHeader",
+                              "component": "nova/CardHeader",
                               "slots": {
                                 "children": [
                                   {
                                     "id": "KLvmV",
                                     "type": "component",
-                                    "component": "CardTitle",
+                                    "component": "nova/CardTitle",
                                     "props": {
                                       "children": "Revenue"
                                     }
@@ -1857,7 +1857,7 @@
                                   {
                                     "id": "uB70Q",
                                     "type": "component",
-                                    "component": "CardDescription",
+                                    "component": "nova/CardDescription",
                                     "props": {
                                       "children": "Monthly recurring revenue, last 12 months"
                                     }
@@ -1865,13 +1865,13 @@
                                   {
                                     "id": "CrHxu",
                                     "type": "component",
-                                    "component": "CardAction",
+                                    "component": "nova/CardAction",
                                     "slots": {
                                       "children": [
                                         {
                                           "id": "PMjv4",
                                           "type": "component",
-                                          "component": "Badge",
+                                          "component": "nova/Badge",
                                           "props": {
                                             "variant": "secondary",
                                             "children": "+18.2% this year"
@@ -1886,7 +1886,7 @@
                             {
                               "id": "VrxSd",
                               "type": "component",
-                              "component": "CardContent",
+                              "component": "nova/CardContent",
                               "slots": {
                                 "children": [
                                   {
@@ -2567,19 +2567,19 @@
                         "id": "nqzmb",
                         "name": "Activity",
                         "type": "component",
-                        "component": "Card",
+                        "component": "nova/Card",
                         "slots": {
                           "children": [
                             {
                               "id": "fsRvz",
                               "type": "component",
-                              "component": "CardHeader",
+                              "component": "nova/CardHeader",
                               "slots": {
                                 "children": [
                                   {
                                     "id": "v2dlw",
                                     "type": "component",
-                                    "component": "CardTitle",
+                                    "component": "nova/CardTitle",
                                     "props": {
                                       "children": "Recent activity"
                                     }
@@ -2587,13 +2587,13 @@
                                   {
                                     "id": "wgwA6",
                                     "type": "component",
-                                    "component": "CardAction",
+                                    "component": "nova/CardAction",
                                     "slots": {
                                       "children": [
                                         {
                                           "id": "ncWe9",
                                           "type": "component",
-                                          "component": "Button",
+                                          "component": "nova/Button",
                                           "props": {
                                             "variant": "link",
                                             "size": "sm",
@@ -2609,7 +2609,7 @@
                             {
                               "id": "iNB8w",
                               "type": "component",
-                              "component": "CardContent",
+                              "component": "nova/CardContent",
                               "slots": {
                                 "children": [
                                   {
@@ -2753,19 +2753,19 @@
                     "id": "Yb3pG",
                     "name": "Projects",
                     "type": "component",
-                    "component": "Card",
+                    "component": "nova/Card",
                     "slots": {
                       "children": [
                         {
                           "id": "AfW1m",
                           "type": "component",
-                          "component": "CardHeader",
+                          "component": "nova/CardHeader",
                           "slots": {
                             "children": [
                               {
                                 "id": "DMWvd",
                                 "type": "component",
-                                "component": "CardTitle",
+                                "component": "nova/CardTitle",
                                 "props": {
                                   "children": "Projects"
                                 }
@@ -2773,7 +2773,7 @@
                               {
                                 "id": "zPq9Z",
                                 "type": "component",
-                                "component": "CardDescription",
+                                "component": "nova/CardDescription",
                                 "props": {
                                   "children": "5 active projects across 3 teams"
                                 }
@@ -2781,13 +2781,13 @@
                               {
                                 "id": "x0SNk",
                                 "type": "component",
-                                "component": "CardAction",
+                                "component": "nova/CardAction",
                                 "slots": {
                                   "children": [
                                     {
                                       "id": "Wcgz5",
                                       "type": "component",
-                                      "component": "Button",
+                                      "component": "nova/Button",
                                       "props": {
                                         "variant": "outline",
                                         "size": "sm",
@@ -2803,32 +2803,32 @@
                         {
                           "id": "QMeGK",
                           "type": "component",
-                          "component": "CardContent",
+                          "component": "nova/CardContent",
                           "slots": {
                             "children": [
                               {
                                 "id": "LCOGI",
                                 "name": "Projects table",
                                 "type": "component",
-                                "component": "Table",
+                                "component": "nova/Table",
                                 "slots": {
                                   "children": [
                                     {
                                       "id": "rPBmS",
                                       "type": "component",
-                                      "component": "TableHeader",
+                                      "component": "nova/TableHeader",
                                       "slots": {
                                         "children": [
                                           {
                                             "id": "b9Y5K",
                                             "type": "component",
-                                            "component": "TableRow",
+                                            "component": "nova/TableRow",
                                             "slots": {
                                               "children": [
                                                 {
                                                   "id": "AYRgh",
                                                   "type": "component",
-                                                  "component": "TableHead",
+                                                  "component": "nova/TableHead",
                                                   "props": {
                                                     "children": "Project"
                                                   }
@@ -2836,7 +2836,7 @@
                                                 {
                                                   "id": "NtRVQ",
                                                   "type": "component",
-                                                  "component": "TableHead",
+                                                  "component": "nova/TableHead",
                                                   "props": {
                                                     "children": "Status"
                                                   }
@@ -2849,7 +2849,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableHead",
+                                                  "component": "nova/TableHead",
                                                   "props": {
                                                     "children": "Progress"
                                                   }
@@ -2865,7 +2865,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableHead",
+                                                  "component": "nova/TableHead",
                                                   "props": {
                                                     "children": "Owner"
                                                   }
@@ -2873,7 +2873,7 @@
                                                 {
                                                   "id": "rVvKH",
                                                   "type": "component",
-                                                  "component": "TableHead",
+                                                  "component": "nova/TableHead",
                                                   "props": {
                                                     "children": "Due"
                                                   }
@@ -2887,19 +2887,19 @@
                                     {
                                       "id": "efjql",
                                       "type": "component",
-                                      "component": "TableBody",
+                                      "component": "nova/TableBody",
                                       "slots": {
                                         "children": [
                                           {
                                             "id": "kdoQM",
                                             "type": "component",
-                                            "component": "TableRow",
+                                            "component": "nova/TableRow",
                                             "slots": {
                                               "children": [
                                                 {
                                                   "id": "Rps58",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -2943,13 +2943,13 @@
                                                 {
                                                   "id": "P1NLo",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
                                                         "id": "RM07W",
                                                         "type": "component",
-                                                        "component": "Badge",
+                                                        "component": "nova/Badge",
                                                         "props": {
                                                           "variant": "secondary",
                                                           "children": "On track"
@@ -2966,7 +2966,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3025,7 +3025,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3043,7 +3043,7 @@
                                                           {
                                                             "id": "CXDOO",
                                                             "type": "component",
-                                                            "component": "Avatar",
+                                                            "component": "nova/Avatar",
                                                             "props": {
                                                               "size": "sm"
                                                             },
@@ -3052,7 +3052,7 @@
                                                                 {
                                                                   "id": "uiTIE",
                                                                   "type": "component",
-                                                                  "component": "AvatarFallback",
+                                                                  "component": "nova/AvatarFallback",
                                                                   "props": {
                                                                     "children": "AC"
                                                                   }
@@ -3079,7 +3079,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "props": {
                                                     "children": "Nov 14"
                                                   }
@@ -3090,13 +3090,13 @@
                                           {
                                             "id": "nmJTD",
                                             "type": "component",
-                                            "component": "TableRow",
+                                            "component": "nova/TableRow",
                                             "slots": {
                                               "children": [
                                                 {
                                                   "id": "AEjms",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3140,13 +3140,13 @@
                                                 {
                                                   "id": "LEjKf",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
                                                         "id": "NYQDB",
                                                         "type": "component",
-                                                        "component": "Badge",
+                                                        "component": "nova/Badge",
                                                         "props": {
                                                           "variant": "destructive",
                                                           "children": "At risk"
@@ -3163,7 +3163,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3222,7 +3222,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3240,7 +3240,7 @@
                                                           {
                                                             "id": "ovVLo",
                                                             "type": "component",
-                                                            "component": "Avatar",
+                                                            "component": "nova/Avatar",
                                                             "props": {
                                                               "size": "sm"
                                                             },
@@ -3249,7 +3249,7 @@
                                                                 {
                                                                   "id": "Am3ng",
                                                                   "type": "component",
-                                                                  "component": "AvatarFallback",
+                                                                  "component": "nova/AvatarFallback",
                                                                   "props": {
                                                                     "children": "JL"
                                                                   }
@@ -3276,7 +3276,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "props": {
                                                     "children": "Nov 2"
                                                   }
@@ -3287,13 +3287,13 @@
                                           {
                                             "id": "aT3Py",
                                             "type": "component",
-                                            "component": "TableRow",
+                                            "component": "nova/TableRow",
                                             "slots": {
                                               "children": [
                                                 {
                                                   "id": "nqB5c",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3337,13 +3337,13 @@
                                                 {
                                                   "id": "nuSP6",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
                                                         "id": "uWFMn",
                                                         "type": "component",
-                                                        "component": "Badge",
+                                                        "component": "nova/Badge",
                                                         "props": {
                                                           "variant": "secondary",
                                                           "children": "On track"
@@ -3360,7 +3360,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3419,7 +3419,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3437,7 +3437,7 @@
                                                           {
                                                             "id": "HJn8S",
                                                             "type": "component",
-                                                            "component": "Avatar",
+                                                            "component": "nova/Avatar",
                                                             "props": {
                                                               "size": "sm"
                                                             },
@@ -3446,7 +3446,7 @@
                                                                 {
                                                                   "id": "u2TEw",
                                                                   "type": "component",
-                                                                  "component": "AvatarFallback",
+                                                                  "component": "nova/AvatarFallback",
                                                                   "props": {
                                                                     "children": "SR"
                                                                   }
@@ -3473,7 +3473,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "props": {
                                                     "children": "Oct 31"
                                                   }
@@ -3484,13 +3484,13 @@
                                           {
                                             "id": "UXR9f",
                                             "type": "component",
-                                            "component": "TableRow",
+                                            "component": "nova/TableRow",
                                             "slots": {
                                               "children": [
                                                 {
                                                   "id": "bIHF2",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3534,13 +3534,13 @@
                                                 {
                                                   "id": "kr4S2",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
                                                         "id": "NE4So",
                                                         "type": "component",
-                                                        "component": "Badge",
+                                                        "component": "nova/Badge",
                                                         "props": {
                                                           "variant": "outline",
                                                           "children": "Planning"
@@ -3557,7 +3557,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3616,7 +3616,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3634,7 +3634,7 @@
                                                           {
                                                             "id": "hgvIi",
                                                             "type": "component",
-                                                            "component": "Avatar",
+                                                            "component": "nova/Avatar",
                                                             "props": {
                                                               "size": "sm"
                                                             },
@@ -3643,7 +3643,7 @@
                                                                 {
                                                                   "id": "HS0sz",
                                                                   "type": "component",
-                                                                  "component": "AvatarFallback",
+                                                                  "component": "nova/AvatarFallback",
                                                                   "props": {
                                                                     "children": "RP"
                                                                   }
@@ -3670,7 +3670,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "props": {
                                                     "children": "Dec 8"
                                                   }
@@ -3681,13 +3681,13 @@
                                           {
                                             "id": "qDWnm",
                                             "type": "component",
-                                            "component": "TableRow",
+                                            "component": "nova/TableRow",
                                             "slots": {
                                               "children": [
                                                 {
                                                   "id": "NgvVJ",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3731,13 +3731,13 @@
                                                 {
                                                   "id": "PCTaC",
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
                                                         "id": "rWWWe",
                                                         "type": "component",
-                                                        "component": "Badge",
+                                                        "component": "nova/Badge",
                                                         "props": {
                                                           "variant": "secondary",
                                                           "children": "On track"
@@ -3754,7 +3754,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3813,7 +3813,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "slots": {
                                                     "children": [
                                                       {
@@ -3831,7 +3831,7 @@
                                                           {
                                                             "id": "mv3jw",
                                                             "type": "component",
-                                                            "component": "Avatar",
+                                                            "component": "nova/Avatar",
                                                             "props": {
                                                               "size": "sm"
                                                             },
@@ -3840,7 +3840,7 @@
                                                                 {
                                                                   "id": "CMmc8",
                                                                   "type": "component",
-                                                                  "component": "AvatarFallback",
+                                                                  "component": "nova/AvatarFallback",
                                                                   "props": {
                                                                     "children": "TK"
                                                                   }
@@ -3867,7 +3867,7 @@
                                                     }
                                                   },
                                                   "type": "component",
-                                                  "component": "TableCell",
+                                                  "component": "nova/TableCell",
                                                   "props": {
                                                     "children": "Nov 21"
                                                   }
@@ -3966,19 +3966,19 @@
                       "borderStyle": "dashed"
                     },
                     "type": "component",
-                    "component": "Empty",
+                    "component": "nova/Empty",
                     "slots": {
                       "children": [
                         {
                           "id": "TNDCR",
                           "type": "component",
-                          "component": "EmptyHeader",
+                          "component": "nova/EmptyHeader",
                           "slots": {
                             "children": [
                               {
                                 "id": "y6h3H",
                                 "type": "component",
-                                "component": "EmptyMedia",
+                                "component": "nova/EmptyMedia",
                                 "props": {
                                   "variant": "icon"
                                 },
@@ -3998,7 +3998,7 @@
                               {
                                 "id": "gXFGz",
                                 "type": "component",
-                                "component": "EmptyTitle",
+                                "component": "nova/EmptyTitle",
                                 "props": {
                                   "children": "No projects yet"
                                 }
@@ -4006,7 +4006,7 @@
                               {
                                 "id": "h42Fb",
                                 "type": "component",
-                                "component": "EmptyDescription",
+                                "component": "nova/EmptyDescription",
                                 "props": {
                                   "children": "Create your first project to start tracking progress, revenue and activity."
                                 }
@@ -4017,7 +4017,7 @@
                         {
                           "id": "gjuFU",
                           "type": "component",
-                          "component": "EmptyContent",
+                          "component": "nova/EmptyContent",
                           "slots": {
                             "children": [
                               {
@@ -4034,7 +4034,7 @@
                                   {
                                     "id": "ajkSB",
                                     "type": "component",
-                                    "component": "Button",
+                                    "component": "nova/Button",
                                     "slots": {
                                       "children": [
                                         {
@@ -4057,7 +4057,7 @@
                                   {
                                     "id": "r63ca",
                                     "type": "component",
-                                    "component": "Button",
+                                    "component": "nova/Button",
                                     "props": {
                                       "variant": "outline",
                                       "children": "Import from CSV"
@@ -4430,7 +4430,7 @@
                   {
                     "id": "ORdTB",
                     "type": "component",
-                    "component": "Badge",
+                    "component": "nova/Badge",
                     "props": {
                       "variant": "secondary",
                       "children": "4"
@@ -4974,7 +4974,7 @@
                   }
                 },
                 "type": "component",
-                "component": "Button",
+                "component": "nova/Button",
                 "props": {
                   "variant": "outline",
                   "size": "sm",
@@ -5006,13 +5006,13 @@
               {
                 "id": "I7smC",
                 "type": "component",
-                "component": "Avatar",
+                "component": "nova/Avatar",
                 "slots": {
                   "children": [
                     {
                       "id": "EdXes",
                       "type": "component",
-                      "component": "AvatarFallback",
+                      "component": "nova/AvatarFallback",
                       "props": {
                         "children": "AC"
                       }
@@ -5604,7 +5604,7 @@
                   }
                 },
                 "type": "component",
-                "component": "Button",
+                "component": "nova/Button",
                 "props": {
                   "variant": "ghost",
                   "size": "icon",
@@ -5768,7 +5768,7 @@
                 "id": "e72zV",
                 "name": "Notifications button",
                 "type": "component",
-                "component": "Button",
+                "component": "nova/Button",
                 "props": {
                   "variant": "ghost",
                   "size": "icon",
@@ -5791,13 +5791,13 @@
                 "id": "YjkiC",
                 "name": "Account avatar",
                 "type": "component",
-                "component": "Avatar",
+                "component": "nova/Avatar",
                 "slots": {
                   "children": [
                     {
                       "id": "wjUr6",
                       "type": "component",
-                      "component": "AvatarFallback",
+                      "component": "nova/AvatarFallback",
                       "props": {
                         "children": "AC"
                       }
@@ -5858,13 +5858,13 @@
         "id": "VsFWU",
         "name": "Stat card",
         "type": "component",
-        "component": "Card",
+        "component": "nova/Card",
         "slots": {
           "children": [
             {
               "id": "rCrxF",
               "type": "component",
-              "component": "CardHeader",
+              "component": "nova/CardHeader",
               "slots": {
                 "children": [
                   {
@@ -5876,7 +5876,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "CardDescription",
+                    "component": "nova/CardDescription",
                     "props": {
                       "children": "Revenue"
                     }
@@ -5898,7 +5898,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "CardTitle",
+                    "component": "nova/CardTitle",
                     "props": {
                       "children": "$48,210"
                     }
@@ -5922,14 +5922,14 @@
                     "id": "D3gxU",
                     "name": "Trend",
                     "type": "component",
-                    "component": "CardAction",
+                    "component": "nova/CardAction",
                     "slots": {
                       "children": [
                         {
                           "id": "t8mBU",
                           "name": "Change badge",
                           "type": "component",
-                          "component": "Badge",
+                          "component": "nova/Badge",
                           "props": {
                             "variant": "outline"
                           },
@@ -5975,7 +5975,7 @@
             {
               "id": "j4oLc",
               "type": "component",
-              "component": "CardFooter",
+              "component": "nova/CardFooter",
               "slots": {
                 "children": [
                   {
@@ -6094,7 +6094,7 @@
           {
             "id": "jSMRc",
             "type": "component",
-            "component": "Avatar",
+            "component": "nova/Avatar",
             "slots": {
               "children": [
                 {
@@ -6106,7 +6106,7 @@
                     }
                   },
                   "type": "component",
-                  "component": "AvatarFallback",
+                  "component": "nova/AvatarFallback",
                   "props": {
                     "children": "RP"
                   }
@@ -6282,7 +6282,7 @@
               }
             },
             "type": "component",
-            "component": "Separator",
+            "component": "nova/Separator",
             "props": {
               "orientation": "vertical"
             }
@@ -6312,7 +6312,7 @@
                 "id": "TDp5N",
                 "name": "Top bar edge",
                 "type": "component",
-                "component": "Separator"
+                "component": "nova/Separator"
               },
               {
                 "id": "OtcXH",
@@ -6444,7 +6444,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "Button",
+                            "component": "nova/Button",
                             "props": {
                               "variant": "outline"
                             },
@@ -6471,7 +6471,7 @@
                             "id": "jXoHy",
                             "name": "New project button",
                             "type": "component",
-                            "component": "Button",
+                            "component": "nova/Button",
                             "slots": {
                               "children": [
                                 {
@@ -7000,19 +7000,19 @@
                       "borderStyle": "dashed"
                     },
                     "type": "component",
-                    "component": "Empty",
+                    "component": "nova/Empty",
                     "slots": {
                       "children": [
                         {
                           "id": "WMMT6",
                           "type": "component",
-                          "component": "EmptyHeader",
+                          "component": "nova/EmptyHeader",
                           "slots": {
                             "children": [
                               {
                                 "id": "qr0Hk",
                                 "type": "component",
-                                "component": "EmptyMedia",
+                                "component": "nova/EmptyMedia",
                                 "props": {
                                   "variant": "icon"
                                 },
@@ -7032,7 +7032,7 @@
                               {
                                 "id": "NdTnx",
                                 "type": "component",
-                                "component": "EmptyTitle",
+                                "component": "nova/EmptyTitle",
                                 "props": {
                                   "children": "No projects match “zebra”"
                                 }
@@ -7040,7 +7040,7 @@
                               {
                                 "id": "IanNY",
                                 "type": "component",
-                                "component": "EmptyDescription",
+                                "component": "nova/EmptyDescription",
                                 "props": {
                                   "children": "Check the spelling, or clear the search to see all 6 projects."
                                 }
@@ -7051,14 +7051,14 @@
                         {
                           "id": "ctX3G",
                           "type": "component",
-                          "component": "EmptyContent",
+                          "component": "nova/EmptyContent",
                           "slots": {
                             "children": [
                               {
                                 "id": "Q5HgI",
                                 "name": "Clear search button",
                                 "type": "component",
-                                "component": "Button",
+                                "component": "nova/Button",
                                 "props": {
                                   "variant": "outline",
                                   "children": "Clear search"
@@ -7173,13 +7173,13 @@
         "id": "wt6lw",
         "name": "Project card",
         "type": "component",
-        "component": "Card",
+        "component": "nova/Card",
         "slots": {
           "children": [
             {
               "id": "nMOpB",
               "type": "component",
-              "component": "CardHeader",
+              "component": "nova/CardHeader",
               "slots": {
                 "children": [
                   {
@@ -7317,7 +7317,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "CardTitle",
+                            "component": "nova/CardTitle",
                             "props": {
                               "children": "Website redesign"
                             }
@@ -7331,7 +7331,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "CardDescription",
+                            "component": "nova/CardDescription",
                             "props": {
                               "children": "Marketing"
                             }
@@ -7385,7 +7385,7 @@
                     "id": "LfLNc",
                     "name": "Status action",
                     "type": "component",
-                    "component": "CardAction",
+                    "component": "nova/CardAction",
                     "slots": {
                       "children": [
                         {
@@ -7398,7 +7398,7 @@
                             }
                           },
                           "type": "component",
-                          "component": "Badge",
+                          "component": "nova/Badge",
                           "props": {
                             "variant": "secondary",
                             "children": "On track"
@@ -7417,7 +7417,7 @@
                 "grow": true
               },
               "type": "component",
-              "component": "CardContent",
+              "component": "nova/CardContent",
               "slots": {
                 "children": [
                   {
@@ -7583,7 +7583,7 @@
             {
               "id": "DUkds",
               "type": "component",
-              "component": "CardFooter",
+              "component": "nova/CardFooter",
               "slots": {
                 "children": [
                   {
@@ -7606,13 +7606,13 @@
                         "id": "t9FSR",
                         "name": "Members",
                         "type": "component",
-                        "component": "AvatarGroup",
+                        "component": "nova/AvatarGroup",
                         "slots": {
                           "children": [
                             {
                               "id": "Q2z8a",
                               "type": "component",
-                              "component": "Avatar",
+                              "component": "nova/Avatar",
                               "slots": {
                                 "children": [
                                   {
@@ -7624,7 +7624,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "AvatarFallback",
+                                    "component": "nova/AvatarFallback",
                                     "props": {
                                       "children": "AC"
                                     }
@@ -7635,7 +7635,7 @@
                             {
                               "id": "eYhid",
                               "type": "component",
-                              "component": "Avatar",
+                              "component": "nova/Avatar",
                               "slots": {
                                 "children": [
                                   {
@@ -7647,7 +7647,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "AvatarFallback",
+                                    "component": "nova/AvatarFallback",
                                     "props": {
                                       "children": "RP"
                                     }
@@ -7658,7 +7658,7 @@
                             {
                               "id": "NeQXM",
                               "type": "component",
-                              "component": "Avatar",
+                              "component": "nova/Avatar",
                               "slots": {
                                 "children": [
                                   {
@@ -7670,7 +7670,7 @@
                                       }
                                     },
                                     "type": "component",
-                                    "component": "AvatarFallback",
+                                    "component": "nova/AvatarFallback",
                                     "props": {
                                       "children": "TK"
                                     }
@@ -7687,7 +7687,7 @@
                                 }
                               },
                               "type": "component",
-                              "component": "AvatarGroupCount",
+                              "component": "nova/AvatarGroupCount",
                               "props": {
                                 "children": "+2"
                               }
@@ -7961,13 +7961,13 @@
               }
             },
             "type": "component",
-            "component": "Card",
+            "component": "nova/Card",
             "slots": {
               "children": [
                 {
                   "id": "RlMsi",
                   "type": "component",
-                  "component": "CardHeader",
+                  "component": "nova/CardHeader",
                   "slots": {
                     "children": [
                       {
@@ -7978,7 +7978,7 @@
                           }
                         },
                         "type": "component",
-                        "component": "CardTitle",
+                        "component": "nova/CardTitle",
                         "props": {
                           "children": "Welcome back"
                         }
@@ -7986,7 +7986,7 @@
                       {
                         "id": "dCouy",
                         "type": "component",
-                        "component": "CardDescription",
+                        "component": "nova/CardDescription",
                         "props": {
                           "children": "Sign in with single sign-on, a passkey, or your email."
                         }
@@ -7997,7 +7997,7 @@
                 {
                   "id": "B0opY",
                   "type": "component",
-                  "component": "CardContent",
+                  "component": "nova/CardContent",
                   "slots": {
                     "children": [
                       {
@@ -8059,7 +8059,7 @@
                                   }
                                 },
                                 "type": "component",
-                                "component": "Button",
+                                "component": "nova/Button",
                                 "props": {
                                   "variant": "outline"
                                 },
@@ -8091,7 +8091,7 @@
                                   }
                                 },
                                 "type": "component",
-                                "component": "Button",
+                                "component": "nova/Button",
                                 "props": {
                                   "variant": "outline"
                                 },
@@ -8137,7 +8137,7 @@
                                   "grow": true
                                 },
                                 "type": "component",
-                                "component": "Separator"
+                                "component": "nova/Separator"
                               },
                               {
                                 "id": "jU7RD",
@@ -8162,7 +8162,7 @@
                                   "grow": true
                                 },
                                 "type": "component",
-                                "component": "Separator"
+                                "component": "nova/Separator"
                               }
                             ]
                           },
@@ -8185,7 +8185,7 @@
                                     {
                                       "id": "E6Ggp",
                                       "type": "component",
-                                      "component": "Label",
+                                      "component": "nova/Label",
                                       "props": {
                                         "htmlFor": "signin-email",
                                         "children": "Email"
@@ -8195,7 +8195,7 @@
                                       "id": "HwgUe",
                                       "name": "Email input",
                                       "type": "component",
-                                      "component": "Input",
+                                      "component": "nova/Input",
                                       "props": {
                                         "id": "signin-email",
                                         "type": "email",
@@ -8224,7 +8224,7 @@
                                         {
                                           "id": "mrxCb",
                                           "type": "component",
-                                          "component": "Label",
+                                          "component": "nova/Label",
                                           "props": {
                                             "htmlFor": "signin-password",
                                             "children": "Password"
@@ -8248,7 +8248,7 @@
                                       "id": "sPNUt",
                                       "name": "Password input",
                                       "type": "component",
-                                      "component": "Input",
+                                      "component": "nova/Input",
                                       "props": {
                                         "id": "signin-password",
                                         "type": "password",
@@ -8293,7 +8293,7 @@
                                   {
                                     "id": "XAX7y",
                                     "type": "component",
-                                    "component": "Label",
+                                    "component": "nova/Label",
                                     "props": {
                                       "htmlFor": "remember",
                                       "children": "Keep me signed in for 30 days"
@@ -8312,7 +8312,7 @@
                               }
                             },
                             "type": "component",
-                            "component": "Button",
+                            "component": "nova/Button",
                             "slots": {
                               "children": [
                                 {
@@ -8340,7 +8340,7 @@
                 {
                   "id": "RCKZ0",
                   "type": "component",
-                  "component": "CardFooter",
+                  "component": "nova/CardFooter",
                   "slots": {
                     "children": [
                       {
@@ -8554,7 +8554,7 @@
               {
                 "id": "Db2p6",
                 "type": "component",
-                "component": "Tabs",
+                "component": "nova/Tabs",
                 "props": {
                   "defaultValue": "profile"
                 },
@@ -8563,13 +8563,13 @@
                     {
                       "id": "QgKIi",
                       "type": "component",
-                      "component": "TabsList",
+                      "component": "nova/TabsList",
                       "slots": {
                         "children": [
                           {
                             "id": "DKjcV",
                             "type": "component",
-                            "component": "TabsTrigger",
+                            "component": "nova/TabsTrigger",
                             "props": {
                               "value": "profile",
                               "children": "Profile"
@@ -8578,7 +8578,7 @@
                           {
                             "id": "Am9Qf",
                             "type": "component",
-                            "component": "TabsTrigger",
+                            "component": "nova/TabsTrigger",
                             "props": {
                               "value": "notifications",
                               "children": "Notifications"
@@ -8587,7 +8587,7 @@
                           {
                             "id": "zA5EV",
                             "type": "component",
-                            "component": "TabsTrigger",
+                            "component": "nova/TabsTrigger",
                             "props": {
                               "value": "billing",
                               "children": "Billing"
@@ -8599,7 +8599,7 @@
                     {
                       "id": "mzZ0q",
                       "type": "component",
-                      "component": "TabsContent",
+                      "component": "nova/TabsContent",
                       "props": {
                         "value": "profile"
                       },
@@ -8660,19 +8660,19 @@
                                 "id": "EZIMn",
                                 "name": "Profile card",
                                 "type": "component",
-                                "component": "Card",
+                                "component": "nova/Card",
                                 "slots": {
                                   "children": [
                                     {
                                       "id": "M1x7x",
                                       "type": "component",
-                                      "component": "CardHeader",
+                                      "component": "nova/CardHeader",
                                       "slots": {
                                         "children": [
                                           {
                                             "id": "Aa5Mw",
                                             "type": "component",
-                                            "component": "CardTitle",
+                                            "component": "nova/CardTitle",
                                             "props": {
                                               "children": "Profile"
                                             }
@@ -8680,7 +8680,7 @@
                                           {
                                             "id": "ukF2s",
                                             "type": "component",
-                                            "component": "CardDescription",
+                                            "component": "nova/CardDescription",
                                             "props": {
                                               "children": "This is how teammates see you across Acme."
                                             }
@@ -8691,7 +8691,7 @@
                                     {
                                       "id": "GhD5y",
                                       "type": "component",
-                                      "component": "CardContent",
+                                      "component": "nova/CardContent",
                                       "slots": {
                                         "children": [
                                           {
@@ -8719,7 +8719,7 @@
                                                   {
                                                     "id": "axpAj",
                                                     "type": "component",
-                                                    "component": "Avatar",
+                                                    "component": "nova/Avatar",
                                                     "props": {
                                                       "size": "lg"
                                                     },
@@ -8728,7 +8728,7 @@
                                                         {
                                                           "id": "Cjoge",
                                                           "type": "component",
-                                                          "component": "AvatarFallback",
+                                                          "component": "nova/AvatarFallback",
                                                           "props": {
                                                             "children": "AC"
                                                           }
@@ -8760,7 +8760,7 @@
                                                           {
                                                             "id": "rxMhW",
                                                             "type": "component",
-                                                            "component": "Button",
+                                                            "component": "nova/Button",
                                                             "props": {
                                                               "variant": "outline",
                                                               "size": "sm",
@@ -8770,7 +8770,7 @@
                                                           {
                                                             "id": "amu35",
                                                             "type": "component",
-                                                            "component": "Button",
+                                                            "component": "nova/Button",
                                                             "props": {
                                                               "variant": "ghost",
                                                               "size": "sm",
@@ -8836,7 +8836,7 @@
                                                         {
                                                           "id": "vFcqX",
                                                           "type": "component",
-                                                          "component": "Label",
+                                                          "component": "nova/Label",
                                                           "props": {
                                                             "htmlFor": "first-name",
                                                             "children": "First name"
@@ -8845,7 +8845,7 @@
                                                         {
                                                           "id": "HtvL4",
                                                           "type": "component",
-                                                          "component": "Input",
+                                                          "component": "nova/Input",
                                                           "props": {
                                                             "id": "first-name",
                                                             "defaultValue": "Avery"
@@ -8864,7 +8864,7 @@
                                                         {
                                                           "id": "jnLPl",
                                                           "type": "component",
-                                                          "component": "Label",
+                                                          "component": "nova/Label",
                                                           "props": {
                                                             "htmlFor": "last-name",
                                                             "children": "Last name"
@@ -8873,7 +8873,7 @@
                                                         {
                                                           "id": "N8iZ5",
                                                           "type": "component",
-                                                          "component": "Input",
+                                                          "component": "nova/Input",
                                                           "props": {
                                                             "id": "last-name",
                                                             "defaultValue": "Chen"
@@ -8894,7 +8894,7 @@
                                                     {
                                                       "id": "LOwdg",
                                                       "type": "component",
-                                                      "component": "Label",
+                                                      "component": "nova/Label",
                                                       "props": {
                                                         "htmlFor": "email",
                                                         "children": "Email"
@@ -8904,7 +8904,7 @@
                                                       "id": "CgHt3",
                                                       "name": "Email input",
                                                       "type": "component",
-                                                      "component": "Input",
+                                                      "component": "nova/Input",
                                                       "props": {
                                                         "id": "email",
                                                         "type": "email",
@@ -8943,7 +8943,7 @@
                                                     {
                                                       "id": "o2LFU",
                                                       "type": "component",
-                                                      "component": "Label",
+                                                      "component": "nova/Label",
                                                       "props": {
                                                         "htmlFor": "bio",
                                                         "children": "Bio"
@@ -9009,7 +9009,7 @@
                                                         {
                                                           "id": "KerZC",
                                                           "type": "component",
-                                                          "component": "Label",
+                                                          "component": "nova/Label",
                                                           "props": {
                                                             "htmlFor": "role",
                                                             "children": "Role"
@@ -9077,7 +9077,7 @@
                                                         {
                                                           "id": "dyZYq",
                                                           "type": "component",
-                                                          "component": "Label",
+                                                          "component": "nova/Label",
                                                           "props": {
                                                             "htmlFor": "time-zone",
                                                             "children": "Time zone"
@@ -9149,19 +9149,19 @@
                                 "id": "vw9Mm",
                                 "name": "Notifications card",
                                 "type": "component",
-                                "component": "Card",
+                                "component": "nova/Card",
                                 "slots": {
                                   "children": [
                                     {
                                       "id": "BgUZN",
                                       "type": "component",
-                                      "component": "CardHeader",
+                                      "component": "nova/CardHeader",
                                       "slots": {
                                         "children": [
                                           {
                                             "id": "dm3Z4",
                                             "type": "component",
-                                            "component": "CardTitle",
+                                            "component": "nova/CardTitle",
                                             "props": {
                                               "children": "Email notifications"
                                             }
@@ -9169,7 +9169,7 @@
                                           {
                                             "id": "ihxDk",
                                             "type": "component",
-                                            "component": "CardDescription",
+                                            "component": "nova/CardDescription",
                                             "props": {
                                               "children": "Choose what Acme emails you about."
                                             }
@@ -9180,7 +9180,7 @@
                                     {
                                       "id": "ZrrjH",
                                       "type": "component",
-                                      "component": "CardContent",
+                                      "component": "nova/CardContent",
                                       "slots": {
                                         "children": [
                                           {
@@ -9227,7 +9227,7 @@
                                                       {
                                                         "id": "aTy46",
                                                         "type": "component",
-                                                        "component": "Label",
+                                                        "component": "nova/Label",
                                                         "props": {
                                                           "htmlFor": "mentions",
                                                           "children": "Comments and mentions"
@@ -9262,7 +9262,7 @@
                                               {
                                                 "id": "ZBhHo",
                                                 "type": "component",
-                                                "component": "Separator"
+                                                "component": "nova/Separator"
                                               },
                                               {
                                                 "id": "O2Kzf",
@@ -9298,7 +9298,7 @@
                                                       {
                                                         "id": "fEkiu",
                                                         "type": "component",
-                                                        "component": "Label",
+                                                        "component": "nova/Label",
                                                         "props": {
                                                           "htmlFor": "updates",
                                                           "children": "Product updates"
@@ -9333,7 +9333,7 @@
                                               {
                                                 "id": "TxRp8",
                                                 "type": "component",
-                                                "component": "Separator"
+                                                "component": "nova/Separator"
                                               },
                                               {
                                                 "id": "nE75h",
@@ -9369,7 +9369,7 @@
                                                       {
                                                         "id": "bYii6",
                                                         "type": "component",
-                                                        "component": "Label",
+                                                        "component": "nova/Label",
                                                         "props": {
                                                           "htmlFor": "summary",
                                                           "children": "Weekly summary"
@@ -9404,7 +9404,7 @@
                                               {
                                                 "id": "rXTtg",
                                                 "type": "component",
-                                                "component": "Separator"
+                                                "component": "nova/Separator"
                                               },
                                               {
                                                 "id": "I9Q4T",
@@ -9440,7 +9440,7 @@
                                                       {
                                                         "id": "I4bw3",
                                                         "type": "component",
-                                                        "component": "Label",
+                                                        "component": "nova/Label",
                                                         "props": {
                                                           "htmlFor": "security",
                                                           "children": "Security alerts"
@@ -9497,7 +9497,7 @@
                                     "id": "nCk7A",
                                     "name": "Cancel button",
                                     "type": "component",
-                                    "component": "Button",
+                                    "component": "nova/Button",
                                     "props": {
                                       "variant": "outline",
                                       "children": "Cancel"
@@ -9507,7 +9507,7 @@
                                     "id": "hJK9B",
                                     "name": "Save button",
                                     "type": "component",
-                                    "component": "Button",
+                                    "component": "nova/Button",
                                     "slots": {
                                       "children": [
                                         {
@@ -9579,7 +9579,7 @@
               }
             },
             "type": "component",
-            "component": "Button",
+            "component": "nova/Button",
             "props": {
               "children": "Save changes",
               "className": "w-full sm:w-auto",
@@ -9642,10 +9642,10 @@
       "kind": "component",
       "context": [
         {
-          "component": "Table"
+          "component": "nova/Table"
         },
         {
-          "component": "TableBody"
+          "component": "nova/TableBody"
         }
       ],
       "params": {
@@ -9682,13 +9682,13 @@
         "id": "Z5AnQ",
         "name": "Member row",
         "type": "component",
-        "component": "TableRow",
+        "component": "nova/TableRow",
         "slots": {
           "children": [
             {
               "id": "fLaps",
               "type": "component",
-              "component": "TableCell",
+              "component": "nova/TableCell",
               "slots": {
                 "children": [
                   {
@@ -9705,7 +9705,7 @@
                       {
                         "id": "PWaHY",
                         "type": "component",
-                        "component": "Avatar",
+                        "component": "nova/Avatar",
                         "slots": {
                           "children": [
                             {
@@ -9716,7 +9716,7 @@
                                 }
                               },
                               "type": "component",
-                              "component": "AvatarFallback",
+                              "component": "nova/AvatarFallback",
                               "props": {
                                 "children": "AC"
                               }
@@ -9798,7 +9798,7 @@
                 }
               },
               "type": "component",
-              "component": "TableCell",
+              "component": "nova/TableCell",
               "props": {
                 "children": "avery@acme.com"
               }
@@ -9806,7 +9806,7 @@
             {
               "id": "Wujts",
               "type": "component",
-              "component": "TableCell",
+              "component": "nova/TableCell",
               "slots": {
                 "children": [
                   {
@@ -9818,7 +9818,7 @@
                       }
                     },
                     "type": "component",
-                    "component": "Badge",
+                    "component": "nova/Badge",
                     "props": {
                       "variant": "destructive",
                       "children": "Owner"
@@ -9848,7 +9848,7 @@
                 }
               },
               "type": "component",
-              "component": "TableCell",
+              "component": "nova/TableCell",
               "props": {
                 "children": "Active now"
               }

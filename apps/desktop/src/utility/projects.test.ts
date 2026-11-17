@@ -303,7 +303,8 @@ function setUp(
 
       return asked ? { id: asked.id, name: asked.name } : owners[kind]
     },
-    decorators: () => []
+    decorators: () => [],
+    pageRouters: () => []
   }
 
   const projects = openProjects({

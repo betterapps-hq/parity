@@ -9,7 +9,6 @@ import {
   type RouteSegment,
   sameSegments
 } from "@parity-app/core"
-import { z } from "zod"
 import { type BoardBox, labelLook, titleTop } from "./canvas-labels.ts"
 
 /**
@@ -309,7 +308,7 @@ export function routeScreenId(route: Pick<ProjectRoute, "id">): string {
 /**
  * The app's pages as screens (PAR-1076), laid out as a tree (see `pageTree`) whose bottom is at `bottom`, each named
  * as `pageName` says. Its layers are the routes that draw it (see `routeLayers`); its frames show the app itself at
- * `url`, each as wide as its viewport, with no height of its own, so it's as tall as the page (see `pageHeightMessage`).
+ * `url`, each as wide as its viewport, with no height of its own, so it's as tall as the page says (`page.height`).
  * `_modes` sized the frames once and goes unused.
  */
 export function routeScreens(
@@ -479,23 +478,6 @@ export function pageLinksLit(
 }
 
 /**
- * How tall the app's own page says it is, in a message its frame posts (PAR-1076): the script the builder's server puts
- * first in `index.html` posts `{ parity: "page-height", height }` with the document's height whenever it changes. The
- * height is rounded up to a whole pixel.
- */
-export const pageHeightMessage = z
-  .object({ parity: z.literal("page-height"), height: z.number().positive().finite() })
-  .transform(({ height }) => Math.ceil(height))
-
-/**
- * Where a page's frame says its page went (PAR-1076): the app's own page posts `{ parity: "page-landed", path }` with
- * the path it opened on, and again whenever its router moves it before anyone uses the page.
- */
-export const pageLandedMessage = z
-  .object({ parity: z.literal("page-landed"), path: z.string().startsWith("/") })
-  .transform(({ path }) => path)
-
-/**
  * The path a page landed on, when it isn't the one its URL asked for, as a route that redirects sends it elsewhere. A
  * trailing slash makes no difference.
  */
@@ -505,7 +487,7 @@ export function landedElsewhere(url: string, landed: string): string | undefined
   return trim(new URL(url).pathname) === trim(landed) ? undefined : landed
 }
 
-/** The mode a page's frame draws in, as the app's own page reads it from the frame's name (PAR-1076). */
+/** The mode a page's frame draws in, which Parity sets in the app's own page with `mode.set` (PAR-1076, PAR-1260). */
 export interface PageMode {
   classes: string[]
   attributes: Record<string, string>
@@ -513,11 +495,8 @@ export interface PageMode {
   scheme?: "dark" | "light"
 }
 
-/**
- * The name a page's frame gives itself so the app's own page draws in its mode: `parity:` and the mode as JSON, its
- * classes and attributes, and its scheme from its theme option's id or class.
- */
-export function pageFrameName(mode: Pick<ResolvedMode, "classNames" | "attributes" | "options">): string {
+/** A mode as the app's own page draws in it: its classes and attributes, and its scheme from its theme option's id or class. */
+export function pageMode(mode: Pick<ResolvedMode, "classNames" | "attributes" | "options">): PageMode {
   const theme = mode.options.find(({ variable }) => variable.kind === "theme")?.option
   const said = [theme?.id, theme?.className].join(" ")
   const page: PageMode = { classes: mode.classNames, attributes: mode.attributes }
@@ -528,5 +507,36 @@ export function pageFrameName(mode: Pick<ResolvedMode, "classNames" | "attribute
     page.scheme = "light"
   }
 
-  return `parity:${JSON.stringify(page)}`
+  return page
+}
+
+/**
+ * The URL a page's frame loads (PAR-1260): the page's URL on its builder's port, under a name of the project's own,
+ * `http://<project>.localhost:<port>`. Chromium reaches every `*.localhost` name on the loopback address without asking
+ * DNS, and gives each name a process of its own, so one project's pages never share a process with another's. Site
+ * isolation ignores the port, so on `127.0.0.1` every open project's pages would share one.
+ */
+export function pageFrameUrl(url: string, project: string): string {
+  const framed = new URL(url)
+  framed.hostname = `${projectHost(project)}.localhost`
+
+  return framed.href
+}
+
+/** A project's name under `.localhost`: `p` and a hash of its id, which is its absolute root, as a DNS label takes it. */
+export function projectHost(project: string): string {
+  return `p${hashHex(project, 0x811c9dc5)}${hashHex(project, 0x01000193)}`
+}
+
+/** FNV-1a over a string's UTF-16 code units from `seed`, as eight hex digits. */
+function hashHex(text: string, seed: number): string {
+  let hash = seed
+
+  for (let index = 0; index < text.length; index++) {
+    // oxlint-disable-next-line no-bitwise -- a hash: FNV-1a mixes each code unit in by XOR
+    hash = Math.imul(hash ^ text.charCodeAt(index), 0x01000193)
+  }
+
+  // oxlint-disable-next-line no-bitwise -- a hash: read as an unsigned 32-bit number
+  return (hash >>> 0).toString(16).padStart(8, "0")
 }

@@ -1,6 +1,6 @@
-import { addVariant, type ContainerSpec, type DesignNode, designStates, editNode, setSlot } from "@parity-app/core"
+import { addVariant, type ContainerSpec, type DesignNode, designStates, editNode } from "@parity-app/core"
 import { designsSelection, layersSelection, newDesign } from "@parity-app/editor"
-import { addContainer, addNote, containerEntries, updateContainer, updateView } from "@parity-app/multiplayer"
+import { addContainer, addNote, containerEntries, updateContainer } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import { design, example, findTooltip, node, openProject, ProjectStage } from "../stories/fixtures.tsx"
@@ -10,8 +10,8 @@ import { LayerTree } from "./LayerTree.tsx"
 import { LeftPanel } from "./LeftPanel.tsx"
 
 /**
- * The Layers tab: every design in the project as a tree, component designs then screens, each open to its layers.
- * Shown in the left panel, as the app shows it.
+ * The Layers tab: the project's screens, code components and frames as a tree, each open to its layers. Component
+ * designs are in the Components panel. Shown in the left panel, as the app shows it.
  */
 const meta = {
   title: "Parity/Left panel/Layers",
@@ -206,11 +206,11 @@ export const FirstScreenMade: Story = {
 export const DesignExpanded: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    const card = row("Plan card")
-    await fireEvent.click(within(card).getByRole("button", { name: "Expand" }))
-    const root = await waitFor(() => row("Plan card", "Plan card"))
+    const pricing = row("Pricing")
+    await fireEvent.click(within(pricing).getByRole("button", { name: "Expand" }))
+    const root = await waitFor(() => row("Pricing", "Page"))
     await fireEvent.click(within(root).getByRole("button", { name: "Expand" }))
-    await waitFor(() => row("Plan card", "CardContent"))
+    await waitFor(() => row("Pricing", "Hero"))
   }
 }
 
@@ -222,24 +222,7 @@ export const LayerSelected: Story = {
   loaders: [
     async () => {
       await openProject("example")
-      example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
-    }
-  ]
-}
-
-/**
- * A component design's slots (PAR-83): Plan card's features are a slot, so the row has the slot's dashed icon and
- * says features at its end.
- */
-export const Slots: Story = {
-  loaders: [
-    async () => {
-      await openProject("example")
-      const key = design("Plan card")
-      updateContainer(example().doc, key, "Make slot", (container) =>
-        setSlot(container, node("Plan card", "Features"), "features")
-      )
-      example().selection.set({ design: key, node: node("Plan card", "Feature 1") })
+      example().selection.set({ design: design("Pricing"), node: node("Pricing", "Period toggle") })
     }
   ]
 }
@@ -249,9 +232,8 @@ export const SeveralLayersSelected: Story = {
   loaders: [
     async () => {
       await openProject("example")
-      const card = design("Plan card")
-      const layers = ["Feature 1", "Feature 2", "Feature 3"].map((name) => node("Plan card", name))
-      example().selection.set(layersSelection(card, layers))
+      const plans = ["Starter plan", "Pro plan", "Business plan"].map((name) => node("Pricing", name))
+      example().selection.set(layersSelection(design("Pricing"), plans))
     }
   ]
 }
@@ -261,7 +243,7 @@ export const SeveralDesignsSelected: Story = {
   loaders: [
     async () => {
       await openProject("example")
-      example().selection.set(designsSelection([design("Stat card"), design("Plan card"), design("Activity item")]))
+      example().selection.set(designsSelection([design("Dashboard"), design("Projects"), design("Pricing")]))
     }
   ]
 }
@@ -274,9 +256,9 @@ export const Hovered: Story = {
   loaders: [
     async () => {
       await openProject("example")
-      const card = design("Plan card")
-      example().selection.set({ design: card, node: node("Plan card", "Price row") })
-      example().selection.setHover({ design: card, node: node("Plan card", "Billing") })
+      const pricing = design("Pricing")
+      example().selection.set({ design: pricing, node: node("Pricing", "Billing period") })
+      example().selection.setHover({ design: pricing, node: node("Pricing", "Lede") })
     }
   ]
 }
@@ -285,25 +267,8 @@ export const Hovered: Story = {
 export const HiddenLayers: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Stat card", "Value skeleton", "Note skeleton")
+    await reveal("Dashboard", "Stats loading", "Getting started")
     example().selection.set({})
-  }
-}
-
-/**
- * The Stat card showing its Loading state: a pen marks each layer that state changes. Its skeletons show in Loading,
- * yet their rows still look hidden, since the tree reads the base design's visibility.
- */
-export const ShowingAState: Story = {
-  loaders: [
-    async () => {
-      await openProject("example")
-      const card = design("Stat card")
-      updateView(example().doc, card, "Show Loading", (view) => ({ ...view, state: "loading" }))
-    }
-  ],
-  play: async () => {
-    await reveal("Stat card", "Note skeleton", "Value")
   }
 }
 
@@ -324,8 +289,8 @@ export const Instances: Story = {
 }
 
 /**
- * A layer of a screen selected on the canvas, below the component designs: the tree opens to it and scrolls just far
- * enough to show it. Selecting in the tree itself never scrolls it.
+ * A layer of a screen selected on the canvas: the tree opens to it and scrolls just far enough to show it. Selecting
+ * in the tree itself never scrolls it.
  */
 export const SelectedOnCanvas: Story = {
   loaders: [
@@ -341,12 +306,12 @@ export const RenamingALayer: Story = {
   loaders: [
     async () => {
       await openProject("example")
-      example().selection.set({ design: design("Plan card"), node: node("Plan card", "Call to action") })
+      example().selection.set({ design: design("Pricing"), node: node("Pricing", "Lede") })
     }
   ],
   play: async ({ canvasElement }) => {
     example().selection.requestRename()
-    const field = await within(canvasElement).findByDisplayValue("Call to action")
+    const field = await within(canvasElement).findByDisplayValue("Lede")
     await waitFor(() => expect(field).toHaveFocus())
   }
 }
@@ -355,8 +320,8 @@ export const RenamingALayer: Story = {
 export const RenamingADesign: Story = {
   loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
-    await fireEvent.doubleClick(row("Plan card"))
-    await within(canvasElement).findByDisplayValue("Plan card")
+    await fireEvent.doubleClick(row("Pricing"))
+    await within(canvasElement).findByDisplayValue("Pricing")
   }
 }
 
@@ -366,11 +331,11 @@ export const LongNames: Story = {
     async () => {
       await openProject("example")
       const { doc, selection } = example()
-      const card = design("Plan card")
-      const third = node("Plan card", "Feature 3 text")
-      renameAndRecord(doc, card, "Plan card for the enterprise tier, with annual billing and a seat-based discount")
-      renameAndRecord(doc, card, "Third feature of the plan, as marketing wrote it for the launch page", third)
-      selection.set({ design: card, node: third })
+      const pricing = design("Pricing")
+      const headline = node("Pricing", "Headline")
+      renameAndRecord(doc, pricing, "Pricing for the enterprise tier, with annual billing and a seat-based discount")
+      renameAndRecord(doc, pricing, "Headline over the plans, as marketing wrote it for the launch page", headline)
+      selection.set({ design: pricing, node: headline })
     }
   ]
 }
@@ -382,11 +347,11 @@ export const LongNames: Story = {
 export const LayerMenu: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Stat card", "Value skeleton")
-    example().selection.set({ design: design("Stat card") })
-    await rightClick(row("Stat card", "Value skeleton"))
+    await reveal("Dashboard", "Stats loading")
+    example().selection.set({ design: design("Dashboard") })
+    await rightClick(row("Dashboard", "Stats loading"))
     const menu = await within(document.body).findByRole("menu")
-    await expect(row("Stat card", "Value skeleton")).toHaveAttribute("aria-selected", "true")
+    await expect(row("Dashboard", "Stats loading")).toHaveAttribute("aria-selected", "true")
     const items = within(menu).getAllByRole("menuitem")
     await expect(items.map((item) => item.textContent)).toEqual([
       `Rename${formatKeys("Ctrl R")}`,
@@ -400,23 +365,23 @@ export const LayerMenu: Story = {
 }
 
 /**
- * Plan card with a density variant whose Compact option hides Feature 4, shown on its board. Feature 4's menu offers
- * Show, reading the layer as the board shows it with Compact, and Show puts the change in Compact (PAR-497).
+ * Pricing with a density variant whose Compact option hides the lede, shown on its board. The lede's menu offers Show,
+ * reading the layer as the board shows it with Compact, and Show puts the change in Compact (PAR-497).
  */
 export const HiddenByAVariant: Story = {
   loaders: [
     async () => {
       await openProject("example")
-      const card = design("Plan card")
-      const feature = node("Plan card", "Feature 4")
-      updateContainer(example().doc, card, "Add density variant", (current) => {
+      const pricing = design("Pricing")
+      const lede = node("Pricing", "Lede")
+      updateContainer(example().doc, pricing, "Add density variant", (current) => {
         const added = addVariant(current, "density", ["Comfortable", "Compact"])
         const compact = added.params!.density!.options![1]!.id
 
         const hidden = editNode(
           added,
           { state: designStates(added)[0]!.id, variant: { param: "density", option: compact } },
-          feature,
+          lede,
           {
             hidden: true
           }
@@ -427,33 +392,42 @@ export const HiddenByAVariant: Story = {
     }
   ],
   play: async () => {
-    await reveal("Plan card", "Feature 4")
-    await rightClick(row("Plan card", "Feature 4"))
+    await reveal("Pricing", "Lede")
+    await rightClick(row("Pricing", "Lede"))
     await within(document.body).findByRole("menuitem", { name: /^Show/ })
   }
 }
 
-/** A design's menu, opened by right-clicking its row, which selects it: rename, duplicate or delete it. */
+/**
+ * A screen's menu, opened by right-clicking its row, which selects it: rename, duplicate, lock, export or delete it,
+ * each with its keys from the keymap.
+ */
 export const DesignMenu: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await rightClick(row("Plan card"))
+    await rightClick(row("Pricing"))
     const menu = await within(document.body).findByRole("menu")
-    await expect(row("Plan card")).toHaveAttribute("aria-selected", "true")
+    await expect(row("Pricing")).toHaveAttribute("aria-selected", "true")
     await expect(
       within(menu)
         .getAllByRole("menuitem")
         .map((item) => item.textContent)
-    ).toEqual([`Rename${formatKeys("Ctrl R")}`, `Duplicate${formatKeys("Ctrl D")}`, `Delete${formatKeys("Del")}`])
+    ).toEqual([
+      `Rename${formatKeys("Ctrl R")}`,
+      `Duplicate${formatKeys("Ctrl D")}`,
+      `Lock${formatKeys("Ctrl Shift L")}`,
+      `Export…${formatKeys("Ctrl Shift E")}`,
+      `Delete${formatKeys("Del")}`
+    ])
   }
 }
 
-/** Dragging the selected Feature 4 up the tree: a line under Feature 2 shows it would land after it. */
+/** Dragging the selected Billing period up the tree: a line under Headline shows it would land after it. */
 export const DraggingBetweenLayers: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Plan card", "Feature 4")
-    dragOver(row("Plan card", "Feature 2"), "Plan card", ["Feature 4"], 0.9)
+    await reveal("Pricing", "Billing period")
+    dragOver(row("Pricing", "Headline"), "Pricing", ["Billing period"], 0.9)
   }
 }
 
@@ -461,8 +435,8 @@ export const DraggingBetweenLayers: Story = {
 export const DraggingIntoALayout: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Plan card", "Price row")
-    dragOver(row("Plan card", "Price block"), "Plan card", ["Call to action"], 0.5)
+    await reveal("Pricing", "Period toggle")
+    dragOver(row("Pricing", "Billing period"), "Pricing", ["Lede"], 0.5)
   }
 }
 
@@ -490,15 +464,16 @@ export const DraggingADesign: Story = {
 }
 
 /**
- * Searching for "feature": Plan card's four features and their texts, with the rows above them open, and nothing else.
- * Its arrows are gone, since a search opens what it finds (PAR-187).
+ * Searching for "plan": Pricing's plans and the layouts holding them, with the rows above them open, then the other
+ * designs with a match; Dashboard, with none, is left out. Its arrows are gone, since a search opens what it finds
+ * (PAR-187).
  */
 export const Searching: Story = {
   loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
-    await search(canvasElement, "feature")
-    await waitFor(() => row("Plan card", "Feature 4"))
-    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "true")
+    await search(canvasElement, "plan")
+    await waitFor(() => row("Pricing", "Business plan"))
+    await expect(row("Pricing")).toHaveAttribute("aria-expanded", "true")
     await expect(document.getElementById(`layer-${design("Dashboard")}`)).toBeNull()
   }
 }
@@ -512,33 +487,33 @@ export const NothingFound: Story = {
   }
 }
 
-/** Collapse all, pressed with a layer deep in Plan card selected: every row closes, the selection's too (PAR-187). */
+/** Collapse all, pressed with a layer deep in Pricing selected: every row closes, the selection's too (PAR-187). */
 export const CollapsedAll: Story = {
   loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
-    await reveal("Plan card", "Feature 3 text")
+    await reveal("Pricing", "Period toggle")
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Collapse all" }))
-    await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+    await waitFor(() => expect(row("Pricing")).toHaveAttribute("aria-expanded", "false"))
   }
 }
 
 /**
- * Alt+click on Plan card's arrow opens it with every layer inside it, down to each feature's text (PAR-187). Another
- * Alt+click closes them all.
+ * Alt+click on Pricing's arrow opens it with every layer inside it, down to the billing period's toggle (PAR-187).
+ * Another Alt+click closes them all.
  */
 export const OpenedWithEverythingInside: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    const arrow = within(row("Plan card")).getByRole("button", { name: "Expand" })
+    const arrow = within(row("Pricing")).getByRole("button", { name: "Expand" })
     await fireEvent.click(arrow, { altKey: true })
-    await waitFor(() => expect(row("Plan card", "Feature 4")).toHaveAttribute("aria-expanded", "true"))
-    await expect(row("Plan card", "Price block")).toHaveAttribute("aria-expanded", "true")
+    await waitFor(() => expect(row("Pricing", "Billing period")).toHaveAttribute("aria-expanded", "true"))
+    await expect(row("Pricing", "Hero")).toHaveAttribute("aria-expanded", "true")
   }
 }
 
 /**
- * * pressed on Pricing opens every screen beside it, as in any tree, and no component, since those are another group
- * (PAR-187).
+ * * pressed on Pricing opens every screen beside it, as in any tree, and no code component, since those are another
+ * group (PAR-187).
  */
 export const OpenedWithItsSiblings: Story = {
   loaders: [() => openProject("example")],
@@ -546,39 +521,39 @@ export const OpenedWithItsSiblings: Story = {
     await userEvent.click(row("Pricing"))
     await userEvent.keyboard("*")
     await waitFor(() => expect(row("Dashboard")).toHaveAttribute("aria-expanded", "true"))
-    await expect(row("Plan card")).toHaveAttribute("aria-expanded", "false")
+    await expect(row("PlanCard")).toHaveAttribute("aria-expanded", "false")
   }
 }
 
 /**
- * Plan card's Feature 3 text selected on the canvas, then Pricing's headline: the rows opened for the feature close,
- * and only Pricing's open, so the tree doesn't grow as the selection moves around the project (PAR-187).
+ * Dashboard's greeting selected on the canvas, then Pricing's headline: the rows opened for the greeting close, and
+ * only Pricing's open, so the tree doesn't grow as the selection moves around the project (PAR-187).
  */
 export const SelectionMovedOn: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Plan card", "Feature 3 text")
+    await reveal("Dashboard", "Greeting")
     example().selection.set({ design: design("Pricing"), node: node("Pricing", "Headline") })
-    await waitFor(() => expect(row("Plan card")).toHaveAttribute("aria-expanded", "false"))
+    await waitFor(() => expect(row("Dashboard")).toHaveAttribute("aria-expanded", "false"))
     await expect(row("Pricing")).toHaveAttribute("aria-expanded", "true")
   }
 }
 
 /**
- * Feature 2 hovered, then hidden from its eye, which leaves the selection as it was: its eye is crossed out, and stays
- * while the pointer is elsewhere, as Value skeleton's does (PAR-187).
+ * The lede hovered, then hidden from its eye, which leaves the selection as it was: its eye is crossed out, and stays
+ * while the pointer is elsewhere, as every hidden layer's does (PAR-187).
  */
 export const HiddenFromItsEye: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Plan card", "Feature 2")
-    // Picked in the tree, so the rows opened to show Feature 2 stay open.
-    await userEvent.click(row("Plan card"))
-    await userEvent.hover(row("Plan card", "Feature 2"))
-    await userEvent.click(await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Hide" }))
-    await userEvent.unhover(row("Plan card", "Feature 2"))
-    await within(row("Plan card", "Feature 2")).findByRole("button", { name: "Show" })
-    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
+    await reveal("Pricing", "Lede")
+    // Picked in the tree, so the rows opened to show the lede stay open.
+    await userEvent.click(row("Pricing"))
+    await userEvent.hover(row("Pricing", "Lede"))
+    await userEvent.click(await within(row("Pricing", "Lede")).findByRole("button", { name: "Hide" }))
+    await userEvent.unhover(row("Pricing", "Lede"))
+    await within(row("Pricing", "Lede")).findByRole("button", { name: "Show" })
+    await expect(example().selection.get()).toEqual({ design: design("Pricing") })
   }
 }
 
@@ -624,17 +599,17 @@ export const HiddenInsideAnInstance: Story = {
 export const LockedFromItsLock: Story = {
   loaders: [() => openProject("example")],
   play: async () => {
-    await reveal("Plan card", "Feature 2")
-    await userEvent.click(row("Plan card"))
-    await userEvent.hover(row("Plan card", "Features"))
-    await userEvent.click(await within(row("Plan card", "Features")).findByRole("button", { name: "Lock" }))
-    await userEvent.unhover(row("Plan card", "Features"))
-    await within(row("Plan card", "Features")).findByRole("button", { name: "Unlock" })
-    await expect(example().selection.get()).toEqual({ design: design("Plan card") })
-    await userEvent.hover(row("Plan card", "Feature 2"))
-    await expect(within(row("Plan card", "Feature 2")).queryByRole("button", { name: /lock/i })).toBeNull()
-    await userEvent.hover(within(row("Plan card", "Feature 2")).getByLabelText("Locked"))
-    await expect(await findTooltip()).toHaveTextContent("Locked with Features")
+    await reveal("Pricing", "Headline")
+    await userEvent.click(row("Pricing"))
+    await userEvent.hover(row("Pricing", "Hero"))
+    await userEvent.click(await within(row("Pricing", "Hero")).findByRole("button", { name: "Lock" }))
+    await userEvent.unhover(row("Pricing", "Hero"))
+    await within(row("Pricing", "Hero")).findByRole("button", { name: "Unlock" })
+    await expect(example().selection.get()).toEqual({ design: design("Pricing") })
+    await userEvent.hover(row("Pricing", "Headline"))
+    await expect(within(row("Pricing", "Headline")).queryByRole("button", { name: /lock/i })).toBeNull()
+    await userEvent.hover(within(row("Pricing", "Headline")).getByLabelText("Locked"))
+    await expect(await findTooltip()).toHaveTextContent("Locked with Hero")
   }
 }
 

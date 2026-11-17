@@ -18,7 +18,7 @@ import { parseManifest } from "@parity-app/core"
 import { build, type BuildOptions } from "esbuild"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
-import { nodeHalfEntries } from "../src/shared/built-in-extensions.ts"
+import { nodeHalfEntries, pageEntries, pageRuntimeBundle } from "../src/shared/built-in-extensions.ts"
 import { installedElectron } from "./parity-electron.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -90,12 +90,29 @@ await build({
   logLevel: "info"
 })
 
-// Parity's own bundles, preload scripts and workers included, and the windows' scripts. The project guest is left
-// out: its errors are the project's, not Parity's.
+// What runs in the app's own page when the canvas draws a route (PAR-1260): the page runtime and the built-in page
+// modules, which the project's builder serves first in the page. They import nothing from the project.
+await build({
+  entryPoints: Object.fromEntries(
+    Object.entries(pageEntries()).map(([bundle, specifier]) => [bundle, require.resolve(specifier)])
+  ),
+  bundle: true,
+  platform: "browser",
+  format: "esm",
+  target: "es2022",
+  outdir: out,
+  outExtension: { ".js": ".mjs" },
+  logLevel: "info"
+})
+
+// Parity's own bundles, preload scripts and workers included, and the windows' scripts. The project guest and what
+// runs in the app's page are left out: their errors are the project's, not Parity's.
+const inProjectPages = new Set(["guest.mjs", `${pageRuntimeBundle}.mjs`])
+
 separateSourceMaps({
   packageFolder: appDir,
   out,
-  bundles: [...globSync("*.{mjs,cjs}", { cwd: out }).filter((bundle) => bundle !== "guest.mjs"), "renderer"],
+  bundles: [...globSync("*.{mjs,cjs}", { cwd: out }).filter((bundle) => !inProjectPages.has(bundle)), "renderer"],
   maps: ["*.map", "renderer/**/*.map"]
 })
 

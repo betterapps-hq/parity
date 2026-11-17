@@ -52,15 +52,16 @@ export const Zoom: Story = {
 }
 
 /**
- * Searched for "new": New screen and New component, with their keys, in the Object group. It
- * matches the start of words, so nothing with n, e and w scattered through its name comes up (PAR-546).
+ * Searched for "new": New screen and New component, with their keys, in the Object group, below the layers whose names
+ * or text start a word with it. It matches the start of words, so nothing with n, e and w scattered through its name
+ * comes up (PAR-546).
  */
 export const New: Story = {
   loaders: [exampleOpen],
   play: async () => {
     const dialog = await search("new")
     await waitFor(() =>
-      expect(options(dialog)).toEqual([
+      expect(groups(dialog).find((group) => group.heading === "Object")?.rows).toEqual([
         `New screen${formatKeys("Ctrl Alt N")}`,
         `New component${formatKeys("Ctrl Alt Shift N")}`
       ])

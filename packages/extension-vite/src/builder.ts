@@ -33,7 +33,7 @@ import {
   scriptRunning
 } from "@parity-app/project"
 import type * as Vite from "vite"
-import { appPageModes } from "./app-page.ts"
+import { appPageRuntime, pageFolders } from "./app-page.ts"
 import { serverAppStyles, viteAppStyles } from "./app-styles.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
@@ -131,7 +131,7 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
       guestPlugin(options.renderer, () => served, vite.normalizePath(options.rendererGuestPath)),
       elementSources(vite.normalizePath(options.root)),
       dependencySourceMaps(),
-      appPageModes()
+      appPageRuntime(() => served?.pageModules, vite.normalizePath)
     ]
   })
 
@@ -153,6 +153,13 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
 
       started = true
       served = config
+
+      // The page's modules are Parity's, outside the project: known now, so the server may serve them from here on.
+      if (config.pageModules) {
+        server.config.server.fs.allow.push(
+          ...pageFolders(config.pageModules).map((folder) => vite.normalizePath(folder))
+        )
+      }
 
       try {
         // Modules the stylesheets were found with were compiled with discovery off, importing packages' own files.
