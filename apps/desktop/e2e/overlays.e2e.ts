@@ -113,9 +113,24 @@ describe("the overlay canvas", () => {
     await app.page.mouse.down()
 
     try {
-      await expect
-        .poll(() => app.page.evaluate(() => window.e2e!.session().editor!.isIn("select.pointing_canvas")))
-        .toBe(true)
+      // tldraw takes the press; what else it met is said alongside, as only CI has shown it going elsewhere.
+      const met = () =>
+        app.page.evaluate(({ x, y }) => {
+          const { editor, selection } = window.e2e!.session()
+          const under = document.elementFromPoint(x, y)
+          const focus = document.activeElement
+
+          return {
+            path: editor!.getPath(),
+            tool: selection.getTool(),
+            under: under ? `${under.tagName}.${under.className}` : undefined,
+            focus: focus ? `${focus.tagName}.${focus.className}` : undefined,
+            selected: editor!.getSelectedShapeIds().length,
+            canvases: document.querySelectorAll(".tl-container").length
+          }
+        }, empty)
+
+      await expect.poll(met).toMatchObject({ path: "select.pointing_canvas" })
       expect((await overlayCanvas()).drawn).toBe(true)
     } finally {
       await app.page.mouse.up()
