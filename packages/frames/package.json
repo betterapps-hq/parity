@@ -1,0 +1,17 @@
+{
+  "name": "@parity-app/frames",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/core": "workspace:*",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "happy-dom": "catalog:"
+  }
+}

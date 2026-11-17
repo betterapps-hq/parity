@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@parity-app/core": "workspace:*",
+    "@parity-app/frames": "workspace:*",
     "@parity-app/tokens": "workspace:*",
     "zod": "catalog:"
   }

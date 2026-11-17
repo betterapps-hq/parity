@@ -525,7 +525,6 @@ export {
   type PageLayout,
   pageLinkLine,
   pageLinksLit,
-  type PageMode,
   pageName,
   type PageNode,
   pageTree,
