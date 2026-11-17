@@ -79,6 +79,8 @@ export interface HostNeeds<Event, Window> {
   pickPath(window: Window, options: PickerOptions): Promise<string | undefined>
   savePath(window: Window, options: SaveDialogOptions): Promise<string | undefined>
   showItem(path: string): void
+  /** Another host's stylesheet, for a frozen copy, or nothing (`fetchPageSheet`). */
+  pageSheet(href: string): Promise<string | null>
   /** Opens a web page in the person's browser. */
   openExternal(url: string): Promise<void>
   copiedFiles(): Promise<CopiedFile[]>
@@ -197,6 +199,7 @@ export function hostHandlers<Event, Window>(needs: HostNeeds<Event, Window>): Ho
       }),
     saveDialog: (settings, window) => needs.savePath(window, settings),
     showItem: (path) => needs.showItem(path),
+    pageSheet: (href) => needs.pageSheet(href),
     copiedFiles: () => needs.copiedFiles(),
     openInEditor: (request) => needs.openInEditor(request),
     installCli: () => needs.installCli(),

@@ -196,12 +196,18 @@ const host: CanvasHost = {
     recent: () => ask("connectorsRecent"),
     placed: (placed) => ask("connectorsPlaced", placed)
   },
+  pages: {
+    sheet: (href) => ask("pageSheet", href)
+  },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")
     .slice(1)
     .join("="),
   signInRequired: process.argv.includes("--parity-sign-in-required"),
+  extensionsDebug: process.argv
+    .find((argument) => argument.startsWith("--parity-extensions-debug="))
+    ?.slice("--parity-extensions-debug=".length),
   ask: (method, params, trace) =>
     service.request(method, params, trace).then(
       (result) => ({ result }),

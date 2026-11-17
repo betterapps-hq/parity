@@ -231,7 +231,7 @@ const tools: Tool[] = [
   ),
   operationTool(
     "get_extensions",
-    "List the project's extensions, as Storybook's: their commands, agent tools with input schemas, node types, and facts about components. Changes nothing.",
+    "List the project's extensions, as Storybook's: their commands, agent tools with input schemas, node types, and facts about components. For debugging one, as the live room, each also gives its halves' states, its latest failures and the room's sync state. Changes nothing.",
     operations.extensions,
     (result) => [text(describeExtensions(result))]
   ),

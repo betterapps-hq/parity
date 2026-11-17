@@ -22,6 +22,7 @@ import {
 } from "@parity-app/extension/internal"
 import { fits } from "@parity-app/extension/manifest"
 import { z } from "zod"
+import { describeCall, type TracedCall } from "./debug.ts"
 import { halfUnavailableSampler, type RecordExtensionEvent } from "./events.ts"
 import type { ExtensionStatus, HostState } from "./hosts.ts"
 import { storedKey } from "./settings.ts"
@@ -174,7 +175,15 @@ export interface WindowModulesOptions {
    */
   updateSetting(prefix: string, key: string, value?: SettingValue): Promise<void>
   /** A line in the extension's log, marked as its window module's in this tab. */
-  log(extension: string, level: "info" | "warning" | "error", text: string, stack?: string): void
+  log(extension: string, level: "debug" | "info" | "warning" | "error", text: string, stack?: string): void
+  /**
+   * Whether `PARITY_EXTENSIONS_DEBUG` traces an extension's calls (`extensionsDebug`): each call core makes into its
+   * module, and each it makes back, is logged as a `debug` line with how long it took until it settled, and given to
+   * `traced`. None are unless given.
+   */
+  debug?(extension: WindowExtension): boolean
+  /** A call `debug` traced, for the local copy. */
+  traced?(extension: string, call: TracedCall): void
   record?: RecordExtensionEvent
   /** Records one of an extension's own telemetry events, as `parity.telemetry.record` asks. */
   recordOwn?(extension: string, event: string, attributes: Readonly<Record<string, JsonValue>>): void
@@ -371,12 +380,55 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
   }
 
-  /** Runs a call into the module, telling the meter how long it held the main thread. */
+  /**
+   * Runs a call between core and the module, timing it for the log while `PARITY_EXTENSIONS_DEBUG` traces the
+   * extension. A call that gives a promise is timed until it settles.
+   */
+  const traceCall = <T>(entry: Entry, direction: TracedCall["direction"], api: string, call: () => T): T => {
+    if (options.debug?.(entry.extension) !== true) {
+      return call()
+    }
+
+    const began = clock()
+    const id = entry.extension.id
+
+    const finish = (outcome: TracedCall["outcome"]) => {
+      const traced: TracedCall = { direction, api, durationMs: Math.max(0, clock() - began), outcome }
+      options.log(id, "debug", describeCall(traced))
+      options.traced?.(id, traced)
+    }
+
+    try {
+      const result = call()
+
+      // The same promise goes back to the caller, so it settles as it would have; this only notes when.
+      if (result instanceof Promise) {
+        void result.then(
+          () => finish("ok"),
+          () => finish("error")
+        )
+
+        return result
+      }
+
+      finish("ok")
+
+      return result
+    } catch (error) {
+      finish("error")
+      throw error
+    }
+  }
+
+  /**
+   * Runs a call into the module, telling the meter how long it held the main thread, and tracing it while the
+   * extension is debugged.
+   */
   const timed = <T>(entry: Entry, api: string, call: () => T): T => {
     const began = clock()
 
     try {
-      return call()
+      return traceCall(entry, "in", api, call)
     } finally {
       options.meter?.called(entry.extension.id, api, clock() - began)
     }
@@ -430,7 +482,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         throw new HalfUnavailableError(state, "node")
       }
 
-      return options.halves.call(entry.extension.id, method, args)
+      return traceCall(entry, "out", `host.${method}`, () => options.halves.call(entry.extension.id, method, args))
     }
 
     return {
@@ -466,6 +518,23 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
     }
 
     return setting
+  }
+
+  /** `parity.navigate` for an extension's module, each call traced while it's debugged. */
+  const navigateFor = (entry: Entry): WindowParity["navigate"] => {
+    const { navigate } = options.editor
+    const out = <T>(api: string, call: () => T) => traceCall(entry, "out", `navigate.${api}`, call)
+
+    return {
+      reveal: (ref) => out("reveal", () => navigate.reveal(ref)),
+      zoomTo: (ref) => out("zoomTo", () => navigate.zoomTo(ref)),
+      openDesign: (key) => out("openDesign", () => navigate.openDesign(key)),
+      setMode: (mode) => out("setMode", () => navigate.setMode(mode)),
+      setState: (design, state) => out("setState", () => navigate.setState(design, state)),
+      showTab: (id) => out("showTab", () => navigate.showTab(id)),
+      openSettings: (id = entry.extension.id) => out("openSettings", () => navigate.openSettings(id)),
+      pageUrl: (ref) => out("pageUrl", () => navigate.pageUrl(ref))
+    }
   }
 
   const parityFor = (entry: Entry, run: Run): WindowParity => {
@@ -541,13 +610,16 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             return
           }
 
-          await options.editor.execute(command, target, run.call)
+          await traceCall(entry, "out", `commands.execute:${command}`, () =>
+            options.editor.execute(command, target, run.call)
+          )
         }
       },
       selection: {
         get: () => options.editor.selection.get(),
-        set: (refs) => options.editor.selection.set(refs),
-        highlight: (refs) => options.editor.selection.highlight(refs),
+        set: (refs) => traceCall(entry, "out", "selection.set", () => options.editor.selection.set(refs)),
+        highlight: (refs) =>
+          traceCall(entry, "out", "selection.highlight", () => options.editor.selection.highlight(refs)),
         onChange(listener) {
           return once(
             options.editor.selection.onChange((refs) => {
@@ -558,10 +630,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
           )
         }
       },
-      navigate: {
-        ...options.editor.navigate,
-        openSettings: (id = extension.id) => options.editor.navigate.openSettings(id)
-      },
+      navigate: navigateFor(entry),
       settings: {
         get<T extends SettingValue>(key: string): T {
           declaredSetting(entry, key)
@@ -591,7 +660,9 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             throw new Error(`${key} can't be set to ${JSON.stringify(value)}`)
           }
 
-          await options.updateSetting(extension.prefix, storedKey(extension.prefix, key), value)
+          await traceCall(entry, "out", `settings.update:${key}`, () =>
+            options.updateSetting(extension.prefix, storedKey(extension.prefix, key), value)
+          )
         }
       },
       log: {
@@ -823,7 +894,11 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       run.deactivated = true
 
       try {
-        await run.module?.deactivateWindow?.()
+        const { module } = run
+
+        if (module?.deactivateWindow) {
+          await timed(entry, "deactivateWindow", () => module.deactivateWindow?.())
+        }
       } catch (thrown) {
         const error = errorOf(thrown)
         logError(entry, `deactivateWindow failed: ${error.message}`, error)

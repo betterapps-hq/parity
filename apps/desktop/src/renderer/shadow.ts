@@ -14,12 +14,14 @@ const nativeAttachShadow =
 
 /**
  * The host's shadow root, attached without the recorder seeing it: for a project's frames and icons, which replays leave
- * out (`replay.ts`).
+ * out (`replay.ts`). With `registry`, the root has that custom element registry of its own, as a frozen copy's does.
  */
-export function unrecordedShadow(host: Element): ShadowRoot {
+export function unrecordedShadow(host: Element, registry?: CustomElementRegistry): ShadowRoot {
   if (host.shadowRoot) {
     return host.shadowRoot
   }
 
-  return nativeAttachShadow ? nativeAttachShadow.call(host, { mode: "open" }) : host.attachShadow({ mode: "open" })
+  const init: ShadowRootInit = registry ? { mode: "open", customElementRegistry: registry } : { mode: "open" }
+
+  return nativeAttachShadow ? nativeAttachShadow.call(host, init) : host.attachShadow(init)
 }

@@ -1030,6 +1030,35 @@ export function describeExtensions({ extensions }: ExtensionsResponse): string {
         `${extension.name} (${extension.id}), ${extension.state}${extension.reason ? `: ${extension.reason}` : ""}`
       ]
 
+      const { halves, room } = extension
+
+      const halfStates = [
+        ...(halves?.node === undefined ? [] : [`Node ${halves.node}`]),
+        ...(halves?.window === undefined ? [] : [`window ${halves.window}`])
+      ]
+
+      // Only one with a window module has two halves to tell apart; a Node half alone is the state above.
+      if (halves?.window !== undefined) {
+        lines.push(`  halves: ${halfStates.join(", ")}`)
+      }
+
+      if (room) {
+        const said = [
+          room.state,
+          room.writesFiles ? "writes files" : "doesn't write files",
+          ...(room.peers === undefined ? [] : [`${room.peers} ${room.peers === 1 ? "peer" : "peers"}`]),
+          room.pending ? "changes pending" : "nothing pending",
+          ...(room.lineage ? [`lineage ${room.lineage}`] : [])
+        ]
+
+        lines.push(`  room: ${said.join(", ")}`)
+      }
+
+      for (const failure of extension.failures ?? []) {
+        const where = failure.api === undefined ? failure.half : `${failure.half} ${failure.api}`
+        lines.push(`  failed ${new Date(failure.at).toISOString()} ${where}: ${failure.message}`)
+      }
+
       for (const command of extension.commands) {
         lines.push(`  command ${command.id}: ${command.title}`)
       }

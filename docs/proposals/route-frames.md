@@ -731,10 +731,17 @@ Each is an issue, in this order.
    element, attribute and URL rule, `buildCopy`, ids, keys and the planners. It added `sanitizeRoot`, since `<html>`'s
    attributes go on the copy's host in Parity's document and need the same allowlist as the body's. `PageMode` is only
    in `@parity-app/frames` now, and its `PageLocation` is `@parity-app/extension/page`'s.
-4. **Frozen copies.** `snapshot.take` and `sheets.get` in the runtime, other hosts' sheets fetched by main, the freezer
-   frame and its queue, and the `RouteBoard` view that shows copies through `prepareFrame`, registered as frames, with
-   hit-testing, layers in a window store, styles read when shown, and the redirect warning. Boards show copies instead
-   of iframes. Handling the page process's failure, and telemetry.
+4. **Frozen copies** (PAR-1262), done: `snapshot.take` and `sheets.get` in the runtime, other hosts' sheets fetched by
+   main, the freezer frame and its queue, and the `RouteBoard` view that shows copies through `prepareFrame`, registered
+   as frames, with hit-testing, layers in a window store, styles read when shown, and the redirect warning. Boards show
+   copies instead of iframes. Handling the page process's failure, and telemetry. Built: with the Interact tool a board
+   still loads its page in an iframe, until step 5's live frames replace it. A copy is kept by its project, URL, mode
+   and window, not yet by `CopyKey`, and each route is frozen in every mode it's drawn in, since markup groups are step
+   7's. The freezer has no live page to pause for yet. A failure of the page process is seen as the freezer's channel
+   closing or a request past its deadline; main doesn't listen for `render-process-gone`. The events are
+   `routeFrame.refused`, `routeFrame.removed` and `routeFrame.process`, as the telemetry registry names events in camel
+   case. `prepareFrame` takes the copy's registry, `elementLayers` takes `style` as optional, and copies' layers reach
+   Layers, the Design panel and hit-testing through the window's entries (`withCopyEntries`), never the document.
 5. **Live frames from the pool:** spares, hover, parking, Interact, engaging and disengaging, the zoom wheel and keys
    passed back, the live window, fixed elements hidden in the copy, frames stopped leaving the builder's origin, and
    when live ends.

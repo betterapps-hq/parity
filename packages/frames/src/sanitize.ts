@@ -1,5 +1,6 @@
 import { elementSourceAttribute } from "@parity-app/core"
 import type { FrozenElement, FrozenNode, PageRoot } from "./snapshot.ts"
+import { srcsetCandidates } from "./srcset.ts"
 
 /** What a copy may load. */
 export interface SanitizePolicy {
@@ -16,7 +17,7 @@ const htmlElements = new Set(
     "a abbr address area article aside audio b bdi bdo blockquote body br button canvas caption cite code col colgroup",
     "data datalist dd del details dfn dialog div dl dt em fieldset figcaption figure footer form h1 h2 h3 h4 h5 h6",
     "header hgroup hr i img input ins kbd label legend li main map mark menu meter nav ol optgroup option output p",
-    "picture pre progress q rp rt ruby s samp search section select selectedcontent small source span strong sub",
+    "picture pre progress q rp rt ruby s samp search section select selectedcontent slot small source span strong sub",
     "summary sup table tbody td textarea tfoot th thead time tr track u ul var video wbr"
   ]
     .join(" ")
@@ -59,7 +60,7 @@ const reservedCustomNames = new Set([
 ])
 
 /** A valid custom element name, kept in lower case so the page's CSS still matches it. */
-const customElementName = /^[a-z][a-z0-9._·À-￿]*-[a-z0-9._·À-￿-]*$/
+const customElementName = /^[a-z][a-z0-9._\u00b7\u00c0-\uffff]*-[a-z0-9._\u00b7\u00c0-\uffff-]*$/
 
 /** Attributes any HTML element may keep. */
 const htmlGlobal = new Set(
@@ -358,6 +359,13 @@ function sanitizeElement(element: FrozenElement, policy: SanitizePolicy, count: 
     clean.namespace = element.namespace
   }
 
+  if (element.shadow) {
+    clean.shadow = {
+      children: element.shadow.children.map((child) => sanitizeNode(child, policy, count)),
+      styles: element.shadow.styles.map((style) => sanitizeSheet(style, policy))
+    }
+  }
+
   return clean
 }
 
@@ -484,41 +492,6 @@ function sanitizeSrcset(value: string, use: UrlUse, policy: SanitizePolicy): str
   return kept.length > 0
     ? kept.map(({ url, descriptor }) => [url, descriptor].filter(Boolean).join(" ")).join(", ")
     : undefined
-}
-
-/** A `srcset`'s candidates, read as HTML does: a URL up to whitespace, which may hold commas, then its descriptor. */
-function srcsetCandidates(value: string): { url: string; descriptor: string }[] {
-  const candidates: { url: string; descriptor: string }[] = []
-  let at = 0
-
-  while (at < value.length) {
-    while (at < value.length && /[\s,]/.test(value.charAt(at))) {
-      at += 1
-    }
-
-    const start = at
-
-    while (at < value.length && !/\s/.test(value.charAt(at))) {
-      at += 1
-    }
-
-    let url = value.slice(start, at)
-    let descriptor = ""
-
-    if (url.endsWith(",")) {
-      url = url.replace(/,+$/, "")
-    } else {
-      const end = value.indexOf(",", at)
-      descriptor = value.slice(at, end === -1 ? value.length : end).trim()
-      at = end === -1 ? value.length : end + 1
-    }
-
-    if (url) {
-      candidates.push({ url, descriptor })
-    }
-  }
-
-  return candidates
 }
 
 /**
@@ -837,6 +810,6 @@ function cssString(text: string): string {
 
     const code = Number.parseInt(hex, 16)
 
-    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "�"
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "\ufffd"
   })
 }

@@ -15,8 +15,11 @@ export interface ElementSnapshot {
   text?: string
   /** `src`, `alt`, `data-slot`, `role`, `aria-*`, and an input's `type` and `placeholder`, when it has them. */
   attributes: Readonly<Record<string, string>>
-  /** Its computed styles, by CSS property name: what it's drawn with, not what its rules say. */
-  style: Readonly<Record<string, string>>
+  /**
+   * Its computed styles, by CSS property name: what it's drawn with, not what its rules say. A frozen copy's elements
+   * have none, since their styles are read only when a panel shows them.
+   */
+  style?: Readonly<Record<string, string>>
   /** An `<svg>`'s markup, which its layer shows as an image. */
   markup?: string
   children: readonly ElementSnapshot[]
@@ -225,7 +228,7 @@ function textAlignOf(value: string | undefined): NodeStyle["textAlign"] {
  * fill, border, corners and opacity, and the type it sets. A value it doesn't change from the default is left out.
  */
 export function styleOfElement(element: Pick<ElementSnapshot, "style">, type: ElementLayerType): NodeStyle {
-  const css = element.style
+  const css = element.style ?? {}
   const style: NodeStyle = {}
 
   const set = <Key extends keyof NodeStyle>(key: Key, value: NodeStyle[Key] | undefined) => {
@@ -319,6 +322,44 @@ export const readStyles = [
   "text-wrap-mode",
   "text-wrap-style"
 ] as const
+
+/** A frozen copy's element as `@parity-app/frames` holds it, read here by its shape. */
+export interface FrozenTree {
+  tag: string
+  attributes: readonly (readonly [string, string])[]
+  children: readonly (FrozenTree | string)[]
+}
+
+/** The attributes of a copy's element a layer keeps: what names it, says what it shows, or gives an input's type. */
+const frozenAttributes = new Set(["src", "alt", "data-slot", "role", "type", "placeholder", "aria-label"])
+
+/**
+ * A frozen copy's elements as snapshots for `elementLayers`, without styles, which are read when shown. Each element's
+ * id is its path from the body, counting elements only (`0.3.1`), as `buildCopy` gives the elements it makes; text
+ * between elements is `<parent>.t<index>`.
+ */
+export function frozenSnapshots(body: FrozenTree): ElementSnapshot[] {
+  const read = (children: FrozenTree["children"], parent: string | undefined): ElementSnapshot[] => {
+    let index = 0
+
+    return children.map((child, at) => {
+      if (!(child instanceof Object)) {
+        return { id: `${parent ?? "body"}.t${at}`, tag: "#text", text: child, attributes: {}, children: [] }
+      }
+
+      const id = parent === undefined ? String(index) : `${parent}.${index}`
+      index += 1
+
+      const attributes = Object.fromEntries(
+        child.attributes.filter(([name]) => frozenAttributes.has(name) || name.startsWith("aria-"))
+      )
+
+      return { id, tag: child.tag.toLowerCase(), attributes, children: read(child.children, id) }
+    })
+  }
+
+  return read(body.children, undefined)
+}
 
 /** How text breaks into lines, from its computed mode and style; wrapping as it does unset is left out. */
 function textWrapOf(mode: string | undefined, style: string | undefined): NodeStyle["textWrap"] {

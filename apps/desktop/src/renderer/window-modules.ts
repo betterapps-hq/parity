@@ -1,6 +1,7 @@
 import { locateNode } from "@parity-app/core"
 import { selectionRefs } from "@parity-app/editor"
 import type { CommandTarget, JsonValue, NodeRef } from "@parity-app/extension"
+import { extensionsDebug } from "@parity-app/extension-host/debug"
 import {
   type WindowEditor,
   windowExtensions,
@@ -387,9 +388,9 @@ function start(
         setProjectExtensionSetting(prefix, key, value, doc)
       }
     },
-    // The log tab marks each line as the window module's, beside its Node half's.
+    // The log tab marks each line as the window module's in this tab, beside its Node half's.
     log: (extension, level, text, stack) => {
-      const line: LogLine = { level, text: `[window] ${text}`, at: Date.now() }
+      const line: LogLine = { level, text, half: "window", tab: project.id, at: Date.now() }
 
       if (stack !== undefined) {
         line.stack = stack
@@ -399,6 +400,10 @@ function start(
     },
     record: track,
     meter: extensionTime,
+    // Whose calls `PARITY_EXTENSIONS_DEBUG` traces, as main started with it.
+    debug: extensionsDebug(window.canvasHost.extensionsDebug),
+    // Each traced call is recorded too, as a `debug` event, so it's in the local copy.
+    traced: (extension, call) => track("extension.called", { extension, half: "window", ...call, tab: project.id }),
     // An extension's own events, as the multiplayer extension's `room.*`, checked against their schemas as they're sent.
     recordOwn(extension, event, attributes) {
       if (!registeredEvents.some((each) => each.name === event)) {

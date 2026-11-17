@@ -60,6 +60,7 @@ function app(changes: Partial<HostNeeds<Sender, TestWindow>> = {}): HostNeeds<Se
     pickPath: () => Promise.resolve(undefined),
     savePath: () => Promise.resolve(undefined),
     showItem: () => undefined,
+    pageSheet: async () => null,
     openExternal: () => Promise.resolve(),
     copiedFiles: () => Promise.resolve([]),
     openInEditor: () => Promise.resolve({ opened: "VS Code" }),

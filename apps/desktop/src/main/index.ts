@@ -52,6 +52,7 @@ import { keybindingsFile } from "./keybindings.ts"
 import { readLogEvents } from "./log-files.ts"
 import { listenOnLoopback } from "./loopback.ts"
 import { isPackaged } from "./packaged.ts"
+import { fetchPageSheet } from "./page-sheets.ts"
 import { onPage, opensInBrowser, pageGuard } from "./parity-page.ts"
 import { launchLink, passLink } from "./pass-link.ts"
 import { localPlacements } from "./placements.ts"
@@ -485,6 +486,9 @@ function preloadArguments(): string[] {
     `--parity-version=${app.getVersion()}`,
     `${telemetryRunArgument}${telemetryRun}`,
     ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : []),
+    ...(environment.PARITY_EXTENSIONS_DEBUG
+      ? [`--parity-extensions-debug=${environment.PARITY_EXTENSIONS_DEBUG}`]
+      : []),
     // Every copy needs someone signed in before anything else (PAR-1008). Storybook's host leaves it out.
     "--parity-sign-in-required"
   ]
@@ -1068,6 +1072,7 @@ answerWindows<HostEvent, BrowserWindow>({
       return result.canceled ? undefined : result.filePath
     },
     showItem: (path) => shell.showItemInFolder(path),
+    pageSheet: (href) => fetchPageSheet(href, (url, init) => net.fetch(url, init)),
     openExternal: (url) => shell.openExternal(url),
     copiedFiles: () => copiedFiles({ platform: process.platform, raw: (format) => rawFormat(clipboard, format) }),
     openInEditor,

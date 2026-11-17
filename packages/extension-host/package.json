@@ -7,6 +7,7 @@
   "description": "The hosts each extension's code runs in, and what Parity keeps of extensions. Internal to Parity.",
   "exports": {
     ".": "./src/index.ts",
+    "./debug": "./src/debug.ts",
     "./settings": "./src/settings.ts",
     "./window": "./src/window-modules.ts",
     "./main-thread": "./src/main-thread.ts",
