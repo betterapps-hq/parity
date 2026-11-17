@@ -1,8 +1,30 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 00:39:56 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 02:18:16 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.75.0
+
+Tue, 17 Nov 2026 02:18:16 GMT
+
+### Minor changes
+
+- Several drags show at once: other people's drags draw with the local lift, carry and settle in their color, and boards
+  an agent moves are held through a core hold that lets go after 10 s or when grabbed (ajcraswell@gmail.com)
+- Text typed on the canvas is written as it's typed, one undo step per pause, so others in a live room see it while it's
+  typed (ajcraswell@gmail.com)
+- Component libraries: add Shadcn, Mantine, Chakra UI, Fluent UI or Material UI from a dialog that previews each one's
+  tokens, components and breakpoints, change Shadcn's settings, and remove a library; shadcn set up by hand is found by
+  its extension (ajcraswell@gmail.com)
+
+### Patches
+
+- Move the Tailwind extension's class writer out of core, so it uses only @parity-app/extension (PAR-1130)
+  (ajcraswell@gmail.com)
+- Text being typed keeps what someone else in a live room wrote right where a deletion starts. (ajcraswell@gmail.com)
+- In a live room, the copy that writes files saves everyone's edits, token values sync, and so does which state and mode
+  a design shows. (ajcraswell@gmail.com)
 
 ## 0.74.0
 

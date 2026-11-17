@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Component libraries: add Shadcn, Mantine, Chakra UI, Fluent UI or Material UI from a dialog that previews each one's tokens, components and breakpoints, change Shadcn's settings, and remove a library; shadcn set up by hand is found by its extension",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

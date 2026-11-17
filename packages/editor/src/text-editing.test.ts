@@ -4,6 +4,7 @@ import {
   editableText,
   openingSelection,
   rebaseText,
+  spliceAt,
   textSizing,
   textSizingKeys,
   textToEdit,
@@ -269,6 +270,20 @@ describe("withTextSizing", () => {
   })
 })
 
+describe("the change typed in a text (PAR-1238)", () => {
+  it("is the one ending at the caret, where a letter beside the same letter could be either", () => {
+    // "l" typed after the first "l" of "Hello": with the caret there, it's that "l", not the second.
+    expect(spliceAt("Hello", "Helllo", 3)).toEqual({ start: 2, end: 2, insert: "l" })
+    expect(spliceAt("Hello", "Helllo", 5)).toEqual({ start: 4, end: 4, insert: "l" })
+  })
+
+  it("is the first place it could be without a caret, and covers a replaced selection", () => {
+    expect(spliceAt("Hello", "Helllo")).toEqual({ start: 2, end: 2, insert: "l" })
+    expect(spliceAt("Hello world", "Hello there", 11)).toEqual({ start: 6, end: 11, insert: "there" })
+    expect(spliceAt("Hello", "Helo", 3)).toEqual({ start: 3, end: 4, insert: "" })
+  })
+})
+
 describe("taking someone else's change into text being typed", () => {
   const caret = (at: number) => ({ start: at, end: at })
 
@@ -309,6 +324,18 @@ describe("taking someone else's change into text being typed", () => {
       text: "two three!",
       selection: { start: 0, end: 3 }
     })
+  })
+
+  it("keeps the other's changes on both sides of the typing apart (PAR-1238)", () => {
+    // "b" composed into "中" while someone wrote "Z" before the text and "Y" after it.
+    expect(rebaseText("abc", "a中c", "ZabcY", caret(2))).toEqual({ text: "Za中cY", selection: caret(3) })
+  })
+
+  it("never splits a character written as two code units", () => {
+    // Someone swapped the emoji for one sharing its first code unit while "X" was typed after it, or in its place:
+    // the emoji stays whole, and typing beside what they changed comes first, as at any one place.
+    expect(rebaseText("a😃b", "a😃Xb", "a😄b", caret(4))).toEqual({ text: "aX😄b", selection: caret(2) })
+    expect(rebaseText("a😃b", "aXb", "a😄b", caret(2))).toEqual({ text: "a😄Xb", selection: caret(4) })
   })
 
   it("takes the change as it is when nothing's typed", () => {

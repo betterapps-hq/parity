@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Two people typing in the same text at once keep every letter: each key is written as it's typed, as the change at the caret, and Undo keeps what others typed since.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
