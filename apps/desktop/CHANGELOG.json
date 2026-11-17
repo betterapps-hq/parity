@@ -2,6 +2,39 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 11:01:09 GMT",
+      "version": "0.105.0",
+      "tag": "@parity-app/desktop_v0.105.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "ac55bd962c1d3b56a81219346e447ca1aeb8bb49",
+            "comment": "Show the open project in the lens shell, with today's canvas, Layers and inspector as its first lens, Screens"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f1059a5e710cb99fce52bf203855f5798645af5e",
+            "comment": "Debug internal extensions without Sentry: PARITY_EXTENSIONS_DEBUG traces calls into window modules, and their log tab marks each line's half"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "692ed100ef595e653a981e4da7eef59ac2ff1a76",
+            "comment": "Route boards show frozen copies of the app's pages, made by one freezer frame per project, with selection, Layers and the Design panel reaching their elements"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "9bdb8b336e682ec23cae32968b97f17172a41641",
+            "comment": "Press Ctrl (Cmd on a Mac) while dragging a layer to drop it into the layout under the pointer, even a neighbour"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 09:28:36 GMT",
       "version": "0.104.0",
       "tag": "@parity-app/desktop_v0.104.0",

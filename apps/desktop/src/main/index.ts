@@ -486,6 +486,9 @@ function preloadArguments(): string[] {
     `--parity-version=${app.getVersion()}`,
     `${telemetryRunArgument}${telemetryRun}`,
     ...(environment.PARITY_PROJECT ? [`--parity-initial-project=${environment.PARITY_PROJECT}`] : []),
+    ...(environment.PARITY_EXTENSIONS_DEBUG
+      ? [`--parity-extensions-debug=${environment.PARITY_EXTENSIONS_DEBUG}`]
+      : []),
     // Every copy needs someone signed in before anything else (PAR-1008). Storybook's host leaves it out.
     "--parity-sign-in-required"
   ]

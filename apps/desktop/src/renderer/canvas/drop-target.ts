@@ -52,7 +52,7 @@ export interface DropAt extends DropTarget {
 
 /**
  * Where layers dropped at a point in a frame would go, by the frame's layout when the drag began (see `dropTargetAt`).
- * `source` is the design the layers are in.
+ * `source` is the design the layers are in; `into` drops them into the deepest layout under the point, even a neighbour.
  */
 export function dropInFrame(
   layouts: DragLayouts,
@@ -60,7 +60,8 @@ export function dropInFrame(
   host: HTMLElement,
   point: Point,
   source: string,
-  ids: readonly string[]
+  ids: readonly string[],
+  into = false
 ): DropAt | undefined {
   const found = dropTargetAt({
     layout: layouts.get(host, entry.container.root),
@@ -69,7 +70,8 @@ export function dropInFrame(
     root: entry.container.root,
     point,
     source,
-    ids
+    ids,
+    into
   })
 
   return found && { ...found, host }

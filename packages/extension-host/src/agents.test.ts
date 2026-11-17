@@ -8,6 +8,8 @@ import { z } from "zod"
 import { agentExtensions, readToolInput } from "./agents.ts"
 import { serveExtensionHost } from "./host.ts"
 import { type ExtensionEdits, type ExtensionStatus, extensionHosts, type OpenedProject } from "./hosts.ts"
+import type { LogLine } from "./protocol.ts"
+import type { TabFacts } from "./window-snapshot.ts"
 
 const project: OpenedProject = { id: "shop", root: "/shop", name: "Shop" }
 
@@ -472,7 +474,9 @@ describe("extensions for agents", () => {
         commands: [{ id: "stories.open", title: "Open in Stories" }],
         tools: [],
         nodeTypes: [{ id: "story", name: "Story" }],
-        facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }]
+        facts: [{ component: "Button", facts: [{ id: "stories", label: "stories", value: "2" }] }],
+        halves: { node: "running" },
+        failures: []
       },
       {
         id: "parity-checks",
@@ -487,9 +491,87 @@ describe("extensions for agents", () => {
           }
         ],
         nodeTypes: [],
-        facts: []
+        facts: [],
+        halves: { node: "waiting" },
+        failures: []
       }
     ])
+  })
+})
+
+describe("agentExtensions for debugging (PAR-1284)", () => {
+  it("gives each extension's halves, its latest failures from both halves and the room, as extensions.json has them", async () => {
+    const { hosts, changes } = setUp({
+      "parity-stories": { activate: () => undefined },
+      "parity-checks": { activate: () => undefined }
+    })
+
+    hosts.open(project)
+    await vi.waitFor(() => expect(changes.at(-1)?.[0]?.state).toBe("running"))
+
+    // As if Stories were an internal extension with a window module, which the tab reports on.
+    const statuses = (changes.at(-1) ?? []).map((status) =>
+      status.id === "parity-stories" ? { ...status, internal: true, window: true } : status
+    )
+
+    const errors: LogLine[] = Array.from({ length: 7 }, (_, index) => ({
+      level: "error",
+      text: `failure ${index}`,
+      at: index * 10
+    }))
+
+    const tab: TabFacts = {
+      tab: "shop",
+      extensions: [
+        {
+          id: "parity-stories",
+          version: "1.2.0",
+          displayName: "Stories",
+          halves: { window: "active", node: "ready" },
+          capabilities: [],
+          layers: [],
+          previews: 0,
+          holds: 0,
+          failures: [{ api: "selection.onChange", message: "boom", at: 25 }],
+          room: { state: "attached", lineage: "7f3a9c", writesFiles: true, pending: false, peers: 1 }
+        }
+      ]
+    }
+
+    const [found, other] = agentExtensions(statuses, {
+      logs: {
+        "parity-stories": [{ level: "info", text: "fine", at: 1 }, ...errors, { ...errors[6], stack: "at x", at: 70 }]
+      },
+      tab
+    })
+
+    expect(found?.halves).toEqual({ node: "running", window: "active" })
+    expect(found?.room).toEqual({ state: "attached", lineage: "7f3a9c", writesFiles: true, pending: false, peers: 1 })
+    // The Node half's last five errors and the window module's failure, oldest first.
+    expect(found?.failures).toEqual(
+      [
+        { half: "node", message: "failure 3", at: 30 },
+        { half: "window", api: "selection.onChange", message: "boom", at: 25 },
+        { half: "node", message: "failure 4", at: 40 },
+        { half: "node", message: "failure 5", at: 50 },
+        { half: "node", message: "failure 6", at: 60 },
+        { half: "node", message: "failure 6", at: 70, stack: "at x" }
+      ].toSorted((a, b) => a.at - b.at)
+    )
+    // An extension without a window module, which the tab doesn't list, has only its Node half.
+    expect(other).toMatchObject({ halves: { node: "waiting" }, failures: [] })
+    expect(other?.room).toBeUndefined()
+  })
+
+  it("calls a window module inactive when the window couldn't say", async () => {
+    const { hosts, changes } = setUp({ "parity-stories": { activate: () => undefined } }, [stories])
+
+    hosts.open(project)
+    await vi.waitFor(() => expect(changes.at(-1)?.[0]).toBeDefined())
+
+    const statuses = (changes.at(-1) ?? []).map((status) => ({ ...status, window: true }))
+
+    expect(agentExtensions(statuses)[0]?.halves.window).toBe("inactive")
   })
 })
 
