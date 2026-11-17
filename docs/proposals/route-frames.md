@@ -748,10 +748,10 @@ Each is an issue, in this order.
    which Parity's `react-router` sets. A manifest's `pageWraps` names the packages a router serves in place of the
    app's, which Vite and the webpack-compatible builders serve to the app's own modules alone, resolving the wrapper's
    own import from the app. Only `react-router` is wrapped, so an app importing `react-router-dom` stays parked. React
-   Router's move is done at the page's first change after the router settles, or 100 ms without one, since
-   `RouterProvider` renders in a transition. Next's reads `window.next.router`: the App Router's move is done when it
-   writes the address as it commits, and the Pages Router's when `push` resolves. Not-found comes from React Router's
-   404, the App Router's development marker and the Pages Router's `/404`.
+   Router's move is done at the page's first change after the router settles, since `RouterProvider` renders in a
+   transition, or after 100 ms without one when the move matches the same routes. Next's reads `window.next.router`: the
+   App Router's move is done when it writes the move's address as it commits, and the Pages Router's when `push`
+   resolves. Not-found comes from React Router's 404, the App Router's development marker and the Pages Router's `/404`.
 
 Each step updates the page-screens section of [editor.md](../editor.md) and its tests, and [support.md](../support.md)'s
 rows for routes.

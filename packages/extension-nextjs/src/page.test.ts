@@ -93,6 +93,17 @@ describe("nextjsPage", () => {
     await expect(nextjsPage.navigate("/old", new AbortController().signal)).resolves.toMatchObject({ path: "/new" })
   })
 
+  it("isn't done by the app's own writes to the address while the App Router moves", async () => {
+    appRouter()
+    window.history.replaceState(null, "", "/projects")
+
+    const going = nextjsPage.navigate("/settings", new AbortController().signal)
+    window.history.replaceState(null, "", "/projects")
+    window.history.replaceState(null, "", "/projects?tab=open")
+
+    await expect(going).resolves.toMatchObject({ path: "/settings" })
+  })
+
   it("says when the App Router drew its not-found page or another fallback", () => {
     appRouter()
     const marker = document.createElement("meta")

@@ -126,10 +126,22 @@ function afterWrite(method: "pushState" | "replaceState", changed: () => void): 
   }
 }
 
-/** Moves the App Router, resolving at its next commit, when it writes the address, redirected or not. */
+/** Moves the App Router, resolving at its commit, when it writes the address, redirected or not. */
 async function appNavigate(router: AppRouterInstance, to: string, signal: AbortSignal): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>()
-  const stop = onAddressWrite(resolve)
+  const target = new URL(to, location.href)
+  const startPath = location.pathname
+
+  // The app may write the address itself while the move is pending, as for its query state. Only the router's commit
+  // lands on the target, or, redirected, leaves the path the move started from.
+  const stop = onAddressWrite(() => {
+    const landed = location.pathname === target.pathname && location.search === target.search
+
+    if (landed || location.pathname !== startPath) {
+      resolve()
+    }
+  })
+
   signal.addEventListener("abort", () => reject(signal.reason), { once: true })
 
   try {

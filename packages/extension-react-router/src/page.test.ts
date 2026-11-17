@@ -107,14 +107,38 @@ describe("reactRouterPage", () => {
     expect(document.body.textContent).toBe("/new")
   })
 
-  it("resolves a navigation that draws nothing new", async () => {
+  it("resolves a navigation to the same routes that draws nothing new", async () => {
+    const router = appRouter("/settings")
+    stopDrawing?.()
+
+    await expect(reactRouterPage.navigate("/settings?tab=2", new AbortController().signal)).resolves.toMatchObject({
+      path: "/settings",
+      search: "?tab=2"
+    })
+    expect(router.state.location.search).toBe("?tab=2")
+  })
+
+  it("waits as long as React takes to draw other routes, as when a route suspends", async () => {
     const router = appRouter()
     stopDrawing?.()
 
-    await expect(reactRouterPage.navigate("/settings", new AbortController().signal)).resolves.toMatchObject({
-      path: "/settings"
+    let drawnAt = 0
+
+    const unsubscribe = router.subscribe((state) => {
+      if (state.navigation.state === "idle") {
+        setTimeout(() => {
+          drawnAt = Date.now()
+          document.body.textContent = state.location.pathname
+        }, 300)
+      }
     })
-    expect(router.state.location.pathname).toBe("/settings")
+
+    const start = Date.now()
+    await reactRouterPage.navigate("/settings", new AbortController().signal)
+    unsubscribe()
+
+    expect(document.body.textContent).toBe("/settings")
+    expect(drawnAt - start).toBeGreaterThanOrEqual(250)
   })
 
   it("gives up a navigation when it's aborted while a loader is still pending", async () => {

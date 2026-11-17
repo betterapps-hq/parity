@@ -31,6 +31,8 @@ interface DataRouter {
     navigation: { state: string }
     /** By route id, what a route's loader or component threw. */
     errors: Record<string, Thrown | null | undefined> | null
+    /** The routes the location matched, outermost first. */
+    matches?: { route: { id: string } }[]
   }
   navigate(to: string): Promise<void>
   subscribe(listener: (state: DataRouter["state"]) => void): () => void
@@ -95,13 +97,22 @@ function outcomeOf(errors: DataRouter["state"]["errors"]): PageLocation["outcome
   return thrown.some((error) => error?.status === 404) ? "not-found" : "error"
 }
 
+/** The ids of the routes a state matched, which change when the move draws other routes. */
+function routesOf(state: DataRouter["state"]): string {
+  return (state.matches ?? []).map((match) => match.route.id).join("\n")
+}
+
 /**
- * Resolves once React has drawn the router's new state: at the first change to the page after the router settles, or
- * after `unchangedLimit` without one, for a move that draws what was already there. React Router hands its state to
- * React in a transition, so the router settling isn't the new page being in the DOM.
+ * Resolves once React has drawn the router's new state, at the first change to the page after the router settles.
+ * React Router hands its state to React in a transition, so the router settling isn't the new page being in the DOM,
+ * and a route that suspends keeps the old page until it's ready. Only a move that matches the same routes, as one that
+ * changes only a param or the search, may draw what was already there, so that one also resolves after
+ * `unchangedLimit` without a change.
  */
-function drawn(router: DataRouter, from: string | undefined, signal: AbortSignal): Promise<void> {
+function drawn(router: DataRouter, signal: AbortSignal): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>()
+  const from = router.state.location.key
+  const routes = routesOf(router.state)
   let settled = false
   let limit: ReturnType<typeof setTimeout> | undefined
 
@@ -117,7 +128,10 @@ function drawn(router: DataRouter, from: string | undefined, signal: AbortSignal
     }
 
     settled = true
-    limit = setTimeout(resolve, unchangedLimit)
+
+    if (routesOf(state) === routes) {
+      limit = setTimeout(resolve, unchangedLimit)
+    }
   }
 
   changes.observe(document, { subtree: true, childList: true, attributes: true, characterData: true })
@@ -137,7 +151,7 @@ export const reactRouterPage: PageRouter = {
   location: () => locationOf(routerOrThrow().state),
   async navigate(to, signal) {
     const router = routerOrThrow()
-    const done = drawn(router, router.state.location.key, signal)
+    const done = drawn(router, signal)
 
     // Aborted after the page was drawn, nothing waits on it.
     done.catch(() => undefined)
