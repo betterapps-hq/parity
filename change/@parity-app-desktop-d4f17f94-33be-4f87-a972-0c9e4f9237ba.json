@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "An agent's pointer on the canvas stays within a few seconds of its call, instead of playing a short call for minutes.",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}
