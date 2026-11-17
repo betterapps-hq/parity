@@ -7,6 +7,7 @@
   "description": "Parity's own .lib.par files, for libraries that don't ship one.",
   "exports": {
     ".": "./src/index.ts",
+    "./catalog.json": "./libraries/catalog.json",
     "./package.json": "./package.json"
   },
   "dependencies": {

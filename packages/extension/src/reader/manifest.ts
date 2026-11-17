@@ -3,6 +3,7 @@ import { z } from "zod"
 import type {
   ActivationEvent,
   AgentToolContribution,
+  Capability,
   CommandContribution,
   Contributions,
   Detection,
@@ -55,11 +56,11 @@ const pathIcon = z.strictObject({
   color: z.strictObject({ light: hexColor, dark: hexColor }).optional()
 }) satisfies z.ZodType<PathIcon>
 
-const activationMessage = "expected onDetect, onStartup, onCommand:id, onView:id or onNodeType:type"
+const activationMessage = "expected onDetect, onStartup, onCommand:id, onView:id, onNodeType:type or onSetting:key"
 
 /** Whether a string is an activation event. */
 function isActivationEvent(event: string): event is ActivationEvent {
-  return /^(?:onDetect|onStartup|onCommand:.+|onView:.+|onNodeType:.+)$/.test(event)
+  return /^(?:onDetect|onStartup|onCommand:.+|onView:.+|onNodeType:.+|onSetting:.+)$/.test(event)
 }
 
 const activationEvent = z.string().transform((event, context): ActivationEvent => {
@@ -212,7 +213,8 @@ const providers = z.strictObject({
   connector: empty.optional(),
   search: empty.optional(),
   addresses: empty.optional(),
-  discovery: empty.optional()
+  discovery: empty.optional(),
+  libraries: empty.optional()
 }) satisfies z.ZodType<Providers>
 
 const agentTool = z.strictObject({
@@ -277,8 +279,11 @@ const contributions = z.strictObject({
     .optional(),
   providers: providers.optional(),
   agentTools: z.array(agentTool).optional(),
-  settings: z.record(z.string(), setting).optional()
+  settings: z.record(z.string(), setting).optional(),
+  sync: z.boolean().optional()
 }) satisfies z.ZodType<Contributions>
+
+const capability = z.enum(["canvas", "camera", "presence", "sync", "agents", "hold"]) satisfies z.ZodType<Capability>
 
 const toolVersions = z.strictObject({
   scope: z.string().min(1, "can't be blank").optional(),
@@ -298,7 +303,8 @@ const detection = z.strictObject({
           "expected a path from the home folder (~/), a variable's folder ($NAME) or the project's root"
         )
     )
-    .optional()
+    .optional(),
+  always: z.boolean().optional()
 }) satisfies z.ZodType<Detection>
 
 const manifest = z
@@ -323,7 +329,16 @@ const manifest = z
       })
       .optional(),
     extensionDependencies: z.array(z.string()).optional(),
-    contributes: contributions
+    contributes: contributions,
+    internal: z.boolean().optional(),
+    window: z
+      .string()
+      .regex(/^\.\/[\w./-]+$/, "expected a package export, as ./window")
+      .optional(),
+    capabilities: z
+      .array(capability)
+      .refine((list) => new Set(list).size === list.length, "names a capability twice")
+      .optional()
   })
   .superRefine((read, context) => {
     for (const problem of ruleProblems(read)) {
@@ -335,7 +350,7 @@ const manifest = z
 const extensionPackage = z.looseObject({
   name: z.string().min(1, "can't be blank"),
   version: z.string().min(1, "can't be blank"),
-  main: z.string().min(1, "can't be blank"),
+  main: z.string().min(1, "can't be blank").optional(),
   engines: z.looseObject({ parity: z.string().optional() }).optional(),
   peerDependencies: z.record(z.string(), z.string()).optional(),
   parity: manifest
@@ -346,8 +361,8 @@ export interface ExtensionPackage {
   /** Its package name. */
   id: string
   version: string
-  /** Its code's entry module, relative to the package. */
-  main: string
+  /** Its Node half's entry module, relative to the package. An internal extension with only a window module has none. */
+  main?: string
   /** The range of Parity versions it works with, from `engines.parity`. */
   engine?: string
   /**
@@ -359,13 +374,65 @@ export interface ExtensionPackage {
 }
 
 /**
- * Reads an extension's `package.json`, or throws `TypeError` naming the first problem by its JSON pointer, as
- * `/parity/contributes/commands/0/id: must start with "storybook."`.
+ * The rules of internal extensions (docs/proposals/extensions-in-the-window.md), which `extension.manifestRefused`
+ * names when one is broken:
+ * - `internalOutsideBuiltIns`: `internal` on an extension that isn't in Parity's built-in list.
+ * - `internalOnly`: a window module, capabilities, `detect.always`, `contributes.sync` or `onSetting` on an extension
+ *   that isn't internal.
+ * - `capabilityWithoutContribution`: the `sync` capability without `contributes.sync`.
+ * - `windowEventWithoutWindow`: `onSetting` without a window module, or naming what isn't a boolean `app` setting.
+ * - `noCode`: neither a Node half (`main`) nor a window module.
+ * - `secondSync`: two extensions that both bring the room (see `refuseSecondSync`).
  */
-// oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: an extension's package.json as it was read
-export function readExtension(packageJson: unknown): ExtensionPackage {
+export type ManifestRule =
+  | "internalOutsideBuiltIns"
+  | "internalOnly"
+  | "capabilityWithoutContribution"
+  | "windowEventWithoutWindow"
+  | "noCode"
+  | "secondSync"
+
+/** A manifest refused for breaking one of internal extensions' rules, which it names. */
+export class ManifestRefused extends TypeError {
+  readonly rule: ManifestRule
+  readonly extension: string
+
+  constructor(extension: string, rule: ManifestRule, path: (string | number)[], message: string) {
+    super(`/${["parity", ...path].join("/")}: ${message}`)
+    this.name = "ManifestRefused"
+    this.extension = extension
+    this.rule = rule
+  }
+}
+
+/** How Parity found the package. */
+export interface ReadOptions {
+  /** Whether it's in Parity's built-in list, the only extensions that may be internal. */
+  builtIn?: boolean
+}
+
+/**
+ * Reads an extension's `package.json`, or throws `TypeError` naming the first problem by its JSON pointer, as
+ * `/parity/contributes/commands/0/id: must start with "storybook."`. A broken rule of internal extensions throws
+ * `ManifestRefused`, which names the rule too.
+ */
+export function readExtension(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- the I/O boundary: an extension's package.json as it was read
+  packageJson: unknown,
+  options: ReadOptions = {}
+): ExtensionPackage {
   const read = parseData(extensionPackage, packageJson)
-  const found: ExtensionPackage = { id: read.name, version: read.version, main: read.main, manifest: read.parity }
+  const found: ExtensionPackage = { id: read.name, version: read.version, manifest: read.parity }
+
+  if (read.main !== undefined) {
+    found.main = read.main
+  }
+
+  const refused = internalProblems(found, options.builtIn === true)[0]
+
+  if (refused) {
+    throw new ManifestRefused(found.id, refused.rule, refused.path, refused.message)
+  }
 
   if (read.engines?.parity) {
     found.engine = read.engines.parity
@@ -383,6 +450,109 @@ export function readExtension(packageJson: unknown): ExtensionPackage {
 interface Problem {
   path: (string | number)[]
   message: string
+}
+
+type RuleProblem = Problem & { rule: ManifestRule }
+
+/** What breaks internal extensions' rules (see `ManifestRule`), first problem first. */
+function internalProblems(found: ExtensionPackage, builtIn: boolean): RuleProblem[] {
+  const { manifest } = found
+  const problems: RuleProblem[] = []
+
+  const settingEvents = manifest.activates.flatMap((event, index) => {
+    const [kind, key] = splitEvent(event)
+
+    return kind === "onSetting" ? [{ index, key }] : []
+  })
+
+  if (manifest.internal && !builtIn) {
+    problems.push({
+      rule: "internalOutsideBuiltIns",
+      path: ["internal"],
+      message: "only Parity's built-in extensions can be internal"
+    })
+  }
+
+  if (!manifest.internal) {
+    const internalOnly: [(string | number)[], boolean][] = [
+      [["window"], manifest.window !== undefined],
+      [["capabilities"], manifest.capabilities !== undefined],
+      [["detect", "always"], manifest.detect?.always !== undefined],
+      [["contributes", "sync"], manifest.contributes.sync !== undefined],
+      ...settingEvents.map(({ index }): [(string | number)[], boolean] => [["activates", index], true])
+    ]
+
+    for (const [path, present] of internalOnly) {
+      if (present) {
+        problems.push({ rule: "internalOnly", path, message: "only an internal extension can have this" })
+      }
+    }
+  }
+
+  if (manifest.capabilities?.includes("sync") && manifest.contributes.sync !== true) {
+    problems.push({
+      rule: "capabilityWithoutContribution",
+      path: ["capabilities"],
+      message: 'the "sync" capability needs "contributes": { "sync": true }'
+    })
+  }
+
+  for (const { index, key } of settingEvents) {
+    const setting = manifest.contributes.settings?.[key]
+
+    if (manifest.window === undefined) {
+      problems.push({
+        rule: "windowEventWithoutWindow",
+        path: ["activates", index],
+        message: "onSetting starts a window module, and the manifest has none"
+      })
+    } else if (setting?.type !== "boolean" || setting.scope !== "app") {
+      problems.push({
+        rule: "windowEventWithoutWindow",
+        path: ["activates", index],
+        message: `names a setting that isn't one of its boolean app settings: ${key}`
+      })
+    }
+  }
+
+  if (found.main === undefined && manifest.window === undefined) {
+    problems.push({ rule: "noCode", path: ["window"], message: "needs a main module, a window module, or both" })
+  }
+
+  return problems
+}
+
+/** The extensions kept once those that bring the room are counted, and a refusal for each left out. */
+export interface SyncRefusals {
+  kept: ExtensionPackage[]
+  refused: ManifestRefused[]
+}
+
+/**
+ * Refuses every extension that brings the room when more than one does, so there's never a second `sync.onOpen`.
+ * Gives the extensions kept, and a refusal for each left out.
+ */
+export function refuseSecondSync(packages: readonly ExtensionPackage[]): SyncRefusals {
+  const bringers = packages.filter((found) => found.manifest.contributes.sync === true)
+
+  if (bringers.length < 2) {
+    return { kept: [...packages], refused: [] }
+  }
+
+  const names = bringers.map((found) => found.id).join(", ")
+
+  return {
+    kept: packages.filter((found) => !bringers.includes(found)),
+    refused: bringers.map(
+      (found) =>
+        new ManifestRefused(
+          found.id,
+          "secondSync",
+          ["contributes", "sync"],
+          `more than one extension brings the room: ${names}`
+        )
+    )
+  }
 }
 
 /**

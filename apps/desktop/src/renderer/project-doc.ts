@@ -9,6 +9,7 @@ import {
   editStatus,
   type EditStatus,
   mergedDocument,
+  noTokenEdits,
   savedView,
   type SaveState,
   type StatusOptions,
@@ -70,6 +71,8 @@ export interface DocSession {
   readonly epoch: string
   /** The live room the project is open in, in development, or nothing. */
   readonly room?: LiveRoom | undefined
+  /** Stops following who writes the room's files. */
+  readonly stopRoom?: (() => void) | undefined
 }
 
 export interface OpenOptions {
@@ -100,8 +103,8 @@ interface Tally {
 const tallies = new WeakMap<ProjectDoc, Tally>()
 
 /**
- * How many times each document has changed: every transaction, undo, redo and replaced file, token edits included,
- * which never reach the provider and so leave its version as it was.
+ * How many times each document has changed: every transaction, undo, redo and replaced file, and others' changes in a
+ * live room.
  */
 const revisions = new WeakMap<ProjectDoc, { count: number }>()
 
@@ -129,7 +132,7 @@ export function openDocSession(options: OpenOptions): DocSession {
     doc.subscribe(() => {
       revision.count += 1
     })
-    const saver = createProjectSaver(doc, room ? roomPersistence(room, options.persistence) : options.persistence)
+    const saver = createProjectSaver(doc, options.persistence, roomSaving(room, options))
     const entries = containerEntries(doc)
 
     track("projectDoc.opened", {
@@ -146,7 +149,8 @@ export function openDocSession(options: OpenOptions): DocSession {
       libraryDesigns: options.libraryDesigns ?? [],
       autosave: () => options.persistence.autosave(),
       epoch: Math.random().toString(36).slice(2, 10).padEnd(8, "0"),
-      room
+      room,
+      stopRoom: room?.onSavesChange((saves) => void saver.setWritesFiles(saves))
     }
   } catch (error) {
     room?.leave()
@@ -179,18 +183,31 @@ export function closeDocSession(session: DocSession): void {
     })
   }
 
+  session.stopRoom?.()
   session.room?.leave()
   session.saver.dispose()
   doc.dispose()
 }
 
-/** Writes only while this copy hosts the room, so copies don't write the same files over each other. */
-function roomPersistence(room: LiveRoom, persistence: Persistence): Persistence {
+/**
+ * How the saver starts in a live room: only the host writes files, so copies don't write the same files over each
+ * other. A copy that joins opens on the host's document, so what its files hold is what it read from disk.
+ */
+function roomSaving(room: LiveRoom | undefined, options: OpenOptions): Parameters<typeof createProjectSaver>[2] {
+  if (!room || room.saves()) {
+    return {}
+  }
+
   return {
-    ...persistence,
-    saveDocument: (path, document, timing) =>
-      room.saves() ? persistence.saveDocument(path, document, timing) : Promise.resolve(),
-    deleteDocument: (path) => (room.saves() ? persistence.deleteDocument(path) : Promise.resolve())
+    writesFiles: false,
+    saved: {
+      files: new Map([
+        ...options.files.map((file): [string, CanvasDocument] => [file.path, withoutModes(file.document)]),
+        ...options.drawn.map((file): [string, CanvasDocument] => [file.path, file.document])
+      ]),
+      modes: options.modes,
+      tokens: noTokenEdits
+    }
   }
 }
 

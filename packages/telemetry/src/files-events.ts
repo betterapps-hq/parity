@@ -44,7 +44,13 @@ export const documentSaved = defineEvent(
   "document.saved",
   z.object({
     ...saveAttributes,
-    exportMs: z.number().optional().describe("Time to produce the file's content from the document, in milliseconds")
+    exportMs: z.number().optional().describe("Time to produce the file's content from the document, in milliseconds"),
+    fromOthers: z
+      .number()
+      .int()
+      .nonnegative()
+      .optional()
+      .describe("Other copies' changes to the file in a live room that the write includes")
   }),
   {
     level: "info",
@@ -53,11 +59,19 @@ export const documentSaved = defineEvent(
   }
 )
 
-export const documentSaveFailed = defineEvent("document.saveFailed", z.object({ ...saveAttributes, code }), {
-  level: "warn",
-  sentBy: ["renderer"],
-  when: "A design file couldn't be saved."
-})
+export const documentSaveFailed = defineEvent(
+  "document.saveFailed",
+  z.object({
+    ...saveAttributes,
+    code,
+    inRoom: z.boolean().optional().describe("Whether the project is open in a live room"),
+    writesFiles: z
+      .boolean()
+      .optional()
+      .describe("Whether this copy writes the project's files, as the room's host does")
+  }),
+  { level: "warn", sentBy: ["renderer"], when: "A design file couldn't be saved." }
+)
 
 export const tokensSaved = defineEvent(
   "tokens.saved",

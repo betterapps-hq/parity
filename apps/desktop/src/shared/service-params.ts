@@ -146,7 +146,13 @@ export const serviceParams = {
   "project.components": project,
   "project.correctComponents": project.extend({ corrections: detectionCorrections.optional() }),
   "library.catalog": project,
-  "library.add": project.extend({ library: z.string() }),
+  "library.add": project.extend({
+    library: z.string(),
+    settings: z.record(z.string(), z.string()).optional(),
+    companions: z.array(z.string()).max(20).optional()
+  }),
+  "library.preview": z.object({ library: z.string(), settings: z.record(z.string(), z.string()).optional() }),
+  "library.remove": project.extend({ library: z.string() }),
   "library.importStyles": project.extend({ library: z.string() }),
   "document.save": project.extend({ path: z.string(), document: canvasDocument }),
   "entities.save": project.extend({ document: canvasDocument }),
@@ -169,7 +175,9 @@ export const serviceParams = {
         z.object({ type: z.literal("process"), id: z.string() }),
         z.object({ type: z.literal("item"), view: z.string(), key: z.string() })
       ])
-      .optional()
+      .optional(),
+    /** The agent's call a window command that ran it is running on, which it goes on with. */
+    call: z.number().int().optional()
   }),
   "extensions.viewOpened": project.extend({ view: z.string() }),
   "extensions.viewChanged": project.extend({
@@ -179,6 +187,16 @@ export const serviceParams = {
     value: z.union([z.string(), z.number(), z.boolean()])
   }),
   "extensions.restart": project.extend({ extension: z.string() }),
+  "extensions.startHalf": project.extend({ extension: z.string(), trigger: z.string() }),
+  "extensions.callHalf": project.extend({
+    extension: z.string(),
+    method: z.string(),
+    args: z.array(z.json()).max(100)
+  }),
+  "extensions.windowState": project.extend({
+    extension: z.string(),
+    state: z.enum(["starting", "ready", "restarting", "stopped"])
+  }),
   "extensions.cancel": project.extend({ extension: z.string(), progress: z.int() }),
   "extensions.selectionChanged": project.extend({
     refs: z.array(z.strictObject({ owner: z.string(), type: z.string(), key: z.string() })).max(10_000)

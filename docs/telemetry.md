@@ -216,6 +216,26 @@ Every frame and component preview drawn offscreen is recorded, so a slow or brok
 None of them is sampled. Opening `examples/shadcn-vite` on an empty cache drew about 640 frames and made 520 previews in
 two minutes, once; opening it again drew none.
 
+## Extensions
+
+Each half of an extension records its lifecycle (PAR-1235, docs/proposals/extensions-in-the-window.md): an internal
+extension's window module from the editor window, and every Node half from the service.
+
+- **`extension.activated`, `extension.activateFailed` and `extension.deactivated`** say when a half starts, fails to and
+  stops, with the event that started it (`onStartup`, `onSetting:<key>`, `onDetect`) and why it stopped.
+- **`extension.crashed`** is a Node half's process ending by itself, with how many times in a row and whether it starts
+  again. After three, it's left stopped and its window module is deactivated too.
+- **`extension.callFailed`** is a listener, handler, command or call into a window module that threw, counted in its
+  tab, and **`extension.stoppedInTab`** the fifth, which stops the module there.
+- **`extension.halfUnavailable`** is a call to the other half while it's starting, restarting or stopped, which rejects
+  at once. The window sends the first for an extension in a minute, then one in ten.
+- **`extension.manifestRefused`** is a built-in manifest that breaks one of internal extensions' rules, as it's read,
+  and **`extension.capabilityMissing`** a window module reading something its capabilities don't name, once per
+  extension, API and session.
+
+An error from a window module goes to Sentry tagged `extension`, `extension_half` (`window`) and `tab`, and its stack
+shows in the extension's log tab, marked `[window]`.
+
 ## Turning it off
 
 Telemetry is on by default everywhere Parity runs, development and CI included, each tagged with its environment. It's
@@ -522,6 +542,15 @@ Some failures are recorded for you, so code doesn't record them again:
 | `error.caught`                     | error | all  | renderer                                | A failure is shown as an error notification.                                                                                                                               |
 | `export.done`                      | info  | all  | renderer                                | An export finishes, with or without warnings.                                                                                                                              |
 | `export.failed`                    | warn  | all  | renderer                                | An export fails.                                                                                                                                                           |
+| `extension.activateFailed`         | error | all  | renderer, service                       | A half fails to load or its activation throws.                                                                                                                             |
+| `extension.activated`              | info  | all  | renderer, service                       | A half's `activate` or `activateWindow` returns.                                                                                                                           |
+| `extension.callFailed`             | warn  | all  | renderer                                | A listener, handler or call into a window module throws, caught by core.                                                                                                   |
+| `extension.capabilityMissing`      | warn  | all  | renderer                                | A window module calls an API its manifest's capabilities don't name. Once per extension, API and session.                                                                  |
+| `extension.crashed`                | warn  | all  | service                                 | A Node half's process ends by itself.                                                                                                                                      |
+| `extension.deactivated`            | info  | all  | renderer, service                       | A half stops.                                                                                                                                                              |
+| `extension.halfUnavailable`        | warn  | all  | renderer                                | A call to the other half rejects with `HalfUnavailableError`. After the first for an extension in a minute, one in ten.                                                    |
+| `extension.manifestRefused`        | error | all  | service                                 | A built-in extension's manifest breaks a rule when it's read.                                                                                                              |
+| `extension.stoppedInTab`           | error | all  | renderer                                | A window module reaches five failures and is stopped in a tab.                                                                                                             |
 | `follow.ended`                     | info  | all  | renderer                                | Following a view on the canvas ends.                                                                                                                                       |
 | `frame.failed`                     | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                                                                              |
 | `frame.rendered`                   | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it.                                                               |
@@ -890,21 +919,24 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `document.saveFailed`
 
-| Attribute    | Type               | Meaning                                         |
-| ------------ | ------------------ | ----------------------------------------------- |
-| `file`       | `string`           | The file written                                |
-| `durationMs` | `number`           | How long it took                                |
-| `bytes`      | `integer`          | The document's size as JSON                     |
-| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
+| Attribute     | Type                | Meaning                                                               |
+| ------------- | ------------------- | --------------------------------------------------------------------- |
+| `file`        | `string`            | The file written                                                      |
+| `durationMs`  | `number`            | How long it took                                                      |
+| `bytes`       | `integer`           | The document's size as JSON                                           |
+| `code`        | `string`, optional  | The `CodedError` code, when the failure has one                       |
+| `inRoom`      | `boolean`, optional | Whether the project is open in a live room                            |
+| `writesFiles` | `boolean`, optional | Whether this copy writes the project's files, as the room's host does |
 
 ### `document.saved`
 
-| Attribute    | Type               | Meaning                                                               |
-| ------------ | ------------------ | --------------------------------------------------------------------- |
-| `file`       | `string`           | The file written                                                      |
-| `durationMs` | `number`           | How long it took                                                      |
-| `bytes`      | `integer`          | The document's size as JSON                                           |
-| `exportMs`   | `number`, optional | Time to produce the file's content from the document, in milliseconds |
+| Attribute    | Type                | Meaning                                                                  |
+| ------------ | ------------------- | ------------------------------------------------------------------------ |
+| `file`       | `string`            | The file written                                                         |
+| `durationMs` | `number`            | How long it took                                                         |
+| `bytes`      | `integer`           | The document's size as JSON                                              |
+| `exportMs`   | `number`, optional  | Time to produce the file's content from the document, in milliseconds    |
+| `fromOthers` | `integer`, optional | Other copies' changes to the file in a live room that the write includes |
 
 ### `dragPreview.settled`
 
@@ -971,6 +1003,92 @@ Some failures are recorded for you, so code doesn't record them again:
 | `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
 | `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
 | `code`       | `string`, optional      | The `CodedError` code, when the failure has one                                                |
+
+### `extension.activateFailed`
+
+| Attribute   | Type                   | Meaning                                                  |
+| ----------- | ---------------------- | -------------------------------------------------------- |
+| `extension` | `string`               | The extension's id, its package name                     |
+| `half`      | `"window" \| "node"`   | Which half: its window module, or its Node half          |
+| `phase`     | `"load" \| "activate"` | Whether its code failed to load, or its activation threw |
+| `message`   | `string`               | The error's message, scrubbed                            |
+| `stack`     | `string`, optional     | The error's stack, when it has one                       |
+
+### `extension.activated`
+
+| Attribute      | Type                                                                     | Meaning                                                                                  |
+| -------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| `extension`    | `string`                                                                 | The extension's id, its package name                                                     |
+| `version`      | `string`                                                                 | The extension's version                                                                  |
+| `half`         | `"window" \| "node"`                                                     | Which half: its window module, or its Node half                                          |
+| `internal`     | `boolean`                                                                | Whether it's one of Parity's own internal extensions                                     |
+| `trigger`      | `string`                                                                 | The activation event that started it, as `onStartup` or `onSetting:multiplayer.liveRoom` |
+| `durationMs`   | `number`                                                                 | How long it took, in milliseconds                                                        |
+| `capabilities` | `("canvas" \| "camera" \| "presence" \| "sync" \| "agents" \| "hold")[]` | What its manifest says its window module may use                                         |
+
+### `extension.callFailed`
+
+| Attribute   | Type               | Meaning                                                    |
+| ----------- | ------------------ | ---------------------------------------------------------- |
+| `extension` | `string`           | The extension's id, its package name                       |
+| `api`       | `string`           | What core called, as `selection.onChange` or `node.status` |
+| `failures`  | `integer`          | How many calls into its window module failed in this tab   |
+| `stopped`   | `boolean`          | Whether this failure stopped it in the tab                 |
+| `message`   | `string`           | The error's message, scrubbed                              |
+| `stack`     | `string`, optional | The error's stack, when it has one                         |
+
+### `extension.capabilityMissing`
+
+| Attribute    | Type                                                                 | Meaning                                     |
+| ------------ | -------------------------------------------------------------------- | ------------------------------------------- |
+| `extension`  | `string`                                                             | The extension's id, its package name        |
+| `capability` | `"canvas" \| "camera" \| "presence" \| "sync" \| "agents" \| "hold"` | The capability it needed and didn't declare |
+| `api`        | `string`                                                             | What it called, as `parity.canvas`          |
+
+### `extension.crashed`
+
+| Attribute      | Type                | Meaning                                                   |
+| -------------- | ------------------- | --------------------------------------------------------- |
+| `extension`    | `string`            | The extension's id, its package name                      |
+| `uptimeMs`     | `number`            | How long it had been active, in milliseconds              |
+| `crashesInRow` | `integer`           | How many times it has crashed in a row, this one included |
+| `restarting`   | `boolean`           | Whether it starts again, or is left stopped               |
+| `exitCode`     | `integer`, optional | Its process's exit code, when it exited with one          |
+| `signal`       | `string`, optional  | The signal that ended it, when one did                    |
+
+### `extension.deactivated`
+
+| Attribute   | Type                                                                             | Meaning                                                                                                                                                         |
+| ----------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension` | `string`                                                                         | The extension's id, its package name                                                                                                                            |
+| `half`      | `"window" \| "node"`                                                             | Which half: its window module, or its Node half                                                                                                                 |
+| `why`       | `"turnedOff" \| "tabClosed" \| "setting" \| "crashed" \| "undetected" \| "quit"` | Why it stopped: turned off, its tab closed, its setting went off, it or its other half crashed or failed too often, its tool went, or the project or app closed |
+| `uptimeMs`  | `number`                                                                         | How long it had been active, in milliseconds                                                                                                                    |
+
+### `extension.halfUnavailable`
+
+| Attribute   | Type                                      | Meaning                              |
+| ----------- | ----------------------------------------- | ------------------------------------ |
+| `extension` | `string`                                  | The extension's id, its package name |
+| `from`      | `"window" \| "node"`                      | The half that made the call          |
+| `method`    | `string`                                  | The method it called                 |
+| `state`     | `"starting" \| "restarting" \| "stopped"` | Where the other half was             |
+
+### `extension.manifestRefused`
+
+| Attribute   | Type                                                                                                                                                    | Meaning                                                               |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `extension` | `string`                                                                                                                                                | The extension's id, its package name                                  |
+| `rule`      | `"internalOutsideBuiltIns" \| "internalOnly" \| "capabilityWithoutContribution" \| "windowEventWithoutWindow" \| "noCode" \| "secondSync" \| "invalid"` | The rule it breaks; `invalid` for any other problem with its manifest |
+| `message`   | `string`                                                                                                                                                | What's wrong, by its JSON pointer                                     |
+
+### `extension.stoppedInTab`
+
+| Attribute   | Type      | Meaning                                                  |
+| ----------- | --------- | -------------------------------------------------------- |
+| `extension` | `string`  | The extension's id, its package name                     |
+| `failures`  | `integer` | How many calls into its window module failed in this tab |
+| `message`   | `string`  | The last error's message, scrubbed                       |
 
 ### `follow.ended`
 

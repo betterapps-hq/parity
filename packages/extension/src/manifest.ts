@@ -37,7 +37,8 @@ export type IconName = string
  * - `onCommand:id`: one of its commands runs.
  * - `onView:id`: one of its tabs or pages opens.
  * - `onNodeType:type`: a node of that type appears, once a window has the project open.
- * - `onStartup`: as soon as it's detected. It's discouraged.
+ * - `onStartup`: as soon as it's detected. It's discouraged. For a window module, in every project tab.
+ * - `onSetting:key`: a window module, while one of its boolean `app` settings is on. Internal extensions only.
  */
 export type ActivationEvent =
   | "onDetect"
@@ -45,6 +46,7 @@ export type ActivationEvent =
   | `onCommand:${string}`
   | `onView:${string}`
   | `onNodeType:${string}`
+  | `onSetting:${string}`
 
 /** What an extension may read, write, reach and change. */
 export interface Permissions {
@@ -99,7 +101,21 @@ export interface Detection {
    * Its `read` permission has to name each. The extension gets the one found as `parity.project.detected.path`.
    */
   paths?: string[]
+  /** Found in every project, without looking. Internal extensions only. */
+  always?: boolean
 }
+
+/**
+ * What an internal extension's window module may use beyond the basics every one gets (`settings`, `log`, `commands`,
+ * `selection`, `navigate`), so Parity skips work nobody uses and shows what each built-in extension does:
+ * - `canvas`: layers, boxes, hits and previews.
+ * - `camera`: reading and moving the camera, and following.
+ * - `presence`: this person's pointer, gestures and what they're viewing.
+ * - `sync`: bringing the room; requires `contributes.sync`.
+ * - `agents`: watching agents' activity, and passing on other copies'.
+ * - `hold`: holding boards while an agent moves them.
+ */
+export type Capability = "canvas" | "camera" | "presence" | "sync" | "agents" | "hold"
 
 /** The `parity` field of an extension's `package.json`. */
 export interface Manifest {
@@ -119,6 +135,15 @@ export interface Manifest {
   /** Other extensions whose API it uses, by id. */
   extensionDependencies?: string[]
   contributes: Contributions
+  /** Marks one of Parity's own extensions. Refused unless the extension is in Parity's built-in list. */
+  internal?: boolean
+  /**
+   * The package export of its window module, as `./window`, whose module exports `activateWindow`. It runs on the
+   * window's main thread, in each project tab it's active for. Internal only.
+   */
+  window?: string
+  /** What its window module may use, beyond the basics every window module gets. Internal only. */
+  capabilities?: Capability[]
 }
 
 /** Every contribution, by kind. */
@@ -136,6 +161,8 @@ export interface Contributions {
   agentTools?: AgentToolContribution[]
   /** Its settings, by key. */
   settings?: Record<string, SettingContribution>
+  /** Whether it brings the room (`parity.sync`). Only one extension may. Internal only. */
+  sync?: boolean
 }
 
 /** A command, which its code gives behaviour with `parity.commands.register`. */
@@ -321,6 +348,8 @@ export interface Providers {
   addresses?: Record<string, never>
   /** Finds servers running that Parity didn't start. */
   discovery?: Record<string, never>
+  /** Finds libraries the project's dependencies' names don't identify, and sets them up from the Components panel. */
+  libraries?: Record<string, never>
 }
 
 /** A tool agents can call, with a JSON Schema for its input. */

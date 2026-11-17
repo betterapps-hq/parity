@@ -1279,12 +1279,14 @@ async function createSession(
     persistence: {
       // The app's pages and components are drawn from its code each time, so they're never saved (PAR-1076). Its
       // stories are written back to their own files, through the adapter that read them.
-      saveDocument: (path, document, { exportMs }) => {
+      saveDocument: (path, document, { exportMs, fromOthers }) => {
         if (path === storyScreensFile) {
           return request("entities.save", { projectId: info.id, document })
         }
 
-        return generatedFiles.has(path) ? Promise.resolve() : saveDocument(info.id, path, document, exportMs)
+        return generatedFiles.has(path)
+          ? Promise.resolve()
+          : saveDocument(info.id, path, document, { exportMs, fromOthers, room })
       },
       // The service writes files and has no way to delete one, so a file taken out of the project stays on disk.
       deleteDocument: () => Promise.resolve(),
@@ -1580,12 +1582,12 @@ function inferComponents(info: ProjectInfo, components: ComponentStore): void {
     .catch((cause: unknown) => console.warn("Component props couldn't be inferred", cause))
 }
 
-/** Writes a design file, recording how long it took and how big it was. */
+/** Writes a design file, recording how long it took, how big it was, and what of it came from others in a live room. */
 async function saveDocument(
   projectId: string,
   path: string,
   document: CanvasDocument,
-  exportMs: number
+  { exportMs, fromOthers, room }: { exportMs: number; fromOthers: number; room: LiveRoom | undefined }
 ): Promise<void> {
   const start = performance.now()
   const bytes = JSON.stringify(document).length
@@ -1595,9 +1597,12 @@ async function saveDocument(
 
   try {
     await request("document.save", { projectId, path, document })
-    track("document.saved", { ...measured(), exportMs }, inTrace)
+    track("document.saved", room ? { ...measured(), exportMs, fromOthers } : { ...measured(), exportMs }, inTrace)
   } catch (error) {
-    const failed: Attributes<"document.saveFailed"> = measured()
+    const failed: Attributes<"document.saveFailed"> = room
+      ? { ...measured(), inRoom: true, writesFiles: room.saves() }
+      : measured()
+
     const code = errorCode(error)
 
     if (code) {

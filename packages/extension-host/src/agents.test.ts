@@ -67,7 +67,8 @@ function setUp(modules: Record<string, ExtensionModule>, installed: ExtensionPac
   const hosts = extensionHosts<OpenedProject>({
     extensions: installed.map((found) => ({
       package: found,
-      main: found.id,
+      // An internal extension with only a window module has no Node half to start.
+      main: found.main === undefined ? undefined : found.id,
       detect: () => (found.id in modules ? {} : undefined)
     })),
     start(extension) {
@@ -216,6 +217,57 @@ describe("an extension's API for others", () => {
 
     // The one listed first starts its process, then its dependency's, and the dependency isn't started a second time.
     expect(started).toEqual(["parity-eager", "parity-stories"])
+  })
+
+  it("starts a Node half whose dependency has only a window module, leaving that one to the tab", async () => {
+    const room = readExtension(
+      {
+        name: "parity-room",
+        version: "1.0.0",
+        parity: {
+          displayName: "Room",
+          prefix: "room",
+          icon,
+          internal: true,
+          window: "./window",
+          detect: { always: true },
+          activates: ["onStartup"],
+          contributes: {}
+        }
+      },
+      { builtIn: true }
+    )
+
+    const cursors = readExtension(
+      {
+        name: "parity-cursors",
+        version: "1.0.0",
+        main: "dist/extension.js",
+        parity: {
+          displayName: "Cursors",
+          prefix: "cursors",
+          icon,
+          internal: true,
+          window: "./window",
+          detect: { always: true },
+          activates: ["onStartup"],
+          extensionDependencies: ["parity-room"],
+          contributes: {}
+        }
+      },
+      { builtIn: true }
+    )
+
+    const { hosts, started, changes } = setUp(
+      { "parity-cursors": { activate: () => undefined }, "parity-room": { activate: () => undefined } },
+      [room, cursors]
+    )
+
+    hosts.open(project)
+    hosts.startHalf("shop", "parity-cursors", "onStartup")
+
+    await vi.waitFor(() => expect(changes.at(-1)?.find((each) => each.id === "parity-cursors")?.state).toBe("running"))
+    expect(started).toEqual(["parity-cursors"])
   })
 
   it("leaves out an extension whose dependency isn't in the project", () => {

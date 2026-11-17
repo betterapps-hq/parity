@@ -63,6 +63,11 @@ it("has a manifest Parity accepts", () => {
 - **The types**, from `@parity-app/extension`: `Parity` and each of its areas, the manifest, providers and processes.
 - **`readExtension`**, from `@parity-app/extension/manifest`: the check Parity runs on every manifest before it loads
   the extension's code.
+- **Styles helpers**, from `@parity-app/extension/styles`, for a styles provider: `writeTokenChanges` and
+  `writeCustomProperty`, which write token values into a stylesheet's blocks as Parity does without a styles extension,
+  and `comparableValue` and `sameCondition`, which compare declarations as Parity does.
+- **Node helpers** are in [`@parity-app/extension-node`](../extension-node/README.md), so this package stays pure:
+  `findPackage` and `packageEntry` find the project's own copy of a package and the file to load from it.
 
 ## Reference
 

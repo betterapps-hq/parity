@@ -18,7 +18,6 @@ export {
   type BuilderPrepareOptions,
   type BuilderStartOptions,
   type PreparedBuilder,
-  type ClassPrinter,
   type CodeChange,
   type ComponentExport,
   type DrawnNodes,
@@ -277,14 +276,7 @@ export {
   stepFieldValue
 } from "./fields.ts"
 
-export {
-  frameRules,
-  type FrameRulesOptions,
-  previewRules,
-  withClasses,
-  writeClasses,
-  type WrittenClasses
-} from "./frame-rules.ts"
+export { frameRules, type FrameRulesOptions, previewRules, withClasses, type WrittenClasses } from "./frame-rules.ts"
 
 export {
   componentRole,

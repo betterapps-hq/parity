@@ -1,5 +1,4 @@
 import { type CssDeclaration, cssPrinter } from "@parity-app/style-schema"
-import type { ClassPrinter } from "./adapters.ts"
 import type { RenderElement, RenderNode } from "./render.ts"
 
 // What a frame draws its elements from: one rule set for each, found by its node id. A rule can hold what an inline
@@ -123,26 +122,4 @@ export interface WrittenClasses {
   classes: (string[] | null)[]
   /** The CSS of these classes and the ones written before, as the framework's own compiler makes it. */
   css: string
-}
-
-/**
- * The classes a styling framework writes for each declaration, one declaration at a time, since a frame draws a layer
- * by classes only when every one of its declarations has them (`withClasses`). The CSS is compiled for them together
- * with `written`, the classes the frames already have, so the frames' stylesheet of classes is always whole, in the
- * framework's own order, whoever compiled the ones before.
- */
-export function writeClasses(
-  printer: ClassPrinter,
-  written: readonly string[],
-  declarations: readonly CssDeclaration[]
-): WrittenClasses {
-  const classes = declarations.map((declaration) => {
-    const { output, unwritten } = printer.print([declaration])
-
-    return unwritten.length > 0 || output.length === 0 ? null : output
-  })
-
-  const names = new Set([...written, ...classes.flatMap((names) => names ?? [])])
-
-  return { classes, css: printer.css([...names]) }
 }

@@ -30,8 +30,7 @@ function openLocal(options: OpenOptions): DocBackend {
     files: new Map(options.files.map((file) => [file.path, file.document])),
     main: options.main,
     modes: options.modes,
-    // Token values edited on the canvas stay with ProjectDoc and never reach a backend.
-    tokens: noTokenEdits
+    tokens: options.tokens ?? noTokenEdits
   }
 
   let commits = 0
@@ -56,6 +55,7 @@ function openLocal(options: OpenOptions): DocBackend {
     sync: false,
     files: () => state.files,
     modes: () => state.modes,
+    tokens: () => state.tokens,
     version,
     apply,
     // Nobody else changes it.

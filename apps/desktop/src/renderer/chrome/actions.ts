@@ -146,6 +146,13 @@ async function save(session: Pick<ProjectSession, "id" | "saver"> | undefined): 
     return
   }
 
+  // In a live room, the copy that writes files saves everyone's changes.
+  if (!session.saver.writesFiles()) {
+    notify.done("Saved by the room", { timeout: 2000 })
+
+    return
+  }
+
   try {
     await session.saver.flush()
     notify.done("Saved the project", { timeout: 2000 })
