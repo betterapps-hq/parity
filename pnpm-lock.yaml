@@ -346,6 +346,9 @@ importers:
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@parity-app/canvas-layer':
+        specifier: workspace:*
+        version: link:../../packages/canvas-layer
       '@parity-app/change-detection':
         specifier: workspace:*
         version: link:../../packages/change-detection
@@ -752,6 +755,19 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/canvas-layer:
+    dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/change-detection:
     dependencies:

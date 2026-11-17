@@ -71,16 +71,16 @@ export const LayoutInsideASlot: Story = { loaders: [slotted("Plan card", { Featu
 export const InstanceSlots: Story = { loaders: [filledInstance()], render: renderSection(PropsSection) }
 
 /**
- * One of Starter plan's slots selected: its name, the instance it's in, a picture of what shows there, Clear, and that
- * a click in Components adds into it.
+ * One of Starter plan's slots selected (PAR-1063): its name, the instance it's in, then what fills it, picked as on the
+ * instance's row, and a picture of what shows there.
  */
 export const SlotSelected: Story = {
   loaders: [filledInstance("slot")],
   // A selected slot has a panel of its own, which is the whole of what it shows.
   render: renderInspector,
   play: async ({ canvasElement }) => {
-    await expect(
-      await within(canvasElement).findByText("Click a component in Components to add it here.", undefined, slowly)
-    ).toBeVisible()
+    const panel = within(canvasElement)
+    await expect(await panel.findByRole("heading", { name: "Contents" }, slowly)).toBeVisible()
+    await expect(panel.getByText("Unlimited viewers")).toBeVisible()
   }
 }

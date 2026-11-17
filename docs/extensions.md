@@ -334,8 +334,33 @@ are to become internal extensions. None of the built-in extensions is one yet.
   the project, its `tab`, `subscriptions`, `commands` (its own, which run in the tab, and Parity's), `selection`,
   `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `host`, its own Node half,
   and `extensions.get(id)`, another window module in the tab that its `extensionDependencies` names, as it comes and
-  goes. The canvas, the camera, presence, sync and agents' activity come later, each checked against `capabilities` as
-  it's read: reading one that isn't declared throws, naming the capability, and records `extension.capabilityMissing`.
+  goes. Every module also gets `colors`; the rest is checked against `capabilities` as it's read (below). Reading one
+  that isn't declared throws `CapabilityMissingError`, naming the capability, and records `extension.capabilityMissing`
+  once per extension, API and session.
+- **`parity.canvas`** (`canvas`) draws React in **layers** over the tab's canvas: `underDesigns`, in tldraw's background
+  behind every board; `overDesigns`, over the boards and under the selection's outlines and handles; `overSelection`,
+  over those and under the toolbar; and `edge`, in a corner of the screen or along the bottom, clear of the zoom
+  controls and the toolbar. Page layers are placed in page coordinates and move with the camera without drawing again.
+  Each layer is drawn in the tab's own React tree, so the kit, the theme and portals reach it, with an error boundary of
+  its own that counts a render that throws as `layer:<id>` in `extension.callFailed`. It pauses while its tab is hidden
+  (React's `Activity`), and a layer with `hideWhileEditing` hides while text is edited on the canvas. Layers take the
+  pointer only where an element asks with `data-canvas-interactive`. A layer's id is unique in its tab. `box`,
+  `onBoxChange` and `hit` say where designs and their layers are, by `NodeRef`; `pageToScreen` and `screenToPage`
+  convert points. `preview` shows someone else's drag in their color (claimed from people's colors while it lasts), and
+  `hold` (`hold`) holds a board while an agent moves it, over the core previews and holds.
+- **What's drawn in a layer** reads it through [`@parity-app/canvas-layer`](../packages/canvas-layer/src/index.ts):
+  `useCamera` (the zoom and what's in view, at most once a frame), `useBox`, `useColor`, which claims a color while it's
+  mounted, and `useFrame`, which runs every `measure` in the tab, then every `draw`, once an animation frame while the
+  tab is shown.
+- **`parity.camera`** (`camera`, and the same object as `parity.canvas.camera`) reads the camera, tells of its changes
+  at most once a frame, shows a view and follows one, over the canvas's camera service. Following is the extension's:
+  `follow.ended` names it, and its followings end when it stops in the tab. The canvas mounts after window modules
+  start, and again when the project reopens: until it has, the camera reads an empty view, and `show`, `follow` and
+  point conversions refuse; what a module listens to is kept across mounts.
+- **`parity.colors`** is people's colors and `parity.colors.agents` agents', the two lists of
+  `@parity-app/presence-colors`. `claim`, `release`, `assign`, `palette` and `tuned` work by key, never by color. Claims
+  are counted per extension and tab: a key claimed twice keeps its color until it's released twice, and an extension's
+  claims are given back when it stops in the tab.
 - **The two halves** call each other. The window module calls what its Node half's `activate` returned through
   `parity.host.api()`, and the Node half calls what `activateWindow` returned as `node` through `parity.window.api()`,
   JSON across processes, through the service. A call to a half that isn't `ready` rejects at once with
@@ -349,7 +374,10 @@ are to become internal extensions. None of the built-in extensions is one yet.
 
 The runtime, [`window-modules.ts`](../packages/extension-host/src/window-modules.ts), takes the window's loader, the
 editor's selection and navigation, and its link to the Node halves as arguments, so its tests run without Electron;
-[`renderer/window-modules.ts`](../apps/desktop/src/renderer/window-modules.ts) gives it the tab's.
+[`renderer/window-modules.ts`](../apps/desktop/src/renderer/window-modules.ts) gives it the tab's. The canvas, the
+camera and colors are [`window-canvas.ts`](../packages/extension-host/src/window-canvas.ts), over the tab's core
+services, which [`renderer/window-canvas.tsx`](../apps/desktop/src/renderer/window-canvas.tsx) gives it, with the hosts
+that draw the layers.
 
 ## Portless
 
@@ -461,11 +489,27 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   the window module registered run by its module, the service and an agent, the agent's call carried through to the Node
   half and back from it through the window module, two agents' overlapping calls each kept apart, a command run from
   inside an agent's window command without waiting behind it, and three crashes deactivating the window module.
+- [window-canvas.test.ts](../packages/extension-host/src/window-canvas.test.ts) (PAR-1257): a second test-only internal
+  extension ([fixtures/window-surface-test.ts](../packages/extension-host/src/fixtures/window-surface-test.ts)), with
+  only a window module, drawing a page layer and an edge layer and taking them away as it stops, a layer's id unique in
+  the tab, a layer drawn after the module stopped taken away at once, a layer's render failing counted with its id, the
+  layer's camera, boxes and colors read without claiming, boxes and hits by `NodeRef` and points converted, a design's
+  key holding a slash kept whole, a box listener failing counted, following as the extension and ended as it stops,
+  listening kept across the canvas mounting again and calls refused while it's gone, `parity.camera` being
+  `parity.canvas.camera`, missing `camera` and `hold` capabilities refused and recorded once while colors need none,
+  claims counted and given back, assigned numbers telling the layers' color hooks, each list's palettes, a preview by
+  `NodeRef` in a claimed color given back as it settles, where layers would land mapped, previews left open disposed of,
+  and holds let go.
+- [frame-loop.test.ts](../packages/canvas-layer/src/frame-loop.test.ts): every `measure` before any `draw`, the time
+  since the frame before, resting while nothing runs or the tab is hidden, and a throwing frame given to its own
+  handler.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
-own, nor has `renderer/window-modules.ts`, which no built-in extension uses yet. They were tried in the running app on
-2026-11-14, on `examples/shadcn-vite`: the status item, the component card's facts and menu, Open in Storybook starting
-Storybook and opening it, the log tab, and killing the host 3 times, which left it stopped with a toast whose Restart
-brought it back while the canvas carried on. Settings was tried there on 2026-11-14 too: Storybook's page drawn from its
-manifest in Settings' own view, Open stories in saved to `settings.json`, the config folder an unsaved undo step, the
-editor page's attempt to change the app setting refused, and a page opened in Parity's own window.
+own, nor has `renderer/window-modules.ts` or `renderer/window-canvas.tsx`, which no built-in extension uses yet; the
+layers' hosts were tried in the running app with the surface test extension, whose layers drew in each order. They were
+tried in the running app on 2026-11-14, on `examples/shadcn-vite`: the status item, the component card's facts and menu,
+Open in Storybook starting Storybook and opening it, the log tab, and killing the host 3 times, which left it stopped
+with a toast whose Restart brought it back while the canvas carried on. Settings was tried there on 2026-11-14 too:
+Storybook's page drawn from its manifest in Settings' own view, Open stories in saved to `settings.json`, the config
+folder an unsaved undo step, the editor page's attempt to change the app setting refused, and a page opened in Parity's
+own window.

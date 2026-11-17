@@ -22,6 +22,7 @@ import {
   atom,
   type Computed,
   computed,
+  DefaultBackground,
   type Editor,
   getUserPreferences,
   react,
@@ -32,6 +33,7 @@ import {
 } from "tldraw"
 import { holdWhileZooming } from "../replay.ts"
 import { useResolvedTheme } from "../theme.ts"
+import { WindowLayers } from "../window-canvas.tsx"
 import { holds } from "./board-holds.ts"
 import { ContainerUtil, designDrag } from "./ContainerUtil.tsx"
 import { useProject } from "./context.ts"
@@ -84,8 +86,24 @@ export function canvasIdFor(key: string): CanvasId {
  * tldraw's own context menu acts on tldraw shapes (copy as SVG, paste); designs have their own menus instead. Design
  * titles draw in a layer of their own, above every board.
  */
-// Other people's cursors in a live room in development look like agents' (live-room.ts).
-const components: TLComponents = { ContextMenu: null, OnTheCanvas: TitleLayer, CollaboratorCursor: RoomCursor }
+// Other people's cursors in a live room in development look like agents' (live-room.ts). Internal extensions' layers
+// under the designs draw in the background, behind every shape (window-canvas.tsx).
+const components: TLComponents = {
+  ContextMenu: null,
+  OnTheCanvas: TitleLayer,
+  CollaboratorCursor: RoomCursor,
+  Background: CanvasBackground
+}
+
+/** tldraw's background, with internal extensions' layers under the designs drawn on it. */
+function CanvasBackground() {
+  return (
+    <>
+      <DefaultBackground />
+      <WindowLayers order="underDesigns" />
+    </>
+  )
+}
 
 /**
  * tldraw's selection box is a square around the shape, drawn over a design's own rounded outline, so it only shows

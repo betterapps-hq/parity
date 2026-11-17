@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Internal extensions draw on the canvas: parity.canvas layers, boxes, previews and holds, parity.camera, and parity.colors, with hooks in @parity-app/canvas-layer",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

@@ -108,6 +108,34 @@ export function releaseGuest(url: string): void {
   }
 }
 
+/** A font face a project's stylesheets declare, as its `@font-face` rule writes it. */
+export interface DeclaredFace {
+  family: string
+  /** One weight (`400`, `bold`) or a variable font's range (`100 900`). */
+  weight: string
+  style: string
+}
+
+/**
+ * The font faces the loaded projects' stylesheets declare, their `@font-face` rules, which only the document can hold.
+ * The app's own fonts aren't among them: they're in its own stylesheets, not a guest's.
+ */
+export function declaredFaces(): DeclaredFace[] {
+  return [...guests.values()].flatMap(({ global }) =>
+    [...(global?.cssRules ?? [])].flatMap((rule) =>
+      rule instanceof CSSFontFaceRule
+        ? [
+            {
+              family: rule.style.getPropertyValue("font-family"),
+              weight: rule.style.getPropertyValue("font-weight"),
+              style: rule.style.getPropertyValue("font-style")
+            }
+          ]
+        : []
+    )
+  )
+}
+
 async function load(url: string, theme: readonly ThemeVariable[], entry: Loading): Promise<LoadedGuest> {
   // What the project's code adds to the page from here on, its guest module's imports included, stays out of it.
   guardPage()

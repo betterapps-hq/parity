@@ -404,11 +404,13 @@ export {
 } from "./params.ts"
 
 export {
+  componentInfoOf,
   type ComponentSource,
   type DescribedTokens,
   type ExtensionDecorator,
   type PageModuleFile,
   type PageModules,
+  iconSetPropsId,
   type PreviewComposer,
   type LibraryInfo,
   type OpenProp,

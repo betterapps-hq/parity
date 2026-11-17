@@ -23,6 +23,7 @@ import { actions } from "./actions.ts"
 import { ExportSection } from "./ExportSection.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { type Command, keymap, shortcutOf } from "./keymap.ts"
+import { oneKindOrder, panelKind } from "./KindPanels.tsx"
 import { PanelSection, panelEnd } from "./PanelSection.tsx"
 import { useStyleEditor } from "./style-editor.ts"
 import { StyleSections } from "./StyleSections.tsx"
@@ -118,7 +119,9 @@ export function ArrangePanel({ keys }: { keys: string[] }) {
 
 /**
  * Several layers of one design selected: their shared look, edited for all of them at once in the state being shown.
- * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value.
+ * Values they share show as usual; the ones that differ are listed, and setting one gives them all that value. Layers
+ * of one kind show their style sections in that kind's order, as its own panel does; layers of different kinds show the
+ * sections they all share, in the order every kind shares (PAR-1064).
  */
 export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: string[] }) {
   const session = useProject()
@@ -135,6 +138,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
   // The rows whose fields work Mixed+8 out from each layer's own value.
   const perLayer = mixed.filter((key) => key === "width" || key === "height" || key === "padding" || key === "margin")
   const base = isBaseState(entry.container, selection.state.id)
+  const order = oneKindOrder(selection.layers.map((layer) => panelKind(layer.node, info.libraries)))
 
   return (
     <>
@@ -168,7 +172,7 @@ export function MultiLayerPanel({ entry, ids }: { entry: ContainerEntry; ids: st
           )}
         </p>
       )}
-      <StyleSections editor={editor} container={entry.container} />
+      <StyleSections editor={editor} container={entry.container} order={order} />
       <ExportSection
         targets={selection.layers.map((layer) => ({
           design: entry.key,

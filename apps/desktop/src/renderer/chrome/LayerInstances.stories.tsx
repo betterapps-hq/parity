@@ -9,7 +9,7 @@ import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
-/** Instances beyond the two in Kinds: a code component's content and style, and a design instance's edge cases. */
+/** Instances beyond Layers › Component instance: a code component's content and style, and a design instance's edge cases. */
 const meta = {
   title: "Parity/Inspector/Layers/Instances",
   component: DesignTab,
@@ -35,7 +35,7 @@ export const ComponentWithoutStyle: Story = {
         "project.components": async (_params, usual) => {
           const components = await usual()
 
-          return { ...components, Badge: { ...components.Badge!, takesStyle: false } }
+          return { ...components, "nova/Badge": { ...components["nova/Badge"]!, takesStyle: false } }
         }
       })
       await pick("Pricing", "Badge")()
