@@ -552,7 +552,18 @@ const agentImages: AgentImages = {
 
 // Agents run extensions' commands and tools through the same hosts the person's clicks do (PAR-1096).
 const agentExtensionCalls: AgentExtensions = {
-  extensions: async (projectId) => agentExtensions(extensions.list(projectId).extensions),
+  // With what the tab's window modules are doing, and the room (PAR-1284), when the window answers; without, it still lists.
+  async extensions(projectId) {
+    const { extensions: statuses, logs } = extensions.list(projectId)
+
+    // A window that doesn't answer in time leaves the list as the service has it.
+    const facts = await Promise.race([
+      editor?.request("extensions.facts", { projectId }).catch(() => undefined),
+      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 2000))
+    ])
+
+    return agentExtensions(statuses, facts?.tab ? { logs, tab: facts.tab } : { logs })
+  },
   runExtension: (projectId, request, agent) => extensions.runForAgent(projectId, request, agent)
 }
 

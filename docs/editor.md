@@ -2244,7 +2244,15 @@ while a picture of it is carried (see "How dragged things move", above). Where i
 - **A layer stays in the layout it's dragged in while the pointer is over it.** It changes places with its neighbours
   and never drops into one, or into anything inside one, even when the neighbour is a layout, as each of the dashboard's
   revenue bars is. Outside its own layout it goes into the deepest layout under the pointer, as before, in this design
-  or another. To put a layer inside its neighbour, drag it there in Layers.
+  or another. To put a layer inside its neighbour, press Ctrl as you drag (below), or drag it there in Layers.
+- **Ctrl pressed during the drag drops into the layout under the pointer** (PAR-206), Cmd on a Mac: the deepest one
+  there, even a neighbour of the layer or a layout inside one, in the slot under the pointer. Letting Ctrl go puts the
+  layer back among its neighbours, and the outline follows either way, without the pointer moving. Ctrl held from the
+  press doesn't count, since it picked the deepest layer to drag (see "Selecting what you point at"), so Ctrl-dragging a
+  stat card still changes places with the others; let it go and press it again to drop into a neighbour. A layer never
+  goes into itself or anything inside it. This is Figma's key for changing what a drag nests into, the other way round:
+  Figma nests by default and Ctrl stops it, while here a drag stays among its neighbours, as CAN-47 settled, and Ctrl
+  nests. Penpot nests whatever a layer is dragged over, with no key to choose.
 - **The outline is round a hidden copy of the layer, laid out as the layer is.** A frame draws a layer that has no
   classes from rules about its node alone, so the copy is drawn from those rules too, taken from the frame the layer is
   in, even in another design. The copy carries the node under another attribute, so nothing that finds layers in a frame
@@ -2264,7 +2272,8 @@ dropping, dragging and nudging share since PAR-205), `drop-target.ts` (`frameLay
 layers' boxes through `frame.ts`'s `nodeBox`, and each layout's flow from its computed style, and `dropInFrame` passes
 them in), and `canvas/layer-drag.ts` follows the pointer (`pressLayers` measures when the drag begins; `moveTarget`
 finds the frame under the pointer; `DropPreview` shows the copy; `moveLayers` applies the move to the document and the
-selection).
+selection). Whether Ctrl asks for a neighbour is `intoNeighbour` in `drop-target.ts`, which `pressLayers` asks at each
+move, and as Ctrl goes down or up, passing `into` on to `dropTargetAt`.
 
 Tests:
 
@@ -2277,12 +2286,14 @@ Tests:
   column right to left, a grid's columns as laid out or as written (`repeat` and line names), and counted from its
   children's places for `repeat(auto-fill, …)` and `subgrid`, or not at all with nothing drawn, a grid flowing by
   columns, and blocks.
-- `packages/editor/src/drop-target.test.ts` (13), from boxes: the stat cards dragged right and left; the line where the
+- `packages/editor/src/drop-target.test.ts` (19), from boxes: the stat cards dragged right and left; the line where the
   layout was, and the same slot after the camera zooms out and pans; a card that stays in its own slot while the pointer
   is where it was; a card dragged over neighbours that are layouts, or the text in them, changing places with them; a
   layout outside its own taking the drop; from another design, a card that's a layout taking it, and the dragged card
-  counting as a slot; children that aren't drawn left out; and nothing found in a layout that wasn't measured or a
-  design whose root isn't a layout.
+  counting as a slot; with Ctrl, a card going into the neighbour under the pointer, over its text too, never into itself
+  or its own text, and changing places as before over a neighbour that isn't a layout; Ctrl or Cmd counting once pressed
+  during the drag and not once let go, and Ctrl held from the press left out until it's pressed again; children that
+  aren't drawn left out; and nothing found in a layout that wasn't measured or a design whose root isn't a layout.
 - `packages/editor/src/move-layers.test.ts` (15): what the Layers panel drags read back, and a drag holding something
   else read as nothing, so the drop does nothing (PAR-595); within a design, before what was at the index, several
   together, ids and states' changes kept, into a component's slot, and the same design back when dropped where it is,
@@ -2294,16 +2305,19 @@ Tests:
   out as a real grid, dragged right and left; the line where the layout was, also after the camera zooms and pans; a
   card that stays in its own slot though its neighbour slid there, against the same layout measured after the card was
   hidden (which jumps it past the neighbour, as before CAN-47); a card dragged over neighbours that are layouts changing
-  places with them; and a layout outside its own still taking the drop.
-- `apps/desktop/e2e/moving.e2e.ts` (6), end to end (PAR-202), on the dashboard: Users dragged right past Issues, with
+  places with them, and going into one with Ctrl; and a layout outside its own still taking the drop.
+- `apps/desktop/e2e/moving.e2e.ts` (7), end to end (PAR-202), on the dashboard: Users dragged right past Issues, with
   the card hidden and its copy where it lands, then undone; Issues dragged left past Revenue; the header's Export past
   New project; Feb among the revenue bars nudged a little (no change and nothing to undo) and past March (they swap, and
-  March keeps its two children); a drag shorter than the threshold changing nothing; and Escape mid-drag putting
+  March keeps its two children); Feb dragged to the bottom of March with Ctrl pressed after the press, going in after
+  March's label, then undone (PAR-206); a drag shorter than the threshold changing nothing; and Escape mid-drag putting
   everything back.
 
 Gaps: the pointer handling in `pressLayers` (the threshold, Escape, the preview), first checked by hand on 2026-10-29,
 is now the end-to-end test above. A component dropped from the Components panel lands by the same rule since PAR-205
-(see "Inserting, Make component and new designs").
+(see "Inserting, Make component and new designs"). Ctrl into a neighbour was checked in the app on 2026-11-17: Feb
+dragged to the bottom of March stayed in the row's outline until Ctrl went down, then March's column grew round it, and
+the drop put Feb inside March.
 
 ### Moving an absolutely placed layer by dragging (CAN-47)
 

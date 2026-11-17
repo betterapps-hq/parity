@@ -56,7 +56,7 @@ writes only that file, and a CLI given the same file reaches only that copy.
 | `parity props <Component>`   | A component's props, read from its source.                                                      |
 | `parity lib [package]`       | Writes a `.lib.par` describing a library's components, tokens and icons, or the app's.          |
 | `parity open <folder>`       | Opens a project in a new tab, or detects an open one again when its setup changed.              |
-| `parity extensions`          | The project's extensions, with their commands, agent tools, node types and facts.               |
+| `parity extensions`          | The project's extensions: commands, agent tools, node types, facts, halves, failures, the room. |
 | `parity run <command\|tool>` | Runs an extension's command or agent tool; its changes are undo steps named after you and it.   |
 | `parity skill [file]`        | Prints the skill that teaches an agent to design with Parity.                                   |
 | `parity mcp`                 | Serves these commands as MCP tools on stdio.                                                    |
