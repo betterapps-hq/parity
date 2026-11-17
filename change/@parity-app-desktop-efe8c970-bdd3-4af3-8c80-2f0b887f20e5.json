@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Close a window module's settling preview when it stops, name a move's landing frame, and refuse a stale sync opening",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

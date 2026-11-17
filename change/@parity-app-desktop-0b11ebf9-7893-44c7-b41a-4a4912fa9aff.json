@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Errors from the editor window carry extensions.json and are titled by the extension; window modules' main-thread time is recorded as extension.slow and extension.mainThread, with a warning in development; a Node half's refused calls record extension.halfUnavailable",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

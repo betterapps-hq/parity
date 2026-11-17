@@ -1,8 +1,34 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 07:35:04 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 09:28:36 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.104.0
+
+Tue, 17 Nov 2026 09:28:36 GMT
+
+### Minor changes
+
+- Agent presence can be turned off in Settings (Show agents on canvas), and a moved board stays held only while its
+  agent's pointer can still drag it. (ajcraswell@gmail.com)
+- Errors from the editor window carry extensions.json and are titled by the extension; window modules' main-thread time
+  is recorded as extension.slow and extension.mainThread, with a warning in development; a Node half's refused calls
+  record extension.halfUnavailable (ajcraswell@gmail.com)
+- Live room: others' carets, a Joining the live room step while opening, agents the same color in every copy, file
+  writes set from the host once a joining copy opens, and people who left while disconnected cleared
+  (ajcraswell@gmail.com)
+- Route frames move React Router (framework and library mode) and Next.js pages with the app's own router, through new
+  page routers and a wrapped react-router in library mode. (ajcraswell@gmail.com)
+- Typography presets come from the project's typography tokens, and text wrap and a text layer's tag are set in the
+  Design panel (ajcraswell@gmail.com)
+
+### Patches
+
+- A copy taking over a live room writes files and token values changed back since the host saved, and a joining copy
+  shows the room's token values (ajcraswell@gmail.com)
+- Close a window module's settling preview when it stops, name a move's landing frame, and refuse a stale sync opening
+  (ajcraswell@gmail.com)
 
 ## 0.103.0
 
