@@ -113,6 +113,14 @@ export const builtInPreviews: PreviewDescription[] = [extensionPreview(storybook
 )
 
 /**
+ * The build plugins Parity's own styling extensions say look for the project's files from where they run, each with
+ * the option naming the folder to look from, which builders that run the build elsewhere set to the project's root.
+ */
+export const builtInRootOptions: Record<string, string> = Object.fromEntries(
+  [tailwindPackage].flatMap((found) => Object.entries(found.parity.contributes.providers.styles.rootOptions))
+)
+
+/**
  * The tools Parity's own extensions give that open projects with nothing else of theirs, found by their peer
  * dependencies and listed with their versions among what a project uses.
  */

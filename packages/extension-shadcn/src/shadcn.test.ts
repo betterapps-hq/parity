@@ -39,13 +39,13 @@ describe("detectLibraries", () => {
         package: "@buildkitgg/shadcn",
         name: "Shadcn Nova",
         description: "Every shadcn component on Base UI, in the nova style.",
-        tailwindEntry: "tailwind.css",
+        styles: "tailwind.css",
         icons: "@phosphor-icons/react"
       }
     ])
   })
 
-  it("names the kit of sync's base, with no Tailwind entry when each component brings its own CSS", () => {
+  it("names the kit of sync's base, with no stylesheet when each component brings its own CSS", () => {
     const [found] = detectLibraries({
       packageJson: pkg({ dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } }),
       syncManifest: manifest({ base: "aria", icons: "lucide", style: "lyra", theme: "neutral", css: "compiled" })
@@ -55,7 +55,7 @@ describe("detectLibraries", () => {
       registry: "@buildkitgg/shadcn-aria-lyra",
       description: "Every shadcn component on React Aria, in the lyra style."
     })
-    expect(found?.tailwindEntry).toBeUndefined()
+    expect(found?.styles).toBeUndefined()
   })
 
   it("reads components shadcn's CLI copied for their style's tokens only, and an old style as nova", () => {

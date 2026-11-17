@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs"
+import type { ThemeVariable } from "@parity-app/core"
 import { describe, expect, it } from "vite-plus/test"
 import { readDesignTokens } from "./dtcg.ts"
 import {
@@ -14,7 +15,7 @@ import {
 import { describedCategories, describedTokenCss, describedTokenVar, extractTokens, type Token } from "./tokens.ts"
 
 /** Each token's kind, by name, reading tokens as the app does: compiled CSS, Tailwind's theme, a library's categories. */
-function kinds(css: string, theme: { name: string; value: string }[] = [], types = new Map<string, string>()) {
+function kinds(css: string, theme: ThemeVariable[] = [], types = new Map<string, string>()) {
   const tokens = extractTokens(css, theme)
   const lookup = defaultValues(tokens)
 
@@ -95,9 +96,11 @@ describe("previewKind", () => {
       "animate-spin": "spin 1s linear infinite",
       "breakpoint-md": "48rem",
       "container-md": "28rem"
-    }).map(([name, value]) => ({ name, value }))
+    })
+      .map(([name, value]): ThemeVariable => ({ name, value }))
+      .concat({ name: "spacing-4", value: "calc(var(--spacing) * 4)", derived: { from: "spacing", factor: 4 } })
 
-    // The spacing scale's steps come too, as spacing.
+    // A step of the spacing scale comes too, as spacing.
     expect(kinds("", theme)).toMatchObject({
       "spacing-4": "spacing",
       "color-red-500": "color",

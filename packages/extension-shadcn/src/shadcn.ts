@@ -203,7 +203,7 @@ function syncedLibrary(settings: SyncSettings): DetectedLibrary {
 
   return {
     ...library,
-    ...(settings.css === "tailwind" && { tailwindEntry: "tailwind.css" }),
+    ...(settings.css === "tailwind" && { styles: "tailwind.css" }),
     ...(iconPackage && { icons: iconPackage })
   }
 }

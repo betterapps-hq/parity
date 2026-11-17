@@ -30,6 +30,8 @@ export interface JobGuest {
   /** Components the guest is given since it loaded, as the type checker found them. */
   components?: RenderJob["components"]
   theme: RenderJob["theme"]
+  /** The cascade layer the project's styling framework puts its classes in, when it names one. */
+  layer?: string
 }
 
 /** What a job draws, and how. */
@@ -73,6 +75,10 @@ export function renderJob(guest: JobGuest, frame: JobFrame): RenderJob {
 
   if (guest.components) {
     job.components = guest.components
+  }
+
+  if (guest.layer) {
+    job.layer = guest.layer
   }
 
   if (audit) {
@@ -187,6 +193,7 @@ export function bitmapName(
   const drawn = {
     projectId: job.projectId,
     theme: job.theme,
+    layer: job.layer,
     tree: job.tree,
     mode: drawnMode(job.mode),
     scale: job.scale,
@@ -205,6 +212,7 @@ export function previewName(job: RenderJob) {
   // JSON leaves out a field that's `undefined`, as `bitmapName` relies on.
   return {
     theme: job.theme,
+    layer: job.layer,
     tree: job.tree,
     mode: drawnMode(job.mode),
     scale: job.scale,

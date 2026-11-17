@@ -62,8 +62,10 @@ export function inferProps(
           info.takesStyle = takesStyle
         }
 
-        if (setsOwnSize(implementation, source.export)) {
-          info.fixedSize = true
+        const classes = ownClasses(implementation, source.export)
+
+        if (classes.length > 0) {
+          info.ownClasses = classes
         }
 
         result.push([name, info])
@@ -583,24 +585,16 @@ function destructuredDefaults(found: ts.Node | undefined): Map<string, Literal> 
 }
 
 /**
- * Whether a component's own element sets its size, so text put inside is cut off or spills out rather than sizing it
- * (PAR-518). It's read from the classes the component writes on the outermost element it returns, in its source or a
- * library's compiled JavaScript, by Tailwind's names: a width (`size-8`, `w-10`, `w-(--sidebar-width)`), a height under
- * a line of text (`h-px`), or `@container`, whose width doesn't come from what's inside. Classes for its own states
- * (`data-horizontal:h-px`) count; ones it takes from elsewhere (`group-data-[size=sm]/avatar:size-6`) or that style what's
- * inside it (`[&_svg]:size-4`) don't.
+ * The classes a component writes on the outermost element it returns, in its source or a library's compiled JavaScript:
+ * every string in its `className`, split at spaces, as `cn("size-8 rounded-full", className)` gives `size-8` and
+ * `rounded-full`. The project's styles provider says whether they set the element's own size (PAR-518).
  */
-function setsOwnSize(file: ts.SourceFile, name: string): boolean {
+function ownClasses(file: ts.SourceFile, name: string): string[] {
   const root = returnedElement(declaredFunction(file, name))
-
-  if (!root) {
-    return false
-  }
-
-  const classes = classNameOf(root)
+  const classes = root && classNameOf(root)
 
   if (!classes) {
-    return false
+    return []
   }
 
   const texts: string[] = []
@@ -615,7 +609,7 @@ function setsOwnSize(file: ts.SourceFile, name: string): boolean {
 
   collect(classes)
 
-  return texts.join(" ").split(/\s+/).some(sizingClass)
+  return texts.join(" ").split(/\s+/).filter(Boolean)
 }
 
 /** The function a file declares under a name: `function Avatar(...)`, or a const holding one, through `forwardRef(...)`. */
@@ -690,33 +684,6 @@ function classNameOf(element: ts.Expression): ts.Node | undefined {
   }
 
   return undefined
-}
-
-/** A length a width can be set to: a step of the scale, `px`, a bracketed length that isn't a percentage, or a variable. */
-const fixedLength = /^(\d+(\.\d+)?|px|\[[^\]%]+\]|\(--[\w-]+\))$/
-
-/** Whether a Tailwind class sets the element's own size, as `setsOwnSize` describes. */
-function sizingClass(token: string): boolean {
-  // Variants are split at colons outside brackets: `data-[size=lg]:size-10`.
-  const parts = token.replace(/^!/, "").split(/:(?![^[]*\])/)
-  const utility = parts.pop() ?? ""
-
-  if (!parts.every((variant) => /^(data|aria)-/.test(variant))) {
-    return false
-  }
-
-  if (/^@container(\/|$)/.test(utility)) {
-    return true
-  }
-
-  const [, axis, value] = /^(size|w|h)-(.+)$/.exec(utility) ?? []
-
-  if (!axis || !value || !fixedLength.test(value)) {
-    return false
-  }
-
-  // A height holds text unless it's under a line: 16px, step 4.
-  return axis !== "h" || value === "px" || Number(value) < 4
 }
 
 function property(object: ts.ObjectLiteralExpression, name: string): ts.Expression | undefined {

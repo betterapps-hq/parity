@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "Move core's remaining Tailwind assumptions behind the styles provider: library stylesheets, their import's place, the frames' rules layer, the spacing steps, which components set their own size, and the Next builders' plugin root (PAR-1130)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

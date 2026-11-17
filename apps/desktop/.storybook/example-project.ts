@@ -19,7 +19,7 @@ import { detectLibraries, readProjectFiles } from "@parity-app/extension-shadcn/
 import storybookExtension from "@parity-app/extension-storybook/package.json" with { type: "json" }
 import { exportStoryScreen, importStories, importStoryScreens } from "@parity-app/extension-storybook/screens"
 import { type ProjectStorybook, projectStorybook } from "@parity-app/extension-storybook/storybook"
-import { handles, readTheme } from "@parity-app/extension-tailwind"
+import { handles, readTheme, setsOwnSize } from "@parity-app/extension-tailwind"
 import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import routerExtension from "@parity-app/extension-tanstack-router/package.json" with { type: "json" }
 import { guestModuleSource, taggedModule, viteBuilder } from "@parity-app/extension-vite/builder"
@@ -262,7 +262,12 @@ async function discover(): Promise<{
   }
 
   if (stylesheet && handles(source)) {
-    info.styles = { id: "tailwind", name: "Tailwind CSS", stylesheet }
+    info.styles = {
+      id: "tailwind",
+      name: "Tailwind CSS",
+      stylesheet,
+      layer: tailwindExtension.parity.contributes.providers.styles.layer
+    }
   }
 
   if (config.describedTokens) {
@@ -273,7 +278,20 @@ async function discover(): Promise<{
   const { stories } = await importStories(projectSource(root, config.components))
   const storybook = projectStorybook(pkg.scripts, ".storybook", stories)
 
-  return { config, info, components: inferProps(root, config.components), storybook }
+  return { config, info, components: withOwnSize(inferProps(root, config.components)), storybook }
+}
+
+/** The example's components, each `fixedSize` where Tailwind says the classes on its own element set it, as the app's are. */
+function withOwnSize(components: Record<string, ComponentInfo>): Record<string, ComponentInfo> {
+  for (const info of Object.values(components)) {
+    if (info.ownClasses && setsOwnSize(info.ownClasses)) {
+      info.fixedSize = true
+    }
+
+    delete info.ownClasses
+  }
+
+  return components
 }
 
 /** Storybook's designs under the example's file name. */

@@ -138,7 +138,7 @@ describe("libraries an extension found", () => {
     package: "@buildkitgg/shadcn",
     name: "Shadcn Nova",
     description: "Every shadcn component on Base UI, in the nova style.",
-    tailwindEntry: "tailwind.css"
+    styles: "tailwind.css"
   }
 
   /** `@buildkitgg/shadcn` as sync writes it into an app. */
@@ -181,7 +181,7 @@ describe("libraries an extension found", () => {
         id: "shadcn",
         name: "Shadcn Nova",
         package: "@buildkitgg/shadcn",
-        tailwindEntry: "tailwind.css",
+        styles: "tailwind.css",
         stylesImported: false,
         decorators: [{ wrap: { import: "@buildkitgg/shadcn", component: "TooltipProvider" } }]
       }
@@ -217,7 +217,7 @@ describe("libraries an extension found", () => {
         stylesImported: true
       }
     ])
-    expect(found.libraries[0]?.tailwindEntry).toBeUndefined()
+    expect(found.libraries[0]?.styles).toBeUndefined()
     expect(Object.keys(found.components)).toEqual(["shadcn/Button"])
   })
 

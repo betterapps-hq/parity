@@ -58,7 +58,13 @@
         }
       ],
       "providers": {
-        "styles": {}
+        "styles": {
+          "layer": "utilities",
+          "rootOptions": {
+            "@tailwindcss/postcss": "base",
+            "@tailwindcss/turbopack": "base"
+          }
+        }
       }
     }
   }

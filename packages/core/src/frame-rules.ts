@@ -8,8 +8,9 @@ import type { RenderElement, RenderNode } from "./render.ts"
 /** How a frame's rules are written. */
 export interface FrameRulesOptions {
   /**
-   * The cascade layer the rules go in: `utilities` in a project whose styles are layered as Tailwind's are, so they
-   * rank with the classes the code would have. Without one they aren't layered, as a project's plain CSS isn't.
+   * The cascade layer the rules go in: the one the project's styling framework puts its classes in, as Tailwind's
+   * `utilities`, so they rank with the classes the code would have. Without one they aren't layered, as a project's
+   * plain CSS isn't.
    */
   layer?: string
 }

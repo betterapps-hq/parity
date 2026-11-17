@@ -27,7 +27,9 @@ const options = {
   origin: "http://127.0.0.1:4000",
   guestSource: "export async function guestParts() {}\n",
   styles: ["src/app/globals.css"],
-  packageStyles: ["@mantine/core/styles.css"]
+  packageStyles: ["@mantine/core/styles.css"],
+  // As Tailwind's extension's manifest gives them.
+  rootOptions: { "@tailwindcss/postcss": "base", "@tailwindcss/turbopack": "base" }
 }
 
 const text = (files: { path: string; text: string }[], path: string) => files.find((file) => file.path === path)?.text
@@ -82,7 +84,7 @@ describe("the guest app", () => {
     expect(JSON.parse(text(withBase, "tsconfig.json")!)).toEqual({ extends: "../../tsconfig.json" })
   })
 
-  it("passes on the project's PostCSS config, with Tailwind's plugin looking for classes from the project", async () => {
+  it("passes on the project's PostCSS config, with a plugin that looks from where it runs given the project's root", async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), "parity-next-guest-")))
 
     try {
@@ -98,18 +100,16 @@ describe("the guest app", () => {
     }
   })
 
-  it("gives Tailwind's Turbopack loader the project's root, unless it has a base, and leaves other loaders", async () => {
+  it("gives a Turbopack loader that looks from where it runs the project's root, unless it names a folder", async () => {
     const root = await realpath(await mkdtemp(join(tmpdir(), "parity-next-guest-")))
 
     try {
       await write(root, guestAppFiles({ ...options, root }))
 
-      const { rulesWithTailwindBase } = await import(
-        pathToFileURL(join(root, guestAppFolder, "tailwind-base.mjs")).href
-      )
+      const { rulesWithProjectRoot } = await import(pathToFileURL(join(root, guestAppFolder, "project-root.mjs")).href)
 
       expect(
-        rulesWithTailwindBase({
+        rulesWithProjectRoot({
           "*.css": { loaders: ["@tailwindcss/turbopack"], as: "*.css" },
           "*.svg": [{ loaders: ["@svgr/webpack"] }],
           "*.scss": { loaders: [{ loader: "@tailwindcss/turbopack", options: { base: "/elsewhere" } }] }
@@ -119,7 +119,7 @@ describe("the guest app", () => {
         "*.svg": [{ loaders: ["@svgr/webpack"] }],
         "*.scss": { loaders: [{ loader: "@tailwindcss/turbopack", options: { base: "/elsewhere" } }] }
       })
-      expect(rulesWithTailwindBase(undefined)).toEqual({})
+      expect(rulesWithProjectRoot(undefined)).toEqual({})
     } finally {
       await rm(root, { recursive: true, force: true })
     }

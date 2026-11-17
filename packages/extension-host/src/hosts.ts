@@ -379,9 +379,13 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   ): Promise<ProviderResult<C> | undefined>
   /**
    * The extension of the project's that declares a provider of `kind`, or with `extension`, that one if it does: its
-   * prefix and name, or nothing.
+   * prefix and name, and for a styling framework, the cascade layer its manifest says its classes go in; or nothing.
    */
-  provider(projectId: string, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
+  provider(
+    projectId: string,
+    kind: ProviderKind,
+    extension?: string
+  ): { id: string; name: string; layer?: string } | undefined
   /**
    * What the project's extensions put around every frame, from their manifests, so it's known before their code runs:
    * each router's decorators, with its prefix, in the order the extensions were given.
@@ -1566,8 +1570,9 @@ export function extensionHosts<Project extends OpenedProject>(
     provider(projectId, kind, extension) {
       const open = projects.get(projectId)
       const manifest = open && providerHost(open, kind, extension)?.extension.package.manifest
+      const layer = kind === "styles" ? manifest?.contributes.providers?.styles?.layer : undefined
 
-      return manifest && { id: manifest.prefix, name: manifest.displayName }
+      return manifest && { id: manifest.prefix, name: manifest.displayName, ...(layer && { layer }) }
     },
     decorators(projectId) {
       const open = projects.get(projectId)

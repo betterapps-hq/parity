@@ -19,12 +19,16 @@ export interface RouterProvider {
 
 /**
  * Reads a styling framework's theme from the project's own installation, writes a layer's declarations as its classes,
- * and writes token values where it keeps them. Stylesheets are named by their path from the project's root.
+ * writes token values where it keeps them, and says where a library's stylesheet is imported and which classes set an
+ * element's own size. Stylesheets are named by their path from the project's root.
  */
 export interface StylesProvider {
   /** Whether one of the project's stylesheets uses the framework, from its text. */
   handles(request: { source: string }): Promise<boolean>
-  /** Every theme variable the stylesheet defines, resolved by the project's own copy of the framework. */
+  /**
+   * Every theme variable the stylesheet defines, resolved by the project's own copy of the framework, and the steps of
+   * its scales that designs use, as `spacing-4` on `spacing`, each `derived` from its base.
+   */
   theme(request: { stylesheet: string }): Promise<ThemeVariable[]>
   /**
    * The classes the framework writes each declaration as, in order, or null for one it can't write; and the CSS those
@@ -42,12 +46,25 @@ export interface StylesProvider {
    * out, keeping everything else as written. `theme` is what `theme` read.
    */
   writeTokens(request: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }): Promise<string>
+  /**
+   * The stylesheet's source with an import of a library's stylesheet, by its specifier, where the framework builds it:
+   * Tailwind's right after its own import, so the library's token defaults come first and the project's still win.
+   * Parity asks only when the source doesn't import it yet.
+   */
+  importStyles(request: { source: string; specifier: string }): Promise<string>
+  /**
+   * For each element's classes, as a component writes them on the outermost element it returns, whether they set the
+   * element's own size, so text put inside is cut off or spills out rather than sizing it.
+   */
+  setsOwnSize(request: { classes: string[][] }): Promise<boolean[]>
 }
 
 /** A theme variable without its `--`, as the framework defines it. */
 export interface ThemeVariable {
   name: string
   value: string
+  /** A step of a scale built on another variable, as `spacing-4` is four of `spacing`: it follows its base. */
+  derived?: { from: string; factor: number }
 }
 
 /** A CSS declaration of a layer's, as `background-color: var(--primary)`, in the state, viewport or theme it applies in. */
@@ -265,8 +282,8 @@ export interface DetectedLibrary {
   package?: string
   name: string
   description: string
-  /** Its Tailwind entry, from the package's folder, as `tailwind.css`, when the app's Tailwind builds its classes. */
-  tailwindEntry?: string
+  /** Its stylesheet, from the package's folder, as `tailwind.css`, for the app's stylesheet to import. */
+  styles?: string
   /** An icon package its components draw with, as `@phosphor-icons/react`, read as an icon library too. */
   icons?: string
 }

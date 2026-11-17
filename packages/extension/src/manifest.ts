@@ -332,8 +332,8 @@ export interface Providers {
   renderer?: RendererContribution
   /** Starts the dev server. Its entry module runs in the builder process. */
   builder?: BuilderContribution
-  /** Reads and writes the theme. */
-  styles?: Record<string, never>
+  /** Reads and writes the theme, and writes layers as classes. */
+  styles?: StylesContribution
   /** Reads routes, and says what goes around every frame for the app's router. */
   router?: RouterContribution
   /** Imports screens such as stories, and writes them back. */
@@ -350,6 +350,21 @@ export interface Providers {
   discovery?: Record<string, never>
   /** Finds libraries the project's dependencies' names don't identify, and sets them up from the Components panel. */
   libraries?: Record<string, never>
+}
+
+/** What Parity needs of a styling framework before its code runs. */
+export interface StylesContribution {
+  /**
+   * The cascade layer the framework's classes go in, as Tailwind's `utilities`. A frame puts the rules it draws layers
+   * with there when the project's CSS has that layer, so they rank with a component's own classes, over base styles.
+   */
+  layer?: string
+  /**
+   * The framework's build plugins that look for the project's files from where they run, by package, each with the
+   * option naming the folder to look from, as `{ "@tailwindcss/postcss": "base" }`. A builder that runs the project's
+   * build from a folder of its own sets that option to the project's root.
+   */
+  rootOptions?: Record<string, string>
 }
 
 /** A tool agents can call, with a JSON Schema for its input. */

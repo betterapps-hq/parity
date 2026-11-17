@@ -58,6 +58,12 @@ export interface GuestAppOptions {
   packageStyles: readonly string[]
   /** The project's Next config file, from the root, when it has one. */
   config?: string
+  /**
+   * Build plugins that look for the project's files from where they run, by package, each with the option naming the
+   * folder to look from, as the styling extensions' manifests give them (`StylesContribution.rootOptions`): Next runs
+   * them from the guest app's folder, so it gives them the project's root.
+   */
+  rootOptions?: Readonly<Record<string, string>>
   /** The project's PostCSS config file, from the root, when it has one. */
   postcss?: string
   /** The project's `tsconfig.json` or `jsconfig.json`, when it has one. */
@@ -122,39 +128,42 @@ export function guestAppFiles(options: GuestAppOptions): GuestAppFile[] {
     files.push({ path: "postcss.config.mjs", text: postcssConfigSource(options.postcss) })
   }
 
-  files.push({ path: tailwindBaseFile, text: tailwindBaseSource(options.root) })
+  files.push({ path: projectRootFile, text: projectRootSource(options.root, options.rootOptions ?? {}) })
 
   return files
 }
 
-/** The guest app's module that points Tailwind's plugins at the project, which both its configs import. */
-const tailwindBaseFile = "tailwind-base.mjs"
+/** The guest app's module that points build plugins at the project, which both its configs import. */
+const projectRootFile = "project-root.mjs"
 
 /**
- * Tailwind's PostCSS and Turbopack plugins look for class names from where they run unless they're given a `base`, and
- * Next runs them from the guest app's folder, so the guest app gives them the project's root, where `next dev` runs.
+ * Some build plugins look for the project's files from where they run unless an option names the folder, as Tailwind's
+ * PostCSS and Turbopack plugins look for class names unless they're given a `base`. Next runs them from the guest app's
+ * folder, so the guest app gives each the project's root, where `next dev` runs.
  */
-function tailwindBaseSource(root: string): string {
+function projectRootSource(root: string, rootOptions: Readonly<Record<string, string>>): string {
   return `// Written by Parity's Next.js builder each time it starts.
-const plugins = new Set(["@tailwindcss/postcss", "@tailwindcss/turbopack"])
+const rootOptions = ${JSON.stringify(rootOptions)}
 
-/** A Tailwind plugin's options with the project's root as its base, unless it has one; another plugin's as they are. */
-export function withTailwindBase(name, options) {
-  if (!plugins.has(name) || options === false) {
+/** A plugin's options with the project's root as the folder it looks from, unless they name one; another's as they are. */
+export function withProjectRoot(name, options) {
+  const option = Object.hasOwn(rootOptions, name) ? rootOptions[name] : undefined
+
+  if (option === undefined || options === false) {
     return options
   }
 
   const given = options !== null && typeof options === "object" ? options : {}
 
-  return given.base === undefined ? { ...given, base: ${JSON.stringify(root)} } : given
+  return given[option] === undefined ? { ...given, [option]: ${JSON.stringify(root)} } : given
 }
 
-/** Turbopack's rules, with Tailwind's loaders given the project's root. */
-export function rulesWithTailwindBase(rules) {
+/** Turbopack's rules, with each loader that looks from where it runs given the project's root. */
+export function rulesWithProjectRoot(rules) {
   const loader = (entry) => {
     const name = typeof entry === "string" ? entry : entry?.loader
 
-    return plugins.has(name) ? { ...(typeof entry === "object" ? entry : { loader: name }), options: withTailwindBase(name, entry.options) } : entry
+    return Object.hasOwn(rootOptions, name ?? "") ? { ...(typeof entry === "object" ? entry : { loader: name }), options: withProjectRoot(name, entry.options) } : entry
   }
 
   const rule = (value) =>
@@ -165,19 +174,19 @@ export function rulesWithTailwindBase(rules) {
 `
 }
 
-/** The guest app's PostCSS config: the project's, with Tailwind's plugin given the project's root. */
+/** The guest app's PostCSS config: the project's, with each plugin that looks from where it runs given the project's root. */
 function postcssConfigSource(postcss: string): string {
   return `import config from ${JSON.stringify(`../../${postcss}`)}
-import { withTailwindBase } from "./${tailwindBaseFile}"
+import { withProjectRoot } from "./${projectRootFile}"
 
 const plugin = (entry) =>
-  typeof entry === "string" ? [entry, withTailwindBase(entry, {})] : [entry[0], withTailwindBase(entry[0], entry[1])]
+  typeof entry === "string" ? [entry, withProjectRoot(entry, {})] : [entry[0], withProjectRoot(entry[0], entry[1])]
 
 export default {
   ...config,
   plugins: Array.isArray(config?.plugins)
     ? config.plugins.map(plugin)
-    : Object.fromEntries(Object.entries(config?.plugins ?? {}).map(([name, options]) => [name, withTailwindBase(name, options)]))
+    : Object.fromEntries(Object.entries(config?.plugins ?? {}).map(([name, options]) => [name, withProjectRoot(name, options)]))
 }
 `
 }
@@ -223,8 +232,8 @@ function stylesPage(specifiers: readonly string[]): string {
  * path the config works out from `import.meta.url` comes out the same, with only what serving the canvas needs changed.
  * Its assets and images load from the builder's server, wherever the page that loads them is; its routes are the guest
  * app's, so the project's base path, locales, rewrites and redirects are left out, and so are its output and folder.
- * Next runs CSS loaders from the guest app's folder, so its Turbopack rules give Tailwind's the project's root to look
- * for class names from, and it builds to a folder beside the guest app's, where nothing that looks from there reads it.
+ * Next runs CSS loaders from the guest app's folder, so its Turbopack rules give those that look for the project's files
+ * from where they run the project's root, and it builds to a folder beside the guest app's, where nothing that looks from there reads it.
  */
 export function nextConfigSource(options: Pick<GuestAppOptions, "root" | "next" | "origin" | "config">): string {
   const configFile = options.config ? posix.join(options.root, options.config) : undefined
@@ -234,7 +243,7 @@ export function nextConfigSource(options: Pick<GuestAppOptions, "root" | "next" 
   return `// Written by Parity's Next.js builder each time it starts. The project's own config is ${options.config ?? "absent"}.
 import { createRequire } from "node:module"
 import { rulesWithElementSources, webpackWithElementSources } from "./${elementSourcesConfigFile}"
-import { rulesWithTailwindBase } from "./${tailwindBaseFile}"
+import { rulesWithProjectRoot } from "./${projectRootFile}"
 
 const require = createRequire(${JSON.stringify(posix.join(options.next, "package.json"))})
 const { normalizeConfig } = require("./dist/server/config-shared.js")
@@ -251,7 +260,7 @@ export default async function config(phase) {
 
   return {
     ...kept,
-    turbopack: { ...project.turbopack, rules: rulesWithElementSources(rulesWithTailwindBase(project.turbopack?.rules)) },
+    turbopack: { ...project.turbopack, rules: rulesWithElementSources(rulesWithProjectRoot(project.turbopack?.rules)) },
     webpack: webpackWithElementSources(project.webpack),
     // The project's modules are outside the guest app's folder, which webpack compiles nothing from without this.
     experimental: { ...project.experimental, externalDir: true },

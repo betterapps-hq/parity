@@ -148,6 +148,8 @@ export interface ProviderCalls {
       result: WrittenClasses
     }
     writeTokens: { params: { source: string; writes: TokenWrite[]; theme: ThemeVariable[] }; result: string }
+    importStyles: { params: { source: string; specifier: string }; result: string }
+    setsOwnSize: { params: { classes: string[][] }; result: boolean[] }
   }
   addresses: { addresses: { params: ServerFacts[]; result: { server: string; addresses: ProvidedAddress[] }[] } }
   discovery: { discover: { params: { root: string }; result: DiscoveredServer[] } }
@@ -594,7 +596,7 @@ const detectedLibrary: z.ZodType<DetectedLibrary> = z.strictObject({
   package: packageName.optional(),
   name: z.string().min(1).max(200),
   description: z.string().max(2000),
-  tailwindEntry: filePath.optional(),
+  styles: filePath.optional(),
   icons: packageName.optional()
 })
 
@@ -649,7 +651,15 @@ const libraryRemovalPlan: z.ZodType<LibraryRemovalPlan> = z.strictObject({
 })
 
 /** Reads what each provider's methods answer, which came from the extension's code, before the service uses it. */
-const themeVariables = z.array(z.strictObject({ name: z.string().max(500), value: text })).max(100_000)
+const themeVariables = z
+  .array(
+    z.strictObject({
+      name: z.string().max(500),
+      value: text,
+      derived: z.strictObject({ from: z.string().max(500), factor: z.number() }).optional()
+    })
+  )
+  .max(100_000)
 
 const providerResults = {
   router: { routes: checkOf(z.array(route).max(10_000)) },
@@ -662,7 +672,9 @@ const providerResults = {
         css: z.string().max(10_000_000)
       })
     ),
-    writeTokens: checkOf(fileText)
+    writeTokens: checkOf(fileText),
+    importStyles: checkOf(fileText),
+    setsOwnSize: checkOf(z.array(z.boolean()).max(100_000))
   },
   entities: {
     import: checkOf(importedEntities),
