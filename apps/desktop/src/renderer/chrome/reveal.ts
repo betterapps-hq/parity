@@ -1,6 +1,6 @@
 import { designOwner, type NodeRef } from "@parity-app/core"
 import { Box, type Editor } from "tldraw"
-import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
+import { canvasIdFor, keepOpeningCamera } from "../canvas/CanvasEditor.tsx"
 import { routePageDesign, routePageGroup, routePageGroups } from "../canvas/route-pages.ts"
 import { findFrames, nodeBox } from "../frame.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
@@ -97,6 +97,7 @@ export function zoomToRef(session: Session, ref: NodeRef): boolean {
     return false
   }
 
+  keepOpeningCamera(session.editor)
   session.editor.zoomToBounds(bounds, { inset: 80, animation: { duration: 250 } })
 
   return true
@@ -183,6 +184,7 @@ function revealBounds(editor: Editor | undefined, bounds: Box | undefined): void
     return
   }
 
+  keepOpeningCamera(editor)
   const viewport = editor.getViewportPageBounds()
 
   if (viewport.contains(bounds)) {

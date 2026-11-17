@@ -88,6 +88,18 @@ export type CanvasDraws = "pages" | "designs"
 /** Where each canvas's camera was as it went, by project and what it draws, so it comes back there. */
 const keptCameras = new Map<string, { x: number; y: number; z: number }>()
 
+/** Each canvas's fit still to come as it opens, once its boards have their sizes. */
+const openingFits = new WeakMap<Editor, ReturnType<typeof setTimeout>>()
+
+/**
+ * Keeps the camera where it's about to be put rather than fitting it to the canvas as it opens: a design revealed from
+ * Search, a link or an extension's zoomTo, as its lens shows for the first time, stays in view.
+ */
+export function keepOpeningCamera(editor: Editor): void {
+  clearTimeout(openingFits.get(editor))
+  openingFits.delete(editor)
+}
+
 /** Whether a canvas drawing these draws this design. */
 export function drawsDesign(draws: CanvasDraws, key: string): boolean {
   return canvasOf(key) === draws
@@ -787,12 +799,18 @@ export function CanvasEditor({
         }
       })
 
-      // Containers size themselves after their content renders, so fit once they have.
+      // Containers size themselves after their content renders, so fit once they have, unless something is revealed first.
       const fit = kept ? undefined : setTimeout(() => editor.zoomToFit({ animation: { duration: 200 } }), 400)
+
+      if (fit) {
+        openingFits.set(editor, fit)
+      }
+
       onEditor(editor)
 
       return () => {
         clearTimeout(fit)
+        openingFits.delete(editor)
         keptCameras.set(`${tab}:${draws}`, editor.getCamera())
         stopZoom()
         stopSurface()
