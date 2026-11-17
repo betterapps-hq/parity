@@ -106,8 +106,107 @@ function isCommitHook(value: unknown): value is CommitHook {
   return value instanceof Object && "onCommitFiberRoot" in value && value.onCommitFiberRoot instanceof Function
 }
 
-/** What's called on each of React's commits, while a move waits for one. */
-const commitListeners = new Set<() => void>()
+/** A fiber of React's, as far as finding the router's in a committed tree reads it. */
+interface Fiber {
+  child: Fiber | null
+  sibling: Fiber | null
+  memoizedProps: unknown
+  /** For a component, its first hook, whose own `memoizedState` is the hook's state. */
+  memoizedState: unknown
+}
+
+/** A root as React passes it to the hook: `current` is the tree it has just committed. */
+interface FiberRoot {
+  current: Fiber
+}
+
+function isFiber(value: unknown): value is Fiber {
+  return value instanceof Object && "child" in value && "sibling" in value && "memoizedProps" in value
+}
+
+function isFiberRoot(value: unknown): value is FiberRoot {
+  return value instanceof Object && "current" in value && isFiber(value.current)
+}
+
+/** A hook in a component's list: its state, and the next hook. */
+interface Hook {
+  memoizedState: unknown
+  next: unknown
+}
+
+function isHook(value: unknown): value is Hook {
+  return value instanceof Object && "memoizedState" in value && "next" in value
+}
+
+/** What a commit drew of the router: the location key `RouterProvider` committed, unset when its hooks don't say. */
+interface Drawn {
+  key?: string
+}
+
+/** How many fibers a committed tree is searched for the router's, from its top. */
+const fiberLimit = 5000
+
+/**
+ * What a commit drew of `router`: nothing when the tree holds no `RouterProvider` given it, as another root's doesn't;
+ * otherwise the location key of the state `RouterProvider` committed, unset when React's hooks don't say.
+ */
+function committedKey(root: FiberRoot, router: DataRouter): Drawn | undefined {
+  const queue: Fiber[] = [root.current]
+  // `react-router/dom`'s `RouterProvider` passes the router on to React Router's own, which holds the state.
+  let given: Drawn | undefined
+
+  for (let seen = 0; seen < fiberLimit && queue.length > 0; seen++) {
+    const fiber = queue.shift()
+
+    if (!fiber) {
+      break
+    }
+
+    const props = fiber.memoizedProps
+
+    if (props instanceof Object && "router" in props && props.router === router) {
+      const drew = hookKey(fiber)
+
+      if (drew.key !== undefined) {
+        return drew
+      }
+
+      given = drew
+    }
+
+    for (let child = fiber.child; child; child = child.sibling) {
+      queue.push(child)
+    }
+  }
+
+  return given
+}
+
+/** The location key of the router state among a component's hooks, as `RouterProvider` keeps it, if any. */
+function hookKey(fiber: Fiber): Drawn {
+  for (let hook = fiber.memoizedState, count = 0; isHook(hook) && count < 50; hook = hook.next, count++) {
+    const state = hook.memoizedState
+
+    if (isRouterState(state)) {
+      return { key: state.location.key ?? "" }
+    }
+  }
+
+  return {}
+}
+
+function isRouterState(value: unknown): value is DataRouter["state"] {
+  return (
+    value instanceof Object &&
+    "location" in value &&
+    value.location instanceof Object &&
+    "pathname" in value.location &&
+    "navigation" in value
+  )
+}
+
+/** What's called on each of React's commits, with the root it committed, while a move waits for one. */
+const commitListeners = new Set<(root: FiberRoot) => void>()
 
 /** The hook this module listens to commits on, once it has. */
 let listenedHook: object | undefined
@@ -132,7 +231,12 @@ function listenToCommits(): boolean {
 
   hook.onCommitFiberRoot = (...args) => {
     before(...args)
-    commitListeners.forEach((listener) => listener())
+
+    const root = args[1]
+
+    if (isFiberRoot(root)) {
+      commitListeners.forEach((listener) => listener(root))
+    }
   }
 
   listenedHook = hook
@@ -141,34 +245,43 @@ function listenToCommits(): boolean {
 }
 
 /**
- * Resolves once React has drawn the router's new state: at React's first commit after the router settles. React
- * Router hands its state to React in a transition, so the router settling isn't the new page being in the DOM, and a
- * route that suspends keeps the old page, with no commit, until it's ready. A commit that leaves the DOM as it was
- * counts too. Without a hook to hear commits on, it's the page's first change after the router settles, or
- * `unchangedLimit` without one.
+ * Resolves once React has drawn the router's new state: at the first commit, after the router settles, of a tree whose
+ * `RouterProvider` holds the new location. React Router hands its state to React in a transition, so the router
+ * settling isn't the new page being in the DOM, and a route that suspends keeps the old page, with no commit, until
+ * it's ready. Another root's commit, as an embedded widget's, doesn't count; one that leaves the DOM as it was does.
+ * Where React's hooks can't be read, the tree holding the router committing counts. Without a hook to hear commits on,
+ * it's the page's first change after the router settles, or `unchangedLimit` without one.
  */
 function drawn(router: DataRouter, signal: AbortSignal): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>()
   const from = router.state.location.key
   const commits = listenToCommits()
-  let settled = false
+  let settled: string | undefined
   let limit: ReturnType<typeof setTimeout> | undefined
 
+  const committed = (root: FiberRoot) => {
+    const drew = committedKey(root, router)
+
+    if (drew && (drew.key === undefined || drew.key === settled)) {
+      resolve()
+    }
+  }
+
   const changes = new MutationObserver(() => {
-    if (settled) {
+    if (settled !== undefined) {
       resolve()
     }
   })
 
   const settle = (state: DataRouter["state"]) => {
-    if (settled || state.navigation.state !== "idle" || state.location.key === from) {
+    if (settled !== undefined || state.navigation.state !== "idle" || state.location.key === from) {
       return
     }
 
-    settled = true
+    settled = state.location.key ?? ""
 
     if (commits) {
-      commitListeners.add(resolve)
+      commitListeners.add(committed)
     } else {
       changes.observe(document, { subtree: true, childList: true, attributes: true, characterData: true })
       limit = setTimeout(resolve, unchangedLimit)
@@ -179,7 +292,7 @@ function drawn(router: DataRouter, signal: AbortSignal): Promise<void> {
   signal.addEventListener("abort", () => reject(signal.reason), { once: true })
 
   return promise.finally(() => {
-    commitListeners.delete(resolve)
+    commitListeners.delete(committed)
     changes.disconnect()
     stop()
     clearTimeout(limit)

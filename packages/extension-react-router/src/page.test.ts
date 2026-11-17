@@ -6,14 +6,31 @@ import { reactRouterPage } from "./page.ts"
 
 // React Router's own data router, with routes that load, redirect, throw and stall. What draws it stands in for React:
 // it takes the router's latest state a moment later, as `RouterProvider` does in a transition, writes the path into the
-// page, and reports the commit to React's DevTools hook, as React does.
+// page, and reports the commit to React's DevTools hook, as React does, with a tree whose `RouterProvider` holds that
+// state as its first hook's.
 
 const hook = { onCommitFiberRoot: (..._args: unknown[]) => undefined }
 
-/** A commit, as React reports it to the hook, after `draw` changes the page, if it does. */
-function commit(draw?: () => void) {
+type AppRouter = ReturnType<typeof createMemoryRouter>
+
+/**
+ * A committed tree, with `react-router/dom`'s `RouterProvider` given `router`, and React Router's own under it holding
+ * `state` as its first hook's, or neither.
+ */
+function tree(router?: AppRouter, state?: AppRouter["state"]) {
+  const provider = router
+    ? { child: null, sibling: null, memoizedProps: { router }, memoizedState: { memoizedState: state, next: null } }
+    : null
+
+  const wrapper = router ? { child: provider, sibling: null, memoizedProps: { router }, memoizedState: null } : null
+
+  return { current: { child: wrapper, sibling: null, memoizedProps: {}, memoizedState: null } }
+}
+
+/** A commit of `root`, as React reports it to the hook, after `draw` changes the page, if it does. */
+function commit(root: ReturnType<typeof tree>, draw?: () => void) {
   draw?.()
-  hook.onCommitFiberRoot(1, {})
+  hook.onCommitFiberRoot(1, root)
 }
 
 let stopDrawing: (() => void) | undefined
@@ -42,7 +59,7 @@ function appRouter(start = "/") {
   const stop = router.subscribe((state) => {
     clearTimeout(drawing)
     drawing = setTimeout(() => {
-      commit(() => (document.body.textContent = state.location.pathname))
+      commit(tree(router, state), () => (document.body.textContent = state.location.pathname))
     }, 5)
   })
 
@@ -126,7 +143,7 @@ describe("reactRouterPage", () => {
 
     const unsubscribe = router.subscribe((state) => {
       if (state.navigation.state === "idle") {
-        setTimeout(() => commit(), 5)
+        setTimeout(() => commit(tree(router, state)), 5)
       }
     })
 
@@ -146,7 +163,7 @@ describe("reactRouterPage", () => {
       if (state.navigation.state === "idle") {
         setTimeout(() => {
           drawnAt = Date.now()
-          commit(() => (document.body.textContent = state.location.pathname))
+          commit(tree(router, state), () => (document.body.textContent = state.location.pathname))
         }, 300)
       }
     })
@@ -157,6 +174,36 @@ describe("reactRouterPage", () => {
 
     expect(document.body.textContent).toBe("/settings")
     expect(drawnAt - start).toBeGreaterThanOrEqual(250)
+  })
+
+  it("isn't done by another root's commit, nor by one of the old location, as when the new route suspends", async () => {
+    const router = appRouter()
+    stopDrawing?.()
+    const before = router.state
+    const other = createMemoryRouter([{ path: "/", Component: null }])
+    let done = false
+    let doneEarly = false
+
+    const unsubscribe = router.subscribe((state) => {
+      if (state.navigation.state === "idle") {
+        setTimeout(() => {
+          commit(tree())
+          commit(tree(other, state))
+          commit(tree(router, before))
+        }, 5)
+        setTimeout(() => {
+          doneEarly = done
+          commit(tree(router, state))
+        }, 50)
+      }
+    })
+
+    await reactRouterPage.navigate("/settings", new AbortController().signal).then(() => (done = true))
+    unsubscribe()
+    other.dispose()
+
+    expect(doneEarly).toBe(false)
+    expect(done).toBe(true)
   })
 
   it("without React's hook, resolves at the page's first change, or after a moment with none", async () => {
