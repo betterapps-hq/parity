@@ -70,6 +70,7 @@
     "@parity-app/icons": "workspace:*",
     "@parity-app/media-player": "workspace:*",
     "@parity-app/presence-colors": "workspace:*",
+    "@parity-app/presence-ui": "workspace:*",
     "@parity-app/processes": "workspace:*",
     "@parity-app/project": "workspace:*",
     "@parity-app/registry": "workspace:*",

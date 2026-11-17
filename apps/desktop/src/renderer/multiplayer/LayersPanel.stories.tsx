@@ -1,8 +1,7 @@
+import { LayersPanelRow, type Member } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { ChartColumn, Frame, type LucideIcon, Square, Table, Type } from "lucide-react"
 import { scrolls } from "../stories/canvas-kit.tsx"
-import { LayersPanelRow } from "./LayersPanelRow.tsx"
-import type { Member } from "./member.ts"
 import { members } from "./story-kit.tsx"
 
 /**

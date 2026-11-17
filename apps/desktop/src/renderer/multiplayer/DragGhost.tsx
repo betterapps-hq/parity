@@ -1,7 +1,6 @@
+import { type Member, Outlined } from "@parity-app/presence-ui"
 import type { ReactNode } from "react"
 import { DragLift } from "../canvas/DragLift.tsx"
-import type { Member } from "./member.ts"
-import { Outlined } from "./Outlined.tsx"
 
 interface DragGhostProps {
   member: Member

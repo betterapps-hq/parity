@@ -1,11 +1,9 @@
+import { type Member, Outlined, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type Marker, scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import type { Member } from "./member.ts"
-import { Outlined } from "./Outlined.tsx"
-import { RemotePointer } from "./RemotePointer.tsx"
 import { members } from "./story-kit.tsx"
 
 /**

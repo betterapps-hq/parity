@@ -1,10 +1,9 @@
+import { ConnectionNote, FaceStack } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import { ConnectionNote } from "./ConnectionNote.tsx"
-import { FaceStack } from "./FaceStack.tsx"
 import { members, presences } from "./story-kit.tsx"
 
 /**

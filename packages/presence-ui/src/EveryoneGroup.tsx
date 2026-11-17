@@ -1,5 +1,5 @@
 import type { ReactNode } from "react"
-import { GroupLabel } from "../chrome/PanelSection.tsx"
+import { GroupLabel } from "./bar.tsx"
 
 interface EveryoneGroupProps {
   label: string

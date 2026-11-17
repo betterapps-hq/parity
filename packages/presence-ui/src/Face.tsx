@@ -1,16 +1,6 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@buildkitgg/shadcn"
 import { Sparkles } from "lucide-react"
-import { gradient, type Member } from "./member.ts"
-
-/** Someone's initials: two from a face big enough to hold them, else one. */
-function initials(member: Member, size: number): string {
-  return member.name
-    .split(/\s+/)
-    .slice(0, size < 22 ? 1 : 2)
-    .map((word) => word[0] ?? "")
-    .join("")
-    .toUpperCase()
-}
+import { gradient, initials, type Member } from "./member.ts"
 
 interface FaceProps {
   member: Member
@@ -46,7 +36,7 @@ export function Face({ member, size = 28, away, following }: FaceProps) {
           {member.agent ? (
             <Sparkles style={{ width: size * 0.5, height: size * 0.5 }} strokeWidth={size < 22 ? 2.5 : 2} />
           ) : (
-            initials(member, size)
+            initials(member.name, size)
           )}
         </AvatarFallback>
       </Avatar>

@@ -1,12 +1,10 @@
+import { hairline, Marquee, type Member, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import type { ReactNode } from "react"
 import { scrolls } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { DashboardDesign } from "../stories/DashboardDesign.tsx"
 import { Themes } from "../stories/Themes.tsx"
-import { Marquee } from "./Marquee.tsx"
-import { hairline, type Member } from "./member.ts"
-import { RemotePointer } from "./RemotePointer.tsx"
 import { members } from "./story-kit.tsx"
 
 /**
