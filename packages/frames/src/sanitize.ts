@@ -254,10 +254,15 @@ export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): SanitizedR
 
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
-  return sanitizeCss(
-    readLoadNames(text).replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')*;?/gi, ""),
-    policy
-  )
+  let css = withoutComments(readLoadNames(text))
+
+  // Taking one rule out can join the text around it into another (`@im@import "";port …`), so until none is left.
+  for (let last = ""; last !== css;) {
+    last = css
+    css = css.replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')*;?/gi, "")
+  }
+
+  return sanitizeCss(css, policy)
 }
 
 function sanitizeNode(node: FrozenNode, policy: SanitizePolicy, count: { removed: number }): FrozenNode {
@@ -447,33 +452,66 @@ function srcsetCandidates(value: string): { url: string; descriptor: string }[] 
  * loads images and fonts, so any `https:` host is allowed.
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
-  const urls = readLoadNames(css).replace(
+  const urls = withoutComments(readLoadNames(css)).replace(
     /\burl\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*\)/gi,
     (whole, double?: string, single?: string, bare?: string) =>
       allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
   )
 
-  return sanitizeImageSets(urls, policy)
+  return sanitizeImageSources(urls, policy)
 }
 
+/** CSS with each comment outside a string replaced by a space, as CSS reads one, so no pattern after can miss a load. */
+function withoutComments(css: string): string {
+  let out = ""
+  let from = 0
+
+  for (let at = 0; at < css.length; at += 1) {
+    const char = css.charAt(at)
+
+    if (char === "\\") {
+      at += 1
+    } else if (char === '"' || char === "'") {
+      at = stringEnd(css, at)
+    } else if (char === "/" && css.charAt(at + 1) === "*") {
+      const close = css.indexOf("*/", at + 2)
+      const end = close === -1 ? css.length : close + 2
+      out += `${css.slice(from, at)} `
+      from = end
+      at = end - 1
+    }
+  }
+
+  return out + css.slice(from)
+}
+
+/** An `image-set()` candidate whose image is a gradient or a `url()`, which the `url()` pass has already checked. */
+const checkedImage = /^\s*(?:url\(|none\b|(?:-webkit-)?(?:repeating-)?(?:linear|radial|conic)-gradient\()/i
+
 /**
- * CSS with each `image-set()` candidate whose image is a string outside the policy given `none` instead. Each
- * `image-set()` is read to its balanced closing parenthesis, and only a candidate's leading string is its image: a
- * string later in it, as in `type("image/png")`, is a descriptor. A `url()` candidate was checked with the rest.
+ * CSS with each `image-set()` candidate and `src()` source the policy doesn't allow given `none` instead. Each is read
+ * to its balanced closing parenthesis. A candidate's image is its leading string, checked as a URL; a string later in
+ * it, as in `type("image/png")`, is a descriptor. A `url()` or a gradient stays, and any other image, such as `var()`
+ * or `attr()`, which would only say what it loads once it's drawn, goes.
  */
-function sanitizeImageSets(css: string, policy: SanitizePolicy): string {
-  const opening = /image-set\(/gi
+function sanitizeImageSources(css: string, policy: SanitizePolicy): string {
+  const opening = /\b((?:-webkit-)?image-set|src)\(/gi
   let out = ""
   let from = 0
 
   for (let match = opening.exec(css); match; match = opening.exec(css)) {
     const start = match.index + match[0].length
     const end = closingParenthesis(css, start)
+    const parts = match[1]?.toLowerCase() === "src" ? [css.slice(start, end)] : topLevelParts(css.slice(start, end))
 
-    const candidates = topLevelParts(css.slice(start, end)).map((candidate) => {
+    const candidates = parts.map((candidate) => {
       const leading = /^(\s*)(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)')/.exec(candidate)
 
-      if (!leading || allowedUrl(cssString(leading[2] ?? leading[3] ?? ""), "image", policy)) {
+      if (!leading) {
+        return checkedImage.test(candidate) ? candidate : "none"
+      }
+
+      if (allowedUrl(cssString(leading[2] ?? leading[3] ?? ""), "image", policy)) {
         return candidate
       }
 
@@ -561,7 +599,7 @@ const cssIdentifier = String.raw`(?:[\w-]|\\[0-9a-f]{1,6}\s?|\\[^\n0-9a-f])+`
 const cssName = new RegExp(String.raw`(@?)(${cssIdentifier})(?=[\s("';{])`, "gi")
 
 /** The function names that load something, which an escape could hide from the patterns that check them. */
-const loadFunctions = new Set(["url", "image-set", "-webkit-image-set"])
+const loadFunctions = new Set(["url", "image-set", "-webkit-image-set", "src"])
 
 /**
  * CSS with the names of `url()`, `image-set()` and `@import` written plainly where escapes spelled them (`u\72l(`,

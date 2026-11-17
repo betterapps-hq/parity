@@ -363,6 +363,35 @@ describe("sanitizeSheet", () => {
     expect(sanitizeSheet(typed, policy)).toBe(typed)
   })
 
+  it("reads past comments, which CSS ignores, before checking image-set()", () => {
+    expect(sanitizeSheet(`a { background: image-set(/* photo */ "http://evil.example/a.png" 1x) }`, policy)).toBe(
+      "a { background: image-set(  none 1x) }"
+    )
+    expect(
+      sanitizeSheet(
+        `a { background: image-set(url(https://cdn.example/a.png) 1x /* ) */, "http://evil.example/b.png" 2x) }`,
+        policy
+      )
+    ).toBe("a { background: image-set(url(https://cdn.example/a.png) 1x  , none 2x) }")
+  })
+
+  it("refuses an image-set() or src() image that says what it loads only when drawn, as var() does", () => {
+    expect(
+      sanitizeSheet(`a { --photo: "http://evil.example/a.png"; background: image-set(var(--photo) 1x) }`, policy)
+    ).toBe(`a { --photo: "http://evil.example/a.png"; background: image-set(none) }`)
+    expect(sanitizeSheet(`a { background: image-set(linear-gradient(red, blue) 1x) }`, policy)).toBe(
+      "a { background: image-set(linear-gradient(red, blue) 1x) }"
+    )
+    expect(sanitizeSheet(`a { background: src(var(--photo)) }`, policy)).toBe("a { background: src(none) }")
+    expect(sanitizeSheet(`a { background: src("http://evil.example/a.png") }`, policy)).toBe(
+      "a { background: src(none) }"
+    )
+  })
+
+  it("takes out an @import that taking out another would make", () => {
+    expect(sanitizeSheet(`@im@import "";port "http://evil.example/a.css"; b{}`, policy)).toBe(" b{}")
+  })
+
   it("checks image-set()'s strings as it does url()s", () => {
     expect(
       sanitizeSheet(
