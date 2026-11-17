@@ -1,4 +1,5 @@
 import { Button } from "@buildkitgg/shadcn"
+import { AgentBadge } from "@parity-app/presence-ui"
 /**
  * The org's activity: what every team, person and agent in Kestrel did, newest first, with the designs it touched.
  * Filters narrow it to your teams or the people you follow. Things only for you (mentions, review requests, seat
@@ -7,7 +8,6 @@ import { Button } from "@buildkitgg/shadcn"
 import { Download, GitMerge, Hand, Package } from "lucide-react"
 import type { ReactNode } from "react"
 import { agentPalettes } from "../../agent/agent-colors.ts"
-import { AgentBadge } from "../../agent/AgentPointer.tsx"
 import { Avatar } from "../parts.tsx"
 import { ActivityRow, OrgBadge } from "../start-page-parts.tsx"
 import { CanvasArt } from "../start/page.tsx"

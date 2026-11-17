@@ -1,3 +1,4 @@
+import { PersonPointer, RemotePointer } from "@parity-app/presence-ui"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useRef, useState } from "react"
 import { scrolls } from "../stories/canvas-kit.tsx"
@@ -8,12 +9,12 @@ import { Playback } from "../stories/Playback.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useClock } from "../stories/useClock.ts"
 import { useResolvedTheme } from "../theme.ts"
-import { RemotePointer } from "./RemotePointer.tsx"
 import { members } from "./story-kit.tsx"
 
 /**
  * Other people's pointers: one arrow for everyone, on their gradient, with a badge under it. A person's badge is their
- * first name and nothing more, since what they're doing isn't guessed at. An agent's arrow glows, and its badge leads
+ * first name, with a short note only when the room knows it for certain, such as that they're typing; what they're
+ * doing is never guessed at. An agent's arrow glows, and its badge leads
  * with the icon for its step and says what it's doing, in its own words. When someone leaves the canvas, their pointer
  * stays where they left it, faded; when they come back, it glides from there.
  */
@@ -27,7 +28,10 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-/** People and agents together: people by name, agents at work saying what they're doing, and one person off the canvas. */
+/**
+ * People and agents together: people by name, one of them typing, agents at work saying what they're doing, and one
+ * person off the canvas.
+ */
 export const Badges: Story = {
   render: () => (
     <Themes width={560} height={340}>
@@ -37,11 +41,42 @@ export const Badges: Story = {
             <DashboardDesign />
           </CanvasBoard>
           <RemotePointer member={members.mia} at={{ x: 120, y: 96 }} />
-          <RemotePointer member={members.jonas} at={{ x: 250, y: 190 }} />
+          <RemotePointer member={members.jonas} at={{ x: 250, y: 190 }} detail="Typing…" />
           <RemotePointer member={members.priya} at={{ x: 380, y: 60 }} offCanvas />
           <RemotePointer member={members.claude} at={{ x: 150, y: 250 }} kind="write" detail="Tighten spacing" />
           <RemotePointer member={members.codex} at={{ x: 370, y: 150 }} kind="read" detail="Check the chart" />
         </>
+      )}
+    </Themes>
+  )
+}
+
+/** One person's pointer at each point along the way, left to right. */
+const states = [
+  { label: "Moving", props: {} },
+  { label: "Typing", props: { detail: "Typing…" } },
+  { label: "Dragging", props: { pressed: true, badge: false } },
+  { label: "Off the canvas", props: { away: true, detail: "Typing…" } }
+] as const
+
+/**
+ * A person's pointer on its own, as the multiplayer extension draws it (`PersonPointer`): moving, typing, dragging, when
+ * what they carry has their name instead, and left behind off the canvas, faded and with only their name.
+ */
+export const PersonStates: Story = {
+  render: () => (
+    <Themes width={560} height={150}>
+      {() => (
+        <div className="absolute inset-0 grid grid-cols-4 px-6 pt-5">
+          {states.map(({ label, props }) => (
+            <div key={label} className="flex flex-col gap-3">
+              <span className="text-2xs text-muted-foreground">{label}</span>
+              <div className="relative ml-4">
+                <PersonPointer palette={members.jonas.palette} name={members.jonas.name} {...props} />
+              </div>
+            </div>
+          ))}
+        </div>
       )}
     </Themes>
   )

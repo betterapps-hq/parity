@@ -13,8 +13,8 @@ const readers = ["code", "project", "registry"]
 
 /**
  * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, Parity's own extensions,
- * which run in Node hosts of their own, the media player, the hooks internal extensions draw canvas layers with, and
- * fixtures.
+ * which run in Node hosts of their own, the media player, presence's components, the hooks internal extensions draw
+ * canvas layers with, and fixtures.
  */
 const edge = [
   "agent",
@@ -35,7 +35,8 @@ const edge = [
   "fixtures",
   "libgen",
   "media-player",
-  "next-builders"
+  "next-builders",
+  "presence-ui"
 ]
 
 const packageFiles = (names: string[]) => names.map((name) => `packages/${name}/**`)

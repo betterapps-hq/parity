@@ -1,5 +1,5 @@
 import { agentPalette, palette } from "@parity-app/presence-colors"
-import type { Member, Presence } from "./member.ts"
+import type { Member, Presence } from "@parity-app/presence-ui"
 
 /* The people and agents in the multiplayer stories' room. */
 

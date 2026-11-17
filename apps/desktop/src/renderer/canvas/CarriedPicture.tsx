@@ -1,6 +1,5 @@
+import { hairline, Outlined } from "@parity-app/presence-ui"
 import type { ReactNode } from "react"
-import { hairline } from "../multiplayer/member.ts"
-import { Outlined } from "../multiplayer/Outlined.tsx"
 import { useStore } from "../store.ts"
 import { type Carried, carriedPictureSet, type CarriedSet, type Dragger } from "./carried.ts"
 import { DragPicture } from "./DragPicture.tsx"
