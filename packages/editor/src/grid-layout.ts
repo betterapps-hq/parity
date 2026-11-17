@@ -54,9 +54,12 @@ export function mapLine(line: number, axis: GridLines | undefined): number {
   return axis ? templateTrack(line, axis.explicit) + axis.origin + 1 : line
 }
 
-/** The map's line as a style holds it: from the template's start, or counted back from its end where it's before it. */
+/**
+ * The map's line as a style holds it: from the template's start, or counted back from its end where it's before it. A
+ * negative line, as typed or the Last line choice, already counts back from the template's end, so it stays.
+ */
 export function storedLine(line: number, axis: GridLines | undefined): number {
-  if (!axis) {
+  if (!axis || line < 0) {
     return line
   }
 
