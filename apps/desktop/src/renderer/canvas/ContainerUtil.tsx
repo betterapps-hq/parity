@@ -20,6 +20,7 @@ import {
 import { moveDesigns } from "../chrome/arrange.ts"
 import { useContainerEntry } from "../project-doc.ts"
 import { getEffectivePreferences } from "../project-settings.ts"
+import { holds } from "./board-holds.ts"
 import { isRestingFar, isTabHidden, isZoomSettled, canvasIdFor } from "./CanvasEditor.tsx"
 import { ContainerView } from "./ContainerView.tsx"
 import { useProject } from "./context.ts"
@@ -41,8 +42,11 @@ declare module "tldraw" {
 
 export type ContainerRecord = CanvasRecord<"canvas-container">
 
-/** While designs are dragged by their titles, the canvas moves them and the drop saves them, all at once. */
-export const designDrag = { active: false }
+/**
+ * While designs are dragged by their titles, the canvas moves them and the drop saves them, all at once. `designs` are
+ * the ones moving, which the canvas leaves under the pointer.
+ */
+export const designDrag = { active: false, designs: new Set<string>() }
 
 /**
  * A design on the tldraw canvas. tldraw owns placement and the camera; the content is ordinary DOM, sized by the
@@ -355,6 +359,13 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
       cursor: "grabbing",
       start() {
         designDrag.active = true
+        designDrag.designs = new Set(moving)
+
+        // Grabbing a board an agent holds lets go of it, and the person's drag wins.
+        for (const candidate of moving) {
+          holds.grab(session.id, candidate)
+        }
+
         // The title has the pointer captured, so it's given the cursor too, besides the layer over the window.
         target.style.cursor = "grabbing"
         lifted = liftElements(boards(), { origin: { x: event.clientX, y: event.clientY } })
@@ -388,6 +399,7 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
         }
 
         designDrag.active = false
+        designDrag.designs = new Set()
 
         if (!kept) {
           return

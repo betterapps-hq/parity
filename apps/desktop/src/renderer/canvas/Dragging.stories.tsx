@@ -1,5 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, type RefObject, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Outlined } from "../multiplayer/Outlined.tsx"
+import { RemotePointer } from "../multiplayer/RemotePointer.tsx"
+import { members } from "../multiplayer/story-kit.tsx"
 import { type Marker, scrolls, type Stat, stickerHome } from "../stories/canvas-kit.tsx"
 import { CanvasBoard } from "../stories/CanvasBoard.tsx"
 import { CanvasPane } from "../stories/CanvasPane.tsx"
@@ -9,6 +12,8 @@ import { PricingDesign } from "../stories/PricingDesign.tsx"
 import { StatCard } from "../stories/StatCard.tsx"
 import { Themes } from "../stories/Themes.tsx"
 import { useClock } from "../stories/useClock.ts"
+import { type CarriedSet, carriedSet, type Dragger, localDrag } from "./carried.ts"
+import { CarriedPicture } from "./CarriedPicture.tsx"
 import type { DragPhase } from "./drag-motion.ts"
 import { DragLift } from "./DragLift.tsx"
 import { DragPicture } from "./DragPicture.tsx"
@@ -285,5 +290,214 @@ export const Moments: Story = {
         </section>
       ))}
     </div>
+  )
+}
+
+const { jonas, priya } = members
+
+/**
+ * Drives one drag's picture in a set of carried pictures from a moment of the loop: picked up as the drag starts,
+ * carried while it lasts, let go `to` where it lands, and forgotten before the next loop. The picture is a copy of
+ * `source`, `size` big, as `layerPicture` takes one.
+ */
+function useDriven(
+  pictures: CarriedSet<HTMLElement>,
+  key: string,
+  {
+    area,
+    source,
+    size,
+    phase,
+    at,
+    to,
+    by
+  }: {
+    area: Element
+    source: RefObject<HTMLElement | null>
+    size: { w: number; h: number }
+    phase: DragPhase | undefined
+    at: { x: number; y: number }
+    to: { x: number; y: number }
+    by?: Dragger
+  }
+) {
+  useLayoutEffect(() => {
+    const now = pictures.store.get().get(key)
+
+    if (phase === undefined) {
+      if (now) {
+        pictures.forget(key)
+      }
+
+      return
+    }
+
+    if (phase !== "carrying") {
+      if (now?.phase === "carrying") {
+        pictures.of(key).letGo(phase, to, false, () => undefined)
+      }
+
+      return
+    }
+
+    if (now) {
+      pictures.of(key).carry(at)
+
+      return
+    }
+
+    // SAFETY: a deep clone of an element is an element of the same kind.
+    const picture = source.current?.cloneNode(true) as HTMLElement | undefined
+
+    if (picture) {
+      picture.style.width = `${size.w}px`
+      picture.style.height = `${size.h}px`
+      pictures.of(key).pickUp({ area, picture, at, grab: { x: 0, y: 0 }, by })
+    }
+  })
+}
+
+/** Where the sticker is dragged to on the chart. */
+const stickerTo = { x: 10, y: 52 }
+
+/** The sticker's size, for its picture. */
+const stickerSize = { w: 38, h: 18 }
+
+/**
+ * Three drags at a moment of the loop: yours, carrying Churn along its row; Priya's, carrying a picture of the sticker
+ * across the chart; and Jonas's, moving the Pricing board. Each picture is the canvas's own (`CarriedPicture`), one per
+ * drag, so they're carried and fly on their own.
+ */
+function SeveralDrags({ time }: { time: number }) {
+  const pictures = useMemo(() => carriedSet<HTMLElement>(), [])
+  // A picture is drawn over the area it was picked up in; here, the dashboard's overlay.
+  const area = useMemo(() => document.createElement("div"), [])
+  const churn = useRef<HTMLSpanElement>(null)
+  const stuck = useRef<HTMLSpanElement>(null)
+  const progress = carried(time)
+  const phase = phaseAt(time)
+  const settled = time >= letGoAt + 400
+  const carrying = phase !== undefined && !settled ? phase : undefined
+
+  // Yours: Churn along the row to the front.
+  const pointer = {
+    x: between(slots[2]! + grab.x, slots[0]! + grab.x, progress),
+    y: cardTop + grab.y + Math.sin(progress * Math.PI) * 16
+  }
+
+  const picture = { x: pointer.x - grab.x, y: pointer.y - grab.y }
+
+  const slot = slots
+    .map((left, index) => ({ index, distance: Math.abs(left - picture.x) }))
+    .toSorted((a, b) => a.distance - b.distance)[0]!.index
+
+  const order: Stat[] = stats.filter((id) => id !== "churn")
+  order.splice(phase === undefined ? 2 : slot, 0, "churn")
+
+  useDriven(pictures, localDrag, {
+    area,
+    source: churn,
+    size: card,
+    phase,
+    at: picture,
+    to: { x: slots[slot]!, y: cardTop }
+  })
+
+  // Priya's: a picture of the sticker, which stays where it is until her drop's write moves it.
+  const carriedSticker = {
+    x: chartOrigin.x + between(stickerHome.x, stickerTo.x, progress),
+    y: chartOrigin.y + between(stickerHome.y, stickerTo.y, progress)
+  }
+
+  const written = time >= letGoAt ? stickerTo : stickerHome
+
+  useDriven(pictures, "preview-priya", {
+    area,
+    source: stuck,
+    size: stickerSize,
+    phase,
+    at: carriedSticker,
+    to: { x: chartOrigin.x + stickerTo.x, y: chartOrigin.y + stickerTo.y },
+    by: { palette: priya.palette, label: priya.name }
+  })
+
+  // Jonas's: the Pricing board, moved where his pointer is, written when he drops it.
+  const up = phase === "carrying"
+  const board = { x: between(330, 316, progress), y: between(40, 196, progress) }
+
+  const mark: Marker = (id, element) => {
+    if (id === "sticker") {
+      return (
+        <span ref={stuck} className="inline-block">
+          {element}
+        </span>
+      )
+    }
+
+    if (id !== "stat-churn") {
+      return element
+    }
+
+    const held = (
+      <span ref={churn} className="block h-full">
+        {element}
+      </span>
+    )
+
+    return carrying ? <ChurnWhileCarried phase={carrying}>{held}</ChurnWhileCarried> : held
+  }
+
+  return (
+    <>
+      <CanvasBoard name="Dashboard" x={24} y={40}>
+        <DashboardDesign
+          order={order}
+          sticker={written}
+          mark={mark}
+          overlay={
+            <>
+              <CarriedPicture area={area} pictures={pictures} />
+              {up && (
+                <RemotePointer
+                  member={priya}
+                  at={{ x: carriedSticker.x + stickerSize.w - 6, y: carriedSticker.y + stickerSize.h - 2 }}
+                  pressed
+                  badge={false}
+                />
+              )}
+              <YourPointer at={pointer} />
+            </>
+          }
+        />
+      </CanvasBoard>
+      <CanvasBoard name="Pricing" x={board.x} y={board.y} lifted={up}>
+        {up ? (
+          <Outlined by={[jonas]} radius={3} tagAt="end">
+            <PricingDesign />
+          </Outlined>
+        ) : (
+          <PricingDesign />
+        )}
+      </CanvasBoard>
+      {up && <RemotePointer member={jonas} at={{ x: board.x + 46, y: board.y + 5 }} pressed badge={false} />}
+    </>
+  )
+}
+
+/**
+ * Several drags at once: you carry Churn along its row while Priya carries the sticker across the chart and Jonas
+ * moves the Pricing board. Each drag has its own picture, landing spot and flight, so none waits for another; theirs
+ * carry their outline and name in their color. Their drops settle as their writes arrive: the sticker and the board
+ * land where they let go, as yours does.
+ */
+export const SeveralAtOnce: Story = {
+  render: () => (
+    <Moving>
+      {(time) => (
+        <Themes width={620} height={400}>
+          {() => <SeveralDrags time={time} />}
+        </Themes>
+      )}
+    </Moving>
   )
 }

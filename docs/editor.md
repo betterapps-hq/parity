@@ -2138,8 +2138,8 @@ stories show it (PAR-1188):
   placed absolutely or fixed inside a layer that isn't positioned stays where it's drawn, though the copy is placed
   absolutely. A canvas element's drawing and scroll positions inside them aren't copied. Nothing in the picture is hit.
   The copy holding a layer's place, and the moved layer until the picture lands, are hidden all the way through, so
-  nothing inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag, in
-  Multiplayer's drag previews, will reuse the same parts with their outline and color (not wired yet).
+  nothing inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag reuses the
+  same parts with their outline and color (see "Other people's drags and agents' holds", below).
 
 Code: the timings and looks are in one place, `apps/desktop/src/renderer/canvas/drag-motion.ts` (`liftMs`, `dropMs`,
 `cancelMs`, `makeRoomMs`, `settle`, `liftScale`, the shadows, `landingEdge`, `landingEdgeStyle` and `lift`). The
@@ -2163,6 +2163,53 @@ it's carried, since it's drawn bigger around it, and waits for it to fly back af
 Gaps: the motion itself was checked by hand in the running app on 2026-11-16 (the stat cards, the Review slot and
 Pricing's board, dropped and cancelled), sampling each frame; it isn't tested end to end, since the suite reads where
 things end up.
+
+### Other people's drags and agents' holds (PAR-1234)
+
+Someone else's drag can show on the canvas while this person drags too, each with its own picture, copies and flight, as
+the `Parity/Canvas/Dragging` story Several At Once shows. These are the renderer's primitives for the multiplayer and
+agent presence extensions (`docs/proposals/extensions-in-the-window.md`, "Previews" and "Holds"); nothing in a live room
+uses previews yet, and extensions can't reach either until the canvas surface is exposed.
+
+- **A preview** (`preview(surface, items, options)`) shows another person's drag with the local drag's parts, in their
+  color, and writes nothing. A board lifts and follows their pointer, drawn where the preview puts it rather than where
+  the document has it. Layers in a layout leave the empty dashed outline where they were, in the dragger's color, show
+  where they'd land at `drop`, and their picture is carried with the dragger's outline and name tag. An absolutely
+  placed layer's picture is carried while the layer stays put, since the dragger's own writes move it. Updates draw at
+  most once a frame.
+- **Settling.** `settleOnWrite` waits for the write that covers the drop: someone else's change to a design the preview
+  moves. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or when
+  it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
+- **A hold** (`holds.hold(tab, design, at)`) keeps a board where it was while an agent's cursor drags it to where the
+  agent put it, and `update` draws it along the way. Several holds on one board keep it where it's drawn until the last
+  lets go. Each hold is let go after 10 s whatever happens. Grabbing a held board, by dragging it or its name, lets go
+  of every hold on it, and the person's drag wins: the board stays under their pointer, and their drop is what's
+  written.
+- **Placed boards aren't written back.** A held or previewed board is drawn where it's placed, and the canvas never
+  writes its shape's position to the document while it is.
+- **Several at once.** Each drag keeps its own carried picture, by key (`carriedPictureSet`), its own drop preview
+  copies and rules, and its own style preview: its own rules over a frame's, and its own inline values on components'
+  elements, so taking one back leaves the others shown.
+
+Code: `canvas/drag-preview.ts` (`preview`), `canvas/preview-life.ts` (settling, the 2 s wait and telemetry),
+`canvas/board-holds.ts` (`boardHolds`, `holds`), `canvas/placed-boards.ts` (`placedBoards`, which `CanvasEditor` draws
+from and skips writing), `canvas/carried.ts` (`carriedSet`, `carriedPictureSet`), `canvas/style-layers.ts` and
+`previewFrameRules` in `frame.ts` (a style preview's values and rules by key). Agent presence holds boards through
+`holds` (`agent/presence.ts`). `CarriedPicture` draws every drag's picture, with the dragger's outline and name.
+
+Tests: `canvas/board-holds.test.ts`: a hold drawn along a drag and let go, a second hold keeping the board where it's
+drawn, the 10 s limit, grabbing, disposing and tabs kept apart, and placed boards' newest placement winning.
+`canvas/preview-life.test.ts`: settling on the write, one in ten of those recorded, giving up after 2 s, counting
+previews open at once, and which writes cover a preview. `canvas/style-layers.test.ts`: two previews' values on one
+property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
+`canvas/drag-preview.test.ts`: a board's preview following updates once a frame without writing, settling on someone
+else's write to it, going back after 2 s without one, and two people's previews ending on their own.
+
+Gaps: previews aren't wired to the live room's remote drags yet; the multiplayer extension does that (PAR-1233, phase
+5). A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
+yet; the story draws its look with the same carried pictures. Agent presence holds a board when a move is queued rather
+than just before its write, so a long queue can outlast the 10 s limit and the board lands before the cursor drags it;
+phase 4 moves agent presence onto activity delivered just before each write.
 
 ### Where a dragged layer lands (CAN-47)
 

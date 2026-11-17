@@ -53,8 +53,9 @@ Across all of them:
   events: activating, failing to, stopping, crashing, failed calls into a window module, one stopped in a tab, calls to
   a half that isn't ready, refused manifests and missing capabilities.
 - **Almost nothing is sampled.** No process sets `tracesSampleRate` or a sampler, so the SDKs make no spans of their
-  own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. The one event
-  thinned is `extension.halfUnavailable`, which the window sends for the first call in a minute and then one in ten.
+  own, and every span Parity makes is sent. No registered event uses `defineEvent`'s `sample` option. Two events thin
+  themselves: `dragPreview.settled` records one in ten previews of others' drags that end by their write, and every
+  other ending, and `extension.halfUnavailable` is sent for the first call in a minute and then one in ten.
 
 ### Report a problem
 

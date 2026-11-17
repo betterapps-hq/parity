@@ -1,34 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
-import { carriedPictures, type Timers } from "./carried.ts"
-
-/** Timers that run only when the test moves the clock on. */
-function clock(): Timers & { tick(ms: number): void } {
-  let now = 0
-  let next = 1
-  const waiting = new Map<number, { at: number; run: () => void }>()
-
-  return {
-    set(run, ms) {
-      const id = next++
-      waiting.set(id, { at: now + ms, run })
-
-      return id
-    },
-    clear(id) {
-      waiting.delete(id)
-    },
-    tick(ms) {
-      now += ms
-
-      for (const [id, { at, run }] of waiting) {
-        if (at <= now) {
-          waiting.delete(id)
-          run()
-        }
-      }
-    }
-  }
-}
+import { carriedPictures, carriedSet } from "./carried.ts"
+import { clock } from "./test-clock.ts"
 
 // SAFETY: a carried picture only compares its area by identity, which any object stands in for in Node.
 const area = {} as Element
@@ -127,5 +99,42 @@ describe("carriedPictures", () => {
     expect(pictures.store.get()).toBeUndefined()
     timers.tick(500)
     expect(landed).toEqual(["back"])
+  })
+})
+
+describe("carriedSet", () => {
+  it("carries a picture for each drag at once, each flying on its own", () => {
+    const timers = clock()
+    const set = carriedSet<string>(timers)
+    // SAFETY: a carried picture keeps whoever carries it as it's given, without reading their palette.
+    const by = { palette: { color: "red" } as never, label: "Mia" }
+    set.of("local").pickUp({ area, picture: "Churn", at: { x: 0, y: 0 }, grab: { x: 0, y: 0 } })
+    set.of("preview-1").pickUp({ area, picture: "Users", at: { x: 50, y: 0 }, grab: { x: 0, y: 0 }, by })
+    expect([...set.store.get().keys()]).toEqual(["local", "preview-1"])
+    set.of("preview-1").carry({ x: 60, y: 10 })
+    expect(set.store.get().get("preview-1")).toMatchObject({ at: { x: 60, y: 10 }, by })
+    expect(set.store.get().get("local")?.at).toEqual({ x: 0, y: 0 })
+
+    const landed: string[] = []
+    set.of("local").letGo("dropping", { x: 12, y: 0 }, false, () => landed.push("local"))
+    set.of("preview-1").letGo("cancelling", { x: 50, y: 0 }, false, () => landed.push("preview"))
+    timers.tick(180)
+    expect(landed).toEqual(["local"])
+    expect([...set.store.get().keys()]).toEqual(["preview-1"])
+    timers.tick(80)
+    expect(landed).toEqual(["local", "preview"])
+    expect(set.store.get().size).toBe(0)
+  })
+
+  it("lands a forgotten drag's flight at once and leaves the others", () => {
+    const timers = clock()
+    const set = carriedSet<string>(timers)
+    set.of("local").pickUp({ area, picture: "Churn", at: { x: 0, y: 0 }, grab: { x: 0, y: 0 } })
+    set.of("preview-1").pickUp({ area, picture: "Users", at: { x: 50, y: 0 }, grab: { x: 0, y: 0 } })
+    const landed: string[] = []
+    set.of("preview-1").letGo("dropping", { x: 0, y: 0 }, false, () => landed.push("preview"))
+    set.forget("preview-1")
+    expect(landed).toEqual(["preview"])
+    expect([...set.store.get().keys()]).toEqual(["local"])
   })
 })
