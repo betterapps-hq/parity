@@ -926,7 +926,7 @@ function ZoomBar({
 
 /** A lens the project has nothing for yet: what's missing, and the way to add it. */
 function MissingLens({ info }: { info: LensInfo }) {
-  const Icon = info.icon
+  const { Icon } = info
 
   return (
     <div className="grid min-h-0 flex-1 place-items-center bg-[rgb(249,250,251)] dark:bg-[rgb(16,16,17)]">

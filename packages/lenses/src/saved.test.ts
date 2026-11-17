@@ -58,6 +58,13 @@ describe("reading a saved layout", () => {
     })
   })
 
+  it("keeps a lens listed twice in one group once", () => {
+    expect(readLayout({ groups: [{ where: "main", tabs: ["pages", "data", "pages"] }] }, lenses)).toEqual({
+      groups: [{ where: "main", tabs: ["pages", "data"], open: "pages" }],
+      focus: 0
+    })
+  })
+
   it("keeps a lens in the first group that has it, since it's open once", () => {
     const saved = {
       groups: [

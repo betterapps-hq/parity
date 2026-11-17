@@ -63,14 +63,16 @@ export function readLayout<Id extends string>(
   const kept: { group: SavedLayout<Id>["groups"][number]; from: number }[] = []
 
   for (const [from, group] of read.data.groups.entries()) {
-    const tabs = group.tabs.flatMap((tab) => {
+    const tabs: Id[] = []
+
+    // Each lens is placed as it's read, so one listed twice, in this group or an earlier one, stays where it was first.
+    for (const tab of group.tabs) {
       const id = known.get(tab)
 
-      return id === undefined || placed.has(id) ? [] : [id]
-    })
-
-    for (const tab of tabs) {
-      placed.add(tab)
+      if (id !== undefined && !placed.has(id)) {
+        placed.add(id)
+        tabs.push(id)
+      }
     }
 
     if (tabs.length > 0) {
