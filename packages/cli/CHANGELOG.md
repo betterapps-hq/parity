@@ -1,8 +1,23 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 02:18:16 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 03:03:00 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.76.0
+
+Tue, 17 Nov 2026 03:03:00 GMT
+
+### Minor changes
+
+- Hold one project per window, with Home when none is open: the title bar shows the open project's name and its menu, in
+  place of project tabs (ajcraswell@gmail.com)
+
+### Patches
+
+- Know the extension lifecycle events Parity records, so their names check (ajcraswell@gmail.com)
+- Two people typing in the same text at once keep every letter: each key is written as it's typed, as the change at the
+  caret, and Undo keeps what others typed since. (ajcraswell@gmail.com)
 
 ## 0.75.0
 
