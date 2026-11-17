@@ -88,6 +88,8 @@ export interface CorePreview {
   update(items: CorePreviewItem[], options?: Partial<CorePreviewOptions>): void
   settleOnWrite(): void
   cancel(): void
+  /** Hears it end, however it does: settled by its write or its timeout, called off, or disposed. */
+  onEnd(listener: () => void): Disposable
   [Symbol.dispose](): void
 }
 
@@ -486,7 +488,8 @@ function previewFor(
   options: PreviewOptions
 ): Preview {
   let color = options.color
-  let open = true
+  /** Shown, settling once `settleOnWrite` is called, then ended. */
+  let phase: "shown" | "settling" | "ended" = "shown"
 
   const itemsOf = (given: PreviewItem[]): CorePreviewItem[] =>
     given.map(({ ref, at, state, mode }) => {
@@ -540,27 +543,28 @@ function previewFor(
     extension: context.extension
   })
 
-  /** What the extension stopping in the tab closes, until it ends by itself: kept once `preview` is made. */
+  /** What the extension stopping in the tab closes, until it ends: kept once `preview` is made. */
   const kept: Disposable[] = []
 
-  /** Ends it: what it does is done, and its color is given back. */
-  const end = (how: () => void) => {
-    if (!open) {
+  // It ends when the core preview does: at once when called off or disposed, and once settled when it settles, so
+  // its color is held and the extension stopping still closes it while it waits for its write.
+  const stopEnd = core.onEnd(() => {
+    if (phase === "ended") {
       return
     }
 
-    open = false
-    how()
+    phase = "ended"
+    stopEnd.dispose()
     colors.release(color)
 
     for (const each of kept) {
       each.dispose()
     }
-  }
+  })
 
   const preview: Preview = {
     update(next, given) {
-      if (!open) {
+      if (phase !== "shown") {
         return
       }
 
@@ -577,9 +581,22 @@ function previewFor(
         colors.release(before)
       }
     },
-    settleOnWrite: () => end(() => core.settleOnWrite()),
-    cancel: () => end(() => core.cancel()),
-    dispose: () => end(() => core[Symbol.dispose]())
+    settleOnWrite() {
+      if (phase === "shown") {
+        phase = "settling"
+        core.settleOnWrite()
+      }
+    },
+    cancel() {
+      if (phase !== "ended") {
+        core.cancel()
+      }
+    },
+    dispose() {
+      if (phase !== "ended") {
+        core[Symbol.dispose]()
+      }
+    }
   }
 
   // Kept only now, since a module that has stopped already has it closed at once.

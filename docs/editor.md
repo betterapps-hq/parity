@@ -2187,7 +2187,8 @@ uses previews yet, and extensions can't reach either until the canvas surface is
 - **Settling.** `settleOnWrite` waits for the write that covers the drop: someone else's change to a design the preview
   moves, or one that arrived after its last update and before it was told to settle, as a drop's write in a batch of its
   own does. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or
-  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
+  when it's called off, what moved flies back to where the document has it. Disposed, it goes at once, settling or not.
+  `onEnd` hears it end, however it does, so what showed it knows when it's gone.
 - **A hold** (`holds.hold(tab, design, at)`) keeps a board where it was while an agent's cursor drags it to where the
   agent put it, and `update` draws it along the way. Several holds on one board keep it where it's drawn until the last
   lets go. Each hold is let go after 10 s whatever happens. Grabbing a held board, by dragging it or its name, lets go
@@ -2213,7 +2214,7 @@ previews open at once, and which writes cover a preview. `canvas/style-layers.te
 property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
 `canvas/drag-preview.test.ts`: a board's preview following updates once a frame without writing, settling on someone
 else's write to it, settling at once on a write that came between its last move and being told to settle, going back
-after 2 s without one, and two people's previews ending on their own.
+after 2 s without one and saying it has ended, and two people's previews ending on their own.
 
 Gaps: A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
 yet; the story draws its look with the same carried pictures. Agent presence holds a board as its step is told, just
@@ -4720,7 +4721,7 @@ Tests:
 - `inspector/token-sets.test.ts` (26): one table of every set the controls offer from one project, each token under its
   real name with what it comes to: colors, radii with Full, spacing without the scale's base and steps, containers,
   breakpoints, text sizes, weights, line heights, letter spacing, fonts, shadows of each kind with their layers read,
-  blurs, layer orders in the order they stack, gradients, durations and easings without Tailwind's own, and nothing for
+  blurs, layer orders in the order they stack, gradients, durations and easings with the theme's own, and nothing for
   the kinds the project can't have yet; then a text size's paired line height, Tailwind's hundreds for a project with no
   weights, and a shadow value's layers.
 - `inspector/controls/stand-in-tokens.test.ts` (1): nothing `StyleSections` draws imports the stand-in tokens.
@@ -5272,15 +5273,18 @@ as above.
 
 ### Transitions (PAR-934)
 
-Motion lists the selected layers' transitions, on the approved Transition list. **+** adds Colors at Tailwind's defaults
-(150ms and its default curve), shown faintly. Each entry opens its details: Changes (a set or a property), Duration,
-Easing (Tailwind's, the project's, a curve, steps or a spring) and Delay. The eye turns an entry off without removing
-it, and an entry can be dragged to another place.
+Motion lists the selected layers' transitions, on the approved Transition list. **+** adds Colors at the project's
+defaults (150ms and its default curve), shown faintly. Each entry opens its details: Changes (a set or a property),
+Duration, Easing (one of CSS's keywords, the project's, a curve, steps or a spring) and Delay. The eye turns an entry
+off without removing it, and an entry can be dragged to another place.
 
 - **What it writes.** The list goes into the layer's style in the state being edited, as `transition`, a list. A state
   can give a layer transitions of its own, and resetting the state's change takes them back.
-- **Tokens.** Duration and Easing offer the project's duration and easing tokens. Tailwind's own easings are presets,
-  not tokens, and Tailwind's defaults are what an unset field shows. Neither field offers Create token yet.
+- **Tokens.** Duration and Easing offer the project's duration and easing tokens. CSS's easing keywords (Linear, Ease,
+  Ease in, Ease out, Ease in out) are presets, each drawn and written as the project's token of its name where it has
+  one, as Tailwind's theme defines `--ease-out`, else as CSS's own (`var(--ease-out, ease-out)`). An unset field shows
+  the theme's `default-transition-duration` and `default-transition-timing-function`, else 150ms and CSS's `ease`.
+  Neither field lists those tokens, nor offers Create token yet (PAR-1278).
 - **On the canvas.** Each frame draws the transitions as inline CSS, so an edit that changes a frame's look plays them.
   Opacity changed in a state fades over that state's frame, for example. The board draws each state as its own frame, so
   there's no single frame going from one state to the next.
@@ -5295,10 +5299,10 @@ Code: the `transition` schema, `transitionCss` and the spring solver in `package
 `inspector/sections/MotionSection.tsx` on the Transition list (`inspector/controls/transitions.tsx`), with
 `inspector/motion-values.ts` turning the document's forms into the list's.
 
-Tests: `packages/style-schema/src/motion.test.ts` (6): Tailwind's defaults and each set's properties, tokens' variables,
-a curve of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through the
-schema, and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration, leaving
-out an entry turned off. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
+Tests: `packages/style-schema/src/motion.test.ts` (6): the project's defaults and each set's properties, tokens'
+variables, a curve of its own and a delay, a spring's settle time and `linear()`, entries turned off, every form through
+the schema, and what the schema refuses. `packages/style-schema/src/declare.test.ts`: the `transition` declaration,
+leaving out an entry turned off. `packages/core/src/render.test.ts`: a state's own transitions drawn on its frame.
 `packages/editor/src/style-editing.test.ts`: a state's own transitions, marked changed and different, and reset.
 `packages/agent/src/lint.test.ts`: tokens a transition names that the project lacks, in the base and in a state.
 `packages/agent/src/run.test.ts`: `Update`, `AddState`, `Get` and clearing with `null`.

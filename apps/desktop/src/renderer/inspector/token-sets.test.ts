@@ -56,6 +56,7 @@ const tokens: Token[] = [
   token("duration-slow", "motion", "0.4s"),
   token("ease-snappy", "motion", "cubic-bezier(0.2, 0.8, 0.2, 1)"),
   token("ease-out", "motion", "cubic-bezier(0, 0, 0.2, 1)"),
+  token("default-transition-timing-function", "motion", "var(--ease-out)"),
   token("default-transition-duration", "motion", "150ms")
 ]
 
@@ -106,11 +107,20 @@ describe("the project's tokens as the Design tab's fields offer them", () => {
       set: "duration",
       offers: [
         ["duration-fast", "150ms"],
-        ["duration-slow", "400ms"]
+        ["duration-slow", "400ms"],
+        ["default-transition-duration", "150ms"]
       ],
-      why: "durations in milliseconds, not Tailwind's default"
+      why: "durations in milliseconds, the theme's default among them for an unset duration to read"
     },
-    { set: "easing", offers: [["ease-snappy", "0.2, 0.8, 0.2, 1"]], why: "easings, not Tailwind's own" },
+    {
+      set: "easing",
+      offers: [
+        ["ease-snappy", "0.2, 0.8, 0.2, 1"],
+        ["ease-out", "0, 0, 0.2, 1"],
+        ["default-transition-timing-function", "0, 0, 0.2, 1"]
+      ],
+      why: "easings, a keyword's among them for its preset to draw, and the theme's default with its reference filled in"
+    },
     { set: "borderWidth", offers: [], why: "nothing for a kind the project can't have yet" },
     { set: "opacity", offers: [], why: "nothing for a kind the project can't have yet" },
     { set: "cursor", offers: [], why: "nothing for a kind the project can't have yet" }

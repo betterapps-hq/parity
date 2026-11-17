@@ -49,7 +49,7 @@ import { insetSteps } from "./layer-measure.ts"
 import { layerPicture } from "./layer-picture.ts"
 import { LayerSnapping } from "./layer-snap.ts"
 import { endSlides, slideElements } from "./make-room.ts"
-import { type Drop, inFrame, layerRef, type Started, telling } from "./presence-gestures.ts"
+import { type Drop, dropIn, inFrame, layerRef, type Started, telling } from "./presence-gestures.ts"
 import { StylePreview } from "./style-preview.ts"
 
 /**
@@ -202,13 +202,7 @@ export function pressLayers(
   }
 
   const landingOf = (): Drop | undefined =>
-    absolute || !target
-      ? undefined
-      : {
-          ...inFrame(state?.id, current.mode),
-          parent: layerRef(session.doc, target.design, target.parent),
-          index: target.index
-        }
+    absolute || !target || !landing ? undefined : dropIn(session.doc, landing, target)
 
   followPress(
     absolute ? gestures.absoluteDrag : gestures.layerDrag,

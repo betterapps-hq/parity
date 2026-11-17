@@ -2,6 +2,37 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 07:35:37 GMT",
+      "version": "0.79.0",
+      "tag": "@parity-app/cli_v0.79.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "25dbf321fece02f701215beaa634c0b9ba900bc8",
+            "comment": "Read a shadcn-sync package's component props from its own declarations, not the kit's paths in the registry file"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "2fd878c22173969cffab1abfb78de012018d3c51",
+            "comment": "Multiplayer is an internal extension: turn on Live room to open projects through parity.sync, with other people's pointers, selections, drags and Follow drawn on the canvas"
+          }
+        ],
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "facc7fe3e3da983ec1d62f711701ed8db64bd890",
+            "comment": "Story stand-in follows the canvas layer's color listeners"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 06:39:04 GMT",
       "version": "0.78.0",
       "tag": "@parity-app/cli_v0.78.0",

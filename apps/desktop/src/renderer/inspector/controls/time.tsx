@@ -13,7 +13,7 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
-import { splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
+import { listedMotion, splitUnit, type Time, timeMs, timeUnits } from "./motion-data.ts"
 import { durationToken } from "./tokens.ts"
 
 /** What's typed comes to: a time to store as it is (a token, or unset), or a number of milliseconds. */
@@ -40,17 +40,19 @@ export function TimeField({
   label: string
   which: "duration" | "delay"
   value: Time | undefined
-  /** What it is unset: Tailwind's default duration, or no delay. */
+  /** What it is unset: the project's default duration, or no delay. */
   defaultMs: number
   /** Another control that sets it, as a spring sets Duration, with how long that comes to. */
   setBy?: { control: string; ms: number; onChange: (ms: number) => void }
   mixed?: boolean
   onChange: (value: Time | undefined) => void
 }) {
-  const { tokens, create } = useTokens("duration")
-  const ms = setBy ? setBy.ms : timeMs(value, tokens)
+  const { tokens: all, create } = useTokens("duration")
+  // The theme's default duration is what unset is, not a token to pick.
+  const tokens = listedMotion(all)
+  const ms = setBy ? setBy.ms : timeMs(value, all)
   const name = value !== undefined && "token" in value ? value.token : undefined
-  const token = name === undefined ? undefined : tokens.find((other) => other.name === name)
+  const token = name === undefined ? undefined : all.find((other) => other.name === name)
   const own = value !== undefined && !("token" in value) ? value : undefined
 
   const set = (next: number) => {

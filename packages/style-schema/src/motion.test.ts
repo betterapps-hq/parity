@@ -3,7 +3,6 @@ import { nodeStyle } from "./model.ts"
 import {
   bezierCss,
   easingBeziers,
-  easingCurves,
   plotCss,
   readEasingFunction,
   springLinear,
@@ -31,24 +30,25 @@ describe("readEasingFunction", () => {
   })
 })
 
-describe("easingCurves", () => {
-  it("writes Tailwind's curves from the one table", () => {
-    expect(easingCurves["ease-in"]).toBe("cubic-bezier(0.4, 0, 1, 1)")
-    expect(bezierCss(easingBeziers["ease-in-out"])).toBe(easingCurves["ease-in-out"])
+describe("easingBeziers", () => {
+  it("draws CSS's own keywords, as the spec defines them", () => {
+    expect(bezierCss(easingBeziers["ease-in"])).toBe("cubic-bezier(0.42, 0, 1, 1)")
+    expect(bezierCss(easingBeziers.ease)).toBe("cubic-bezier(0.25, 0.1, 0.25, 1)")
   })
 })
 
 describe("transitionCss", () => {
-  it("writes Tailwind's defaults for an unset time and easing, and each set's properties", () => {
+  it("writes the project's defaults for an unset time and easing, and each set's properties", () => {
     expect(transitionCss([{ property: "opacity" }])).toBe(
-      "opacity var(--default-transition-duration, 150ms) var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1))"
+      "opacity var(--default-transition-duration, 150ms) var(--default-transition-timing-function, ease)"
     )
     expect(transitionCss([{ property: "shadow", duration: { step: 200 }, easing: { keyword: "linear" } }])).toBe(
       "box-shadow 200ms linear"
     )
     expect(transitionCss([{ property: "transform", duration: { step: 300 }, easing: { keyword: "ease-out" } }])).toBe(
       ["transform", "translate", "scale", "rotate"]
-        .map((property) => `${property} 300ms var(--ease-out, cubic-bezier(0, 0, 0.2, 1))`)
+        // The project's `--ease-out`, as Tailwind's theme defines it, else CSS's own.
+        .map((property) => `${property} 300ms var(--ease-out, ease-out)`)
         .join(", ")
     )
   })
@@ -86,7 +86,7 @@ describe("transitionCss", () => {
         { property: "opacity", off: true },
         { property: "width", duration: { step: 100 } }
       ])
-    ).toBe("width 100ms var(--default-transition-timing-function, cubic-bezier(0.4, 0, 0.2, 1))")
+    ).toBe("width 100ms var(--default-transition-timing-function, ease)")
   })
 })
 
@@ -120,7 +120,9 @@ describe("transition in the document", () => {
     expect(nodeStyle.safeParse({ transition: [{ property: "all", delay: "duration-fast" }] }).success).toBe(false)
     expect(nodeStyle.safeParse({ transition: [{ property: "all", duration: { value: "200ms" } }] }).success).toBe(false)
     expect(nodeStyle.safeParse({ transition: [{ property: "all", easing: "ease-out" }] }).success).toBe(false)
-    expect(nodeStyle.safeParse({ transition: [{ property: "all", easing: { keyword: "ease" } }] }).success).toBe(false)
+    expect(nodeStyle.safeParse({ transition: [{ property: "all", easing: { keyword: "ease-snappy" } }] }).success).toBe(
+      false
+    )
     expect(nodeStyle.safeParse({ transition: [{ property: "all", hidden: true }] }).success).toBe(false)
   })
 })

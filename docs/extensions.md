@@ -360,8 +360,8 @@ multiplayer is to become one.
   `data-canvas-interactive`. A layer's id is unique in its tab. `box`, `onBoxChange` and `hit` say where designs and
   their layers are, by `NodeRef`; a layer's box asked with `caret` also says where a caret before that character of its
   text stands, as the Multiplayer extension draws someone's caret (PAR-1275); `pageToScreen` and `screenToPage` convert
-  points. `preview` shows someone else's drag in their color (claimed from people's colors while it lasts), and `hold`
-  (`hold`) holds a board while an agent moves it, over the core previews and holds.
+  points. `preview` shows someone else's drag in their color (claimed from people's colors while it lasts, settling
+  included), and `hold` (`hold`) holds a board while an agent moves it, over the core previews and holds.
 - **What's drawn in a layer** reads it through [`@parity-app/canvas-layer`](../packages/canvas-layer/src/index.ts):
   `useCamera` (the zoom and what's in view, at most once a frame), `useBox`, `useColor`, which claims a color while it's
   mounted, and `useFrame`, which runs every `measure` in the tab, then every `draw`, once an animation frame while the
@@ -378,8 +378,9 @@ multiplayer is to become one.
 - **`parity.presence`** (`presence`) is this person in the tab: `self`, the pointer on the page at most once a frame
   (the latest, with its leaving told at once), every gesture in order (a move of layers, with each change of where
   they'd land, a resize and a box drawn to select, each started, ended or called off), and the design, state and mode
-  selected, on each change. Nothing is listened to while no module listens. A move's drop and end are told after the
-  changes committed before them.
+  selected, on each change. Nothing is listened to while no module listens. A move's drop names the frame the layers
+  would land in, which may be another state or mode, and is told again when only that frame changes. A move's drop and
+  end are told after the changes committed before them.
 - **`parity.agents`** (`agents`) tells every step this copy's agents take in the tab, with no `from`, before the write
   it describes is applied, and other copies' steps with that copy, which the extension that brings the room passes in
   with `receive(steps, { from })`. Steps from another copy are never told again as this copy's, so nothing echoes back
@@ -389,8 +390,10 @@ multiplayer is to become one.
   says how the project opens, from files or on a snapshot, within 30 seconds; `onLocalChanges`, `receive`, `version`,
   `changesSince` and `snapshot` carry changes framed with the document's lineage; `setWritesFiles` says who writes
   files; and when the module that brought the room stops, the document stays open alone and this copy writes files
-  again, with "Left the live room". The tab opens the document through it, in Loro, when a module handles `onOpen`
-  (PAR-1267); the Multiplayer extension is the one that does ([editor.md](editor.md#a-live-room-par-1179-par-1270)).
+  again, with "Left the live room". If it stops while `onOpen` is pending, or before the document is attached, the
+  project opens alone at once and a late answer is refused. The tab opens the document through it, in Loro, when a
+  module handles `onOpen` (PAR-1267); the Multiplayer extension is the one that does
+  ([editor.md](editor.md#a-live-room-par-1179-par-1270)).
 - **The two halves** call each other. The window module calls what its Node half's `activate` returned through
   `parity.host.api()`, and the Node half calls what `activateWindow` returned as `node` through `parity.window.api()`,
   JSON across processes, through the service. A call to a half that isn't `ready` rejects at once with
@@ -547,8 +550,9 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   listening kept across the canvas mounting again and calls refused while it's gone, `parity.camera` being
   `parity.canvas.camera`, missing `camera` and `hold` capabilities refused and recorded once while colors need none,
   claims counted and given back, assigned numbers telling the layers' color hooks, each list's palettes, a preview by
-  `NodeRef` in a claimed color given back as it settles, where layers would land mapped, previews left open disposed of,
-  and holds let go.
+  `NodeRef` in a claimed color given back once it has settled, a preview still settling closed and its color given back
+  when it's disposed or the module stops, where layers would land mapped, previews left open disposed of, and holds let
+  go.
 - [window-seams.test.ts](../packages/extension-host/src/window-seams.test.ts) (PAR-1257), through the same test-only
   extension: the pointer at most once a frame with its leaving kept, gestures in order with committed changes told
   before a move's drop and end, viewing told only on a change, nothing listened to without a listener, a throwing
@@ -556,8 +560,11 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   naming what's gone dropped and recorded, the minute's activity, and today's agent events mapped to steps and back; and
   `parity.sync` opening from files or a snapshot, alone when nothing answers, calls made before the open applied in
   order once it does, changes framed with their lineage, other lineages refused, pending changes recorded, files written
-  as the room says, the document kept open alone when the module stops, nothing detached as the project closes, a second
-  `onOpen` refused, and the minute's traffic.
+  as the room says, the document kept open alone when the module stops, alone at once when it stops before the document
+  is attached, with a late opening refused, nothing detached as the project closes, a second `onOpen` refused, and the
+  minute's traffic.
+- [presence-gestures.test.ts](../apps/desktop/src/renderer/canvas/presence-gestures.test.ts) (PAR-1280): a move's drop
+  naming the frame the layers would land in, and told again when only that frame changes.
 - [frame-loop.test.ts](../packages/canvas-layer/src/frame-loop.test.ts): every `measure` before any `draw`, the time
   since the frame before, resting while nothing runs or the tab is hidden, and a throwing frame given to its own
   handler.

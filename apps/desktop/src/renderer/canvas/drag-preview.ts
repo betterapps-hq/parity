@@ -49,6 +49,11 @@ export interface Preview extends Disposable {
   settleOnWrite(): void
   /** Called off: what moved flies back to where it was, as a local drag Escape calls off. */
   cancel(): void
+  /**
+   * Hears it end, once, however it does: settled by its write or its timeout, called off, or disposed. Stops hearing
+   * when the function it gives is called.
+   */
+  onEnd(listener: () => void): () => void
 }
 
 /** What a preview reads of a document change, to know when its write has come. */
@@ -106,6 +111,7 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
   }
 
   let frame = 0
+  const ends = new Set<() => void>()
 
   const life: PreviewLife = lives.start(
     parts[0]?.kind ?? "board",
@@ -119,6 +125,12 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
       for (const part of parts) {
         part.end(ending, covering)
       }
+
+      for (const listener of ends) {
+        listener()
+      }
+
+      ends.clear()
     }
   )
 
@@ -179,6 +191,13 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
       }
     },
     cancel: () => life.end("cancel"),
+    onEnd(listener) {
+      if (!life.ended) {
+        ends.add(listener)
+      }
+
+      return () => ends.delete(listener)
+    },
     [Symbol.dispose]: () => life.end("disposed")
   }
 }

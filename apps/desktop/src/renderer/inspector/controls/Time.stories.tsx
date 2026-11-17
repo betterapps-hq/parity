@@ -1,4 +1,4 @@
-import { bezierCss } from "@parity-app/style-schema"
+import { bezierCss, defaultTransitionDuration } from "@parity-app/style-schema"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useState } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
@@ -27,15 +27,15 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const curve = bezierCss(defaultCurve)
-
 /** The card, moving over the time set, with the story's duration tokens, a token made here among them. */
 function TimePreview({ which, time, spring }: { which: "duration" | "delay"; time?: Time; spring?: Spring }) {
   const { tokens } = useTokens("duration")
-  const ms = spring ? springSettle(spring) : (timeMs(time, tokens) ?? (which === "duration" ? defaultDuration : 0))
+  const { tokens: easings } = useTokens("easing")
+  const curve = bezierCss(defaultCurve(easings))
+  const unset = defaultDuration(tokens)
+  const ms = spring ? springSettle(spring) : (timeMs(time, tokens) ?? (which === "duration" ? unset : 0))
 
-  const transition =
-    which === "duration" ? `translate ${ms}ms ${curve}` : `translate ${defaultDuration}ms ${curve} ${ms}ms`
+  const transition = which === "duration" ? `translate ${ms}ms ${curve}` : `translate ${unset}ms ${curve} ${ms}ms`
 
   return <HoverCard transition={transition} />
 }
@@ -83,7 +83,7 @@ function Timing({
           label={label}
           which={which}
           value={time}
-          defaultMs={which === "duration" ? defaultDuration : 0}
+          defaultMs={which === "duration" ? defaultTransitionDuration : 0}
           mixed={mixed && time === undefined}
           setBy={
             spring && "duration" in spring
@@ -101,7 +101,7 @@ function Timing({
   )
 }
 
-/** Unset: Tailwind's default, 150ms, shown faintly, and nothing written. */
+/** Unset: the project's default, 150ms, shown faintly, and nothing written. */
 export const Unset: Story = { render: () => <Timing /> }
 
 /** 200ms, a step: `duration-200`, unmarked in a project with no duration tokens. Alt+Up makes it 201ms. */

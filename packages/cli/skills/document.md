@@ -360,11 +360,12 @@ plays them, so put them on the base and let the state change the look:
 
 | Field      | Takes                                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------------------- |
-| `property` | `all`, `colors`, `opacity`, `transform` or `shadow`, as Tailwind's `transition-*`, or a CSS property (`width`) |
-| `duration` | `{ "step": 200 }` in milliseconds, or a duration token; Tailwind's 150ms when unset                            |
+| `property` | A set, `all`, `colors`, `opacity`, `transform` or `shadow`, or a CSS property (`width`)                        |
+| `duration` | `{ "step": 200 }` in milliseconds, or a duration token; the project's default, else 150ms, when unset          |
 | `delay`    | As `duration`                                                                                                  |
-| `easing`   | `{ "keyword": … }` with `linear`, `ease-in`, `ease-out` or `ease-in-out`; an easing token; `{ "value": … }`    |
-|            | with `cubic-bezier(…)` or `steps(…)`; or a spring. Tailwind's default curve when unset                         |
+| `easing`   | `{ "keyword": … }` with `linear`, `ease`, `ease-in`, `ease-out` or `ease-in-out`, drawn as the project's token |
+|            | of that name where it has one; an easing token; `{ "value": … }` with `cubic-bezier(…)` or `steps(…)`; or a    |
+|            | spring. The project's default curve, else `ease`, when unset                                                   |
 | `off`      | `true` keeps the entry without playing it                                                                      |
 
 A spring is `{ "spring": { "duration": 400, "bounce": 0.3 } }` or

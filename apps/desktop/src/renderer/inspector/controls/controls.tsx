@@ -593,7 +593,7 @@ export function SizeField({
 /** Every word W and H take, in Sizing's order. */
 const sizeModes: readonly SizeMode[] = ["hug", "fill", "min", "max"]
 
-/** Named ratios, as Tailwind names two of them (`aspect-square`, `aspect-video`). */
+/** The common ratios, the two everyone calls by name named. */
 const namedRatios = [
   { value: "1 / 1", name: "Square" },
   { value: "4 / 3", name: undefined },
@@ -1152,7 +1152,10 @@ const everySide = (px: number): Sides => [{ number: px }, { number: px }, { numb
 
 export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
   const borderWidths = useTokens("borderWidth").tokens
+  const colors = useTokens("color").tokens
   const usedColors = useUsedColors()
+  // A new stroke takes the project's border color, as shadcn's theme names it, else its first color.
+  const newBorder = colors.find((token) => token.name === "border")?.name ?? colors[0]?.name ?? "border"
   // A new stroke is in layout (call 2): a border. Out of layout, it's an outline at its position.
   const inLayout = draft.strokeInLayout ?? true
   const position: StrokePosition = inLayout ? "inside" : (draft.strokePosition ?? "inside")
@@ -1178,7 +1181,7 @@ export function StrokeSection({ draft, set, tokensOnly }: SectionProps) {
                 strokeInLayout: undefined,
                 strokePosition: undefined
               }
-            : { border: "border", borderWidth: oneEverySide }
+            : { border: newBorder, borderWidth: oneEverySide }
         )
       }}
     />
