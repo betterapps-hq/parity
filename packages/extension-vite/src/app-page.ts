@@ -11,34 +11,15 @@ export const pageEntryId = "virtual:parity/page"
  * Puts the page runtime first in the app's own page, served by the guest's development server alone (PAR-1260): a
  * module script at the top of `<head>`, so it runs before the app's own modules, whose entry imports the runtime and
  * the extensions' page modules from Parity's files. `modules` gives them once the builder has the project's config.
- * The app's own modules get a wrapped package through its module instead (PAR-1265), which gets the app's copy.
  */
 export function appPageRuntime(
   modules: () => PageModules | undefined,
   normalizePath: (path: string) => string
 ): Vite.Plugin {
-  let root = ""
-
   return {
     name: "canvas:app-page-runtime",
     apply: "serve",
-    configResolved(config) {
-      root = config.root
-    },
-    resolveId(id, importer) {
-      if (id === pageEntryId) {
-        return `\0${pageEntryId}`
-      }
-
-      const wrapped = wrappedImport(id, importer, modules()?.wraps ?? [], normalizePath)
-
-      // The wrapping module's own import is the app's copy, resolved as the app's root would.
-      if (wrapped === "app") {
-        return this.resolve(id, `${root}/index.html`, { skipSelf: true })
-      }
-
-      return wrapped?.file
-    },
+    resolveId: (id) => (id === pageEntryId ? `\0${pageEntryId}` : undefined),
     load(id) {
       if (id !== `\0${pageEntryId}`) {
         return undefined
@@ -52,6 +33,36 @@ export function appPageRuntime(
     transformIndexHtml: () => [
       { tag: "script", attrs: { type: "module", src: `/@id/__x00__${pageEntryId}` }, injectTo: "head-prepend" }
     ]
+  }
+}
+
+/**
+ * Serves the app's own modules a wrapped package through its module of Parity's instead (PAR-1265), which gets the
+ * app's copy. It runs before Vite's own resolver, which would otherwise find the installed package first.
+ */
+export function appPageWraps(
+  modules: () => PageModules | undefined,
+  normalizePath: (path: string) => string
+): Vite.Plugin {
+  let root = ""
+
+  return {
+    name: "canvas:app-page-wraps",
+    apply: "serve",
+    enforce: "pre",
+    configResolved(config) {
+      root = config.root
+    },
+    resolveId(id, importer) {
+      const wrapped = wrappedImport(id, importer, modules()?.wraps ?? [], normalizePath)
+
+      // The wrapping module's own import is the app's copy, resolved as the app's root would.
+      if (wrapped === "app") {
+        return this.resolve(id, `${root}/index.html`, { skipSelf: true })
+      }
+
+      return wrapped?.file
+    }
   }
 }
 

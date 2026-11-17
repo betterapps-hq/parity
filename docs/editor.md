@@ -8467,9 +8467,9 @@ with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `
 `apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
 `packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
 `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
-`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageRuntime` and by `pageWrapRules` in
-`guest-config.ts`; and `pageEntries` and `pageExternals` in `apps/desktop/src/shared/built-in-extensions.ts`, which
-`apps/desktop/scripts/build.ts` bundles for a packaged app.
+`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs before Vite's own
+resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
+`apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
@@ -8505,21 +8505,22 @@ that draws nothing new; one given up when aborted while a loader is pending; the
 `packages/extension-nextjs/src/page.test.ts` (9: either router found or not; where the page is; an App Router navigation
 resolved when it commits, redirected or not; its not-found and other fallbacks; one given up when aborted, with
 `history` left as it was; a Pages Router navigation with its 404 and error pages; one given up when aborted; each
-router's watcher told until it stops), `packages/extension-vite/src/app-page.test.ts` (6: the page entry; a wrapped
-package served to the app's own modules, not to packages'; the wrapping module's own import resolved from the app's
-root; nothing before the config; the wrapping modules' folders allowed), `packages/extension-react/src/page.test.ts` (4:
-the first commit to the app's root, never to a root in a shadow root, as Next's overlay's, with real React; giving up
-when aborted; the document and an element in the page as roots; only `#__next` or the document under Next),
-`packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the page runtime first in each of the app's
-entries" and "serves a wrapped package to the app's own modules"), `server.test.ts` (`isPageOrigin`),
-`guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
-routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
-("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
-to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, drawing the lines, groups,
-landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried
-in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each
-line meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no
-scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
+router's watcher told until it stops), `packages/extension-vite/src/app-page.test.ts` (6: a wrapped package served to
+the app's own modules, not to packages'; the wrapping module's own import sent to the app's copy; nothing without
+wrapped packages; the wrapping modules' folders allowed; and, through a real Vite server, the app's import reaching the
+wrapper ahead of Vite's own resolver and the wrapper's reaching the app's installed copy),
+`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
+Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
+`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
+page runtime first in each of the app's entries" and "serves a wrapped package to the app's own modules"),
+`server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the page runtime in the browser before a page's own
+code"), `hosts.test.ts` ("gives the routers' page modules" and "gives the packages a router's page module wraps") and
+`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
+the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
+drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test
+of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
+path read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide:
+App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
 (`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
 Pricing, Settings' group and Billing and hovering Projects.
 

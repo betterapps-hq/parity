@@ -1,6 +1,10 @@
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { dirname, join } from "node:path"
 import type { PageModules } from "@parity-app/core"
-import { describe, expect, it } from "vite-plus/test"
-import { pageFolders, wrappedImport } from "./app-page.ts"
+import { createServer, normalizePath } from "vite"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
+import { appPageWraps, pageFolders, wrappedImport } from "./app-page.ts"
 
 const wrapper = "/parity/page/react-router--react-router.mjs"
 
@@ -38,4 +42,65 @@ describe("pageFolders", () => {
   it("lets the server serve the wrapping modules' folders too", () => {
     expect(pageFolders(modules)).toEqual(["/parity", "/parity/page"])
   })
+})
+
+describe("appPageWraps", () => {
+  let folder: string
+
+  beforeEach(async () => {
+    // The real path: Windows runners' tmpdir can use a short (8.3) name, which crashes libuv's watcher.
+    folder = await realpath(await mkdtemp(join(tmpdir(), "parity-wraps-")))
+
+    const files = {
+      "app/package.json": JSON.stringify({ name: "fixture", type: "module" }),
+      "app/main.js": 'import { createBrowserRouter } from "react-router"\nexport default createBrowserRouter\n',
+      "app/node_modules/react-router/package.json": JSON.stringify({
+        name: "react-router",
+        type: "module",
+        main: "index.js"
+      }),
+      "app/node_modules/react-router/index.js": "export const createBrowserRouter = () => ({})\n",
+      "parity/wrap.js": 'export * from "react-router"\n'
+    }
+
+    for (const [path, content] of Object.entries(files)) {
+      await mkdir(dirname(join(folder, path)), { recursive: true })
+      await writeFile(join(folder, path), content)
+    }
+  })
+
+  afterEach(async () => {
+    await rm(folder, { recursive: true, force: true })
+  })
+
+  it("runs before Vite's own resolver, so the app's import reaches the wrapper and the wrapper the app's copy", async () => {
+    const wrapper = normalizePath(join(folder, "parity/wrap.js"))
+    const root = normalizePath(join(folder, "app"))
+
+    const given: PageModules = {
+      runtime: join(folder, "parity/page-runtime.js"),
+      routers: [],
+      hydration: [],
+      wraps: [{ extension: "react-router", package: "react-router", file: wrapper }]
+    }
+
+    const server = await createServer({
+      root,
+      configFile: false,
+      logLevel: "silent",
+      server: { middlewareMode: true, hmr: false, watch: null },
+      optimizeDeps: { noDiscovery: true },
+      plugins: [appPageWraps(() => given, normalizePath)]
+    })
+
+    try {
+      const resolve = (id: string, importer: string) =>
+        server.environments.client.pluginContainer.resolveId(id, importer)
+
+      expect((await resolve("react-router", `${root}/main.js`))?.id).toBe(wrapper)
+      expect((await resolve("react-router", wrapper))?.id).toBe(`${root}/node_modules/react-router/index.js`)
+    } finally {
+      await server.close()
+    }
+  }, 30_000)
 })
