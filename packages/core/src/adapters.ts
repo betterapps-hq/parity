@@ -367,6 +367,21 @@ export interface PageModuleRef {
   export: string
 }
 
+/**
+ * A router's page module, with the prefix of the extension that gives it, and the packages the app's own code imports
+ * that the builder serves through a module of the extension's in the app's page (PAR-1265).
+ */
+export interface PageRouterRef extends PageModuleRef {
+  extension: string
+  wraps?: PageWrapRef[]
+}
+
+/** A package the app imports, and the module of Parity's, by its specifier, that the builder serves in its place. */
+export interface PageWrapRef {
+  package: string
+  module: string
+}
+
 /** The specifier of a package's export, as `./guest` of `@parity-app/extension-react` is `@parity-app/extension-react/guest`. */
 export function packageExport(name: string, path: string): string {
   return `${name}/${path.replace(/^\.\//, "")}`

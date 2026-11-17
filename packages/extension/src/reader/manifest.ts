@@ -209,7 +209,11 @@ const providers = z.strictObject({
     })
     .optional(),
   router: z
-    .strictObject({ decorators: z.array(frameDecorator).max(20).optional(), page: pageModule.optional() })
+    .strictObject({
+      decorators: z.array(frameDecorator).max(20).optional(),
+      page: pageModule.optional(),
+      pageWraps: z.record(z.string().min(1).max(214), z.string().startsWith("./")).optional()
+    })
     .optional(),
   entities: z
     .strictObject({

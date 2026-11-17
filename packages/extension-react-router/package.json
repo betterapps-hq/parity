@@ -8,11 +8,17 @@
   "main": "src/extension.ts",
   "exports": {
     ".": "./src/extension.ts",
+    "./page": "./src/page.ts",
+    "./page-wrap/react-router": "./src/page-wrap/react-router.ts",
     "./package.json": "./package.json"
   },
   "dependencies": {
     "@parity-app/extension": "workspace:*",
     "typescript": "6.0.3"
+  },
+  "devDependencies": {
+    "happy-dom": "catalog:",
+    "react-router": "^8.5.1"
   },
   "peerDependencies": {
     "react-router": "^7.0.0 || ^8.0.0"
@@ -109,7 +115,14 @@
                 }
               }
             }
-          ]
+          ],
+          "page": {
+            "import": "./page",
+            "export": "reactRouterPage"
+          },
+          "pageWraps": {
+            "react-router": "./page-wrap/react-router"
+          }
         }
       }
     }

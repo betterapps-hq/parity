@@ -1,6 +1,13 @@
+import { join } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
 import { type Bundler, type BundlerConfig, type BundlerPlugin, bundlerRule } from "./bundler.ts"
-import { developmentStandIn, guestConfig, type GuestConfigOptions, withExtraction } from "./guest-config.ts"
+import {
+  developmentStandIn,
+  guestConfig,
+  type GuestConfigOptions,
+  pageWrapRules,
+  withExtraction
+} from "./guest-config.ts"
 
 /** A plugin standing in for one of the bundler's, named as its class would be. */
 function plugin(name: string): BundlerPlugin {
@@ -87,6 +94,28 @@ describe("guestConfig", () => {
       "app-index": { import: [pageEntry, "./src/index.tsx"] },
       "app-admin": { import: [pageEntry, "./src/polyfills.ts", "./src/admin.tsx"] }
     })
+  })
+
+  it("serves a wrapped package to the app's own modules through Parity's module, which gets the app's copy (PAR-1265)", () => {
+    const wrapper = "/parity/page/react-router--react-router.mjs"
+    const rules = pageWrapRules([{ package: "react-router", file: wrapper }], "/app")
+    const excluded = (file: string) => rules?.appModules.exclude.some((exclude) => exclude.test(file))
+
+    expect(rules?.appModules.resolve.alias).toEqual({ "react-router$": wrapper })
+    expect(excluded("/app/node_modules/react-router-dom/index.js")).toBe(true)
+    expect(excluded(wrapper)).toBe(true)
+    expect(excluded("/app/src/main.tsx")).toBe(false)
+    expect(rules?.wrappers.test.some((test) => test.test(wrapper))).toBe(true)
+    expect(rules?.wrappers.resolve.modules[0]).toBe(join("/app", "node_modules"))
+
+    const config = guestConfig({}, bundler, { ...options, pageWraps: [{ package: "react-router", file: wrapper }] })
+
+    expect(config.module?.rules?.slice(-2)).toEqual([rules?.appModules, rules?.wrappers])
+  })
+
+  it("adds no rules for wrapped packages when there are none", () => {
+    expect(pageWrapRules([], "/app")).toBeUndefined()
+    expect(guestConfig({}, bundler, options).module?.rules).toHaveLength(2)
   })
 
   it("keeps the project's rules and plugins, but its HTML pages and Fast Refresh, and adds hot updates", () => {

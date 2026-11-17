@@ -33,7 +33,7 @@ import {
   scriptRunning
 } from "@parity-app/project"
 import type * as Vite from "vite"
-import { appPageRuntime, pageFolders } from "./app-page.ts"
+import { appPageRuntime, appPageWraps, pageFolders } from "./app-page.ts"
 import { serverAppStyles, viteAppStyles } from "./app-styles.ts"
 import { stampChange } from "./code-changes.ts"
 import { dependencySourceMaps } from "./dependency-maps.ts"
@@ -131,7 +131,8 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
       guestPlugin(options.renderer, () => served, vite.normalizePath(options.rendererGuestPath)),
       elementSources(vite.normalizePath(options.root)),
       dependencySourceMaps(),
-      appPageRuntime(() => served?.pageModules, vite.normalizePath)
+      appPageRuntime(() => served?.pageModules, vite.normalizePath),
+      appPageWraps(() => served?.pageModules, vite.normalizePath)
     ]
   })
 

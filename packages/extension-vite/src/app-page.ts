@@ -1,6 +1,6 @@
 import { createRequire } from "node:module"
 import { dirname } from "node:path"
-import type { PageModules } from "@parity-app/core"
+import type { PageModules, PageWrapFile } from "@parity-app/core"
 import { pageEntrySource } from "@parity-app/project"
 import type * as Vite from "vite"
 
@@ -37,11 +37,71 @@ export function appPageRuntime(
 }
 
 /**
+ * Serves the app's own modules a wrapped package through its module of Parity's instead (PAR-1265), which gets the
+ * app's copy. It runs before Vite's own resolver, which would otherwise find the installed package first.
+ */
+export function appPageWraps(
+  modules: () => PageModules | undefined,
+  normalizePath: (path: string) => string
+): Vite.Plugin {
+  let root = ""
+
+  return {
+    name: "canvas:app-page-wraps",
+    apply: "serve",
+    enforce: "pre",
+    configResolved(config) {
+      root = config.root
+    },
+    resolveId(id, importer) {
+      const wrapped = wrappedImport(id, importer, modules()?.wraps ?? [], normalizePath)
+
+      // The wrapping module's own import is the app's copy, resolved as the app's root would.
+      if (wrapped === "app") {
+        return this.resolve(id, `${root}/index.html`, { skipSelf: true })
+      }
+
+      return wrapped?.file
+    }
+  }
+}
+
+/**
+ * Where an import of a wrapped package goes (PAR-1265): from the app's own modules, to the file of Parity's module that
+ * wraps it; from that module itself, to the app's own copy (`"app"`). Packages' own imports, and other packages, are left
+ * alone.
+ */
+export function wrappedImport(
+  id: string,
+  importer: string | undefined,
+  wraps: readonly PageWrapFile[],
+  normalizePath: (path: string) => string
+): { file: string } | "app" | undefined {
+  const wrap = wraps.find((candidate) => candidate.package === id)
+
+  if (!wrap || !importer) {
+    return undefined
+  }
+
+  const file = normalizePath(wrap.file)
+  const from = normalizePath(importer.replace(/[?#].*$/, ""))
+
+  if (from === file) {
+    return "app"
+  }
+
+  return from.includes("/node_modules/") ? undefined : { file }
+}
+
+/**
  * The folders the page's modules are read from, which the server must be allowed to serve: each module's, and in
  * development, where the runtime's source finds `@parity-app/channel`. A packaged app's are bundled beside the guest.
  */
 export function pageFolders(modules: PageModules): string[] {
-  const files = [modules.runtime, ...[...modules.routers, ...modules.hydration].map((module) => module.file)]
+  const files = [
+    modules.runtime,
+    ...[...modules.routers, ...modules.hydration, ...(modules.wraps ?? [])].map((module) => module.file)
+  ]
 
   const channel = /\.tsx?$/.test(modules.runtime)
     ? [dirname(createRequire(modules.runtime).resolve("@parity-app/channel"))]
