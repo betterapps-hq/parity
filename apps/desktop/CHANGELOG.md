@@ -1,8 +1,23 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 09:28:36 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 11:01:09 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.105.0
+
+Tue, 17 Nov 2026 11:01:09 GMT
+
+### Minor changes
+
+- Show the open project in the lens shell, with today's canvas, Layers and inspector as its first lens, Screens
+  (ajcraswell@gmail.com)
+- Debug internal extensions without Sentry: PARITY_EXTENSIONS_DEBUG traces calls into window modules, and their log tab
+  marks each line's half (ajcraswell@gmail.com)
+- Route boards show frozen copies of the app's pages, made by one freezer frame per project, with selection, Layers and
+  the Design panel reaching their elements (ajcraswell@gmail.com)
+- Press Ctrl (Cmd on a Mac) while dragging a layer to drop it into the layout under the pointer, even a neighbour
+  (ajcraswell@gmail.com)
 
 ## 0.104.0
 
