@@ -180,7 +180,7 @@ interface Frame {
   location?: PageLocation
   /** Busy being moved, so the pool's plan leaves it be. */
   busy: boolean
-  /** The move it's making with the app's router, which going live waits for. */
+  /** The move it's making with the app's router, which going live waits for, and fails with when the move does. */
   moving?: Promise<void>
 }
 
@@ -292,6 +292,11 @@ export class Pool {
 
   /** A board now draws another URL: its live page ends and its board shows its copy at the new URL. */
   retarget(id: string): void {
+    // A press on its way to going live at the old URL stops there.
+    if (this.going === id) {
+      this.going = undefined
+    }
+
     if (this.warming?.board === id) {
       this.unwarm()
     }
@@ -582,7 +587,9 @@ export class Pool {
       }
     )
 
-    frame.moving = moving.catch(() => undefined)
+    // Kept failing, so going live sees a move that failed and closes the frame; nobody else need hear of it.
+    moving.catch(() => undefined)
+    frame.moving = moving
 
     return moving
   }
