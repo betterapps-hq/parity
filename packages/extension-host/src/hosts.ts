@@ -1,5 +1,5 @@
 import { type Channel, createChannel, type Port } from "@parity-app/channel"
-import type { RouteMark } from "@parity-app/core"
+import { packageExport, type PageModuleRef, type RouteMark } from "@parity-app/core"
 import type {
   Candidate,
   CommandTarget,
@@ -387,6 +387,11 @@ export interface ExtensionHosts<Project extends OpenedProject> {
    * each router's decorators, with its prefix, in the order the extensions were given.
    */
   decorators(projectId: string): { extension: string; decorator: FrameDecorator }[]
+  /**
+   * The page modules of the project's routers, from their manifests (PAR-1260): each router's, with its prefix and its
+   * module by the specifier Parity resolves, in the order the extensions were given.
+   */
+  pageRouters(projectId: string): (PageModuleRef & { extension: string })[]
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -1578,6 +1583,17 @@ export function extensionHosts<Project extends OpenedProject>(
           decorator
         }))
       )
+    },
+    pageRouters(projectId) {
+      const open = projects.get(projectId)
+
+      return [...(open?.hosts.values() ?? [])].flatMap(({ extension: { package: found } }) => {
+        const page = found.manifest.contributes.providers?.router?.page
+
+        return page
+          ? [{ extension: found.manifest.prefix, module: packageExport(found.id, page.import), export: page.export }]
+          : []
+      })
     },
     async provide(projectId, call, extension) {
       const open = projectOf(projectId)

@@ -3,7 +3,7 @@ import type { Server } from "node:http"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vite-plus/test"
-import { freePort, serveGuest } from "./server.ts"
+import { freePort, isPageOrigin, serveGuest } from "./server.ts"
 
 let folder: string
 let server: Server | undefined
@@ -65,5 +65,15 @@ describe("serveGuest", () => {
 
     builds.changed = 2
     expect(await (await fetch(`${origin}/@parity/page-version`)).text()).toBe("2")
+  })
+})
+
+describe("isPageOrigin", () => {
+  it("takes the server's own port under a project's .localhost name, where the canvas loads its pages (PAR-1260)", () => {
+    expect(isPageOrigin("http://p1a2b3c.localhost:4000", 4000)).toBe(true)
+    expect(isPageOrigin("http://p1a2b3c.localhost:4001", 4000)).toBe(false)
+    expect(isPageOrigin("http://localhost.example.com:4000", 4000)).toBe(false)
+    expect(isPageOrigin("https://p1a2b3c.localhost:4000", 4000)).toBe(false)
+    expect(isPageOrigin("null", 4000)).toBe(false)
   })
 })

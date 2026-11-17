@@ -28,6 +28,8 @@ export interface GuestConfigOptions {
   elementSources: string
   /** The renderer's guest module, absolute, and the loader that gives it its address in the page. */
   renderer: { file: string; loader: string }
+  /** The page runtime's entry, absolute, which each of the app's entries runs first (`pageEntrySource`). */
+  pageEntry?: string
   /** The extensions a component's file may have, with the dot. */
   componentExtensions: readonly string[]
   /**
@@ -63,8 +65,14 @@ export function guestConfig(config: BundlerConfig, bundler: Bundler, options: Gu
       : []
   })
 
-  // The app's own entries are built beside the guest's, for the pages the canvas draws routes from.
-  const app = appEntries(config.entry)
+  // The app's own entries are built beside the guest's, for the pages the canvas draws routes from, each running the
+  // page runtime first. The page has one runtime chunk, so the runtime runs once however many entries it loads.
+  const app = Object.fromEntries(
+    Object.entries(appEntries(config.entry)).map(([name, entry]) => [
+      name,
+      { import: options.pageEntry ? [options.pageEntry, ...entry.import] : entry.import }
+    ])
+  )
 
   const projectPlugins = (config.plugins ?? []).flatMap((entry) => {
     const plugin = bundlerPlugin.safeParse(entry)

@@ -795,7 +795,7 @@ Tests:
   nothing changed for the same place, itself, another file or a missing design.
 - `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): Searching, NothingFound, CollapsedAll,
   OpenedWithEverythingInside (Alt+click), OpenedWithItsSiblings (`*`), SelectionMovedOn, HiddenFromItsEye,
-  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-05.
+  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-16.
 - `apps/desktop/e2e/app.ts`: `selectDesignInLayers` and `toggleInLayers` scroll the panel with the mouse wheel to a row
   out of view, which `sleeping.e2e.ts` and `fields.e2e.ts` use.
 
@@ -2915,9 +2915,9 @@ Tests:
   lock left to the canvas; and Unlock read only when every design is locked.
 - `chrome/canvas-menu.test.ts` and `chrome/layers-menu.test.ts`: Lock in each menu, unavailable inside an instance and
   on the root, and in a design's menu.
-- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Features")
-  and LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
-  2026-11-06.
+- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Hero") and
+  LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
+  2026-11-16.
 - `e2e/menus.e2e.ts`: the canvas menu lists Lock with Ctrl+Shift+L.
 
 Gaps: clicking through a locked layer, a locked design ignoring clicks and its title, and Ctrl+Shift+L were tried on the
@@ -2938,8 +2938,8 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   corner marks the pointer where it goes in an absolutely placed layout. A drop on the empty canvas makes a screen there
   (PAR-546, below); one over a design where there's no layout says so.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
-  layout or slot; or at the end of a selected design's root. With nothing selected it makes a screen in the middle of
-  the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
+  layout or slot; or at the end of a selected design's root. With nothing selected it makes a frame in the middle of the
+  view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
 - **What goes in is ready to show something.** A component gets its required props (an option's first value, `false`,
   `0` or its own name, unless they have a default) and its name as text when it takes children. A library's part comes
   inside the parents it needs that aren't around the layout already, with their samples.
@@ -6142,8 +6142,8 @@ Tests:
   the variant's changes.
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
-- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
-  menu offers Show.
+- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Pricing's Compact option hides its lede, and the lede's
+  row's menu offers Show.
 - `packages/editor/src/style-editing.test.ts` (PAR-567): an edit in a variant option the board shows landing in the
   option, a state's edit leaving the design alone, resets across layers, and the parent's layout read with a variant's
   direction and inside an instance (see Fields, Typing, stepping and scrubbing).
@@ -6662,7 +6662,7 @@ Tests:
   palette shade), DetailFromTheKeyboard (the right arrow in and Escape back, past a spacing step's disabled Edit),
   Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token,
   refused) and DescribedOnly (the end of the list, drawn once scrolled to). All 29 of the file's stories played in
-  Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
+  Storybook on 2026-11-16. Gap: FoldedSections clears the search with the section already open, so no story folds one
   during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
   empties the folded set whenever the search goes from empty to not, or back.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module. The
@@ -8408,7 +8408,11 @@ A screen is named for the component its route draws, else its path.
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
-  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
+  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window. A frame loads under
+  a name of its project's own, `http://p<hash>.localhost:<port>` (`pageFrameUrl`), which Chromium reaches on the
+  loopback address and runs in a process of its own, so one project's pages never share a process with another's
+  (PAR-1260). Vite and Next's development server accept those names as they come; the webpack-compatible builders'
+  server lets the page's own name load its chunks (`isPageOrigin`).
 - **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
   view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, and an unset
@@ -8437,20 +8441,34 @@ A screen is named for the component its route draws, else its path.
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
   and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a design's frame is, so Tab on
   the canvas never goes into the page and leaves the canvas's keys there (`keyboard.e2e.ts`, "keys outside Interact").
-- **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
-  and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
-  attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
+- **The page runtime (PAR-1260).** The builder serves the page runtime first in the app's page
+  (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
+  script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
+  Next from its `instrumentation-client`, which every client entry runs before React. With it come the extensions' page
+  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`), and
+  the renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
+  waits for the first commit to the app's root, never to Next's development overlay). The frame's name is `parity:` and
+  JSON with the protocol's version, the frame's id, Parity's origin, and the mode and window it opens in. The runtime
+  posts its hello to Parity's origin only, and Parity checks the hello's origin and source, hands it a `MessagePort` and
+  runs `@parity-app/channel` on it (`usePageChannel`). A page that reloads says hello again and gets a new port. Once
+  the app has hydrated, the page says where it is and which router can move it; with no hydration module, once it has
+  loaded and its DOM has been quiet for 150 ms. After that it says where it moves by itself, by its router or by its
+  address, and that someone used it, at most once a second. Anywhere other than a frame Parity named, the runtime does
+  nothing.
+- **Modes reach the page, without a reload.** The frame opens in its mode, and when the mode changes Parity sends it
+  with `mode.set`: the runtime puts the mode's classes and attributes on `<html>`, takes off the last mode's, and
+  answers `prefers-color-scheme` with the mode's scheme, telling the app's queries when the answer changes. An app that
   follows the system's theme, as the example's theme provider does, follows the mode's: in Desktop Light the page's
   `<html>` is `light` with a white background. An app that keeps its own choice of theme, in `localStorage`, uses that,
   and its page frames share it, since they're one origin.
 - **As tall as the page.** Each viewport's frame is as wide as its viewport and as tall as its page, with no scrollbar:
-  App, whose page runs 49px past a 1280 × 800 window, is 1280 × 849. The script the builder's server puts first in the
-  app's `index.html` posts the document's height to the canvas, `{ parity: "page-height", height }`, whenever it changes
-  while the frame is still as tall as its screen (Desktop 800, Tablet 1024, Mobile 844), and the frame grows to it but
-  never shrinks below the screen. It measures only at the screen's height because a page with a section as tall as the
-  window grows with the frame, without end; once the frame has grown, what such a section runs past isn't given a
-  scrollbar. So a page that changes after it first draws, as with the Interact tool, keeps the height it first had. A
-  frame given a height of its own keeps it and scrolls, but page frames have no resize handles yet.
+  App, whose page runs 49px past a 1280 × 800 window, is 1280 × 849. The runtime hides the page's scrollbar, so the page
+  lays out at the mode's whole width, and says how tall the page is (`page.height`) whenever that changes while its
+  window is the mode's (Desktop 800, Tablet 1024, Mobile 844). The frame grows to it but never shrinks below the window.
+  It measures only in the mode's window because a page with a section as tall as the window grows with the frame,
+  without end. A mode that changes takes the frame back to its window until the page says how tall it is there. So a
+  page that changes after it first draws, as with the Interact tool, keeps the height it first had. A frame given a
+  height of its own keeps it and scrolls, but page frames have no resize handles yet.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
@@ -8462,15 +8480,30 @@ its four pages a level in, and Billing and Profile in the Settings folder; click
 canvas. Moving Pricing's page with `history.replaceState` showed "Lands on /pricing/annual" under its frame. Dashboard's
 frame drew the login page, and its row in Layers showed the warning, with "Lands on /login" on hover.
 
+The page runtime was tried in a development build on the example project (PAR-1260): all eight page frames loaded under
+the project's own `p….localhost` name, each with `window.parityFrame`, the mode's classes and no scrollbar, and App's
+frame grew to 849 from the page's `page.height`. Dashboard's warning came from its `page.ready`. Setting Desktop Light's
+theme to Dark in the Modes panel turned every page dark without loading it again, its `prefers-color-scheme` query
+answering dark, and back. Setting its viewport to Mobile made App's frame 390 wide and 893 tall, measured in the 390 ×
+844 window, and back to 849. A page that reloaded by itself connected again and took both changes.
+
 Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
-`pageLandedMessage` and `landedElsewhere` in `packages/editor/src/route-boards.ts`, with `titleTop` in
+`landedElsewhere`, `pageMode` and `pageFrameUrl` in `packages/editor/src/route-boards.ts`, with `titleTop` in
 `canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
 `apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
-`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`; `routeLines` in
-`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`, and
-`appPageModeScript` in `app-page.ts`, whose messages `pageHeightMessage` and `pageLandedMessage` read.
+`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`, and `usePageChannel` in
+`page-channel.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in
+`packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
+`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
+in `packages/extension-tanstack-router/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each
+manifest's `page`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
+`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
+`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
+`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
+`packages/next-builders/src/start.ts`; and `pageEntries` in `apps/desktop/src/shared/built-in-extensions.ts`, which
+`apps/desktop/scripts/build.ts` bundles for a packaged app.
 
-Tests: `packages/editor/src/route-boards.test.ts` (34: each layout's pages hung from its index, the root's index at the
+Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
 that redirects but draws staying a page, and a layout without an index a group; a forest without a root index, and
 nothing without routes; each page centered over the pages under it, a level below; a group's pages side by side inside
@@ -8478,25 +8511,38 @@ it on its own level, with the page above centered over the group; each page's UR
 empty sample; a screen for each page, named for its component, with the screen it hangs from, ending above the designs;
 a group for a layout without a page, hanging from the page above, with the page its index redirects to, its pages
 hanging from it and no screen for the layout; a pathless layout's group named for its component; a page's frames with no
-size of their own; the page's height read from its frame's message, rounded up, and no other message or a height that
-isn't a positive number; the path a page landed on read from its frame's message, and no other message or a path that
-isn't one; the landed path given when it isn't the page's own, and nothing for its own with or without a trailing slash;
-a group's box round its pages' titles; a line curving across above the lower page's title and dropping to its board,
-turning down higher zoomed out, and curving all the way down once the title reaches the page above; the lines a page
-brings forward, up to the top of the tree and down to the pages right under it, for several pages at once, and none for
-no page or a page outside the tree; a line into a group curving straight to its top), `canvas-labels.test.ts`
-(`titleTop`, up close and zoomed out), `packages/extension-tanstack-router/src/routes.test.ts` (the example's
-`/settings` index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
-`packages/extension-vite/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
-told once the frame is taller than its screen, the scrollbar hidden while it is and given back otherwise, the path the
-page opens on and where the router moves it told, nothing told once someone uses the page, and nothing told outside a
-page's frame). Gaps: reading routes when the project opens, the page frames, drawing the lines, groups, landing warning
-and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
-lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
-its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
-rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
-opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
-hovering Projects.
+size of their own; a mode's classes, attributes and scheme as the page draws in them; a page's URL under its project's
+own `.localhost` name, and each project a name of its own; the landed path given when it isn't the page's own, and
+nothing for its own with or without a trailing slash; a group's box round its pages' titles; a line curving across above
+the lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
+title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
+under it, for several pages at once, and none for no page or a page outside the tree; a line into a group curving
+straight to its top), `canvas-labels.test.ts` (`titleTop`, up close and zoomed out),
+`packages/extension-tanstack-router/src/routes.test.ts` (the example's `/settings` index redirecting to Profile, and a
+route that always redirects told from one that sometimes does), and the page runtime's (PAR-1260):
+`packages/page-runtime/src/runtime.test.ts` (16: nothing in a window Parity didn't name, nor in a frame named in another
+version; the hello to Parity's origin alone; a port taken only from Parity's origin; the scrollbar hidden; the mode the
+frame opens in, changed without a reload, with `prefers-color-scheme` answered and its query told; a `mode.set` it can't
+read refused; the height told in the mode's window, rounded up, and not once the frame has grown; ready once a page
+without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
+app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
+`route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
+second), `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where
+it resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
+not when it's first idle; one given up when aborted; the watcher told until it stops),
+`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
+Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
+`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
+page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the
+page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules") and
+`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
+the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
+drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test
+of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
+path read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide:
+App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
+(`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
+Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

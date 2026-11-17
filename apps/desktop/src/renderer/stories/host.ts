@@ -514,6 +514,19 @@ export function installHost(): void {
 /** What the window answers the service with, once it serves: agents' requests, and extensions' changes and questions. */
 let windowHandler: ((method: WindowMethod, params: WindowParams) => Promise<ServeAnswer>) | undefined
 
+/**
+ * Hands the window a request from the service. The app's root starts serving them, and most stories draw the window
+ * without it, so the first request starts serving here.
+ */
+async function toWindow(method: WindowMethod, params: WindowParams): Promise<void> {
+  if (!windowHandler) {
+    const { serveAgents } = await import("../agent/handlers.ts")
+    serveAgents()
+  }
+
+  await windowHandler?.(method, params)
+}
+
 const storybookExtension = readExtension(storybookPackage)
 
 /** Agent presence, built in and internal: a window module in every project tab, with no Node half. */
@@ -635,7 +648,7 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
 
 /** Shows what an extension shows through `parity.ui`, as the service passes it on to the window. */
 export async function askWindow(asked: ExtensionUiRequest): Promise<void> {
-  await windowHandler?.("extensions.ui", asked)
+  await toWindow("extensions.ui", asked)
 }
 
 /** A fresh copy of a project, as opening it again reads it again. */
@@ -930,7 +943,7 @@ async function respond(request: ServiceRequest): Promise<ServiceMethods[ServiceM
 
       // Show Storybook setup opens its page, as the extension's code reveals it.
       if (command === "storybook.setup") {
-        await windowHandler?.("extensions.reveal", { projectId, extension, view: "storybook.setupGuide" })
+        await toWindow("extensions.reveal", { projectId, extension, view: "storybook.setupGuide" })
 
         return undefined
       }

@@ -41,6 +41,12 @@ export interface ProjectConfig {
    */
   frameDecorators?: ExtensionDecorator[]
   /**
+   * What runs in the app's own page when the canvas draws a route (PAR-1260): the page runtime, and the router's and
+   * renderer's page modules. Each is a module of Parity's, by its absolute path, which the builder serves first in the
+   * page. Unset when the project has no routes to draw.
+   */
+  pageModules?: PageModules
+  /**
    * The project's preview file for Parity, `.parity/preview.tsx` or another script extension, relative to the root: its
    * Storybook preview exports (`decorators`, `loaders`, `parameters`, `globalTypes`, `initialGlobals`) apply to every
    * frame, inside the libraries' decorators (PAR-100). Without one, a preview an extension names for its tool, such as
@@ -71,6 +77,23 @@ export interface PreviewComposer {
   module: string
   /** The prefix of the extension that named the preview. */
   extension: string
+}
+
+/** The page runtime and the page modules a builder serves into the app's page, each by its absolute path. */
+export interface PageModules {
+  /** `@parity-app/page-runtime`'s module, which exports `startPageRuntime`. */
+  runtime: string
+  /** Page routers (`PageRouter`), the first the page finds being the one the runtime drives. */
+  routers: PageModuleFile[]
+  /** Hydration modules (`PageHydration`). */
+  hydration: PageModuleFile[]
+}
+
+/** A page module: the prefix of the extension that gives it, its file, and the name it exports what the runtime takes. */
+export interface PageModuleFile {
+  extension: string
+  file: string
+  export: string
 }
 
 /** A decorator an extension declares, with the prefix of the extension that declares it. */

@@ -23,7 +23,8 @@ function picture(src: string, width: number, height: number): PreviewImage {
 
 /**
  * Real previews of the example's UI kit in Parity's dark theme, as the offscreen renderer made them (PAR-207), by the
- * name each is kept under: a component's, or a variant's, as `Button?variant=outline`.
+ * name each is kept under: a component's, or a variant's, as `Button?variant=outline`. The kit is Shadcn Nova's now,
+ * whose components are asked for by their library's prefix, as `nova/Button`.
  */
 export const kitPictures = new Map([
   ["Button", picture(button, 164, 96)],
@@ -68,13 +69,14 @@ const forever = 24 * 60 * 60 * 1000
 export function answerPreviews(kept: Record<string, Kept> = examplePreviews): void {
   const answer = (component: string): ComponentPreview => {
     const key = `story:${component}`
-    const image = kitPictures.get(component)
+    const name = component.split("/").at(-1)!
+    const image = kitPictures.get(component) ?? kitPictures.get(name)
 
     if (image) {
       return { component, key, image }
     }
 
-    return { component, key, ...kept[component] }
+    return { component, key, ...(kept[component] ?? kept[name]) }
   }
 
   answering({

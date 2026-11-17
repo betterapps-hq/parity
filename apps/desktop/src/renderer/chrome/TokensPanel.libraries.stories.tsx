@@ -101,7 +101,7 @@ function library(file: string): Story {
   return {
     loaders: [openLibrary(file)],
     play: async ({ canvasElement }) => {
-      await within(canvasElement).findByPlaceholderText(/^Search \d+ tokens$/)
+      await within(canvasElement).findByPlaceholderText("Search tokens")
     }
   }
 }

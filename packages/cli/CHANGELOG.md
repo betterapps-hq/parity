@@ -1,8 +1,24 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 03:18:25 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 05:42:13 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.77.0
+
+Tue, 17 Nov 2026 05:42:13 GMT
+
+### Minor changes
+
+- Read an icon set's props from one of its icons, as any component's are read, so an icon's Props show its set's props
+  (ajcraswell@gmail.com)
+- Internal extensions draw on the canvas: parity.canvas layers, boxes, previews and holds, parity.camera, and
+  parity.colors, with hooks in @parity-app/canvas-layer (ajcraswell@gmail.com)
+
+### Patches
+
+- Undo in a live room takes out only your own typing, even beside the same letter someone else wrote
+  (ajcraswell@gmail.com)
 
 ## 0.76.1
 

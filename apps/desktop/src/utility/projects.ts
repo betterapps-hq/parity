@@ -30,6 +30,8 @@ import {
   type ExtensionTool,
   libraryManifestExtension,
   type PackageManifest,
+  type PageModuleFile,
+  type PageModuleRef,
   type ProjectConfig,
   parseCanvasDocument,
   type CanvasDocument,
@@ -78,6 +80,7 @@ import {
 } from "@parity-app/project"
 import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
+import { pageModuleBundle, pageRuntimeBundle } from "../shared/built-in-extensions.ts"
 import { logNote } from "../shared/log.ts"
 import type {
   FrameClassesWritten,
@@ -176,6 +179,8 @@ export interface ProjectProviders {
   owner(project: ProviderProject, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
   /** What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152). */
   decorators(project: ProviderProject): ExtensionDecorator[]
+  /** The page modules of the project's routers, from their manifests (PAR-1260). */
+  pageRouters(project: ProviderProject): (PageModuleRef & { extension: string })[]
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
@@ -460,6 +465,31 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     return !devRunner && existsSync(bundled) ? bundled : require.resolve(renderer.guestModule)
   }
 
+  /**
+   * A module of Parity's that the builder serves into the app's own page: the app's bundled copy, `bundle` beside the
+   * service, unless it runs from source.
+   */
+  function pageFile(bundle: string, specifier: string): string {
+    const bundled = join(import.meta.dirname, `${bundle}.mjs`)
+
+    return !devRunner && existsSync(bundled) ? bundled : require.resolve(specifier)
+  }
+
+  /** The page runtime, the routers' page modules and the renderer's hydration module, each by its file. */
+  function pageModules(renderer: RendererAdapter, routers: readonly (PageModuleRef & { extension: string })[]) {
+    const file = (extension: string, ref: PageModuleRef): PageModuleFile => ({
+      extension,
+      file: pageFile(pageModuleBundle(extension), ref.module),
+      export: ref.export
+    })
+
+    return {
+      runtime: pageFile(pageRuntimeBundle, "@parity-app/page-runtime"),
+      routers: routers.map((router) => file(router.extension, router)),
+      hydration: renderer.pageModule ? [file(renderer.id, renderer.pageModule)] : []
+    }
+  }
+
   /** Tells telemetry why the project can't be opened, and returns the error that says so. */
   function unsupported(reason: UnsupportedReason, detail: string): Error {
     adapters.unsupported?.(reason, detail)
@@ -693,6 +723,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     if (frameDecorators.length > 0) {
       config.frameDecorators = frameDecorators
     }
+
+    // What runs first in the app's own page when the canvas draws a route (PAR-1260).
+    config.pageModules = pageModules(renderer, adapters.providers?.pageRouters({ root, name, pkg }) ?? [])
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
     const discovered = nextComponentList(

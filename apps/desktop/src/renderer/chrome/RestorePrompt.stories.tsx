@@ -17,12 +17,8 @@ import { RestorePrompt } from "./RestorePrompt.tsx"
 const meta = {
   title: "Parity/Chrome/Prompts/Restore",
   component: RestorePrompt,
-  render: () => (
-    <>
-      <AppWindow />
-      <RestorePrompt />
-    </>
-  ),
+  // The window draws the prompt itself; a second one would hide the first from the accessibility tree, and itself.
+  render: () => <AppWindow />,
   decorators: [Window],
   loaders: [clearNotifications]
 } satisfies Meta<typeof RestorePrompt>
@@ -69,7 +65,7 @@ export const Offered: Story = {
   }
 }
 
-/** Choosing Restore: the rename is back, unsaved, so the tab shows its dot and Save writes it. */
+/** Choosing Restore: the rename is back, unsaved, so the project's name shows its dot and Save writes it. */
 export const Restored: Story = {
   play: async () => {
     const copy = await openWithCopy()
@@ -77,7 +73,7 @@ export const Restored: Story = {
     const answered = offer(copy)
     await userEvent.click(await body().findByRole("button", { name: "Restore" }))
     await answered
-    await body().findByRole("button", { name: /which has unsaved changes/ })
+    await body().findByRole("button", { name: /, unsaved changes$/ })
     await expect(example().doc.history().undo[0]).toBe("Restore unsaved changes")
   }
 }

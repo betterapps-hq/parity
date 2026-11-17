@@ -1,3 +1,4 @@
+import { packageExport } from "@parity-app/core"
 import agentPresencePackage from "@parity-app/extension-agent-presence/package.json" with { type: "json" }
 import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
@@ -110,6 +111,30 @@ export function nodeHalfEntries(read: readonly ReadBuiltIn[] = readBuiltIns().re
   return Object.fromEntries(
     read.flatMap(({ found, bundle }) => (found.main === undefined ? [] : [[`extensions/${bundle}`, found.id]]))
   )
+}
+
+/** What the page runtime's bundle beside the service is called. */
+export const pageRuntimeBundle = "page-runtime"
+
+/** What the bundle of an extension's page module beside the service is called, by the extension's prefix. */
+export function pageModuleBundle(extension: string): string {
+  return `page/${extension}`
+}
+
+/**
+ * The bundles of what runs in the app's own page when the canvas draws a route (PAR-1260): the page runtime, and each
+ * built-in extension's page modules, by their packages' specifiers.
+ */
+export function pageEntries(read: readonly ReadBuiltIn[] = readBuiltIns().read) {
+  const modules = read.flatMap(({ found }) => {
+    const { router, renderer } = found.manifest.contributes.providers ?? {}
+
+    return [router?.page, renderer?.page].flatMap((page): [string, string][] =>
+      page ? [[pageModuleBundle(found.manifest.prefix), packageExport(found.id, page.import)]] : []
+    )
+  })
+
+  return { [pageRuntimeBundle]: "@parity-app/page-runtime", ...Object.fromEntries(modules) }
 }
 
 /** The window modules the window's build compiles, by extension, each as its package export's specifier. */

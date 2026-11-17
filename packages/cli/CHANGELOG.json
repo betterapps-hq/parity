@@ -2,6 +2,35 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 05:42:13 GMT",
+      "version": "0.77.0",
+      "tag": "@parity-app/cli_v0.77.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "13d3b184fdb3c9626551b264cf47e4282f6c7a4b",
+            "comment": "Undo in a live room takes out only your own typing, even beside the same letter someone else wrote"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "142c51ff6519cf45b664b1012b950fd84368d6c4",
+            "comment": "Read an icon set's props from one of its icons, as any component's are read, so an icon's Props show its set's props"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "bae46c102f1961f525f2163ec35d84b4991d2d99",
+            "comment": "Internal extensions draw on the canvas: parity.canvas layers, boxes, previews and holds, parity.camera, and parity.colors, with hooks in @parity-app/canvas-layer"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 03:18:25 GMT",
       "version": "0.76.1",
       "tag": "@parity-app/cli_v0.76.1",
