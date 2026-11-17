@@ -176,8 +176,9 @@ function showCopy(
   // inheritance, as on the page, so the body's own rules still win over it. It's as tall as the mode's window, as the
   // page's root was, so a body or `main` at `height: 100%` is too, while the rest of the page runs on below it.
   const root = document.createElementNS("http://www.w3.org/1999/xhtml", "div", { customElementRegistry: registry })
-  root.classList.add(...copy.root.classes)
-  setAttributes(root, copy.root.attributes)
+  // The mode's too, as the page had them on `<html>`, so `.dark body { … }` still finds the body.
+  root.classList.add(...copy.root.classes, ...mode.classes)
+  setAttributes(root, [...copy.root.attributes, ...Object.entries(mode.attributes)])
   root.setAttribute(copyRootAttribute, "")
   root.setAttribute("style", `display: block; height: ${viewport.height}px`)
   root.append(built.fragment)
@@ -188,6 +189,9 @@ function showCopy(
   const nodes = new Map<string, Element | Text>()
   const textParents = new Map<string, string | undefined>()
   const ids: string[] = []
+  // Only text that's a layer of its own, beside elements or in a layout such as a button: a paragraph's own text is
+  // the paragraph's layer.
+  const layers = layerIds(elementLayers(frozenSnapshots(copy.body)))
 
   // Text between elements is a layer of its own (`frozenSnapshots`), as `<parent>.t<index>`: its node is found by its
   // place among its parent's children, which `buildCopy` made in the snapshot's order.
@@ -195,9 +199,12 @@ function showCopy(
     for (const [index, child] of [...parent.childNodes].entries()) {
       if (child instanceof Text) {
         const textId = `${id}.t${index}`
-        nodes.set(textId, child)
-        textParents.set(textId, parentId)
-        ids.push(textId)
+
+        if (layers.has(textId)) {
+          nodes.set(textId, child)
+          textParents.set(textId, parentId)
+          ids.push(textId)
+        }
       }
     }
   }
@@ -329,4 +336,20 @@ export function withCopyStyle<Entry extends { key: string; path: string }>(
   const type = node.type === "text" || node.type === "image" ? node.type : "layout"
 
   return { ...node, style: styleOfElement({ style }, type) }
+}
+
+/** Every layer's id in a tree of layers. */
+function layerIds(layers: readonly DesignNode[]): Set<string> {
+  const ids = new Set<string>()
+  const pending = [...layers]
+
+  for (let node = pending.pop(); node; node = pending.pop()) {
+    ids.add(node.id)
+
+    if ("children" in node && node.children) {
+      pending.push(...node.children)
+    }
+  }
+
+  return ids
 }
