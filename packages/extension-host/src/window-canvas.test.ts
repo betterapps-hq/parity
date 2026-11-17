@@ -268,6 +268,39 @@ tab-1`
     ])
   })
 
+  it("leaves a run started since holding its claims when an old run first reads colors late", async () => {
+    let resume: (() => void) | undefined
+    let runs = 0
+    const resumed = new Promise<void>((resolve) => (resume = resolve))
+
+    const late = defineWindowModule({
+      async activateWindow(parity) {
+        runs += 1
+
+        if (runs === 1) {
+          await resumed
+          void parity.colors.tuned
+        } else {
+          parity.colors.claim("peer-4")
+        }
+
+        return {}
+      }
+    })
+
+    const { people, runtime, stop } = await tab(late)
+    await stop()
+    runtime.update([surfaceExtension()])
+    await settle()
+    resume?.()
+    await settle()
+
+    expect(people.owners("peer-4")).toEqual([
+      `${surfaceTestId}
+tab-1`
+    ])
+  })
+
   it("lets the room assign numbers, and gives palettes and the hand-tuned count of each list", async () => {
     const { parity, layers } = await tab()
     const { colors } = parity()

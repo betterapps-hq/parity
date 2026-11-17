@@ -423,10 +423,15 @@ function colorsFor(port: WindowCanvasPort, context: SurfaceContext): WindowColor
     const counts = new Map<ColorKey, number>()
     let ended = false
 
+    // Only what this run claimed is given back: a run started since in the tab shares the owner, and keeps its claims.
     context.onEnd(() => {
       ended = true
+
+      for (const key of counts.keys()) {
+        core.release(key, owner)
+      }
+
       counts.clear()
-      core.releaseAll(owner)
     })
 
     return {
