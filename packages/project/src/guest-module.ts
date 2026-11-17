@@ -39,7 +39,8 @@ export interface GuestModule {
 
 /**
  * The module the canvas's guest comes from: the renderer's guest runtime, the project's styles and components, its icon
- * packages, what its extensions' and libraries' decorators import, and its preview file. A decorator's module that fails
+ * packages, what its extensions' and libraries' decorators import, and its preview file, with the package that composes
+ * it when it's a tool's. A decorator's module that fails
  * to load is passed on as its error, so one missing provider doesn't stop the project from rendering. The source and its eager imports share one
  * declaration, so a builder can warm the same graph the browser will load.
  */
@@ -161,12 +162,24 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
   // The project's preview file, inside the libraries' decorators. One that fails to load is passed on as its error, so
   // the frames still draw and say why.
   let previewRef: string | undefined
+  // A tool's preview comes with the package that composes it, from the project's dependencies (PAR-98).
+  let composerRef: string | undefined
 
   if (config.preview) {
     const path = options.projectPath(config.preview)
     optional.add(path)
     previewRef = ref(path)
+
+    if (config.previewComposer) {
+      optional.add(config.previewComposer.module)
+      composerRef = ref(config.previewComposer.module)
+    }
   }
+
+  const previewLines = [
+    ...(previewRef ? [`    project: ${previewRef}`] : []),
+    ...(composerRef ? [`    composer: ${composerRef}`] : [])
+  ]
 
   const described = (config.describedTokens ?? []).flatMap((source) => source.tokens)
   const libraryCss = describedTokenCss(described)
@@ -189,8 +202,8 @@ export function guestModule(config: ProjectConfig, options: GuestModuleOptions):
     "  },",
     "  decorators: {",
     `    list: ${JSON.stringify(decorated)},`,
-    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }${previewRef ? "," : ""}`,
-    ...(previewRef ? [`    project: ${previewRef}`] : []),
+    `    modules: { ${decoratorModules.map((id) => `${JSON.stringify(id)}: ${ref(id)}`).join(", ")} }${previewLines.length > 0 ? "," : ""}`,
+    ...previewLines.map((line, index) => (index < previewLines.length - 1 ? `${line},` : line)),
     "  },",
     `  tokenCategories: ${JSON.stringify(describedCategories(described))}`
   ]

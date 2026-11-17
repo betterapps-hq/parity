@@ -225,11 +225,14 @@ describe("previewToken", () => {
     const light = ':where([data-canvas-body][data-canvas-color-scheme="light"])'
     expect(await previewed(css, "c", "dark", "red")).toEqual([
       ":host { --c: #fff; }",
+      ":where([data-canvas-body]) { --c: #fff; }",
       `${dark} { --c: red; }`,
       `${light} { --c: #eee; }`
     ])
+    // The root's copy on the body too (PAR-1210).
     expect(await previewed(css, "c", "default", "blue")).toEqual([
       ":host { --c: blue; }",
+      ":where([data-canvas-body]) { --c: blue; }",
       `${dark} { --c: #000; }`,
       `${light} { --c: blue; }`
     ])
@@ -273,10 +276,15 @@ describe("showAddedStyles", () => {
     expect(shown.steps[1]!.global).toContain(property)
     expect(shown.steps[1]!.global).toContain('src: url("http://project.test/card.woff2")')
     expect(shown.steps[2]).toEqual({
-      scoped: "[data-canvas-body] { color: blue; }\n:host { --brand: green; }",
+      scoped:
+        "[data-canvas-body] { color: blue; }\n:host { --brand: green; }\n@layer canvas-qualified-root {\n  :where([data-canvas-body]) { --brand: green; }\n}",
       global: property
     })
-    expect(shown.steps[3]).toEqual({ scoped: ":host { --brand: green; }", global: property })
+    expect(shown.steps[3]).toEqual({
+      scoped:
+        ":host { --brand: green; }\n@layer canvas-qualified-root {\n  :where([data-canvas-body]) { --brand: green; }\n}",
+      global: property
+    })
     // Once stopped, a stylesheet the project adds later changes nothing.
     expect(shown.steps[4]).toEqual(shown.steps[3])
     expect(shown.listeners).toBe(0)

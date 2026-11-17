@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Frames draw inside the project's Storybook preview when it has no .parity/preview, composed with Storybook's portable stories API as Storybook's extension names it (PAR-98)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

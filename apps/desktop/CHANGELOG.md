@@ -1,8 +1,26 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 20:42:41 GMT and should not be manually modified. -->
+<!-- This log was last generated on Mon, 16 Nov 2026 22:19:52 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.98.2
+
+Mon, 16 Nov 2026 22:19:52 GMT
+
+### Patches
+
+- Draw what CSS-in-JS writes into a frame as the project's stylesheets are: root, body, media queries, colour scheme and
+  fonts, so Chakra's solid buttons fill (PAR-1210) (ajcraswell@gmail.com)
+- Library sections in the Components panel start closed. (ajcraswell@gmail.com)
+
+## 0.98.1
+
+Mon, 16 Nov 2026 21:30:31 GMT
+
+### Patches
+
+- Recognize the components shadcn-sync generates as the Buildkit style they're made in (ajcraswell@gmail.com)
 
 ## 0.98.0
 

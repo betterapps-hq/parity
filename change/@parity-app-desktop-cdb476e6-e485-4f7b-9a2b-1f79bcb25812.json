@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "End a builder as soon as its project service is gone, even while its main thread is busy",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

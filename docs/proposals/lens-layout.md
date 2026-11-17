@@ -17,19 +17,22 @@ selection, and can show beside another lens or in a window of its own.
 | Story        | What it shows                                                                                       |
 | ------------ | --------------------------------------------------------------------------------------------------- |
 | Pages        | The project on Pages, Billing selected                                                              |
+| Screens      | Today's designs, each in the project's modes, with the asset tabs in the left panel                 |
+| Components   | Components on their boards, each state side by side                                                 |
 | Side by side | Pages and Data side by side: the inspector says Billing reads the plans table, and a click opens it |
 | Own window   | Data in a window of its own on a second screen, beside the main window                              |
-| Stories      | Stories on their own canvas, grouped by component in the left panel                                 |
 
-Everything in it can be used: showing a lens, splitting it, moving it to its own window and back, dragging a lens onto a
-canvas, the project's menu, and following a link in the inspector, in place or to the side.
+It's built from the app's own parts: the title bar and its menus, the left panel and inspector with their tabs, the
+canvas's colors, group titles and floating bars, the asset panels, Modes and the status bar. Everything in it can be
+used: showing a lens, splitting it, moving it to its own window and back, dragging a lens onto a canvas, the project's
+menu, closing the project to Home, and following a link in the inspector, in place or beside.
 
 ## One project at a time
 
-- **No project tabs.** The window's bar shows the menu and the project's name. The name opens the project's menu: Open
-  project, recent projects and Close project. Opening one closes the open one, asking to save first as closing a tab
-  does today.
-- **Home is what a window shows with no project,** in place of its pinned tab.
+- **No project tabs.** The title bar keeps the menus on the left and the account menu on the right, and shows the
+  project's name in the middle. The name opens the project's menu: Open project folder, recent projects and Close
+  project. Opening one closes the open one, asking to save first as closing a tab does today.
+- **Home is what a window shows with no project,** in place of its pinned tab: today's Home page under the title bar.
 - **Windows of one project.** A lens moved to a window of its own is the same project, so the rule holds: the app has
   one project open, in as many windows as its lenses need.
 
@@ -38,30 +41,47 @@ restore. The project service still could hold more than one project; the window 
 
 ## Lenses down the left
 
-- **The lens bar** is a column of icons at the window's left edge, as VS Code's activity bar is. Each lens's name is its
-  tooltip. The lens shown in the canvas in focus is marked; one shown in another canvas of the window has a dot. A lens
-  with nothing to read from, such as API without an OpenAPI document, is listed apart, dimmed, and its tooltip says
-  what's missing.
-- **The left panel is the lens's,** headed by its name: Pages' route tree, Components' components, Stories' stories by
-  component, Data's tables. It follows the canvas in focus.
+- **The lenses are today's Layers groups,** each made a canvas: Pages for the app's routes, Screens for its designs,
+  Components, Stories, Data for its database, and API.
+- **The lens bar** is a column of icons at the window's left edge, as VS Code's activity bar is, on the title bar's
+  surface so the two frame the panels. Each lens's name and shortcut, Ctrl+1 to Ctrl+6, is its tooltip. The lens shown
+  in the canvas in focus is drawn as the open tab is today, with a blue bar at the window's edge as Layers marks its
+  selected row, and the other lenses are dimmed; one shown in another canvas of the window has a dot. Clicking the lens
+  already shown hides or shows the left panel. A lens with nothing to read from, such as API without an OpenAPI
+  document, sits at the bottom, dimmed, and its canvas says what's missing.
+- **The left panel is the lens's,** with today's tab row along its top. Its first tab lists what the lens draws, as
+  Layers does: Pages' routes, Screens' screens and frames, Components, Stories by file, Data's tables. Screens adds the
+  asset tabs, Components, Icons, Media and Tokens, since that's where they're dropped. It follows the canvas in focus.
 - **Each lens keeps its own canvas, camera and selection,** so moving between Pages and Data and back leaves both as
-  they were.
-- **The inspector follows the canvas in focus.** Links in it show their lens with the item selected: in the canvas in
-  focus, or to the side with the button beside each link.
+  they were. Each canvas is today's: its colors, group titles that scale with zoom, the zoom bar, and the drawing
+  toolbar on the lenses that hold designs.
+- **The inspector follows the canvas in focus,** with Modes beside it for the lenses that hold designs. Links in it show
+  their lens with the item selected: where that lens already shows, else in the canvas in focus, or beside with the
+  button at the end of each link. Hovering a link outlines the item wherever its lens shows.
+- **The View menu lists the lenses,** with Split right and Move to new window for the lens in focus.
 
 ## Side by side and in windows
 
-| Action                                                                  | Result                                            |
-| ----------------------------------------------------------------------- | ------------------------------------------------- |
-| Click a lens                                                            | Shows it where it is, else in the canvas in focus |
-| Right-click a lens, Split right, or drag it onto a canvas's right       | Shows it in a new canvas to the right             |
-| Drag a lens onto a canvas                                               | Shows it there, in place of what it showed        |
-| Right-click a lens, Move to new window, or drag it to the window's edge | A window of its own, with that lens               |
-| In that window, right-click the lens, Move to main window               | Back into the main window, to the right           |
+| Action                                                            | Result                                            |
+| ----------------------------------------------------------------- | ------------------------------------------------- |
+| Click a lens                                                      | Shows it where it is, else in the canvas in focus |
+| Right-click a lens, Split right, or drag it onto a canvas's right | Shows it in a new canvas to the right             |
+| Drag a lens onto a canvas                                         | Shows it there, in place of what it showed        |
+| The button on a canvas's tab, or drag the tab off the window      | A window of its own where it's dropped            |
+| Right-click a lens, Move to new window, or drag it off the window | The same                                          |
+| In that window, right-click the lens, Move to main window         | Back into the main window, to the right           |
 
-Each lens shows in one place at most, so showing it elsewhere moves it. With two or more canvases, each has a slim
-header with its lens and a close button. The main window always keeps one canvas; a lens's own window closes with its
-last. Windows and their canvases are kept with the project and come back as they were.
+**Each canvas has a tab** with its lens's name, drawn as the side panels draw their open tab, so the three line up along
+the top. A button at the tab's end, Move to new window, opens the lens in a window of its own, which is then moved like
+any window, by its title bar; in that window the same button takes it back. Dragging the tab off the window works as
+dragging a tab out of a browser does: the window opens where it's let go, so dropping it on another monitor puts it
+there. While it's dragged, an outline of the window it would open follows the pointer outside the window. Lenses drag
+from the lens bar the same way.
+
+Each lens shows in one place at most, so showing it elsewhere moves it. With two or more canvases, each tab has a close
+button, and the one in focus has a blue top edge. The main window always keeps a canvas: moving its only lens out leaves
+the next free lens in its place. A lens's own window closes with its last canvas. Windows and their canvases are kept
+with the project and come back as they were.
 
 ## Why it helps loading
 
@@ -85,10 +105,6 @@ background.
 
 ## Open questions
 
-- **Designs:** today's `.par` screens and frames. A lens of their own, Screens, or on the Pages canvas beside the pages
-  they stand for?
-- **Layers:** inside each lens's left panel, or a lens of its own?
-- **The panels in today's left panel,** Icons, Media and Tokens: lenses of their own, or kept as panels within the
-  canvases that use them?
+- **Asset tabs on Components too?** Components are drawn with the same icons, media and tokens as screens.
 - **Two projects side by side,** to compare or copy between them: is a second Parity window on another project ever
   wanted, or is one project for the whole app the rule?

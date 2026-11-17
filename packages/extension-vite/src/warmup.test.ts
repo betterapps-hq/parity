@@ -18,7 +18,11 @@ describe("warming the guest graph", () => {
     const firstBatch = deferred()
     const secondBatch = deferred()
 
-    const metadata: OptimizerMetadata = { optimized: {}, discovered: { first: { processing: firstBatch.promise } } }
+    const metadata: OptimizerMetadata = {
+      browserHash: "before",
+      optimized: {},
+      discovered: { first: { processing: firstBatch.promise } }
+    }
 
     const optimizer = {
       init: async () => undefined,
@@ -70,7 +74,12 @@ describe("warming the guest graph", () => {
     childReady.resolve()
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(invalidated).toBe(false)
-    optimizer.metadata = { optimized: {}, discovered: { first: { processing: secondBatch.promise } } }
+    // What the first batch bundled changed, so the modules compiled with its hash import a bundle that's gone.
+    optimizer.metadata = {
+      browserHash: "after",
+      optimized: {},
+      discovered: { first: { processing: secondBatch.promise } }
+    }
     firstBatch.resolve()
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(invalidated).toBe(false)
@@ -80,6 +89,75 @@ describe("warming the guest graph", () => {
     await warming
     expect(transformed).toEqual([root.url, child.url])
     expect(invalidated).toBe(true)
+  })
+
+  it("keeps what it compiled when the optimizer's hash stays the same", async () => {
+    const metadata: OptimizerMetadata = {
+      browserHash: "same",
+      optimized: {},
+      discovered: { react: { processing: Promise.resolve() } }
+    }
+
+    const optimizer = { init: async () => undefined, isOptimizedDepUrl: () => false, metadata }
+    let invalidated = false
+
+    await warmGuestGraph(
+      {
+        depsOptimizer: optimizer,
+        async transformRequest() {
+          // The batch bundled more, keeping the hash modules already import it with.
+          optimizer.metadata = { browserHash: "same", optimized: { react: {} }, discovered: {} }
+
+          return null
+        },
+        moduleGraph: {
+          getModuleByUrl: async () => undefined,
+          invalidateAll: () => {
+            invalidated = true
+          }
+        }
+      },
+      ["/entry.js"]
+    )
+    expect(invalidated).toBe(false)
+  })
+
+  it("compiles modules side by side, each one's imports as soon as it's compiled", async () => {
+    const slow = deferred()
+    const started: string[] = []
+
+    const modules = new Map([
+      ["/slow.js", { url: "/slow.js", staticImportedUrls: new Set<string>() }],
+      ["/fast.js", { url: "/fast.js", staticImportedUrls: new Set(["/child.js"]) }],
+      ["/child.js", { url: "/child.js", staticImportedUrls: new Set<string>() }]
+    ])
+
+    const warming = warmGuestGraph(
+      {
+        async transformRequest(url) {
+          started.push(url)
+
+          if (url === "/child.js") {
+            slow.resolve()
+          }
+
+          if (url === "/slow.js") {
+            await slow.promise
+          }
+
+          return null
+        },
+        moduleGraph: {
+          getModuleByUrl: async (url) => modules.get(url),
+          invalidateAll: () => undefined
+        }
+      },
+      ["/slow.js", "/fast.js"]
+    )
+
+    // The slow module finishes only once the fast one's import has started compiling.
+    await warming
+    expect(started).toEqual(["/slow.js", "/fast.js", "/child.js"])
   })
 
   it("keeps an optional module failure from blocking other project modules", async () => {
@@ -146,22 +224,18 @@ describe("waiting for the optimizer's batches", () => {
       metadata.optimized["react-dom"] = {}
     }, 20)
 
-    let invalidated = false
-
     await warmGuestGraph(
       {
         depsOptimizer: { init: async () => undefined, isOptimizedDepUrl: () => false, metadata },
         transformRequest: async () => null,
         moduleGraph: {
           getModuleByUrl: async () => undefined,
-          invalidateAll: () => {
-            invalidated = true
-          }
+          invalidateAll: () => undefined
         }
       },
       []
     )
-    expect(invalidated).toBe(true)
+    expect(metadata.optimized["react-dom"]).toBeDefined()
   })
 
   it("names the dependencies the optimizer never finishes", async () => {

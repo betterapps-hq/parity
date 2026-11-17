@@ -1,8 +1,35 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Mon, 16 Nov 2026 18:04:35 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 00:04:13 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.73.4
+
+Tue, 17 Nov 2026 00:04:13 GMT
+
+### Patches
+
+- The preview file offer looks inside fragments between the app's providers (ajcraswell@gmail.com)
+- Keep Vite's prebundled dependencies per copy of Parity, bundle what only pages import before any page loads, and keep
+  the warm-up's compiled modules (ajcraswell@gmail.com)
+
+## 0.73.3
+
+Mon, 16 Nov 2026 22:20:21 GMT
+
+### Patches
+
+- Draw what CSS-in-JS writes into a frame as the project's stylesheets are: root, body, media queries, colour scheme and
+  fonts, so Chakra's solid buttons fill (PAR-1210) (ajcraswell@gmail.com)
+
+## 0.73.2
+
+Mon, 16 Nov 2026 21:30:56 GMT
+
+### Patches
+
+- Recognize the components shadcn-sync generates as the Buildkit style they're made in (ajcraswell@gmail.com)
 
 ## 0.73.1
 

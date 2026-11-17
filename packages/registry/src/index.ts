@@ -210,6 +210,14 @@ export async function registryEntryFor(
 }
 
 /**
+ * The registry's newest file for a package, by the version it was made from, whatever version is installed: for a
+ * package that stands in for one the registry describes, such as the components shadcn-sync generates in a style.
+ */
+export async function newestEntryFor(packageName: string, dir?: string): Promise<RegistryEntry | undefined> {
+  return (await entriesFor(packageName, dir)).sort((a, b) => compareGenerated(b.manifest, a.manifest))[0]
+}
+
+/**
  * The newest file for each package the registry describes, by the version it was made from, with its hand edits
  * applied. A file whose edits can't be read is used as it is, with a warning.
  */
