@@ -4,6 +4,7 @@ import type { PoolFrame } from "./pool.ts"
 
 describe("pickLive", () => {
   const spare = (id: string, route: string, state: PoolFrame["state"] = "ready"): PoolFrame => ({ id, route, state })
+
   const choice = (given: Partial<LiveChoice>): LiveChoice => ({
     route: "/pricing",
     spares: [],
