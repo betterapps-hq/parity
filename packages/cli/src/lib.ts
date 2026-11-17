@@ -43,7 +43,7 @@ export async function runLib(packageName: string | undefined, options: LibOption
   const synced = style ? presets.get(style)?.sync : undefined
   let describe: LibInputs["describe"]
 
-  if (style && synced) {
+  if (spec && style && synced) {
     const { publishedVersion, syncedPackage, syncedStyle } = await import("@parity-app/libgen/published")
     const version = await publishedVersion("@buildkitgg/shadcn-sync", spec.version ?? "latest")
     stderr(`Building ${style} with shadcn-sync ${version} --base ${synced.base} --style ${synced.style}…`)
