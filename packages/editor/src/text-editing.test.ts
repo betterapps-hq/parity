@@ -2,6 +2,7 @@ import { type ComponentLibrary, type ContainerSpec, findNode, type NodeStyle } f
 import { describe, expect, it } from "vite-plus/test"
 import {
   editableText,
+  movedThrough,
   openingSelection,
   rebaseText,
   spliceAt,
@@ -281,6 +282,11 @@ describe("the change typed in a text (PAR-1238)", () => {
     // The two emoji share their first code unit: the change is the whole emoji, not its second half.
     expect(spliceAt("a😃b", "a😄b", 3)).toEqual({ start: 1, end: 3, insert: "😄" })
     expect(rebaseText("a😃b", "a😄b", "a😅b", { start: 3, end: 3 }).text).toBe("a😅😄b")
+    // Both replacing the one emoji: each keeps a whole character, never half of one (PAR-1252).
+    expect(rebaseText("😀", "😁", "😂", { start: 2, end: 2 })).toEqual({
+      text: "😂😁",
+      selection: { start: 4, end: 4 }
+    })
   })
 
   it("is the first place it could be without a caret, and covers a replaced selection", () => {
@@ -346,5 +352,18 @@ describe("taking someone else's change into text being typed", () => {
 
   it("takes the change as it is when nothing's typed", () => {
     expect(rebaseText("Hello", "Hello", "Hello there", caret(2))).toEqual({ text: "Hello there", selection: caret(2) })
+  })
+})
+
+describe("following characters through changes (PAR-1258)", () => {
+  it("moves each character with the changes before it and drops the ones a change replaced", () => {
+    // "abXcd" with the X at 2: "ab" replaced by "XY", then "!" added at the end, gives "XYXcd!".
+    const splices = [
+      { start: 0, end: 2, insert: "XY" },
+      { start: 5, end: 5, insert: "!" }
+    ]
+
+    expect(movedThrough([0, 1, 2, 3, 4], splices)).toEqual([-1, -1, 2, 3, 4])
+    expect(movedThrough([2, -1], [{ start: 0, end: 0, insert: "Z" }])).toEqual([3, -1])
   })
 })

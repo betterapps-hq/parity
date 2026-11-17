@@ -29,6 +29,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger
 } from "@buildkitgg/shadcn"
+import { barOrder, type LensMark } from "@parity-app/lenses"
 import {
   Bug,
   Check,
@@ -56,7 +57,7 @@ import { AccountMenu } from "../../account/AccountMenu.tsx"
 import { iconFor } from "../../chrome/command-icons.ts"
 import { Hint } from "../../chrome/Hint.tsx"
 import { type Command, keymap, shortcutOf } from "../../chrome/keymap.ts"
-import { lensOrder, lenses, project as openProject, recentProjects } from "./data.ts"
+import { lensList, lensOrder, lenses, project as openProject, recentProjects } from "./data.ts"
 import type { LensId } from "./model.ts"
 
 /** The window's chrome: the title bar's strip and the lens bar down the left, one surface, as the tab strip was. */
@@ -69,9 +70,10 @@ export const lensDragType = "application/x-parity-lens"
 export interface ChromeActions {
   /** Whether a project is open: on Home, what acts on one is unavailable. */
   project: boolean
-  /** Which lens shows in the tab in focus, none with every tab closed, and which are open in other tabs or windows. */
+  /** Which lens shows in the tab in focus, none with every tab closed. */
   current: LensId | undefined
-  elsewhere: (lens: LensId) => "open" | "window" | undefined
+  /** How the lens bar marks a lens: in focus, open in another tab or window, or with nothing for the project. */
+  mark: (lens: LensId) => LensMark
   /** Shows a lens in the tab in focus, as a link opens in the tab it's clicked in, or where it's open. */
   show: (lens: LensId) => void
   /** Shows a lens in a new tab, as Ctrl+click opens a link, or where it's open. */
@@ -340,7 +342,7 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
           <MenubarGroup>
             <MenubarLabel className="text-xs font-medium text-muted-foreground">Lenses</MenubarLabel>
             {lensOrder.map((id) => {
-              const { label, icon: Icon, keys } = lenses[id]
+              const { name: label, Icon, shortcut: keys } = lenses[id]
 
               return (
                 <MenubarCheckboxItem
@@ -364,13 +366,13 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
             disabled={!current || !actions.canSplit(current)}
             onClick={() => current && actions.splitRight(current)}
           >
-            <Columns2 /> {lens ? `Split ${lens.label} right` : "Split right"}
+            <Columns2 /> {lens ? `Split ${lens.name} right` : "Split right"}
           </MenubarItem>
           <MenubarItem
             disabled={!current || !actions.canMoveToWindow(current)}
             onClick={() => current && actions.toWindow(current)}
           >
-            <SquareArrowOutUpRight /> {lens ? `Move ${lens.label} to new window` : "Move to new window"}
+            <SquareArrowOutUpRight /> {lens ? `Move ${lens.name} to new window` : "Move to new window"}
           </MenubarItem>
           <MenubarSeparator />
           <Cmd command="zoomIn" />
@@ -451,8 +453,9 @@ function AppMenus({ actions }: { actions: ChromeActions }) {
  * canvas's side or out of the window.
  */
 export function LensBar({ actions }: { actions: ChromeActions }) {
-  const available = lensOrder.filter((id) => !lenses[id].missing)
-  const missing = lensOrder.filter((id) => lenses[id].missing)
+  const ordered = barOrder(lensList)
+  const available = ordered.filter((lens) => !lens.unavailable).map((lens) => lens.id)
+  const missing = ordered.filter((lens) => lens.unavailable).map((lens) => lens.id)
 
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "ArrowDown" && event.key !== "ArrowUp" && event.key !== "Home" && event.key !== "End") {
@@ -494,15 +497,14 @@ export function LensBar({ actions }: { actions: ChromeActions }) {
 }
 
 /** Where a lens shows when it isn't the canvas in focus's, for its hint. */
-const placeWords = { open: "Open in a tab", window: "In its own window" }
+const placeWords = { tab: "Open in a tab", window: "In its own window" }
 
 /** The lens the lens bar is reached by with Tab while no lens is in focus, as with every tab closed. */
-const firstLens = lensOrder.find((id) => !lenses[id].missing)
+const firstLens = barOrder(lensList)[0]?.id
 
 function LensButton({ lens, actions }: { lens: LensId; actions: ChromeActions }) {
-  const { label, icon: Icon, keys, missing } = lenses[lens]
-  const current = actions.current === lens
-  const elsewhere = actions.elsewhere(lens)
+  const { name: label, Icon, shortcut: keys, unavailable: missing } = lenses[lens]
+  const { focus: current, elsewhere } = actions.mark(lens)
   const where = elsewhere && placeWords[elsewhere]
   const said = missing?.title ?? where
 

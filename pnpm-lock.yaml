@@ -418,6 +418,9 @@ importers:
       '@parity-app/layer-types':
         specifier: workspace:*
         version: link:../../packages/layer-types
+      '@parity-app/lenses':
+        specifier: workspace:*
+        version: link:../../packages/lenses
       '@parity-app/media-player':
         specifier: workspace:*
         version: link:../../packages/media-player
@@ -1198,6 +1201,12 @@ importers:
         version: link:../core
 
   packages/layer-types: {}
+
+  packages/lenses:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/libgen:
     dependencies:

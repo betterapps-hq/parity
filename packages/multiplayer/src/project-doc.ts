@@ -11,10 +11,12 @@ import {
 } from "@parity-app/core"
 import {
   keptCharacters,
+  movedThrough,
   sameDesign,
   sameDocument,
   sameTokenValues,
   sameValue,
+  type TextSplice,
   type TokenEdit,
   type TokenEdits,
   withTidyView,
@@ -36,6 +38,7 @@ import type {
   GestureId,
   LayerAddress,
   ProjectDoc,
+  TextChanges,
   TransactOptions,
   TransactProblem,
   TransactResult,
@@ -57,7 +60,24 @@ import { fieldOf, pathOf } from "./values.ts"
  */
 interface Inverse {
   op: DocOp
-  expect?: { value: JsonValue | undefined } | { tokens: TokenEdits } | { text: string }
+  expect?: { value: JsonValue | undefined } | { tokens: TokenEdits } | TextLeft
+}
+
+/** The text a step's typing left, and where its characters have gone since others changed it. */
+interface TextLeft {
+  text: string
+  followed?: Followed
+}
+
+/**
+ * Where a step's own characters are in a text others have changed since, followed through their changes as they came
+ * in (PAR-1258): `own` is where each character the step wrote is in `text` (-1 once gone), and `back` where the first
+ * character after them is, or would be.
+ */
+interface Followed {
+  text: string
+  own: number[]
+  back: number
 }
 
 interface Step {
@@ -112,6 +132,8 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
   const gestureListeners = new Set<() => void>()
 
   const state = (): DocState => ({ files: backend.files(), main, modes: backend.modes(), tokens: backend.tokens() })
+  /** The files as this document last saw them: the texts others' changes start from. */
+  let known = backend.files()
 
   const notify = (change: DocChange) => {
     for (const listener of listeners) {
@@ -145,8 +167,16 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
       "remote"
     )
     history = undefined
+    const before = known
+    known = backend.files()
+    const { texts, ...changed } = change
+
+    if (texts) {
+      follow(texts, before)
+    }
+
     notify({
-      ...change,
+      ...changed,
       origin: "remote",
       label: "",
       kind: "remote",
@@ -155,6 +185,58 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
       kept: 0
     })
   })
+
+  /**
+   * Moves the characters this person's steps typed through others' changes to the same texts, as they come in. What this
+   * person changed since a step last looked is matched by text, once for each text the steps last saw.
+   */
+  const follow = (texts: readonly TextChanges[], before: ReadonlyMap<string, CanvasDocument>) => {
+    for (const { address, splices } of texts) {
+      const was = textAt(before, address)
+      const now = textAt(backend.files(), address)
+
+      if (was === undefined || now === undefined || applySplices(was, splices) !== now) {
+        continue
+      }
+
+      const matched = new Map<string, number[]>()
+
+      for (const step of [...undoStack, ...redoStack]) {
+        for (const { op, expect } of step.inverse) {
+          if (
+            !expect ||
+            !("text" in expect) ||
+            op.op !== "editText" ||
+            op.edit.kind !== "splice" ||
+            op.design !== address.design ||
+            op.node !== address.node
+          ) {
+            continue
+          }
+
+          const seen = expect.followed ?? typedIn(expect.text, op.edit)
+
+          if (seen.text !== was && !matched.has(seen.text)) {
+            matched.set(seen.text, keptCharacters(seen.text, was))
+          }
+
+          const caught = seen.text === was ? seen : followedTo(seen, was, matched.get(seen.text)!)
+
+          // This person took out some of the step's characters since, which undoing that puts back: it's left to match
+          // by text when it's undone, as following on would count them gone for good.
+          if (caught.own.some((at, index) => at < 0 && seen.own[index]! >= 0)) {
+            continue
+          }
+
+          expect.followed = {
+            text: now,
+            own: movedThrough(caught.own, splices),
+            back: backThrough(caught.back, splices)
+          }
+        }
+      }
+    }
+  }
 
   /** Applies operations to a draft: the state after, the inverses by operation, and what to send the backend. */
   const draft = (
@@ -251,6 +333,7 @@ export function createProjectDoc(backend: DocBackend, options: { undoLimit: numb
 
     if (result.plain.length > 0) {
       backend.apply(result.plain, origin)
+      known = backend.files()
     }
 
     changeCount += 1
@@ -835,7 +918,7 @@ function undoing(state: DocState, { op, expect }: Inverse, skipping: { kept: num
   }
 
   if (expect && "text" in expect && op.op === "editText") {
-    return textBack(state, op, expect.text, skipping)
+    return textBack(state, op, expect, skipping)
   }
 
   return [op]
@@ -851,30 +934,32 @@ function textIn(state: DocState, op: Extract<DocOp, { op: "editText" }>): string
 
 /**
  * Undoing typing in a text others have typed in since: the step's own characters that are still there come out, and
- * what it removed goes back where those characters were, wherever others' edits have moved them; theirs stay. Each
- * character of the text as the step left it is followed to where it is now (`kept`), so edits others made on both
- * sides of the typing, or inside it, stay apart. Written as changes to the text as it is now, last first so each
- * position holds; when there's nothing of the step's left to take out, it's skipped and counted.
+ * what it removed goes back where those characters were, wherever others' edits have moved them; theirs stay. The
+ * step's characters are followed through others' changes as they came in (`follow`), and through anything since by
+ * matching the text as they last saw it with the text now (`keptCharacters`), so edits others made on both sides of the
+ * typing, or inside it, stay apart, even ones that wrote the same characters (PAR-1258). Written as changes to the text
+ * as it is now, last first so each position holds; when there's nothing of the step's left to take out, it's skipped
+ * and counted.
  */
 function textBack(
   state: DocState,
   op: Extract<DocOp, { op: "editText" }>,
-  left: string,
+  left: TextLeft,
   skipping: { kept: number }
 ): DocOp[] {
   const now = textIn(state, op)
 
-  if (now === undefined || now === left || op.edit.kind !== "splice") {
+  if (now === undefined || op.edit.kind !== "splice" || (now === left.text && !left.followed)) {
     return [op]
   }
 
-  const { at, remove, insert } = op.edit
-  const where = keptCharacters(left, now)
+  const { insert } = op.edit
+  const seen = left.followed ?? typedIn(left.text, op.edit)
+  const { own, back } = seen.text === now ? seen : followedTo(seen, now, keptCharacters(seen.text, now))
   // The step's characters still there, in runs of neighbours.
   const runs: { start: number; end: number }[] = []
 
-  for (let index = at; index < at + remove; index++) {
-    const position = where[index]!
+  for (const position of own) {
     const last = runs.at(-1)
 
     if (position < 0) {
@@ -894,25 +979,67 @@ function textBack(
     return []
   }
 
-  // What the step removed goes back before the first character after its own that's still there.
-  let back = now.length
+  const splice = (start: number, end: number, text: string): DocOp => ({
+    ...op,
+    edit: { kind: "splice", at: start, remove: end - start, insert: text }
+  })
 
-  for (let index = at + remove; index < left.length; index++) {
+  // What the step removed goes back before the first character after its own that's still there.
+  return [
+    ...(insert === "" ? [] : [splice(back, back, insert)]),
+    ...runs.toReversed().map(({ start, end }) => splice(start, end, ""))
+  ]
+}
+
+/** Where a step's characters are in the text it left: the inverse's splice takes out the ones it wrote. */
+function typedIn(text: string, edit: { at: number; remove: number }): Followed {
+  return {
+    text,
+    own: Array.from({ length: edit.remove }, (_, index) => edit.at + index),
+    back: edit.at + edit.remove
+  }
+}
+
+/** A step's characters followed on to `text`, given where each character of the text they last saw is in it. */
+function followedTo(seen: Followed, text: string, where: readonly number[]): Followed {
+  let back = text.length
+
+  for (let index = seen.back; index < seen.text.length; index++) {
     if (where[index]! >= 0) {
       back = where[index]!
       break
     }
   }
 
-  const splice = (start: number, end: number, text: string): DocOp => ({
-    ...op,
-    edit: { kind: "splice", at: start, remove: end - start, insert: text }
-  })
+  return { text, own: seen.own.map((at) => (at < 0 ? -1 : where[at]!)), back }
+}
 
-  return [
-    ...(insert === "" ? [] : [splice(back, back, insert)]),
-    ...runs.toReversed().map(({ start, end }) => splice(start, end, ""))
-  ]
+/**
+ * Where the first character after a step's own is after changes: it moves with the characters before it, and when a
+ * change takes it out, the first character after that change takes its place.
+ */
+function backThrough(back: number, splices: readonly TextSplice[]): number {
+  return splices.reduce((at, { start, end, insert }) => {
+    if (at < start) {
+      return at
+    }
+
+    return at >= end ? at + insert.length - (end - start) : start + insert.length
+  }, back)
+}
+
+/** A text with changes made to it, in order. */
+function applySplices(text: string, splices: readonly TextSplice[]): string {
+  return splices.reduce((now, { start, end, insert }) => now.slice(0, start) + insert + now.slice(end), text)
+}
+
+/** A text layer's text in some files, or nothing when it's gone or isn't a text layer. */
+function textAt(files: ReadonlyMap<string, CanvasDocument>, address: LayerAddress): string | undefined {
+  const split = splitKey(address.design)
+  const container = split && files.get(split.path)?.containers.find((each) => each.id === split.id)
+  const node = container && findNode(container.root, address.node)
+
+  return node?.type === "text" ? node.text : undefined
 }
 
 /**
