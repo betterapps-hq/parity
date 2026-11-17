@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 00:04:13 GMT",
+      "version": "0.73.4",
+      "tag": "@parity-app/cli_v0.73.4",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "87b27e6e8bcfb729615780dc15988bf7a22ffcd5",
+            "comment": "The preview file offer looks inside fragments between the app's providers"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "7258d10d1eeb804d8ea5d0f727eb892011e3f776",
+            "comment": "Keep Vite's prebundled dependencies per copy of Parity, bundle what only pages import before any page loads, and keep the warm-up's compiled modules"
+          }
+        ]
+      }
+    },
+    {
       "date": "Mon, 16 Nov 2026 22:20:21 GMT",
       "version": "0.73.3",
       "tag": "@parity-app/cli_v0.73.3",

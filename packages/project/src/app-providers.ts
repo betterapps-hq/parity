@@ -105,9 +105,9 @@ interface Found {
  * The preview file Parity offers to write from what the app's entry renders around the app (PAR-104), or `undefined`
  * when it renders no providers the file could carry. It starts at the entry's `render` call and follows the app's own
  * components through their files, taking each provider on the way: a component whose name ends in `Provider` or
- * `Providers`, from a package or the app. `StrictMode`, `Suspense` and fragments are looked inside; routers are passed
- * over, since a router's extension draws frames inside one. It stops at anything else, or where an element has several
- * children and not exactly one of them is a provider.
+ * `Providers`, from a package or the app. `StrictMode`, `Suspense` and fragments are looked inside, and a fragment's
+ * children count as its parent's; routers are passed over, since a router's extension draws frames inside one. It stops
+ * at anything else, or where an element has several children and not exactly one of them is a provider.
  *
  * A provider's props are carried as the app writes them, with what they import, imported from the preview file, and
  * what the file declares at its top level, such as `const queryClient = new QueryClient()`, copied. A prop that picks a
@@ -398,8 +398,18 @@ function unwrapParentheses(node: ts.Node): ts.Node {
   return ts.isParenthesizedExpression(node) ? unwrapParentheses(node.expression) : node
 }
 
+/**
+ * The elements among a JSX element's children, with a fragment's children in its place, since what a fragment holds
+ * renders as its parent's children: `<A><><B /><C /></></A>` gives `B` and `C`.
+ */
 function elementChildren(children: ts.NodeArray<ts.JsxChild>): (ts.JsxElement | ts.JsxSelfClosingElement)[] {
-  return children.filter((child) => ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child))
+  return children.flatMap((child) => {
+    if (ts.isJsxFragment(child) || (ts.isJsxElement(child) && lastPart(tagName(child)) === "Fragment")) {
+      return elementChildren(child.children)
+    }
+
+    return ts.isJsxElement(child) || ts.isJsxSelfClosingElement(child) ? [child] : []
+  })
 }
 
 function tagName(element: ts.JsxElement | ts.JsxSelfClosingElement): string {

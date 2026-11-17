@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto"
-import { readdir, readFile, realpath, stat } from "node:fs/promises"
+import { mkdir, readdir, readFile, realpath, rm, stat, utimes } from "node:fs/promises"
 import { createRequire } from "node:module"
 import { type AddressInfo, createServer as createNetServer } from "node:net"
 import { basename, dirname, isAbsolute, join, posix, relative, resolve } from "node:path"
-import { pathToFileURL } from "node:url"
+import { fileURLToPath, pathToFileURL } from "node:url"
 import { hasElementSources, tagElementSources } from "@parity-app/code"
 import {
   type AppStyles,
@@ -94,6 +94,8 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
     () => []
   )
 
+  const cacheDir = await keepDependencyCache(options.root, parityBuild)
+
   /** The project's config, once `start` has it: the guest is made from it, and the builder process updates it in place. */
   let served: ProjectConfig | undefined
 
@@ -103,7 +105,7 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
     configFile,
     // Its own dependency cache: the project's own dev server, often running alongside, would otherwise re-optimize
     // into the same folder, and each server would then serve stale dependencies ("Outdated Optimize Dep").
-    cacheDir: "node_modules/.vite-parity",
+    cacheDir,
     clearScreen: false,
     server: {
       // Vite reads port 0 as unset and starts at 5173, so two Parity instances both took it, one on IPv4 and one on
@@ -168,6 +170,50 @@ async function prepareVite(options: BuilderPrepareOptions): Promise<PreparedBuil
   }
 }
 
+/** This copy of Parity, by where its builder's code is: each worktree and each installed version has its own. */
+const parityBuild = fileURLToPath(import.meta.url)
+
+/** Where Parity's dependency caches are kept in a project, from its root. */
+const cachesFolder = "node_modules/.vite-parity"
+
+/** How long a copy's cache is kept after the copy last opened the project. */
+const cacheAge = 14 * 24 * 60 * 60 * 1000
+
+/**
+ * The folder this copy of Parity keeps the project's prebundled dependencies in, from the project's root, marked as used
+ * now (PAR-1203). Every copy shared one folder, and copies built from other commits add other plugins and bundle other
+ * libraries, which Vite's config hash covers: opening the project in one copy after another deleted the bundle and
+ * built it again, about 20 s on copacker. A copy's folder is named after `build`. Folders no copy has opened the project
+ * with for two weeks are deleted, the shared one from before among them, in the background.
+ */
+export async function keepDependencyCache(root: string, build: string, now = new Date()): Promise<string> {
+  const name = createHash("sha1").update(build).digest("hex").slice(0, 10)
+  const caches = join(root, cachesFolder)
+  const own = join(caches, name)
+  await mkdir(own, { recursive: true })
+  await utimes(own, now, now)
+  void deleteOldCaches(caches, name, now.getTime() - cacheAge).catch(() => undefined)
+
+  return `${cachesFolder}/${name}`
+}
+
+/** Deletes the folders in `caches`, other than `keep`, that nothing has changed since `before`. */
+export async function deleteOldCaches(caches: string, keep: string, before: number): Promise<void> {
+  const entries = await readdir(caches, { withFileTypes: true })
+
+  await Promise.all(
+    entries
+      .filter((entry) => entry.name !== keep)
+      .map(async (entry) => {
+        const path = join(caches, entry.name)
+
+        if ((await stat(path)).mtimeMs < before) {
+          await rm(path, { recursive: true, force: true })
+        }
+      })
+  )
+}
+
 /**
  * Runs `work` with the dependency optimizer finding nothing new, for compiling modules before the server listens
  * (PAR-1196). Vite 6 and 7 bundle a package a compiled module imports at once, even before the optimizer has started,
@@ -229,8 +275,11 @@ function bundleFor(server: Vite.ViteDevServer, runtimeImports: string[], appPage
     )
   ]
 
+  // A page's own imports too, which an app without an `index.html`, as TanStack Start's, gave the optimizer no way to
+  // find before the page loaded: then it bundled them again, and every frame and page reloaded (PAR-1203).
   const entries = [
     ...appPage,
+    ...(config.routeFiles ?? []),
     ...Object.values(config.components)
       .filter((component) => !component.library)
       .map((component) => component.path)

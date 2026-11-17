@@ -1391,8 +1391,10 @@ already renders around the app, and never writes it unasked.
   script extension, and the element its `render` or `hydrateRoot` call draws. The app's own components are followed into
   their files, up to six files deep. A component whose name ends in `Provider` or `Providers` is taken, from a package
   or the app; `StrictMode`, `Suspense`, `Profiler` and fragments are looked inside; routers are passed over, since a
-  router's extension draws frames inside one. Reading stops at anything else, or where an element has several children
-  and not exactly one of them is a provider, since sibling providers wrap different parts of the app.
+  router's extension draws frames inside one. A fragment's children, shorthand `<>` or `Fragment`, count as its
+  parent's, so a fragment between two providers reaches the inner one (PAR-1218). Reading stops at anything else, or
+  where an element has several children and not exactly one of them is a provider, since sibling providers wrap
+  different parts of the app.
 - **What's written.** One decorator nesting the providers, outermost first, around `<Story />`. Props are carried as the
   app writes them; what they import is imported from `.parity/`, and what the file declares at its top level, such as
   `const queryClient = new QueryClient()`, is copied with its own `const`, `let` or `var`. A value its file exports,
@@ -1416,10 +1418,11 @@ Code: `offerPreviewFile` in `packages/project/src/app-providers.ts`; `previewOff
 `closedPreviewOffer` in `packages/settings/src/projects-file.ts`.
 
 Tests: "a preview file offered from the app's providers" in `packages/project/src/app-providers.test.ts`, including app
-F's own files; "the preview file offered from the app's providers" in `apps/desktop/src/utility/preview-offer.test.ts`;
-"changes once the project has a preview file" in `packages/project/src/detection-inputs.test.ts`; "remembers a closed
-preview file offer" in `packages/settings/src/projects-file.test.ts`; the Parity/Chrome/Prompts/Preview file stories.
-App F's offer wasn't tried in the running app, since its fixture isn't installed locally.
+F's own files and fragments between providers; "the preview file offered from the app's providers" in
+`apps/desktop/src/utility/preview-offer.test.ts`; "changes once the project has a preview file" in
+`packages/project/src/detection-inputs.test.ts`; "remembers a closed preview file offer" in
+`packages/settings/src/projects-file.test.ts`; the Parity/Chrome/Prompts/Preview file stories. App F's offer wasn't
+tried in the running app, since its fixture isn't installed locally.
 
 ### Pages are the routes' files (PAR-1163)
 
@@ -1688,6 +1691,18 @@ status bar.
   that batch in a loop that never let Vite's next run, set on a timer, go ahead, so about one open in eight of
   `vite7-js` stopped at "Starting the project's builder". The warm-up now lets timers run once every listed batch has
   settled, and fails naming the dependencies if the optimizer still hasn't finished them after 2 minutes.
+- **Each copy of Parity keeps its own prebundle** (PAR-1203), in `node_modules/.vite-parity/<copy>`, named after where
+  that copy's builder code is, so each worktree and each installed version has one. Copies built from other commits add
+  other plugins and bundle other libraries, which Vite's config hash covers: sharing one folder, opening the project in
+  one copy after another re-optimized, about 20 s on copacker. A copy's folder that hasn't opened the project for two
+  weeks is deleted, in the background.
+- **Pages' imports are bundled before any page loads** (PAR-1203). The optimizer looks through the files the app's
+  routes are made of, as the router's extension reads them, besides the components and `index.html`. An app with no
+  `index.html`, as a TanStack Start app, gave it no way to find what only pages import, such as
+  `nuqs/adapters/tanstack-router` on copacker: it bundled again once pages ran and reloaded every frame.
+- **The warm-up compiles the guest's graph all at once** (PAR-1203): each module's imports start as soon as it's
+  compiled. It keeps what it compiled unless the optimizer changed the hash modules import its bundle with, rather than
+  dropping it all and having the browser ask for every module again.
 
 Code: `packages/extension-vite` (its manifest, `extension.ts` and `builder.ts`); `BuilderProvider` in
 `packages/extension/src/api.ts`; `extensionBuilder` in `packages/core/src/adapters.ts`; `builtInBuilders` and `byPeers`
@@ -1697,15 +1712,17 @@ Tests: `packages/extension-vite/src/extension.test.ts` (its manifest, versions a
 Vite finds), and `apps/desktop/src/utility/projects.test.ts`, whose projects find their builder through a builder
 provider, and `prepare.test.ts` (a prepared server finding the stylesheets of an app that imports a package without
 asking the optimizer to bundle it, nor letting Vite's background compiles do so, then importing it through the optimizer
-once started), and `warmup.test.ts` (the warm-up finishing when Vite clears a settled batch on a timer, and failing with
-the dependencies' names when it never does). Tried in the running app on 2026-11-14 on the example: Vite 8.3.5 and its
-config found through the provider, the guest served, the Pricing page drawn, and Vite first in the status bar. The kept
-prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a `node_modules` project, prepared and started three
-times: before the change every start re-optimized, after it none did. The hang was reproduced on 2026-11-16 with
-`vite7-js` (Vite 7.3.7) by preparing, finding the stylesheets and starting outside the app: before the change, 1 start
-in about 8 never finished; after it, none of 35 hung. Gaps: the tests run on Vite 8, which never re-optimized, so they
-check that nothing is bundled early rather than Vite 7 itself; ten opens of `vite-fluent-pnp` in a row in the app are
-untried.
+once started, and looking through the route files), `warmup.test.ts` (the warm-up finishing when Vite clears a settled
+batch on a timer, and failing with the dependencies' names when it never does; compiling side by side; keeping what it
+compiled unless the optimizer's hash changed), `builder.test.ts` (a cache folder per copy, and old ones deleted), and
+`packages/core/src/grouping.test.ts` (the route files a builder is given). Tried in the running app on 2026-11-14 on the
+example: Vite 8.3.5 and its config found through the provider, the guest served, the Pricing page drawn, and Vite first
+in the status bar. The kept prebundle was checked by hand on 2026-11-16 with Vite 7.3.8 and a `node_modules` project,
+prepared and started three times: before the change every start re-optimized, after it none did. The hang was reproduced
+on 2026-11-16 with `vite7-js` (Vite 7.3.7) by preparing, finding the stylesheets and starting outside the app: before
+the change, 1 start in about 8 never finished; after it, none of 35 hung. Gaps: the tests run on Vite 8, which never
+re-optimized, so they check that nothing is bundled early rather than Vite 7 itself; ten opens of `vite-fluent-pnp` in a
+row in the app are untried.
 
 ### Rspack as an extension, through its builder provider (PAR-1147)
 
@@ -6176,6 +6193,50 @@ Tests:
 - `apps/desktop/scripts/dev-room.test.ts` (4): the first copy in hosts and the next takes over; a message to every other
   copy or to the one it names, saying who sent it; relaying on after a copy aborts a message halfway; a message that
   isn't one refused.
+
+### The canvas surface: colors, the camera and boxes (PAR-1236)
+
+Three core services that people's and agents' presence draws through, as docs/proposals/extensions-in-the-window.md sets
+out. They're in the window for core today; internal extensions reach them through `parity.canvas` once window modules
+land (PAR-1233). Each project tab's canvas starts its own as it mounts (`surfaceOf(editor)`).
+
+- **Colors never run out.** People and agents get colors by key, never by color: `claim(key)` gives the lowest-numbered
+  palette no other key in the tab holds, a released number goes out again first, and past the hand-tuned palettes more
+  are generated by number, the same in every copy. A room's numbers, given with `assign(key, n)`, win over claims, and a
+  claim on a number the room gave someone else moves to a free one. Claims are counted per owner, an extension or
+  `core`, and given back together when it stops. Agents at work get theirs this way, so a thirteenth agent gets a
+  generated palette rather than sharing one. The first claim to need each generated palette records `colors.generated`.
+- **The camera** says what's in view as a rect on the page, tells listeners at most once a frame, and `show(view)`
+  glides there, fitted to the window within the canvas's zoom limits.
+- **Following** keeps showing the views it's given, gliding to each. Its own moves are tagged, so only the person's end
+  it: Esc, a pan (`panned`) or zoom (`zoomed`) of their own, or another page (`navigated`). Another follow or `show`
+  ends it as `replaced`, and its owner as `disposed`. A resized window fits what's followed again. Each ending records
+  `follow.ended`. The frame and banner drawn while following are the Follow mode stories'
+  (`Parity/Multiplayer/Follow mode`), drawn by whoever follows.
+- **Boxes** say where a design's board, the frame a state and mode draws in, or a node in that frame is on the page,
+  with its corner radius and its laid-out size in design pixels. With no frame in that state and mode, one in the mode
+  is used, then the primary frame. A frame asleep, or a board culled out of view, gives the box to point at instead
+  (`asleep`), and one not on the canvas says so (`missing`). `onBoxChange` checks once a frame while anyone listens.
+  `hit` gives the design under a page point and the deepest node there, and `pageToScreen` and `screenToPage` convert
+  between the page and the canvas area's pixels.
+
+Code: `createColors` in `packages/presence-colors/src/colors.ts`; the camera, following and measuring policy in
+`packages/editor/src/`: `canvas-surface.ts` (the shapes), `canvas-camera.ts` and `canvas-measure.ts`, each over a port;
+and the window's side in `apps/desktop/src/renderer/canvas/surface/`: `colors.ts`, `camera-tldraw.ts`, `measure-dom.ts`
+(which reads frames through `frame-geometry.ts`) and `index.ts`; `agent/agent-colors.ts`.
+
+Tests:
+
+- `packages/presence-colors/src/colors.test.ts` (6): the lowest free number, kept while claimed; forty agents without
+  running out, `colors.generated` once per number; claims kept while any owner holds them and given back together; the
+  room's numbers winning; keys the room assigned counted as holding a color; a number that isn't a palette's refused.
+- `apps/desktop/src/renderer/agent/agent-colors.test.ts` (2): an agent keeps its palette; agents at once never share
+  one, the hand-tuned ones first, and never run out.
+- `packages/editor/src/canvas-camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling a zoom from a
+  pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the person's pan
+  or zoom; each other ending; fitting again on resize.
+- `packages/editor/src/canvas-measure.test.ts` (6): the frame fallback; boards, frames and nodes; a sleeping frame and a
+  culled board; changes told once a frame until disposed; hits on the deepest node.
 
 ## Tokens
 

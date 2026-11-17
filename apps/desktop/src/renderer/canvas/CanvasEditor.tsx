@@ -49,6 +49,7 @@ import { ReferenceUtil } from "./ReferenceUtil.tsx"
 import { recordRestedFar } from "./rested-far.ts"
 import { RoomCursor } from "./RoomCursor.tsx"
 import { routePageLinks } from "./route-pages.ts"
+import { startCanvasSurface } from "./surface/index.ts"
 import { TitleLayer } from "./title-layer.tsx"
 import { withoutPatternFills } from "./tldraw-fills.ts"
 import { type CanvasId, createCanvasId, IndicatorOverlayUtil } from "./tldraw-names.ts"
@@ -453,6 +454,8 @@ export function CanvasEditor({
       }
 
       const stopZoom = settleZoom(editor)
+      // The camera, following and boxes on the page, for what draws over the canvas (PAR-1236).
+      const stopSurface = startCanvasSurface(editor)
       const stopZoomedOut = markZoomedOut(editor)
       const stopOverlays = sizeOverlays(editor)
       const stopDoc = doc.subscribe(() => sync())
@@ -673,6 +676,7 @@ export function CanvasEditor({
       return () => {
         clearTimeout(fit)
         stopZoom()
+        stopSurface()
         stopZoomedOut()
         stopOverlays()
         hiddenTabs.delete(editor)

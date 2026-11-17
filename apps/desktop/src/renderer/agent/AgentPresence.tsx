@@ -354,7 +354,7 @@ function AgentCursor({
 
         idleSince = undefined
         const name = event.agent ?? "Agent"
-        colors = agentColors.claim(agent, name)
+        colors = agentColors.claim(agent)
         setPalette(colors)
 
         if (event.kind === "start") {
