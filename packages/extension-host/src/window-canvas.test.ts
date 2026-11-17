@@ -203,15 +203,15 @@ function services() {
     previews,
     people,
     agents,
-    moveCamera(next: CameraView) {
+    moveCamera: (next: CameraView) => {
       view = next
       cameraListeners.forEach((listener) => listener(next))
     },
-    changeBox(box: BoxResult) {
+    changeBox: (box: BoxResult) => {
       boxListeners.forEach((listener) => listener(box))
     },
     /** The canvas goes, as its tab reopens the project, and comes back if `back` is given. */
-    remount(back?: CoreCanvas) {
+    remount: (back?: CoreCanvas) => {
       cameraListeners.clear()
       boxListeners.clear()
       mounted = undefined
@@ -305,7 +305,7 @@ async function tab(module: WindowModule = surfaceTestModule, change: Partial<Win
       return parity
     },
     /** Turns the extension off in this tab. */
-    async stop() {
+    stop: async () => {
       runtime.update([])
       await settle()
     }
