@@ -151,17 +151,17 @@ function startDrag(design: Board, card: string, before: string | null, late = fa
   )
 }
 
-/** Where the dragged card would land with the pointer at a point. */
-function dropAt(design: Board, card: string, point: { x: number; y: number }) {
+/** Where the dragged card would land with the pointer at a point, and `into` a neighbour with Ctrl. */
+function dropAt(design: Board, card: string, point: { x: number; y: number }, into = false) {
   return page.evaluate(
-    ({ design, card, point }) => {
+    ({ design, card, point, into }) => {
       const host = document.querySelector<HTMLElement>("#host")!
       // @ts-expect-error The bundle's global, and the layouts the page measured.
-      const found = drop.dropInFrame(window.layouts, design, host, point, "board", [card])
+      const found = drop.dropInFrame(window.layouts, design, host, point, "board", [card], into)
 
       return found && { parent: found.target.parent, index: found.target.index, line: found.line }
     },
-    { design, card, point }
+    { design, card, point, into }
   )
 }
 
@@ -237,6 +237,13 @@ describe("dragging a card beside cards that are layouts", () => {
       parent: "stats",
       index: 2
     })
+  })
+
+  it("goes into a neighbour it's dragged over with Ctrl (PAR-206)", async () => {
+    const issues = (await boxes()).issues!
+    await startDrag(design, "users", "uptime")
+    const point = { x: issues.left + issues.width / 2, y: issues.top + issues.height - 10 }
+    expect(await dropAt(design, "users", point, true)).toMatchObject({ parent: "issues", index: 1 })
   })
 
   it("still goes into a layout outside its own", async () => {

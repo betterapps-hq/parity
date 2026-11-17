@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Press Ctrl (Cmd on a Mac) while dragging a layer to drop it into the layout under the pointer, even a neighbour",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

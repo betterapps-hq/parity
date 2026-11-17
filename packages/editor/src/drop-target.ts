@@ -81,6 +81,11 @@ export interface DropQuery {
   /** The design the dragged layers are in, and their ids. */
   source: string
   ids: readonly string[]
+  /**
+   * Into the deepest layout under the point, even a neighbour of the layers or one inside it, as Ctrl pressed during the
+   * drag asks. Never into the layers themselves.
+   */
+  into?: boolean
 }
 
 export interface DropTarget {
@@ -94,8 +99,8 @@ export interface DropTarget {
 /**
  * Where layers dropped at a point in a frame would go, by the frame's layout when the drag began: the deepest layout
  * under the point, in the slot under the point (see `slotAt`). Over the layout the layers are being dragged in, they
- * stay in it and change places with their neighbours, so a neighbour, or anything inside one, never takes the drop;
- * nor do the layers themselves. Undefined when no layout that's drawn is under the point.
+ * stay in it and change places with their neighbours, so a neighbour, or anything inside one, never takes the drop,
+ * unless `into` asks for it. The layers themselves never do. Undefined when no layout that's drawn is under the point.
  */
 export function dropTargetAt({
   layout,
@@ -104,7 +109,8 @@ export function dropTargetAt({
   root,
   point,
   source,
-  ids
+  ids,
+  into = false
 }: DropQuery): DropTarget | undefined {
   // Points now map back to where they were in the frame then, in case the camera moved.
   const scale = now.width > 0 ? layout.frame.width / now.width : 1
@@ -116,11 +122,14 @@ export function dropTargetAt({
 
   const deepest = layout.layers.findLast(({ box }) => inside(box, then))?.id
   const location = deepest ? locateNode(root, deepest) : undefined
-  const chain = location ? [...location.ancestors, location.node] : [root]
   const moving = new Set(ids)
   const same = design === source
-  // The layouts the layers are in now: under the point, the drop stops at the deepest of them.
-  const own = new Set(same ? ids.map((id) => locateNode(root, id)?.ancestors.at(-1)?.id) : [])
+  const under = location ? [...location.ancestors, location.node] : [root]
+  // Nothing inside the layers being moved can take them.
+  const cut = same ? under.findIndex((node) => moving.has(node.id)) : -1
+  const chain = cut === -1 ? under : under.slice(0, cut)
+  // The layouts the layers are in now: under the point, the drop stops at the deepest of them, unless asked into.
+  const own = new Set(same && !into ? ids.map((id) => locateNode(root, id)?.ancestors.at(-1)?.id) : [])
   const stop = chain.findLastIndex((node) => own.has(node.id))
   const parent = (stop === -1 ? chain : chain.slice(0, stop + 1)).findLast((node) => node.type === "layout")
 
@@ -158,4 +167,29 @@ export function dropTargetAt({
 
 function inside(box: Rect, point: Point): boolean {
   return point.x >= box.left && point.x <= box.right && point.y >= box.top && point.y <= box.bottom
+}
+
+/** The modifier keys held, as an event has them. */
+export interface Held {
+  ctrlKey: boolean
+  metaKey: boolean
+}
+
+/**
+ * Whether Ctrl (Cmd on a Mac) asks a drag to drop into the layout under the pointer, even a neighbour (PAR-206). It
+ * counts once it's pressed during the drag: held from the press, it picked the deepest layer to drag (as Ctrl-click
+ * selects it), so it must be let go and pressed again, and Ctrl-dragging a card still changes places as a drag does.
+ */
+export function intoNeighbour(start: Held): (held: Held) => boolean {
+  let armed = !(start.ctrlKey || start.metaKey)
+
+  return (held) => {
+    const down = held.ctrlKey || held.metaKey
+
+    if (!down) {
+      armed = true
+    }
+
+    return armed && down
+  }
 }
