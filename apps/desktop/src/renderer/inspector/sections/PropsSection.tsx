@@ -14,6 +14,7 @@ import {
 } from "@buildkitgg/shadcn"
 import {
   changesField,
+  componentInfoOf,
   type ComponentProp,
   type ContainerSpec,
   type DesignNode,
@@ -181,7 +182,8 @@ function CodeInstanceProps({
   part
 }: CodeInstanceProps) {
   const session = useProject()
-  const info = useComponents(session.components)[node.component]
+  // An icon's are its set's, which its icons share.
+  const info = componentInfoOf(useComponents(session.components), node.component)
   const values = node.props ?? {}
   const known = new Map((info?.props ?? []).map((prop) => [prop.name, prop]))
   // Variants and own props always show; pass-through attributes only once set, or taken away in this state.

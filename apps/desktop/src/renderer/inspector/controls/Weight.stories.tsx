@@ -3,9 +3,10 @@ import { useState } from "react"
 import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont, WeightField } from "./font-fields.tsx"
+import { findFont, useInstalledFonts } from "./fonts.ts"
 import { Playground } from "./playground.tsx"
+import { stackFont } from "./rendered-type.ts"
 import { fontTokens, weightTokens } from "./stand-in-tokens.ts"
-import { findFont, projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites, type WeightValue, weightWrites } from "./text-writes.ts"
 import type { StoredObject, Writes } from "./writes.ts"
@@ -29,7 +30,8 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const geist = projectFonts[0]!
+/** The font the stand-in project's sans token names, which the text inherits. */
+const sans = () => stackFont(fontTokens[0]!.stack)
 
 /** Font and Weight's writes side by side, each property under its own key (call 4). */
 function together(font: Writes, weight: Writes): Writes {
@@ -65,7 +67,9 @@ function Weight({
   const [preview, setPreview] = useState<number>()
   const [fontPreview, setFontPreview] = useState<FontValue>()
   const resolved = resolveFont(fontPreview ?? font, fontTokens)
-  const family = (resolved && findFont(resolved.name)) ?? geist
+  // The computer's fonts, which say what faces a font has, draw it again when they come.
+  useInstalledFonts()
+  const family = (resolved && findFont(resolved.name)) ?? sans()
 
   const token =
     weight !== undefined && "token" in weight ? weightTokens.find((each) => each.name === weight.token) : undefined
@@ -92,7 +96,7 @@ function Weight({
       <Field label="Font">
         <FontFamilyField
           value={font}
-          inherited={{ font: geist, from: "Plans" }}
+          inherited={{ font: sans(), from: "Plans" }}
           onChange={setFont}
           onPreview={setFontPreview}
         />

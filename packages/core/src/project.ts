@@ -23,6 +23,11 @@ export interface ProjectConfig {
   packageStyles?: string[]
   /** Components the canvas can place, keyed by component id. */
   components: Record<string, ComponentSource>
+  /**
+   * One icon of each icon set the project depends on, by `iconSetPropsId`, whose props are read as any component's are
+   * and stand for every icon of the set, since a set's icons share their props (`size`, `color`, `strokeWidth`).
+   */
+  iconSets?: Record<string, ComponentSource>
   /** Project files (`*.par`), relative to the project root. */
   documents: string[]
   /** Component libraries the project depends on, whose components the canvas can place too. */
@@ -82,6 +87,21 @@ export interface DescribedTokens {
   manifest: string
   tokens: DescribedToken[]
   error?: string
+}
+
+/**
+ * Where the props an icon set's icons share are kept among the project's components' props: the set's id and a slash,
+ * as `lucide/`, which names no component.
+ */
+export function iconSetPropsId(library: string): string {
+  return `${library}/`
+}
+
+/** The props a component takes: its own, or for an icon, which isn't read one by one, its set's (`iconSetPropsId`). */
+export function componentInfoOf<Info>(components: Readonly<Record<string, Info>>, component: string): Info | undefined {
+  const slash = component.indexOf("/")
+
+  return components[component] ?? (slash > 0 ? components[iconSetPropsId(component.slice(0, slash))] : undefined)
 }
 
 export interface ComponentSource {

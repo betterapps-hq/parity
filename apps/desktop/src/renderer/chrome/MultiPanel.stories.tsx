@@ -2,9 +2,10 @@ import { findNode } from "@parity-app/core"
 import { designsSelection, layersSelection } from "@parity-app/editor"
 import { containerEntry } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
+import { expect, within } from "storybook/test"
 import { design, example, node } from "../stories/fixtures.tsx"
 import { DesignTab } from "./DesignPanel.tsx"
-import { inspecting, InspectorStage } from "./inspector-stories.tsx"
+import { inspecting, InspectorStage, slowly } from "./inspector-stories.tsx"
 import { Inspector } from "./Inspector.tsx"
 
 /**
@@ -95,6 +96,41 @@ export const SomeLayersGone: Story = {
 /** Every selected layer was deleted, by an agent or another window: the panel says they no longer exist. */
 export const LayersGone: Story = {
   loaders: [inspecting("design", () => layersSelection(design("Pricing"), ["deleted-layer", "another-deleted-layer"]))]
+}
+
+/** The section titles, top to bottom. */
+async function titles(canvasElement: HTMLElement) {
+  const found = await within(canvasElement).findAllByRole("heading", { level: 3 }, slowly)
+
+  return found.map((title) => title.textContent)
+}
+
+/** Pricing's headline and lede, two text layers: their sections come in a text layer's order, Typography first. */
+export const LayersOfOneKind: Story = {
+  loaders: [
+    inspecting("design", () =>
+      layersSelection(design("Pricing"), [node("Pricing", "Headline"), node("Pricing", "Lede")])
+    )
+  ],
+  play: async ({ canvasElement }) => {
+    const names = await titles(canvasElement)
+    await expect(names.indexOf("Typography")).toBeLessThan(names.indexOf("Size"))
+  }
+}
+
+/** Pricing's headline and its nav, a text layer and a layout: only what they share, so no Layout and no Content. */
+export const LayersOfDifferentKinds: Story = {
+  loaders: [
+    inspecting("design", () =>
+      layersSelection(design("Pricing"), [node("Pricing", "Headline"), node("Pricing", "Nav")])
+    )
+  ],
+  play: async ({ canvasElement }) => {
+    const names = await titles(canvasElement)
+    await expect(names).toEqual(expect.arrayContaining(["Arrange", "Size", "Appearance"]))
+    await expect(names).not.toContain("Layout")
+    await expect(names).not.toContain("Content")
+  }
 }
 
 /** The ids of a layout's children in the example. */
