@@ -183,7 +183,8 @@ function pageJob(mode: Partial<PageJob["mode"]> = {}, copy = true): PageJob {
             tag: "img",
             attributes: [
               ["src", "javascript:alert(1)"],
-              ["onerror", "window.ran = true"]
+              ["onerror", "window.ran = true"],
+              ["loading", "lazy"]
             ],
             children: []
           }
@@ -210,6 +211,7 @@ function renderPage(job: PageJob) {
       color: hero ? getComputedStyle(hero).color : undefined,
       src: image?.getAttribute("src"),
       onerror: image?.getAttribute("onerror"),
+      loading: image?.getAttribute("loading"),
       ran: "ran" in window
     }
   }, job)
@@ -230,6 +232,10 @@ describe("canvasRender with a page's copy (PAR-1200)", () => {
     expect(drawn.src).toBeNull()
     expect(drawn.onerror).toBeNull()
     expect(drawn.ran).toBe(false)
+  })
+
+  it("loads lazy images at once, since the whole page is captured from a window as tall as its first size", async () => {
+    expect((await renderPage(pageJob())).loading).toBe("eager")
   })
 
   it("clips the copy at the frame's own height", async () => {

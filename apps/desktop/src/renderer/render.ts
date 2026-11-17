@@ -123,12 +123,25 @@ async function renderPage(job: PageJob): Promise<RenderedFrame> {
     )
 
     current = { unmount: mounted.unmount }
+    // The window is only as tall as its first size until the capture, so a lazy image below it wouldn't start loading.
+    eagerImages(host.shadowRoot)
     await window.canvasSettle()
     await Promise.race([imagesLoaded(host), new Promise((resolve) => setTimeout(resolve, 1500))])
 
     return { width: mode.width, height, nodes: [], overflowsX: false, unknownComponents: [] }
   } catch (error) {
     return failed(error instanceof Error ? error.message : String(error))
+  }
+}
+
+/** Has every lazy image in `root`, and in the shadow roots inside it, load now, as the whole page is captured. */
+function eagerImages(root: ParentNode | null): void {
+  for (const element of root?.querySelectorAll("*") ?? []) {
+    if (element instanceof HTMLImageElement && element.loading === "lazy") {
+      element.loading = "eager"
+    }
+
+    eagerImages(element.shadowRoot)
   }
 }
 
