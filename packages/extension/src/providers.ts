@@ -229,6 +229,127 @@ export interface DiscoveryProvider {
   maxAgeMs?: number
 }
 
+/**
+ * Knows a family of component libraries that the project's dependencies' names alone don't identify, such as the
+ * components shadcn/ui copies into an app or shadcn-sync generates there, and sets them up. Parity asks `detect` while
+ * the project opens, and `catalog` and `add` from the Components panel's Add library.
+ */
+export interface LibrariesProvider {
+  /** The libraries the project uses that its dependencies' names alone don't identify, each described by a registry file. */
+  detect(): Promise<DetectedLibrary[]>
+  /** The libraries it can set up, each with the settings it asks for, set to what the project uses now or defaults. */
+  catalog(): Promise<CatalogLibrary[]>
+  /**
+   * What setting one up with the chosen settings takes: the package.json changes and files to write. Parity writes
+   * them, then installs with the project's package manager, which runs the scripts it adds.
+   */
+  add(request: LibraryRequest): Promise<LibrarySetupPlan>
+  /**
+   * What taking one it set up out of the project takes: the packages to uninstall, the scripts to change, and the
+   * stylesheet import to drop. Parity changes package.json and the stylesheet first, then uninstalls.
+   */
+  remove(request: LibraryRemoval): Promise<LibraryRemovalPlan>
+}
+
+/** A library a libraries provider found in the project, which Parity reads with a file in its registry. */
+export interface DetectedLibrary {
+  /**
+   * The package whose newest file in Parity's registry describes it, as `@buildkitgg/shadcn-baseui-nova`, whether or not
+   * that package is installed.
+   */
+  registry: string
+  /**
+   * The dependency its components are imported from, as `@buildkitgg/shadcn`. Left out when the components are the
+   * app's own, as shadcn's CLI copies them, so only the tokens the registry file describes are read.
+   */
+  package?: string
+  name: string
+  description: string
+  /** Its Tailwind entry, from the package's folder, as `tailwind.css`, when the app's Tailwind builds its classes. */
+  tailwindEntry?: string
+  /** An icon package its components draw with, as `@phosphor-icons/react`, read as an icon library too. */
+  icons?: string
+}
+
+/** A library a libraries provider can set up from the Components panel. */
+export interface CatalogLibrary {
+  /** Unique among the provider's, as `shadcn`. */
+  id: string
+  name: string
+  description: string
+  /** The package its components are imported from once it's set up. */
+  package: string
+  /** Its pages, which the catalog links to. */
+  links?: LibraryLinks
+  /** The version it sets up, when it's known before it's set up. */
+  version?: string
+  /** The catalog id of an icon set offered alongside it, as Tabler Icons beside Mantine. */
+  companion?: string
+  /** What it asks before it's set up, each set to what the project uses now or a default. */
+  settings: LibrarySetting[]
+  /** Whether the project has it set up already, so adding it again changes its settings. */
+  installed: boolean
+}
+
+/** A library's pages: its website, its docs, a Storybook of its components, and its source. */
+export interface LibraryLinks {
+  website?: string
+  docs?: string
+  storybook?: string
+  source?: string
+}
+
+/** A choice a library asks for before it's set up, such as shadcn's style. */
+export interface LibrarySetting {
+  id: string
+  label: string
+  options: { value: string; label: string }[]
+  /** One of the options' values. */
+  value: string
+}
+
+/** Which of its catalog's libraries to set up, with a value for each of its settings, by id. */
+export interface LibraryRequest {
+  library: string
+  settings: Record<string, string>
+}
+
+/**
+ * What setting a library up changes in the project, as data. Parity merges the package.json fields into the project's,
+ * replacing an entry of the same name, writes the files, imports `styles` into the app's stylesheet, and installs.
+ */
+export interface LibrarySetupPlan {
+  /** Dependencies at the ranges given. */
+  dependencies?: Record<string, string>
+  devDependencies?: Record<string, string>
+  /** Dependencies to add at the newest version, which the package manager picks and writes. */
+  packages?: string[]
+  /** Scripts by name, each replacing the project's script of that name. */
+  scripts?: Record<string, string>
+  /** Files to write, by their path from the project's root, with their whole text. */
+  files?: { path: string; content: string }[]
+  /** A stylesheet the app's own stylesheet imports, by its specifier, as `@buildkitgg/shadcn/tailwind.css`. */
+  styles?: string
+}
+
+/** Which of its catalog's libraries to take out of the project. */
+export interface LibraryRemoval {
+  library: string
+}
+
+/**
+ * What taking a library out changes in the project, as data. Parity writes the scripts into package.json and drops the
+ * stylesheet import, then uninstalls the packages with the project's package manager.
+ */
+export interface LibraryRemovalPlan {
+  /** Dependencies to uninstall, by name. Packages it added that the project may use itself, as an icon set, stay. */
+  packages?: string[]
+  /** Scripts by name: each one's new text, or `null` to remove it. */
+  scripts?: Record<string, string | null>
+  /** A stylesheet import to drop from the app's stylesheet, by its specifier. */
+  styles?: string
+}
+
 /** Each kind of provider, by the name the manifest's `contributes.providers` declares it under. */
 export interface ProviderKinds {
   router: RouterProvider
@@ -238,6 +359,7 @@ export interface ProviderKinds {
   entities: EntitiesProvider
   addresses: AddressProvider
   discovery: DiscoveryProvider
+  libraries: LibrariesProvider
 }
 
 /** A registered provider. Disposing it takes it away. */

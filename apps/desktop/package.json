@@ -58,6 +58,7 @@
     "@parity-app/extension-react-router": "workspace:*",
     "@parity-app/extension-rsbuild": "workspace:*",
     "@parity-app/extension-rspack": "workspace:*",
+    "@parity-app/extension-shadcn": "workspace:*",
     "@parity-app/extension-storybook": "workspace:*",
     "@parity-app/extension-storybook-a11y": "workspace:*",
     "@parity-app/extension-tailwind": "workspace:*",

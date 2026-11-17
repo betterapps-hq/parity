@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test"
 import { diffFile, EditConflict, type FileContent, planEdit, reverseEdit } from "./edits.ts"
-import { withStylesImport } from "./libraries.ts"
+import { withoutStylesImport, withStylesImport } from "./libraries.ts"
 
 const files = (entries: Record<string, FileContent>) => new Map(Object.entries(entries))
 
@@ -226,5 +226,14 @@ describe("withStylesImport", () => {
 
   it("imports them first when the stylesheet doesn't import Tailwind", () => {
     expect(withStylesImport(":root {}\n", "lib/styles.css")).toBe('@import "lib/styles.css";\n:root {}\n')
+  })
+})
+
+describe("withoutStylesImport", () => {
+  it("drops a library's import, in either quotes, and leaves a stylesheet without one alone", () => {
+    const source = `@import "tailwindcss";\n@import '@mantine/core/styles.css';\n\n:root {}\n`
+
+    expect(withoutStylesImport(source, "@mantine/core/styles.css")).toBe(`@import "tailwindcss";\n\n:root {}\n`)
+    expect(withoutStylesImport(source, "@chakra-ui/react/styles.css")).toBeUndefined()
   })
 })

@@ -69,7 +69,7 @@ import {
   useState,
   useSyncExternalStore
 } from "react"
-import type { ProjectInfo } from "../../shared/protocol.ts"
+import type { CatalogLibrary, ProjectInfo } from "../../shared/protocol.ts"
 import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
@@ -82,6 +82,7 @@ import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { type ProjectSession, workspace } from "../workspace.ts"
 import { AdapterLogo } from "./AdapterLogo.tsx"
+import { AddLibraryDialog, offeredLibraries } from "./AddLibraryDialog.tsx"
 import { componentFile, viewCode } from "./code-editor.ts"
 import { componentOffers, type PlacedExtensions } from "./command-offers.ts"
 import { type ComponentCardProps, ComponentPopover, PreviewThumb, StatusLine } from "./ComponentCard.tsx"
@@ -99,6 +100,11 @@ import { announceEdit } from "./project-edits.tsx"
 import { revealSelection } from "./reveal.ts"
 
 const noSubscription = () => () => undefined
+
+/** Whether a source is the app's own components or pages, which can run to hundreds. */
+function bulky(id: string): boolean {
+  return id === "project" || id === "project:pages"
+}
 
 /** No source opened or closed by hand. */
 const noneOpened: Readonly<Record<string, boolean>> = {}
@@ -426,10 +432,9 @@ export function ComponentsPanel() {
         shown.map((source) => ({
           id: source.id,
           families: source.families,
-          // The app's components and pages can run to hundreds, so they start closed beside other sections.
-          open:
-            openedBy[source.id] ??
-            (!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3),
+          // Libraries start closed, and so do the app's components and pages beside other sections, since each can run
+          // to hundreds. A search opens every section with a match.
+          open: openedBy[source.id] ?? (!!needle || (!source.library && (!bulky(source.id) || shown.length < 3))),
           notice: !!source.library && !source.library.stylesImported
         })),
         view === "grid" ? 2 : 1
@@ -443,7 +448,7 @@ export function ComponentsPanel() {
         <div className="flex-1">
           <SearchField value={query} onChange={setQuery} placeholder="Search components" />
         </div>
-        <AddLibrary kind="components" />
+        <AddComponentLibrary />
       </div>
       <div className="flex justify-end px-2 pt-2">
         <ToggleGroup
@@ -1113,11 +1118,19 @@ function AssetRow({
   )
 }
 
-/** Installs a catalog library with the project's package manager, then reopens the tab to load it. */
-async function installLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
+/**
+ * Installs a catalog library with the project's package manager, set up with `settings` and with the icon sets
+ * `companions` names, then reopens the tab to load it.
+ */
+async function installLibrary(
+  projectId: string,
+  library: { id: string; name: string },
+  settings?: Record<string, string>,
+  companions?: string[]
+): Promise<void> {
   await serviceCall({
     progress: `Installing ${library.name}…`,
-    run: () => request("library.add", { projectId, library: library.id }),
+    run: () => request("library.add", { projectId, library: library.id, settings, companions }),
     done() {
       track("library.added", { package: library.id })
 
@@ -1143,20 +1156,95 @@ async function installLibrary(projectId: string, library: { id: string; name: st
   })
 }
 
+/** Takes a library out of the project with its package manager, then reopens the tab without it. */
+async function removeLibrary(projectId: string, library: { id: string; name: string }): Promise<void> {
+  await serviceCall({
+    progress: `Removing ${library.name}…`,
+    run: () => request("library.remove", { projectId, library: library.id }),
+    done: () => ({ success: `Removed ${library.name}` }),
+    after: () => workspace.reload(projectId, `Removing ${library.name}`),
+    failed: {
+      operation: "library.remove",
+      title: `Couldn't remove ${library.name}`,
+      description: () => "The package manager stopped with an error.",
+      details: (error) => message(error).slice(-2000)
+    }
+  })
+}
+
+/** What a library's registry file holds, from the service, or nothing when it can't say. */
+async function libraryPreview(library: string, settings?: Record<string, string>) {
+  try {
+    return await request("library.preview", { library, settings })
+  } catch (cause) {
+    reportError(cause, { operation: "library.preview", title: "Couldn't load the library's preview" })
+
+    return undefined
+  }
+}
+
+/** The plus button that opens the component libraries the project can add, change or remove. */
+function AddComponentLibrary() {
+  const session = useProject()
+  const [catalog, setCatalog] = useState<CatalogLibrary[]>()
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="mt-2"
+        aria-label="Component libraries"
+        onClick={() => {
+          setOpen(true)
+          setCatalog(undefined)
+          void request("library.catalog", { projectId: session.id }).then(setCatalog, (cause: unknown) =>
+            reportError(cause, { operation: "library.catalog", title: "Couldn't load libraries" })
+          )
+        }}
+      >
+        <Plus />
+      </Button>
+      <AddLibraryDialog
+        open={open}
+        onOpenChange={setOpen}
+        libraries={offeredLibraries(catalog ?? [])}
+        loadPreview={libraryPreview}
+        onAdd={({ library, settings, companions }) => {
+          setOpen(false)
+          void installLibrary(
+            session.id,
+            catalog?.find((each) => each.id === library) ?? { id: library, name: library },
+            settings,
+            companions
+          )
+        }}
+        onRemove={(library) => {
+          setOpen(false)
+          void removeLibrary(session.id, catalog?.find((each) => each.id === library) ?? { id: library, name: library })
+        }}
+      />
+    </>
+  )
+}
+
 /** The icon set each project's Icons tab shows, kept while the tab reopens to load a set just added. */
 const shownIconSets = new Map<string, string>()
 
-/** The catalog's libraries of one kind, to add to the project; `trigger` replaces the plus button that opens it. */
-function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?: ReactElement }) {
+/** The icon sets the registry has files for, to add to the project; `trigger` replaces the plus button that opens it. */
+function AddIconSet({ trigger }: { trigger?: ReactElement }) {
   const session = useProject()
-
-  const [catalog, setCatalog] =
-    useState<{ id: string; name: string; description: string; kind: "components" | "icons"; installed: boolean }[]>()
+  const [catalog, setCatalog] = useState<CatalogLibrary[]>()
+  const [open, setOpen] = useState(false)
 
   return (
     <Popover
-      onOpenChange={(open) => {
-        if (open && !catalog) {
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+
+        if (next && !catalog) {
           void request("library.catalog", { projectId: session.id }).then(setCatalog, (cause: unknown) =>
             reportError(cause, { operation: "library.catalog", title: "Couldn't load libraries" })
           )
@@ -1166,12 +1254,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
       <PopoverTrigger
         render={
           trigger ?? (
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="mt-2"
-              aria-label={kind === "icons" ? "Add an icon set" : "Add a library"}
-            >
+            <Button variant="ghost" size="icon-sm" className="mt-2" aria-label="Add an icon set">
               <Plus />
             </Button>
           )
@@ -1185,7 +1268,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
         {!catalog && <LoaderCircle className="mx-auto my-3 size-4 animate-spin text-muted-foreground" />}
         <ul className="flex flex-col gap-1">
           {catalog
-            ?.filter((library) => library.kind === kind)
+            ?.filter((library) => library.kind === "icons")
             .map((library) => (
               <li key={library.id} className="flex items-start gap-2 rounded-md p-2 hover:bg-accent/50">
                 <div className="min-w-0 flex-1">
@@ -1197,10 +1280,7 @@ function AddLibrary({ kind, trigger }: { kind: "components" | "icons"; trigger?:
                   variant={library.installed ? "ghost" : "outline"}
                   disabled={library.installed}
                   onClick={() => {
-                    if (kind === "icons") {
-                      shownIconSets.set(session.id, library.id)
-                    }
-
+                    shownIconSets.set(session.id, library.id)
                     void installLibrary(session.id, library)
                   }}
                 >
@@ -1340,8 +1420,7 @@ export function IconsPanel() {
           <Button size="sm" onClick={() => void installLibrary(session.id, { id: "lucide", name: "Lucide" })}>
             <Plus /> Add Lucide
           </Button>
-          <AddLibrary
-            kind="icons"
+          <AddIconSet
             trigger={
               <Button size="sm" variant="outline">
                 Choose another
@@ -1402,7 +1481,7 @@ export function IconsPanel() {
             placeholder={`Search ${all.length} ${iconsOf(library)}`}
           />
         </div>
-        <AddLibrary kind="icons" />
+        <AddIconSet />
       </div>
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pt-2">
         {matches.length === 0 && (

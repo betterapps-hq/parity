@@ -5,7 +5,7 @@ import type { RendererAdapter } from "@parity-app/core"
 import type { JsonValue } from "@parity-app/core/schema"
 import { isText } from "@parity-app/core/values/evaluate"
 import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
-import { findLibraries } from "./libraries.ts"
+import { findLibraries, registryTokens } from "./libraries.ts"
 
 const renderer: RendererAdapter = {
   id: "test",
@@ -87,14 +87,9 @@ describe("library files", () => {
       components: { list: { Button: component(), Badge: component() } }
     })
 
-    const found = await findLibraries(
-      root,
-      { dependencies: { "@acme/ui": "2.1.0" } },
-      [],
-      renderer,
-      [],
-      join(root, "registry")
-    )
+    const found = await findLibraries(root, { dependencies: { "@acme/ui": "2.1.0" } }, [], renderer, {
+      registry: join(root, "registry")
+    })
 
     expect(found.libraries[0]?.decorators).toHaveLength(1)
     expect(Object.keys(found.components).sort()).toEqual(["acme/Button", "acme/Chip"])
@@ -124,14 +119,9 @@ describe("library files", () => {
       components: { list: { Button: component(), Badge: component(), Card: component(), Hidden: component() } }
     })
 
-    const found = await findLibraries(
-      root,
-      { dependencies: { "@acme/ui": "1.2.0" } },
-      [],
-      renderer,
-      [],
-      join(root, "registry")
-    )
+    const found = await findLibraries(root, { dependencies: { "@acme/ui": "1.2.0" } }, [], renderer, {
+      registry: join(root, "registry")
+    })
 
     expect(found.libraries[0]?.decorators).toHaveLength(1)
     expect(Object.keys(found.components).sort()).toEqual(["acme/Button", "acme/Card", "acme/Legacy"])
@@ -141,23 +131,28 @@ describe("library files", () => {
   })
 })
 
-describe("components shadcn-sync generates", () => {
-  /** `@buildkitgg/shadcn` as sync writes it into an app, with the settings it records in `manifest.json`. */
-  async function synced(settings: Record<string, string>, declarations: string) {
+describe("libraries an extension found", () => {
+  /** What the shadcn extension finds of sync's components in nova, as it reads their `manifest.json`. */
+  const nova = {
+    registry: "@buildkitgg/shadcn-baseui-nova",
+    package: "@buildkitgg/shadcn",
+    name: "Shadcn Nova",
+    description: "Every shadcn component on Base UI, in the nova style.",
+    tailwindEntry: "tailwind.css"
+  }
+
+  /** `@buildkitgg/shadcn` as sync writes it into an app. */
+  async function synced(declarations: string) {
     await write("node_modules/@buildkitgg/shadcn/package.json", {
       name: "@buildkitgg/shadcn",
       version: "0.1.4",
       types: "index.d.ts"
     })
-    await write("node_modules/@buildkitgg/shadcn/manifest.json", { generatorVersion: "0.1.4", settings })
     await write("node_modules/@buildkitgg/shadcn/index.d.ts", declarations)
   }
 
-  it("are read with their kit's file, imported from the package the app has, and checked against what it exports", async () => {
-    await synced(
-      { base: "base", icons: "lucide", style: "nova", theme: "neutral", css: "tailwind" },
-      "export function Button(): unknown\nexport function Attachment(): unknown"
-    )
+  /** The registry's file for Buildkit's nova kit, with tokens. */
+  async function novaFile() {
     await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
       version: 4,
       id: "nova",
@@ -165,17 +160,21 @@ describe("components shadcn-sync generates", () => {
       package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
       styles: "tailwind.css",
       decorators: [{ wrap: { import: "@buildkitgg/shadcn-baseui-nova", component: "TooltipProvider" } }],
+      tokens: { color: { primary: { $type: "color", $value: "#171717" } } },
       components: { list: { Button: component(), Sonner: component() } }
     })
+  }
 
-    const found = await findLibraries(
-      root,
-      { dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } },
-      ["src/index.css"],
-      renderer,
-      [],
-      join(root, "registry")
-    )
+  const syncedApp = { dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } }
+
+  it("are read with their registry file, imported from the package the app has, and checked against what it exports", async () => {
+    await synced("export function Button(): unknown\nexport function Attachment(): unknown")
+    await novaFile()
+
+    const found = await findLibraries(root, syncedApp, ["src/index.css"], renderer, {
+      registry: join(root, "registry"),
+      detected: [nova]
+    })
 
     expect(found.libraries).toMatchObject([
       {
@@ -194,24 +193,24 @@ describe("components shadcn-sync generates", () => {
     expect(found.notes).toEqual([])
   })
 
-  it("on a base with no kit, are listed from their declarations, with their own CSS when compiled", async () => {
-    await synced(
-      { base: "aria", icons: "lucide", style: "lyra", theme: "neutral", css: "compiled" },
-      "export function Button(): unknown"
-    )
+  it("with no registry file, are listed from their declarations, as the extension describes them", async () => {
+    await synced("export function Button(): unknown")
 
-    const found = await findLibraries(
-      root,
-      { dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } },
-      [],
-      renderer,
-      [],
-      join(root, "registry")
-    )
+    const found = await findLibraries(root, syncedApp, [], renderer, {
+      registry: join(root, "registry"),
+      detected: [
+        {
+          registry: "@buildkitgg/shadcn-aria-lyra",
+          package: "@buildkitgg/shadcn",
+          name: "Shadcn Lyra",
+          description: "Every shadcn component on React Aria, in the lyra style."
+        }
+      ]
+    })
 
     expect(found.libraries).toMatchObject([
       {
-        id: "lyra",
+        id: "shadcn",
         name: "Shadcn Lyra",
         description: "Every shadcn component on React Aria, in the lyra style.",
         package: "@buildkitgg/shadcn",
@@ -219,6 +218,59 @@ describe("components shadcn-sync generates", () => {
       }
     ])
     expect(found.libraries[0]?.tailwindEntry).toBeUndefined()
-    expect(Object.keys(found.components)).toEqual(["lyra/Button"])
+    expect(Object.keys(found.components)).toEqual(["shadcn/Button"])
+  })
+
+  it("add only their registry file's tokens when the components are the app's own", async () => {
+    await novaFile()
+
+    const found = await findLibraries(root, {}, [], renderer, {
+      registry: join(root, "registry"),
+      detected: [{ registry: nova.registry, name: nova.name, description: "Copied in." }]
+    })
+
+    expect(found.libraries).toEqual([])
+    expect(found.components).toEqual({})
+    expect(found.describedTokens).toMatchObject([
+      { name: "Shadcn Nova", manifest: "registry:@buildkitgg+shadcn-baseui-nova.lib.par" }
+    ])
+    expect(found.describedTokens[0]?.tokens.length).toBeGreaterThan(0)
+  })
+
+  it("bring the same tokens a preview of their registry file shows before they're added", async () => {
+    await novaFile()
+
+    const preview = await registryTokens(nova.registry, [], join(root, "registry"))
+
+    expect(preview).toMatchObject({ name: "Shadcn Nova", manifest: "registry:@buildkitgg+shadcn-baseui-nova.lib.par" })
+    expect(preview?.tokens.map(({ path, values }) => [path, values.default])).toEqual([["color.primary", "#171717"]])
+    expect(await registryTokens("@acme/none", [], join(root, "registry"))).toBeUndefined()
+  })
+
+  it("read the icon package their components draw with as an icon library, from their own package's copy", async () => {
+    await synced("export function Button(): unknown")
+    await novaFile()
+    // Linked into sync's package, not the app's own dependency.
+    await write("node_modules/@buildkitgg/shadcn/node_modules/@acme/icons/package.json", {
+      name: "@acme/icons",
+      version: "1.0.0"
+    })
+    await write("registry/@acme+icons.lib.par", {
+      version: 4,
+      id: "acme-icons",
+      name: "Acme Icons",
+      package: { name: "@acme/icons", version: "1.0.0", range: "^1.0.0" },
+      icons: { render: "export" }
+    })
+
+    const found = await findLibraries(root, syncedApp, [], renderer, {
+      registry: join(root, "registry"),
+      detected: [{ ...nova, icons: "@acme/icons" }]
+    })
+
+    expect(found.libraries.map(({ id, kind, importName }) => ({ id, kind, importName }))).toEqual([
+      { id: "nova", kind: undefined, importName: "@buildkitgg/shadcn" },
+      { id: "acme-icons", kind: "icons", importName: "@acme/icons" }
+    ])
   })
 })

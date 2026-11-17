@@ -150,6 +150,7 @@ const builds: BuildContext[] = [
       "extensions/storybook": join(appDir, "../../packages/extension-storybook/src/extension.ts"),
       "extensions/storybook-a11y": join(appDir, "../../packages/extension-storybook-a11y/src/extension.ts"),
       "extensions/tailwind": join(appDir, "../../packages/extension-tailwind/src/extension.ts"),
+      "extensions/shadcn": join(appDir, "../../packages/extension-shadcn/src/extension.ts"),
       "extensions/vite": join(appDir, "../../packages/extension-vite/src/extension.ts"),
       "extensions/rspack": join(appDir, "../../packages/extension-rspack/src/extension.ts"),
       "extensions/rsbuild": join(appDir, "../../packages/extension-rsbuild/src/extension.ts"),

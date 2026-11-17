@@ -319,6 +319,8 @@ export interface Providers {
   addresses?: Record<string, never>
   /** Finds servers running that Parity didn't start. */
   discovery?: Record<string, never>
+  /** Finds libraries the project's dependencies' names don't identify, and sets them up from the Components panel. */
+  libraries?: Record<string, never>
 }
 
 /** A tool agents can call, with a JSON Schema for its input. */

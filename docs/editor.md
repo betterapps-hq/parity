@@ -6602,6 +6602,85 @@ Tests: `packages/registry/src/index.test.ts` ("uses the oldest newer file for a 
 `packages/code/src/package-exports.test.ts` (each way a package exports a name). No example app is on an older version
 than its library's file.
 
+### Component libraries, added, changed and removed (PAR-1227)
+
+The plus beside the Components panel's search opens **Component libraries**: the popular component libraries Parity has
+registry files for, Shadcn, Mantine, Chakra UI, Fluent UI and Material UI, in one list with their logos, the ones the
+project has marked Added. Headless kits, charts and icon sets aren't offered here; icon sets have the Icons tab's own
+plus. Choosing one shows what its registry file holds, before anything is installed:
+
+- **Its look,** a card drawn with nothing but its tokens (surface, text, borders, corners, font, shadow, main color), in
+  each of its themes: a Light and Dark switch, or a list for Fluent's five.
+- **What it has, counted:** components, tokens, themes and breakpoints.
+- **Every token,** a tab for each of the Tokens panel's sections with its count, drawn as the Tokens panel's tiles are,
+  with names and values. Colors are a wall of swatches, named on hover. Motion plays while a tile is hovered or focused,
+  as there, and pressing it keeps it playing; an animation runs its library's keyframes where they're known, which
+  registry files don't hold yet, so it holds still in the app.
+- **Every component,** by family, with how many parts each has: the family its file names, else its namespace, else the
+  shortest component its name starts with.
+- **Its breakpoints** on a ruler from nothing to the widest, each label ending at its own tick on a line of its own.
+
+Its header links to its website, docs, Storybook and source. A library with an icon set of its own offers it alongside,
+as Fluent icons beside Fluent UI, added in the same install. A library that asks for settings, as Shadcn does, takes
+them in a second step with Next, and its look follows the theme chosen; an installed one shows Change, then Apply once a
+setting differs. **Remove** on an installed library asks first, naming the package it uninstalls, then changes
+package.json's scripts and the stylesheet as one change and uninstalls with the project's package manager. The layout
+follows the dialog's width: the list narrows to logos, the settings stack, and token tiles keep even columns.
+
+What the registry's files don't say lives beside them in `packages/registry/libraries/catalog.json`: the order offered,
+each library's pages, logo (Simple Icons', and Fluent's mark from Microsoft's own), which of its tokens play which part
+in its look, the registry file that previews one an extension sets up (`@buildkitgg/shadcn-baseui-{style}`), and its
+icon set.
+
+Code: `chrome/AddLibraryDialog.tsx` (the dialog, `offeredLibraries`), `AddComponentLibrary` and `removeLibrary` in
+`chrome/AssetsPanel.tsx`; `catalogFor`, `previewFor` and `removeLibrary` in `apps/desktop/src/utility/libraries.ts`;
+`libraryPreview` and `familiesOf` in `packages/project/src/library-preview.ts`; `withoutStylesImport` in
+`packages/project/src/libraries.ts`, `removeCommand` in `detect.ts`; `registryCatalog` in
+`packages/registry/src/index.ts`.
+
+Tests: `packages/project/src/library-preview.test.ts` (a file's tokens with their kinds and themes, families,
+breakpoints, every look token the catalog names, nothing without a file); `registryCatalog` in
+`packages/registry/src/index.test.ts` (offered libraries and their icon sets have files; a library without a look is
+refused); `withoutStylesImport` in `packages/project/src/edits.test.ts`; `removeCommand` in `detect.test.ts`; script
+removal in `setup-plan.test.ts`. Storybook, `chrome/AddLibraryDialog.stories.tsx`: Shadcn, Mantine, MantineDark,
+ChakraUi, ChakraUiSpacing, FluentUi, MaterialUi, ShadcnSettings, ShadcnAdded and RemovingALibrary; and
+`chrome/ComponentsPanel.stories.tsx`: AddingALibrary, CatalogLoading, InstallingALibrary, ChangingShadcn,
+AddingShadcnInstalling and RemovingALibrary. Gaps: removing hasn't been run against a real project's install.
+
+### shadcn found by its extension, and added from the catalog (PAR-1226, PAR-1227)
+
+Parity's core knows nothing of shadcn. The shadcn/ui extension (`packages/extension-shadcn`), built in and started for
+any React project, gives a `libraries` provider. Its `detect` tells Parity which registry file describes what the
+project has: shadcn-sync's components, by the base and style its `manifest.json` records, read with that Buildkit kit's
+file and imported from `@buildkitgg/shadcn`, with its icon set read as an icon library; or components shadcn's CLI
+copied, by the style `components.json` names, which add only the Base UI kit's tokens, since a style's tokens are the
+same on every base. Without a file for the kit, as on React Aria, sync's components are listed from their declarations.
+Its `catalog` offers Shadcn in Component libraries, asking its theme (shadcn's style), color, base and icons, set to
+what the project uses now, Fluent icons among them through Buildkit's adapter; its `add` says what setting it up
+changes: sync as a dev dependency, the icon set and the base's primitives, a `postinstall` that runs sync with those
+settings, and in a project with Tailwind, its `tailwind.css` to import. Parity writes package.json as one change,
+installs with the project's package manager, which runs sync, and imports the stylesheet. An installed Shadcn shows
+Change, which applies new settings the same way. Its `remove` uninstalls sync and the components it generated, drops its
+part of `postinstall` and its stylesheet import, and keeps the icon set and primitives, which the app may use itself.
+The retired Buildkit kits are no longer offered.
+
+Code: `packages/extension-shadcn/src/shadcn.ts` (what it reads and plans, as functions of the files' text) and
+`extension.ts`; `LibrariesProvider` in `packages/extension/src/providers.ts`, checked in
+`packages/extension-host/src/protocol.ts`; `findLibraries` and `registryTokens` in `packages/project/src/libraries.ts`;
+`withPackageChanges` in `packages/project/src/setup-plan.ts`; `catalogFor` and `addLibrary` in
+`apps/desktop/src/utility/libraries.ts`; `readProject` in `apps/desktop/src/utility/projects.ts`, which asks `detect`.
+
+Tests: `packages/extension-shadcn/src/shadcn.test.ts` (its manifest; sync's components with their kit, base, CSS mode
+and icons; the CLI's copies by style, an old style as nova; nothing without them; the catalog's defaults, settings in
+order and values from sync's manifest or script; the setup plan for a new project, for changing one and for Fluent
+icons, settings sync refuses, and the removal plan); `packages/project/src/library-files.test.ts` ("libraries an
+extension found": read with their registry file and checked against the package's exports, listed from declarations
+without one, tokens alone for the app's own copies, the preview of a file's tokens, and an icon package linked into
+sync's package); `packages/project/src/setup-plan.test.ts`; `installCommand` in `packages/project/src/detect.test.ts`;
+`packages/extension-host/src/hosts.test.ts` (a libraries provider asked to set up and take out, and a plan that isn't
+one refused). Storybook: as in Component libraries above. Gaps: adding Shadcn hasn't been run end to end against a real
+project's install.
+
 ### Placing a library's design, linked or detached (PAR-126)
 
 A library's design is placed like the project's own: drag it onto a design, or click it to add it to the selection. That
@@ -8637,8 +8716,8 @@ lazy CSS modules aren't checked against a fixture.
 An open project is detected again, without restarting Parity, once a file detection reads changes what it finds: the
 builder naming other global stylesheets after a file its answer came from changed, a dependency added or removed, or a
 builder's config file, such as `vite.config.ts`, added or taken away. Before, any of these changed nothing in an open
-project until Parity restarted. Parity doesn't read shadcn's `components.json` (PAR-1133), so adding or changing one is
-no change.
+project until Parity restarted. Parity's detection doesn't read shadcn's `components.json` (PAR-1133); the shadcn/ui
+extension reads it as the project opens (PAR-1226), so adding or changing one shows when the project next opens.
 
 - **The service compares what detection finds,** not the files themselves (`detectionInputs`): the app's and packages'
   stylesheets as the builder names them (asking it again), the dependencies' names and which of the builders' config

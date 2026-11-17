@@ -7,6 +7,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vite-plus/test"
 import {
   covers,
   newestEntries,
+  registryCatalog,
   registryDir,
   registryEntries,
   registryEntryFor,
@@ -284,5 +285,29 @@ describe("the registry", () => {
       "Grids",
       "Series"
     ])
+  })
+})
+
+describe("registryCatalog", () => {
+  it("offers libraries the registry has files for, with icon sets it has files for alongside", async () => {
+    const entries = await registryEntries()
+    const ids = new Set(entries.map((entry) => entry.manifest.id))
+    const packages = new Set(entries.map((entry) => entry.manifest.package?.name))
+    const offered = await registryCatalog()
+
+    expect(offered.map((library) => library.id)).toEqual(["shadcn", "mantine", "chakra", "fluent", "mui"])
+
+    const undescribed = offered.filter((library) =>
+      library.preview ? !packages.has(library.preview.replace("{style}", "nova")) : !ids.has(library.id)
+    )
+
+    expect(undescribed).toEqual([])
+    expect(offered.flatMap((library) => library.companion ?? []).filter((id) => !ids.has(id))).toEqual([])
+  })
+
+  it("refuses a catalog with a library it can't draw", async () => {
+    await writeFile(join(dir, "catalog.json"), JSON.stringify({ libraries: [{ id: "mui", links: {} }] }))
+
+    await expect(registryCatalog(dir)).rejects.toThrow(/look/)
   })
 })

@@ -1482,7 +1482,8 @@ const providerKinds: readonly ProviderKind[] = [
   "builder",
   "entities",
   "addresses",
-  "discovery"
+  "discovery",
+  "libraries"
 ]
 
 /** The tabs, sections and pages a manifest declares, by id, with the kind of view each holds. */
