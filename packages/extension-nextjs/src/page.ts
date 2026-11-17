@@ -94,27 +94,41 @@ function pagesOutcome(route: string): PageLocation["outcome"] {
 
 /**
  * Calls `changed` each time the App Router writes the page's address, by `history` or the back button: as it commits a
- * new tree, so the page holds what the address says. Returns what stops it.
+ * new tree, so the page holds what the address says. A write gives the state written and the state it replaced; the
+ * back button gives neither. Returns what stops it.
  */
-function onAddressWrite(changed: () => void): () => void {
+function onAddressWrite(changed: (write?: AddressWrite) => void): () => void {
   const unpatch = [afterWrite("pushState", changed), afterWrite("replaceState", changed)]
+  const popped = () => changed()
 
-  addEventListener("popstate", changed)
+  addEventListener("popstate", popped)
 
   return () => {
     unpatch.forEach((undo) => undo())
-    removeEventListener("popstate", changed)
+    removeEventListener("popstate", popped)
   }
 }
 
+/** A write of the address: the App Router's tree in the state written, and in the state there before. */
+interface AddressWrite {
+  tree?: object
+  before?: object
+}
+
 /** Calls `changed` after each call of one of `history`'s writes. Returns what puts the write back as it was. */
-function afterWrite(method: "pushState" | "replaceState", changed: () => void): () => void {
+function afterWrite(method: "pushState" | "replaceState", changed: (write: AddressWrite) => void): () => void {
   const own = Object.getOwnPropertyDescriptor(history, method)
   const write = history[method].bind(history)
 
   history[method] = (...args) => {
+    const written: unknown = args[0]
+    const before: unknown = history.state
+
     write(...args)
-    changed()
+    changed({
+      tree: isNextHistoryState(written) ? written.__PRIVATE_NEXTJS_INTERNALS_TREE : undefined,
+      before: isNextHistoryState(before) ? before.__PRIVATE_NEXTJS_INTERNALS_TREE : undefined
+    })
   }
 
   return () => {
@@ -126,18 +140,34 @@ function afterWrite(method: "pushState" | "replaceState", changed: () => void): 
   }
 }
 
+/**
+ * Whether a write of the address is the App Router's own, as it commits a new tree: its state carries the tree, a new
+ * one each commit. The app's own writes, as of its query state, carry none, or the tree already there when they copy
+ * `history.state`.
+ */
+function isCommitWrite({ tree, before }: AddressWrite): boolean {
+  return tree !== undefined && tree !== before
+}
+
+/** A history state that holds the App Router's tree. */
+interface NextHistoryState {
+  __PRIVATE_NEXTJS_INTERNALS_TREE: object
+}
+
+function isNextHistoryState(state: unknown): state is NextHistoryState {
+  return (
+    state instanceof Object &&
+    "__PRIVATE_NEXTJS_INTERNALS_TREE" in state &&
+    state.__PRIVATE_NEXTJS_INTERNALS_TREE instanceof Object
+  )
+}
+
 /** Moves the App Router, resolving at its commit, when it writes the address, redirected or not. */
 async function appNavigate(router: AppRouterInstance, to: string, signal: AbortSignal): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>()
-  const target = new URL(to, location.href)
-  const startPath = location.pathname
 
-  // The app may write the address itself while the move is pending, as for its query state. Only the router's commit
-  // lands on the target, or, redirected, leaves the path the move started from.
-  const stop = onAddressWrite(() => {
-    const landed = location.pathname === target.pathname && location.search === target.search
-
-    if (landed || location.pathname !== startPath) {
+  const stop = onAddressWrite((write) => {
+    if (write && isCommitWrite(write)) {
       resolve()
     }
   })

@@ -31,8 +31,6 @@ interface DataRouter {
     navigation: { state: string }
     /** By route id, what a route's loader or component threw. */
     errors: Record<string, Thrown | null | undefined> | null
-    /** The routes the location matched, outermost first. */
-    matches?: { route: { id: string } }[]
   }
   navigate(to: string): Promise<void>
   subscribe(listener: (state: DataRouter["state"]) => void): () => void
@@ -43,9 +41,11 @@ declare global {
   var __reactRouterDataRouter: unknown
   /** Where Parity's wrapped `createBrowserRouter` and `createHashRouter` put the router they made, in library mode. */
   var __parityDataRouter: unknown
+  /** Where React reports its commits, as DevTools reads them. */
+  var __REACT_DEVTOOLS_GLOBAL_HOOK__: unknown
 }
 
-/** How long a move that draws nothing new waits for the page to change before it counts as drawn. */
+/** Without a hook to hear React's commits on, how long a move waits for the page to change before it counts as drawn. */
 const unchangedLimit = 100
 
 /** The app's router, when the page has one: framework mode's, or the one library mode made. */
@@ -97,22 +97,60 @@ function outcomeOf(errors: DataRouter["state"]["errors"]): PageLocation["outcome
   return thrown.some((error) => error?.status === 404) ? "not-found" : "error"
 }
 
-/** The ids of the routes a state matched, which change when the move draws other routes. */
-function routesOf(state: DataRouter["state"]): string {
-  return (state.matches ?? []).map((match) => match.route.id).join("\n")
+/** What React calls on the DevTools hook as it commits. */
+interface CommitHook {
+  onCommitFiberRoot(...args: unknown[]): void
+}
+
+function isCommitHook(value: unknown): value is CommitHook {
+  return value instanceof Object && "onCommitFiberRoot" in value && value.onCommitFiberRoot instanceof Function
+}
+
+/** What's called on each of React's commits, while a move waits for one. */
+const commitListeners = new Set<() => void>()
+
+/** The hook this module listens to commits on, once it has. */
+let listenedHook: object | undefined
+
+/**
+ * Listens to React's commits, through the `__REACT_DEVTOOLS_GLOBAL_HOOK__` React reports each commit to: the one React's
+ * hydration module installs before the app loads, or DevTools' or Fast Refresh's. React reads the hook's
+ * `onCommitFiberRoot` on every commit, so wrapping it now still hears them. Says whether there's a hook to listen on.
+ */
+function listenToCommits(): boolean {
+  const hook = globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__
+
+  if (hook === listenedHook) {
+    return hook !== undefined
+  }
+
+  if (!isCommitHook(hook)) {
+    return false
+  }
+
+  const before = hook.onCommitFiberRoot.bind(hook)
+
+  hook.onCommitFiberRoot = (...args) => {
+    before(...args)
+    commitListeners.forEach((listener) => listener())
+  }
+
+  listenedHook = hook
+
+  return true
 }
 
 /**
- * Resolves once React has drawn the router's new state, at the first change to the page after the router settles.
- * React Router hands its state to React in a transition, so the router settling isn't the new page being in the DOM,
- * and a route that suspends keeps the old page until it's ready. Only a move that matches the same routes, as one that
- * changes only a param or the search, may draw what was already there, so that one also resolves after
- * `unchangedLimit` without a change.
+ * Resolves once React has drawn the router's new state: at React's first commit after the router settles. React
+ * Router hands its state to React in a transition, so the router settling isn't the new page being in the DOM, and a
+ * route that suspends keeps the old page, with no commit, until it's ready. A commit that leaves the DOM as it was
+ * counts too. Without a hook to hear commits on, it's the page's first change after the router settles, or
+ * `unchangedLimit` without one.
  */
 function drawn(router: DataRouter, signal: AbortSignal): Promise<void> {
   const { promise, resolve, reject } = Promise.withResolvers<void>()
   const from = router.state.location.key
-  const routes = routesOf(router.state)
+  const commits = listenToCommits()
   let settled = false
   let limit: ReturnType<typeof setTimeout> | undefined
 
@@ -129,16 +167,19 @@ function drawn(router: DataRouter, signal: AbortSignal): Promise<void> {
 
     settled = true
 
-    if (routesOf(state) === routes) {
+    if (commits) {
+      commitListeners.add(resolve)
+    } else {
+      changes.observe(document, { subtree: true, childList: true, attributes: true, characterData: true })
       limit = setTimeout(resolve, unchangedLimit)
     }
   }
 
-  changes.observe(document, { subtree: true, childList: true, attributes: true, characterData: true })
   const stop = router.subscribe(settle)
   signal.addEventListener("abort", () => reject(signal.reason), { once: true })
 
   return promise.finally(() => {
+    commitListeners.delete(resolve)
     changes.disconnect()
     stop()
     clearTimeout(limit)

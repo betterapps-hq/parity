@@ -6,12 +6,14 @@ import { nextjsPage } from "./page.ts"
 
 /**
  * The App Router's instance: `push` starts a transition and returns nothing, and the address changes as React commits
- * the new tree, a moment later.
+ * the new tree, a moment later, with that tree in its state.
  */
 function appRouter(redirects: Record<string, string> = {}) {
   const router = {
     push(href: string) {
-      setTimeout(() => window.history.pushState({ __NA: true }, "", redirects[href] ?? href), 5)
+      setTimeout(() => {
+        window.history.pushState({ __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: { href } }, "", redirects[href] ?? href)
+      }, 5)
     },
     prefetch: () => undefined
   }
@@ -95,13 +97,24 @@ describe("nextjsPage", () => {
 
   it("isn't done by the app's own writes to the address while the App Router moves", async () => {
     appRouter()
-    window.history.replaceState(null, "", "/projects")
+    window.history.replaceState({ __NA: true, __PRIVATE_NEXTJS_INTERNALS_TREE: {} }, "", "/projects")
 
     const going = nextjsPage.navigate("/settings", new AbortController().signal)
     window.history.replaceState(null, "", "/projects")
-    window.history.replaceState(null, "", "/projects?tab=open")
+    // The app's query state, written over a copy of the state Next left.
+    window.history.replaceState({ ...window.history.state, tab: "open" }, "", "/settings")
 
-    await expect(going).resolves.toMatchObject({ path: "/settings" })
+    await expect(going).resolves.toMatchObject({ path: "/settings", search: "" })
+  })
+
+  it("is done when the App Router commits a redirect back to where it started", async () => {
+    appRouter({ "/protected": "/login?from=protected" })
+    window.history.replaceState(null, "", "/login")
+
+    await expect(nextjsPage.navigate("/protected", new AbortController().signal)).resolves.toMatchObject({
+      path: "/login",
+      search: "?from=protected"
+    })
   })
 
   it("says when the App Router drew its not-found page or another fallback", () => {

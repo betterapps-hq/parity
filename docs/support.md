@@ -338,10 +338,10 @@ all serve those names. What the runtime knows of the app comes from its extensio
 
 The routers' globals aren't public API, so each page module checks what it finds, and a page whose global is missing or
 changed is moved only by loading it. Each says a move is done once the new page is in the DOM: TanStack Router once it
-has resolved, React Router at the page's first change after the router settles (or 100 ms without one when the move
-matches the same routes), the App Router when it writes the address of the move as it commits, and the Pages Router when
-its `push` resolves. React Router says not-found when no route matched or a loader threw a 404; the App Router from the
-marker its development build puts in `<head>`; the Pages Router from its `/404` and `/_error` pages.
+has resolved, React Router at React's first commit after the router settles, the App Router when it writes the address
+with the new tree it commits, and the Pages Router when its `push` resolves. React Router says not-found when no route
+matched or a loader threw a 404; the App Router from the marker its development build puts in `<head>`; the Pages Router
+from its `/404` and `/_error` pages.
 
 Hydration and navigation in the fixtures' real apps are checked only by the end-to-end suite, which doesn't cover them
 yet.

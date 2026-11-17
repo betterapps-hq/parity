@@ -1,12 +1,20 @@
 // @vitest-environment happy-dom
 import { createMemoryRouter, redirect } from "react-router"
-import { afterEach, describe, expect, it } from "vite-plus/test"
+import { afterEach, beforeEach, describe, expect, it } from "vite-plus/test"
 import { createBrowserRouter, matchPath } from "./page-wrap/react-router.ts"
 import { reactRouterPage } from "./page.ts"
 
 // React Router's own data router, with routes that load, redirect, throw and stall. What draws it stands in for React:
-// it takes the router's latest state a moment later, as `RouterProvider` does in a transition, and writes the path
-// into the page.
+// it takes the router's latest state a moment later, as `RouterProvider` does in a transition, writes the path into the
+// page, and reports the commit to React's DevTools hook, as React does.
+
+const hook = { onCommitFiberRoot: (..._args: unknown[]) => undefined }
+
+/** A commit, as React reports it to the hook, after `draw` changes the page, if it does. */
+function commit(draw?: () => void) {
+  draw?.()
+  hook.onCommitFiberRoot(1, {})
+}
 
 let stopDrawing: (() => void) | undefined
 
@@ -34,7 +42,7 @@ function appRouter(start = "/") {
   const stop = router.subscribe((state) => {
     clearTimeout(drawing)
     drawing = setTimeout(() => {
-      document.body.textContent = state.location.pathname
+      commit(() => (document.body.textContent = state.location.pathname))
     }, 5)
   })
 
@@ -48,8 +56,13 @@ function appRouter(start = "/") {
   return router
 }
 
+beforeEach(() => {
+  globalThis.__REACT_DEVTOOLS_GLOBAL_HOOK__ = hook
+})
+
 afterEach(() => {
   stopDrawing?.()
+  Reflect.deleteProperty(globalThis, "__REACT_DEVTOOLS_GLOBAL_HOOK__")
   Reflect.deleteProperty(globalThis, "__reactRouterDataRouter")
   Reflect.deleteProperty(globalThis, "__parityDataRouter")
   document.body.textContent = ""
@@ -107,18 +120,23 @@ describe("reactRouterPage", () => {
     expect(document.body.textContent).toBe("/new")
   })
 
-  it("resolves a navigation to the same routes that draws nothing new", async () => {
-    const router = appRouter("/settings")
+  it("resolves a navigation that React commits without changing the page", async () => {
+    const router = appRouter()
     stopDrawing?.()
 
-    await expect(reactRouterPage.navigate("/settings?tab=2", new AbortController().signal)).resolves.toMatchObject({
-      path: "/settings",
-      search: "?tab=2"
+    const unsubscribe = router.subscribe((state) => {
+      if (state.navigation.state === "idle") {
+        setTimeout(() => commit(), 5)
+      }
     })
-    expect(router.state.location.search).toBe("?tab=2")
+
+    await expect(reactRouterPage.navigate("/settings", new AbortController().signal)).resolves.toMatchObject({
+      path: "/settings"
+    })
+    unsubscribe()
   })
 
-  it("waits as long as React takes to draw other routes, as when a route suspends", async () => {
+  it("waits as long as React takes to commit the new routes, as when a route suspends", async () => {
     const router = appRouter()
     stopDrawing?.()
 
@@ -128,7 +146,7 @@ describe("reactRouterPage", () => {
       if (state.navigation.state === "idle") {
         setTimeout(() => {
           drawnAt = Date.now()
-          document.body.textContent = state.location.pathname
+          commit(() => (document.body.textContent = state.location.pathname))
         }, 300)
       }
     })
@@ -139,6 +157,17 @@ describe("reactRouterPage", () => {
 
     expect(document.body.textContent).toBe("/settings")
     expect(drawnAt - start).toBeGreaterThanOrEqual(250)
+  })
+
+  it("without React's hook, resolves at the page's first change, or after a moment with none", async () => {
+    Reflect.deleteProperty(globalThis, "__REACT_DEVTOOLS_GLOBAL_HOOK__")
+    const router = appRouter()
+    stopDrawing?.()
+
+    await expect(reactRouterPage.navigate("/settings", new AbortController().signal)).resolves.toMatchObject({
+      path: "/settings"
+    })
+    expect(router.state.location.pathname).toBe("/settings")
   })
 
   it("gives up a navigation when it's aborted while a loader is still pending", async () => {
