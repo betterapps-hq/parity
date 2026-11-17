@@ -1,4 +1,4 @@
-import { sizeEdit, type StyleValues } from "@parity-app/editor"
+import { mapLine, sizeEdit, storedLine, type StyleValues } from "@parity-app/editor"
 import type { Draft } from "../controls/data.ts"
 import { useTokens } from "../controls/field-parts.tsx"
 import { GridCellSection } from "../controls/grid-cell.tsx"
@@ -36,13 +36,20 @@ export function GridPlacementSection(props: SectionProps) {
   const allRows = isAll(style.rowStart, style.rowEnd)
   const ends = (!all && style.colEnd !== undefined) || (!allRows && style.rowEnd !== undefined)
 
+  // The map counts lines from the first drawn track; the style, from the template's, past any the grid added before it.
+  const shown = (line: number | undefined, axis: "col" | "row") =>
+    line === undefined ? undefined : mapLine(line, grid.lines?.[axis])
+
+  const stored = (line: number | undefined, axis: "col" | "row") =>
+    line === undefined ? undefined : storedLine(line, grid.lines?.[axis])
+
   const draft: Draft = {
-    colStart: all ? undefined : style.colStart,
+    colStart: all ? undefined : shown(style.colStart, "col"),
     colSpan: all ? "all" : style.colSpan,
-    colEnd: all ? undefined : style.colEnd,
-    rowStart: allRows ? undefined : style.rowStart,
+    colEnd: all ? undefined : shown(style.colEnd, "col"),
+    rowStart: allRows ? undefined : shown(style.rowStart, "row"),
     rowSpan: allRows ? "all" : style.rowSpan,
-    rowEnd: allRows ? undefined : style.rowEnd,
+    rowEnd: allRows ? undefined : shown(style.rowEnd, "row"),
     endLines: ends || undefined,
     childWidth: sizeShown(style.width, unit),
     childHeight: sizeShown(style.height, unit),
@@ -69,11 +76,11 @@ export function GridPlacementSection(props: SectionProps) {
       const across = next.colSpan === "all"
       const down = next.rowSpan === "all"
 
-      const lines = (all: boolean, start: number | undefined, end: number | undefined) =>
-        all ? { start: 1, end: -1 } : { start, end: next.endLines ? end : undefined }
+      const lines = (all: boolean, axis: "col" | "row", start: number | undefined, end: number | undefined) =>
+        all ? { start: 1, end: -1 } : { start: stored(start, axis), end: next.endLines ? stored(end, axis) : undefined }
 
-      const col = lines(across, next.colStart, next.colEnd)
-      const row = lines(down, next.rowStart, next.rowEnd)
+      const col = lines(across, "col", next.colStart, next.colEnd)
+      const row = lines(down, "row", next.rowStart, next.rowEnd)
 
       const values: StyleValues = {
         colStart: col.start,

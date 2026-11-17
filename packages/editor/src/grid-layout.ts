@@ -33,6 +33,36 @@ export interface GridLayout {
   self: string
   /** Where the grid puts its children in their cells, across and down, unless one says otherwise. */
   items: { x?: SelfAlign; y?: SelfAlign }
+  /** Where the template's own columns and rows sit among the drawn ones; from the first, and all of them, otherwise. */
+  lines?: { col: GridLines; row: GridLines }
+}
+
+/**
+ * Where a grid's template sits among its drawn tracks along one axis: how many the grid added before it, for children
+ * placed at negative lines past its start, and how many it makes itself. Lines count from its edges, not the drawn ones.
+ */
+export interface GridLines {
+  origin: number
+  explicit: number
+}
+
+/** The track just after a line, counted from the template's first, before any the grid added: line -1 is after its last. */
+const templateTrack = (line: number, explicit: number) => (line > 0 ? line - 1 : explicit + 1 + line)
+
+/** A line as the map counts them, from the first drawn track: the style's line, past any tracks the grid added first. */
+export function mapLine(line: number, axis: GridLines | undefined): number {
+  return axis ? templateTrack(line, axis.explicit) + axis.origin + 1 : line
+}
+
+/** The map's line as a style holds it: from the template's start, or counted back from its end where it's before it. */
+export function storedLine(line: number, axis: GridLines | undefined): number {
+  if (!axis) {
+    return line
+  }
+
+  const fromTemplate = line - 1 - axis.origin
+
+  return fromTemplate >= 0 ? fromTemplate + 1 : fromTemplate - axis.explicit - 1
 }
 
 /** Tracks' sizes in pixels from a computed `grid-template-columns` or `-rows`: `120px 240.5px`; none for `none`. */
@@ -198,7 +228,7 @@ function topLevelWords(text: string): string[] {
  */
 function placed(
   edges: Edges,
-  explicit: number,
+  axis: GridLines,
   from: number,
   to: number,
   lines: Lines | undefined,
@@ -210,8 +240,8 @@ function placed(
     return box
   }
 
-  // Line 1 is before the first track; -1 after the last of the template's own.
-  const track = (line: number) => (line > 0 ? line - 1 : explicit + 1 + line)
+  // Line 1 is before the template's first track; -1 after its last.
+  const track = (line: number) => templateTrack(line, axis.explicit) + axis.origin
   const start = lineNumber(lines.start)
   const end = lineNumber(lines.end)
 
@@ -297,18 +327,49 @@ export function measuredGrid(grid: {
   const columns = trackEdges(grid.columns, grid.gap.column, grid.distribution?.x)
   const rows = trackEdges(grid.rows, grid.gap.row, grid.distribution?.y)
 
+  const template = {
+    col: gridLines(
+      grid.explicit?.columns ?? columns.length,
+      grid.children.map((child) => child.lines?.column)
+    ),
+    row: gridLines(
+      grid.explicit?.rows ?? rows.length,
+      grid.children.map((child) => child.lines?.row)
+    )
+  }
+
   return {
     weights: [...grid.columns],
     rows: Math.max(1, grid.rows.length),
     self: grid.self,
     items: grid.items,
+    lines: template,
     children: grid.children.map(({ id, name, auto, box, lines, align }) => {
-      const across = grid.explicit?.columns ?? columns.length
-      const down = grid.explicit?.rows ?? rows.length
-      const col = placed(columns, across, box.left, box.left + box.width, lines?.column, align?.x ?? grid.items.x)
-      const row = placed(rows, down, box.top, box.top + box.height, lines?.row, align?.y ?? grid.items.y)
+      const col = placed(columns, template.col, box.left, box.left + box.width, lines?.column, align?.x ?? grid.items.x)
+      const row = placed(rows, template.row, box.top, box.top + box.height, lines?.row, align?.y ?? grid.items.y)
 
       return { id, name, auto, area: { col: col.at, cols: col.span, row: row.at, rows: row.span } }
     })
   }
+}
+
+/**
+ * Where the template sits among the drawn tracks along one axis: the grid adds a track before it for each its children
+ * reach past its start, at negative lines or a span back from one.
+ */
+function gridLines(explicit: number, placements: readonly (Lines | undefined)[]): GridLines {
+  const reach = placements.flatMap((lines) => {
+    if (!lines) {
+      return []
+    }
+
+    const start = lineNumber(lines.start)
+    const end = lineNumber(lines.end)
+    const span = spanNumber(lines.start) ?? spanNumber(lines.end) ?? 1
+    const tracks = [start, end].flatMap((line) => (line === undefined ? [] : [templateTrack(line, explicit)]))
+
+    return start === undefined && end !== undefined ? [...tracks, templateTrack(end, explicit) - span] : tracks
+  })
+
+  return { origin: Math.max(0, -Math.min(0, ...reach)), explicit }
 }

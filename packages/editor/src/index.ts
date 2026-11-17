@@ -36,11 +36,14 @@ export {
   explicitTracks,
   type GridChild,
   type GridLayout,
+  type GridLines,
+  mapLine,
   type Lines,
   type MeasuredChild,
   measuredGrid,
   type SelfAlign as GridSelfAlign,
   selfAlign,
+  storedLine,
   trackSizes
 } from "./grid-layout.ts"
 

@@ -821,6 +821,14 @@ export function nodeGrid(
     const id = child === element ? nodeId : (child.dataset.canvasNode ?? `child-${index}`)
     const box = child.getBoundingClientRect()
 
+    // Its margin box, which is what its cells hold; the margins are in the frame's own pixels.
+    const margin = {
+      left: parseFloat(style.marginLeft) || 0,
+      right: parseFloat(style.marginRight) || 0,
+      top: parseFloat(style.marginTop) || 0,
+      bottom: parseFloat(style.marginBottom) || 0
+    }
+
     return [
       {
         id,
@@ -832,10 +840,10 @@ export function nodeGrid(
         },
         align: { x: selfAlign(style.justifySelf), y: selfAlign(style.alignSelf) },
         box: {
-          left: box.left / scale - left,
-          top: box.top / scale - top,
-          width: box.width / scale,
-          height: box.height / scale
+          left: box.left / scale - left - margin.left,
+          top: box.top / scale - top - margin.top,
+          width: box.width / scale + margin.left + margin.right,
+          height: box.height / scale + margin.top + margin.bottom
         }
       }
     ]
