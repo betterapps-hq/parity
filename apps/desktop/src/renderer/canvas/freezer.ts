@@ -1,5 +1,5 @@
 import { type Channel, createChannel, domPort } from "@parity-app/channel"
-import { type ColorScheme, prepareCanvasCss } from "@parity-app/core"
+import { prepareCanvasCss } from "@parity-app/core"
 import { pageFrameUrl } from "@parity-app/editor"
 import {
   type FrozenElement,
@@ -193,11 +193,7 @@ export function copySheets(copy: Pick<FrozenCopy, "sheets" | "origin">): CSSStyl
  * body the copy's sheets scope those rules to is outside the shadow root, and its roots stay its own `:host`. They've
  * been through `sanitizePage`.
  */
-export function copyShadowStyle(
-  copy: Pick<FrozenCopy, "origin">,
-  css: string,
-  scheme: ColorScheme | undefined
-): string {
+export function copyShadowStyle(copy: Pick<FrozenCopy, "origin">, css: string, scheme: PageMode["scheme"]): string {
   const answered = scheme
     ? css.replaceAll(/\(\s*prefers-color-scheme\s*:\s*(dark|light)\s*\)/gi, (_query, asked: string) =>
         asked.toLowerCase() === scheme ? "(min-width: 0px)" : "(max-width: -1px)"
