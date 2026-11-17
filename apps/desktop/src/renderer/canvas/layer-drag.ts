@@ -291,7 +291,7 @@ export function pressLayers(
 }
 
 /** The top-left corner of boxes, or nothing without any. */
-function corner(boxes: readonly DOMRect[]): Point | undefined {
+export function corner(boxes: readonly DOMRect[]): Point | undefined {
   if (boxes.length === 0) {
     return undefined
   }
@@ -347,11 +347,11 @@ export function moveTarget(
  * of them go where they'd be dropped, so every layout around them reflows exactly as it will. The copies aren't
  * drawn, only a dashed outline round each, as `LandingSpot` draws it (`drawLandingEdge`), so the layers read as moved
  * rather than copied. They're plain DOM, outside React, and gone before the move is made. As the copies move, they and
- * the layers around them slide to their new places (`slideElements`), rather than jumping there.
+ * the layers around them slide to their new places (`slideElements`), rather than jumping there. Each drag has its own,
+ * the local one's and each preview's of someone else's (`drag-preview.ts`), with its own copies and rules.
  */
-class DropPreview {
+export class DropPreview {
   private readonly templates: HTMLElement[]
-  private readonly displays: string[]
   /** Each layer's corners, in its own pixels, which its outline follows. */
   private readonly radii: number[]
   /** Which layers clip what overflows them, so their outline is drawn inside, where it's seen. */
@@ -397,7 +397,6 @@ class DropPreview {
 
       return copy
     })
-    this.displays = originals.map((original) => original.style.getPropertyValue("display"))
   }
 
   /**
@@ -412,7 +411,7 @@ class DropPreview {
     this.hidden = true
 
     for (const original of this.originals) {
-      original.style.setProperty("display", "none", "important")
+      hideOriginal(original)
     }
   }
 
@@ -533,15 +532,11 @@ class DropPreview {
   end(close: boolean): void {
     const show = () => {
       this.remove()
-      this.originals.forEach((original, index) => {
-        const display = this.displays[index]
 
-        if (display) {
-          original.style.setProperty("display", display)
-        } else {
-          original.style.removeProperty("display")
-        }
-      })
+      if (this.hidden) {
+        this.hidden = false
+        this.originals.forEach(showOriginal)
+      }
     }
 
     if (close) {
@@ -567,6 +562,60 @@ class DropPreview {
     this.edges = []
     this.unrule()
     this.at = ""
+  }
+}
+
+/** Layers hidden by drop previews, by how many hide each, and the `display` each had before the first did. */
+const hiddenOriginals = new WeakMap<HTMLElement, { display: string; by: number }>()
+
+/** Hides a layer for a drop preview; several previews can hide one, and it shows again once the last lets go. */
+function hideOriginal(original: HTMLElement): void {
+  const hidden = hiddenOriginals.get(original) ?? { display: original.style.getPropertyValue("display"), by: 0 }
+  hidden.by++
+  hiddenOriginals.set(original, hidden)
+  original.style.setProperty("display", "none", "important")
+}
+
+/** Lets go of a layer one drop preview hid: the last to let go puts back the `display` it had. */
+function showOriginal(original: HTMLElement): void {
+  const hidden = hiddenOriginals.get(original)
+
+  if (!hidden || --hidden.by > 0) {
+    return
+  }
+
+  hiddenOriginals.delete(original)
+
+  if (hidden.display) {
+    original.style.setProperty("display", hidden.display)
+  } else {
+    original.style.removeProperty("display")
+  }
+}
+
+/**
+ * Draws layers other drop previews hid as they are, for a moment, so another preview can measure and picture them;
+ * what it gives back hides them again.
+ */
+export function showHidden(elements: readonly HTMLElement[]): () => void {
+  const hidden = elements.flatMap((element) => {
+    const was = hiddenOriginals.get(element)
+
+    return was ? [{ element, display: was.display }] : []
+  })
+
+  for (const { element, display } of hidden) {
+    if (display) {
+      element.style.setProperty("display", display)
+    } else {
+      element.style.removeProperty("display")
+    }
+  }
+
+  return () => {
+    for (const { element } of hidden) {
+      element.style.setProperty("display", "none", "important")
+    }
   }
 }
 

@@ -190,13 +190,16 @@ describe("leaving the editor", () => {
     await selectSubtitle()
     await openWithEnter()
     await app.page.keyboard.type("Plans", { delay: 5 })
+    // What's typed before composing is written as it's typed.
+    const before = await editor().inputValue()
+    await expect.poll(() => app.node("Pricing", subtitle)).toMatchObject({ text: before })
     await compose("compositionstart")
     await app.page.keyboard.press("Enter")
     await app.page.keyboard.press("Escape")
     await app.frames(2)
-    // Still editing: the keys were the input method's, and nothing is written yet.
+    // Still editing: the keys were the input method's, and nothing more is written.
     expect(await focused()).toBe(true)
-    expect(await app.node("Pricing", subtitle)).toMatchObject({ text: original })
+    expect(await app.node("Pricing", subtitle)).toMatchObject({ text: before })
     await compose("compositionend")
     const typed = await editor().inputValue()
     await app.page.keyboard.press("Enter")

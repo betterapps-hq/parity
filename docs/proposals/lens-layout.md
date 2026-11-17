@@ -1,31 +1,34 @@
 # Proposal: one project per window, its lenses down the left
 
-Status: draft for discussion, 2026-11-16, with a clickable exploration in Storybook, Parity/Explorations/Lenses. Nothing
-in the app is built. Andrew asked for routes, components and stories to have canvases and panels of their own, as the
-database's ERD, the API and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down the left as VS Code
-lists its views, and for a lens to move into a window on another monitor. He also asked that Parity have one project
-open at a time, so the window's project tabs go. This changes app-lenses.md's third decision, "each lens as its own
-canvas page, with links jumping between pages and the design canvas staying the main view".
+Status: draft for discussion, 2026-11-16, with a clickable exploration in Storybook, Parity/Explorations/Lenses, laid
+out by Dockview (PAR-1237). Nothing in the app is built; [Building it into the app](#building-it-into-the-app) plans it
+as PAR-1239 to PAR-1248. Andrew asked for routes, components and stories to have canvases and panels of their own, as
+the database's ERD, the API and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down the left as VS
+Code lists its views, and for a lens to move into a window on another monitor. He also asked that Parity have one
+project open at a time, so the window's project tabs go. This changes app-lenses.md's third decision, "each lens as its
+own canvas page, with links jumping between pages and the design canvas staying the main view".
 
 ## In one line
 
-A window holds one project. Its lenses are listed down the window's left edge; each has its own canvas, left panel and
-selection, and can show beside another lens or in a window of its own.
+A window holds one project. Its lenses are listed down the window's left edge and open as tabs over their canvases. The
+lens bar works as links do in a browser: a click shows a lens in the tab in focus, and Ctrl+click or a drag opens it in
+a new tab. Tabs drag to split, to another group, or off the window into one of their own.
 
 ## The exploration
 
 | Story        | What it shows                                                                                       |
 | ------------ | --------------------------------------------------------------------------------------------------- |
 | Pages        | The project on Pages, Billing selected                                                              |
-| Screens      | Today's designs, each in the project's modes, with the asset tabs in the left panel                 |
+| Tabs         | Screens, Pages and Data as tabs, Screens in front with the asset tabs in the left panel             |
 | Components   | Components on their boards, each state side by side                                                 |
 | Side by side | Pages and Data side by side: the inspector says Billing reads the plans table, and a click opens it |
-| Own window   | Data in a window of its own on a second screen, beside the main window                              |
+| Empty        | Every tab closed: the window is empty until a lens is shown                                         |
 
 It's built from the app's own parts: the title bar and its menus, the left panel and inspector with their tabs, the
 canvas's colors, group titles and floating bars, the asset panels, Modes and the status bar. Everything in it can be
-used: showing a lens, splitting it, moving it to its own window and back, dragging a lens onto a canvas, the project's
-menu, closing the project to Home, and following a link in the inspector, in place or beside.
+used: showing a lens from the lens bar and opening it in a new tab, dragging tabs to split, popping a tab out into a
+real window and back, dragging a tab off the window, closing every tab, the project's menu, closing the project to Home,
+and following a link in the inspector, in place or beside.
 
 ## One project at a time
 
@@ -44,11 +47,12 @@ restore. The project service still could hold more than one project; the window 
 - **The lenses are today's Layers groups,** each made a canvas: Pages for the app's routes, Screens for its designs,
   Components, Stories, Data for its database, and API.
 - **The lens bar** is a column of icons at the window's left edge, as VS Code's activity bar is, on the title bar's
-  surface so the two frame the panels. Each lens's name and shortcut, Ctrl+1 to Ctrl+6, is its tooltip. The lens shown
-  in the canvas in focus is drawn as the open tab is today, with a blue bar at the window's edge as Layers marks its
-  selected row, and the other lenses are dimmed; one shown in another canvas of the window has a dot. Clicking the lens
-  already shown hides or shows the left panel. A lens with nothing to read from, such as API without an OpenAPI
-  document, sits at the bottom, dimmed, and its canvas says what's missing.
+  surface so the two frame the panels. Each lens's name and shortcut, Ctrl+1 to Ctrl+6, is its tooltip. Its lenses work
+  as links do in a browser: a click shows the lens in the tab in focus, in place of that tab's lens, and Ctrl+click or a
+  middle click opens it in a new tab. The lens in the tab in focus is drawn raised, with a blue bar at the window's edge
+  as Layers marks its selected row, and the other lenses are dimmed; one open in another tab or window has a dot, and
+  clicking it goes there. Clicking the lens in focus hides or shows the left panel. A lens with nothing to read from,
+  such as API without an OpenAPI document, sits at the bottom, dimmed, and its canvas says what's missing.
 - **The left panel is the lens's,** with today's tab row along its top. Its first tab lists what the lens draws, as
   Layers does: Pages' routes, Screens' screens and frames, Components, Stories by file, Data's tables. Screens adds the
   asset tabs, Components, Icons, Media and Tokens, since that's where they're dropped. It follows the canvas in focus.
@@ -60,28 +64,36 @@ restore. The project service still could hold more than one project; the window 
   button at the end of each link. Hovering a link outlines the item wherever its lens shows.
 - **The View menu lists the lenses,** with Split right and Move to new window for the lens in focus.
 
-## Side by side and in windows
+## Tabs, side by side and in windows
 
-| Action                                                            | Result                                            |
-| ----------------------------------------------------------------- | ------------------------------------------------- |
-| Click a lens                                                      | Shows it where it is, else in the canvas in focus |
-| Right-click a lens, Split right, or drag it onto a canvas's right | Shows it in a new canvas to the right             |
-| Drag a lens onto a canvas                                         | Shows it there, in place of what it showed        |
-| The button on a canvas's tab, or drag the tab off the window      | A window of its own where it's dropped            |
-| Right-click a lens, Move to new window, or drag it off the window | The same                                          |
-| In that window, right-click the lens, Move to main window         | Back into the main window, to the right           |
+| Action                                                        | Result                                                  |
+| ------------------------------------------------------------- | ------------------------------------------------------- |
+| Click a lens, or press Ctrl and its number                    | Shows it where it's open, else in the tab in focus      |
+| Ctrl+click or middle-click a lens                             | Shows it where it's open, else in a new tab             |
+| Drag a lens from the lens bar onto a group's tabs or canvas   | Opens it in a new tab there                             |
+| Drag a tab, or a lens from the lens bar, onto a canvas's side | Splits that side into a new group with it               |
+| Drag a tab onto another group's tabs                          | Moves it into that group                                |
+| The button at the end of a group's tabs                       | Its tab in a window of its own, beside the main window  |
+| Drag a tab off the window                                     | A window of its own where it's let go                   |
+| In that window, the same button                               | Back into the main window                               |
+| A tab's close button, or a middle click on it                 | Closes it, the last one too                             |
+| Right-click a lens                                            | Open in new tab, Split right, Move to new window, Close |
 
-**Each canvas has a tab** with its lens's name, drawn as the side panels draw their open tab, so the three line up along
-the top. A button at the tab's end, Move to new window, opens the lens in a window of its own, which is then moved like
-any window, by its title bar; in that window the same button takes it back. Dragging the tab off the window works as
-dragging a tab out of a browser does: the window opens where it's let go, so dropping it on another monitor puts it
-there. While it's dragged, an outline of the window it would open follows the pointer outside the window. Lenses drag
-from the lens bar the same way.
+**The lens bar works as links do in a browser,** so the two lists of lenses agree: the lens bar lists every lens, the
+tabs the ones you keep open. A click shows a lens in the tab you're on, as a link opens in the tab it's clicked in, and
+Ctrl+click, a middle click or a drag onto the tabs opens it in a new one. A lens is open once, so clicking one open in
+another tab goes there.
 
-Each lens shows in one place at most, so showing it elsewhere moves it. With two or more canvases, each tab has a close
-button, and the one in focus has a blue top edge. The main window always keeps a canvas: moving its only lens out leaves
-the next free lens in its place. A lens's own window closes with its last canvas. Windows and their canvases are kept
-with the project and come back as they were.
+**Tabs are flat,** on the side panels' background and as tall as their tab rows, so the three read as one row across the
+window. The open tab takes its canvas's color and runs on into it; the others are quieter, and so is the open tab of a
+group out of focus. Dragging a tab works as in VS Code and a browser: onto tabs to join them, onto a canvas's side to
+split, and off the window to open it in a window of its own where it's let go, so dropping it on another monitor puts it
+there. The button at the end of each group's tabs does that in one click.
+
+**A lens's own window holds its tabs, not the panels.** The lens bar, the left panel and the inspector stay in the main
+window and follow the tab in focus, in any window, as VS Code's side bars follow its editors in their own windows.
+Closing every tab empties the window: the left panel and the inspector go with the last lens, and the canvas says how to
+show one.
 
 ## Why it helps loading
 
@@ -95,13 +107,84 @@ background.
 - **One project per window,** and no tab bar: the workspace's open projects become one, and opening another replaces it.
 - **A canvas per lens.** Today there's one tldraw canvas per project. A lens's canvas mounts when it first shows, and
   keeps its camera and selection after.
-- **A project in more than one window.** A moved lens's window is another renderer with the same project open. It edits
-  the same project document as a second person would, through `@parity-app/multiplayer`
-  ([multiplayer.md](multiplayer.md)). Each window has its own instance of the project's code
-  ([shared-app-instance.md](shared-app-instance.md)).
+- **Docking from Dockview** for the tabs, groups, splits, drag and drop, pop-out windows and saving the layout; see
+  [On Dockview](#on-dockview).
+- **A project in more than one window, in one renderer.** A lens's own window is a child window the main window opens
+  (`window.open`, same origin), which Electron runs in the main window's process, so it shares the open project, its
+  store and its instance of the project's code. Nothing has to be kept in sync between windows, and no second renderer
+  edits through `@parity-app/multiplayer`.
 - **Main's window list knows lens windows,** for closing the project, quitting, and putting them back on their screen.
 - **Lenses as extensions' contributions,** so the ERD and API lenses come from their extensions as the router's pages
   do: an id, a name, an icon, a source, a left panel, a canvas and an inspector section.
+
+## Building it into the app
+
+The logic goes in a package and the views stay in the app, as [packages.md](packages.md) has it: a package takes data
+and returns data, and the shell needs the app's own canvas, panels and kit, which a package can't import.
+
+```text
+packages/lenses/                   @parity-app/lenses: pure, tested in Vitest
+  lens.ts      a lens as data: id, name, icon, order and shortcut, and why it's unavailable
+  layout.ts    the layout as data: groups in the main window or their own, their tabs, focus
+  decide.ts    show, open in a new tab, split, move to a window and back, close: dock operations
+  state.ts     the lens in focus, the empty window, the lens bar's marks, the menus' enabled items
+  saved.ts     a saved layout's schema, with lenses that are gone dropped
+
+apps/desktop/src/renderer/lenses/  the shell, and the only place that imports Dockview
+  LensWorkspace.tsx  dock-adapter.ts  LensBar.tsx  LensTab.tsx  GroupActions.tsx  dock.css
+  popout.ts          a lens window's theme, its menus' container and its shortcuts
+  registry.ts        each lens's canvas, left panel and inspector
+```
+
+**The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
+panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
+story shows the real shell. Extensions can add lenses the same way later, as they add panel tabs and pages today.
+
+| Step                                                             | Issue                        | Needs              |
+| ---------------------------------------------------------------- | ---------------------------- | ------------------ |
+| The decisions as data, with tests                                | PAR-1239                     |                    |
+| The shell in the app, behind a Dockview adapter and the registry | PAR-1240                     | PAR-1239           |
+| One project per window, with Home when none is open              | PAR-1241                     |                    |
+| The open project in the shell, with Screens as its first lens    | PAR-1243                     | PAR-1240, PAR-1241 |
+| Pages, Components and Stories as lenses of their own             | PAR-1244, PAR-1245, PAR-1246 | PAR-1243           |
+| Today's canvas tried in a lens's own window                      | PAR-1242                     |                    |
+| Lens windows in the desktop app                                  | PAR-1247                     | PAR-1242, PAR-1243 |
+| Each project's layout saved and restored                         | PAR-1248                     | PAR-1243           |
+
+Data's canvas, the ERD, comes with the Data lens's own work (PAR-40). Trying today's canvas in a lens's own window goes
+early, since it's the part most likely to change the plan.
+
+## On Dockview
+
+The spike (PAR-1237) rebuilt the exploration's canvases and windows on Dockview 8.9 (`dockview-react`, MIT, no
+dependencies beyond React). It replaced the hand-built layout model, drag and drop, drop targets and simulated monitors:
+the exploration lost 750 lines and gained 470.
+
+| What                                | Dockview                                                              |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| Tabs, groups, splits, drop overlays | Built in, themed with CSS variables                                   |
+| Tabs by keyboard                    | Tabs are `tab` elements, and arrow keys move between them             |
+| Pop-out windows and docking back    | Built in (`addPopoutGroup`), free; copies the page's stylesheets over |
+| Saving and restoring the layout     | Built in (`toJSON`, `fromJSON`)                                       |
+| Keyboard docking, layout history    | Paid, in `dockview-enterprise`                                        |
+| Size                                | About 94 KB gzipped, plus its stylesheet                              |
+
+What we'd build on top, each found in the spike:
+
+- **Opening a window where a tab is let go.** Dockview doesn't open one for a tab dropped outside the window; the
+  exploration does it on the drag's end, about 20 lines.
+- **Showing a lens in the tab in focus.** Dockview opens panels as new tabs; the exploration adds the lens beside the
+  tab in focus and closes that tab's lens.
+- **Menus and tooltips in a lens's own window.** They render into the main window's document, so a tooltip for a button
+  in that window shows in the main one. Each window needs its own portal container for Base UI.
+- **Shortcuts in a lens's own window.** Ctrl and a number pressed there does nothing; the app's shortcuts listen on the
+  main window only.
+- **The theme on a lens's own window.** Its page starts blank, so the app copies its root's classes over once the group
+  is in.
+- **Electron allowing the window.** The main window's `setWindowOpenHandler` denies every `window.open` today; it would
+  allow the pop-out page and set the window's frame and title bar.
+- **The real canvas in a lens's own window.** Not tried: tldraw listens on `window` and `document`, which in a pop-out
+  are the main window's.
 
 ## Open questions
 

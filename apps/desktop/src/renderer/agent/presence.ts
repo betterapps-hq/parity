@@ -1,13 +1,15 @@
 import { useSyncExternalStore } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
+import { type Held, holds } from "../canvas/board-holds.ts"
 import { signal } from "../store.ts"
-import { heldBoards } from "./held-boards.ts"
 
 /**
  * What agents are doing in each tab, as a queue per agent the canvas plays back at a readable pace, each with its
  * own cursor. Agents work in milliseconds; people need a second or two per step to follow along.
  */
 class PresenceQueue {
+  /** The hold on each move's board, from when it's queued until its cursor has dragged the board there. */
+  private readonly held = new WeakMap<PresenceEvent, Held>()
   private readonly queues = new Map<string, PresenceEvent[]>()
   private readonly changes = signal()
   /** Agents with a cursor in each tab, in the order they arrived. */
@@ -61,8 +63,8 @@ class PresenceQueue {
       // A long call shouldn't take minutes to replay: keep the start, the latest steps and the end.
       if (queue.length > 24) {
         for (const dropped of queue.splice(1, queue.length - 16)) {
-          if (dropped.kind === "move" && dropped.design && dropped.to) {
-            heldBoards.finish(dropped.tab, dropped.design, dropped.to)
+          if (dropped.kind === "move" && dropped.to) {
+            this.letGo(dropped, dropped.to)
           }
         }
       }
@@ -73,7 +75,7 @@ class PresenceQueue {
           continue
         }
 
-        heldBoards.hold(event.tab, event.design, event.from)
+        this.held.set(event, holds.hold(event.tab, event.design, event.from, "agent-presence"))
       }
 
       queue.push(event)
@@ -87,6 +89,19 @@ class PresenceQueue {
 
     this.version++
     this.changes.notify()
+  }
+
+  /** Draws a move's board somewhere along its drag. */
+  drawHeld(event: PresenceEvent, at: { x: number; y: number }): void {
+    this.held.get(event)?.update(at)
+  }
+
+  /** A move has played, or been skipped: its board is let go at `to`, unless another move still holds it. */
+  letGo(event: PresenceEvent, to: { x: number; y: number }): void {
+    const held = this.held.get(event)
+    this.held.delete(event)
+    held?.update(to)
+    held?.release()
   }
 
   /** The agents with a cursor in a tab: from their first step until they retire. */

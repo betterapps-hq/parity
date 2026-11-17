@@ -1330,9 +1330,10 @@ A project's own providers, such as a styled-components theme built from the app'
 from `.parity/preview.tsx`, a file with Storybook's preview exports that Parity runs without Storybook.
 
 - **Storybook's exports.** `decorators`, `loaders`, `parameters`, `globalTypes` and `initialGlobals`, named or as the
-  default export's properties, as Storybook takes them. Moving to Storybook later means moving the file to
-  `.storybook/preview.tsx`. A project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with
-  several, `preview.tsx` is the one used.
+  default export's properties, as Storybook takes them, or the input of a `definePreview` default export, whose `addons`
+  Parity's runtime leaves out (PAR-97). Moving to Storybook later means moving the file to `.storybook/preview.tsx`. A
+  project its loaders compile as JavaScript names it `preview.jsx` or `preview.js`; with several, `preview.tsx` is the
+  one used.
 - **Inside the libraries' decorators,** so a project's provider overrides a library's default. In its list, as in
   Storybook's, the last decorator wraps the ones before.
 - **Storybook's context.** A decorator gets `globals`, the frame's mode values over `globalTypes`' `defaultValue`s and
@@ -1397,6 +1398,10 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
   Storybook's own hooks (`useEffect` from `storybook/preview-api`) run once the frame has drawn, as Storybook runs them
   when a story has rendered, and are cleaned up when the frame goes.
 - **Inside the libraries' decorators,** as Parity's file is. Decorators get `canvasElement`, the frame's stand-in body.
+- **`definePreview` previews too (PAR-97).** A preview written with Storybook's newer `definePreview` default-exports
+  Storybook's preview object rather than its annotations. The guest gives the portable stories API what that object
+  composed: its own annotations, its `addons`' and the renderer's, so an addon's decorators wrap the preview's own, as
+  in Storybook.
 - **Loaders and `beforeEach` run before the frame draws,** and the guest's `loaded()` waits for them. Loaders that fail
   say why and the frame stays empty. Storybook keeps one list of `beforeEach` cleanups for every composed story, so a
   frame mounting runs the cleanups of the frames before it.
@@ -1408,8 +1413,8 @@ Storybook's own portable stories API from the project, the one Vitest runs stori
 - **Only `.storybook`.** A config folder the `storybook dev` script names with `-c`, or the extension's
   `storybook.configDir` setting, isn't followed for the preview, since the manifest is read before the extension runs.
 
-Not yet: `definePreview` previews (PAR-97), a stories file's decorators on its component's designs (PAR-99), and
-add-ons' annotations, such as MSW's (PAR-112).
+Not yet: a stories file's decorators on its component's designs (PAR-99), and add-ons' annotations a preview doesn't
+list in `definePreview`'s `addons`, such as MSW's (PAR-112).
 
 Code: `PreviewContribution` in `packages/extension/src/manifest.ts`, checked in `reader/manifest.ts`;
 `contributes.providers.preview` in `packages/extension-storybook/package.json`; `extensionPreview` in
@@ -1427,8 +1432,9 @@ preview Storybook's extension names" in `apps/desktop/src/utility/projects.test.
 `packages/project/src/guest-module.test.ts`; "the project's Storybook preview, composed with its portable stories API"
 in `packages/extension-react/src/guest-storybook-preview.test.ts`, against Storybook's own `@storybook/react`: the
 nesting, the context's globals, parameters and frame, loaders, hooks and state kept from one draw to the next,
-Storybook's own hooks' effects, each frame composed with its own project's preview, and what didn't load.
-`examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests in CI open frames through it.
+Storybook's own hooks' effects, each frame composed with its own project's preview, a `definePreview` preview with an
+addon (PAR-97), and what didn't load. `examples/shadcn-vite` has a Storybook preview, so the editor's end-to-end tests
+in CI open frames through it.
 
 ### A preview file offered from the app's providers (PAR-104)
 
@@ -2138,8 +2144,8 @@ stories show it (PAR-1188):
   placed absolutely or fixed inside a layer that isn't positioned stays where it's drawn, though the copy is placed
   absolutely. A canvas element's drawing and scroll positions inside them aren't copied. Nothing in the picture is hit.
   The copy holding a layer's place, and the moved layer until the picture lands, are hidden all the way through, so
-  nothing inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag, in
-  Multiplayer's drag previews, will reuse the same parts with their outline and color (not wired yet).
+  nothing inside that makes itself visible shows; a collapsed table row stays collapsed. Someone else's drag reuses the
+  same parts with their outline and color (see "Other people's drags and agents' holds", below).
 
 Code: the timings and looks are in one place, `apps/desktop/src/renderer/canvas/drag-motion.ts` (`liftMs`, `dropMs`,
 `cancelMs`, `makeRoomMs`, `settle`, `liftScale`, the shadows, `landingEdge`, `landingEdgeStyle` and `lift`). The
@@ -2163,6 +2169,53 @@ it's carried, since it's drawn bigger around it, and waits for it to fly back af
 Gaps: the motion itself was checked by hand in the running app on 2026-11-16 (the stat cards, the Review slot and
 Pricing's board, dropped and cancelled), sampling each frame; it isn't tested end to end, since the suite reads where
 things end up.
+
+### Other people's drags and agents' holds (PAR-1234)
+
+Someone else's drag can show on the canvas while this person drags too, each with its own picture, copies and flight, as
+the `Parity/Canvas/Dragging` story Several At Once shows. These are the renderer's primitives for the multiplayer and
+agent presence extensions (`docs/proposals/extensions-in-the-window.md`, "Previews" and "Holds"); nothing in a live room
+uses previews yet, and extensions can't reach either until the canvas surface is exposed.
+
+- **A preview** (`preview(surface, items, options)`) shows another person's drag with the local drag's parts, in their
+  color, and writes nothing. A board lifts and follows their pointer, drawn where the preview puts it rather than where
+  the document has it. Layers in a layout leave the empty dashed outline where they were, in the dragger's color, show
+  where they'd land at `drop`, and their picture is carried with the dragger's outline and name tag. An absolutely
+  placed layer's picture is carried while the layer stays put, since the dragger's own writes move it. Updates draw at
+  most once a frame.
+- **Settling.** `settleOnWrite` waits for the write that covers the drop: someone else's change to a design the preview
+  moves. It then settles with the local drop's motion, so both copies see one landing. With no write within 2 s, or when
+  it's called off, what moved flies back to where the document has it. Disposed, it goes at once.
+- **A hold** (`holds.hold(tab, design, at)`) keeps a board where it was while an agent's cursor drags it to where the
+  agent put it, and `update` draws it along the way. Several holds on one board keep it where it's drawn until the last
+  lets go. Each hold is let go after 10 s whatever happens. Grabbing a held board, by dragging it or its name, lets go
+  of every hold on it, and the person's drag wins: the board stays under their pointer, and their drop is what's
+  written.
+- **Placed boards aren't written back.** A held or previewed board is drawn where it's placed, and the canvas never
+  writes its shape's position to the document while it is.
+- **Several at once.** Each drag keeps its own carried picture, by key (`carriedPictureSet`), its own drop preview
+  copies and rules, and its own style preview: its own rules over a frame's, and its own inline values on components'
+  elements, so taking one back leaves the others shown.
+
+Code: `canvas/drag-preview.ts` (`preview`), `canvas/preview-life.ts` (settling, the 2 s wait and telemetry),
+`canvas/board-holds.ts` (`boardHolds`, `holds`), `canvas/placed-boards.ts` (`placedBoards`, which `CanvasEditor` draws
+from and skips writing), `canvas/carried.ts` (`carriedSet`, `carriedPictureSet`), `canvas/style-layers.ts` and
+`previewFrameRules` in `frame.ts` (a style preview's values and rules by key). Agent presence holds boards through
+`holds` (`agent/presence.ts`). `CarriedPicture` draws every drag's picture, with the dragger's outline and name.
+
+Tests: `canvas/board-holds.test.ts`: a hold drawn along a drag and let go, a second hold keeping the board where it's
+drawn, the 10 s limit, grabbing, disposing and tabs kept apart, and placed boards' newest placement winning.
+`canvas/preview-life.test.ts`: settling on the write, one in ten of those recorded, giving up after 2 s, counting
+previews open at once, and which writes cover a preview. `canvas/style-layers.test.ts`: two previews' values on one
+property, taken back in either order. `canvas/carried.test.ts`: two drags' pictures carried and flying on their own.
+`canvas/drag-preview.test.ts`: a board's preview following updates once a frame without writing, settling on someone
+else's write to it, going back after 2 s without one, and two people's previews ending on their own.
+
+Gaps: previews aren't wired to the live room's remote drags yet; the multiplayer extension does that (PAR-1233, phase
+5). A preview of layers measures frames and takes their picture, so it isn't unit tested or tried in the running app
+yet; the story draws its look with the same carried pictures. Agent presence holds a board when a move is queued rather
+than just before its write, so a long queue can outlast the 10 s limit and the board lands before the cursor drags it;
+phase 4 moves agent presence onto activity delivered just before each write.
 
 ### Where a dragged layer lands (CAN-47)
 
@@ -5516,8 +5569,9 @@ picker.
   line, up to its maximum width if it has one, where it wraps as the text does. Its font, size, weight, line height,
   letter spacing, alignment, case and decoration follow the text's at the zoom shown.
 - **Leaving keeps the edit.** Escape keeps what's typed, as notes do, and so do Enter and clicking away. Shift+Enter
-  types a new line. The layer stays selected. An edit is one undo step, Edit text, written to the state and variant the
-  editor opened on (PAR-164, below); leaving without a change writes nothing.
+  types a new line. The layer stays selected. Typing is written to the state and variant the editor opened on (PAR-164,
+  below) as it's typed, one Edit text step per pause (PAR-1230, below); leaving with the text as it opened leaves no
+  step.
 - **It reads and writes the same state** (PAR-585). The text it opens on and the place the edit goes are worked out by
   one rule, `editingState`: the state the layer was picked in, else the state the board shows, else the base state. A
   picked state that's gone, as when an agent deletes it while the editor is open, used to show the board's text but
@@ -5525,6 +5579,67 @@ picker.
 - **Input methods.** While an input method is composing (Japanese, Chinese, Korean), Enter and Escape are left to it, to
   take or drop what's composed, and don't close the editor. The editor tracks composition by its `compositionstart` and
   `compositionend` events, and by the key event's own `isComposing`.
+
+### Typing written as it's typed (PAR-1230)
+
+Text is written to the document while it's typed, not when the editor closes, so others in a live room (PAR-1179) see it
+as it's typed, and layers after it move with it (docs/proposals/extensions-in-the-window.md, Live text).
+
+- **A few writes a second.** The first key starts a write 150 ms later with whatever's typed by then, so a burst of keys
+  is one write, not one per key. The saver writes the file as it does any change, after its own 300 ms, so the file
+  isn't rewritten per key either.
+- **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
+  so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step.
+- **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
+  their change is merged with what's typed and not yet written, and the caret moves with the characters around it, so it
+  stays where the person is typing. Where both changed the same characters, what either removed goes and the typing
+  follows what the other wrote. Their change isn't in this person's undo. While an input method is composing, the change
+  waits until it's done.
+- **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
+  it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
+  person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
+  draw their caret before the character it's at, in every frame drawing the text: a 1.5px line in that color, a little
+  shorter than the letters, blinking once it rests, as a text field's caret does (steady with reduced motion). It goes
+  when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
+- **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
+  used to draw a thick 2px outline over it.
+- **Letters aren't cut off.** The editor's box is the text's, but it draws letters up to 0.3em past it
+  (`overflow-clip-margin`), as a heading set solid has them, so their tops and descenders show and the text doesn't
+  shift up when the caret moves.
+- **Hugging text grows as it's typed.** Text on one line whose box hugs it in a wider layout, as a heading centred in a
+  column does, is edited growing along the line up to the room its layout has and its own maximum width, from the side
+  it sits on (its middle when it's centred), as the frame draws it once it's written. Text that wraps, or sits in a box
+  wider than it, keeps its width. It used to wrap at the width it opened with until the next write measured it again, so
+  what was typed past it jumped onto a second line and back.
+- **A frame named after its text** follows each write, as it did the closing one.
+- Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
+
+Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (the batching, the gesture per pause and taking in
+others' changes), `rebaseText` in `packages/editor/src/text-editing.ts` (merging the two changes and moving the
+selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room
+where the caret is. In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx`
+(the outline, name and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
+
+Tests:
+
+- `apps/desktop/src/renderer/canvas/live-text.test.ts` (6), on a test document: four keys 50 ms apart written twice; two
+  runs of typing a pause apart undone as two steps; closing with the text as it opened leaving no step; nothing written
+  once closed; someone else's change before the caret taken in with the typing and the caret kept after it, and Undo
+  taking back only the typing; and its own writes not taken in again.
+- `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
+  the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
+  characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
+- `apps/desktop/src/renderer/canvas/text-caret-drawn.test.ts` (3), in Chrome: a caret at the left of the character it's
+  before, across text nodes and onto a wrapped line; at the right of the last character at the end and past it; and none
+  in an element without text.
+
+Gaps: a selection someone else makes is drawn as their caret at its end, not as a highlight. Two people typing in the
+same text within the same 150 ms each write the whole text, so one of those writes can win over the other's before
+either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`: " today" typed into
+Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed after a pause came off
+with one Undo, " today" with the next, in both copies. Checked again the same day, after the first try in a room: in the
+typing copy one outline and the whole two-line heading, unclipped; in the other, Ana's outline, name and caret before
+"and" where hers was, in each of Pricing's three frames.
 
 ### Auto width, auto height and fixed text (PAR-175)
 
@@ -5589,20 +5704,20 @@ Tests:
   "viewers", on the second line, selects that word; Enter selects the whole text; the editor sits over the text's 560px
   box, on its two lines, and grows down as it's typed in; it follows the text as the wheel pans and Ctrl and the wheel
   zoom, with its font scaled to match and the selection kept; Escape keeps the edit as one Edit text step with the layer
-  still selected; Enter and Escape during a composition leave it open and change nothing, and Enter after
-  `compositionend` keeps it. The test of switching from Resizing went with the control (PAR-923).
+  still selected; what's typed before a composition is written as it's typed, Enter and Escape during it leave the
+  editor open and write nothing more, and Enter after `compositionend` keeps it. The test of switching from Resizing
+  went with the control (PAR-923).
 
 Gaps: the composition test sends `compositionstart` and `compositionend` itself, so a real input method's keys haven't
 been tried. With several layers selected, a switch measures each text layer in its own box, changes only the text layers
 of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, and with the
 Resizing control gone, nothing drives a switch end to end. The resize handles changing the mode follows from reading it
 from the width and height, and has no test of its own. A text layer's own new lines, typed with Shift+Enter, are kept in
-the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). While the editor is
-open the text under it doesn't reflow as it's typed in, so layers after it move only once the edit is kept. Checked in
-an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and
-a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and
-Resizing showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923
-took Resizing out of the panel).
+the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). Checked in an isolated
+copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to
+110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and Resizing
+showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923 took
+Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
@@ -6175,7 +6290,8 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   that joined next takes over.
 - **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
   show as `remote` changes: in neither person's undo. Token values edited on the canvas merge too, a token at a time,
-  and undoing a token edit puts back only the tokens that step changed and nobody has changed since (PAR-1231).
+  and undoing a token edit puts back only the tokens that step changed and nobody has changed since (PAR-1231). Text is
+  written as it's typed (PAR-1230), so it arrives while it's typed, not when the editor closes.
 - **Only the host writes files** (PAR-1231), so copies don't write the same files over each other. It writes the others'
   edits like its own, autosaving them on its usual delay, and writes the stylesheet. A change says where its content is
   already written (`written`): `files` for a file reloaded from disk or code drawn again, which the saver takes as

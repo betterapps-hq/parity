@@ -2,6 +2,27 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 00:39:56 GMT",
+      "version": "0.74.0",
+      "tag": "@parity-app/cli_v0.74.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "c70d6965ee0dd0363da5907f5c2dec7b104dcb0f",
+            "comment": "Frames draw inside the project's Storybook preview when it has no .parity/preview, composed with Storybook's portable stories API as Storybook's extension names it (PAR-98)"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "db959b1b7b2f66ecf3d719f93788072a80e498ba",
+            "comment": "Colors by key that never run out, the camera and following, and boxes and hits on the canvas, as core services (PAR-1236)"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 00:04:13 GMT",
       "version": "0.73.4",
       "tag": "@parity-app/cli_v0.73.4",

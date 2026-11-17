@@ -207,7 +207,7 @@ export function prepareFrame(
     environment.origin ?? location.origin
   )
 
-  const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "" }
+  const own = { rules: new CSSStyleSheet(), preview: new CSSStyleSheet(), shown: "", previewed: "", others: new Map() }
   frameSheets.set(host, own)
   // What the project's code writes into the frame first, where its `<style>` elements' own sheets cascade, before any
   // adopted sheet. Then the project's styles, the classes Parity writes for its layers and the frame's own rules, with
@@ -259,6 +259,8 @@ interface FrameSheets {
   preview: CSSStyleSheet
   shown: string
   previewed: string
+  /** Other previews' rules, by key, after the local one: someone else's drag shows while this person edits. */
+  others: Map<string, { sheet: CSSStyleSheet; css: string; settled?: boolean }>
 }
 
 /** Each frame's own stylesheets, by its host element. */
@@ -282,16 +284,70 @@ export function showFrameRules(host: Element, css: string): void {
   }
 
   previewFrameRules(host, "")
+
+  // Other previews' rules handed to their change go now, since the tree drawn carries it.
+  for (const [key, other] of sheets.others) {
+    if (other.settled) {
+      dropFrameSheet(host, other.sheet)
+      sheets.others.delete(key)
+    }
+  }
 }
 
-/** Lays `css` over a frame's rules, as a style edit's preview (core's `previewRules`), in place of the one before. */
-export function previewFrameRules(host: Element, css: string): void {
+/**
+ * Leaves another preview's rules, by `key`, for the change that makes them: they're taken away the next time the
+ * frame's rules are drawn, as the local preview's are.
+ */
+export function settleFrameRules(host: Element, key: string): void {
+  const other = frameSheets.get(host)?.others.get(key)
+
+  if (other) {
+    other.settled = true
+  }
+}
+
+/**
+ * Lays `css` over a frame's rules, as a style edit's preview (core's `previewRules`), in place of the one before. Each
+ * preview has its own, by `key`: none is the local edit's, which drawing the frame's rules again takes away; another's
+ * stays until it's taken away with empty `css`.
+ */
+export function previewFrameRules(host: Element, css: string, key?: string): void {
   const sheets = frameSheets.get(host)
 
-  if (sheets && sheets.previewed !== css) {
-    sheets.preview.replaceSync(css)
-    sheets.previewed = css
+  if (!sheets) {
+    return
   }
+
+  if (key === undefined || key === "local") {
+    if (sheets.previewed !== css) {
+      sheets.preview.replaceSync(css)
+      sheets.previewed = css
+    }
+
+    return
+  }
+
+  const other = sheets.others.get(key)
+
+  if (css === "") {
+    if (other) {
+      dropFrameSheet(host, other.sheet)
+      sheets.others.delete(key)
+    }
+
+    return
+  }
+
+  const shown = other ?? { sheet: new CSSStyleSheet(), css: "" }
+
+  if (shown.css !== css) {
+    shown.sheet.replaceSync(css)
+    shown.css = css
+  }
+
+  shown.settled = false
+  sheets.others.set(key, shown)
+  adoptFrameSheet(host, shown.sheet)
 }
 
 /** Adds a stylesheet after a frame's own, once. A host that isn't a frame yet takes none. */
@@ -316,7 +372,7 @@ export function dropFrameSheet(host: Element, sheet: CSSStyleSheet): void {
 export function frameRuleSheets(host: Element): CSSStyleSheet[] {
   const sheets = frameSheets.get(host)
 
-  return sheets ? [sheets.rules, sheets.preview] : []
+  return sheets ? [sheets.rules, sheets.preview, ...[...sheets.others.values()].map(({ sheet }) => sheet)] : []
 }
 
 /** Sizes the window a frame stands for: the project's viewport units measure it. */
