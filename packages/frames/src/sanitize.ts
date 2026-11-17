@@ -59,7 +59,7 @@ const reservedCustomNames = new Set([
 ])
 
 /** A valid custom element name, kept in lower case so the page's CSS still matches it. */
-const customElementName = /^[a-z][a-z0-9._·À-￿]*-[a-z0-9._·À-￿-]*$/
+const customElementName = /^[a-z][a-z0-9._\u00b7\u00c0-\uffff]*-[a-z0-9._\u00b7\u00c0-\uffff-]*$/
 
 /** Attributes any HTML element may keep. */
 const htmlGlobal = new Set(
@@ -837,6 +837,6 @@ function cssString(text: string): string {
 
     const code = Number.parseInt(hex, 16)
 
-    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "�"
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : "\ufffd"
   })
 }

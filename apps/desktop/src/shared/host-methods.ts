@@ -125,6 +125,12 @@ export const hostMethods = {
   /** The person placed a result in a design, which main records and tells the source of. */
   connectorsPlaced: { params: connectorPlaced },
 
+  /**
+   * A stylesheet on another host that a route's page links to, for its frozen copy (PAR-1262): the page can't read its
+   * rules, so main fetches it. Nothing when it isn't an `https:` stylesheet main could fetch.
+   */
+  pageSheet: { params: z.url(), result: answers<string | null>() },
+
   /** A folder from the system's picker, under the title given, or to open a project. */
   pickFolder: { params: folderPickerTitle, result: answers<string | undefined>() },
   pickProjectFile: { result: answers<string | undefined>() },

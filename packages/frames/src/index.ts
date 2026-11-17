@@ -43,4 +43,16 @@ export {
   type SheetEntry
 } from "./snapshot.ts"
 
+export {
+  freezeLoadDeadline,
+  freezeOrder,
+  freezeQuiet,
+  type FreezeRequest,
+  failureLimit,
+  failureWindow,
+  type Restart,
+  restartAfter,
+  restartDelays
+} from "./freezer.ts"
+
 export { type BoardTier, type BoardView, boardTier, frozenFrom, pictureBelow } from "./tiers.ts"

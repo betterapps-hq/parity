@@ -557,7 +557,8 @@ export {
   routeScreens,
   routeTree,
   samplePath,
-  treeDepth
+  treeDepth,
+  withCopyLayers
 } from "./route-boards.ts"
 
 export {
@@ -580,6 +581,8 @@ export {
   elementLayers,
   elementLayerType,
   type ElementSnapshot,
+  type FrozenTree,
+  frozenSnapshots,
   layerName,
   readStyles,
   styleOfElement

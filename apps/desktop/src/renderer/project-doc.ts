@@ -39,9 +39,11 @@ import {
   type UndoState
 } from "@parity-app/multiplayer"
 import { localProvider } from "@parity-app/multiplayer-local"
-import { useSyncExternalStore } from "react"
+import { useMemo, useSyncExternalStore } from "react"
+import { copyLayers, withCopyEntries } from "./canvas/route-pages.ts"
 import type { LiveRoom } from "./live-room.ts"
 import { track } from "./report-error.ts"
+import { useStore } from "./store.ts"
 
 /*
  * The project document an open project's designs live in (docs/proposals/multiplayer.md: How the session moves onto
@@ -523,12 +525,23 @@ function subscribeSaver(session: DocSession): (listener: () => void) => () => vo
 
 const saverSubscribers = new WeakMap<ProjectSaver, (listener: () => void) => () => void>()
 
+/**
+ * The project's designs as the window shows them: a page's layers hold what its frozen copy draws (PAR-1262), which the
+ * window keeps and the document never holds.
+ */
 export function useContainerEntries(session: DocSession): readonly ContainerEntry[] {
-  return useSyncExternalStore(subscribeDoc(session), () => containerEntries(session.doc))
+  const entries = useSyncExternalStore(subscribeDoc(session), () => containerEntries(session.doc))
+  const copies = useStore(copyLayers)
+
+  return useMemo(() => withCopyEntries(entries, copies), [entries, copies])
 }
 
+/** One design as the window shows it (see `useContainerEntries`). */
 export function useContainerEntry(session: DocSession, key: string | undefined): ContainerEntry | undefined {
-  return useSyncExternalStore(subscribeDoc(session), () => (key ? containerEntry(session.doc, key) : undefined))
+  const entry = useSyncExternalStore(subscribeDoc(session), () => (key ? containerEntry(session.doc, key) : undefined))
+  const copies = useStore(copyLayers)
+
+  return useMemo(() => (entry ? withCopyEntries([entry], copies)[0] : undefined), [entry, copies])
 }
 
 /** The designs one design's instances reach, for resolving it. */

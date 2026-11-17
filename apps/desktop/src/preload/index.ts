@@ -196,6 +196,9 @@ const host: CanvasHost = {
     recent: () => ask("connectorsRecent"),
     placed: (placed) => ask("connectorsPlaced", placed)
   },
+  pages: {
+    sheet: (href) => ask("pageSheet", href)
+  },
   initialProject: process.argv
     .find((argument) => argument.startsWith("--parity-initial-project="))
     ?.split("=")

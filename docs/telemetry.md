@@ -606,6 +606,9 @@ Some failures are recorded for you, so code doesn't record them again:
 | `renderer.long_task`               | info  | all  | renderer                                | A task in the editor window runs for over 200 ms.                                                                                                                          |
 | `report.sent`                      | info  | all  | main                                    | Help > Report a problem, parity report or report_problem sends a report.                                                                                                   |
 | `request.handled`                  | debug | all  | service, main                           | The service or main answers another process's request.                                                                                                                     |
+| `routeFrame.process`               | warn  | all  | renderer                                | A project's page process fails under its freezer frame.                                                                                                                    |
+| `routeFrame.refused`               | info  | all  | renderer                                | The freezer refuses a page's snapshot or gets none, so its board keeps what it had.                                                                                        |
+| `routeFrame.removed`               | debug | all  | renderer                                | The sanitizer takes anything out of a snapshot before its copy is built.                                                                                                   |
 | `service.degraded`                 | warn  | all  | service                                 | The project service stops doing something, such as watching a project or keeping bitmaps, and runs on without it.                                                          |
 | `service.exited`                   | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.                                                                 |
 | `service.lag`                      | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                                                                                   |
@@ -1629,6 +1632,26 @@ Some failures are recorded for you, so code doesn't record them again:
 | --------- | ------------------ | ------------------------------ |
 | `method`  | `string`           | The method asked for           |
 | `code`    | `string`, optional | The error code, when it failed |
+
+### `routeFrame.process`
+
+| Attribute | Type               | Meaning                                                            |
+| --------- | ------------------ | ------------------------------------------------------------------ |
+| `how`     | `"gone" \| "hung"` | Whether the page's process closed its channel or stopped answering |
+| `stopped` | `boolean`          | Whether Parity stopped opening frames for the project after it     |
+
+### `routeFrame.refused`
+
+| Attribute | Type                              | Meaning                                                                                  |
+| --------- | --------------------------------- | ---------------------------------------------------------------------------------------- |
+| `reason`  | `"cap" \| "schema" \| "deadline"` | Why: past a snapshot's caps, not what the schema reads, or no answer before its deadline |
+
+### `routeFrame.removed`
+
+| Attribute    | Type      | Meaning                                                                   |
+| ------------ | --------- | ------------------------------------------------------------------------- |
+| `elements`   | `integer` | How many elements the sanitizer took out of the page's body               |
+| `attributes` | `integer` | How many attributes and classes the sanitizer took out of the page's root |
 
 ### `service.degraded`
 

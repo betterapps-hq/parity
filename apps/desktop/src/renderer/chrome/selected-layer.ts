@@ -21,6 +21,7 @@ import { editingState } from "@parity-app/editor"
 import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import { useProject } from "../canvas/context.ts"
 import { editLayer, projectLibrary, resetLayer } from "../canvas/layers.ts"
+import { withCopyStyle } from "../canvas/RouteBoard.tsx"
 import { useContainerEntry } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
 import { fieldName, fieldValue, type LayerChange, recordLayerChange, updateAndRecord } from "./inspector-events.ts"
@@ -121,7 +122,8 @@ export function useLayer(entry: ContainerEntry | undefined, nodeId: string | und
       return undefined
     }
 
-    const node = nodeOnBoard(container, location.node, state)
+    // A page copy's element has its styles read now, as its panel shows it (PAR-1262).
+    const node = withCopyStyle(entry, nodeId, nodeOnBoard(container, location.node, state))
     const override = targetPatches(container, target)?.[nodeId]
 
     return {

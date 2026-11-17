@@ -318,8 +318,8 @@ folders and files as segments, `[id]`, `[...slug]` and `[[...slug]]`, nested lay
 `not-found` files, and `404`, `500` and `_error`, are named as the route's state files. Parallel `@slot` routes and
 intercepting `(.)`, `(..)` and `(...)` routes are read with their slot and the route they intercept, and left off the
 canvas. Private `_folders`, route handlers, `_document` and `api/` aren't routes. Its pages draw once a builder serves
-the app. Each page is a screen, laid out in the router's tree, whose frames load the app itself at the page's URL (see
-editor.md), with each path param's value set in Props.
+the app. Each page is a screen, laid out in the router's tree, whose frames show a frozen copy of the app's own page at
+the page's URL (see editor.md), with each path param's value set in Props.
 
 **Pages run the page runtime (PAR-1260),** which Vite, the webpack-compatible builders and Next serve first in the app's
 page, so a page changes mode without loading again and says how tall it is and where it went. Each project's pages load
@@ -336,6 +336,21 @@ all serve those names. What the runtime knows of the app comes from its extensio
 
 Hydration and navigation in the fixtures' real apps are checked only by the end-to-end suite, which doesn't cover them
 yet.
+
+**Route boards show frozen copies (PAR-1262).** One frame per project, the freezer, loads each route fresh and takes a
+snapshot of its page in each mode its boards draw: the page's DOM without scripts, its stylesheets and where it landed.
+Parity checks and sanitizes it and builds it in the board's frame with the page's own styles, so selection, Layers and
+the Design panel reach the page's elements. With the Interact tool a board still loads the page itself, until live
+frames come from a pool (step 5 of [proposals/route-frames.md](proposals/route-frames.md)).
+
+| What a page holds                                        | In its copy                                                                          | Status |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------ |
+| Its DOM, text, SVG and form state                        | Copied, with URLs made absolute; scripts, frames, handlers and unsafe URLs taken out | ✅     |
+| Its own stylesheets, `<style>`, `<link>` and adopted     | By content hash, prepared for the copy's mode once each and shared by every copy     | ✅     |
+| Stylesheets on another host, such as a web font's        | Fetched by Parity's main process over `https:`, then sanitized like the page's own   | ✅     |
+| A `<canvas>`                                             | A picture of it, when the page can read it                                           | ◐      |
+| Shadow roots, video frames, what shows on hover or focus | Not copied                                                                           | ❌     |
+| Pages past 50,000 elements, 256 deep or 8 MB of text     | Refused: the board keeps its placeholder                                             | ❌     |
 
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.

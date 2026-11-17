@@ -68,6 +68,7 @@
     "@parity-app/extension-turbopack": "workspace:*",
     "@parity-app/extension-vite": "workspace:*",
     "@parity-app/extension-webpack": "workspace:*",
+    "@parity-app/frames": "workspace:*",
     "@parity-app/icons": "workspace:*",
     "@parity-app/lenses": "workspace:*",
     "@parity-app/media-player": "workspace:*",

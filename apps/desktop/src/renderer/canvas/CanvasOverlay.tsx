@@ -70,6 +70,7 @@ import { type GestureProject, inFrame, layerRef, resizing, type Started, telling
 import { formatPx, RedlineView } from "./Redline.tsx"
 import { resizeCursors, ResizeHandles } from "./ResizeHandles.tsx"
 import { RoomTyping } from "./RoomTyping.tsx"
+import { shownEntry } from "./route-pages.ts"
 import { pressBackground } from "./select-box.ts"
 import {
   measureSpacing,
@@ -568,7 +569,7 @@ function readScene(
     scale: frameGeometry(host).scale
   })
 
-  const entry = current.design ? containerEntry(doc, current.design) : undefined
+  const entry = current.design ? shownEntry(doc, current.design) : undefined
   const picked = entry ? selectionFrame(area, entry.key, current) : undefined
 
   if (entry) {
@@ -619,7 +620,7 @@ function readScene(
   }
 
   if (hover?.node && !(hover.design === current.design && hover.node === current.node)) {
-    const hoverEntry = containerEntry(doc, hover.design)
+    const hoverEntry = shownEntry(doc, hover.design)
     const node = hoverEntry && findLayer(session, hoverEntry.container, hover.node)
     // In the frame under the pointer; hovered in Layers, in the frame the selection was picked in.
     let frame

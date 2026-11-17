@@ -8325,13 +8325,12 @@ A screen is named for the component its route draws, else its path.
 - **Where a route redirects.** The TanStack Router adapter reads where a route always redirects from its route options:
   the first statement of its `beforeLoad`, else its `loader`, when it's `throw redirect({ to: "…" })`. A redirect inside
   an `if` is a sometimes, and doesn't count.
-- **Where a page lands.** The script the builder's server puts first in the app's `index.html` also posts the path the
-  page opened on, `{ parity: "page-landed", path }`, and again whenever the app's router moves it, until someone uses
-  the page with the pointer or keys. When the path isn't the page's own, ignoring a trailing slash, an amber "Lands on
-  /x" warning shows under the page's board, lined up with its left edge and a few screen pixels below at any zoom, sized
-  as a frame's caption is, so a redirect Parity couldn't read still shows. Its row in Layers shows an amber warning too,
-  whose tooltip says where. The example's Dashboard is behind a sign-in check in its `beforeLoad`, so it lands on
-  `/login` until someone logs in.
+- **Where a page lands.** A page's frozen copy says where its page landed, from the page runtime's snapshot, and a page
+  drawn live with the Interact tool says it with `page.ready` and `page.moved`. When the path isn't the page's own,
+  ignoring a trailing slash, an amber "Lands on /x" warning shows under the page's board, lined up with its left edge
+  and a few screen pixels below at any zoom, sized as a frame's caption is, so a redirect Parity couldn't read still
+  shows. Its row in Layers shows an amber warning too, whose tooltip says where. The example's Dashboard is behind a
+  sign-in check in its `beforeLoad`, so it lands on `/login` until someone logs in.
 
 - **Layers.** Layers lists the app's pages under Routes, before Screens and Frames, in their tree: each page under the
   page above it, App, then Pricing, Projects, Project detail and Settings a level in. A layout group is a folder with
@@ -8360,13 +8359,14 @@ A screen is named for the component its route draws, else its path.
   Billing's line and Settings' group's, and selecting Settings' group brings forward its line up to App. A line into a
   group curves straight down to the group's top, since a group's header isn't a title it passes behind. The lines are
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
-- **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
-  a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
-  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window. A frame loads under
-  a name of its project's own, `http://p<hash>.localhost:<port>` (`pageFrameUrl`), which Chromium reaches on the
-  loopback address and runs in a process of its own, so one project's pages never share a process with another's
-  (PAR-1260). Vite and Next's development server accept those names as they come; the webpack-compatible builders'
-  server lets the page's own name load its chunks (`isPageOrigin`).
+- **The app draws it.** A page's frames show a frozen copy of the app's own page at the page's URL (below), which ran in
+  a document of its own, so the app's router, layouts, loaders and redirects ran as they do in a browser: `/settings`
+  shows Profile, where its index redirects. With the Interact tool, a frame loads the page itself instead. Designs are
+  still drawn by the guest in Parity's window. A frame loads under a name of its project's own,
+  `http://p<hash>.localhost:<port>` (`pageFrameUrl`), which Chromium reaches on the loopback address and runs in a
+  process of its own, so one project's pages never share a process with another's (PAR-1260). Vite and Next's
+  development server accept those names as they come; the webpack-compatible builders' server lets the page's own name
+  load its chunks (`isPageOrigin`).
 - **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
   view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, and an unset
@@ -8391,10 +8391,11 @@ A screen is named for the component its route draws, else its path.
   `packages/editor/src/tried-size.test.ts`, "what's set on a design drawn from code". Gaps: a story's kept modes and
   tried sizes weren't tried in the app, and `code-designs.ts` has no unit test.
 - **Never saved.** Page screens are laid out from the routes each time the project opens, in a design file of their own
-  that's never written. They can be selected and moved, but a move isn't kept. A frame takes no pointer, so the canvas
-  pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
-  and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a design's frame is, so Tab on
-  the canvas never goes into the page and leaves the canvas's keys there (`keyboard.e2e.ts`, "keys outside Interact").
+  that's never written. They can be selected and moved, but a move isn't kept. A copy takes no pointer, so the canvas
+  pans and selects over it, except with the Interact tool: then the frame loads the page itself, which takes the pointer
+  and keys as a design does, and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a
+  design's frame is, so Tab on the canvas never goes into the page and leaves the canvas's keys there
+  (`keyboard.e2e.ts`, "keys outside Interact").
 - **The page runtime (PAR-1260).** The builder serves the page runtime first in the app's page
   (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
   script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
@@ -8423,6 +8424,32 @@ A screen is named for the component its route draws, else its path.
   without end. A mode that changes takes the frame back to its window until the page says how tall it is there. So a
   page that changes after it first draws, as with the Interact tool, keeps the height it first had. A frame given a
   height of its own keeps it and scrolls, but page frames have no resize handles yet.
+- **Frozen copies (PAR-1262).** Each route board's frame shows a frozen copy of its page, as
+  [proposals/route-frames.md](proposals/route-frames.md) sets out. One frame per project, the freezer, makes them: it's
+  parked in Parity's window at 1% of its size, where Chromium still lays it out, and for each route that needs a copy,
+  nearest the view first, it loads the route fresh, then for each mode its boards draw sets the mode (`mode.set`), sizes
+  itself to the mode's window and asks for a snapshot (`snapshot.take`) once the page has been quiet for 150 ms, at most
+  3 s. The page runtime answers with the body's tree as plain data, URLs made absolute and form state written in as
+  attributes, `<html>`'s classes and attributes without the mode's, the page's height, where it landed, and its
+  stylesheets by content hash. Parity asks for the sheets it hasn't got (`sheets.get`), and main fetches a sheet on
+  another host, such as a web font's, over `https:` (`pageSheet`). The snapshot is parsed with its schema, which refuses
+  a page past 50,000 elements, 256 deep or 8 MB of text, and passed through `sanitizePage` and `sanitizeRoot`. The board
+  builds it with `buildCopy` in a shadow root from `prepareFrame`, with a custom element registry of its own, so the
+  guest's definitions don't upgrade its elements; each sheet goes through `sanitizeSheet` and `prepareCanvasCss` once
+  and is shared by every copy. `<html>`'s classes and attributes go on the frame's host, `<body>`'s on the body
+  stand-in, and the mode's on both. A copy is as tall as its page in the mode's window, unless the board has a height of
+  its own, and it's inert, so nothing in it takes focus or follows a link. Until it comes, a placeholder stands in at
+  the window's height.
+- **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
+  elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
+  double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers
+  lists what the copy draws inside the route that draws the page: Pricing's are RootLayout, Pricing, then `div`,
+  `header` and `main`. Those layers are made again with each freeze and kept in the window (`copyLayers`), never in the
+  project's document. They're made without styles; the Design panel reads an element's computed style when it shows it
+  (`withCopyStyle`).
+- **When the page process fails.** A project's pages share one renderer process. When it closes the freezer's channel or
+  a request misses its deadline, the freezer starts again after 1 s, then 5 s, then 30 s, and after three failures in
+  two minutes it stops for that project; boards keep the copies they have.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
@@ -8433,6 +8460,14 @@ showing its page, with no errors; the lines' dashes moved from each page toward 
 its four pages a level in, and Billing and Profile in the Settings folder; clicking the folder selected the group on the
 canvas. Moving Pricing's page with `history.replaceState` showed "Lands on /pricing/annual" under its frame. Dashboard's
 frame drew the login page, and its row in Layers showed the warning, with "Lands on /login" on hover.
+
+Frozen copies were tried in a development build on the example project (PAR-1262): all eight page boards showed their
+copies within a few seconds of opening, each with the page's own fonts and styles, no iframe left once the freezer was
+done, and nothing in a copy with a script, frame or handler. Pricing's copy matched its page at 1280 wide; Layers listed
+its `div`, `header` and `main` inside Pricing, selecting `main` there outlined it on the canvas at 1280 × 751 with its
+Region panel, and double-clicking the pricing cards on the canvas selected their `div`, named in its outline, with its
+read styles in the Design panel. Dashboard's row in Layers kept its warning from its copy's landing on `/login`. Mobile
+and dark modes and a failing page process weren't tried in the app.
 
 The page runtime was tried in a development build on the example project (PAR-1260): all eight page frames loaded under
 the project's own `p….localhost` name, each with `window.parityFrame`, the mode's classes and no scrollbar, and App's
@@ -8446,16 +8481,20 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
 `apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
 `PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`, and `usePageChannel` in
-`page-channel.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in
-`packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
-`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
-in `packages/extension-tanstack-router/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each
-manifest's `page`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
-`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
-`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
-`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
-`packages/next-builders/src/start.ts`; and `pageEntries` in `apps/desktop/src/shared/built-in-extensions.ts`, which
-`apps/desktop/scripts/build.ts` bundles for a packaged app.
+`page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in `RouteBoard.tsx`, the freezer, `useFrozenCopy` and
+`copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and `shownEntry` in `route-pages.ts`, `takeSnapshot` in
+`packages/page-runtime/src/snapshot.ts`, `freezeOrder` and `restartAfter` in `packages/frames/src/freezer.ts`,
+`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in
+`apps/desktop/src/main/page-sheets.ts`, and the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`;
+`routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
+The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
+in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
+`reactHydration` in `packages/extension-react/src/page.ts`; each manifest's `page`, carried by `pageRouters` in
+`packages/extension-host/src/hosts.ts` and `pageModules` in `apps/desktop/src/utility/projects.ts` into the project's
+config; `pageEntrySource` in `packages/project/src/page-entry.ts`, served by `appPageRuntime` in
+`packages/extension-vite/src/app-page.ts`, `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and
+`copyPageModules` in `packages/next-builders/src/start.ts`; and `pageEntries` in
+`apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
@@ -8481,8 +8520,17 @@ read refused; the height told in the mode's window, rounded up, and not once the
 without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
 app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
 `route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
-second), `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where
-it resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
+second), `packages/page-runtime/src/snapshot.test.ts` (11, PAR-1262: the body's tree as plain data without scripts or
+styles; every URL made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>`
+without the mode or the runtime's style; sheets by content hash for `sheets.get`; the same markup hash for the same
+tree; `url()`s made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's
+deadline), `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting
+after 1 s and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts`
+("gives a copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the
+innermost route"), `apps/desktop/src/main/page-sheets.test.ts` (3: another host's sheet over https; anything else
+refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
+`packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
+resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
 not when it's first idle; one given up when aborted; the watcher told until it stops),
 `packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
 Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
@@ -8491,12 +8539,12 @@ page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrig
 page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules") and
 `built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
 the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
-drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test
-of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
-path read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide:
-App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
-(`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
-Pricing, Settings' group and Billing and hovering Projects.
+the freezer, building and selecting copies, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
+route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
+at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
+was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
+checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
+redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

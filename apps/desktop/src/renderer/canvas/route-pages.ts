@@ -2,11 +2,13 @@ import {
   addDesigns,
   type CanvasDocument,
   type ContainerSpec,
+  type DesignNode,
   type NodeRef,
   type RouteSegment,
   routeParams as paramsOf
 } from "@parity-app/core"
-import { routeTree, samplePath, type Selection } from "@parity-app/editor"
+import { routeTree, samplePath, type Selection, withCopyLayers } from "@parity-app/editor"
+import { type ContainerEntry, containerEntry, type ProjectDoc } from "@parity-app/multiplayer"
 import type { ProjectInfo } from "@parity-app/project"
 import { windowStore } from "../store.ts"
 import { componentBoardsTop } from "./component-boards.ts"
@@ -95,6 +97,49 @@ export function setPageLanding(design: string, path: string | undefined): void {
   }
 
   pageLandings.set(next)
+}
+
+/**
+ * What each page's frozen copy draws, as layers, by its design's key (PAR-1262): made again with each freeze, from the
+ * board's main frame, and kept in the window, never in the project's document. Layers shows them inside the route that
+ * draws the page (`withCopyLayers`).
+ */
+export const copyLayers = windowStore<ReadonlyMap<string, readonly DesignNode[]>>(() => new Map())
+
+/** Keeps what a page's copy draws as its layers. */
+export function setCopyLayers(design: string, layers: readonly DesignNode[]): void {
+  const now = copyLayers.get()
+
+  if (JSON.stringify(now.get(design)) === JSON.stringify(layers)) {
+    return
+  }
+
+  copyLayers.set(new Map(now).set(design, layers))
+}
+
+/** Page designs with what each one's frozen copy draws inside the route that draws it, for Layers. */
+export function withCopyEntries<Entry extends { key: string; path: string; container: ContainerSpec }>(
+  entries: readonly Entry[],
+  copies: ReadonlyMap<string, readonly DesignNode[]>
+): readonly Entry[] {
+  if (copies.size === 0) {
+    return entries
+  }
+
+  return entries.map((entry) => {
+    const inside = entry.path === routePagesFile ? copies.get(entry.key) : undefined
+
+    return inside
+      ? { ...entry, container: { ...entry.container, root: withCopyLayers(entry.container.root, [...inside]) } }
+      : entry
+  })
+}
+
+/** A design as the window shows it, a page's with what its frozen copy draws (see `withCopyEntries`). */
+export function shownEntry(doc: ProjectDoc, key: string): ContainerEntry | undefined {
+  const entry = containerEntry(doc, key)
+
+  return entry && withCopyEntries([entry], copyLayers.get())[0]
 }
 
 /**

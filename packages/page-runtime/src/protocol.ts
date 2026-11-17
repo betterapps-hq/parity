@@ -1,5 +1,5 @@
 import type { PageLocation } from "@parity-app/extension/page"
-import type { PageMode } from "@parity-app/frames"
+import type { PageMode, PageSheet, PageSnapshot } from "@parity-app/frames"
 
 /*
  * How Parity and the page runtime talk (docs/proposals/route-frames.md, "The page runtime's channel"): the frame's name,
@@ -133,7 +133,26 @@ export interface PageMethods {
   "route.go": { params: { to: string }; result: PageLocation }
   /** Scrolls the page to `top`. */
   "page.scroll": { params: { top: number }; result: null }
+  /**
+   * Takes a snapshot of the page in its mode, after it has been quiet for `quiet.ms` (at most `quiet.max`), or at once.
+   * Its sheets come by content hash; `sheets.get` gives the ones Parity hasn't got.
+   */
+  "snapshot.take": { params: { quiet?: SnapshotQuiet }; result: PageSnapshot }
+  /** The stylesheets with these ids, from the page's snapshots; an id it never read is left out. */
+  "sheets.get": { params: { ids: string[] }; result: PageSheet[] }
 }
+
+/** How long a page waits to go quiet before a snapshot: `ms` without a change in its DOM, at most `max`. */
+export interface SnapshotQuiet {
+  ms: number
+  max: number
+}
+
+/** The longest a page may be asked to wait for quiet before a snapshot, in milliseconds. */
+export const maxSnapshotWait = 10_000
+
+/** The most sheets one `sheets.get` may ask for. */
+export const maxSheetIds = 1000
 
 /** What the page asks Parity, which answers each with `null`. */
 export interface ParityMethods {
@@ -155,7 +174,15 @@ export const pageDeadlines: Record<keyof PageMethods, number> = {
   "mode.set": 1000,
   // A route's first visit compiles it.
   "route.go": 15_000,
-  "page.scroll": 1000
+  "page.scroll": 1000,
+  // Past the quiet it waits for, which `snapshotDeadline` adds.
+  "snapshot.take": 2000,
+  "sheets.get": 5000
+}
+
+/** How long Parity waits for a snapshot: the quiet it asked the page to wait for, and two seconds more. */
+export function snapshotDeadline(quiet: SnapshotQuiet | undefined): number {
+  return (quiet?.max ?? 0) + pageDeadlines["snapshot.take"]
 }
 
 /** A mode, when that's what arrived. */
