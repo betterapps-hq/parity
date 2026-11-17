@@ -25,7 +25,7 @@ import {
   updateView
 } from "../callers.ts"
 import { createProjectDoc } from "../project-doc.ts"
-import type { DocChange, DocOp, DocProvider, ProjectDoc } from "../types.ts"
+import type { DocChange, DocOp, DocProvider, GestureId, ProjectDoc } from "../types.ts"
 import type { ReplicaPair } from "./replicas.ts"
 
 /*
@@ -959,6 +959,82 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
         exchange()
         expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Oh ZHelloY!" })
+      })
+
+      it("undoes only this person's character when the other wrote the same character beside it (PAR-1258)", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, remove: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove, insert }
+        })
+
+        apply(a, [{ op: "editText", design: "app.par#home", node: "title", edit: { kind: "replace", text: "abcd" } }])
+        exchange()
+        apply(a, [splice(2, 0, "X")])
+        exchange()
+        apply(b, [splice(0, 2, "XY"), splice(5, 0, "!")])
+        exchange()
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "XYcd!" })
+      })
+
+      it("undoes a pause's typing that took in the other's typing between keys (PAR-1252)", () => {
+        const { a, b, exchange } = together()
+
+        const type = (doc: ProjectDoc, at: number, insert: string, gesture?: GestureId) => {
+          const op: DocOp = {
+            op: "editText",
+            design: "app.par#home",
+            node: "title",
+            edit: { kind: "splice", at, remove: 0, insert }
+          }
+
+          expect(doc.transact("Edit text", [op], { origin: "edit", gesture }).ok).toBe(true)
+        }
+
+        apply(a, [{ op: "editText", design: "app.par#home", node: "title", edit: { kind: "replace", text: "a" } }])
+        exchange()
+        const typing = a.beginGesture()
+        type(a, 1, "b", typing)
+        exchange()
+        type(b, 0, "X")
+        exchange()
+        type(a, 3, "c", typing)
+        a.endGesture(typing)
+
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "Xa" })
+      })
+
+      it("puts back what this person deleted beside what the other wrote since, after typing of their own", () => {
+        const { a, b, exchange } = together()
+
+        const splice = (at: number, remove: number, insert: string): DocOp => ({
+          op: "editText",
+          design: "app.par#home",
+          node: "title",
+          edit: { kind: "splice", at, remove, insert }
+        })
+
+        apply(a, [{ op: "editText", design: "app.par#home", node: "title", edit: { kind: "replace", text: "abcd" } }])
+        exchange()
+        // A takes out "c", the other writes "cc" where it was, and A types on before undoing both.
+        apply(a, [splice(2, 1, "")])
+        exchange()
+        apply(b, [splice(2, 0, "cc")])
+        exchange()
+        apply(a, [splice(0, 0, "c")])
+
+        a.undo()
+        expect(a.undo()).toMatchObject({ kind: "undo", kept: 0 })
+        exchange()
+        expect(layer(b, "app.par#home", "title")).toMatchObject({ text: "abcccd" })
       })
 
       it("undoes typing in a long text the other edited at both ends, without matching all of it", () => {
