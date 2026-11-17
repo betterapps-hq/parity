@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Internal extensions' window modules hear this person's pointer, gestures and view, and agents' steps, with the sync seam built for opening a project through a room",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}
