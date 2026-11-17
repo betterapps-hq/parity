@@ -55,6 +55,7 @@
     "@parity-app/extension": "workspace:*",
     "@parity-app/extension-agent-presence": "workspace:*",
     "@parity-app/extension-host": "workspace:*",
+    "@parity-app/extension-multiplayer": "workspace:*",
     "@parity-app/extension-nextjs": "workspace:*",
     "@parity-app/extension-portless": "workspace:*",
     "@parity-app/extension-react": "workspace:*",

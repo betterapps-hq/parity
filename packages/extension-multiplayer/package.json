@@ -1,0 +1,61 @@
+{
+  "name": "@parity-app/extension-multiplayer",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "A live room: copies of Parity editing one project together, each person's pointer, selection and drags shown in their color, with following.",
+  "main": "src/extension.ts",
+  "exports": {
+    ".": "./src/extension.ts",
+    "./window": "./src/window.tsx",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@parity-app/canvas-layer": "workspace:*",
+    "@parity-app/extension": "workspace:*",
+    "@parity-app/presence-ui": "workspace:*",
+    "zod": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  },
+  "parity": {
+    "displayName": "Multiplayer",
+    "prefix": "multiplayer",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zm-7 10a7 7 0 0 1 14 0zm15-10a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm1 2a6 6 0 0 1 4 8h-4a9 9 0 0 0-3-7.4A6 6 0 0 1 18 13z"
+    },
+    "internal": true,
+    "window": "./window",
+    "detect": {
+      "always": true
+    },
+    "activates": [
+      "onSetting:multiplayer.liveRoom"
+    ],
+    "capabilities": [
+      "canvas",
+      "camera",
+      "presence",
+      "sync",
+      "agents"
+    ],
+    "contributes": {
+      "sync": true,
+      "settings": {
+        "multiplayer.liveRoom": {
+          "type": "boolean",
+          "default": false,
+          "scope": "app",
+          "title": "Live room"
+        }
+      }
+    }
+  }
+}

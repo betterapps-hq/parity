@@ -136,11 +136,20 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
 
   // The write that covered the drop, for where it put what moved.
   let covering: PreviewChange | undefined
+  // A write that covered what moves since the last update, before it was told to settle: the drop's write can arrive
+  // ahead of the drag's end, in a batch of its own.
+  let early: PreviewChange | undefined
 
   const stopWrites = surface.writes.subscribe((change) => {
-    if (coversDesigns(change, designs) && life.waiting) {
+    if (!coversDesigns(change, designs)) {
+      return
+    }
+
+    if (life.waiting) {
       covering = change
       life.wrote()
+    } else if (!life.ended) {
+      early = change
     }
   })
 
@@ -160,6 +169,7 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
         return
       }
 
+      early = undefined
       current = { items: next, options: { ...current.options, ...changed } }
       frame ||= window.requestAnimationFrame(draw)
     },
@@ -174,6 +184,11 @@ export function preview(surface: PreviewSurface, items: PreviewItem[], options: 
       }
 
       life.awaitWrite()
+
+      if (early) {
+        covering = early
+        life.wrote()
+      }
     },
     cancel: () => life.end("cancel"),
     onEnd(listener) {

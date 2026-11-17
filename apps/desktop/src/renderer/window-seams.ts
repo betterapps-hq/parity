@@ -8,6 +8,7 @@ import { firstName } from "./account/account.ts"
 import { presence } from "./agent/presence.ts"
 import { onGestures } from "./canvas/presence-gestures.ts"
 import { track } from "./report-error.ts"
+import type { TabSlot } from "./tab-slot.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -17,33 +18,12 @@ import type { ProjectSession } from "./workspace.ts"
  */
 
 /** This person's pointer, gestures and what they view in the tab, for `windowPresence`. */
-export function windowPresencePort(session: ProjectSession): PresencePort {
+export function windowPresencePort(slot: TabSlot): PresencePort {
   return {
     self: () => ({ name: import.meta.env.VITE_PARITY_ROOM_NAME ?? firstName() ?? "Guest" }),
-    onPointer: (listener) => followPointer(session, listener),
-    onGesture: (listener) => onGestures(session, listener),
-    onViewing(listener) {
-      const viewing = (): Viewing => {
-        const { design, state, mode } = session.selection.get()
-        const seen: Viewing = {}
-
-        if (design !== undefined) {
-          seen.design = design
-        }
-
-        if (state !== undefined) {
-          seen.state = state
-        }
-
-        if (mode !== undefined) {
-          seen.mode = mode
-        }
-
-        return seen
-      }
-
-      return session.selection.subscribe(() => listener(viewing()))
-    },
+    onPointer: (listener) => slot.when((session) => followPointer(session, listener)),
+    onGesture: (listener) => slot.when((session) => onGestures(session, listener)),
+    onViewing: (listener) => slot.when((session) => viewingOf(session, listener)),
     frame(callback) {
       const handle = requestAnimationFrame(callback)
 
@@ -52,10 +32,34 @@ export function windowPresencePort(session: ProjectSession): PresencePort {
   }
 }
 
+/** What this person views in the tab, each time it changes. */
+function viewingOf(session: ProjectSession, listener: (viewing: Viewing) => void): () => void {
+  const viewing = (): Viewing => {
+    const { design, state, mode } = session.selection.get()
+    const seen: Viewing = {}
+
+    if (design !== undefined) {
+      seen.design = design
+    }
+
+    if (state !== undefined) {
+      seen.state = state
+    }
+
+    if (mode !== undefined) {
+      seen.mode = mode
+    }
+
+    return seen
+  }
+
+  return session.selection.subscribe(() => listener(viewing()))
+}
+
 /** The tab's agents' steps as the agent API reports them, for `windowAgents`. */
-export function windowAgentsPort(session: ProjectSession, tab: string): AgentsPort {
+export function windowAgentsPort(slot: TabSlot, tab: string): AgentsPort {
   const layerType = (design: string, node: string) => {
-    const root = session.doc.design(design)?.root
+    const root = slot.session?.doc.design(design)?.root
 
     return root && locateNode(root, node)?.node.type
   }
@@ -69,19 +73,8 @@ export function windowAgentsPort(session: ProjectSession, tab: string): AgentsPo
           listener(here.map((event) => agentStepOf(event, layerType)))
         }
       }),
-    // The development room's (`live-room.ts`), which reach the window without an extension passing them in.
-    onPassedOn: (listener) =>
-      presence.onPassedOn((events, from) => {
-        const here = events.filter((event) => event.tab === tab)
-
-        if (here.length > 0) {
-          listener(
-            here.map((event) => agentStepOf(event, layerType)),
-            from
-          )
-        }
-      }),
-    exists: (ref) => existsIn(session, ref),
+    // Other copies' steps come in through `parity.agents.receive`, from the extension that brings the room.
+    exists: (ref) => (slot.session ? existsIn(slot.session, ref) : false),
     record: track
   }
 }

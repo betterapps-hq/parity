@@ -29,6 +29,7 @@ import { type BoardRest, boardDormant } from "./frame-sleep.ts"
 import { setBoardSized } from "./free-space.ts"
 import { followPress, gestures } from "./gesture.ts"
 import { measureTogether } from "./measure-together.ts"
+import { type Started, telling } from "./presence-gestures.ts"
 import { clearSnaps, snapPosition } from "./snap.ts"
 import { useTitleLayer } from "./title-layer.tsx"
 import { type CanvasRecord, CanvasUtil } from "./tldraw-names.ts"
@@ -354,68 +355,95 @@ function ContainerContent({ container }: { container: ContainerRecord }) {
         { history: "ignore" }
       )
 
-    followPress(gestures.titleDrag, doc, event, {
-      moves: { designs: moving },
-      cursor: "grabbing",
-      start() {
-        designDrag.active = true
-        designDrag.designs = new Set(moving)
+    // Told to `parity.presence` as a move of the boards, from where the title was grabbed (PAR-1268).
+    const describe = (): Started => ({
+      kind: "move",
+      targets: [...origins.keys()].flatMap((candidate) => {
+        const bounds = editor.getShapePageBounds(canvasIdFor(candidate))
 
-        // Grabbing a board an agent holds lets go of it, and the person's drag wins.
-        for (const candidate of moving) {
-          holds.grab(session.id, candidate)
-        }
-
-        // The title has the pointer captured, so it's given the cursor too, besides the layer over the window.
-        target.style.cursor = "grabbing"
-        lifted = liftElements(boards(), { origin: { x: event.clientX, y: event.clientY } })
-      },
-      move(moveEvent) {
-        const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
-        const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
-        // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
-        const snapping = snaps(moveEvent, getEffectivePreferences(doc).snapping)
-        const next = snapping ? snapPosition(editor, container.id, free, others) : free
-
-        if (!snapping) {
-          clearSnaps(editor)
-        }
-
-        place(next.x - origin.x, next.y - origin.y)
-      },
-      end(kept) {
-        clearSnaps(editor)
-        target.style.cursor = ""
-
-        if (target.hasPointerCapture(event.pointerId)) {
-          target.releasePointerCapture(event.pointerId)
-        }
-
-        // Put back while the canvas still knows the move is the title's, so it isn't saved; they fly back there.
-        if (kept) {
-          lifted?.drop()
-        } else {
-          lifted?.cancel(() => place(0, 0))
-        }
-
-        designDrag.active = false
-        designDrag.designs = new Set()
-
-        if (!kept) {
-          return
-        }
-
-        const positions = new Map(
-          [...origins.keys()].flatMap((candidate) => {
-            const found = editor.getShape(canvasIdFor(candidate))
-
-            return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
-          })
-        )
-
-        moveDesigns(doc, positions, `Move ${designsLabel(doc, positions.keys())}`)
-      }
+        return bounds
+          ? [
+              {
+                ref: { owner: "design" as const, type: "design", key: candidate },
+                offset: { x: bounds.x - start.x, y: bounds.y - start.y },
+                size: { width: bounds.w, height: bounds.h }
+              }
+            ]
+          : []
+      })
     })
+
+    followPress(
+      gestures.titleDrag,
+      doc,
+      event,
+      telling(
+        session,
+        {
+          moves: { designs: moving },
+          cursor: "grabbing",
+          start() {
+            designDrag.active = true
+            designDrag.designs = new Set(moving)
+
+            // Grabbing a board an agent holds lets go of it, and the person's drag wins.
+            for (const candidate of moving) {
+              holds.grab(session.id, candidate)
+            }
+
+            // The title has the pointer captured, so it's given the cursor too, besides the layer over the window.
+            target.style.cursor = "grabbing"
+            lifted = liftElements(boards(), { origin: { x: event.clientX, y: event.clientY } })
+          },
+          move(moveEvent) {
+            const point = editor.screenToPage({ x: moveEvent.clientX, y: moveEvent.clientY })
+            const free = { x: origin.x + point.x - start.x, y: origin.y + point.y - start.y }
+            // It locks to the edges and centers of the designs around it; Ctrl or Cmd moves freely.
+            const snapping = snaps(moveEvent, getEffectivePreferences(doc).snapping)
+            const next = snapping ? snapPosition(editor, container.id, free, others) : free
+
+            if (!snapping) {
+              clearSnaps(editor)
+            }
+
+            place(next.x - origin.x, next.y - origin.y)
+          },
+          end(kept) {
+            clearSnaps(editor)
+            target.style.cursor = ""
+
+            if (target.hasPointerCapture(event.pointerId)) {
+              target.releasePointerCapture(event.pointerId)
+            }
+
+            // Put back while the canvas still knows the move is the title's, so it isn't saved; they fly back there.
+            if (kept) {
+              lifted?.drop()
+            } else {
+              lifted?.cancel(() => place(0, 0))
+            }
+
+            designDrag.active = false
+            designDrag.designs = new Set()
+
+            if (!kept) {
+              return
+            }
+
+            const positions = new Map(
+              [...origins.keys()].flatMap((candidate) => {
+                const found = editor.getShape(canvasIdFor(candidate))
+
+                return found ? [[candidate, { x: found.x, y: found.y }] as const] : []
+              })
+            )
+
+            moveDesigns(doc, positions, `Move ${designsLabel(doc, positions.keys())}`)
+          }
+        },
+        describe
+      )
+    )
   }
 
   if (!entry) {

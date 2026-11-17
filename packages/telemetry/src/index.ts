@@ -52,6 +52,8 @@ export * from "./settings.ts"
 
 export * from "./sink.ts"
 
+export * from "./room-events.ts"
+
 export * from "./sync-events.ts"
 
 export * from "./telemetry.ts"

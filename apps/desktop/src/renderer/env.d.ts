@@ -14,9 +14,7 @@ declare global {
   interface ImportMetaEnv {
     /** tldraw's license key. Without one, tldraw shows its license notice on the canvas. */
     readonly VITE_TLDRAW_LICENSE_KEY?: string
-    /** The live room's relay, in development with `PARITY_ROOM=1` (scripts/dev-room.ts). */
-    readonly VITE_PARITY_ROOM?: string
-    /** The name on this copy's cursor in the live room. */
+    /** The name on this copy's pointer in a live room, in development (`PARITY_ROOM_NAME`). */
     readonly VITE_PARITY_ROOM_NAME?: string
   }
 }

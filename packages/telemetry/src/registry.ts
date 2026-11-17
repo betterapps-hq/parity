@@ -14,6 +14,7 @@ import { interfaceEvents } from "./interface-events.ts"
 import { processEvents } from "./process-events.ts"
 import { projectEvents } from "./project-events.ts"
 import { renderEvents } from "./render-events.ts"
+import { roomEvents } from "./room-events.ts"
 import { agentsEvents, syncEvents } from "./sync-events.ts"
 import { builderStarted, commandRan, gestureRan, requestHandled } from "./trace-events.ts"
 
@@ -42,6 +43,7 @@ export const registeredEvents = [
   ...extensionEvents,
   ...syncEvents,
   ...agentsEvents,
+  ...roomEvents,
   ...accountEvents,
   ...connectorEvents,
   dataInvalid,

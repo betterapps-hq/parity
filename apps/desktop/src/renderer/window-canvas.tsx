@@ -28,8 +28,8 @@ import { ProjectContext } from "./canvas/context.ts"
 import { preview, type PreviewOptions } from "./canvas/drag-preview.ts"
 import { agentColors, personColors } from "./canvas/surface/colors.ts"
 import { surfaceOf } from "./canvas/surface/index.ts"
-import { type ProjectPart, projectPart } from "./project-part.ts"
 import { createStore, type Store, useStore } from "./store.ts"
+import type { TabSlot } from "./tab-slot.ts"
 import type { ProjectSession } from "./workspace.ts"
 
 /*
@@ -47,37 +47,51 @@ interface Drawn extends LayerRequest {
   key: number
 }
 
-/** A tab's layers, which its hosts draw, and its frames, kept with its session and stopped as it closes. */
-interface TabLayers extends ProjectPart {
+/** A tab's layers, which its hosts draw, and its frames. */
+interface TabLayers {
   drawn: Store<readonly Drawn[]>
   /** The tab's frames, for `useFrame`, paused while it's hidden. */
   frames: FrameLoop
   add(layer: LayerRequest): () => void
 }
 
-const layersOf = projectPart<Pick<ProjectSession, "untilClosed">, TabLayers>(() => {
+/**
+ * Each project's layers, by its id: window modules add them before the project's session opens, and a project is open
+ * in one tab, whose layers outlast a reopen's new session.
+ */
+const tabLayers = new Map<string, TabLayers>()
+
+function layersOf(session: Pick<ProjectSession, "id">): TabLayers {
+  const kept = tabLayers.get(session.id)
+
+  if (kept) {
+    return kept
+  }
+
   const drawn = createStore<readonly Drawn[]>(() => [])
-  const frames = createFrameLoop()
   let next = 0
 
-  return {
+  const layers: TabLayers = {
     drawn,
-    frames,
+    frames: createFrameLoop(),
     add(layer) {
       next += 1
       const added: Drawn = { ...layer, key: next }
       drawn.update((now) => [...now, added])
 
       return () => drawn.update((now) => now.filter((each) => each !== added))
-    },
-    dispose: () => frames.dispose()
+    }
   }
-})
+
+  tabLayers.set(session.id, layers)
+
+  return layers
+}
 
 /** The tab's canvas services, for its window modules' `parity.canvas`, `parity.camera` and `parity.colors`. */
-export function windowCanvasPort(session: ProjectSession, tab: string): WindowCanvasPort {
+export function windowCanvasPort(slot: TabSlot, tab: string): WindowCanvasPort {
   const canvas = (): CoreCanvas | undefined => {
-    const { editor } = session
+    const editor = slot.session?.editor
     const surface = editor && surfaceOf(editor)
 
     return editor && surface
@@ -91,22 +105,24 @@ export function windowCanvasPort(session: ProjectSession, tab: string): WindowCa
 
   return {
     canvas,
-    onCanvas(listener) {
-      let editor = session.editor
+    onCanvas: (listener) =>
+      slot.when((session) => {
+        let { editor } = session
 
-      // The canvas's surface starts as it mounts, before the tab is given its editor, and stops before it's taken.
-      return session.subscribe(() => {
-        if (session.editor !== editor) {
-          editor = session.editor
-          listener()
-        }
-      })
-    },
-    addLayer: (layer) => layersOf(session).add(layer),
+        // The canvas's surface starts as it mounts, before the tab is given its editor, and stops before it's taken.
+        return session.subscribe(() => {
+          if (session.editor !== editor) {
+            editor = session.editor
+            listener()
+          }
+        })
+      }),
+    addLayer: (layer) => layersOf(slot).add(layer),
     preview(items, options) {
-      const { editor } = session
+      const { session } = slot
+      const editor = session?.editor
 
-      if (!editor) {
+      if (!session || !editor) {
         throw new Error("canvas.preview needs the tab's canvas, which hasn't mounted yet")
       }
 
@@ -134,7 +150,7 @@ export function windowCanvasPort(session: ProjectSession, tab: string): WindowCa
     },
     hold: (design, at, extension) => holds.hold(tab, design, at, extension),
     colors: { people: personColors, agents: agentColors },
-    isDesign: (key) => session.doc.design(key) !== undefined
+    isDesign: (key) => slot.session?.doc.design(key) !== undefined
   }
 }
 
@@ -225,7 +241,8 @@ const placements: Record<Placement, string> = {
   topRight: "top-14 right-3",
   bottomLeft: "bottom-3 left-3",
   bottomRight: "bottom-3 right-3",
-  bottom: "bottom-20 left-1/2 -translate-x-1/2"
+  bottom: "bottom-20 left-1/2 -translate-x-1/2",
+  fill: "inset-0"
 }
 
 function placementOf(options: LayerOptions): Placement {
