@@ -170,6 +170,25 @@
         }
       ],
       "providers": {
+        "preview": {
+          "files": [
+            ".storybook/preview.tsx",
+            ".storybook/preview.ts",
+            ".storybook/preview.jsx",
+            ".storybook/preview.js",
+            ".storybook/preview.mjs"
+          ],
+          "compose": {
+            "api": "portable-stories",
+            "from": [
+              "@storybook/react",
+              "@storybook/react-vite",
+              "@storybook/nextjs",
+              "@storybook/nextjs-vite",
+              "@storybook/react-webpack5"
+            ]
+          }
+        },
         "entities": {
           "watches": [
             ".storybook/main.ts",

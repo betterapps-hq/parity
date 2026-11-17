@@ -11,8 +11,12 @@ interface Module {
   staticImportedUrls?: ReadonlySet<string>
 }
 
-/** The dependencies Vite's optimizer has bundled and found, each with the batch still bundling it. */
+/**
+ * The dependencies Vite's optimizer has bundled and found, each with the batch still bundling it, and the hash compiled
+ * modules import them with (`?v=`). Vite keeps the hash when it bundles more, unless what it bundled before changed.
+ */
 export interface OptimizerMetadata {
+  browserHash?: string
   optimized: Record<string, { processing?: Promise<void> }>
   discovered: Record<string, { processing?: Promise<void> }>
 }
@@ -35,41 +39,45 @@ interface Client {
 }
 
 /**
- * Explicitly walk the graph, awaiting each transform before reading its children. Vite's background static warmups
- * share these same transforms, so no recursive child can still be discovering a dependency when the queue drains.
- * Await each resulting optimizer batch, then invalidate transforms made before its final hashes were committed.
+ * Compiles the guest's graph before the browser asks for it: every module the guest imports, each one's imports as soon
+ * as it's compiled, all at once. Vite's background warm-ups share these same transforms, so once every one has finished
+ * nothing is still finding a dependency. Then it waits for each batch the optimizer started, and keeps the compiled
+ * modules unless the optimizer changed the hash they import its bundle with: dropping them had the browser ask for
+ * every module again, on a warm launch too (PAR-1203).
  */
 export async function warmGuestGraph(client: Client, roots: string[]): Promise<void> {
-  await client.depsOptimizer?.init()
-  await client.depsOptimizer?.scanProcessing
+  const optimizer = client.depsOptimizer
+  await optimizer?.init()
+  await optimizer?.scanProcessing
+  const before = optimizer?.metadata.browserHash
   const seen = new Set<string>()
-  const queue = [...roots]
 
-  for (let index = 0; index < queue.length; index++) {
-    const url = queue[index]!
-
-    if (seen.has(url) || client.depsOptimizer?.isOptimizedDepUrl(url)) {
-      continue
+  const warm = async (url: string): Promise<void> => {
+    if (seen.has(url) || optimizer?.isOptimizedDepUrl(url)) {
+      return
     }
 
     seen.add(url)
+    let children: Iterable<string> = []
 
     try {
       await client.transformRequest(url)
-      const module = await client.moduleGraph.getModuleByUrl(url)
-
       // Only what the browser will import: a watched file transformed as a module sends its Node-only imports to the
       // optimizer, which then tries to bundle the project's build tools.
-      for (const child of module?.staticImportedUrls ?? []) {
-        queue.push(child)
-      }
+      children = (await client.moduleGraph.getModuleByUrl(url))?.staticImportedUrls ?? []
     } catch {
       // Optional project modules keep their own load errors, as they do when the browser requests them.
     }
+
+    await Promise.all([...children].map(warm))
   }
 
-  await optimizerBatches(client.depsOptimizer, settledLimit)
-  client.moduleGraph.invalidateAll()
+  await Promise.all(roots.map(warm))
+  await optimizerBatches(optimizer, settledLimit)
+
+  if (optimizer && optimizer.metadata.browserHash !== before) {
+    client.moduleGraph.invalidateAll()
+  }
 }
 
 /**

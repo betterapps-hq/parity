@@ -15,13 +15,14 @@ const meta = {
 export default meta
 
 /**
- * Which palette agents get when they work together. A name only picks the palette an agent prefers; agents at work
- * at the same time always get different ones, so two sessions of the same agent differ too.
+ * Which palette agents get when they work together: each the lowest-numbered one free, so agents at work at the same
+ * time always differ, two sessions of the same agent too. Past the hand-tuned twelve, palettes are generated, so they
+ * never run out.
  */
 function Assignment({ names }: { names: string[] }) {
   const [claimed] = useState(() => {
     const ids = names.map((name, index) => `story-${index}-${name}`)
-    const palettes = ids.map((id, index) => agentColors.claim(id, names[index]!))
+    const palettes = ids.map((id) => agentColors.claim(id))
 
     for (const id of ids) {
       agentColors.release(id)
@@ -45,4 +46,10 @@ function Assignment({ names }: { names: string[] }) {
 export const WorkingTogether: StoryObj<typeof Assignment> = {
   render: (args) => <Assignment {...args} />,
   args: { names: ["Claude Code", "Claude Code", "Cursor", "Codex", "Gemini CLI", "Copilot"] }
+}
+
+/** Sixteen agents at once: the twelve hand-tuned palettes, then four generated ones, named by their hue. */
+export const PastTheTunedOnes: StoryObj<typeof Assignment> = {
+  render: (args) => <Assignment {...args} />,
+  args: { names: Array.from({ length: 16 }, (_, index) => `Agent ${index + 1}`) }
 }

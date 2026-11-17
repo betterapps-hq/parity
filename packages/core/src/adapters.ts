@@ -629,6 +629,11 @@ export interface GuestDecorators {
    * inside the libraries'.
    */
   project?: ModuleExports | { loadError: string }
+  /**
+   * When `project` is a tool's preview: the package `ProjectConfig.previewComposer` names, whose portable stories API
+   * (`setProjectAnnotations` and `composeStory`) applies it as the tool does (PAR-98), or the error it failed with.
+   */
+  composer?: ModuleExports | { loadError: string }
 }
 
 /** The renderer's guest runtime, loaded into the canvas from the customer's build. */
@@ -900,6 +905,41 @@ export function extensionEntities(pkg: EntitiesPackage): EntitiesDescription | u
   }
 
   return description
+}
+
+/** A preview an extension names for its tool, from its manifest's `contributes.providers.preview` (PAR-98). */
+export interface PreviewDescription {
+  /** The extension's prefix. */
+  id: string
+  /** Where the tool keeps it, from the project's root; the first that's there is used. */
+  files: string[]
+  compose: { api: "portable-stories"; from: string[] }
+}
+
+/** What of an extension's `package.json` names the preview its tool keeps. */
+export interface PreviewPackage {
+  parity: {
+    prefix: string
+    contributes: {
+      // As JSON gives it: Parity's manifest reader checks that `api` is one it knows.
+      providers?: { preview?: { files: string[]; compose: { api: string; from: string[] } } }
+    }
+  }
+}
+
+/** The preview an extension's manifest names for its tool, or nothing when it names none or one Parity can't apply. */
+export function extensionPreview(pkg: PreviewPackage): PreviewDescription | undefined {
+  const preview = pkg.parity.contributes.providers?.preview
+
+  if (preview?.compose.api !== "portable-stories") {
+    return undefined
+  }
+
+  return {
+    id: pkg.parity.prefix,
+    files: [...preview.files],
+    compose: { api: "portable-stories", from: [...preview.compose.from] }
+  }
 }
 
 /** A file an adapter writes, by its path from the project's root, with its whole new text. */

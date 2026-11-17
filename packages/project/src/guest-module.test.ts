@@ -21,4 +21,20 @@ describe("the guest module with the project's preview file (PAR-100)", () => {
     expect(made.imports).toEqual(["renderer"])
     expect(made.source).not.toContain("project:")
   })
+
+  it("imports the package that composes a tool's preview beside it, either of which may fail to load (PAR-98)", () => {
+    const previewComposer = {
+      api: "portable-stories",
+      module: "@storybook/react-vite",
+      extension: "storybook"
+    } as const
+
+    const made = guestModule({ ...config, preview: ".storybook/preview.ts", previewComposer }, options)
+
+    const preview = made.imports.indexOf("/@root/.storybook/preview.ts")
+    const composer = made.imports.indexOf("@storybook/react-vite")
+
+    expect(made.optional.has("@storybook/react-vite")).toBe(true)
+    expect(made.source).toContain(`    project: modules[${preview}],\n    composer: modules[${composer}]\n  },`)
+  })
 })

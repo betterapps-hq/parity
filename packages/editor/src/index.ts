@@ -16,6 +16,36 @@ export {
   wrapInLayout
 } from "./arrange.ts"
 
+export {
+  between,
+  type CameraOptions,
+  type CameraPort,
+  type CameraState,
+  createCamera,
+  fitCamera,
+  glideMs,
+  moveEnd,
+  sameCamera,
+  type Size,
+  viewOf
+} from "./canvas-camera.ts"
+
+export { createMeasure, type MeasuredFrame, type MeasurePort, pickFrame, sameBox } from "./canvas-measure.ts"
+
+export type {
+  BoxOptions,
+  BoxResult,
+  Camera,
+  CameraView,
+  CanvasRef,
+  Disposable,
+  DrawnAt,
+  FollowEnd,
+  Following,
+  Measure,
+  PageRect
+} from "./canvas-surface.ts"
+
 export { type BoardBox, type LabelKind, labelLook, stateLabelSpace, titleReach } from "./canvas-labels.ts"
 
 export {

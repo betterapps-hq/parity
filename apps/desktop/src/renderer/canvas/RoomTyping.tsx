@@ -76,7 +76,7 @@ function TypistMarks({ typist }: { typist: Typist }) {
     agentPalettes.findIndex((each) => each.name === typist.palette)
   )
 
-  const member: Member = { name: typist.name, palette: { n: index, ...agentPalettes[index]! } }
+  const member: Member = { name: typist.name, palette: agentPalettes[index]! }
 
   return (
     <div ref={ref} className="pointer-events-none absolute inset-0" data-typist={typist.name}>

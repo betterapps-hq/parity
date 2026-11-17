@@ -26,13 +26,13 @@ export interface CodeSnapshot {
 /**
  * A project's code as its builder serves it: the path, size and modification time of every file in the project, and of
  * the lockfiles above it (see `findLockfiles`), with `salt` for the code that draws it. It skips dependencies, build
- * output, dot-folders but the preview file's `.parity`, and designs (`.par`), which a frame's tree already says. Any edit, CSS and config included, gives
+ * output, dot-folders but the preview file's `.parity` and `folders`, such as the folder of a tool's preview, and designs (`.par`), which a frame's tree already says. Any edit, CSS and config included, gives
  * a new fingerprint; a file only touched does too, which costs a cache miss at most.
  */
-export async function codeSnapshot(root: string, salt: string): Promise<CodeSnapshot> {
+export async function codeSnapshot(root: string, salt: string, folders: readonly string[] = []): Promise<CodeSnapshot> {
   const hash = createHash("sha256").update(salt).update("\0")
   const listed: [string, string][] = []
-  await list(resolve(root), resolve(root), listed)
+  await list(resolve(root), resolve(root), listed, new Set([previewFolder, ...folders]))
 
   for (const lockfile of await findLockfiles(root)) {
     if (lockfile.startsWith("../")) {
@@ -56,7 +56,7 @@ export async function codeSnapshot(root: string, salt: string): Promise<CodeSnap
   return { fingerprint: hash.digest("hex"), files, salt }
 }
 
-async function list(root: string, folder: string, files: [string, string][]): Promise<void> {
+async function list(root: string, folder: string, files: [string, string][], own: Set<string>): Promise<void> {
   const entries = await opendir(folder).catch(() => undefined)
 
   if (!entries) {
@@ -71,11 +71,11 @@ async function list(root: string, folder: string, files: [string, string][]): Pr
     const absolute = join(folder, entry.name)
 
     if (entry.isDirectory()) {
-      // The preview file's folder is the project's own code, which every frame draws with (PAR-100).
-      const own = !entry.name.startsWith(".") || entry.name === previewFolder
+      // The preview's folder is the project's own code, which every frame draws with (PAR-100, PAR-98).
+      const listed = !entry.name.startsWith(".") || own.has(relative(root, absolute).replaceAll("\\", "/"))
 
-      if (own && !skippedFolders.has(entry.name) && !entry.name.endsWith("-static")) {
-        await list(root, absolute, files)
+      if (listed && !skippedFolders.has(entry.name) && !entry.name.endsWith("-static")) {
+        await list(root, absolute, files, own)
       }
     } else if (entry.isFile() && !entry.name.endsWith(".par")) {
       files.push([relative(root, absolute).replaceAll("\\", "/"), absolute])

@@ -492,6 +492,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `cli.versionMismatch`              | warn  | all  | cli                                     | The CLI and the app it calls are versions apart that don't fit.                                                                                                            |
 | `clipboard.failed`                 | info  | all  | renderer                                | A paste pastes nothing, and says why.                                                                                                                                      |
 | `clipboard.pasted`                 | info  | all  | renderer                                | A paste puts something on the canvas.                                                                                                                                      |
+| `colors.generated`                 | info  | all  | renderer                                | A claim or assignment needs a generated palette, once per tab, list and number.                                                                                            |
 | `command.ran`                      | info  | all  | renderer                                | An action in `chrome/actions.ts` is asked for, from anywhere, until it's done.                                                                                             |
 | `component.changed`                | info  | all  | renderer                                | Detach, Push to main or Make component changes how layers follow a component.                                                                                              |
 | `connectors.placed`                | info  | all  | main                                    | A connector's result goes into a design for the first time, before the source is told, if it asks to be.                                                                   |
@@ -507,6 +508,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `error.caught`                     | error | all  | renderer                                | A failure is shown as an error notification.                                                                                                                               |
 | `export.done`                      | info  | all  | renderer                                | An export finishes, with or without warnings.                                                                                                                              |
 | `export.failed`                    | warn  | all  | renderer                                | An export fails.                                                                                                                                                           |
+| `follow.ended`                     | info  | all  | renderer                                | Following a view on the canvas ends.                                                                                                                                       |
 | `frame.failed`                     | warn  | all  | main                                    | A frame or preview drawn offscreen fails, or is still drawing 30 seconds after its turn came.                                                                              |
 | `frame.rendered`                   | debug | all  | main                                    | An offscreen window draws a frame or a preview, from its turn to the end, under the trace that asked for it.                                                               |
 | `gesture.ended`                    | info  | all  | renderer                                | A gesture ends: a drag, a resize, a run of presses, a pan or a zoom.                                                                                                       |
@@ -798,6 +800,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `content` | `"layers" \| "designs" \| "notes" \| "image" \| "svg" \| "video" \| "text" \| "empty" \| "unreadable"` | What was on the clipboard: Parity's layers, designs or notes, an image, SVG markup, a copied video file, text, nothing, or a copy that can't be read |
 | `count`   | `integer`                                                                                              | How many layers, designs or notes were pasted                                                                                                        |
 
+### `colors.generated`
+
+| Attribute | Type                   | Meaning                                                 |
+| --------- | ---------------------- | ------------------------------------------------------- |
+| `list`    | `"people" \| "agents"` | Whose palettes: people's or agents'                     |
+| `n`       | `integer`              | The palette's number, past the hand-tuned ones          |
+| `keys`    | `integer`              | How many people and agents held a color in the tab then |
+
 ### `command.ran`
 
 | Attribute | Type                                                                                                 | Meaning                                                                                                                                                                   |
@@ -941,6 +951,14 @@ Some failures are recorded for you, so code doesn't record them again:
 | `states`     | `integer`, optional     | The states exported, when they're counted                                                      |
 | `durationMs` | `integer`               | From asking for the export, once its folder is picked, until its files are written or it fails |
 | `code`       | `string`, optional      | The `CodedError` code, when the failure has one                                                |
+
+### `follow.ended`
+
+| Attribute    | Type                                                                          | Meaning                                                     |
+| ------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `extension`  | `string`                                                                      | Who followed: an extension by its id, or `core`             |
+| `why`        | `"escape" \| "panned" \| "zoomed" \| "navigated" \| "replaced" \| "disposed"` | Why it ended                                                |
+| `durationMs` | `number`                                                                      | From when following began to when it ended, in milliseconds |
 
 ### `frame.failed`
 
