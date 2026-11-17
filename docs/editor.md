@@ -5473,8 +5473,9 @@ A slot it leaves empty shows the placeholder.
   Of several dragged layers, the first that can go in does. A layer from another design, the instance itself, or a layer
   it's inside can't, and a toast says why ("Only layers in this design can go in Features", "Pricing can't go in
   Features, which is inside it").
-- **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
-  Clear. A click in Components adds into it, at its end.
+- **A selected slot** has a panel of its own (PAR-1063): its name, the instance it's in, which goes back to it, then
+  Contents, with the same picker as the instance's row, its × clearing it, and the slot's picture. A click in Components
+  adds into it, at its end. The rest of the slot's panel waits on how slots behave (PAR-1070).
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
   selecting them works as for any other. Layers doesn't list them under the instance.
 - **Detach** bakes the fill in where the placeholder was, keeping its layers' ids. A component can place an instance of
@@ -5491,10 +5492,10 @@ The file keeps a fill as `slots` on the instance, by slot name, as a code compon
 Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the picture's tree
 `slotPreviewTree`.
 
-Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
-`inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`, `DesignInstanceProps` in
-`inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview`
-in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
+Code: `chrome/instance-slots.tsx` (`SlotFill`, the picker the rows and the slot's panel share, the card and the slot's
+panel), `SlotPickerField` in `inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`,
+`DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`,
+`treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
 
 Tests:
 
