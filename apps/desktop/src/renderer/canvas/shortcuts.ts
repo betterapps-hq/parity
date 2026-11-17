@@ -4,6 +4,7 @@ import { type Command, keymap, shortcutFor } from "../chrome/keymap.ts"
 import { runExtensionKey } from "../extension-editor.ts"
 import type { SelectionStore } from "../selection.ts"
 import type { ProjectSession } from "../workspace.ts"
+import { escapeOnCanvas } from "./surface/index.ts"
 
 // SAFETY: `keymap` has a key for each command and no others.
 const commands = Object.keys(keymap) as Command[]
@@ -99,6 +100,13 @@ export function useShortcuts(selection: SelectionStore | undefined, active: bool
         event.preventDefault()
         event.stopImmediatePropagation()
         handledKeys.add(event.code)
+      }
+
+      // Esc stops following someone before it steps back out of the selection.
+      if (event.key === "Escape" && session?.editor && escapeOnCanvas(session.editor)) {
+        handled()
+
+        return
       }
 
       const command = shortcutFor(event, canvasCommands)

@@ -4,6 +4,8 @@ import { track } from "../../report-error.ts"
 import { tldrawCameraPort } from "./camera-tldraw.ts"
 import { domMeasurePort } from "./measure-dom.ts"
 
+export { escapeOnCanvas } from "./camera-tldraw.ts"
+
 /**
  * A project tab's canvas surface (PAR-1236): its camera, following, and where things are on the page. Core services
  * for now; internal extensions reach them through `parity.canvas` once window modules land (PAR-1233).

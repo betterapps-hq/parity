@@ -6506,11 +6506,14 @@ land (PAR-1233). The project's canvas starts its own as it mounts (`surfaceOf(ed
   generated palette rather than sharing one. The first claim to need each generated palette records `colors.generated`.
 - **The camera** says what's in view as a rect on the page, tells listeners at most once a frame, and `show(view)`
   glides there, fitted to the window within the canvas's zoom limits.
-- **Following** keeps showing the views it's given, gliding to each. Its own moves are tagged, so only the person's end
-  it: Esc, a pan (`panned`) or zoom (`zoomed`) of their own, or another page (`navigated`). Another follow or `show`
-  ends it as `replaced`, and its owner as `disposed`. A resized window fits what's followed again. Each ending records
-  `follow.ended`. The frame and banner drawn while following are the Follow mode stories'
-  (`Parity/Multiplayer/Follow mode`), drawn by whoever follows.
+- **Following** keeps showing the views it's given, gliding to each. A view that comes while it glides changes where the
+  glide ends rather than starting it again, and the same view again moves nothing, so a leader whose view comes with
+  every pointer move is still reached. Its own moves are tagged, so only the person's end it: Esc, a pan (`panned`) or
+  zoom (`zoomed`) of their own, or another page (`navigated`). The canvas's shortcuts offer Esc to the camera first
+  (`escapeOnCanvas`), so it ends following and keeps the selection; with nothing followed it steps out of the selection
+  as before. Another follow or `show` ends it as `replaced`, and its owner as `disposed`. A resized window fits what's
+  followed again. Each ending records `follow.ended`. The frame and banner drawn while following are the Follow mode
+  stories' (`Parity/Multiplayer/Follow mode`), drawn by whoever follows.
 - **Boxes** say where a design's board, the frame a state and mode draws in, or a node in that frame is on the page,
   with its corner radius and its laid-out size in design pixels. With no frame in that state and mode, one in the mode
   is used, then the primary frame. A frame asleep, or a board culled out of view, gives the box to point at instead
@@ -6531,9 +6534,10 @@ Tests:
   room's numbers winning; keys the room assigned counted as holding a color; a number that isn't a palette's refused.
 - `apps/desktop/src/renderer/agent/agent-colors.test.ts` (2): an agent keeps its palette; agents at once never share
   one, the hand-tuned ones first, and never run out.
-- `packages/editor/src/canvas-camera.test.ts` (8): fitting a view within the zoom limits; gliding; telling a zoom from a
+- `packages/editor/src/canvas-camera.test.ts` (9): fitting a view within the zoom limits; gliding; telling a zoom from a
   pan; `show` gliding with listeners told once a frame; following through its own moves and ending on the person's pan
-  or zoom; each other ending; fitting again on resize.
+  or zoom; each other ending; arriving while told every frame, after each frame began, the same view or a moving one;
+  fitting again on resize.
 - `packages/editor/src/canvas-measure.test.ts` (7): the frame fallback; boards, frames and nodes; a sleeping frame and a
   culled board; changes told once a frame until disposed; a caret in a node's text only when asked and when the text
   reaches it, its moving told; hits on the deepest node.
