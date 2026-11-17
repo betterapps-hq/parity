@@ -70,6 +70,8 @@ Other things a frozen copy doesn't keep:
 
 ## Recommendation
 
+How to build it into Parity, with the contracts and steps, is in [route-frames.md](route-frames.md) (PAR-1249).
+
 Build it, in this order:
 
 1. **Live frames from a pool.** Keep one or two hidden iframes of the app's page, loaded at a neutral route. On click,
