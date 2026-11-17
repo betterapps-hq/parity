@@ -8399,8 +8399,9 @@ A screen is named for the component its route draws, else its path.
   (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
   script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
   Next from its `instrumentation-client`, which every client entry runs before React. With it come the extensions' page
-  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`), and
-  the renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
+  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`, React
+  Router's `window.__reactRouterDataRouter` or the router library mode made, and Next's `window.next.router`), and the
+  renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
   waits for the first commit to the app's root, never to Next's development overlay). The frame's name is `parity:` and
   JSON with the protocol's version, the frame's id, Parity's origin, and the mode and window it opens in. The runtime
   posts its hello to Parity's origin only, and Parity checks the hello's origin and source, hands it a `MessagePort` and
@@ -8409,6 +8410,16 @@ A screen is named for the component its route draws, else its path.
   loaded and its DOM has been quiet for 150 ms. After that it says where it moves by itself, by its router or by its
   address, and that someone used it, at most once a second. Anywhere other than a frame Parity named, the runtime does
   nothing.
+- **Each router's page module (PAR-1260, PAR-1265).** A router's move is done once the new page is in the DOM, not when
+  the router first says so. TanStack Router's waits for the router to resolve where it ended. React Router's waits for
+  the page's first change after the router settles, or 100 ms without one, since `RouterProvider` hands React the new
+  state in a transition. Next's App Router writes the address as it commits the new tree, so its module waits for that
+  write, and the Pages Router's `push` resolves once the new page has committed. Library mode puts no router on the
+  page's window, so Vite and the webpack-compatible builders serve the app's own imports of `react-router` through
+  Parity's module (`pageWraps` in the manifest), which re-exports React Router and hands what `createBrowserRouter` and
+  `createHashRouter` make to `window.__parityDataRouter`. That module gets the app's own copy of React Router, and
+  packages' own imports are left alone. A page whose router isn't found, as with React Router's `<BrowserRouter>`, says
+  so in `page.ready`, and is moved only by loading it at the route.
 - **Modes reach the page, without a reload.** The frame opens in its mode, and when the mode changes Parity sends it
   with `mode.set`: the runtime puts the mode's classes and attributes on `<html>`, takes off the last mode's, and
   answers `prefers-color-scheme` with the mode's scheme, telling the app's queries when the answer changes. An app that
@@ -8449,12 +8460,15 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `page-channel.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in
 `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
 `packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
-in `packages/extension-tanstack-router/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each
-manifest's `page`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
+in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
+with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `nextjsPage` in
+`packages/extension-nextjs/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each manifest's
+`page` and `pageWraps`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
 `apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
 `packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
 `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
-`packages/next-builders/src/start.ts`; and `pageEntries` in `apps/desktop/src/shared/built-in-extensions.ts`, which
+`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageRuntime` and by `pageWrapRules` in
+`guest-config.ts`; and `pageEntries` and `pageExternals` in `apps/desktop/src/shared/built-in-extensions.ts`, which
 `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
@@ -8484,17 +8498,28 @@ app's passed over; `route.go` moving the app and saying where it ended, a redire
 second), `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where
 it resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
 not when it's first idle; one given up when aborted; the watcher told until it stops),
-`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
-Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
-`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
-page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the
-page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules") and
-`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
-the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
-drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test
-of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
-path read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide:
-App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
+`packages/extension-react-router/src/page.test.ts` (7, with React Router's own router: framework mode's router found or
+not; library mode's through the wrapped `createBrowserRouter`, with the rest of React Router passed through; not-found
+for an unmatched path and a loader's error; a navigation resolved once the new page is drawn, a redirect included; one
+that draws nothing new; one given up when aborted while a loader is pending; the watcher told until it stops),
+`packages/extension-nextjs/src/page.test.ts` (9: either router found or not; where the page is; an App Router navigation
+resolved when it commits, redirected or not; its not-found and other fallbacks; one given up when aborted, with
+`history` left as it was; a Pages Router navigation with its 404 and error pages; one given up when aborted; each
+router's watcher told until it stops), `packages/extension-vite/src/app-page.test.ts` (6: the page entry; a wrapped
+package served to the app's own modules, not to packages'; the wrapping module's own import resolved from the app's
+root; nothing before the config; the wrapping modules' folders allowed), `packages/extension-react/src/page.test.ts` (4:
+the first commit to the app's root, never to a root in a shadow root, as Next's overlay's, with real React; giving up
+when aborted; the document and an element in the page as roots; only `#__next` or the document under Next),
+`packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the page runtime first in each of the app's
+entries" and "serves a wrapped package to the app's own modules"), `server.test.ts` (`isPageOrigin`),
+`guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
+routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
+("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
+to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, drawing the lines, groups,
+landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried
+in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each
+line meeting its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no
+scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
 (`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
 Pricing, Settings' group and Billing and hovering Projects.
 

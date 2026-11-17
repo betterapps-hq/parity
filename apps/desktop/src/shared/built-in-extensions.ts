@@ -120,19 +120,42 @@ export function pageModuleBundle(extension: string): string {
 }
 
 /**
+ * What the bundle of the module an extension serves in place of a package the app imports is called, by the
+ * extension's prefix and the package's name (PAR-1265).
+ */
+export function pageWrapBundle(extension: string, wrapped: string): string {
+  return `page/${extension}--${wrapped.replace(/[^\w.-]+/g, "-")}`
+}
+
+/**
  * The bundles of what runs in the app's own page when the canvas draws a route (PAR-1260): the page runtime, and each
- * built-in extension's page modules, by their packages' specifiers.
+ * built-in extension's page modules and the modules it serves in place of the app's packages, by their packages'
+ * specifiers.
  */
 export function pageEntries(read: readonly ReadBuiltIn[] = readBuiltIns().read) {
   const modules = read.flatMap(({ found }) => {
     const { router, renderer } = found.manifest.contributes.providers ?? {}
 
-    return [router?.page, renderer?.page].flatMap((page): [string, string][] =>
+    const pages = [router?.page, renderer?.page].flatMap((page): [string, string][] =>
       page ? [[pageModuleBundle(found.manifest.prefix), packageExport(found.id, page.import)]] : []
     )
+
+    const wraps = Object.entries(router?.pageWraps ?? {}).map(([wrapped, module]): [string, string] => [
+      pageWrapBundle(found.manifest.prefix, wrapped),
+      packageExport(found.id, module)
+    ])
+
+    return [...pages, ...wraps]
   })
 
   return { [pageRuntimeBundle]: "@parity-app/page-runtime", ...Object.fromEntries(modules) }
+}
+
+/** The packages the built-in extensions' page modules wrap, which their bundles import from the app instead. */
+export function pageExternals(read: readonly ReadBuiltIn[] = readBuiltIns().read): string[] {
+  return [
+    ...new Set(read.flatMap(({ found }) => Object.keys(found.manifest.contributes.providers?.router?.pageWraps ?? {})))
+  ]
 }
 
 /** The window modules the window's build compiles, by extension, each as its package export's specifier. */

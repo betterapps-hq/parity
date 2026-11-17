@@ -87,6 +87,18 @@ export interface PageModules {
   routers: PageModuleFile[]
   /** Hydration modules (`PageHydration`). */
   hydration: PageModuleFile[]
+  /**
+   * Packages the app's own code imports that the builder serves through a router's module instead, which re-exports
+   * the package and hands the page router what it makes (PAR-1265). Absent when no router wraps one.
+   */
+  wraps?: PageWrapFile[]
+}
+
+/** A package the app imports, the prefix of the extension that wraps it, and the file the builder serves in its place. */
+export interface PageWrapFile {
+  extension: string
+  package: string
+  file: string
 }
 
 /** A page module: the prefix of the extension that gives it, its file, and the name it exports what the runtime takes. */

@@ -18,7 +18,7 @@ import { parseManifest } from "@parity-app/core"
 import { build, type BuildOptions } from "esbuild"
 import { currentCommit } from "../../../scripts/commit.ts"
 import { separateSourceMaps } from "../../../scripts/sourcemaps.ts"
-import { nodeHalfEntries, pageEntries, pageRuntimeBundle } from "../src/shared/built-in-extensions.ts"
+import { nodeHalfEntries, pageEntries, pageExternals, pageRuntimeBundle } from "../src/shared/built-in-extensions.ts"
 import { installedElectron } from "./parity-electron.ts"
 
 const appDir = resolve(import.meta.dirname, "..")
@@ -91,12 +91,14 @@ await build({
 })
 
 // What runs in the app's own page when the canvas draws a route (PAR-1260): the page runtime and the built-in page
-// modules, which the project's builder serves first in the page. They import nothing from the project.
+// modules, which the project's builder serves first in the page. They import nothing from the project, apart from the
+// packages a router's module wraps in place of the app's own (PAR-1265), which the builder resolves from the app.
 await build({
   entryPoints: Object.fromEntries(
     Object.entries(pageEntries()).map(([bundle, specifier]) => [bundle, require.resolve(specifier)])
   ),
   bundle: true,
+  external: pageExternals(),
   platform: "browser",
   format: "esm",
   target: "es2022",

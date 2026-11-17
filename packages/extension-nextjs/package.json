@@ -8,6 +8,7 @@
   "main": "src/extension.ts",
   "exports": {
     ".": "./src/extension.ts",
+    "./page": "./src/page.ts",
     "./package.json": "./package.json"
   },
   "peerDependencies": {
@@ -94,11 +95,19 @@
         }
       ],
       "providers": {
-        "router": {}
+        "router": {
+          "page": {
+            "import": "./page",
+            "export": "nextjsPage"
+          }
+        }
       }
     }
   },
   "dependencies": {
     "@parity-app/extension": "workspace:*"
+  },
+  "devDependencies": {
+    "happy-dom": "catalog:"
   }
 }

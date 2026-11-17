@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Route frames move React Router (framework and library mode) and Next.js pages with the app's own router, through new page routers and a wrapped react-router in library mode.",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

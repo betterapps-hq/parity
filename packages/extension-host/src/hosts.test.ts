@@ -1352,6 +1352,44 @@ describe("providers (PAR-1095)", () => {
     expect(hosts.pageRouters("elsewhere")).toEqual([])
   })
 
+  it("gives the packages a router's page module wraps in the app, by the specifiers Parity resolves (PAR-1265)", () => {
+    const reactRouter = readExtension({
+      name: "@parity-app/extension-react-router",
+      version: "1.0.0",
+      main: "src/extension.ts",
+      parity: {
+        displayName: "React Router",
+        prefix: "react-router",
+        icon: { viewBox: "0 0 24 24", path: "M0 0h24v24H0z" },
+        activates: [],
+        contributes: {
+          providers: {
+            router: {
+              page: { import: "./page", export: "reactRouterPage" },
+              pageWraps: { "react-router": "./page-wrap/react-router" }
+            }
+          }
+        }
+      }
+    })
+
+    const { hosts } = setUp(
+      {},
+      { extensions: [{ package: reactRouter, main: reactRouter.id, detect: () => ({ detected: {} }) }] }
+    )
+
+    hosts.open(project)
+
+    expect(hosts.pageRouters("shop")).toEqual([
+      {
+        extension: "react-router",
+        module: "@parity-app/extension-react-router/page",
+        export: "reactRouterPage",
+        wraps: [{ package: "react-router", module: "@parity-app/extension-react-router/page-wrap/react-router" }]
+      }
+    ])
+  })
+
   it("gives nothing when none of the project's extensions declares the provider", async () => {
     const { hosts } = setUp({ "@parity-app/extension-storybook": { activate: () => undefined } })
 

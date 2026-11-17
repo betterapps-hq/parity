@@ -1,5 +1,5 @@
 import { type Channel, createChannel, type Port } from "@parity-app/channel"
-import { packageExport, type PageModuleRef, type RouteMark } from "@parity-app/core"
+import { packageExport, type PageRouterRef, type RouteMark } from "@parity-app/core"
 import type {
   Candidate,
   CommandTarget,
@@ -393,9 +393,9 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   decorators(projectId: string): { extension: string; decorator: FrameDecorator }[]
   /**
    * The page modules of the project's routers, from their manifests (PAR-1260): each router's, with its prefix and its
-   * module by the specifier Parity resolves, in the order the extensions were given.
+   * module by the specifier Parity resolves, in the order the extensions were given, and the packages each wraps.
    */
-  pageRouters(projectId: string): (PageModuleRef & { extension: string })[]
+  pageRouters(projectId: string): PageRouterRef[]
   /** A tab or page opened, which starts an extension that activates on it. */
   viewOpened(projectId: string, view: string): void
   /** The person changed a field of an extension's form. */
@@ -1593,11 +1593,26 @@ export function extensionHosts<Project extends OpenedProject>(
       const open = projects.get(projectId)
 
       return [...(open?.hosts.values() ?? [])].flatMap(({ extension: { package: found } }) => {
-        const page = found.manifest.contributes.providers?.router?.page
+        const { page, pageWraps } = found.manifest.contributes.providers?.router ?? {}
 
-        return page
-          ? [{ extension: found.manifest.prefix, module: packageExport(found.id, page.import), export: page.export }]
-          : []
+        if (!page) {
+          return []
+        }
+
+        const router: PageRouterRef = {
+          extension: found.manifest.prefix,
+          module: packageExport(found.id, page.import),
+          export: page.export
+        }
+
+        if (pageWraps) {
+          router.wraps = Object.entries(pageWraps).map(([wrapped, module]) => ({
+            package: wrapped,
+            module: packageExport(found.id, module)
+          }))
+        }
+
+        return [router]
       })
     },
     async provide(projectId, call, extension) {
