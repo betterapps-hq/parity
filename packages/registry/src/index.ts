@@ -81,6 +81,16 @@ export function registryFileName(packageName: string, major?: number): string {
   return `${packageName.replace("/", "+")}${major === undefined ? "" : `@${major}`}${libraryManifestExtension}`
 }
 
+/**
+ * The name the registry describes a package by: its own, or for a Buildkit shadcn kit, retired for shadcn-sync, the
+ * style sync builds, so `@buildkitgg/shadcn-baseui-nova` is read with `shadcn-base-nova.lib.par`.
+ */
+export function registryName(packageName: string): string {
+  const kit = /^@buildkitgg\/shadcn-baseui-([a-z]+)$/.exec(packageName)
+
+  return kit ? `shadcn-base-${kit[1]}` : packageName
+}
+
 /** The package a registry file is named for, or nothing for a file that isn't a library's. */
 export function registryFilePackage(file: string): string | undefined {
   if (!file.endsWith(libraryManifestExtension)) {
@@ -137,9 +147,10 @@ async function readEntry(dir: string, file: string): Promise<RegistryEntry | und
 /**
  * The registry's files for a package, found by their names, so only those are opened: the registry is tens of
  * megabytes, most of it libraries a project doesn't use, and each of a project's dependencies is looked up as it opens
- * (PAR-1086). A file that turns out to describe another package is left out.
+ * (PAR-1086). A file that turns out to describe another package is left out. A retired kit's files are its style's.
  */
-async function entriesFor(packageName: string, dir = registryDir()): Promise<RegistryEntry[]> {
+async function entriesFor(given: string, dir = registryDir()): Promise<RegistryEntry[]> {
+  const packageName = registryName(given)
   const shared = dir === registryDir()
   const list = () => readdir(dir).catch((): string[] => [])
 
@@ -283,7 +294,7 @@ const catalogEntry = z.strictObject({
   id: z.string().min(1),
   /**
    * The package whose registry file shows it before it's added, when that isn't its own, with each `{setting}` filled
-   * from its settings, as `@buildkitgg/shadcn-baseui-{style}`.
+   * from its settings, as `shadcn-base-{style}`.
    */
   preview: z.string().min(1).optional(),
   logo: z

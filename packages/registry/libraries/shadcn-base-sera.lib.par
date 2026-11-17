@@ -1,10 +1,10 @@
 {
   "version": 4,
-  "id": "lyra",
-  "name": "Shadcn Lyra",
-  "description": "Every shadcn component on Base UI, in the lyra style, kept in step with upstream.",
+  "id": "sera",
+  "name": "Shadcn Sera",
+  "description": "Every shadcn component on Base UI, in the sera style, kept in step with upstream.",
   "package": {
-    "name": "@buildkitgg/shadcn-baseui-lyra",
+    "name": "shadcn-base-sera",
     "version": "0.2.0"
   },
   "styles": "tailwind.css",
@@ -17,9 +17,9 @@
         "$ref": "#/modifiers/theme"
       }
     ],
-    "name": "shadcn lyra",
+    "name": "shadcn sera",
     "version": "2025.10",
-    "description": "The default tokens of the shadcn lyra style, in light and dark themes.",
+    "description": "The default tokens of the shadcn sera style, in light and dark themes.",
     "sets": {
       "shadcn": {
         "sources": [
@@ -848,7 +848,7 @@
     },
     "$extensions": {
       "gg.buildkit": {
-        "style": "lyra",
+        "style": "sera",
         "palette": "neutral",
         "upstream": {
           "repository": "https://github.com/shadcn-ui/ui",
@@ -15882,16 +15882,16 @@
   "decorators": [
     {
       "wrap": {
-        "import": "@buildkitgg/shadcn-baseui-lyra",
+        "import": "shadcn-base-sera",
         "component": "TooltipProvider"
       }
     },
     {
       "add": {
-        "import": "@buildkitgg/shadcn-baseui-lyra",
+        "import": "shadcn-base-sera",
         "component": "Toaster"
       }
     }
   ],
-  "edits": "buildkit-baseui.edits.json"
+  "edits": "shadcn-base.edits.json"
 }

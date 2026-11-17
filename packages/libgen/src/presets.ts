@@ -75,8 +75,8 @@ export interface Preset {
   examples?: ExampleHints
   /**
    * For a style shadcn-sync generates, the settings it's generated with, as `--base base --style nova`. Its registry
-   * file is made from the `@buildkitgg/shadcn` package sync builds, named for the style's kit so the projects and
-   * saved files that name the kit keep finding it.
+   * file is made from the `@buildkitgg/shadcn` package sync builds, and named by the preset's own name, as
+   * `shadcn-base-nova`.
    */
   sync?: { base: string; style: string }
 }
@@ -114,14 +114,13 @@ const fluentThemes = {
 
 /**
  * shadcn's styles on Base UI, as shadcn-sync generates them: the same components and providers, styled differently.
- * Each is named for the Buildkit kit that shipped it before sync (`@buildkitgg/shadcn-baseui-nova`), which projects
- * still on a kit install and saved projects' files name.
+ * Each is named by its base and style, as `shadcn-base-nova`, the name the shadcn extension asks the registry for.
  */
-export const buildkitStyles = ["luma", "lyra", "maia", "mira", "nova", "rhea", "sera", "vega"] as const
+export const shadcnStyles = ["luma", "lyra", "maia", "mira", "nova", "rhea", "sera", "vega"] as const
 
-const buildkit = Object.fromEntries(
-  buildkitStyles.map((style): [string, Preset] => {
-    const name = `@buildkitgg/shadcn-baseui-${style}`
+const shadcn = Object.fromEntries(
+  shadcnStyles.map((style): [string, Preset] => {
+    const name = `shadcn-base-${style}`
 
     return [
       name,
@@ -147,7 +146,7 @@ const buildkit = Object.fromEntries(
 )
 
 const presetList = {
-  ...buildkit,
+  ...shadcn,
   "radix-ui": {
     examples: { paths: ["apps/storybook/stories/"] },
     id: "radix",

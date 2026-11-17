@@ -13,6 +13,7 @@ import {
   registryEntryFor,
   registryFileName,
   registryFilePackage,
+  registryName,
   withEdits
 } from "./index.ts"
 
@@ -57,6 +58,12 @@ describe("registryEntryFor", () => {
     expect((await registryEntryFor("@mui/material", "7.0.0", dir))?.newer).toBeUndefined()
   })
 
+  it("reads a retired Buildkit kit with the file for its style, as shadcn-sync builds it", async () => {
+    expect(registryName("@buildkitgg/shadcn-baseui-nova")).toBe("shadcn-base-nova")
+    expect(registryName("@mui/material")).toBe("@mui/material")
+    expect((await registryEntryFor("@buildkitgg/shadcn-baseui-nova", "0.5.0"))?.file).toBe("shadcn-base-nova.lib.par")
+  })
+
   it("matches nothing for an unknown version, or a package without a file", async () => {
     expect(await registryEntryFor("@mui/material", undefined, dir)).toBeUndefined()
     expect(await registryEntryFor("@chakra-ui/react", "3.0.0", dir)).toBeUndefined()
@@ -79,7 +86,7 @@ describe("registry files named for their packages (PAR-1086)", () => {
     expect(registryFileName("recharts")).toBe("recharts.lib.par")
     expect(registryFilePackage("@mui+material@7.lib.par")).toBe("@mui/material")
     expect(registryFilePackage("recharts.lib.par")).toBe("recharts")
-    expect(registryFilePackage("buildkit-baseui.edits.json")).toBeUndefined()
+    expect(registryFilePackage("shadcn-base.edits.json")).toBeUndefined()
   })
 
   it("names each of Parity's own files for the package it describes", async () => {
@@ -183,14 +190,14 @@ describe("the registry", () => {
     const packages = Object.fromEntries(entries.map((entry) => [entry.manifest.package!.name, entry.manifest]))
 
     for (const name of [
-      "@buildkitgg/shadcn-baseui-luma",
-      "@buildkitgg/shadcn-baseui-lyra",
-      "@buildkitgg/shadcn-baseui-maia",
-      "@buildkitgg/shadcn-baseui-mira",
-      "@buildkitgg/shadcn-baseui-nova",
-      "@buildkitgg/shadcn-baseui-rhea",
-      "@buildkitgg/shadcn-baseui-sera",
-      "@buildkitgg/shadcn-baseui-vega",
+      "shadcn-base-luma",
+      "shadcn-base-lyra",
+      "shadcn-base-maia",
+      "shadcn-base-mira",
+      "shadcn-base-nova",
+      "shadcn-base-rhea",
+      "shadcn-base-sera",
+      "shadcn-base-vega",
       "radix-ui",
       "@base-ui/react",
       "react-aria-components",

@@ -136,7 +136,7 @@ describe("library files", () => {
 describe("libraries an extension found", () => {
   /** What the shadcn extension finds of sync's components in nova, as it reads their `manifest.json`. */
   const nova = {
-    registry: "@buildkitgg/shadcn-baseui-nova",
+    registry: "shadcn-base-nova",
     package: "@buildkitgg/shadcn",
     name: "Shadcn Nova",
     description: "Every shadcn component on Base UI, in the nova style.",
@@ -155,13 +155,13 @@ describe("libraries an extension found", () => {
 
   /** The registry's file for Buildkit's nova kit, with tokens. */
   async function novaFile() {
-    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+    await write("registry/shadcn-base-nova.lib.par", {
       version: 4,
       id: "nova",
       name: "Shadcn Nova",
-      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      package: { name: "shadcn-base-nova", version: "0.2.0" },
       styles: "tailwind.css",
-      decorators: [{ wrap: { import: "@buildkitgg/shadcn-baseui-nova", component: "TooltipProvider" } }],
+      decorators: [{ wrap: { import: "shadcn-base-nova", component: "TooltipProvider" } }],
       tokens: { color: { primary: { $type: "color", $value: "#171717" } } },
       components: { list: { Button: component(), Sonner: component() } }
     })
@@ -199,11 +199,11 @@ describe("libraries an extension found", () => {
     await synced('export { Button } from "./ui/button.js"\nexport { Card as Panel } from "./ui/card.js"')
     await write("node_modules/@buildkitgg/shadcn/ui/button.d.ts", "export function Button(): unknown")
     await write("node_modules/@buildkitgg/shadcn/ui/card.d.ts", "export function Card(): unknown")
-    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+    await write("registry/shadcn-base-nova.lib.par", {
       version: 4,
       id: "nova",
       name: "Shadcn Nova",
-      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      package: { name: "shadcn-base-nova", version: "0.2.0" },
       components: {
         list: {
           Button: component({ declaration: "dist/ui/button.d.ts" }),
@@ -222,7 +222,7 @@ describe("libraries an extension found", () => {
     expect(found.components["shadcn/Panel"]?.declaration).toBe("node_modules/@buildkitgg/shadcn/index.d.ts")
   })
 
-  it("on a kit, read each component's props from the kit's declarations, not sync's paths in the file", async () => {
+  it("on a retired kit, are read with its style's file, imported from the kit, with the kit's declarations", async () => {
     await write("node_modules/@buildkitgg/shadcn-baseui-nova/package.json", {
       name: "@buildkitgg/shadcn-baseui-nova",
       version: "0.5.0",
@@ -233,11 +233,12 @@ describe("libraries an extension found", () => {
       'export { Button } from "./ui/button.js"'
     )
     await write("node_modules/@buildkitgg/shadcn-baseui-nova/dist/ui/button.d.ts", "export function Button(): unknown")
-    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+    await write("registry/shadcn-base-nova.lib.par", {
       version: 4,
       id: "nova",
       name: "Shadcn Nova",
-      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.2.0" },
+      package: { name: "shadcn-base-nova", version: "0.2.0" },
+      decorators: [{ wrap: { import: "shadcn-base-nova", component: "TooltipProvider" } }],
       components: { list: { Button: component({ declaration: "ui/button.d.ts" }) } }
     })
 
@@ -249,9 +250,14 @@ describe("libraries an extension found", () => {
       { registry: join(root, "registry") }
     )
 
-    expect(found.components["nova/Button"]?.declaration).toBe(
-      "node_modules/@buildkitgg/shadcn-baseui-nova/dist/ui/button.d.ts"
-    )
+    expect(found.libraries[0]).toMatchObject({
+      manifest: "registry:shadcn-base-nova.lib.par",
+      decorators: [{ wrap: { import: "@buildkitgg/shadcn-baseui-nova", component: "TooltipProvider" } }]
+    })
+    expect(found.components["nova/Button"]).toMatchObject({
+      path: "@buildkitgg/shadcn-baseui-nova",
+      declaration: "node_modules/@buildkitgg/shadcn-baseui-nova/dist/ui/button.d.ts"
+    })
     // The file covers every version of the kit, so there's nothing to update.
     expect(found.notes).toEqual([])
   })
@@ -295,7 +301,7 @@ describe("libraries an extension found", () => {
     expect(found.libraries).toEqual([])
     expect(found.components).toEqual({})
     expect(found.describedTokens).toMatchObject([
-      { name: "Shadcn Nova", manifest: "registry:@buildkitgg+shadcn-baseui-nova.lib.par" }
+      { name: "Shadcn Nova", manifest: "registry:shadcn-base-nova.lib.par" }
     ])
     expect(found.describedTokens[0]?.tokens.length).toBeGreaterThan(0)
   })
@@ -305,7 +311,7 @@ describe("libraries an extension found", () => {
 
     const preview = await registryTokens(nova.registry, [], join(root, "registry"))
 
-    expect(preview).toMatchObject({ name: "Shadcn Nova", manifest: "registry:@buildkitgg+shadcn-baseui-nova.lib.par" })
+    expect(preview).toMatchObject({ name: "Shadcn Nova", manifest: "registry:shadcn-base-nova.lib.par" })
     expect(preview?.tokens.map(({ path, values }) => [path, values.default])).toEqual([["color.primary", "#171717"]])
     expect(await registryTokens("@acme/none", [], join(root, "registry"))).toBeUndefined()
   })

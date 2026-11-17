@@ -27,7 +27,7 @@ describe("the shadcn/ui extension", () => {
 })
 
 describe("detectLibraries", () => {
-  it("reads the components sync generated with their kit's file, in their own package, with their icons", () => {
+  it("reads the components sync generated with their style's file, in their own package, with their icons", () => {
     const found = detectLibraries({
       packageJson: pkg({ dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } }),
       syncManifest: manifest({ base: "base", icons: "phosphor", style: "nova", theme: "neutral", css: "tailwind" })
@@ -35,7 +35,7 @@ describe("detectLibraries", () => {
 
     expect(found).toEqual([
       {
-        registry: "@buildkitgg/shadcn-baseui-nova",
+        registry: "shadcn-base-nova",
         package: "@buildkitgg/shadcn",
         name: "Shadcn Nova",
         description: "Every shadcn component on Base UI, in the nova style.",
@@ -45,14 +45,14 @@ describe("detectLibraries", () => {
     ])
   })
 
-  it("names the kit of sync's base, with no stylesheet when each component brings its own CSS", () => {
+  it("names the file of sync's base, with no stylesheet when each component brings its own CSS", () => {
     const [found] = detectLibraries({
       packageJson: pkg({ dependencies: { "@buildkitgg/shadcn": "link:node_modules/.buildkit/shadcn" } }),
       syncManifest: manifest({ base: "aria", icons: "lucide", style: "lyra", theme: "neutral", css: "compiled" })
     })
 
     expect(found).toMatchObject({
-      registry: "@buildkitgg/shadcn-aria-lyra",
+      registry: "shadcn-aria-lyra",
       description: "Every shadcn component on React Aria, in the lyra style."
     })
     expect(found?.styles).toBeUndefined()
@@ -66,14 +66,14 @@ describe("detectLibraries", () => {
       })
     ).toEqual([
       {
-        registry: "@buildkitgg/shadcn-baseui-mira",
+        registry: "shadcn-base-mira",
         name: "Shadcn Mira",
         description: "shadcn/ui components copied into the app, in the mira style.",
         icons: "@tabler/icons-react"
       }
     ])
     expect(detectLibraries({ componentsJson: JSON.stringify({ style: "new-york" }) })[0]?.registry).toBe(
-      "@buildkitgg/shadcn-baseui-nova"
+      "shadcn-base-nova"
     )
   })
 
