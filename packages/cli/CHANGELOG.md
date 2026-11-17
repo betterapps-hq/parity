@@ -1,8 +1,19 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 00:04:13 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 00:39:56 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.74.0
+
+Tue, 17 Nov 2026 00:39:56 GMT
+
+### Minor changes
+
+- Frames draw inside the project's Storybook preview when it has no .parity/preview, composed with Storybook's portable
+  stories API as Storybook's extension names it (PAR-98) (ajcraswell@gmail.com)
+- Colors by key that never run out, the camera and following, and boxes and hits on the canvas, as core services
+  (PAR-1236) (ajcraswell@gmail.com)
 
 ## 0.73.4
 
