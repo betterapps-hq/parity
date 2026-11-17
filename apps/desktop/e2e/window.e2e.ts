@@ -87,7 +87,9 @@ describe("the window", () => {
 
     await app.frames(2)
     expect(await page()).toEqual(still)
-    // The canvas is where tldraw thinks it is: a click on a layer selects it.
+    // The canvas is where tldraw thinks it is: a click on a layer selects it. Tabbing on can reach the next design on
+    // Screens' canvas, which comes into view, so Members is brought back first.
+    await app.show("Members", 1)
     await app.selectLayer("Members", "lin")
   })
   // docs/editor.md, The project's lenses (PAR-1243).
