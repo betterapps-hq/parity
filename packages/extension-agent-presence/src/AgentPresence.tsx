@@ -11,7 +11,6 @@ import {
   easeInOutSettle,
   focusOffset,
   glanceOffset,
-  paceFor,
   type Point,
   travelMs
 } from "./motion.ts"
@@ -283,7 +282,7 @@ function AgentCursor({
         return
       }
 
-      const pace = paceFor(queue.waiting(agent))
+      const pace = queue.pace(agent)
 
       try {
         const target = locate(layer, event)
@@ -300,8 +299,15 @@ function AgentCursor({
         const { zoom } = layer.view()
         const span = Math.hypot(to.x - from.x, to.y - from.y) * zoom
         const bend = (Math.random() < 0.5 ? -1 : 1) * 0.05
-        await animate(
+
+        // The drag lands before core lets go of the board, however long the queue took to get here.
+        const ms = Math.min(
           still ? 0 : Math.max(1000, travelMs({ x: 0, y: 0 }, { x: span, y: 0 }) * 1.6) * pace,
+          Math.max(0, queue.heldFor(event) - 100)
+        )
+
+        await animate(
+          ms,
           (t) => {
             const now = arcPoint(from, to, easeInOutCubic(t), bend)
             queue.drawHeld(event, now)
@@ -318,7 +324,7 @@ function AgentCursor({
     }
 
     const visit = async (event: QueuedStep, kind: AgentStep["kind"]) => {
-      const pace = paceFor(queue.waiting(agent))
+      const pace = queue.pace(agent)
       const target = locate(layer, event)
 
       if (!target) {
@@ -400,7 +406,7 @@ function AgentCursor({
             done: false
           }))
 
-          if (event.kind === "move") {
+          if (queue.drags(event)) {
             await drag(event)
           } else {
             await visit(event, event.kind)

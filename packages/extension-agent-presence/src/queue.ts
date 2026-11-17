@@ -1,4 +1,5 @@
-import type { AgentStep, Held, Point } from "@parity-app/extension/internal"
+import { type AgentStep, type Held, holdLimitMs, type Point } from "@parity-app/extension/internal"
+import { fastestPace, paceFor } from "./motion.ts"
 
 /** A step as the queue keeps it: with the copy it came from, when another copy's agent took it. */
 export interface QueuedStep extends AgentStep {
@@ -9,6 +10,21 @@ export interface QueuedStep extends AgentStep {
 /** What the queue holds boards with: `parity.canvas.hold`. */
 export type HoldBoard = (design: string, at: Point) => Held
 
+/** About how long a visit takes at the fastest pace: travelling there and scanning it. */
+const hurriedVisitMs = 1600
+
+/** About how long a pointer takes to reach a board and grab it at the fastest pace. */
+const grabMs = 1200
+
+/** The shortest drag worth drawing: with less of its hold left, a board is let go where it landed. */
+const shortestDragMs = 400
+
+/** A move's hold, and when core lets go of it (`holdLimitMs` after it was taken). */
+interface Hold {
+  held: Held
+  until: number
+}
+
 /**
  * What agents are doing in a project tab, as a queue per agent the canvas plays back at a readable pace, each with its
  * own pointer. Agents work in milliseconds; people need a second or two per step to follow along.
@@ -18,7 +34,9 @@ export type HoldBoard = (design: string, at: Point) => Held
  */
 export class AgentQueue {
   /** The hold on each move's board, from when it's queued until its pointer has dragged the board there. */
-  private readonly held = new WeakMap<QueuedStep, Held>()
+  private readonly held = new WeakMap<QueuedStep, Hold>()
+  /** Moves whose hold ran out before their pointer got to them: their boards landed, so nothing is dragged. */
+  private readonly landed = new WeakSet<QueuedStep>()
   private readonly queues = new Map<string, QueuedStep[]>()
   private readonly listeners = new Set<() => void>()
   /** Agents with a pointer, in the order they arrived. */
@@ -27,9 +45,11 @@ export class AgentQueue {
   private players = 0
   private version = 0
   private readonly hold: HoldBoard
+  private readonly now: () => number
 
-  constructor(hold: HoldBoard) {
+  constructor(hold: HoldBoard, now: () => number = () => performance.now()) {
     this.hold = hold
+    this.now = now
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -82,7 +102,7 @@ export class AgentQueue {
           continue
         }
 
-        this.held.set(queued, this.hold(design, queued.from))
+        this.held.set(queued, { held: this.hold(design, queued.from), until: this.now() + holdLimitMs })
       }
 
       queue.push(queued)
@@ -98,15 +118,37 @@ export class AgentQueue {
 
   /** Draws a move's board somewhere along its drag. */
   drawHeld(step: QueuedStep, at: Point): void {
-    this.held.get(step)?.update(at)
+    this.held.get(step)?.held.update(at)
   }
 
   /** A move has played, or been skipped: its board is let go at `to`. */
   letGo(step: QueuedStep, to: Point): void {
-    const held = this.held.get(step)
+    const held = this.held.get(step)?.held
     this.held.delete(step)
     held?.update(to)
     held?.release()
+  }
+
+  /** How long a move's board stays held, in ms; `Infinity` for a move with nothing held. */
+  heldFor(step: QueuedStep): number {
+    const hold = this.held.get(step)
+
+    return hold ? hold.until - this.now() : Infinity
+  }
+
+  /** Whether a move's pointer drags it: not once its board has landed, with its hold run out. */
+  drags(step: QueuedStep): boolean {
+    return step.kind === "move" && !this.landed.has(step)
+  }
+
+  /**
+   * How fast an agent's pointer plays, as a share of its own pace: faster as steps pile up, and as fast as it goes
+   * while a moved board waits for it.
+   */
+  pace(agent: string): number {
+    const queue = this.queues.get(agent) ?? []
+
+    return queue.some((step) => this.held.has(step)) ? fastestPace : paceFor(queue.length)
   }
 
   /** The agents with a pointer: from their first step until they retire. */
@@ -129,11 +171,29 @@ export class AgentQueue {
     return this.queues.get(agent)?.length ?? 0
   }
 
+  /**
+   * The agent's next step. Core lets go of a hold after `holdLimitMs`, so a moved board is held only while its pointer
+   * can still drag it: visits ahead of the move that wouldn't leave time to are skipped, and a move whose hold has all
+   * but run out lands where the agent put it, with its pointer visiting it there.
+   */
   take(agent: string): QueuedStep | undefined {
-    const step = this.queues.get(agent)?.shift()
+    const queue = this.queues.get(agent)
 
-    if (step) {
-      this.version += 1
+    if (queue) {
+      this.makeTime(queue)
+    }
+
+    const step = queue?.shift()
+
+    if (!step) {
+      return undefined
+    }
+
+    this.version += 1
+
+    if (this.heldFor(step) < grabMs + shortestDragMs && step.to) {
+      this.letGo(step, step.to)
+      this.landed.add(step)
     }
 
     return step
@@ -152,6 +212,23 @@ export class AgentQueue {
     this.queues.clear()
     this.present = []
     this.changed()
+  }
+
+  /** Skips the oldest visits ahead of the first held move, until its pointer can reach it at the fastest pace. */
+  private makeTime(queue: QueuedStep[]) {
+    const move = queue.findIndex((step) => this.held.has(step))
+
+    if (move <= 0) {
+      return
+    }
+
+    const left = this.heldFor(queue[move]!)
+    let visits = queue.slice(0, move).filter(visited).length
+
+    while (visits > 0 && left < grabMs + visits * hurriedVisitMs) {
+      queue.splice(queue.findIndex(visited), 1)
+      visits -= 1
+    }
   }
 
   private changed() {
@@ -173,4 +250,9 @@ export function movedBoard(step: Pick<AgentStep, "ref">): string | undefined {
   const { ref } = step
 
   return ref?.owner === "design" && ref.type === "design" ? ref.key : undefined
+}
+
+/** Whether the pointer travels to a step, as it does for every step but a call's start and end. */
+function visited(step: QueuedStep): boolean {
+  return step.kind !== "start" && step.kind !== "end"
 }

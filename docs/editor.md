@@ -6493,7 +6493,7 @@ Tests:
   sentence; initials by face size; ids telling namesakes apart; the line under a name; a palette's gradient; the stack's
   order, with whoever you follow first and an agent whose runner isn't here; how many faces show.
 
-### Agents at work on the canvas (PAR-1269)
+### Agents at work on the canvas (PAR-1269, PAR-1273, PAR-1274)
 
 Each agent working in a project has a pointer in its own colors that goes to what the agent reads or changes, at a pace
 a person can follow. It's Parity's first internal extension, `@parity-app/extension-agent-presence`, with only a window
@@ -6506,13 +6506,18 @@ through `parity.agents`. The extension does the rest.
   gives its color back. Its badge has the icon for the step and the call's label, and a strip in the bottom left names
   the agent and says what its call is doing, or that it's done.
 - **Moved boards.** When an agent moves a board, the board is held where it was as the step is told, before the write
-  lands, and the pointer grabs it and drags it to where the agent put it.
+  lands, and the pointer grabs it and drags it to where the agent put it. Core lets go of a hold after 10 seconds, so
+  while a board waits the pointer plays as fast as it goes, and skips the oldest of the steps ahead that wouldn't leave
+  it time to drag the board. A drag ends before the hold does. If the hold has all but run out when the move's turn
+  comes, the board lands where the agent put it and the pointer looks at it there instead.
 - **Keeping up.** Steps queue per agent. When several are waiting the pointer speeds up, to about a third of the time at
   most, and a long call keeps its first step and the latest 16.
 - **A measurement** labels its target with its laid-out size while the pointer looks at it.
 - **Other copies' agents** play the same way: steps passed in with a `from` are queued under `${from}:${agentId}`, the
   key their color is claimed under, so with multiplayer on everyone in a room sees every agent.
-- **Turned off,** agents work as before and nothing draws them. Nothing else on the canvas changes.
+- **Show agents on canvas,** in Settings → Extensions → Agent presence, an app setting that starts on
+  (`agentPresence.show`). Turned off, agents work as before and nothing draws them: their pointers go, and boards held
+  for them are let go. Nothing else on the canvas changes.
 - **With reduced motion** the pointer jumps instead of travelling and doesn't breathe, and scans don't sweep.
 
 It draws in one `overSelection` page layer. Inside it, a pane covers what's in view at the screen's scale, moved with
@@ -6529,16 +6534,20 @@ development room's steps told apart) and `windowAgentsPort` in `renderer/window-
 
 Tests:
 
-- `packages/extension-agent-presence/src/queue.test.ts` (8): each agent's steps in order with a pointer until it
+- `packages/extension-agent-presence/src/queue.test.ts` (11): each agent's steps in order with a pointer until it
   retires; another copy's agents kept apart under their key; a moved board held while it's played and let go where it
-  landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; every
-  hold let go as it stops; listeners told as agents come and go; the board a move drags.
+  landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; a held
+  board dragged, at the fastest pace until the pointer has it; the visits ahead of a held move skipped when they'd leave
+  no time to drag it; a board let go where it was put once its hold has all but run out; every hold let go as it stops;
+  listeners told as agents come and go; the board a move drags.
 - `packages/extension-agent-presence/src/targets.test.ts` (8): a page box on the screen; a layer in its state and mode's
   frame with its radius and size; falling back to the frame, then the board; a move by its board; an asleep frame; out
   of view, missing or naming no design skipped; a layer's design found when its key has a slash; staying put when the
   target goes.
-- `packages/extension-agent-presence/src/window.test.ts` (2): one layer over the selection, playing this copy's and
-  other copies' agents alike; a board held as its step is told, and let go with the layer gone as it stops.
+- `packages/extension-agent-presence/src/window.test.ts` (3): running while its app setting, on to start with, is on;
+  one layer over the selection, playing this copy's and other copies' agents alike; a board held as its step is told,
+  and let go with the layer gone as it stops. Deactivating a window module as its setting goes off is
+  `packages/extension-host/src/window-modules.test.ts`'s.
 - `packages/extension-agent-presence/src/motion.test.ts`: easing, travel time, pace, arcs, curves, breathing and
   glances.
 - `packages/extension-host/src/window-seams.test.ts`, "parity.agents": the development room's steps told with their
@@ -6548,8 +6557,8 @@ The stories under `Parity/Multiplayer/Agents/Behavior` play the extension's own 
 through a stand-in layer (`renderer/agent/story-layer.ts`), and `Parity/Multiplayer/Agents/On the canvas` runs the real
 extension in the app's window.
 
-Gaps: a board is held when its step is told and let go after 10 s whatever happens, so in a long queue the board can
-land before its pointer gets to it. The choreography's timing isn't unit tested; the stories are its check.
+Gaps: how long a visit and a grab take at the fastest pace is estimated (1.6 s and 1.2 s), not measured, so a slow frame
+can still let a board land a moment early. The choreography's timing isn't unit tested; the stories are its check.
 
 ## Tokens
 

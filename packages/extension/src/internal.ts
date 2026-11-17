@@ -220,7 +220,10 @@ export interface Preview extends Disposable {
   cancel(): void
 }
 
-/** A board held where it is while an agent moves it (`hold` capability). */
+/** How long `canvas.hold` holds a board, however long it's asked to: it's let go after this anyway. */
+export const holdLimitMs = 10_000
+
+/** A board held where it is while an agent moves it (`hold` capability), for at most `holdLimitMs`. */
 export interface Held extends Disposable {
   /** Moves the held board, at most once a frame. */
   update(at: Point): void
@@ -256,7 +259,7 @@ export interface CanvasSurface {
   screenToPage(at: Point): Point
   /** Shows nodes another person is dragging, moving as they do, without writing anything. */
   preview(items: PreviewItem[], options: PreviewOptions): Preview
-  /** Holds a board where it is while an agent moves it. Needs the `hold` capability too. */
+  /** Holds a board where it is while an agent moves it, for at most `holdLimitMs`. Needs the `hold` capability too. */
   hold(design: string, at: Point): Held
 }
 
