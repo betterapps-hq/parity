@@ -27,8 +27,6 @@ export interface OpenProjectParts {
   reopen: () => void
 }
 
-/** The lens whose canvas draws each kind of design. */
-
 export const OpenProjectContext = createContext<OpenProjectParts | undefined>(undefined)
 
 export function useOpenProject(): OpenProjectParts {
