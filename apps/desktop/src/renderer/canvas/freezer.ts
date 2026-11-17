@@ -377,33 +377,33 @@ class Freezer {
     }
   }
 
-  /** The app's files changed: the copies whose traces hold one are stale, and frozen again, nearest the view first. */
+  /**
+   * The app's files changed: the project's copies whose traces hold one are stale, and frozen again, nearest the view
+   * first. Every copy the window keeps counts, a board's that isn't drawn now too, as with the Interact tool, so it isn't
+   * shown from before the change when it comes back. Refused copies are asked for again, as the change may fix them.
+   */
   private filesChanged(paths: readonly string[]): void {
-    const have = copies.get()
+    // Its copies' keys in the window start with it (`copyStoreKey`).
+    const prefix = `${this.project}\n`
     const traced: TracedCopy[] = []
 
-    for (const need of this.needs.values()) {
-      const copy = have.get(need.key)
-
-      if (copy) {
-        // The need's own key stands in for the state, so each board's copy is found again by it.
-        traced.push({ key: { route: need.url, mode: need.drawn, state: need.key }, files: copy.trace })
+    for (const [key, copy] of copies.get()) {
+      if (key.startsWith(prefix)) {
+        // The copy's key in the window stands in for its state, so it's found again by it.
+        traced.push({ key: { route: key, mode: copy.drawn, state: key }, files: copy.trace })
       }
     }
 
     const stale = staleCopies(paths, traced, { distance: new Map() })
 
-    if (stale.length === 0) {
-      return
+    if (stale.length > 0) {
+      this.changes++
+
+      for (const key of stale) {
+        this.stale.set(key.state, this.changes)
+      }
     }
 
-    this.changes++
-
-    for (const key of stale) {
-      this.stale.set(key.state, this.changes)
-    }
-
-    // Refused copies are asked for again: the change may be what fixes them.
     this.refused.clear()
     this.poke()
   }

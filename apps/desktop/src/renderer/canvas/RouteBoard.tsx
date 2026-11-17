@@ -21,7 +21,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
 import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
-import { previewTokens, tokenPreviewSheet } from "./page-changes.ts"
+import { tokenPreviewSheet, useTokenPreview } from "./page-changes.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -93,15 +93,7 @@ export function RouteBoard({
   const height = frame.height ?? Math.max(viewport.height, copy?.pageHeight ?? 0)
 
   // Token values edited and not saved show in the copy as in the design frames, through the project's preview sheet.
-  useEffect(() => {
-    const show = () => previewTokens(project, tokens.previews(), themesOf(tokens.get()))
-    show()
-    const unsubscribe = tokens.subscribe(show)
-
-    return () => {
-      unsubscribe()
-    }
-  }, [project, tokens])
+  useTokenPreview(project, tokens)
 
   // Selecting, outlining and agents find the copy as they find a design's frames.
   useLayoutEffect(() => registerFrame(host.current!, design), [design])
@@ -364,11 +356,6 @@ export function withCopyStyle<Entry extends { key: string; path: string }>(
   const type = node.type === "text" || node.type === "image" ? node.type : "layout"
 
   return { ...node, style: styleOfElement({ style }, type) }
-}
-
-/** Every theme the project's tokens have a value in, `default` included. */
-function themesOf(tokens: readonly { values: Record<string, string> }[]): string[] {
-  return [...new Set(tokens.flatMap((token) => Object.keys(token.values)))].sort((a, b) => a.localeCompare(b, "en"))
 }
 
 /** Every layer's id in a tree of layers. */

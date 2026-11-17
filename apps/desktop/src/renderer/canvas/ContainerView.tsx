@@ -108,6 +108,7 @@ import { FrameSkeleton } from "./FrameSkeleton.tsx"
 import { DesignIcon, designColor, kindColors } from "./kinds.tsx"
 import { type LabelReach, useCanvasLabel } from "./labels.ts"
 import { Used, useMountOnUse, useUsed } from "./mount-on-use.tsx"
+import { useTokenPreview } from "./page-changes.ts"
 import { usePageChannel } from "./page-channel.ts"
 import { PreviewHeader, type PreviewTarget, useSavedView } from "./preview-parts.tsx"
 import { PreviewResize, useBreakpoints } from "./preview-resize.tsx"
@@ -1604,6 +1605,9 @@ function PageFrame({
     })
   )
 
+  const { tokens } = useProject()
+  // Token edits reach the page while no copy of a route is drawn, as with the Interact tool.
+  useTokenPreview(project, tokens)
   const heard = usePageChannel(page, { id, src, mode: drawn, viewport, project })
   const height = frame.height ?? Math.max(frame.viewport.height, heard.height ?? 0)
   const landed = heard.location

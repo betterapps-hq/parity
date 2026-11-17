@@ -1,4 +1,5 @@
 import { type TokenPreview, tokenPreviewCss } from "@parity-app/frames"
+import { useEffect } from "react"
 import { resetWithWindow } from "../store.ts"
 
 /*
@@ -82,6 +83,35 @@ export function previewTokens(project: string, tokens: readonly TokenPreview[], 
   for (const page of livePages.get(project) ?? []) {
     page(css)
   }
+}
+
+/** What the window's token store gives a preview: the values edited and not saved, and the tokens with their themes. */
+interface PreviewedTokens {
+  previews(): readonly TokenPreview[]
+  get(): readonly { values: Record<string, string> }[]
+  subscribe(listener: () => void): () => void
+}
+
+/**
+ * Keeps the project's previewed token values (`previewTokens`) up to date with its token store while the component is
+ * drawn. A route board's copy and the page drawn with the Interact tool each call it, so edits reach the page while no
+ * copy is drawn; the same values twice change nothing.
+ */
+export function useTokenPreview(project: string, tokens: PreviewedTokens): void {
+  useEffect(() => {
+    const show = () => previewTokens(project, tokens.previews(), themesOf(tokens.get()))
+    show()
+    const unsubscribe = tokens.subscribe(show)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [project, tokens])
+}
+
+/** Every theme the project's tokens have a value in, `default` included. */
+function themesOf(tokens: readonly { values: Record<string, string> }[]): string[] {
+  return [...new Set(tokens.flatMap((token) => Object.keys(token.values)))].sort((a, b) => a.localeCompare(b, "en"))
 }
 
 /** The sheet a copy of the project's routes adopts after its own, which holds its previewed token values. */
