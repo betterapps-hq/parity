@@ -435,11 +435,13 @@ out, as Portless does.
   ([fixtures/window-test.ts](../packages/extension-host/src/fixtures/window-test.ts)) activating while its setting is on
   and stopping when it goes off, `onStartup` in every tab, five failures stopping it in a tab, a throwing listener
   counted, `HalfUnavailableError` while its Node half isn't ready, a module without a Node half, a Node half stopping
-  for good, calls from the Node half, a missing capability, a window module it builds on coming and going, settings, the
-  tab closing, failing to activate, and an activation that's been overtaken, finishing or throwing, without undoing the
-  one after it. With its Node half in the real host code over in-memory ports: the Node half started only with its
-  window module, each half calling the other, a command the window module registered run by its module, the service and
-  an agent, the agent's call carried through to the Node half, and three crashes deactivating the window module.
+  for good, calls from the Node half, a missing capability, a window module it builds on coming and going, settings, a
+  project setting's change kept under the prefix as the Node half's are, the tab closing, failing to activate, and an
+  activation that's been overtaken, finishing or throwing, without undoing the one after it. With its Node half in the
+  real host code over in-memory ports: the Node half started only with its window module, the Node half told the window
+  module's state while it activates, each half calling the other, a command the window module registered run by its
+  module, the service and an agent, the agent's call carried through to the Node half, and three crashes deactivating
+  the window module.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
 own, nor has `renderer/window-modules.ts`, which no built-in extension uses yet. They were tried in the running app on

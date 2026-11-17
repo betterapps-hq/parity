@@ -1,11 +1,19 @@
 import { AsyncLocalStorage } from "node:async_hooks"
 import { memoryPorts } from "@parity-app/channel"
-import type { JsonValue, NodeRef, SettingValue } from "@parity-app/extension"
+import {
+  defineExtension,
+  type ExtensionModule,
+  type JsonValue,
+  type NodeRef,
+  type Parity,
+  type SettingValue
+} from "@parity-app/extension"
 import {
   CapabilityMissingError,
   defineWindowModule,
   type HalfState,
   HalfUnavailableError,
+  type InternalParity,
   type WindowModule,
   type WindowParity
 } from "@parity-app/extension/internal"
@@ -34,6 +42,11 @@ const asRecord = z.record(z.string(), z.json().optional())
 const canvasOf = (parity: WindowParity | undefined) =>
   parity && "canvas" in parity && parity.canvas instanceof Object ? parity.canvas : undefined
 
+/** A Node half's `Parity` with its window module's link, as an internal extension with one gets. */
+function isInternal(parity: Parity): parity is InternalParity {
+  return "window" in parity
+}
+
 /** Lets promises already resolved run their callbacks. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0))
 
@@ -43,6 +56,7 @@ function extension(change: Partial<WindowExtension> = {}): WindowExtension {
     id: "@parity-app/extension-window-test",
     version: "0.0.0",
     displayName: "Window test",
+    prefix: "wtest",
     internal: true,
     window: true,
     node: true,
@@ -62,6 +76,7 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
   const events: { name: ExtensionEventName; attributes: Record<string, JsonValue | undefined> }[] = []
   const halves: string[] = []
   const logs: string[] = []
+  const updates: string[] = []
   const stopped: string[] = []
   const tags: Record<string, string>[] = []
   const selection = new Set<(refs: NodeRef[]) => void>()
@@ -111,7 +126,11 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
       call: (id, method) => Promise.resolve(`${method} answered by ${id}`),
       state: (id, state) => void halves.push(`${id} ${state}`)
     },
-    updateSetting: () => Promise.resolve(),
+    updateSetting: (prefix, key, value) => {
+      updates.push(value === undefined ? `${prefix} ${key} cleared` : `${prefix} ${key} = ${JSON.stringify(value)}`)
+
+      return Promise.resolve()
+    },
     log: (_id, level, text) => void logs.push(`${level}: ${text}`),
     record: (name, attributes) => void events.push({ name, attributes: asRecord.parse(attributes) }),
     report: (_error, given) => void tags.push(given),
@@ -128,7 +147,7 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
     }
   }
 
-  return { runtime, events, named, halves, logs, stopped, tags, parities, select, selection }
+  return { runtime, events, named, halves, logs, stopped, tags, parities, select, selection, updates }
 }
 
 describe("window modules in a project tab", () => {
@@ -368,7 +387,7 @@ describe("window modules in a project tab", () => {
     expect(() => parities.get("watcher")?.extensions.get("not-named")).toThrow("isn't in the manifest's")
   })
 
-  it("reads its settings, hears them change, and refuses to change an app setting", async () => {
+  it("reads its settings, hears them change, keeps a project one's change as the Node half would, and refuses an app setting's", async () => {
     const heard: SettingValue[] = []
 
     const reading = defineWindowModule({
@@ -379,7 +398,7 @@ describe("window modules in a project tab", () => {
       }
     })
 
-    const { runtime, parities } = tab({ "@parity-app/extension-window-test": reading })
+    const { runtime, parities, updates } = tab({ "@parity-app/extension-window-test": reading })
     const scopes = { "wtest.on": "app", "wtest.mode": "project" } as const
 
     runtime.update([extension({ settings: { "wtest.on": true, "wtest.mode": "a" }, settingScopes: scopes })])
@@ -391,6 +410,11 @@ describe("window modules in a project tab", () => {
     expect(heard).toEqual(["b"])
     expect(() => settings?.get("wtest.other")).toThrow("isn't a setting")
     await expect(settings?.update("wtest.on", false)).rejects.toThrow("only Settings changes it")
+
+    // A `.par` keeps it under the prefix, by its key without the prefix.
+    await settings?.update("wtest.mode", "c")
+    await settings?.update("wtest.mode", undefined)
+    expect(updates).toEqual(['wtest mode = "c"', "wtest mode cleared"])
   })
 
   it("disposes of a module's subscriptions newest first, then deactivates it, as its tab closes", async () => {
@@ -509,7 +533,7 @@ describe("an internal extension's two halves (the window test extension, in the 
   const id = "@parity-app/extension-window-test"
 
   /** Its Node half in a host in memory, run by the real host code, and a tab's window modules, linked as the app links them. */
-  function setUp() {
+  function setUp(node: ExtensionModule = windowTestNode) {
     const ends: ((ending: ChildEnd) => void)[] = []
     const events: { name: ExtensionEventName; attributes: Record<string, JsonValue | undefined> }[] = []
     /** The tab's window modules, once they're made below, which the service's stand-in window reaches. */
@@ -532,7 +556,7 @@ describe("an internal extension's two halves (the window test extension, in the 
 
         serveExtensionHost({
           port: host,
-          load: () => Promise.resolve(Object.assign(Object.create(null), { default: windowTestNode })),
+          load: () => Promise.resolve(Object.assign(Object.create(null), { default: node })),
           exit: () => end({ code: 0 }),
           // Carries an agent's call through the extension's code, as the host script does with Node's own.
           calls: { run: (call, task) => calls.run(call, task), current: () => calls.getStore() }
@@ -667,6 +691,32 @@ describe("an internal extension's two halves (the window test extension, in the 
       events.find((event) => event.name === "extension.activated" && event.attributes.half === "node")?.attributes
         .trigger
     ).toBe("onSetting:wtest.on")
+  })
+
+  it("tells a Node half its window module's state while it activates, so activate can wait for it", async () => {
+    const waiting = defineExtension({
+      activate(parity) {
+        if (!isInternal(parity)) {
+          throw new Error("No window module")
+        }
+
+        const { window } = parity
+
+        return new Promise<{ ping(): string }>((resolve) => {
+          const subscription = window.onStateChange((state) => {
+            if (state === "ready") {
+              subscription.dispose()
+              resolve({ ping: () => "pong" })
+            }
+          })
+        })
+      }
+    })
+
+    const { parities, ready } = setUp(waiting)
+
+    await ready()
+    await expect(parities.get(id)?.host.api<{ ping(): string }>().ping()).resolves.toBe("pong")
   })
 
   it("lets each half call the other", async () => {

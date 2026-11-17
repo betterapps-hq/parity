@@ -22,6 +22,7 @@ import {
 import { z } from "zod"
 import type { RecordExtensionEvent } from "./events.ts"
 import type { ExtensionStatus, HostState } from "./hosts.ts"
+import { storedKey } from "./settings.ts"
 
 /*
  * Internal extensions' window modules in one project tab (docs/proposals/extensions-in-the-window.md). A window module
@@ -38,6 +39,8 @@ export interface WindowExtension {
   id: string
   version: string
   displayName: string
+  /** What its commands and settings start with, and what a `.par` keeps its settings under. */
+  prefix: string
   internal: boolean
   /** Whether it has a window module. */
   window: boolean
@@ -65,6 +68,7 @@ export function windowExtensions(statuses: readonly ExtensionStatus[]): WindowEx
           id: status.id,
           version: status.version,
           displayName: status.displayName,
+          prefix: status.prefix,
           internal: status.internal,
           window: status.window,
           node: status.node,
@@ -127,8 +131,11 @@ export interface WindowModulesOptions {
   load(extension: string): Promise<unknown>
   editor: WindowEditor
   halves: WindowHalves
-  /** Sets one of an extension's `project` settings, or puts it back to its default without `value`. */
-  updateSetting(extension: string, key: string, value?: SettingValue): Promise<void>
+  /**
+   * Sets one of an extension's `project` settings, or puts it back to its default without `value`, where a `.par` keeps
+   * it: under the extension's prefix, by its key without the prefix, as the Node half's `settings.update` does.
+   */
+  updateSetting(prefix: string, key: string, value?: SettingValue): Promise<void>
   /** A line in the extension's log, marked as its window module's in this tab. */
   log(extension: string, level: "info" | "warning" | "error", text: string, stack?: string): void
   record?: RecordExtensionEvent
@@ -442,7 +449,7 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             throw new Error(`${key} is the person's, for every project, so only Settings changes it`)
           }
 
-          await options.updateSetting(extension.id, key, value)
+          await options.updateSetting(extension.prefix, storedKey(extension.prefix, key), value)
         }
       },
       log: {

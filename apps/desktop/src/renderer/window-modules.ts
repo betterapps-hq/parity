@@ -107,11 +107,12 @@ function start(session: ProjectSession, tab: string, extensions: TabExtensions):
       state: (extension, state) =>
         void request("extensions.windowState", { projectId, extension, state }).catch(() => undefined)
     },
-    updateSetting: async (extension, key, value) => {
+    // Kept as the Node half's are, under the extension's prefix (`hosts.ts`, `settings.update`).
+    updateSetting: async (prefix, key, value) => {
       if (value === undefined) {
-        clearProjectExtensionSetting(extension, key, session.doc)
+        clearProjectExtensionSetting(prefix, key, session.doc)
       } else {
-        setProjectExtensionSetting(extension, key, value, session.doc)
+        setProjectExtensionSetting(prefix, key, value, session.doc)
       }
     },
     // The log tab marks each line as the window module's, beside its Node half's.

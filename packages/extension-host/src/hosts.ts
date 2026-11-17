@@ -464,6 +464,8 @@ interface Running {
   link: HostLink
   channel: Channel<HostServiceMethods, HostMethods>
   activated: Promise<void>
+  /** Its `activate` has been sent, so a change of its window module's state is sent to it on its own. */
+  activateSent?: boolean
   stopPinging(): void
   /** Stops telling it of the project's processes, ends its watches and takes away its providers. */
   release(): void
@@ -1001,10 +1003,6 @@ export function extensionHosts<Project extends OpenedProject>(
       params.project.detected = host.detected
     }
 
-    if (found.manifest.window !== undefined) {
-      params.window = open.windows.get(found.id) ?? "starting"
-    }
-
     const tools = (found.manifest.contributes.agentTools ?? []).map((tool) => tool.name)
 
     if (tools.length > 0) {
@@ -1028,6 +1026,13 @@ export function extensionHosts<Project extends OpenedProject>(
       params.selection = open.selection
       params.routeMarks = open.routeMarks
       params.processes = options.processes.snapshot(caller)
+
+      // Where its window module is now; each change after this is sent as it happens, while it activates too.
+      if (found.manifest.window !== undefined) {
+        params.window = open.windows.get(found.id) ?? "starting"
+      }
+
+      running.activateSent = true
 
       const { api } = await withTimeout(
         channel.request("activate", params),
@@ -1673,8 +1678,10 @@ export function extensionHosts<Project extends OpenedProject>(
       open.windows.set(extension, state)
       const running = host.running
 
-      if (running) {
-        void running.activated.then(() => running.channel.request("window.state", { state })).catch(() => undefined)
+      // Sent at once, not after `activate` finishes: an `activate` may wait for the window module to be ready. Before
+      // `activate` is sent, it carries the state itself.
+      if (running?.activateSent) {
+        void running.channel.request("window.state", { state }).catch(() => undefined)
       }
     },
     installed() {
