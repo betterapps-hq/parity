@@ -18,7 +18,7 @@ function openPlain(options: OpenOptions): DocBackend {
     files: new Map(options.files.map((file) => [file.path, file.document])),
     main: options.main,
     modes: options.modes,
-    tokens: noTokenEdits
+    tokens: options.tokens ?? noTokenEdits
   }
 
   let count = 0
@@ -29,6 +29,7 @@ function openPlain(options: OpenOptions): DocBackend {
     sync: false,
     files: () => state.files,
     modes: () => state.modes,
+    tokens: () => state.tokens,
     version,
     apply: (ops) => {
       const recorder = new Recorder()

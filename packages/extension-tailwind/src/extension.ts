@@ -1,11 +1,12 @@
-import { type ClassPrinter, writeClasses } from "@parity-app/core"
 import { defineExtension, type Parity, type ThemeVariable } from "@parity-app/extension"
+import { type ClassPrinter, writeClasses } from "./classes.ts"
 import { loadDesignSystem } from "./design-system.ts"
 import { tailwindPrinter } from "./printer.ts"
 import { writeTailwindTokens } from "./tokens.ts"
 
 /*
- * Tailwind CSS v4 as an extension (PAR-1095), using only Parity's public API. Its styles provider reads the theme from
+ * Tailwind CSS v4 as an extension (PAR-1095), using only Parity's public API and its SDK's helpers for writing
+ * stylesheets and finding the project's packages (PAR-1130). Its styles provider reads the theme from
  * the project's own Tailwind (through `@tailwindcss/node`, which its Vite or PostCSS plugin installs), so plugins,
  * `@theme` blocks and imported presets all count; writes a layer's declarations as the classes they compile to there;
  * and writes token values into `@theme` where Tailwind makes a utility from them. The status bar names it, and opens
