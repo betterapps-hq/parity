@@ -405,8 +405,18 @@ describe("sanitizeSheet", () => {
     )
   })
 
-  it("takes out an @import that taking out another would make", () => {
-    expect(sanitizeSheet(`@im@import "";port "http://evil.example/a.css"; b{}`, policy)).toBe(" b{}")
+  it("disarms an @import that taking out another would make", () => {
+    expect(sanitizeSheet(`@im@import "";port "http://evil.example/a.css"; b{}`, policy)).toBe(
+      `@-parity-removed-import "http://evil.example/a.css"; b{}`
+    )
+  })
+
+  it("reads long names in one pass", () => {
+    const started = performance.now()
+
+    sanitizeSheet(`a{--x:${"a".repeat(1_000_000)}}`, policy)
+
+    expect(performance.now() - started).toBeLessThan(2000)
   })
 
   it("checks image-set()'s strings as it does url()s", () => {

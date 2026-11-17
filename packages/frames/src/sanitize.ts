@@ -254,15 +254,14 @@ export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): SanitizedR
 
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
-  let css = withoutComments(readLoadNames(text))
+  const css = withoutComments(readLoadNames(text)).replace(
+    /@import\b(?:[^;"']|"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*')*;?/gi,
+    ""
+  )
 
-  // Taking one rule out can join the text around it into another (`@im@import "";port …`), so until none is left.
-  for (let last = ""; last !== css;) {
-    last = css
-    css = css.replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\[\s\S])*"|'(?:[^'\\]|\\[\s\S])*')*;?/gi, "")
-  }
-
-  return sanitizeCss(css, policy)
+  // Taking a rule out can join the text around it into another (`@im@import "";port …`). Any such one is renamed, in one
+  // pass, to an at-rule CSS doesn't know and skips; a name that starts "@-" can't join into another.
+  return sanitizeCss(css.replace(/@import/gi, "@-parity-removed-import"), policy)
 }
 
 function sanitizeNode(node: FrozenNode, policy: SanitizePolicy, count: { removed: number }): FrozenNode {
@@ -596,8 +595,11 @@ function topLevelParts(inner: string): string[] {
 /** A CSS identifier, escapes and all, as a function's or an at-rule's name can be written. */
 const cssIdentifier = String.raw`(?:[\w-]|\\[0-9a-f]{1,6}\s?|\\[^\n0-9a-f])+`
 
-/** Each name, as an escape-free identifier, ahead of `(` or, for an at-rule, of what follows its name. */
-const cssName = new RegExp(String.raw`(@?)(${cssIdentifier})(?=[\s("';{])`, "gi")
+/** Each name, whole: a match takes its identifier to the end, so the scan goes forward once and never retries. */
+const cssName = new RegExp(String.raw`(@?)(${cssIdentifier})`, "gi")
+
+/** What follows a function's name or an at-rule's. */
+const afterName = /[\s("';{]/
 
 /** The function names that load something, which an escape could hide from the patterns that check them. */
 const loadFunctions = new Set(["url", "image-set", "-webkit-image-set", "src"])
@@ -607,8 +609,8 @@ const loadFunctions = new Set(["url", "image-set", "-webkit-image-set", "src"])
  * `@\69mport`), as a browser reads them, so the checks after see every load. Every other name keeps its escapes.
  */
 function readLoadNames(css: string): string {
-  return css.replace(cssName, (whole, at: string, name: string) => {
-    if (!name.includes("\\")) {
+  return css.replace(cssName, (whole, at: string, name: string, offset: number) => {
+    if (!name.includes("\\") || !afterName.test(css.charAt(offset + whole.length))) {
       return whole
     }
 
