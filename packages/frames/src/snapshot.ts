@@ -33,9 +33,9 @@ export interface PageRoot {
 
 /**
  * One of a snapshot's stylesheets: the page's own by content hash, or another origin's by address, with the media it's
- * linked for when that isn't all.
+ * linked for when that isn't all, and the cascade layer an `@import` put it in (`""` for an anonymous one).
  */
-export type SheetEntry = { hash: string } | { href: string; media?: string }
+export type SheetEntry = { hash: string } | { href: string; media?: string; layer?: string }
 
 export type FrozenNode = FrozenElement | string
 
@@ -199,7 +199,7 @@ export const pageSnapshotSchema = z.strictObject({
   sheets: z.array(
     z.union([
       z.strictObject({ hash: z.string().min(1) }),
-      z.strictObject({ href: z.url(), media: z.string().min(1).optional() })
+      z.strictObject({ href: z.url(), media: z.string().min(1).optional(), layer: z.string().optional() })
     ])
   ),
   markup: z.string().min(1)

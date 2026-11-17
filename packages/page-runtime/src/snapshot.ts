@@ -318,7 +318,7 @@ function sheetText(sheet: CSSStyleSheet, base: string, entries: SheetEntry[]): s
       const inner = imported ? sheetText(imported, importBase, entries) : undefined
 
       if (inner === undefined) {
-        entries.push(linked(importBase, rule.media.mediaText))
+        entries.push(linked(importBase, rule.media.mediaText, rule.layerName))
         continue
       }
 
@@ -339,9 +339,19 @@ function sheetText(sheet: CSSStyleSheet, base: string, entries: SheetEntry[]): s
   return parts.join("\n")
 }
 
-/** Another origin's sheet by its address, with the media it applies to when that isn't all. */
-function linked(href: string, media: string): SheetEntry {
-  return media && media !== "all" ? { href, media } : { href }
+/** Another origin's sheet by its address, with the media it applies to when that isn't all, and its import's layer. */
+function linked(href: string, media: string, layer: string | null = null): SheetEntry {
+  const entry: SheetEntry = { href }
+
+  if (media && media !== "all") {
+    entry.media = media
+  }
+
+  if (layer !== null) {
+    entry.layer = layer
+  }
+
+  return entry
 }
 
 /** Whether a rule is an `@import`, read by its shape, since not every window names `CSSImportRule`. */

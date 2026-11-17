@@ -31,6 +31,27 @@ describe("fetchPageSheet", () => {
     )
   })
 
+  it("inlines its @imports inside their conditions, each resolved against its own address", async () => {
+    const sheets = new Map([
+      [
+        "https://cdn.test/css/main.css",
+        `@import "base.css" layer(base) screen; @import url(https://fonts.test/f.css); a { color: red }`
+      ],
+      ["https://cdn.test/css/base.css", "body { background: url(bg.png) }"],
+      ["https://fonts.test/f.css", "@font-face { font-family: F }"]
+    ])
+
+    const text = await fetchPageSheet("https://cdn.test/css/main.css", async (url) => {
+      const body = sheets.get(url)
+
+      return body === undefined ? css("", "text/css", 404) : css(body)
+    })
+
+    expect(text).toBe(
+      `@layer base {\n@media screen {\nbody { background: url("https://cdn.test/css/bg.png") }\n}\n} @font-face { font-family: F } a { color: red }`
+    )
+  })
+
   it("refuses anything but https, without asking", async () => {
     let asked = 0
     const fetch = async () => (asked++, css("a{}"))
