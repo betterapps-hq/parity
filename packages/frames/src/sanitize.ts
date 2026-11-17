@@ -447,13 +447,25 @@ function srcsetCandidates(value: string): { url: string; descriptor: string }[] 
 }
 
 /**
+ * A CSS escape, matched one way only: a hex escape takes all its digits, up to six, and its one optional space, and any
+ * other escape is a backslash before a character that isn't a hex digit or a newline. Overlapping alternatives would
+ * let a failing match retry every way of splitting a run of escapes.
+ */
+const cssEscape = String.raw`\\(?:(?:[0-9a-f]{6}|[0-9a-f]{1,5}(?![0-9a-f]))\s?|[^\n0-9a-f])`
+
+/** A `url()`, quoted or not. It or its string may run to the end of the text unclosed, which CSS still reads as a URL. */
+const cssUrl = new RegExp(
+  String.raw`\burl\(\s*(?:"((?:[^"\\]|\\[\s\S])*)(?:"|$)|'((?:[^'\\]|\\[\s\S])*)(?:'|$)|((?:[^)"'\s\\]|${cssEscape})*))\s*(?:\)|$)`,
+  "gi"
+)
+
+/**
  * CSS with each `url()` and `image-set()` string outside the policy replaced by `none`. A stylesheet or inline style
  * loads images and fonts, so any `https:` host is allowed.
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
   const urls = withoutComments(readLoadNames(css)).replace(
-    // A `url()` or its string may run to the end of the text unclosed, which CSS still reads as a URL.
-    /\burl\(\s*(?:"((?:[^"\\]|\\[\s\S])*)(?:"|$)|'((?:[^'\\]|\\[\s\S])*)(?:'|$)|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*(?:\)|$)/gi,
+    cssUrl,
     (whole, double?: string, single?: string, bare?: string) =>
       allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
   )
@@ -593,7 +605,7 @@ function topLevelParts(inner: string): string[] {
 }
 
 /** A CSS identifier, escapes and all, as a function's or an at-rule's name can be written. */
-const cssIdentifier = String.raw`(?:[\w-]|\\[0-9a-f]{1,6}\s?|\\[^\n0-9a-f])+`
+const cssIdentifier = String.raw`(?:[\w-]|${cssEscape})+`
 
 /** Each name, whole: a match takes its identifier to the end, so the scan goes forward once and never retries. */
 const cssName = new RegExp(String.raw`(@?)(${cssIdentifier})`, "gi")

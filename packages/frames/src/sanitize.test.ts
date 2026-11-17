@@ -411,6 +411,15 @@ describe("sanitizeSheet", () => {
     )
   })
 
+  it("gives up quickly on a malformed url() full of escapes", () => {
+    const started = performance.now()
+
+    sanitizeSheet(`a{background:url(${String.raw`\a`.repeat(40)} ")}`, policy)
+    sanitizeSheet(`a{background:url(${String.raw`\aa`.repeat(40)} ")}`, policy)
+
+    expect(performance.now() - started).toBeLessThan(2000)
+  })
+
   it("reads long names in one pass", () => {
     const started = performance.now()
 
