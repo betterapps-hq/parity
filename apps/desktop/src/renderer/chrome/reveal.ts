@@ -3,7 +3,7 @@ import { Box, type Editor } from "tldraw"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { routePageDesign, routePageGroup, routePageGroups } from "../canvas/route-pages.ts"
 import { findFrames, nodeBox } from "../frame.ts"
-import type { ProjectSession } from "../workspace.ts"
+import { type ProjectSession, workspace } from "../workspace.ts"
 
 /** A project's session, whose id finds its routes' pages; a caller without one can't reveal a route. */
 type Session = Pick<ProjectSession, "editor" | "selection" | "doc"> & { id?: string }
@@ -142,5 +142,22 @@ function revealBounds(editor: Editor | undefined, bounds: Box | undefined): void
     editor.zoomToBounds(bounds, { inset: 80, animation: { duration: 250 } })
   } else {
     editor.centerOnPoint(bounds.center, { animation: { duration: 250 } })
+  }
+}
+
+/** How many frames `revealOnceShown` waits for a lens's canvas to take the focus. */
+const revealFrames = 30
+
+/**
+ * Brings a design into view once the canvas in focus draws it, as a lens just shown takes the focus a moment after, and
+ * its canvas draws its designs a moment after that.
+ */
+export function revealOnceShown(design: string, frames = revealFrames): void {
+  const session = workspace.getProject()?.session
+
+  if (session?.editor?.getShape(canvasIdFor(design))) {
+    revealSelection(session)
+  } else if (frames > 0) {
+    requestAnimationFrame(() => revealOnceShown(design, frames - 1))
   }
 }

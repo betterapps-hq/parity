@@ -1,5 +1,14 @@
 import { findNode, type MadeKind, plainReason } from "@parity-app/core"
-import { type Alignment, arrowOf, type Order, reviewToolFor, selectedDesigns, selectedNodes } from "@parity-app/editor"
+import {
+  type Alignment,
+  arrowOf,
+  designsSelection,
+  type Order,
+  reviewToolFor,
+  type Selection,
+  selectedDesigns,
+  selectedNodes
+} from "@parity-app/editor"
 import {
   containerEntries,
   containerEntry,
@@ -401,25 +410,49 @@ function pasteSelectionStyle(session: ProjectDesigns | undefined): void {
   }
 }
 
-function selectEverything(session: ProjectDesigns | undefined): void {
+/** The open project with the editor of the canvas in focus, which the commands that select designs keep to. */
+type DesignsInFocus = ProjectDesigns & Pick<ProjectSession, "editor">
+
+/** Whether the canvas in focus draws a design: Pages draws the app's pages, Screens the rest. */
+function drawnInFocus(session: DesignsInFocus): (key: string) => boolean {
+  const { editor } = session
+
+  return (key) => !editor || editor.getShape(canvasIdFor(key)) !== undefined
+}
+
+/**
+ * A selection of whole designs kept to those the canvas in focus draws, so selecting on one lens's canvas never picks
+ * designs on another's. A selection of layers, inside one design, is left as it is.
+ */
+function inFocus(session: DesignsInFocus, next: Selection): Selection {
+  const keys = selectedDesigns(next)
+
+  if (next.node || next.note || next.reference || keys.length === 0) {
+    return next
+  }
+
+  return designsSelection(keys.filter(drawnInFocus(session)))
+}
+
+function selectEverything(session: DesignsInFocus | undefined): void {
   if (session) {
-    selectAll(session)
+    selectAll(session, drawnInFocus(session))
   }
 }
 
 /** Ctrl+Shift+A: what Select all would select, less what's selected. */
-function selectInverse(session: ProjectDesigns | undefined): void {
+function selectInverse(session: DesignsInFocus | undefined): void {
   if (session) {
-    session.selection.set(inverseSelection(session.doc, session.selection.get()))
+    session.selection.set(inFocus(session, inverseSelection(session.doc, session.selection.get())))
   }
 }
 
 /** Ctrl+Alt+A: every layer in the design like the selected ones, or every design of the same kind. */
-function selectMatching(session: ProjectDesigns | undefined): void {
+function selectMatching(session: DesignsInFocus | undefined): void {
   const next = session && matchingSelection(session.doc, session.selection.get())
 
   if (next) {
-    session.selection.set(next)
+    session.selection.set(inFocus(session, next))
   }
 }
 
@@ -427,17 +460,14 @@ function selectMatching(session: ProjectDesigns | undefined): void {
  * N and Shift+N, as Figma's Zoom to next frame: select the next or previous design, in the Layers panel's order, and
  * zoom to it as Zoom to selection does.
  */
-function selectAdjacentDesign(
-  step: 1 | -1,
-  session: (ProjectDesigns & Pick<ProjectSession, "editor">) | undefined
-): void {
+function selectAdjacentDesign(step: 1 | -1, session: DesignsInFocus | undefined): void {
   if (!session) {
     return
   }
 
   // The designs on the canvas in focus: Pages steps through the app's pages, Screens through the rest.
-  const { editor } = session
-  const entries = containerEntries(session.doc).filter((entry) => editor?.getShape(canvasIdFor(entry.key)))
+  const drawn = drawnInFocus(session)
+  const entries = containerEntries(session.doc).filter((entry) => drawn(entry.key))
   const key = adjacentDesign(entries, session.selection.get(), step)
 
   if (!key) {

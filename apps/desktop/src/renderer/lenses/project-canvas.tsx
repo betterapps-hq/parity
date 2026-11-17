@@ -1,7 +1,7 @@
 import { createContext, type ReactNode, use, useCallback, useEffect, useState } from "react"
 import type { Editor } from "tldraw"
 import { CanvasDrop } from "../canvas/CanvasDrop.tsx"
-import { type CanvasDraws, CanvasEditor } from "../canvas/CanvasEditor.tsx"
+import { type CanvasDraws, CanvasEditor, canvasOf } from "../canvas/CanvasEditor.tsx"
 import { CanvasOverlay } from "../canvas/CanvasOverlay.tsx"
 import { useProject } from "../canvas/context.ts"
 import { TabOrderOverlay } from "../canvas/TabOrderOverlay.tsx"
@@ -10,6 +10,7 @@ import { ConsolePanel, ResizeTop } from "../chrome/ConsolePanel.tsx"
 import { ErrorBoundary } from "../chrome/ErrorBoundary.tsx"
 import { FloatingToolbar } from "../chrome/FloatingToolbar/FloatingToolbar.tsx"
 import { setLayout, useLayout } from "../chrome/layout.ts"
+import { revealOnceShown } from "../chrome/reveal.ts"
 import { ZoomControls } from "../chrome/ZoomControls.tsx"
 import { useTool } from "../selection.ts"
 import { CanvasShown, WindowLayers } from "../window-canvas.tsx"
@@ -24,6 +25,9 @@ export interface OpenProjectParts {
   /** Opens the project again, as a part that failed offers. */
   reopen: () => void
 }
+
+/** The lens whose canvas draws each kind of design. */
+const lensDrawing: Record<CanvasDraws, string> = { pages: "pages", designs: "screens" }
 
 export const OpenProjectContext = createContext<OpenProjectParts | undefined>(undefined)
 
@@ -56,10 +60,32 @@ export function ProjectCanvas({
   tools?: boolean
 }) {
   const { projectId, shown, reopen } = useOpenProject()
-  const focused = useLensWorkspace().current === lens
+  const lenses = useLensWorkspace()
+  const focused = lenses.current === lens
   const [own, setOwn] = useState<Editor>()
-  const { editor } = useProject()
+  const { editor, selection } = useProject()
   const inFocus = own !== undefined && editor === own
+
+  // Something selected that another lens's canvas draws, from Search or a design just made, shows that lens in this one's
+  // place, as a link does, with what's selected in view.
+  useEffect(() => {
+    if (!focused) {
+      return
+    }
+
+    const follow = () => {
+      const { design, note, reference } = selection.get()
+      const key = note ?? reference ?? design
+      const other = key === undefined ? undefined : lensDrawing[canvasOf(key)]
+
+      if (key && other && canvasOf(key) !== draws) {
+        lenses.followLink(other, false)
+        revealOnceShown(key)
+      }
+    }
+
+    return selection.subscribe(follow)
+  }, [focused, selection, draws, lenses])
 
   // The canvas in focus is the project's.
   useEffect(() => {
@@ -143,6 +169,14 @@ function CanvasArea({
     own?.setCurrentTool(tool === "hand" ? "hand" : "select")
   }, [own, tool])
 
+  // A canvas without the drawing toolbar draws what the project's code does, so the keys that pick a drawing tool, F and
+  // T, leave it on Move and select.
+  useEffect(() => {
+    if (!tools && inFocus && (tool === "frame" || tool === "text")) {
+      selection.setTool("select")
+    }
+  }, [tools, inFocus, tool, selection])
+
   // Isolated, so the canvas's floating controls and overlays, high up within it, stay below menus and dialogs. It sits
   // above the panels beside it, so a floating bar wider than a narrow canvas lies over them rather than under them
   // (PAR-893); its overlays clip to it, so only the bars reach out. The panels' resize edges, z-10, stay above it. A
@@ -170,9 +204,12 @@ function CanvasArea({
               <ErrorBoundary name="canvas.tab-order" label="Tab order" kind="silent">
                 <TabOrderOverlay />
               </ErrorBoundary>
-              <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
-                <CanvasDrop />
-              </ErrorBoundary>
+              {/* Files dropped on it would make designs it doesn't draw. */}
+              {tools && (
+                <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
+                  <CanvasDrop />
+                </ErrorBoundary>
+              )}
               <WindowLayers order="overSelection" />
               <WindowLayers order="edge" />
               {tools && (

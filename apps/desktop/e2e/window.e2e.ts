@@ -167,6 +167,30 @@ describe("the window", () => {
       await showScreens()
     }
   })
+
+  // docs/editor.md, Pages, a lens of its own (PAR-1244).
+  it("shows Pages in Screens' place for a page selected elsewhere, and Ctrl+A there selects only the pages", async () => {
+    const { page } = app
+
+    const pages = await page.evaluate(() =>
+      [...window.e2e!.session().doc.files()].flatMap(([file, canvas]) =>
+        file === "(pages)" ? canvas.containers.map((container) => `${file}#${container.id}`) : []
+      )
+    )
+
+    try {
+      // Selected as Search selects it, with Screens in front.
+      await page.evaluate((key) => window.e2e!.session().selection.set({ design: key }), pages[0]!)
+      await expect.poll(() => page.locator(".dv-tab").allTextContents()).toEqual(["Pages"])
+      await expect.poll(async () => (await app.selection()).design).toBe(pages[0])
+
+      await page.keyboard.press("Control+a")
+      await expect.poll(async () => ((await app.selection()).designs ?? []).toSorted()).toEqual(pages.toSorted())
+    } finally {
+      await page.keyboard.press("Escape")
+      await showScreens()
+    }
+  })
 })
 
 /** Screens back in front, with its canvas and panels, as the tests after these need. */

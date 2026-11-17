@@ -135,8 +135,8 @@ export function deleteDesigns(session: ProjectDesigns): boolean {
   return true
 }
 
-/** Ctrl+A: the selected layer and its siblings, or every design. */
-export function selectAll(session: ProjectDesigns): void {
+/** Ctrl+A: the selected layer and its siblings, or every design, of those `drawn` keeps, as the canvas in focus draws. */
+export function selectAll(session: ProjectDesigns, drawn: (key: string) => boolean = () => true): void {
   const { doc, selection } = session
   const current = selection.get()
   const entry = current.design ? containerEntry(doc, current.design) : undefined
@@ -151,7 +151,7 @@ export function selectAll(session: ProjectDesigns): void {
     return
   }
 
-  selection.set(designsSelection(containerEntries(doc).map((candidate) => candidate.key)))
+  selection.set(designsSelection(containerEntries(doc).flatMap(({ key }) => (drawn(key) ? [key] : []))))
 }
 
 /** Puts the selected layers in a new layout, laid out the way their parent lays them out, and selects it. */

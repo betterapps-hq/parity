@@ -1,20 +1,15 @@
 import { componentUses } from "@parity-app/editor"
 import { Columns2, Component } from "lucide-react"
-import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { boardKeyOf } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { kindColors } from "../canvas/kinds.tsx"
 import { useLensActions } from "../lenses/shell.ts"
 import type { ContainerEntry } from "../project-doc.ts"
-import { workspace } from "../workspace.ts"
 import { Hint } from "./Hint.tsx"
 import { IconButton } from "./IconButton.tsx"
 import { Name } from "./Name.tsx"
 import { PanelSection } from "./PanelSection.tsx"
-import { revealSelection } from "./reveal.ts"
-
-/** How many frames a link waits for its lens's canvas to take the focus before it's shown in it. */
-const revealFrames = 30
+import { revealOnceShown } from "./reveal.ts"
 
 /**
  * A page's links to the other lenses: the components it places, each on its board in Screens, its route's own first. A
@@ -38,8 +33,9 @@ export function PageLinks({ entry, route: id }: { entry: ContainerEntry; route: 
   }
 
   const show = (board: string, beside: boolean) => {
-    session.selection.set({ design: board })
+    // Shown first, so the selection finds it there rather than following the board to Screens in Pages' place.
     actions.followLink("screens", beside)
+    session.selection.set({ design: board })
     revealOnceShown(board)
   }
 
@@ -68,15 +64,4 @@ export function PageLinks({ entry, route: id }: { entry: ContainerEntry; route: 
       </ul>
     </PanelSection>
   )
-}
-
-/** Zooms to a design once the canvas in focus draws it, as the link's lens takes the focus a moment after it's shown. */
-function revealOnceShown(design: string, frames = revealFrames): void {
-  const session = workspace.getProject()?.session
-
-  if (session?.editor?.getShape(canvasIdFor(design))) {
-    revealSelection(session)
-  } else if (frames > 0) {
-    requestAnimationFrame(() => revealOnceShown(design, frames - 1))
-  }
 }

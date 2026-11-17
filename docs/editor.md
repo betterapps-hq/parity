@@ -8454,7 +8454,12 @@ The app's routes and their pages have a lens of their own, Pages, as
 - **Its canvas** draws each page as a screen, laid out in the router's tree with the lines between them and layouts
   without a page as groups around theirs, as Screens drew them before. It's drawn the first time Pages shows, so opening
   a project on Screens loads no page. Shown again after another lens took its place, it's where its camera was, with
-  what was selected still selected. A page is drawn from the app's code, so the canvas has no drawing toolbar.
+  what was selected still selected. A page is drawn from the app's code, so the canvas has no drawing toolbar: F and T
+  leave it on Move and select, and files dropped on it make nothing.
+- **Selecting stays on its canvas.** Select all, Select inverse and Select matching select only pages, and N steps
+  through them. A page selected while another lens shows, from Search, shows Pages in that lens's place with the page in
+  view; a design selected while Pages shows, or made from its menu, shows Screens the same way. A canvas showing part of
+  what's selected never narrows it for the others.
 - **Its Layers** lists the routes and their pages' layers, as Layers' Routes group did; Screens' Layers no longer has
   that group. Selecting a page there or on its canvas shows it in the inspector.
 - **The inspector** shows the selected page as before: its header, its path params as props, its route and Export. Under
@@ -8464,15 +8469,18 @@ The app's routes and their pages have a lens of their own, Pages, as
   (Components, PAR-1245, and Data, PAR-40).
 
 Code: `lenses/pages.tsx` (`pagesLens`); `RouteLayerTree` in `chrome/LayerTree.tsx`, which lists `part` `pages`;
-`chrome/PageLinks.tsx`, under a page in `DesignPanel`; `useLensActions` in `lenses/shell.ts` for views that may be shown
-outside the shell.
+`chrome/PageLinks.tsx`, under a page in `DesignPanel`; `canvasOf` in `canvas/CanvasEditor.tsx` and the selection
+following its lens in `ProjectCanvas`, with `revealOnceShown` in `chrome/reveal.ts`; `drawnInFocus` in
+`chrome/actions.ts` for the commands that select designs; `useLensActions` in `lenses/shell.ts` for views that may be
+shown outside the shell.
 
 Tests: `e2e/window.e2e.ts` (Screens drawing none of the pages, Ctrl+1 showing Pages in Screens' tab with every page and
-nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back). Tried in `pnpm dev` on
-2026-11-17 on the example: Screens drew 68 designs and no Routes group; clicking Pages showed it in Screens' tab with
-its 8 pages, the page tree's lines and the Routes group alone in Layers; selecting Pricing there showed its route in the
-inspector; Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went to the next page; Ctrl+click on
-Screens opened it in a second tab and Split right put it beside Pages; the page didn't scroll.
+nothing else, Layers there without Screens, and its camera kept through Ctrl+2 and back; a page selected with Screens in
+front showing Pages, and Ctrl+A there selecting every page and nothing else). Tried in `pnpm dev` on 2026-11-17 on the
+example: Screens drew 68 designs and no Routes group; clicking Pages showed it in Screens' tab with its 8 pages, the
+page tree's lines and the Routes group alone in Layers; selecting Pricing there showed its route in the inspector;
+Ctrl+2 and Ctrl+1 brought Pages back at the camera it had; N there went to the next page; Ctrl+click on Screens opened
+it in a second tab and Split right put it beside Pages; the page didn't scroll.
 
 ### A project with no Parity file opens on a Home screen (PAR-561)
 

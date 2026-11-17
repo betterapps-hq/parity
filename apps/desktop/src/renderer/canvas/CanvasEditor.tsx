@@ -90,7 +90,12 @@ const keptCameras = new Map<string, { x: number; y: number; z: number }>()
 
 /** Whether a canvas drawing these draws this design. */
 export function drawsDesign(draws: CanvasDraws, key: string): boolean {
-  return isRoutePage(key) === (draws === "pages")
+  return canvasOf(key) === draws
+}
+
+/** Which canvas draws a design, note or reference, by its key: Pages' the app's pages, and Screens' the rest. */
+export function canvasOf(key: string): CanvasDraws {
+  return isRoutePage(key) ? "pages" : "designs"
 }
 
 /**
@@ -651,9 +656,12 @@ export function CanvasEditor({
           (key) => key !== undefined && editor.getShape(canvasIdFor(key)) !== undefined
         )
 
-      // tldraw's selection and ours stay in step, whichever side changes.
+      // tldraw's selection and ours stay in step, whichever side changes; one this canvas set to show ours isn't written
+      // back, since a canvas drawing only some of what's selected would narrow it for every other canvas.
+      let following = false
+
       const stopSelection = editor.sideEffects.registerAfterChangeHandler("instance_page_state", (previous, next) => {
-        if (previous.selectedShapeIds === next.selectedShapeIds) {
+        if (previous.selectedShapeIds === next.selectedShapeIds || following) {
           return
         }
 
@@ -735,7 +743,13 @@ export function CanvasEditor({
         const ids = editor.getSelectedShapeIds()
 
         if (ids.length !== wanted.length || ids.some((id, index) => id !== wanted[index])) {
-          editor.setSelectedShapes(wanted)
+          following = true
+
+          try {
+            editor.setSelectedShapes(wanted)
+          } finally {
+            following = false
+          }
         }
       }
 
