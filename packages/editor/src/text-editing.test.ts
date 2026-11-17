@@ -299,6 +299,11 @@ describe("taking someone else's change into text being typed", () => {
     })
   })
 
+  it("keeps what the other wrote where the person's deletion starts", () => {
+    // "a" deleted from "ab", while someone wrote "X" before it.
+    expect(rebaseText("ab", "b", "Xab", caret(0))).toEqual({ text: "Xb", selection: caret(1) })
+  })
+
   it("moves a selection after a deletion before it", () => {
     expect(rebaseText("one two three", "one two three!", "two three", { start: 4, end: 7 })).toEqual({
       text: "two three!",

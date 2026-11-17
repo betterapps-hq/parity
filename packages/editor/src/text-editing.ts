@@ -235,7 +235,8 @@ export function rebaseText(base: string, local: string, remote: string, selectio
   const mine = spliceBetween(base, local)
   const theirs = spliceBetween(base, remote)
   const typedEnd = mine.start + mine.insert.length
-  const overlap = mine.start < theirs.end && theirs.start < mine.end
+  // What they wrote where the person's replacing starts counts as the same characters, so it's kept, not replaced.
+  const overlap = (mine.start < theirs.end || mine.start === theirs.start) && theirs.start < mine.end
   // The characters of `base` the two changes replace between them, and where what replaces them starts in the result.
   const from = overlap ? Math.min(mine.start, theirs.start) : mine.start
   const to = overlap ? Math.max(mine.end, theirs.end) : mine.end
@@ -257,7 +258,7 @@ export function rebaseText(base: string, local: string, remote: string, selectio
 
   // Where a place in `local` is in the result: before the typing, in it, or after it.
   const place = (at: number) => {
-    if (at <= mine.start) {
+    if (at < mine.start) {
       return Math.min(moved(at), start)
     }
 
