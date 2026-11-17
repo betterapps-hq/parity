@@ -3,9 +3,10 @@ import { useState } from "react"
 import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont, WeightField } from "./font-fields.tsx"
+import { findFont } from "./fonts.ts"
 import { Playground } from "./playground.tsx"
+import { standInProjectFonts } from "./stand-in-fonts.ts"
 import { fontTokens, weightTokens } from "./stand-in-tokens.ts"
-import { findFont, projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites, type WeightValue, weightWrites } from "./text-writes.ts"
 import type { StoredObject, Writes } from "./writes.ts"
@@ -29,7 +30,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const geist = projectFonts[0]!
+const geist = standInProjectFonts[0]!
 
 /** Font and Weight's writes side by side, each property under its own key (call 4). */
 function together(font: Writes, weight: Writes): Writes {

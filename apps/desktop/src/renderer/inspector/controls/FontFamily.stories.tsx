@@ -5,8 +5,8 @@ import { Changed as MarkChanged } from "./field-parts.tsx"
 import { Field } from "./field-row.tsx"
 import { FontFamilyField, resolveFont } from "./font-fields.tsx"
 import { Playground } from "./playground.tsx"
+import { standInProjectFonts } from "./stand-in-fonts.ts"
 import { fontTokens } from "./stand-in-tokens.ts"
-import { projectFonts } from "./text-data.ts"
 import { TextSample } from "./text-preview.tsx"
 import { type FontValue, fontWrites } from "./text-writes.ts"
 
@@ -17,8 +17,8 @@ import { type FontValue, fontWrites } from "./text-writes.ts"
  * previews each on the text. Enter takes the highlighted font; a comma-separated stack is kept as typed. A font the
  * frame can't load is Missing, drawn in the fallback with its name struck through. Its chevron opens the font tokens,
  * as every token field's does: the nearest token first for a font of its own, then Create token and Allow here, and
- * Detach while a token's set. The list's More fonts are fonts
- * installed on this computer, standing in for Google Fonts, which the app adds to the project when one is chosen.
+ * Detach while a token's set. The list has the project's fonts,
+ * then the ones installed on this computer; Storybook lists stand-ins for both.
  */
 const meta = {
   title: "Parity/Fields/Font family",
@@ -29,7 +29,7 @@ export default meta
 
 type Story = StoryObj<typeof meta>
 
-const geist = projectFonts[0]!
+const geist = standInProjectFonts[0]!
 
 function Font({ start, tokensOnly, mixed }: { start?: FontValue; tokensOnly?: boolean; mixed?: boolean }) {
   const [value, setValue] = useState(start)
@@ -64,7 +64,7 @@ export const Demo: Story = { ...Token, parameters: { demo: true } }
 /** Unset: Geist, muted, inherited from Plans, which the hint names. Nothing is written. */
 export const Unset: Story = { render: () => <Font /> }
 
-/** A font of its own, Segoe UI, picked from More fonts, with no mark: the chevron offers sans, the nearest, first. */
+/** A font of its own, Segoe UI, picked from the computer's fonts, with no mark: the chevron offers sans, the nearest, first. */
 export const ValueOfItsOwn: Story = { render: () => <Font start={{ stack: '"Segoe UI", sans-serif' }} /> }
 
 /** A stack typed as it's wanted, `Palatino Linotype, Georgia, serif`: the first family in its face, with +2. */

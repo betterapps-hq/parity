@@ -1,7 +1,7 @@
 import { Slider, Toggle } from "@buildkitgg/shadcn"
 import { formatNumber, lengthForm, remPx } from "@parity-app/style-schema"
 import { ALargeSmall, Italic, MoveHorizontal, MoveVertical, TriangleAlert } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { Hint } from "../../chrome/Hint.tsx"
 import { GroupLabel } from "../../chrome/PanelSection.tsx"
 import { clamp, stepCount } from "./css-values.ts"
@@ -24,8 +24,9 @@ import {
   useTokens,
   ValueField
 } from "./field-parts.tsx"
+import { askForInstalledFonts, findFont, projectFonts, useInstalledFonts } from "./fonts.ts"
 import { NumberField } from "./number-field.tsx"
-import { type FontFamily, findFont, genericOf, moreFonts, stackFamilies, weightName } from "./text-data.ts"
+import { type FontFamily, genericOf, stackFamilies, weightName } from "./text-data.ts"
 import type { FontSize, FontValue, LetterSpacing, LineHeight, WeightValue } from "./text-writes.ts"
 import {
   type FontToken,
@@ -74,11 +75,13 @@ function nearestFontToken(stack: string, tokens: readonly FontToken[]): FontToke
   return tokens.find((token) => genericOf(token.stack) === generic) ?? tokens[0]
 }
 
-/** A font the list offers: one of the project's tokens, or one of More fonts, which choosing adds to the project. */
+/** A font the list offers: one of the project's tokens or other fonts, or one installed on this computer. */
 interface FontOption {
   name: string
   stack: string
   token?: string
+  /** The project declares it, with a token or without one; otherwise it's installed on this computer. */
+  inProject: boolean
 }
 
 /**
@@ -106,6 +109,15 @@ export function FontFamilyField({
   onPreview: (value: FontValue | undefined) => void
 }) {
   const { tokens, create } = useTokens("font")
+  const installed = useInstalledFonts()
+
+  // The computer's fonts are listed after the project's, once asked for.
+  useEffect(() => {
+    if (!tokensOnly) {
+      askForInstalledFonts()
+    }
+  }, [tokensOnly])
+
   // What Add font says it'll do, under the row.
   const [note, setNote] = useState<Message>()
 
@@ -119,9 +131,27 @@ export function FontFamilyField({
   const heldToken = tokens.find((token) => token.name === held)
   const own = value !== undefined && "stack" in value ? value : undefined
 
+  // Each family once: a token's, then the project's other fonts, then the computer's.
+  const listed = new Set(tokens.map((token) => token.detail.toLowerCase()))
+
+  const unlisted = (font: FontFamily) => {
+    const name = font.name.toLowerCase()
+    const fresh = !listed.has(name)
+    listed.add(name)
+
+    return fresh
+  }
+
   const fonts: FontOption[] = [
-    ...tokens.map((token) => ({ name: token.detail, stack: token.stack, token: token.name })),
-    ...(tokensOnly ? [] : moreFonts)
+    ...tokens.map((token) => ({ name: token.detail, stack: token.stack, token: token.name, inProject: true })),
+    ...(tokensOnly
+      ? []
+      : [
+          ...projectFonts()
+            .filter(unlisted)
+            .map((font) => ({ name: font.name, stack: font.stack, inProject: true })),
+          ...installed.filter(unlisted).map((font) => ({ name: font.name, stack: font.stack, inProject: false }))
+        ])
   ]
 
   const valueOf = (font: FontOption): FontValue =>
@@ -149,7 +179,7 @@ export function FontFamilyField({
         {
           key: `${font.token ?? ""}${font.name}`,
           value: valueOf(font),
-          group: font.token === undefined ? "More fonts, added to the project when chosen" : "In the project",
+          group: font.inProject ? "In the project" : "On this computer",
           content: (
             <>
               <span className="text-sm" style={{ fontFamily: font.stack }}>

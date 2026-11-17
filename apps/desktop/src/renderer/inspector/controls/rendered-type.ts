@@ -1,9 +1,10 @@
+import { findFont } from "./fonts.ts"
 /*
  * What a layer's text draws in, read from the styles the canvas applies to its element: its own, its classes' and what
  * it inherits, so Typography's unset rows show the real font, size, weight, line height and letter spacing.
  */
 import type { TypeValues } from "./preset-data.ts"
-import { findFont, type FontFamily, stackFamilies } from "./text-data.ts"
+import { type FontFamily, stackFamilies } from "./text-data.ts"
 
 /** The computed type properties of an element, as `getComputedStyle` gives them. */
 export type TypeStyle = Pick<

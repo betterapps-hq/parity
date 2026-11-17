@@ -3,7 +3,9 @@ import { definePreview } from "@buildkitgg/storybook-config/preview"
 import { createElement } from "react"
 import { setPreferences } from "../src/renderer/chrome/preferences.ts"
 import { installClassMerger } from "../src/renderer/class-merger.ts"
+import { showFonts } from "../src/renderer/inspector/controls/fonts.ts"
 import { ShowWrites } from "../src/renderer/inspector/controls/playground.tsx"
+import { standInInstalledFonts, standInProjectFonts } from "../src/renderer/inspector/controls/stand-in-fonts.ts"
 import { resetWindowStores } from "../src/renderer/store.ts"
 import { restore } from "../src/renderer/stories/fixtures.tsx"
 import { installHost } from "../src/renderer/stories/host.ts"
@@ -18,6 +20,9 @@ installHost()
 startTheme()
 
 installClassMerger()
+
+// Stories load no project and list no computer's fonts, so the font fields list the same stand-ins everywhere.
+showFonts({ project: standInProjectFonts, installed: standInInstalledFonts })
 
 // The first story starts as a new window does, as `restore` has every later one start: every window-wide store at its
 // first value, panels and preferences at their defaults rather than as this browser last saved them.

@@ -1,7 +1,7 @@
 /*
- * Stand-in fonts for the text fields, with the faces each has: the project's fonts, which its font tokens name, and
- * fonts installed on this computer in place of Google Fonts, which the app would add to the project. The font tokens
- * themselves, and Tailwind v4's weight, leading, tracking and text size scales, are in tokens.ts. Blend modes are here
+ * What the text fields know of a font: its family, faces and stack, which fonts.ts lists from the project and the
+ * computer. The font tokens themselves, and Tailwind v4's weight, leading, tracking and text size scales, are in
+ * tokens.ts. Blend modes are here
  * too, as the keywords Appearance's menu offers.
  */
 import { type WeightToken } from "./tokens.ts"
@@ -16,45 +16,6 @@ export interface FontFamily {
   /** A variable font's weight axis. */
   axis?: [number, number]
   italic: boolean
-}
-
-/** The project's fonts, which its font tokens name: Geist, as the app's own sans, and three more. */
-export const projectFonts: FontFamily[] = [
-  {
-    name: "Geist",
-    stack: '"Geist Variable", sans-serif',
-    weights: [100, 200, 300, 400, 500, 600, 700, 800, 900],
-    axis: [100, 900],
-    italic: false
-  },
-  { name: "Georgia", stack: "Georgia, serif", weights: [400, 700], italic: true },
-  { name: "Consolas", stack: "Consolas, monospace", weights: [400, 700], italic: true },
-  { name: "Trebuchet MS", stack: '"Trebuchet MS", sans-serif', weights: [400, 700], italic: true }
-]
-
-/**
- * More fonts, after the project's. The app lists Google Fonts here and adds the one chosen to the project; this
- * prototype lists fonts installed on Windows, so each draws in its own face without a download.
- */
-export const moreFonts: FontFamily[] = [
-  { name: "Segoe UI", stack: '"Segoe UI", sans-serif', weights: [300, 400, 600, 700], italic: true },
-  { name: "Arial", stack: "Arial, sans-serif", weights: [400, 700], italic: true },
-  { name: "Verdana", stack: "Verdana, sans-serif", weights: [400, 700], italic: true },
-  { name: "Palatino Linotype", stack: '"Palatino Linotype", serif', weights: [400, 700], italic: true },
-  { name: "Times New Roman", stack: '"Times New Roman", serif', weights: [400, 700], italic: true },
-  { name: "Courier New", stack: '"Courier New", monospace', weights: [400, 700], italic: true },
-  { name: "Impact", stack: "Impact, sans-serif", weights: [400], italic: false }
-]
-
-export const allFonts = [...projectFonts, ...moreFonts]
-
-/** A font by its first family's name, ignoring case and quotes. */
-export function findFont(name: string): FontFamily | undefined {
-  const bare = name.replaceAll(/["']/g, "").trim().toLowerCase()
-
-  return allFonts.find(
-    (font) => font.name.toLowerCase() === bare || (bare === "geist variable" && font.name === "Geist")
-  )
 }
 
 /** The families in a stack, as typed: `Inter, system-ui, sans-serif`. */
