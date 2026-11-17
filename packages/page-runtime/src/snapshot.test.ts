@@ -147,6 +147,36 @@ describe("takeSnapshot", () => {
     expect(sheetsById(sheets, ["never"])).toEqual([])
   })
 
+  it("lists a sheet it can't read by its address, with the media it's linked for", async () => {
+    const unreadable = (href: string, media: string) =>
+      Object.defineProperty({ href, disabled: false, media: { mediaText: media } }, "cssRules", {
+        get: () => {
+          throw new DOMException("Cross-origin", "SecurityError")
+        }
+      })
+
+    Object.defineProperty(document, "styleSheets", {
+      configurable: true,
+      value: [unreadable("https://cdn.test/print.css", "print"), unreadable("https://cdn.test/all.css", "all")]
+    })
+
+    try {
+      const { sheets } = await takeSnapshot(window, {
+        mode: plain,
+        viewport: desktop,
+        location: landed,
+        sheets: new Map()
+      })
+
+      expect(sheets).toEqual([
+        { href: "https://cdn.test/print.css", media: "print" },
+        { href: "https://cdn.test/all.css" }
+      ])
+    } finally {
+      Reflect.deleteProperty(document, "styleSheets")
+    }
+  })
+
   it("gives the same markup hash to the same tree, and a new one to a changed tree", async () => {
     document.body.innerHTML = "<p>One</p>"
     const once = await takeSnapshot(window, { mode: plain, viewport: desktop, location: landed, sheets: new Map() })

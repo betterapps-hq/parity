@@ -1,4 +1,5 @@
 import { maxSheetText } from "@parity-app/frames"
+import { absoluteCss } from "@parity-app/page-runtime"
 
 /*
  * Stylesheets on other hosts, for frozen copies (docs/proposals/route-frames.md, "Frozen copies"): a page can't read
@@ -12,7 +13,8 @@ const sheetDeadline = 5000
 
 /**
  * Another host's stylesheet as text, or nothing when it isn't one: only `https:` addresses, a CSS answer that succeeded,
- * within `maxSheetText`. It never fails.
+ * within `maxSheetText`. Its `url()`s are made absolute against the address it came from after any redirect, as the page
+ * runtime makes its readable sheets', since the sanitizer keeps no relative URL. It never fails.
  */
 export async function fetchPageSheet(
   href: string,
@@ -45,7 +47,7 @@ export async function fetchPageSheet(
 
     const text = await response.text()
 
-    return text.length > maxSheetText ? null : text
+    return text.length > maxSheetText ? null : absoluteCss(text, response.url || url.href)
   } catch {
     return null
   }

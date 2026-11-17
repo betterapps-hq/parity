@@ -149,7 +149,11 @@ const copyGlobals: CopyGlobals = { texts: new Map() }
 
 /** A sheet entry's id among `sheetTexts`. */
 function sheetId(entry: SheetEntry): string {
-  return "hash" in entry ? entry.hash : `href:${entry.href}`
+  if ("hash" in entry) {
+    return entry.hash
+  }
+
+  return entry.media ? `href:${entry.media}\n${entry.href}` : `href:${entry.href}`
 }
 
 /**
@@ -267,6 +271,7 @@ class Freezer {
 
   private async run(): Promise<void> {
     this.running = true
+    let failure: "gone" | "hung" | undefined
 
     try {
       for (let missing = this.missing(); missing.length > 0 && !this.disposed; missing = this.missing()) {
@@ -275,9 +280,14 @@ class Freezer {
         await this.freeze(url!, [...modes.values()])
       }
     } catch (error) {
-      this.failed(error instanceof Deadline ? "hung" : "gone")
+      failure = error instanceof Deadline ? "hung" : "gone"
     } finally {
       this.running = false
+    }
+
+    // Once it's stopped running, so the retry it schedules isn't turned away as running already.
+    if (failure) {
+      this.failed(failure)
     }
   }
 
@@ -501,7 +511,10 @@ async function getSheets(channel: Channel<ParityMethods, PageMethods>, entries: 
         Promise.resolve()
           .then(() => window.canvasHost.pages.sheet(entry.href))
           .catch(() => null)
-          .then((text) => sheetTexts.set(sheetId(entry), text ?? ""))
+          // A sheet linked for some media only, such as print, applies only there in the copy too.
+          .then((text) =>
+            sheetTexts.set(sheetId(entry), text && entry.media ? `@media ${entry.media} {\n${text}\n}` : (text ?? ""))
+          )
       ]
     })
   )

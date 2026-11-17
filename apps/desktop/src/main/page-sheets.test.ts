@@ -18,6 +18,19 @@ describe("fetchPageSheet", () => {
     expect(asked).toEqual(["https://fonts.test/css?family=Inter"])
   })
 
+  it("makes its url()s absolute against the address it came from, after a redirect", async () => {
+    const text = await fetchPageSheet("https://fonts.test/css", async () => {
+      const response = css("@font-face { src: url(../files/inter.woff2) } a { background: url(/bg.png) }")
+      Object.defineProperty(response, "url", { value: "https://cdn.fonts.test/v2/css/inter.css" })
+
+      return response
+    })
+
+    expect(text).toBe(
+      '@font-face { src: url("https://cdn.fonts.test/v2/files/inter.woff2") } a { background: url("https://cdn.fonts.test/bg.png") }'
+    )
+  })
+
   it("refuses anything but https, without asking", async () => {
     let asked = 0
     const fetch = async () => (asked++, css("a{}"))

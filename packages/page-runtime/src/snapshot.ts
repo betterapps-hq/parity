@@ -274,7 +274,7 @@ function pageSheets(document: Document, kept: Map<string, string>): SheetEntry[]
 
     if (read === undefined) {
       if (sheet.href) {
-        entries.push({ href: sheet.href })
+        entries.push(linked(sheet.href, sheet.media.mediaText))
       }
 
       continue
@@ -318,7 +318,7 @@ function sheetText(sheet: CSSStyleSheet, base: string, entries: SheetEntry[]): s
       const inner = imported ? sheetText(imported, importBase, entries) : undefined
 
       if (inner === undefined) {
-        entries.push({ href: importBase })
+        entries.push(linked(importBase, rule.media.mediaText))
         continue
       }
 
@@ -337,6 +337,11 @@ function sheetText(sheet: CSSStyleSheet, base: string, entries: SheetEntry[]): s
   }
 
   return parts.join("\n")
+}
+
+/** Another origin's sheet by its address, with the media it applies to when that isn't all. */
+function linked(href: string, media: string): SheetEntry {
+  return media && media !== "all" ? { href, media } : { href }
 }
 
 /** Whether a rule is an `@import`, read by its shape, since not every window names `CSSImportRule`. */
