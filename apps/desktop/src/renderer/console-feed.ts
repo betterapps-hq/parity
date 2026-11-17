@@ -10,7 +10,13 @@ import { workspace } from "./workspace.ts"
  */
 export function startConsole(host: ConsoleHost = window.canvasHost.console): void {
   captureConsole(host)
-  const sessions = (): FedProject[] => workspace.getTabs().flatMap((tab) => (tab.session ? [tab.session] : []))
+
+  const sessions = (): FedProject[] => {
+    const session = workspace.getProject()?.session
+
+    return session ? [session] : []
+  }
+
   const read = new Set<string>()
 
   const fill = () => {

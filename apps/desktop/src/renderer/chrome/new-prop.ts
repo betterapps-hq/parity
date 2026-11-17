@@ -6,7 +6,7 @@ import type { ProjectSession } from "../workspace.ts"
 /**
  * The prop being added in a component design's Props: its kind, chosen from Add, while its name is typed, and why the
  * last name was refused. It outlasts the panel drawing again, as it does when the canvas's hover changes, and goes when
- * its tab closes.
+ * its project closes.
  */
 interface NewProp {
   design: string
@@ -16,7 +16,7 @@ interface NewProp {
 
 type Session = Pick<ProjectSession, "untilClosed">
 
-/** An open project's prop being added, if any, dropped when its tab closes. */
+/** An open project's prop being added, if any, dropped when its project closes. */
 export const newPropOf = projectPart((_session: Session) => createStore<NewProp | undefined>(() => undefined))
 
 /** Starts adding a prop of `type`, or stops with `undefined`. */

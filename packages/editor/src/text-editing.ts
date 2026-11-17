@@ -221,7 +221,21 @@ export function spliceAt(before: string, after: string, caret?: number): TextSpl
     start++
   }
 
+  // A character written as two code units is changed whole: neither end of the change falls between its halves.
+  if (start > 0 && (isLowHalf(before[start]) || isLowHalf(after[start]))) {
+    start--
+  }
+
+  if (tail > 0 && (isLowHalf(before[before.length - tail]) || isLowHalf(after[after.length - tail]))) {
+    tail--
+  }
+
   return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) }
+}
+
+/** Whether a code unit is the second half of a character written as two. */
+function isLowHalf(unit: string | undefined): boolean {
+  return unit !== undefined && /[\uDC00-\uDFFF]/.test(unit)
 }
 
 /** A text with someone else's change taken in, and where the selection is in it. */

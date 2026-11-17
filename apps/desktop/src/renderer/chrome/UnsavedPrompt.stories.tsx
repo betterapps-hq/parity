@@ -1,23 +1,15 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import {
-  blankProjectAt,
-  clearNotifications,
-  frameDesigns,
-  holdToast,
-  openAlso,
-  openProjects,
-  sessionAt
-} from "../stories/fixtures.tsx"
+import { clearNotifications, frameDesigns, holdToast, openProject, sessionAt } from "../stories/fixtures.tsx"
 import { roots, service } from "../stories/host.ts"
 import { workspace } from "../workspace.ts"
-import { addNote, renameDesign, Window } from "./chrome-fixtures.tsx"
+import { renameDesign, Window } from "./chrome-fixtures.tsx"
 import { UnsavedPrompt } from "./UnsavedPrompt.tsx"
 
 /**
- * The question before changes would be lost: closing a tab, or quitting, with unsaved changes. Save is focused, so
- * Enter saves; Escape or clicking away cancels.
+ * The question before changes would be lost: closing the project, opening another in its place, or quitting, with
+ * unsaved changes. Save is focused, so Enter saves; Escape or clicking away cancels.
  */
 const meta = {
   title: "Parity/Chrome/Prompts/Unsaved changes",
@@ -35,73 +27,40 @@ const body = () => within(document.body)
 
 /** The example with a design renamed, unsaved. */
 const exampleEdited = async () => {
-  await openProjects("example")
+  await openProject("example")
   renameDesign("Pricing", "Pricing (annual)")
 }
 
-/** Closes the example's tab with its close button, which shows a dot while it has unsaved changes. */
-async function closeExampleTab(): Promise<void> {
-  await userEvent.click(await body().findByRole("button", { name: /^Close shadcn-vite, which has unsaved changes/ }))
+/** Closes the example from its menu in the title bar, whose name shows a dot while it has unsaved changes. */
+async function closeExample(): Promise<void> {
+  await userEvent.click(await body().findByRole("button", { name: "shadcn-vite, unsaved changes" }))
+  await userEvent.click(await body().findByRole("menuitem", { name: /Close project/ }))
   await body().findByRole("dialog")
 }
 
-/** Made-up projects, with no designs, for quitting with several unsaved. */
-const others = ["marketing-site", "admin-console", "design-system", "customer-onboarding-and-billing-portal"].map(
-  (name) => `D:/projects/${name}`
-)
-
-/** Closing a tab with unsaved changes. */
-export const ClosingATab: Story = {
+/** Closing the project with unsaved changes. */
+export const ClosingTheProject: Story = {
   loaders: [exampleEdited],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    await closeExampleTab()
+    await closeExample()
   }
 }
 
-/** Quitting with one project's changes unsaved, while another project is open with none. */
-export const QuittingWithOneUnsaved: Story = {
-  loaders: [
-    async () => {
-      await exampleEdited()
-      await openAlso(blankProjectAt(others[0]!))
-    }
-  ],
+/** Opening another project with unsaved changes: the question comes first, and the project stays if it's cancelled. */
+export const OpeningAnotherProject: Story = {
+  loaders: [exampleEdited],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    void workspace.confirmQuit()
+    void workspace.open(roots.empty)
     await body().findByRole("dialog")
+    await expect(sessionAt(roots.example).saver.hasUnsaved()).toBe(true)
   }
 }
 
-/** Quitting with three projects' changes unsaved: one question for all of them, and Save all. */
-export const QuittingWithSeveralUnsaved: Story = {
-  loaders: [
-    async () => {
-      await exampleEdited()
-      await openAlso(...others.slice(0, 2).map(blankProjectAt))
-
-      for (const root of others.slice(0, 2)) {
-        addNote(sessionAt(root).doc, "Check the spacing on mobile")
-      }
-    }
-  ],
-  play: async () => {
-    await frameDesigns("Pricing (annual)", "Dashboard")
-    void workspace.confirmQuit()
-    await body().findByRole("dialog")
-  }
-}
-
-/** Quitting with two projects' changes unsaved, one of them with a long name. */
-export const QuittingWithTwoUnsaved: Story = {
-  loaders: [
-    async () => {
-      await exampleEdited()
-      await openAlso(blankProjectAt(others[3]!))
-      addNote(sessionAt(others[3]!).doc, "Check the spacing on mobile")
-    }
-  ],
+/** Quitting with the project's changes unsaved. */
+export const Quitting: Story = {
+  loaders: [exampleEdited],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
     void workspace.confirmQuit()
@@ -110,8 +69,8 @@ export const QuittingWithTwoUnsaved: Story = {
 }
 
 /**
- * Choosing Save while closing a tab whose file can't be written: the question closes, the tab stays open with its
- * changes, and a notification says why.
+ * Choosing Save while closing a project whose file can't be written: the question closes, the project stays open with
+ * its changes, and a notification says why.
  */
 export const SavingFails: Story = {
   loaders: [
@@ -122,9 +81,9 @@ export const SavingFails: Story = {
   ],
   play: async () => {
     await frameDesigns("Pricing (annual)", "Dashboard")
-    await closeExampleTab()
+    await closeExample()
     await userEvent.click(body().getByRole("button", { name: "Save" }))
     await holdToast("Couldn't save the project")
-    await expect(workspace.getTab(roots.example)?.session?.saver.hasUnsaved()).toBe(true)
+    await expect(sessionAt(roots.example).saver.hasUnsaved()).toBe(true)
   }
 }

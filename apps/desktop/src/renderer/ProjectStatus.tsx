@@ -2,20 +2,20 @@ import { Button } from "@buildkitgg/shadcn"
 import { Check, Circle, LoaderCircle } from "lucide-react"
 import { ErrorPage } from "./chrome/ErrorPage.tsx"
 import { useLayout } from "./chrome/layout.ts"
-import { isPlaceholder, type Tab, workspace } from "./workspace.ts"
+import { isPlaceholder, type Project, workspace } from "./workspace.ts"
 
-/** The project's name and folder, once the service has said which project a tab is. */
-function projectOf(tab: Tab): { name?: string; folder?: string } {
-  return isPlaceholder(tab.id) ? {} : { name: tab.title, folder: tab.id }
+/** The project's name and folder, once the service has said which project it is. */
+function projectOf(project: Project): { name?: string; folder?: string } {
+  return isPlaceholder(project.id) ? {} : { name: project.title, folder: project.id }
 }
 
 /**
  * A project while it opens: the editor's outline, faint, with what opening does over it, each step ticked off as it's
  * done. The outline follows the panels as they'll open, so the project fills in around it.
  */
-export function OpeningProject({ tab }: { tab: Tab }) {
-  const { name, folder } = projectOf(tab)
-  const { steps, current } = tab.progress ?? { steps: ["Opening the project"], current: 0 }
+export function OpeningProject({ project }: { project: Project }) {
+  const { name, folder } = projectOf(project)
+  const { steps, current } = project.progress ?? { steps: ["Opening the project"], current: 0 }
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -130,8 +130,8 @@ function OutlineBoard({ className }: { className: string }) {
 }
 
 /** A project that couldn't open: why, in the service's words, and Close (PAR-1011). */
-export function ProjectFailed({ tab }: { tab: Tab }) {
-  const { name, folder } = projectOf(tab)
+export function ProjectFailed({ project }: { project: Project }) {
+  const { name, folder } = projectOf(project)
 
   return (
     <ErrorPage
@@ -152,8 +152,8 @@ export function ProjectFailed({ tab }: { tab: Tab }) {
           </p>
         )
       }
-      details={tab.message}
-      actions={<Button onClick={() => void workspace.close(tab.id)}>Close</Button>}
+      details={project.message}
+      actions={<Button onClick={() => void workspace.close(project.id)}>Close</Button>}
     />
   )
 }

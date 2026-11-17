@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect } from "react"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow, WindowBoundary } from "../App.tsx"
-import { openProjects } from "../stories/fixtures.tsx"
+import { openProject } from "../stories/fixtures.tsx"
 import { notify } from "../toasts.tsx"
 import { closeDialog, openDialog } from "./app-dialogs.ts"
 import { setBoundaryReporter, tripBoundary } from "./ErrorBoundary.tsx"
@@ -16,7 +16,7 @@ const parts = [
   "canvas",
   "console",
   "status-bar",
-  "tab-bar",
+  "title-bar",
   "settings",
   "about",
   "project",
@@ -71,7 +71,7 @@ const meta = {
   },
   loaders: [
     async ({ args }) => {
-      await openProjects("example")
+      await openProject("example")
       setLayout({
         console: args.part === "console",
         leftTab: args.part === "left.tokens" ? "tokens" : undefined
@@ -112,8 +112,8 @@ export const Console: Story = { args: { part: "console" } }
 /** The status bar failed: it says so in a line. */
 export const StatusBar: Story = { args: { part: "status-bar" } }
 
-/** The tab bar failed: it says so in a line, and the window can still be dragged by it. */
-export const TabBar: Story = { args: { part: "tab-bar" } }
+/** The title bar failed: it says so in a line, and the window can still be dragged by it. */
+export const TitleBar: Story = { args: { part: "title-bar" } }
 
 /** Settings failed: it says so in a dialog of its own, which can try again or close it. */
 export const Dialog: Story = { args: { part: "settings" } }

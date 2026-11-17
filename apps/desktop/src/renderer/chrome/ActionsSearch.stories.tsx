@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
-import { design, example, openProjects } from "../stories/fixtures.tsx"
+import { design, example, openProject } from "../stories/fixtures.tsx"
 import { actions } from "./actions.ts"
 import { ActionsSearch } from "./ActionsSearch.tsx"
 import { openDialog } from "./app-dialogs.ts"
@@ -52,7 +52,7 @@ export const Zoom: Story = {
 }
 
 /**
- * Searched for "new": New screen and New component, with their keys, in the Object group, then New tab in File. It
+ * Searched for "new": New screen and New component, with their keys, in the Object group. It
  * matches the start of words, so nothing with n, e and w scattered through its name comes up (PAR-546).
  */
 export const New: Story = {
@@ -62,8 +62,7 @@ export const New: Story = {
     await waitFor(() =>
       expect(options(dialog)).toEqual([
         `New screen${formatKeys("Ctrl Alt N")}`,
-        `New component${formatKeys("Ctrl Alt Shift N")}`,
-        `New tab${formatKeys("Ctrl T")}`
+        `New component${formatKeys("Ctrl Alt Shift N")}`
       ])
     )
   }
@@ -76,7 +75,7 @@ export const New: Story = {
 export const NamesWhatItDoes: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Sign in") })
       void actions.lock.run("menu")
     }

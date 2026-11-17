@@ -8,7 +8,10 @@ export type CommandSource = CommandAttributes["from"]
 export interface RunOptions {
   /** The key that ran it, for an action that acts on which of its keys was pressed. */
   event?: KeyboardEvent
-  /** The tab it acts on, for a panel or toolbar that belongs to one, such as the Tokens panel's Save; else the active tab. */
+  /**
+   * The session it acts on, for a panel or toolbar that belongs to one, such as the Tokens panel's Save; else the open
+   * project's.
+   */
   session?: ProjectSession
   /**
    * Runs this in the action's place, for the action bound to where it was asked for, such as New screen where the
@@ -32,9 +35,9 @@ export interface SelectedCount {
   designs: number
 }
 
-/** What recording an action asks of the tab it acts on. */
+/** What recording an action asks of the session it acts on. */
 export interface Recording<Id extends string> {
-  /** The tab an action acts on when it isn't given one. */
+  /** The session an action acts on when it isn't given one. */
   session(): ProjectSession | undefined
   /** Whether the action applies in `session` now. */
   enabled(id: Id, session: ProjectSession | undefined): boolean

@@ -1,7 +1,7 @@
 import { layersSelection, type Selection } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
-import { clearNotifications, design, example, node, openProjects } from "../stories/fixtures.tsx"
+import { clearNotifications, design, example, node, openProject } from "../stories/fixtures.tsx"
 import { AppMenu } from "./AppMenu.tsx"
 import { exampleOpen, Window } from "./chrome-fixtures.tsx"
 
@@ -58,7 +58,7 @@ export function opened(
 /** Readies the example with `selection` made, after `before`, which can change the project first. */
 export function selecting(selection: () => Selection, before?: () => void): () => Promise<void> {
   return async () => {
-    await openProjects("example")
+    await openProject("example")
     before?.()
     example().selection.set(selection())
   }

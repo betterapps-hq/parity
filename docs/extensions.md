@@ -199,7 +199,8 @@ which kind it is:
 - **`tabs`:** a tab in the left, right or bottom panel (`area`), after Parity's own, with its title and icon.
 - **`sections`:** a section in the Design tab, for a node type (`nodeType`), where its `when` holds for what's selected.
   For now a section shows for a component's board, as `nodeType: "component"`; other node types come with `nodeTypes`.
-- **`pages`:** a page in a tab at the top, after its project's tab, such as a setup guide. It closes with the project.
+- **`pages`:** a page shown in its project's place, under the title bar, such as a setup guide, with a button that
+  closes it and shows the project again. It closes with the project.
 
 The code fills one with `parity.views.table`, `tree`, `list`, `keyValue` or `form`, given the id of one whose `view` is
 that kind ([views.ts](../packages/extension-host/src/views.ts)). A view holds items, or a form's fields, and options:
@@ -383,9 +384,9 @@ are to become internal extensions. None of the built-in extensions is one yet.
   `HalfUnavailableError`, rather than waiting. Window modules in one tab call each other directly, with any values.
 - **Containment.** Every call core makes into a window module (listeners, its commands, calls from its Node half) is
   wrapped: a failure is logged against the extension, sent to Sentry tagged `extension`, `extension_half` and `tab`, and
-  counted. After five in a tab, the module is stopped there with "Multiplayer stopped working in this tab", and stays
-  stopped until the project is opened again. A module that can't load or activate is left off the same way. A Node half
-  that crashes three times in a row is left stopped, as any host is, and its window module is deactivated.
+  counted. After five, the module is stopped in the project with "Multiplayer stopped working in this project", and
+  stays stopped until the project is opened again. A module that can't load or activate is left off the same way. A Node
+  half that crashes three times in a row is left stopped, as any host is, and its window module is deactivated.
   [docs/telemetry.md](telemetry.md#extensions) lists the lifecycle events.
 
 The runtime, [`window-modules.ts`](../packages/extension-host/src/window-modules.ts), takes the window's loader, the
@@ -498,13 +499,13 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
   ready, its Node half's state heard while it activates, a module without a Node half, a Node half stopping for good,
   calls from the Node half, a missing capability, a window module it builds on coming and going, and gone before its
   slow teardown rather than after it's back, settings, a project setting's change kept under the prefix as the Node
-  half's are, the tab closing, failing to activate, a module turned off while it activates torn down at once, and an
-  activation that's been overtaken, finishing or throwing, without undoing the one after it. With its Node half in the
-  real host code over in-memory ports: the Node half started only with its window module, the Node half told the window
-  module's state while it activates, each half calling the other, a command the window module registered run by its
-  module, the service and an agent, the agent's call carried through to the Node half and back from it through the
-  window module, two agents' overlapping calls each kept apart, a command run from inside an agent's window command
-  without waiting behind it, and three crashes deactivating the window module.
+  half's are and refused when its schema doesn't allow it, the tab closing, failing to activate, a module turned off
+  while it activates torn down at once, and an activation that's been overtaken, finishing or throwing, without undoing
+  the one after it. With its Node half in the real host code over in-memory ports: the Node half started only with its
+  window module, the Node half told the window module's state while it activates, each half calling the other, a command
+  the window module registered run by its module, the service and an agent, the agent's call carried through to the Node
+  half and back from it through the window module, two agents' overlapping calls each kept apart, a command run from
+  inside an agent's window command without waiting behind it, and three crashes deactivating the window module.
 - [window-canvas.test.ts](../packages/extension-host/src/window-canvas.test.ts) (PAR-1257): a second test-only internal
   extension ([fixtures/window-surface-test.ts](../packages/extension-host/src/fixtures/window-surface-test.ts)), with
   only a window module, drawing a page layer and an edge layer and taking them away as it stops, a layer's id unique in

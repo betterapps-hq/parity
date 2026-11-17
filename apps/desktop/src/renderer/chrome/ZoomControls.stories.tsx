@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { clearNotifications, design, example, frameDesigns, openProjects, tooltip } from "../stories/fixtures.tsx"
+import { clearNotifications, design, example, frameDesigns, openProject, tooltip } from "../stories/fixtures.tsx"
 import { Window } from "./chrome-fixtures.tsx"
 import { ZoomControls } from "./ZoomControls.tsx"
 
@@ -25,7 +25,7 @@ const body = () => within(document.body)
 
 /** Zoomed out to fit every design: the zoom level is small and the designs tiny. */
 export const ZoomedToFit: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await frameDesigns("Pricing")
     const editor = example().editor!
@@ -39,7 +39,7 @@ export const ZoomedToFit: Story = {
 export const ActualSize: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Sign in") })
     }
   ],
@@ -56,7 +56,7 @@ export const ActualSize: Story = {
 
 /** A project with no designs or notes: zooming works, but Zoom to fit has nothing to fit, so it's unavailable (PAR-971). */
 export const NothingToFit: Story = {
-  loaders: [() => openProjects("designless")],
+  loaders: [() => openProject("designless")],
   play: async () => {
     await waitFor(() => expect(body().getByRole("button", { name: /^Zoom in/ })).toBeEnabled())
     await expect(body().getByRole("button", { name: /^Zoom to fit/ })).toBeDisabled()

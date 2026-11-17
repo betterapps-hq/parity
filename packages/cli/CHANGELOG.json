@@ -2,6 +2,50 @@
   "name": "@parity-app/cli",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 03:18:25 GMT",
+      "version": "0.76.1",
+      "tag": "@parity-app/cli_v0.76.1",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "339168dcf21979735814bd37bdaf619712b7aba2",
+            "comment": "Typing next to an emoji in a shared text no longer splits it in two."
+          }
+        ]
+      }
+    },
+    {
+      "date": "Tue, 17 Nov 2026 03:03:00 GMT",
+      "version": "0.76.0",
+      "tag": "@parity-app/cli_v0.76.0",
+      "comments": {
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "d03e74a1eca7a0e00497db51ce7608808a90f7aa",
+            "comment": "Know the extension lifecycle events Parity records, so their names check"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "912f388b3650cb5d20e75769b8f218c376cd54e1",
+            "comment": "Two people typing in the same text at once keep every letter: each key is written as it's typed, as the change at the caret, and Undo keeps what others typed since."
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/cli",
+            "commit": "34415c2cd130b325556e7cd7ad979fce349d2379",
+            "comment": "Hold one project per window, with Home when none is open: the title bar shows the open project's name and its menu, in place of project tabs"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 02:18:16 GMT",
       "version": "0.75.0",
       "tag": "@parity-app/cli_v0.75.0",

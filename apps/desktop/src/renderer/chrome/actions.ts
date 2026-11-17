@@ -33,7 +33,7 @@ import { serviceCall } from "../service-call.ts"
 import { request } from "../service.ts"
 import { lines, notify } from "../toasts.tsx"
 import { spacingUnit } from "../tokens-store.ts"
-import { homeTab, type ProjectDesigns, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
+import { type ProjectDesigns, type ProjectSession, saveFailureToast, workspace } from "../workspace.ts"
 import { openDialog } from "./app-dialogs.ts"
 import {
   align,
@@ -108,7 +108,8 @@ function contextOf(
       redoLabel: history?.redo[0]
     },
     repeat: last && { label: last.label, enabled: last.available?.() !== false },
-    references: !!referenceLibrary
+    references: !!referenceLibrary,
+    held: !!workspace.getProject()
   }
 }
 
@@ -293,21 +294,9 @@ async function copySelectedAsPng(
   }
 }
 
-/** Opens a new tab, which shows the start page until a project opens in it. */
-function openNewTab(): void {
-  workspace.newTab()
-}
-
-/** Shows Home, the start page pinned first in the tab strip. */
-function goHome(): void {
-  workspace.activate(homeTab)
-}
-
-/** Closes the active tab once its last edits are saved. */
-function closeTab(id = workspace.getActiveId()): void {
-  if (id) {
-    void workspace.close(id)
-  }
+/** Closes the project, asking whether to save it first, which leaves the window on Home. */
+function closeProject(): void {
+  void workspace.close()
 }
 
 function undo(session: DocSession | undefined): void {
@@ -563,17 +552,6 @@ function toggleLayoutGrid(): void {
 /** Opens a side panel on one of its tabs, as Figma's Alt+1 opens Layers and Alt+2 Assets. */
 function showPanelTab(tab: "layers" | "components"): void {
   setLayout({ left: true, leftTab: tab })
-}
-
-/** Moves to the next or previous tab, with Home first, going round. */
-function switchTab(step: 1 | -1): void {
-  const ids = [homeTab, ...workspace.getTabs().map((tab) => tab.id)]
-  const index = workspace.isHomeActive() ? 0 : ids.indexOf(workspace.getActiveId()!)
-  const next = ids[(index + step + ids.length) % ids.length]
-
-  if (ids.length > 1) {
-    workspace.activate(next)
-  }
 }
 
 function toggleDeveloperTools(): void {
@@ -890,17 +868,13 @@ const definitions: Record<Command, Action> = {
   showLayers: { run: () => showPanelTab("layers") },
   showComponents: { run: () => showPanelTab("components") },
   layoutGrid: { run: () => toggleLayoutGrid() },
-  home: { run: () => goHome(), scope: "app" },
-  nextTab: { run: () => switchTab(1), scope: "app" },
-  previousTab: { run: () => switchTab(-1), scope: "app" },
 
-  newTab: { run: () => openNewTab(), scope: "app" },
   openFolder: { run: () => openProjectFolder(), scope: "app" },
   openFile: { run: () => openProjectFile(), scope: "app" },
   save: { run: save, scope: "app" },
   saveCopy: { run: saveCopy, scope: "app" },
   exportSelection: { run: exportSelected, scope: "app" },
-  closeTab: { run: () => closeTab(), scope: "app" },
+  closeTab: { run: () => closeProject(), scope: "app" },
   // Main's own Settings view in the app (PAR-1090), or the page's in Storybook.
   settings: { run: () => openSettings(), scope: "app" },
 
