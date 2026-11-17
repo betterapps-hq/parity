@@ -8602,32 +8602,33 @@ read refused; the height told in the mode's window, rounded up, and not once the
 without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
 app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
 `route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
-second), `packages/page-runtime/src/snapshot.test.ts` (12, PAR-1262: the body's tree as plain data without scripts or
+second), `packages/page-runtime/src/snapshot.test.ts` (13, PAR-1262: the body's tree as plain data without scripts or
 styles; every URL made absolute; svg's namespace and case; a form's state as attributes, never a password; `<html>`
-without the mode or the runtime's style; sheets by content hash for `sheets.get`, and one it can't read by address with
-its media; the same markup hash for the same tree; `url()`s made absolute; a snapshot and its sheets over the channel; a
-wait or too many ids refused; the snapshot's deadline), `packages/frames/src/freezer.test.ts` (5: nearest route first,
-each once; nothing with no boards; restarting after 1 s and 5 s, stopping after three failures in two minutes, and
-forgetting older ones), `element-layers.test.ts` ("gives a copy's elements their path from the body as ids"),
-`route-boards.test.ts` ("puts what the copy drew inside the innermost route"),
-`apps/desktop/src/main/page-sheets.test.ts` (5: its `@import`s inlined in their layer and media; another host's sheet
-over https, its `url()`s absolute against where it came from; anything else refused unasked; nothing for a failed
-answer, one that isn't CSS, or a request that fails), `packages/extension-tanstack-router/src/page.test.ts` (6: the
-router found on the page's window or not; where it resolved, with search and hash; its not-found route and an error; a
-navigation resolved once the router has resolved, not when it's first idle; one given up when aborted; the watcher told
-until it stops), `packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in
-a shadow root, as Next's overlay's, with real React; giving up when aborted; the document and an element in the page as
-roots; only `#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts`
-("runs the page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrigin`), `guest-app.test.ts`
-("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules")
-and `built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation
-in the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page
-frames, the freezer, building and selecting copies, drawing the lines, groups, landing warning and the titles' backdrop,
-Layers' route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the
-example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each
-page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines
-forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes
-and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
+without the mode or the runtime's style; sheets by content hash for `sheets.get`, one it can't read by address with its
+media, and an unreadable import where it stands inside every condition around it; the same markup hash for the same
+tree; `url()`s made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's
+deadline), `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting
+after 1 s and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts`
+("gives a copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the
+innermost route"), `apps/desktop/src/main/page-sheets.test.ts` (5: its `@import`s inlined in their layer and media;
+another host's sheet over https, its `url()`s absolute against where it came from; anything else refused unasked;
+nothing for a failed answer, one that isn't CSS, or a request that fails),
+`packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
+resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
+not when it's first idle; one given up when aborted; the watcher told until it stops),
+`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
+Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
+`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
+page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the
+page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules") and
+`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
+the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
+the freezer, building and selecting copies, drawing the lines, groups, landing warning and the titles' backdrop, Layers'
+route tree, and the bundling have no test of their own; all were tried in the app. The lines were checked on the example
+at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting its page's top edge. Each page frame
+was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was
+checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings'
+redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 
