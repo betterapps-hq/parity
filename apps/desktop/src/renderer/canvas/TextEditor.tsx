@@ -9,13 +9,25 @@ import {
 import { updateContainer } from "@parity-app/multiplayer"
 import { type CSSProperties, useEffect, useRef, useState } from "react"
 import type { Attributes } from "../chrome/event-attributes.ts"
+import type { Typing } from "../live-room.ts"
 import { libraryOf } from "../project-doc.ts"
 import { track } from "../report-error.ts"
 import { useProject } from "./context.ts"
 import { type AreaSpace, areaSpace, type ElementGeometry, frameGeometry } from "./frame-geometry.ts"
 import { nodeInFrames, type Point, selectionFrame } from "./hit.ts"
-import { kindColors } from "./kinds.tsx"
+import { LiveText } from "./live-text.ts"
 import { scheduleOverlay } from "./overlay-scheduler.ts"
+import { drawnText, textNodes } from "./text-caret.ts"
+
+/** How far letters can reach past their line, above and below, in the text's own size. */
+const glyphRoom = "0.3em"
+
+/** For each side of the editor's box that stays put, how far along the box it is and how far back the editor moves. */
+const anchors = {
+  left: { along: 0, translate: "0" },
+  center: { along: 0.5, translate: "-50%" },
+  right: { along: 1, translate: "-100%" }
+} as const
 
 /** What closed the editor: Enter, Escape, or clicking away. */
 type TextEditEnd = "enter" | "escape" | "blur"
@@ -23,16 +35,22 @@ type TextEditEnd = "enter" | "escape" | "blur"
 /** Where the editor draws, in the canvas area's pixels, and how its text looks there. */
 interface EditorLayout {
   box: { x: number; y: number; w: number; h: number }
-  /** Whether it grows along its line, as auto width text and text that doesn't wrap do, or wraps at its width. */
+  /**
+   * Whether it grows along its line, as auto width text, text that doesn't wrap and text hugging its line in a wider
+   * layout do, or wraps at its width.
+   */
   grows: boolean
+  /** Which side of its box stays put as it grows: where the text sits in what holds it, so both grow alike. */
+  anchor: "left" | "center" | "right"
   style: CSSProperties
 }
 
 /**
- * Edits a text layer in place, over the rendered text, then writes it to the state it was picked in. It opens with the
- * double-clicked word selected, or the whole text; follows the text with the canvas's other overlays, so it moves and
- * scales with the camera; and wraps where the text wraps, at its own width. Escape and Enter keep the edit, as clicking
- * away does, except while an input method is composing, which uses those keys itself.
+ * Edits a text layer in place, over the rendered text, writing it to the state it was picked in as it's typed (see
+ * `LiveText`), so others in a live room see it. It opens with the double-clicked word selected, or the whole text;
+ * follows the text with the canvas's other overlays, so it moves and scales with the camera; and wraps where the text
+ * wraps, at its own width. Escape and Enter close it, keeping the edit, as clicking away does, except while an input
+ * method is composing, which uses those keys itself.
  */
 export function TextEditor() {
   const session = useProject()
@@ -44,6 +62,8 @@ export function TextEditor() {
   const opened = useRef<{ text: string; range: TextRange }>(undefined)
   const composing = useRef(false)
   const done = useRef(false)
+  /** Writes what's typed as it's typed, and takes in others' changes to the text. */
+  const live = useRef<LiveText>(undefined)
   const [openedAt] = useState(() => performance.now())
 
   /** Records how the edit ended, as `text.edited` (PAR-640). */
@@ -110,6 +130,51 @@ export function TextEditor() {
     const offset = editing.at && drawnText(found.element) === text ? offsetAt(found.element, editing.at) : undefined
     opened.current = { text, range: openingSelection(text, offset) }
     textarea.value = text
+    // The text a frame named after its text was named for, which it follows (see `textFrameRenamed`).
+    let namedFor = text
+
+    const writer = new LiveText(text, {
+      doc,
+      read: () => {
+        const now = doc.design(editing.design)
+
+        return now && textToEdit(now, editing.state, editing.node, libraryOf(session, editing.design))?.text
+      },
+      write: (typed, gesture) =>
+        updateContainer(
+          doc,
+          editing.design,
+          "Edit text",
+          (container) => {
+            const edited = withEditedText(
+              container,
+              editing.state,
+              editing.node,
+              typed,
+              libraryOf(session, editing.design)
+            )
+
+            const renamed = textFrameRenamed(edited, editing.node, namedFor, typed)
+
+            if (renamed !== edited) {
+              namedFor = typed
+            }
+
+            return renamed
+          },
+          { gesture }
+        )
+    })
+
+    live.current = writer
+
+    // Someone else changed the text, as in a live room: it's taken in, and the caret stays where it was among the
+    // characters. Not while an input method is composing, which owns the text until it's done.
+    const unsubscribe = doc.subscribe(() => {
+      if (!composing.current) {
+        takeIn(textarea, writer)
+      }
+    })
 
     // The text itself is hidden while the editor draws it, and measured whenever the canvas area's overlays are
     // (PAR-986, see `overlay-scheduler.ts`): in the frame the camera moves, and after anything that can move the text,
@@ -138,10 +203,36 @@ export function TextEditor() {
     })
 
     return () => {
+      unsubscribe()
       stop()
       hidden.restore()
+      // Closed some other way than `commit`, as when the layer goes: what's typed is kept.
+      writer.close()
+      session.room?.setTyping(undefined)
     }
   }, [editing, selection, doc, session])
+
+  // Where this person is typing, for the others in a live room to draw in their color (see `RoomTyping`).
+  const tellRoom = () => {
+    const textarea = ref.current
+
+    if (textarea && !done.current) {
+      const forward = textarea.selectionDirection !== "backward"
+
+      const typing: Typing = {
+        design: editing.design,
+        node: editing.node,
+        anchor: forward ? textarea.selectionStart : textarea.selectionEnd,
+        focus: forward ? textarea.selectionEnd : textarea.selectionStart
+      }
+
+      if (editing.state !== undefined) {
+        typing.state = editing.state
+      }
+
+      session.room?.setTyping(typing)
+    }
+  }
 
   const shown = layout !== undefined
   useEffect(() => {
@@ -154,6 +245,8 @@ export function TextEditor() {
 
     textarea.focus({ preventScroll: true })
     textarea.setSelectionRange(range.start, range.end)
+    tellRoom()
+    // oxlint-disable-next-line react-hooks/exhaustive-deps -- Once it shows; `tellRoom` reads the textarea as it is.
   }, [shown])
 
   const commit = (how: TextEditEnd) => {
@@ -163,28 +256,18 @@ export function TextEditor() {
 
     done.current = true
     const text = ref.current?.value ?? ""
+    // What's typed and not yet written is written, to the state it was read from by the same rule (see `textToEdit`),
+    // and the last pause's step ends.
+    live.current?.close(text)
+    session.room?.setTyping(undefined)
     selection.setEditing(undefined)
     const original = opened.current?.text
 
-    // Written to the state it was read from, by the same rule (see `textToEdit`).
     if (original === undefined || !doc.design(editing.design)) {
       return record("cancelled", how, text.length)
     }
 
-    if (text === original) {
-      return record("unchanged", how, text.length)
-    }
-
-    record("committed", how, text.length)
-    // A text frame named after its text follows it (see `textFrameRenamed`), in the same step.
-    updateContainer(doc, editing.design, "Edit text", (container) =>
-      textFrameRenamed(
-        withEditedText(container, editing.state, editing.node, text, libraryOf(session, editing.design)),
-        editing.node,
-        original,
-        text
-      )
-    )
+    record(text === original ? "unchanged" : "committed", how, text.length)
   }
 
   return (
@@ -193,26 +276,44 @@ export function TextEditor() {
       aria-label="Edit text"
       rows={1}
       spellCheck={false}
-      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-hidden border-0 bg-transparent p-0 outline-2 outline-offset-2 field-sizing-content"
+      className="text-editor pointer-events-auto absolute m-0 resize-none overflow-clip border-0 bg-transparent p-0 outline-none field-sizing-content"
       style={
         layout
           ? {
               ...layout.style,
-              left: layout.box.x,
+              left: layout.box.x + layout.box.w * anchors[layout.anchor].along,
+              translate: anchors[layout.anchor].translate,
               top: layout.box.y,
-              ...(layout.grows ? { minWidth: layout.box.w } : { width: layout.box.w }),
-              minHeight: layout.box.h,
-              outlineColor: kindColors.text,
-              outlineStyle: "solid"
+              // Letters taller than their line, as a heading set solid has, drawn past the box rather than cut off.
+              overflowClipMargin: glyphRoom,
+              // Growing, it's as wide as its longest line up to its maximum, however near the canvas's edge it starts.
+              ...(layout.grows ? { minWidth: layout.box.w, width: "max-content" } : { width: layout.box.w }),
+              minHeight: layout.box.h
             }
           : { display: "none" }
       }
       onBlur={() => commit("blur")}
+      // A caret moved by a key or a click, as well as a selection made, since `select` fires only for the latter.
+      onSelect={tellRoom}
+      onKeyUp={tellRoom}
+      onMouseUp={tellRoom}
+      onInput={(event) => {
+        if (!composing.current) {
+          live.current?.input(event.currentTarget.value)
+          tellRoom()
+        }
+      }}
       onCompositionStart={() => {
         composing.current = true
       }}
-      onCompositionEnd={() => {
+      onCompositionEnd={(event) => {
         composing.current = false
+        const writer = live.current
+
+        if (writer) {
+          writer.input(event.currentTarget.value)
+          takeIn(event.currentTarget, writer)
+        }
       }}
       onKeyDown={(event) => {
         event.stopPropagation()
@@ -229,6 +330,17 @@ export function TextEditor() {
       }}
     />
   )
+}
+
+/** Takes the document's text into the editor if someone else changed it, keeping the caret among its characters. */
+function takeIn(textarea: HTMLTextAreaElement, writer: LiveText): void {
+  const { selectionStart, selectionEnd, selectionDirection } = textarea
+  const rebased = writer.received(textarea.value, { start: selectionStart, end: selectionEnd })
+
+  if (rebased && rebased.text !== textarea.value) {
+    textarea.value = rebased.text
+    textarea.setSelectionRange(rebased.selection.start, rebased.selection.end, selectionDirection)
+  }
 }
 
 /** Whether text in an element stays on one line, as a button's label usually does. */
@@ -267,6 +379,9 @@ function editorLayout(
   const computed = getComputedStyle(element)
   // The element's own scale: the camera's, the frame's and any transform the design gives it together.
   const { scale, border, padding } = drawn
+  // Text whose box hugs its line in a wider layout, as a heading centred in a column does, grows as it's typed, as the
+  // frame will draw it once it's written, rather than wrapping at the width it had.
+  const hug = grows ? undefined : hugging(element, drawn)
   const text = space.box(grows ? (textBounds(element) ?? drawn.contentBox) : drawn.contentBox)
   const scaled = (value: string) => (value === "normal" ? "normal" : `${parseFloat(value) * scale}px`)
 
@@ -304,22 +419,67 @@ function editorLayout(
     style.maxWidth = parseFloat(computed.maxWidth) * scale - (borderBox ? sides : 0)
   }
 
+  if (hug) {
+    style.maxWidth = hug.room
+
+    return { box: text, grows: true, anchor: hug.anchor, style }
+  }
+
   return {
     box: { ...text, w: Math.max(text.w, grows ? 24 : 0) },
     grows,
+    anchor: "left",
     style
   }
 }
 
-/** The text an element draws, from its text nodes in order. */
-function drawnText(element: Element): string {
-  let text = ""
+/**
+ * Whether an element's box hugs its text in a wider parent, and if so how wide its text can grow, in screen pixels, and
+ * which side of it stays put: the middle when it's centred in its parent, the right when it's at its right.
+ */
+function hugging(
+  element: HTMLElement,
+  drawn: ElementGeometry
+): { room: number; anchor: EditorLayout["anchor"] } | undefined {
+  const parent = element.parentElement
 
-  for (const node of textNodes(element)) {
-    text += node.data
+  if (!parent) {
+    return undefined
   }
 
-  return text
+  const { scale } = drawn
+  const own = element.getBoundingClientRect()
+  const width = drawn.contentBox.right - drawn.contentBox.left
+  const outer = getComputedStyle(parent)
+  const inner = getComputedStyle(element)
+  const side = (style: CSSStyleDeclaration, name: string) => (parseFloat(style.getPropertyValue(name)) || 0) * scale
+  const left = parent.getBoundingClientRect().left + side(outer, "border-left-width") + side(outer, "padding-left")
+  const right = parent.getBoundingClientRect().right - side(outer, "border-right-width") - side(outer, "padding-right")
+  // What around the text isn't text: its own padding, border and margins.
+  const around = own.width - width + side(inner, "margin-left") + side(inner, "margin-right")
+  const maxWidth = inner.maxWidth.endsWith("px") ? parseFloat(inner.maxWidth) * scale : Infinity
+  const borderBox = inner.boxSizing === "border-box"
+  const sides = own.width - width
+  const room = Math.min(right - left - around, borderBox ? maxWidth - sides : maxWidth)
+  // Only a single line its box fits tightly: wrapped text, or text in a box set wider, keeps its width.
+  const text = textBounds(element)
+  const lineHeight = inner.lineHeight === "normal" ? parseFloat(inner.fontSize) * 1.2 : parseFloat(inner.lineHeight)
+  const oneLine = text !== undefined && text.height < lineHeight * scale * 1.5
+  const tight = text !== undefined && Math.abs(text.width - width) < 1
+
+  if (!oneLine || !tight || room - width < 1) {
+    return undefined
+  }
+
+  let anchor: EditorLayout["anchor"] = "left"
+
+  if (Math.abs((own.left + own.right) / 2 - (left + right) / 2) < 1) {
+    anchor = "center"
+  } else if (Math.abs(own.right + side(inner, "margin-right") - right) < 1) {
+    anchor = "right"
+  }
+
+  return { room, anchor }
 }
 
 /** The box around the characters an element draws, leaving out icons beside them. */
@@ -369,17 +529,4 @@ function offsetAt(element: Element, point: Point): number | undefined {
   }
 
   return undefined
-}
-
-function textNodes(element: Element): Text[] {
-  const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
-  const nodes: Text[] = []
-
-  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-    if (node instanceof Text) {
-      nodes.push(node)
-    }
-  }
-
-  return nodes
 }

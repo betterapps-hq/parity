@@ -192,3 +192,85 @@ export function withTextSizing(
 function steps(measured: number | undefined): Size | undefined {
   return measured === undefined ? undefined : { step: measured }
 }
+
+/** One change to a text: the characters from `start` to `end` replaced by `insert`. */
+interface TextSplice {
+  start: number
+  end: number
+  insert: string
+}
+
+/** The one change that turns `before` into `after`, around what they start and end with in common. */
+function spliceBetween(before: string, after: string): TextSplice {
+  const most = Math.min(before.length, after.length)
+  let start = 0
+
+  while (start < most && before[start] === after[start]) {
+    start++
+  }
+
+  let tail = 0
+
+  while (tail < most - start && before[before.length - 1 - tail] === after[after.length - 1 - tail]) {
+    tail++
+  }
+
+  return { start, end: before.length - tail, insert: after.slice(start, after.length - tail) }
+}
+
+/** A text with someone else's change taken in, and where the selection is in it. */
+export interface RebasedText {
+  text: string
+  selection: TextRange
+}
+
+/**
+ * Someone else's change to a text being typed, taken in (docs/proposals/extensions-in-the-window.md, Live text). `base`
+ * is the text both started from, `local` what's typed since, and `remote` the text with the other change. Both changes
+ * are kept, the typing placed where it was among the other's, and the selection moves with the characters around it,
+ * so the caret stays where the person is typing. Where the two change the same characters, what either removed goes
+ * and the typing follows what the other wrote.
+ */
+export function rebaseText(base: string, local: string, remote: string, selection: TextRange): RebasedText {
+  const mine = spliceBetween(base, local)
+  const theirs = spliceBetween(base, remote)
+  const typedEnd = mine.start + mine.insert.length
+  const overlap = mine.start < theirs.end && theirs.start < mine.end
+  // The characters of `base` the two changes replace between them, and where what replaces them starts in the result.
+  const from = overlap ? Math.min(mine.start, theirs.start) : mine.start
+  const to = overlap ? Math.max(mine.end, theirs.end) : mine.end
+
+  // Where a place in `base` outside the changes is in the result. Inside what the other replaced, it's the end of what
+  // they wrote.
+  const moved = (at: number) => {
+    if (at <= theirs.start) {
+      return at
+    }
+
+    return at >= theirs.end
+      ? at + theirs.insert.length - (theirs.end - theirs.start)
+      : theirs.start + theirs.insert.length
+  }
+
+  const start = overlap ? from + theirs.insert.length : moved(from)
+  const after = start + mine.insert.length
+
+  // Where a place in `local` is in the result: before the typing, in it, or after it.
+  const place = (at: number) => {
+    if (at <= mine.start) {
+      return Math.min(moved(at), start)
+    }
+
+    if (at <= typedEnd) {
+      return start + at - mine.start
+    }
+
+    return Math.max(moved(at - typedEnd + mine.end), moved(to)) - moved(to) + after
+  }
+
+  return {
+    text:
+      (overlap ? base.slice(0, from) + theirs.insert : remote.slice(0, start)) + mine.insert + remote.slice(moved(to)),
+    selection: { start: place(selection.start), end: place(selection.end) }
+  }
+}
