@@ -18,7 +18,7 @@ describe("tokenPreviewCss (PAR-1264)", () => {
   it("declares a default value on a copy's roots without the class of a theme the token has its own value in", () => {
     expect(tokenPreviewCss(tokens, themes, "copy")).toBe(
       [
-        ":host(:not(.dark)), [data-copy-root]:not(.dark), [data-canvas-body]:not(.dark) { --primary: #ff0000; }",
+        ":host(:not(.dark)), [data-copy-root]:not(.dark), [data-copy-root]:not(.dark) [data-canvas-body]:not(.dark) { --primary: #ff0000; }",
         ":host(.dark), [data-copy-root].dark, [data-canvas-body].dark { --primary: #880000; }",
         ":host, [data-copy-root], [data-canvas-body] { --radius: 1rem; }"
       ].join("\n")

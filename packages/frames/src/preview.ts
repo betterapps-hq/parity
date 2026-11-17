@@ -70,7 +70,9 @@ export function tokenPreviewCss(
 
     return scope === "page"
       ? `:root${others}`
-      : `:host${on.length > 0 ? `(${others})` : ""}, [data-copy-root]${others}, [data-canvas-body]${others}`
+      : // The body stand-in is in the element around it, which carries the page root's classes, so a theme the page
+        // turned on there is left out on the body too, where it inherits that theme's value.
+        `:host${on.length > 0 ? `(${others})` : ""}, [data-copy-root]${others}, ${on.length > 0 ? `[data-copy-root]${others} ` : ""}[data-canvas-body]${others}`
   }
 
   const themeSelector = (theme: string) =>
