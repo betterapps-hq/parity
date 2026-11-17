@@ -169,7 +169,9 @@ export const serviceParams = {
         z.object({ type: z.literal("process"), id: z.string() }),
         z.object({ type: z.literal("item"), view: z.string(), key: z.string() })
       ])
-      .optional()
+      .optional(),
+    /** The agent's call a window command that ran it is running on, which it goes on with. */
+    call: z.number().int().optional()
   }),
   "extensions.viewOpened": project.extend({ view: z.string() }),
   "extensions.viewChanged": project.extend({

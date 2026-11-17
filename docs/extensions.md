@@ -322,7 +322,8 @@ are to become internal extensions. None of the built-in extensions is one yet.
   never starts an internal extension's Node half by itself: it starts as the window module activates.
 - **Its commands.** A command a window module registers runs in its tab wherever it's run from: Search, another module's
   `commands.execute`, a Node half, or an agent through `run_extension`. The service asks the tab first, then the Node
-  half. During an agent's run, what the module asks of its Node half counts as the agent's.
+  half. During an agent's run, what the module asks of its Node half, and another extension's command it runs, count as
+  the agent's.
 - **`WindowParity`** ([`@parity-app/extension/internal`](../packages/extension/src/internal.ts)) gives the extension,
   the project, its `tab`, `subscriptions`, `commands` (its own, which run in the tab, and Parity's), `selection`,
   `navigate`, `settings`, `log`, which writes to the extension's log tab marked `[window]`, `host`, its own Node half,

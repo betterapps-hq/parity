@@ -149,12 +149,22 @@ const extensions = startExtensions(
       return (await editor.request("extensions.windowCall", { projectId, extension, method, args })).result
     },
     // A command an internal extension's window module registered runs in the tab, when one has the project open.
-    async runInWindow(projectId, command, target) {
+    async runInWindow(projectId, command, target, call) {
       if (!editor) {
         return { handled: false }
       }
 
-      return editor.request("extensions.windowRun", target ? { projectId, command, target } : { projectId, command })
+      const params: WindowMethods["extensions.windowRun"]["params"] = { projectId, command }
+
+      if (target) {
+        params.target = target
+      }
+
+      if (call !== undefined) {
+        params.call = call
+      }
+
+      return editor.request("extensions.windowRun", params)
     }
   },
   {
@@ -272,7 +282,7 @@ const handlers: Handlers<ServiceMethods> = {
   "project.undoEdit": ({ projectId, id }) => undoProjectEdit(projects.get(projectId), id),
   "extensions.list": ({ projectId }) => extensions.list(projectId),
   "extensions.installed": () => extensions.installed(),
-  "extensions.run": ({ projectId, command, target }) => extensions.run(projectId, command, target),
+  "extensions.run": ({ projectId, command, target, call }) => extensions.run(projectId, command, target, call),
   "extensions.restart": ({ projectId, extension }) => extensions.restart(projectId, extension),
   "extensions.startHalf": ({ projectId, extension, trigger }) => extensions.startHalf(projectId, extension, trigger),
   "extensions.callHalf": async ({ projectId, extension, method, args }) => {

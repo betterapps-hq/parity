@@ -77,6 +77,7 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
   const halves: string[] = []
   const logs: string[] = []
   const updates: string[] = []
+  const executed: { command: string; call?: number }[] = []
   const stopped: string[] = []
   const tags: Record<string, string>[] = []
   const selection = new Set<(refs: NodeRef[]) => void>()
@@ -119,7 +120,11 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
         openSettings: () => Promise.resolve(),
         pageUrl: () => Promise.resolve(undefined)
       },
-      execute: () => Promise.resolve()
+      execute: (command, _target, call) => {
+        executed.push(call === undefined ? { command } : { command, call })
+
+        return Promise.resolve()
+      }
     },
     halves: {
       start: (id, trigger) => void halves.push(`start ${id} ${trigger}`),
@@ -147,7 +152,7 @@ function tab(modules: Record<string, WindowModule> = {}, failureLimit?: number) 
     }
   }
 
-  return { runtime, events, named, halves, logs, stopped, tags, parities, select, selection, updates }
+  return { runtime, events, named, halves, logs, stopped, tags, parities, select, selection, updates, executed }
 }
 
 describe("window modules in a project tab", () => {
@@ -511,6 +516,26 @@ describe("window modules in a project tab", () => {
     expect(named("extension.activateFailed")).toEqual([])
     expect(Object.values(runtime.states())).toEqual(["active"])
     await expect(runtime.run("wtest.fail")).resolves.toEqual({ handled: true, result: "run 2" })
+  })
+
+  it("sends another extension's command to the service with the agent's call its own command runs on", async () => {
+    const calling = defineWindowModule({
+      activateWindow(parity) {
+        parity.subscriptions.push(parity.commands.register("wtest.fail", () => parity.commands.execute("room.open")))
+
+        return {}
+      }
+    })
+
+    const { runtime, executed } = tab({ "@parity-app/extension-window-test": calling })
+
+    runtime.update([extension()])
+    await settle()
+    await runtime.run("wtest.fail", undefined, 7)
+    await runtime.run("wtest.fail")
+
+    // The service then runs `room.open` in its own extension's turn, going on with the agent's call.
+    expect(executed).toEqual([{ command: "room.open", call: 7 }, { command: "room.open" }])
   })
 
   it("tears down a module turned off while it activates at once, and stops what it listens to", async () => {

@@ -201,10 +201,10 @@ const handlers: Handlers = {
 
     return result === undefined ? {} : { result }
   },
-  "extensions.windowRun": async ({ projectId, command, target }) => {
+  "extensions.windowRun": async ({ projectId, command, target, call }) => {
     const session = sessionOf(projectId)
 
-    return session ? runWindowCommand(session, command, target) : { handled: false }
+    return session ? runWindowCommand(session, command, target, call) : { handled: false }
   },
   "extensions.transact": ({ projectId, label, operations }) => {
     const session = sessionOf(projectId)

@@ -195,7 +195,8 @@ export interface ExtensionWindow {
   runInWindow?(
     projectId: string,
     command: string,
-    target?: CommandTarget
+    target?: CommandTarget,
+    call?: number
   ): Promise<{ handled: boolean; result?: JsonValue }>
 }
 
@@ -354,7 +355,11 @@ export interface ExtensionHosts<Project extends OpenedProject> {
   /** Ends the project's hosts. */
   close(projectId: string): Promise<void>
   /** Runs a command, starting its extension's host first when it isn't running. */
-  run(projectId: string, command: string, target?: CommandTarget): Promise<void>
+  /**
+   * Runs a command, starting its extension's host first when it isn't running. `call` is the agent's call a window
+   * command it was run from is running on, which it goes on with.
+   */
+  run(projectId: string, command: string, target?: CommandTarget, call?: number): Promise<void>
   /**
    * Runs an extension's command or agent tool for an agent, by the command's id or the tool's name, starting its host
    * first when it isn't running, and gives back what it returned. A tool's input is checked against its schema. While
@@ -1354,24 +1359,35 @@ export function extensionHosts<Project extends OpenedProject>(
     const { window } = options
 
     if (manifest.window !== undefined && window.runInWindow) {
-      const inWindow = async () => (await window.runInWindow?.(open.project.id, command, target)) ?? { handled: false }
+      const inWindow = async (call?: number) =>
+        (await window.runInWindow?.(open.project.id, command, target, call)) ?? { handled: false }
 
-      // An agent's runs one at a time, each holding its call while it runs; the person's leave an agent's call alone.
-      const ran =
-        // One run from inside the agent's window command that holds the turn is part of it, so it goes straight through.
-        agent === undefined || (within !== undefined && within === host.windowCall)
-          ? await inWindow()
-          : await agentTurn(host, () =>
-              as(agent, async (call) => {
-                host.windowCall = call
+      // While an agent's runs, it holds its call, for what the window module asks of its Node half.
+      const held = async (call: number | undefined) => {
+        host.windowCall = call
 
-                try {
-                  return await inWindow()
-                } finally {
-                  delete host.windowCall
-                }
-              })
-            )
+        try {
+          return await inWindow(call)
+        } finally {
+          delete host.windowCall
+        }
+      }
+
+      let ran: { handled: boolean; result?: JsonValue }
+
+      if (agent === undefined) {
+        // The person's leaves an agent's call alone.
+        ran = await inWindow()
+      } else if (within !== undefined && within === host.windowCall) {
+        // Run from inside the agent's window command that holds the turn, so part of it: it goes straight through.
+        ran = await inWindow(within)
+      } else {
+        // Agents' run one at a time. One run from inside another agent call goes on with that call, so a cycle back to
+        // it goes through.
+        ran = await agentTurn(host, () =>
+          within !== undefined && agentOf(within) !== undefined ? held(within) : as(agent, held)
+        )
+      }
 
       if (ran.handled) {
         return ran.result
@@ -1544,8 +1560,8 @@ export function extensionHosts<Project extends OpenedProject>(
         options.processes.stopAll(projectId, host.extension.package.id)
       }
     },
-    async run(projectId, command, target) {
-      await runCommand(projectOf(projectId), command, target)
+    async run(projectId, command, target, call) {
+      await runCommand(projectOf(projectId), command, target, agentOf(call), call)
     },
     provider(projectId, kind, extension) {
       const open = projects.get(projectId)

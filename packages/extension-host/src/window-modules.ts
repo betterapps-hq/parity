@@ -96,7 +96,11 @@ export interface WindowEditor {
   }
   navigate: Navigate
   /** Runs one of Parity's own commands, or an extension's. */
-  execute(command: string, target?: CommandTarget): Promise<void>
+  /**
+   * Runs a command, Parity's own or an extension's. `call` is the agent's call a window command is running on, if one
+   * is, which an extension's command run from inside it goes on with.
+   */
+  execute(command: string, target?: CommandTarget, call?: number): Promise<void>
 }
 
 /** A tab's link to its extensions' Node halves, through the project service. */
@@ -164,7 +168,11 @@ export interface WindowModules {
    * Runs a command a window module registered, giving back what its handler returned. `handled` is false when no
    * active module here registered it.
    */
-  run(command: string, target?: CommandTarget): Promise<{ handled: boolean; result?: JsonValue }>
+  /**
+   * Runs a command a module in the tab registered. `call` is the agent's call it runs on, for the service, which
+   * whatever it runs in turn goes on with.
+   */
+  run(command: string, target?: CommandTarget, call?: number): Promise<{ handled: boolean; result?: JsonValue }>
   /** Calls a function of what an extension's window module returned as `node`, for its Node half. */
   callFromNode(extension: string, method: string, args: JsonValue[]): Promise<JsonValue | undefined>
   /** Where each module is, by extension. */
@@ -216,6 +224,8 @@ interface Run {
   ended: boolean
   /** Its `deactivateWindow` has been called, which happens once. */
   deactivated: boolean
+  /** The agent's call one of its commands is running on, while one is, for what that command runs in turn. */
+  call?: number
 }
 
 /** A run's `parity.subscriptions`: once the run has ended, whatever is pushed is disposed at once. */
@@ -447,18 +457,18 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
             }
           })
         },
-        // One a window module in this tab registered runs here; any other goes to the window, which runs Parity's own
-        // commands and sends other extensions' to the service.
+        // Its own runs here. Any other goes to the window, which runs Parity's own and sends other extensions' to the
+        // service with the agent's call this one runs on, so theirs run as the agent's too, each in its turn.
         execute: async (command, target) => {
           const registered = liveCommand(command)
 
-          if (registered) {
+          if (registered && registered.entry === entry) {
             await answered(registered.entry, `command:${command}`, () => registered.handler(target))
 
             return
           }
 
-          await options.editor.execute(command, target)
+          await options.editor.execute(command, target, run.call)
         }
       },
       selection: {
@@ -823,14 +833,31 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
         }
       }
     },
-    async run(command, target) {
+    async run(command, target, call) {
       const registered = liveCommand(command)
 
       if (!registered) {
         return { handled: false }
       }
 
-      const value = await answered(registered.entry, `command:${command}`, () => registered.handler(target))
+      const { run } = registered
+      const before = run.call
+
+      // The person's command leaves an agent's call alone; the service runs agents' for an extension one at a time.
+      if (call !== undefined) {
+        run.call = call
+      }
+
+      let value: Awaited<ReturnType<CommandHandler>>
+
+      try {
+        value = await answered(registered.entry, `command:${command}`, () => registered.handler(target))
+      } finally {
+        if (call !== undefined) {
+          run.call = before
+        }
+      }
+
       const result = value === undefined ? undefined : json.parse(value)
 
       return result === undefined ? { handled: true } : { handled: true, result }

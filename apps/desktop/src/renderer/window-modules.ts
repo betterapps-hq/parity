@@ -8,6 +8,7 @@ import {
   windowModules
 } from "@parity-app/extension-host/window"
 import type { ExtensionStatus, LogLine } from "../shared/protocol.ts"
+import type { ServiceParams } from "../shared/service-params.ts"
 import type { EditorRequest } from "./extensions.ts"
 import { clearProjectExtensionSetting, setProjectExtensionSetting } from "./project-settings.ts"
 import { track } from "./report-error.ts"
@@ -45,9 +46,10 @@ export function windowModulesFor(session: Pick<ProjectSession, "id">): WindowMod
 export async function runWindowCommand(
   session: Pick<ProjectSession, "id">,
   command: string,
-  target?: CommandTarget
+  target?: CommandTarget,
+  call?: number
 ): Promise<{ handled: boolean; result?: JsonValue }> {
-  return (await running.get(session)?.run(command, target)) ?? { handled: false }
+  return (await running.get(session)?.run(command, target, call)) ?? { handled: false }
 }
 
 /**
@@ -183,17 +185,24 @@ function editorOf(session: ProjectSession, extensions: TabExtensions): WindowEdi
       openSettings: async (id) => void (await go({ kind: "openSettings", id: id ?? "" })),
       pageUrl: (ref) => go({ kind: "pageUrl", ref })
     },
-    execute: async (command, target) => {
+    execute: async (command, target, call) => {
       const declared = extensions.store
         .get()
         .extensions.some((extension) => extension.contributes.commands?.some((each) => each.id === command))
 
       // An extension's command goes to the service, which runs it in its window module or its Node half.
       if (declared) {
-        await request(
-          "extensions.run",
-          target ? { projectId: session.id, command, target } : { projectId: session.id, command }
-        )
+        const params: ServiceParams["extensions.run"] = { projectId: session.id, command }
+
+        if (target) {
+          params.target = target
+        }
+
+        if (call !== undefined) {
+          params.call = call
+        }
+
+        await request("extensions.run", params)
 
         return
       }

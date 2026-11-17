@@ -419,7 +419,7 @@ export interface WindowMethods {
   }
   /** Runs a command an internal extension's window module registered in the project's tab; `handled` is false otherwise. */
   "extensions.windowRun": {
-    params: { projectId: string; command: string; target?: CommandTarget }
+    params: { projectId: string; command: string; target?: CommandTarget; call?: number }
     result: { handled: boolean; result?: JsonValue }
   }
 }
