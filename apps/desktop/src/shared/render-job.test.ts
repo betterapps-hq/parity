@@ -340,6 +340,7 @@ describe("a job's names", () => {
       storedJobs,
       JSON.stringify([renderJob(guest, { ...drawsText, tokens: [token] })])
     )[0] as DesignJob
+
     const { guestUrl: _address, components: _given, ...drawn } = checked
     expect(bitmapName(checked, {})).toBe(`${JSON.stringify(drawn)}\0${JSON.stringify([])}`)
   })
@@ -401,6 +402,7 @@ describe("a page's picture's name (PAR-1200)", () => {
 
   it("leaves out the copy, so a picture kept from an earlier session is found before the page is frozen again", () => {
     const job = pageRenderJob(shows)
+
     const copy = {
       origin: "http://shop.localhost:5173",
       pageHeight: 900,
@@ -408,6 +410,7 @@ describe("a page's picture's name (PAR-1200)", () => {
       body: {},
       sheets: []
     }
+
     expect(pageBitmapName({ ...job, copy })).toBe(pageBitmapName(job))
     expect(bitmapName(job, {})).toBe(pageBitmapName(job))
   })
