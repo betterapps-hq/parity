@@ -104,8 +104,9 @@ export function usePagePicture(job: PageJob, copy: FrozenCopy | undefined, rank:
 
   const known = read?.name === name ? read : undefined
   const current = known?.kept && !known.kept.stale
-  // Captured only once the disk has answered, and only when what it kept isn't current.
-  const key = copy && known && !current ? `${name}\n${copyNumber(copy)}` : undefined
+  // Captured only once the disk has answered, and only when what it kept isn't current, from a copy checked in its own
+  // mode: one standing in from another mode's snapshot (`unchecked`) would be kept as current for this one.
+  const key = copy && !copy.unchecked && known && !current ? `${name}\n${copyNumber(copy)}` : undefined
 
   useEffect(() => {
     if (!key || !copy) {

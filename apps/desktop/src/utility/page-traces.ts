@@ -97,7 +97,12 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
       routes: project.routes,
       folderRoutes: project.folderRoutes,
       loaded,
-      scanned: [...scanned, ...mounting.filter((path) => !routeFiles.has(path))],
+      // The root's index.html is the page's document where there is one, its markup, inline styles and root classes.
+      scanned: [
+        ...scanned,
+        ...mounting.filter((path) => !routeFiles.has(path)),
+        ...(html === undefined ? [] : ["index.html"])
+      ],
       styles,
       shared: sharedPreviewFiles(snapshot),
       files: [...snapshot.files.keys()]

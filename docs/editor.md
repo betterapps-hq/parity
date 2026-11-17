@@ -8731,15 +8731,16 @@ A screen is named for the component its route draws, else its path.
   there, and viewport units measure the mode's window, so a section sized in `svh` keeps its height. Pictures are kept
   on disk as frames' bitmaps are, named by the project, the route's path and query, the mode as it resolved, the state
   and the scale (`pageBitmapName`), with the page's trace inside: what the builder says the route's files and its
-  parents' load, Parity's scan of their imports, what mounts the app and its imports outside the routes (`appEntries`),
-  the stylesheets, the shared config and the `public` folder, or every file under the route's folder and those directly
-  in each folder above it, such as a template, and those folders' parallel slots for Next, or the whole project where
-  the builder can't say or the page redirected or drew its not-found or error page (`pageTraceFiles`). A picture whose
-  traced files changed after its copy's page started loading is kept without a trace, so it stands in, stale. A kept
-  trace stops holding when a file it lists changes or a file the page's trace would now list is added, such as a new
-  layout. A kept picture shows as soon as the project opens, before the freezer has made the copies again; it's checked
-  again with each new copy, and one whose trace doesn't hold shows until it's captured again. A capture that fails is
-  tried again after 2 s, doubling up to 16 s. Route boards ask for no design bitmaps of their own.
+  parents' load, Parity's scan of their imports, what mounts the app and its imports outside the routes (`appEntries`)
+  with the root's `index.html`, the stylesheets, the shared config and the `public` folder, or every file under the
+  route's folder and those directly in each folder above it, such as a template, and those folders' parallel slots for
+  Next, or the whole project where the builder can't say or the page redirected or drew its not-found or error page
+  (`pageTraceFiles`). A picture whose traced files changed after its copy's page started loading is kept without a
+  trace, so it stands in, stale. A kept trace stops holding when a file it lists changes or a file the page's trace
+  would now list is added, such as a new layout. A copy standing in from another mode's snapshot until it's checked
+  isn't captured. A kept picture shows as soon as the project opens, before the freezer has made the copies again; it's
+  checked again with each new copy, and one whose trace doesn't hold shows until it's captured again. A capture that
+  fails is tried again after 2 s, doubling up to 16 s. Route boards ask for no design bitmaps of their own.
 - **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
   elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
   double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers

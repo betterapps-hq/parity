@@ -117,6 +117,9 @@ describe("page traces (PAR-1200)", () => {
     await write("src/theme.ts", "export const theme = {}\n")
     const files = Object.keys((await pageTraces(projects([])).trace(job))!.files)
     expect(files).toEqual(expect.arrayContaining(["src/main.tsx", "src/theme.ts"]))
+    expect(files).not.toContain("index.html")
+    await write("index.html", '<body class="dark"><script type="module" src="/src/main.tsx"></script></body>')
+    expect(Object.keys((await pageTraces(projects([])).trace(job))!.files)).toContain("index.html")
     expect(files).not.toContain("src/other.ts")
   })
 
