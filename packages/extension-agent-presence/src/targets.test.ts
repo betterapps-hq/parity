@@ -51,6 +51,7 @@ describe("where an agent looks", () => {
       agentId: "a",
       ref: row
     })
+
     const boardOnly = locate(reads(new Map([["card board", drawn(140, 90, 60, 60)]])), {
       kind: "read",
       agentId: "a",
