@@ -1,6 +1,7 @@
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import type { BuilderSession } from "@parity-app/core"
+import tailwindExtension from "@parity-app/extension-tailwind/package.json" with { type: "json" }
 import { turbopackBuilder } from "@parity-app/extension-turbopack/builder"
 import { detectContext, discoverProject, readPackage } from "@parity-app/project"
 import { afterAll, describe, expect, it } from "vite-plus/test"
@@ -44,7 +45,16 @@ describe.skipIf(!process.env.PARITY_FIXTURES)("the Turbopack builder on nextjs-t
     expect(await turbopackBuilder.detect(project)).toMatchObject({ found: true, config: "next.config.ts" })
     expect(config.styles).toEqual(["src/app/globals.css"])
 
-    session = await turbopackBuilder.start({ root, config, renderer, rendererGuestPath, allowedOrigins: [] })
+    // Tailwind's plugins look for classes from the project's root, as the app tells builders from its manifest.
+    const { rootOptions } = tailwindExtension.parity.contributes.providers.styles
+    session = await turbopackBuilder.start({
+      root,
+      config,
+      renderer,
+      rendererGuestPath,
+      allowedOrigins: [],
+      rootOptions
+    })
 
     const guest = await fetch(session.guestUrl)
     const source = await guest.text()
