@@ -1,11 +1,22 @@
-import { boardRoot, type ContainerSpec, designStates, type RenderNode, resolveDesign } from "@parity-app/core"
+import {
+  boardRoot,
+  type ContainerSpec,
+  designStates,
+  findNode,
+  previewRules,
+  type RenderNode,
+  resolveDesign,
+  rewriteFrameUnits
+} from "@parity-app/core"
 import { styleChanges } from "@parity-app/editor"
 import { containerEntry } from "@parity-app/multiplayer"
 import { useEffect, useMemo } from "react"
+import { copyNodeSelector } from "../copy-sheets.ts"
 import { findFrames, findNodeElement, previewFrameRules, settleFrameRules } from "../frame.ts"
 import { type DocSession, libraryOf } from "../project-doc.ts"
 import type { ProjectSession } from "../workspace.ts"
 import { localDrag } from "./carried.ts"
+import { copiesOf, copyLayers, routePagesFile, shownEntry } from "./route-pages.ts"
 import { leaveLayer, takeLayer, writeLayer } from "./style-layers.ts"
 
 /** A root-relative `url()`. */
@@ -41,7 +52,9 @@ export class StylePreview {
 
   /** Shows `update` of the design as the document holds it now, in place of what this preview showed before. */
   show(update: (container: ContainerSpec) => ContainerSpec): void {
-    const entry = containerEntry(this.session.doc, this.design)
+    const saved = containerEntry(this.session.doc, this.design)
+    // A page's layers inside its route are what its copies drew, kept in the window (`shownEntry`).
+    const entry = saved?.path === routePagesFile ? shownEntry(this.session.doc, this.design) : saved
 
     if (!entry) {
       return
@@ -53,6 +66,20 @@ export class StylePreview {
 
     if (next !== entry.container) {
       for (const host of this.frames()) {
+        // A copy's elements are drawn by its page's own CSS, so its rules hold only what the edit changes, over it.
+        if (host.dataset.copy !== undefined) {
+          const css = previewRules(this.copyRender(entry.container), this.copyRender(next), {
+            changedOnly: true,
+            selector: copyNodeSelector
+          })
+
+          if (css !== "") {
+            rules.set(host, rewriteFrameUnits(css))
+          }
+
+          continue
+        }
+
         const drawn = this.render(entry.container, host)
         const edited = this.render(next, host)
         const css = this.session.loaded.previewRules(drawn, edited)
@@ -193,6 +220,20 @@ export class StylePreview {
     const area = this.session.editor?.getContainer().closest(".canvas-area") ?? document
 
     return findFrames(area, this.design)
+  }
+
+  /**
+   * What a page's copies drew, as layers, resolved on their own for a version of the design: they're inside the route's
+   * layers, which draw nothing of their own.
+   */
+  private copyRender(container: ContainerSpec): RenderNode[] {
+    const drawn = copiesOf(copyLayers.get(), this.session.doc).get(this.design) ?? []
+
+    return drawn.flatMap((layer) => {
+      const node = findNode(container.root, layer.id)
+
+      return node ? resolveDesign(node, undefined, "") : []
+    })
   }
 
   /** A frame's tree for a version of the design, worked out as the frame works out its own. */

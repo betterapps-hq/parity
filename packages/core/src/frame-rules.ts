@@ -15,6 +15,17 @@ export interface FrameRulesOptions {
   layer?: string
 }
 
+/** How a style edit's preview rules are written, besides `FrameRulesOptions`. */
+export interface PreviewRulesOptions extends FrameRulesOptions {
+  /**
+   * Only the declarations the edit changes, with what it takes away, rather than all of an element's: for an element
+   * drawn by other rules, as a frozen copy's are by its page's own CSS, which the rest would override.
+   */
+  changedOnly?: boolean
+  /** The selector of a node's elements, `nodeSelector` unless given. */
+  selector?: (nodeId: string) => string
+}
+
 /** The selector of the elements a frame draws for a node. */
 export function nodeSelector(nodeId: string): string {
   return `[data-canvas-node="${nodeId.replaceAll(/["\\]/g, String.raw`\$&`)}"]`
@@ -54,13 +65,16 @@ export function frameRules(tree: readonly RenderNode[], options: FrameRulesOptio
  * no longer declares is rolled back with `revert-layer`, which leaves it as the rules under this layer have it, so the
  * frame's rule for it and a class's are both passed over. Those come first, so taking away a shorthand, as a fill's
  * `background` going to `background-color` and `background-image`, doesn't clear the longhands set after it. Elements
- * in only one of the trees are left out: adding or removing nodes isn't a change of style.
+ * in only one of the trees are left out: adding or removing nodes isn't a change of style. With `changedOnly`, a rule
+ * holds only what changed and what's taken away.
  */
 export function previewRules(
   drawn: readonly RenderNode[],
   next: readonly RenderNode[],
-  options: FrameRulesOptions = {}
+  options: PreviewRulesOptions = {}
 ): string {
+  const { changedOnly = false, selector = nodeSelector } = options
+
   const was = new Map(elementsOf(drawn).map((element) => [element.nodeId, element.declarations]))
   const rules: string[] = []
 
@@ -77,7 +91,13 @@ export function previewRules(
       .filter(({ property }) => !kept.has(property))
       .map(({ property }) => ({ property, value: "revert-layer" }))
 
-    rules.push(cssPrinter({ selector: nodeSelector(nodeId) }).print([...gone, ...declarations]).output)
+    const shown = changedOnly
+      ? declarations.filter(
+          ({ property, value }) => !old.some((before) => before.property === property && before.value === value)
+        )
+      : declarations
+
+    rules.push(cssPrinter({ selector: selector(nodeId) }).print([...gone, ...shown]).output)
   }
 
   return inLayer(rules.join("\n"), options)

@@ -1,4 +1,4 @@
-import { componentInfoOf } from "@parity-app/core"
+import { componentInfoOf, findNode } from "@parity-app/core"
 import { designCapabilities, kindTitle, type InspectorSection, panelParts, selectionKey } from "@parity-app/editor"
 import { updateNote } from "@parity-app/multiplayer"
 import { Crown, MousePointerClick } from "lucide-react"
@@ -6,7 +6,13 @@ import type { ComponentType, ReactNode } from "react"
 import { boardComponent } from "../canvas/component-boards.ts"
 import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor } from "../canvas/kinds.tsx"
-import { routePageGroups, routePageRoute, routePageTarget, selectedPageGroup } from "../canvas/route-pages.ts"
+import {
+  routePageGroups,
+  routePageRoute,
+  routePagesFile,
+  routePageTarget,
+  selectedPageGroup
+} from "../canvas/route-pages.ts"
 import { pickedStory, screensLook, storyLayer, storyScreensFile } from "../canvas/story-screens.ts"
 import { containerModes } from "../canvas/view.ts"
 import { useComponents } from "../components-store.ts"
@@ -125,9 +131,13 @@ function SelectedPanel() {
     // A story's layers can be dragged to another size, to see how it responds, which is put back from here.
     const tried = entry.path === storyScreensFile && <TriedSize entry={entry} />
 
+    // A page's element drawn by its copy previews style edits there, and its other fields stay read-only (`ElementPanel`).
+    const previews =
+      entry.path === routePagesFile && findNode(entry.container.root, selected.node)?.element !== undefined
+
     // A layer of a page, a component's board or a story is read from the project's code: its values show, and nothing
     // edits them.
-    return readFromCode(entry.path) && !writesProps(entry.path, selected.node) ? (
+    return readFromCode(entry.path) && !writesProps(entry.path, selected.node) && !previews ? (
       <>
         <fieldset disabled className="contents">
           {panel}

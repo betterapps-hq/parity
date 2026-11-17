@@ -143,19 +143,21 @@ function ElementPanel({ element, text }: { element: ElementFacts; text: boolean 
 
   return (
     <>
-      <LayerHeader />
-      {panelData(element).map((group) => (
-        <PanelSection key={group.section} title={group.title}>
-          <FieldGrid>
-            {group.fields.map((field) => (
-              <Field key={field.attribute} label={field.label}>
-                <TextInput value={field.value} onCommit={() => undefined} />
-              </Field>
-            ))}
-          </FieldGrid>
-        </PanelSection>
-      ))}
-      {text && <LayerContent />}
+      <fieldset disabled className="contents">
+        <LayerHeader />
+        {panelData(element).map((group) => (
+          <PanelSection key={group.section} title={group.title}>
+            <FieldGrid>
+              {group.fields.map((field) => (
+                <Field key={field.attribute} label={field.label}>
+                  <TextInput value={field.value} onCommit={() => undefined} />
+                </Field>
+              ))}
+            </FieldGrid>
+          </PanelSection>
+        ))}
+        {text && <LayerContent />}
+      </fieldset>
       <LayerStyles order={order} />
     </>
   )

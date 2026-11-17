@@ -15,6 +15,7 @@ import type { Token } from "@parity-app/tokens"
 import { useEffect, useReducer, useRef } from "react"
 import { useProject } from "../canvas/context.ts"
 import { projectLibrary } from "../canvas/layers.ts"
+import { routePagesFile } from "../canvas/route-pages.ts"
 import { useStylePreview } from "../canvas/style-preview.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
@@ -266,9 +267,19 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
   const applying = (changes: readonly StyleChange[]) => (container: ContainerSpec) =>
     changes.reduce((each, change) => within(selection.edit(change.row, change.edit, measure))(each), container)
 
+  // A page's layers are what its copies drew from the app's code: an edit previews on them while it's typed or scrubbed,
+  // and is never made.
+  const previewOnly = entry.path === routePagesFile
+
   return {
     selection,
     make: (changes, gesture) => {
+      if (previewOnly) {
+        preview.cancel()
+
+        return
+      }
+
       const label = changes[0]?.label ?? "Change style"
       const apply = applying(changes)
       preview.settle(apply)
@@ -279,12 +290,20 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
       }
     },
     reset: (row) => {
+      if (previewOnly) {
+        return
+      }
+
       updateContainer(doc, entry.key, count > 1 ? "Reset changes" : "Reset change", within(selection.reset(row)))
       recordRow(row)
     },
     preview: (changes) => preview.show(applying(changes)),
     endPreview: () => preview.cancel(),
     checkpoint: (gesture) => {
+      if (previewOnly) {
+        return undefined
+      }
+
       const point = doc.checkpoint(gesture, entry.key)
 
       return (

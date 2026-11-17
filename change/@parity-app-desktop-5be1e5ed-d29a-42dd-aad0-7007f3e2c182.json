@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Style fields on a page copy's layer preview while you type or scrub, in every copy of the page, without saving",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

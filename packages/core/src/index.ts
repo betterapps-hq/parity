@@ -280,7 +280,14 @@ export {
   stepFieldValue
 } from "./fields.ts"
 
-export { frameRules, type FrameRulesOptions, previewRules, withClasses, type WrittenClasses } from "./frame-rules.ts"
+export {
+  frameRules,
+  type FrameRulesOptions,
+  previewRules,
+  type PreviewRulesOptions,
+  withClasses,
+  type WrittenClasses
+} from "./frame-rules.ts"
 
 export {
   componentRole,

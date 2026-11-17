@@ -11,7 +11,7 @@ import { type BoardTier, boardTier, type PageMode } from "@parity-app/frames"
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useMaybeEditor, useValue } from "tldraw"
 import { pageRenderJob } from "../../shared/render-job.ts"
-import { copyRootAttribute } from "../copy-sheets.ts"
+import { copyNodeAttribute, copyRootAttribute } from "../copy-sheets.ts"
 import { findFrames, findNodeElements, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { mountCopy } from "../page-copy.ts"
 import { useProject } from "./context.ts"
@@ -347,6 +347,8 @@ function showCopy(
 
     if (element) {
       nodes.set(id, element)
+      // A style edit's preview finds it by its layer (`StylePreview`).
+      element.setAttribute(copyNodeAttribute, id)
       texts(element, id, id)
     }
   }
