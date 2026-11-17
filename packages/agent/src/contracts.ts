@@ -955,7 +955,37 @@ const agentExtension = z.looseObject({
       component: z.string(),
       facts: z.array(z.looseObject({ id: z.string(), label: z.string(), value: z.string() }))
     })
-  )
+  ),
+  // For debugging an extension, as `extensions.json` has it (PAR-1284). Optional, so a copy from before still answers.
+  halves: z
+    .looseObject({ node: z.string().optional(), window: z.string().optional() })
+    .optional()
+    .describe(
+      "Its halves: node is its Node half's host, as state is; window is its window module in this tab: loading, active, inactive, or stopped after failing."
+    ),
+  failures: z
+    .array(
+      z.looseObject({
+        half: z.enum(["node", "window"]),
+        api: z.string().optional().describe("What core called in its window module, as selection.onChange."),
+        message: z.string(),
+        at: z.number().describe("When, in milliseconds since 1970."),
+        stack: z.string().optional()
+      })
+    )
+    .optional()
+    .describe("Its latest failures, oldest first, at most five of each half."),
+  room: z
+    .looseObject({
+      state: z.string().describe("waiting, attached while shared, detached once open alone, or closed."),
+      lineage: z.string(),
+      writesFiles: z.boolean().describe("Whether this copy writes the project's files."),
+      pending: z.boolean().describe("Whether changes wait for others this copy hasn't got."),
+      versionBytes: z.number().optional(),
+      peers: z.number().optional().describe("Other copies in the room, as the extension last said.")
+    })
+    .optional()
+    .describe("The room's sync state in this tab, for the extension that brings it.")
 })
 
 const extensionsReply = z.looseObject({ tab: ref, extensions: z.array(agentExtension) })

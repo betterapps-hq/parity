@@ -157,6 +157,8 @@ export {
   dropTargetAt,
   frameLayout,
   type FrameLayout,
+  type Held,
+  intoNeighbour,
   type MeasuredLayer,
   type MoveTarget
 } from "./drop-target.ts"

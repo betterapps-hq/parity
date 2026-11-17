@@ -246,14 +246,14 @@ extension's window module from the editor window, and every Node half from the s
   extension, API and session.
 
 An error from a window module goes to Sentry tagged `extension`, `extension_half` (`window`) and `tab`, its issue titled
-from the extension's name (`Multiplayer: TypeError: …`), and its stack shows in the extension's log tab, marked
-`[window]`. Every error from the editor window carries `extensions.json` beside `frames.json` while a window module is
-running or stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name,
-its halves' states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and,
-for the extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether
-changes are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels
-or what anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for
-`parity extensions` too.
+from the extension's name (`Multiplayer: TypeError: …`), and its stack shows in the extension's log tab, marked Window.
+Every error from the editor window carries `extensions.json` beside `frames.json` while a window module is running or
+stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name, its halves'
+states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and, for the
+extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether changes
+are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels or what
+anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for `parity extensions`
+too.
 
 ## Turning it off
 
@@ -566,6 +566,7 @@ Some failures are recorded for you, so code doesn't record them again:
 | `extension.activateFailed`         | error | all  | renderer, service                       | A half fails to load or its activation throws.                                                                                                                             |
 | `extension.activated`              | info  | all  | renderer, service                       | A half's `activate` or `activateWindow` returns.                                                                                                                           |
 | `extension.callFailed`             | warn  | all  | renderer                                | A listener, handler or call into a window module throws, caught by core.                                                                                                   |
+| `extension.called`                 | debug | all  | renderer                                | `PARITY_EXTENSIONS_DEBUG` names the extension and core calls into its window module, or the module calls back.                                                             |
 | `extension.capabilityMissing`      | warn  | all  | renderer                                | A window module calls an API its manifest's capabilities don't name. Once per extension, API and session.                                                                  |
 | `extension.crashed`                | warn  | all  | service                                 | A Node half's process ends by itself.                                                                                                                                      |
 | `extension.deactivated`            | info  | all  | renderer, service                       | A half stops.                                                                                                                                                              |
@@ -1097,6 +1098,18 @@ Some failures are recorded for you, so code doesn't record them again:
 | `stopped`   | `boolean`          | Whether this failure stopped it in the tab                                               |
 | `message`   | `string`           | The error's message, scrubbed                                                            |
 | `stack`     | `string`, optional | The error's stack, when it has one                                                       |
+
+### `extension.called`
+
+| Attribute    | Type              | Meaning                                                                                      |
+| ------------ | ----------------- | -------------------------------------------------------------------------------------------- |
+| `extension`  | `string`          | The extension's id, its package name                                                         |
+| `half`       | `"window"`        | Which half: its window module                                                                |
+| `direction`  | `"in" \| "out"`   | `in` when core called the module; `out` when the module called core or its Node half         |
+| `api`        | `string`          | What was called, as `selection.onChange`, `command:<id>`, `node.<method>` or `host.<method>` |
+| `durationMs` | `number`          | How long it took until it settled, in milliseconds                                           |
+| `outcome`    | `"ok" \| "error"` | Whether it returned or threw                                                                 |
+| `tab`        | `string`          | The project tab's id                                                                         |
 
 ### `extension.capabilityMissing`
 

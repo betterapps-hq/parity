@@ -241,8 +241,13 @@ export interface HostMethods {
 
 /** A line in an extension's log. */
 export interface LogLine {
-  level: "info" | "warning" | "error"
+  /** `debug` for a call `PARITY_EXTENSIONS_DEBUG` traced. */
+  level: "debug" | "info" | "warning" | "error"
   text: string
+  /** Which half wrote it, when the extension has a window module: its Node half, or its window module. */
+  half?: "node" | "window"
+  /** The project tab a window module's line came from. */
+  tab?: string
   /** An error's stack. */
   stack?: string
   /** When it was written, in milliseconds since 1970. */
@@ -257,7 +262,7 @@ export interface StatusValue {
 
 /** What a host asks of the project service. */
 export interface HostServiceMethods {
-  log: { params: Omit<LogLine, "at">; result: undefined }
+  log: { params: { level: "info" | "warning" | "error"; text: string; stack?: string }; result: undefined }
   "state.update": { params: { scope: "app" | "project"; key: string; value?: JsonValue }; result: undefined }
   "status.set": { params: { id: string } & StatusValue; result: undefined }
   "status.remove": { params: { id: string }; result: undefined }

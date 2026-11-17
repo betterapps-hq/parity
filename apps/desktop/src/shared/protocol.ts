@@ -38,6 +38,7 @@ import type {
   LogLine,
   WindowAsk
 } from "@parity-app/extension-host"
+import type { TabFacts } from "@parity-app/extension-host/window-snapshot"
 import type { UpdateState } from "@parity-app/processes"
 import type { LibraryPreview, PreviewOffer, ProjectInfo } from "@parity-app/project"
 import type {
@@ -393,6 +394,11 @@ export interface WindowMethods {
   /** An extension wrote a line to its log. */
   "extensions.logged": { params: { projectId: string; extension: string; line: LogLine }; result: undefined }
   /**
+   * What the project's tab's window modules are doing, as `extensions.json` has it, for `parity extensions`
+   * (PAR-1284). No `tab` while none is running or stopped there.
+   */
+  "extensions.facts": { params: { projectId: string }; result: { tab?: TabFacts } }
+  /**
    * An extension asks the person something through `parity.ui`, or shows them something, or selects, navigates or runs
    * one of Parity's commands through `parity.selection`, `parity.navigate` and `parity.commands.execute`.
    */
@@ -474,6 +480,7 @@ export const windowMethods = Object.keys({
   "project.committed": true,
   "extensions.changed": true,
   "extensions.logged": true,
+  "extensions.facts": true,
   "extensions.ui": true,
   "extensions.transact": true,
   "extensions.edited": true,
@@ -636,6 +643,11 @@ export interface CanvasHost {
    * doesn't, so stories show what they're given.
    */
   signInRequired?: boolean
+  /**
+   * `PARITY_EXTENSIONS_DEBUG` as main started with it: `1` traces every call between core and window modules into
+   * their extensions' logs, or it names extensions by id or prefix (docs/extensions.md, "Debugging extensions").
+   */
+  extensionsDebug?: string
   /**
    * Asks the project service, and never fails: a failure is an answer, with its details. The page asks through
    * `request` in `renderer/service.ts`, which throws it as a `CodedError` again. `trace` is the action or gesture it's

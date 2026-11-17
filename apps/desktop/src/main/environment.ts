@@ -53,6 +53,11 @@ const mainEnvironment = z.object({
   PARITY_TEST_RUN: nonBlankString.optional(),
   /** The tester's name, shown as Sentry's user (PAR-630). */
   PARITY_TESTER: nonBlankString.optional(),
+  /**
+   * Traces calls between core and internal extensions' window modules into their logs and the local copy: `1` for
+   * every extension, or ids and prefixes separated by commas, as `multiplayer` (docs/extensions.md).
+   */
+  PARITY_EXTENSIONS_DEBUG: nonBlankString.optional(),
   /** Where an AppImage is, which its runtime sets; Linux updates only work from one. */
   APPIMAGE: z.string().optional()
 })
