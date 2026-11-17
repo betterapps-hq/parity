@@ -8316,6 +8316,44 @@ open; opening `examples/rsbuild-chakra` asked the same, and Don't save opened it
 example under Recent opened it again without asking; Close project left the window on Home with nothing in the title
 bar's middle, Ctrl+W did nothing there, and Enter on Resume opened the example again.
 
+### The project's lenses (PAR-1243)
+
+The open project shows in the lens shell, as [lens-layout.md](proposals/lens-layout.md#lenses-down-the-left) has it: the
+lens bar down the window's left edge, each open lens a tab over its canvas, and the left panel and inspector of the lens
+in focus beside them, over the status bar. The title bar stays above, as on Home.
+
+- **Screens is the one lens so far.** It's today's canvas with the console under it, Layers with its asset tabs, and the
+  inspector with Modes, unchanged: it still draws pages, stories and component boards until Pages, Stories and
+  Components have lenses of their own. The lens bar lists only lenses that are built. Opening a project shows Screens.
+- **The lens bar works as links do in a browser.** A click shows a lens in the tab in focus, and Ctrl+click or a middle
+  click opens it in a new tab; one that's open is revealed where it is. Clicking the lens in front hides or shows the
+  left panel. Ctrl and a lens's number shows it, Ctrl+2 for Screens. The arrow keys, Home and End move between lenses.
+  Right-clicking one offers Show, Open in new tab, Split right and Close.
+- **Tabs** drag onto another group's tabs to join them, or onto a canvas's side to split. A tab's close button, or a
+  middle click, closes it, the last one too.
+- **Every tab closed empties the window:** the left panel and the inspector go, and the canvas's place says No lens
+  open, with how to show one. The canvas closes with its tab, and showing Screens again draws it afresh, fitted to the
+  designs.
+- **Lenses stay in the main window** until the desktop app has lens windows (PAR-1247): the menus don't offer Move to
+  new window, and a tab let go outside the window stays where it was.
+- **Component previews** are made for as long as the project is open, whether or not Screens shows.
+
+Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`; `lenses/screens.tsx` is
+Screens (`screensLens`), whose views read the open project through `OpenProjectContext`. The shell is
+`lenses/LensWorkspace.tsx`, with `LensBar.tsx`, `LensTab.tsx`, `GroupActions.tsx` and `dock-adapter.ts`, the one file
+that calls Dockview; its decisions are `@parity-app/lenses`'s. Without a `popoutUrl`, `LensWorkspace` keeps lenses in
+its window.
+
+Tests: `e2e/window.e2e.ts` (the project in the lens shell: Screens the one lens and pressed, a click hiding and showing
+the left panel, closing its tab leaving No lens open with no Layers or designs, and Ctrl+2 drawing it again);
+`packages/lenses/src/decide.test.ts`, `state.test.ts` and `saved.test.ts` for the shell's decisions; and the Storybook
+stories Parity/Explorations/Lenses (Pages, Tabs, Components, Side by side and Empty), which render the same
+`LensWorkspace` with the exploration's lenses, and Parity/App's Example project. Tried in `pnpm dev` on 2026-11-17 on
+the example: the lens bar listed Screens alone, pressed; clicking it hid Layers and clicking again showed it; its menu
+offered Show Screens with Ctrl+2, Close, and Open in new tab and Split right unavailable; Close Screens and a middle
+click on its tab each left No lens open with the panels gone; Ctrl+2, and Enter on Screens in the lens bar, drew the
+canvas and panels again; the page didn't scroll.
+
 ### A project with no Parity file opens on a Home screen (PAR-561)
 
 Opening a folder or project that has no `.par` file yet opens on a screen named Home, for the app's `/` route. It draws

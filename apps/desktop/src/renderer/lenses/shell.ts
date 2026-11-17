@@ -16,6 +16,8 @@ export interface LensActions<Id extends string = string> {
   splitRight(lens: Id): void
   canSplit(lens: Id): boolean
   toWindow(lens: Id): void
+  /** Whether lenses can move to windows of their own here; without, the menus don't offer it. */
+  windows: boolean
   canMoveToWindow(lens: Id): boolean
   toMain(lens: Id): void
   canMoveToMain(lens: Id): boolean

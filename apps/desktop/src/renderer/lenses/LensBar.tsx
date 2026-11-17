@@ -164,9 +164,11 @@ function LensButton<Id extends string>({
             <SquareArrowOutDownLeft /> Move to main window
           </ContextMenuItem>
         ) : (
-          <ContextMenuItem disabled={!actions.canMoveToWindow(id)} onClick={() => actions.toWindow(id)}>
-            <SquareArrowOutUpRight /> Move to new window
-          </ContextMenuItem>
+          actions.windows && (
+            <ContextMenuItem disabled={!actions.canMoveToWindow(id)} onClick={() => actions.toWindow(id)}>
+              <SquareArrowOutUpRight /> Move to new window
+            </ContextMenuItem>
+          )
         )}
         {actions.canClose(id) && (
           <>
