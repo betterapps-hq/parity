@@ -18,11 +18,18 @@ import type { DocChange, ProjectDoc } from "./types.ts"
  * Saving a project document (docs/proposals/multiplayer.md: ProjectSaver): it writes the files each change names a
  * moment after it, with automatic saving on, or on Save, and the token values to the stylesheet. What it last wrote or
  * read of each file is the saved content, which says what's unsaved and what a preview's reset goes back to.
+ *
+ * In a live room only one copy writes files (docs/proposals/extensions-in-the-window.md: Saving in a room). That copy
+ * writes others' changes like its own. A copy that doesn't write files has nothing of its own to save and records
+ * nothing as saved, so when it takes over writing it writes every file that differs from what it last knew was written.
  */
 
 export interface Persistence {
-  /** Writes a file; `exportMs` is how long producing its content from the document took. */
-  saveDocument(path: string, document: CanvasDocument, timing: { exportMs: number }): Promise<void>
+  /**
+   * Writes a file; `exportMs` is how long producing its content from the document took, and `fromOthers` how many of
+   * other copies' changes to it the write includes.
+   */
+  saveDocument(path: string, document: CanvasDocument, timing: { exportMs: number; fromOthers: number }): Promise<void>
   /** Removes a file the project no longer has. */
   deleteDocument(path: string): Promise<void>
   /** Whether each change saves itself a moment later, or waits for Save. */
@@ -49,8 +56,16 @@ export interface ProjectSaver {
   savedTokens(): TokenEdits
   /** Writes that failed and haven't succeeded since, with why. */
   failures(): { path: string; error: string }[]
-  /** Writes what's waiting now, as Save does. */
+  /** Writes what's waiting now, as Save does. Does nothing in a copy that doesn't write files. */
   flush(): Promise<void>
+  /** Whether this copy writes the project's files: true unless another copy in a live room does. */
+  writesFiles(): boolean
+  /**
+   * Makes this copy write files, or stop. Taking over writes every file that differs from what this copy last knows
+   * was written, and the stylesheet when token values differ, then resolves with what it wrote. Letting go waits for
+   * writes in flight to finish.
+   */
+  setWritesFiles(writes: boolean): Promise<{ filesWritten: number; stylesheetWritten: boolean }>
   /** Says how token values reach the stylesheet. The latest writer is used. */
   writeTokensWith(writer: TokenWriter): void
   tokenFailure(): TokenFailure | undefined
@@ -62,15 +77,31 @@ export interface ProjectSaver {
 /** How long saving waits after a change, so a run of changes is written once. */
 export const saveDelay = 300
 
+/** What the files held when the project opened, when that isn't what the document opened with. */
+export interface SavedBaseline {
+  files: ReadonlyMap<string, CanvasDocument>
+  modes: ModeSettings
+  tokens: TokenEdits
+}
+
 export function createProjectSaver(
   doc: ProjectDoc,
   persistence: Persistence,
-  options: { delay?: number } = {}
+  options: {
+    delay?: number
+    /** Whether this copy writes files. True by default; false for a copy that joins another's live room. */
+    writesFiles?: boolean
+    /** What the files hold, for a copy that opened on another copy's document. The document's own content by default. */
+    saved?: SavedBaseline
+  } = {}
 ): ProjectSaver {
   const delay = options.delay ?? saveDelay
-  const saved = new Map<string, CanvasDocument>(doc.files())
-  let savedModes = doc.modes()
-  let savedTokens = doc.tokens()
+  const saved = new Map<string, CanvasDocument>(options.saved?.files ?? doc.files())
+  let savedModes = options.saved?.modes ?? doc.modes()
+  let savedTokens = options.saved?.tokens ?? doc.tokens()
+  let writesFiles = options.writesFiles ?? true
+  /** Other copies' changes to each file since it was last written, for `document.saved`. */
+  const fromOthers = new Map<string, number>()
   let writer: TokenWriter | undefined
   let tokenFailure: TokenFailure | undefined
   const failures = new Map<string, string>()
@@ -114,7 +145,8 @@ export function createProjectSaver(
     return true
   }
 
-  const unsaved = (): string[] => {
+  /** Every file that differs from what was last written or read, whether or not this copy writes files. */
+  const differing = (): string[] => {
     const paths = new Set([...doc.files().keys(), ...saved.keys()])
     const list = [...paths].filter(fileUnsaved)
 
@@ -128,6 +160,9 @@ export function createProjectSaver(
 
     return list
   }
+
+  // A copy that doesn't write files has nothing of its own to save: the room's writing copy saves it.
+  const unsaved = (): string[] => (writesFiles ? differing() : [])
 
   const computeState = (): SaveState => {
     const failure = failures.values().next().value
@@ -230,6 +265,7 @@ export function createProjectSaver(
     const modes = doc.modes()
     const content = fileContent(doc.main, path, document, modes)
     const exportMs = performance.now() - exporting
+    const others = fromOthers.get(path) ?? 0
 
     const taken = () => {
       if (document) {
@@ -241,10 +277,18 @@ export function createProjectSaver(
       if (path === doc.main) {
         savedModes = modes
       }
+
+      const left = (fromOthers.get(path) ?? 0) - others
+
+      if (left > 0) {
+        fromOthers.set(path, left)
+      } else {
+        fromOthers.delete(path)
+      }
     }
 
     if (content) {
-      return persistence.saveDocument(path, content, { exportMs }).then(() => taken)
+      return persistence.saveDocument(path, content, { exportMs, fromOthers: others }).then(() => taken)
     }
 
     // Taken out of the project: it's saved once the file is gone too.
@@ -252,11 +296,12 @@ export function createProjectSaver(
   }
 
   const take = (change: DocChange) => {
-    if (!change.persist) {
+    if (change.written === "files") {
       // It came from the files, so they already hold it.
       for (const path of change.files) {
         clearTimeout(timers.get(path))
         timers.delete(path)
+        fromOthers.delete(path)
         const document = doc.file(path)
 
         if (document) {
@@ -275,7 +320,13 @@ export function createProjectSaver(
       return
     }
 
-    if (persistence.autosave()) {
+    if (change.origin === "remote") {
+      for (const path of change.files) {
+        fromOthers.set(path, (fromOthers.get(path) ?? 0) + 1)
+      }
+    }
+
+    if (writesFiles && persistence.autosave()) {
       for (const path of change.files) {
         schedule(path)
       }
@@ -296,6 +347,21 @@ export function createProjectSaver(
 
   const unsubscribe = doc.subscribe(take)
 
+  /** Waits until no write is in flight, as a write can queue another to the same path as it finishes. */
+  const settle = async () => {
+    while (writing.size > 0) {
+      await Promise.allSettled(writing)
+    }
+  }
+
+  const stopTimers = () => {
+    for (const timer of timers.values()) {
+      clearTimeout(timer)
+    }
+
+    timers.clear()
+  }
+
   return {
     state: () => {
       const next = computeState()
@@ -314,11 +380,11 @@ export function createProjectSaver(
     failures: () => [...failures].map(([path, error]) => ({ path, error })),
 
     flush: async () => {
-      for (const timer of timers.values()) {
-        clearTimeout(timer)
+      if (!writesFiles) {
+        return
       }
 
-      timers.clear()
+      stopTimers()
       failures.clear()
       notify()
 
@@ -326,15 +392,46 @@ export function createProjectSaver(
         write(path)
       }
 
-      // A write can queue another to the same path as it finishes, so wait until none is left.
-      while (writing.size > 0) {
-        await Promise.allSettled(writing)
-      }
+      await settle()
 
       const failure = failures.values().next().value
 
       if (failure !== undefined) {
         throw new Error(failure)
+      }
+    },
+
+    writesFiles: () => writesFiles,
+
+    setWritesFiles: async (writes) => {
+      if (!writes) {
+        writesFiles = false
+        stopTimers()
+        await settle()
+        notify()
+
+        return { filesWritten: 0, stylesheetWritten: false }
+      }
+
+      if (writesFiles) {
+        return { filesWritten: 0, stylesheetWritten: false }
+      }
+
+      writesFiles = true
+      const differ = differing()
+
+      for (const path of differ) {
+        write(path)
+      }
+
+      await settle()
+      notify()
+
+      const written = differ.filter((path) => !failures.has(path))
+
+      return {
+        filesWritten: written.filter((path) => path !== stylesheet()).length,
+        stylesheetWritten: written.includes(stylesheet())
       }
     },
 
@@ -367,12 +464,7 @@ export function createProjectSaver(
 
     dispose: () => {
       unsubscribe()
-
-      for (const timer of timers.values()) {
-        clearTimeout(timer)
-      }
-
-      timers.clear()
+      stopTimers()
       listeners.clear()
     }
   }

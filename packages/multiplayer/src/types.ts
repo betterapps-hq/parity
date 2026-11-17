@@ -104,8 +104,7 @@ export type DocOp =
   | { op: "removeReference"; file: string; id: string }
   | { op: "setFileField"; file: string; field: FileField; value?: JsonValue }
   | { op: "setModes"; modes: ModeSettings }
-  // Kept by ProjectDoc itself and never sent to the backend.
-  /** Token values edited on the canvas, which the saver writes to the stylesheet. Never shared. */
+  /** Token values edited on the canvas, which the saver writes to the stylesheet. Shared like the rest, with sync. */
   | { op: "setTokens"; tokens: TokenEdits }
 
 export type TransactProblem =
@@ -129,6 +128,9 @@ export type ChangeOrigin =
   | "code" // designs drawn again from code: not undoable, not written
   | "remote" // someone else, once sync arrives: never in this person's undo
 
+/** Where a change's content is already written: in the files, or nowhere yet. */
+export type Written = "files" | "no"
+
 /** A gesture's id, which `beginGesture` makes. */
 export type GestureId = string
 
@@ -138,8 +140,11 @@ export interface TransactOptions {
   gesture?: GestureId
   /** Whether it's a step for Undo. `false` for what follows from another change, as fitting a frame to its content. */
   undoable?: boolean
-  /** Whether the files it changes are written. `false` for changes that came from the files. Defaults to true. */
-  persist?: boolean
+  /**
+   * Where its content is already written: `files` for changes that came from the files, which the saver takes as saved.
+   * Defaults to `no`, so the copy that writes files writes it.
+   */
+  written?: Written
   /** Kept with the undo step and given back when it's undone or redone, as the selection to restore. */
   meta?: JsonValue
 }
@@ -238,8 +243,12 @@ export interface DocChange {
   meta?: JsonValue
   /** Files whose `.par` content changed: the main file too when the modes did. */
   files: readonly string[]
-  /** Whether those files are to be written. False for a replaced file and `persist: false`: the saver takes them as saved. */
-  persist: boolean
+  /**
+   * Where those files' new content is already written: `files` for a replaced file, code drawn again and `written:
+   * "files"`, which the saver takes as saved; `no` for everything else, others' changes included, which the copy that
+   * writes files writes.
+   */
+  written: Written
   /** Files added and removed. */
   filesAdded: readonly string[]
   filesRemoved: readonly string[]
@@ -275,6 +284,8 @@ export interface DocBackend {
   /** Plain values, without modes, each the same object until an operation touches it. */
   files(): ReadonlyMap<string, CanvasDocument>
   modes(): ModeSettings
+  /** The token values edited on the canvas. */
+  tokens(): TokenEdits
   version(): DocVersion
   /**
    * Applies operations `ProjectDoc` has checked, as one commit, and says what they changed. They're plain: a `remove`
@@ -287,7 +298,7 @@ export interface DocBackend {
   dispose(): void
 }
 
-/** What changed in the backend's state. `ProjectDoc` adds the label, the step and the token edits to make a `DocChange`. */
+/** What changed in the backend's state. `ProjectDoc` adds the label and the step to make a `DocChange`. */
 export type BackendChange = Pick<
   DocChange,
   | "files"
@@ -299,6 +310,7 @@ export type BackendChange = Pick<
   | "references"
   | "fileFields"
   | "modes"
+  | "tokens"
   | "version"
 >
 
@@ -315,4 +327,6 @@ export interface OpenOptions {
   files: readonly { path: string; document: CanvasDocument; drawn?: boolean }[]
   main: string
   modes: ModeSettings
+  /** Token values edited and not yet written, as a recovery copy brings back. None by default. */
+  tokens?: TokenEdits
 }

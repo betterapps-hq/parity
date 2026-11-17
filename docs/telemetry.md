@@ -893,21 +893,24 @@ Some failures are recorded for you, so code doesn't record them again:
 
 ### `document.saveFailed`
 
-| Attribute    | Type               | Meaning                                         |
-| ------------ | ------------------ | ----------------------------------------------- |
-| `file`       | `string`           | The file written                                |
-| `durationMs` | `number`           | How long it took                                |
-| `bytes`      | `integer`          | The document's size as JSON                     |
-| `code`       | `string`, optional | The `CodedError` code, when the failure has one |
+| Attribute     | Type                | Meaning                                                               |
+| ------------- | ------------------- | --------------------------------------------------------------------- |
+| `file`        | `string`            | The file written                                                      |
+| `durationMs`  | `number`            | How long it took                                                      |
+| `bytes`       | `integer`           | The document's size as JSON                                           |
+| `code`        | `string`, optional  | The `CodedError` code, when the failure has one                       |
+| `inRoom`      | `boolean`, optional | Whether the project is open in a live room                            |
+| `writesFiles` | `boolean`, optional | Whether this copy writes the project's files, as the room's host does |
 
 ### `document.saved`
 
-| Attribute    | Type               | Meaning                                                               |
-| ------------ | ------------------ | --------------------------------------------------------------------- |
-| `file`       | `string`           | The file written                                                      |
-| `durationMs` | `number`           | How long it took                                                      |
-| `bytes`      | `integer`          | The document's size as JSON                                           |
-| `exportMs`   | `number`, optional | Time to produce the file's content from the document, in milliseconds |
+| Attribute    | Type                | Meaning                                                                  |
+| ------------ | ------------------- | ------------------------------------------------------------------------ |
+| `file`       | `string`            | The file written                                                         |
+| `durationMs` | `number`            | How long it took                                                         |
+| `bytes`      | `integer`           | The document's size as JSON                                              |
+| `exportMs`   | `number`, optional  | Time to produce the file's content from the document, in milliseconds    |
+| `fromOthers` | `integer`, optional | Other copies' changes to the file in a live room that the write includes |
 
 ### `dragPreview.settled`
 

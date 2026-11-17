@@ -8,7 +8,7 @@ import {
   type ModeSettings,
   nodeIds
 } from "@parity-app/core"
-import { noTokenEdits } from "@parity-app/editor"
+import { noTokenEdits, sameTokenValues, type TokenEdits } from "@parity-app/editor"
 import {
   applyOp,
   applyPlain,
@@ -46,6 +46,7 @@ import {
   readDesign,
   readFile,
   readModes,
+  readTokens,
   sameJson,
   type ProjectContainers,
   recordIn,
@@ -55,6 +56,7 @@ import {
   slotKey,
   syncField,
   syncKey,
+  tokenJson,
   type Tree,
   writeDesign,
   writeLayer
@@ -112,6 +114,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
   const referencesMap = doc.getMap("references")
   const filesMap = doc.getMap("files")
   const modesMap = doc.getMap("modes")
+  const tokensMap = doc.getMap("tokens")
   // Drawn files are drawn from code by each window: they're in the plain values and never in Loro.
   const drawn = new Set(options.files.flatMap((file) => (file.drawn ? [file.path] : [])))
 
@@ -119,7 +122,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     files: new Map(options.files.map((file) => [file.path, file.document])),
     main: options.main,
     modes: options.modes,
-    tokens: noTokenEdits
+    tokens: options.tokens ?? noTokenEdits
   }
 
   /** Every node, a design's own included, to its design's node: kept for deleted nodes, as others' deletes name them. */
@@ -258,6 +261,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       }
 
       syncModes(undefined, options.modes)
+      syncTokens(noTokenEdits, state.tokens)
       doc.commit({ origin: "load" })
     }
   })
@@ -310,6 +314,22 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     for (const [key, value] of entriesOf(next)) {
       if (!before || !sameJson(previous[key], value)) {
         modesMap.set(key, value)
+      }
+    }
+  }
+
+  function syncTokens(before: TokenEdits, after: TokenEdits): void {
+    for (const key of before.keys()) {
+      if (!after.has(key)) {
+        tokensMap.delete(key)
+      }
+    }
+
+    for (const [key, edit] of after) {
+      const was = before.get(key)
+
+      if (!was || was.value !== edit.value || was.original !== edit.original) {
+        tokensMap.set(key, tokenJson(edit))
       }
     }
   }
@@ -577,6 +597,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         return
 
       case "setTokens":
+        syncTokens(before.tokens, after.tokens)
+
         return
     }
   }
@@ -722,6 +744,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     const roots = new Set<TreeID>()
     const touchedFiles = new Set<string>()
     let modesTouched = false
+    let tokensTouched = false
 
     for (const event of events) {
       const [top, second] = event.path
@@ -756,6 +779,8 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         }
       } else if (top === "modes") {
         modesTouched = true
+      } else if (top === "tokens") {
+        tokensTouched = true
       }
     }
 
@@ -794,6 +819,14 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
 
       if (!sameJson(jsonOf(fieldsOf(modes)), jsonOf(fieldsOf(state.modes)))) {
         ops.push({ op: "setModes", modes })
+      }
+    }
+
+    if (tokensTouched) {
+      const tokens = readTokens(tokensMap)
+
+      if (!sameTokenEdits(tokens, state.tokens)) {
+        ops.push({ op: "setTokens", tokens })
       }
     }
 
@@ -873,7 +906,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
         }
       }
 
-      return { ...from, files, modes: readModes(modesMap) }
+      return { ...from, files, modes: readModes(modesMap), tokens: readTokens(tokensMap) }
     }
   }
 
@@ -908,7 +941,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
       files.set(path, document)
     }
 
-    state = { ...state, files, modes: whole.modes }
+    state = { ...state, files, modes: whole.modes, tokens: readTokens(tokensMap) }
   }
 
   return {
@@ -917,6 +950,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     doc,
     files: () => state.files,
     modes: () => state.modes,
+    tokens: () => state.tokens,
     version,
     apply,
     subscribe: (listener) => {
@@ -939,7 +973,7 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
     dispose: () => {
       listeners.clear()
 
-      for (const container of [tree, notesMap, referencesMap, filesMap, modesMap]) {
+      for (const container of [tree, notesMap, referencesMap, filesMap, modesMap, tokensMap]) {
         container.free()
       }
 
@@ -949,6 +983,23 @@ export function openLoro(options: OpenOptions, snapshot?: Uint8Array): LoroBacke
 }
 
 const emptyRoot: DesignNode = { type: "layout", id: "", children: [] }
+
+/** Whether two sets of token edits are the same, originals included. */
+function sameTokenEdits(a: TokenEdits, b: TokenEdits): boolean {
+  if (a.size !== b.size || !sameTokenValues(a, b)) {
+    return false
+  }
+
+  for (const [key, edit] of a) {
+    const other = b.get(key)
+
+    if (!other || other.value !== edit.value || other.original !== edit.original) {
+      return false
+    }
+  }
+
+  return true
+}
 
 function idsOf(list: ItemList): string[] {
   return listJson(list).map((item) => (isJsonRecord(item) ? (textOf(item.id) ?? "") : ""))
