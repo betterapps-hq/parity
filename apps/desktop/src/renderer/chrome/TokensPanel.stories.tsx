@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, spyOn, userEvent, waitFor, within } from "storybook/test"
-import { example, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { example, openProject, ProjectStage } from "../stories/fixtures.tsx"
 import { service } from "../stories/host.ts"
 import { setLayout } from "./layout.ts"
 import { LeftPanel } from "./LeftPanel.tsx"
@@ -30,7 +30,7 @@ type Story = StoryObj<typeof meta>
 
 /** Opens the example on the Tokens tab. */
 async function openTokens(): Promise<void> {
-  await openProjects("example")
+  await openProject("example")
   setLayout({ leftTab: "tokens" })
 }
 

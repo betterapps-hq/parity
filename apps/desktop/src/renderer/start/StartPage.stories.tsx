@@ -16,14 +16,13 @@ import signInMobile from "./example-pictures/sign-in-mobile.webp?inline"
 import teamMembersDesktop from "./example-pictures/team-members-desktop.webp?inline"
 import teamMembersMobile from "./example-pictures/team-members-mobile.webp?inline"
 import { Home } from "./HomePage.tsx"
-import { NewTab } from "./NewTabPage.tsx"
 import { type PictureSource, PictureSourceProvider } from "./pictures.ts"
 import { type KnownProject, knownProjects, type ProjectNote } from "./projects.ts"
 import { type StartActions, StartActionsProvider } from "./start-actions.ts"
 
 /**
- * The start page as the window shows it, built from the explorations (Parity/Explorations/Start page/Start page): Home, pinned
- * first in the tab strip, and a new tab. Each project shows its picture, its first screens as last saved, or a
+ * The start page as the window shows it, built from the explorations (Parity/Explorations/Start page/Start page): Home,
+ * which the window shows with no project open. Each project shows its picture, its first screens as last saved, or a
  * placeholder until it's opened (PAR-607); the pictures here are the example project's. What Parity can't do yet is in
  * place and says so when used: For you and Shared with you are empty, and New project, cloning, links and
  * organizations say they're coming. Starring and removing work here as in the window.
@@ -285,18 +284,4 @@ export const OpenMenu: Story = {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Open" }))
     await within(document.body).findByRole("menuitem", { name: "Clone from GitHub" })
   }
-}
-
-/** A new tab: search, New project and Open, then your projects. */
-export const NewTabPage: Story = {
-  render: () => <Sample>{(projects) => <NewTab projects={projects} />}</Sample>
-}
-
-/** A new tab before any project has opened. */
-export const NewTabFirstTime: Story = {
-  render: () => (
-    <Sample recent={[]} notes={{}}>
-      {(projects) => <NewTab projects={projects} />}
-    </Sample>
-  )
 }

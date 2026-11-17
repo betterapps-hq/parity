@@ -575,11 +575,8 @@ Some failures are recorded for you, so code doesn't record them again:
 | `service.exited`                   | warn  | all  | main                                    | The project service exits while the app runs: it failed, or a fresh one replaced it. Not as the app quits.                                                                 |
 | `service.lag`                      | warn  | all  | service                                 | The project service's event loop is late by over 200 ms.                                                                                                                   |
 | `setting.changed`                  | info  | all  | renderer                                | A preference or the telemetry level is changed.                                                                                                                            |
-| `start.action`                     | info  | all  | renderer                                | A control on Home or a new tab's start page is used.                                                                                                                       |
+| `start.action`                     | info  | all  | renderer                                | A control on Home is used.                                                                                                                                                 |
 | `styles.imported`                  | info  | all  | renderer                                | A library's styles are imported into the project's stylesheet.                                                                                                             |
-| `tab.closed`                       | info  | all  | renderer                                | A tab closes.                                                                                                                                                              |
-| `tab.opened`                       | info  | all  | renderer                                | A tab opens, for a project or as a new tab.                                                                                                                                |
-| `tab.switched`                     | info  | all  | renderer                                | Another tab, or Home, comes to the front.                                                                                                                                  |
 | `text.edited`                      | info  | all  | renderer                                | Editing a text layer in place on the canvas ends.                                                                                                                          |
 | `tokens.saved`                     | info  | all  | renderer                                | Token changes are written to the stylesheet, or fail to be.                                                                                                                |
 | `update.checked`                   | info  | all  | main                                    | A check for an update finds one or finds none.                                                                                                                             |
@@ -1517,7 +1514,7 @@ Some failures are recorded for you, so code doesn't record them again:
 
 | Attribute | Type                                                                                                  | Meaning                                                                                                  |
 | --------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or a new tab                                                          |
+| `page`    | `"home" \| "new"`                                                                                     | The start page it came from: Home, or, before a window held one project, a new tab                       |
 | `action`  | `"new-project" \| "open-folder" \| "open-file" \| "recent-project" \| "search" \| "star" \| "forget"` | What was done: start a project, open a folder or file, open a listed project, search, star or forget one |
 
 ### `styles.imported`
@@ -1527,27 +1524,6 @@ Some failures are recorded for you, so code doesn't record them again:
 | `package` | `string`           | The library, by its catalog ID or package name |
 | `version` | `string`, optional | The version installed, when known              |
 | `files`   | `string[]`         | The files it changed, by path                  |
-
-### `tab.closed`
-
-| Attribute | Type                           | Meaning                                            |
-| --------- | ------------------------------ | -------------------------------------------------- |
-| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
-| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
-
-### `tab.opened`
-
-| Attribute | Type                           | Meaning                                            |
-| --------- | ------------------------------ | -------------------------------------------------- |
-| `kind`    | `"home" \| "project" \| "new"` | What the tab shows: Home, a project, or a new tab  |
-| `tabs`    | `integer`                      | How many tabs are open after it, not counting Home |
-
-### `tab.switched`
-
-| Attribute | Type                           | Meaning                  |
-| --------- | ------------------------------ | ------------------------ |
-| `from`    | `"home" \| "project" \| "new"` | What was in front before |
-| `to`      | `"home" \| "project" \| "new"` | What is in front now     |
 
 ### `text.edited`
 

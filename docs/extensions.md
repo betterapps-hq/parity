@@ -193,7 +193,8 @@ which kind it is:
 - **`tabs`:** a tab in the left, right or bottom panel (`area`), after Parity's own, with its title and icon.
 - **`sections`:** a section in the Design tab, for a node type (`nodeType`), where its `when` holds for what's selected.
   For now a section shows for a component's board, as `nodeType: "component"`; other node types come with `nodeTypes`.
-- **`pages`:** a page in a tab at the top, after its project's tab, such as a setup guide. It closes with the project.
+- **`pages`:** a page shown in its project's place, under the title bar, such as a setup guide, with a button that
+  closes it and shows the project again. It closes with the project.
 
 The code fills one with `parity.views.table`, `tree`, `list`, `keyValue` or `form`, given the id of one whose `view` is
 that kind ([views.ts](../packages/extension-host/src/views.ts)). A view holds items, or a form's fields, and options:

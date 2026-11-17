@@ -91,7 +91,8 @@ function menu(
     placedReferences: 0,
     canvas: true,
     history: { canUndo: false, canRedo: false },
-    references: true
+    references: true,
+    held: true
   })
 
   return canvasMenu(target, states, selection, designs, libraries)

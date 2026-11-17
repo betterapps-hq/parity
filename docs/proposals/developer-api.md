@@ -168,7 +168,7 @@ from the manifest alone. The code loads the first time the command runs.
 | `keybindings`     | A command's keys, with a `when`                                                                        |
 | `tabs`            | A tab in the left, right or bottom panel, and the declarative view it holds                            |
 | `sections`        | A section in the Design tab, for nodes of a type or a selection a `when` matches                       |
-| `pages`           | A page in a tab at the top, such as a setup guide                                                      |
+| `pages`           | A page shown in the project's place, such as a setup guide                                             |
 | `statusItems`     | Status bar items, drawn with their last value until the code updates them                              |
 | `nodeTypes`       | Each type's name, icon and color, so its nodes draw and `onNodeType` works before the code loads       |
 | `providers`       | Which jobs it does (`renderer`, `builder`, …), and a renderer's or builder's own entry modules (below) |
@@ -497,7 +497,7 @@ This is how an extension works with Parity's UX rather than beside it.
 | Frames            | Decorators from the project's preview file                                       | Decorators, and a tool's preview, such as Storybook's ([decorators.md](decorators.md)) |
 | Components panel  | Cards, their menu and buttons                                                    | Facts, and actions on cards                                                            |
 | Settings          | Appearance, Saving, Canvas, Code, Export, Updates, Privacy                       | Its own page on the Extensions page, drawn from its schema                             |
-| Tabs at the top   | Projects, Home, a new tab                                                        | A page of its own, such as a setup guide                                               |
+| Project's place   | The project, or Home                                                             | A page of its own, such as a setup guide                                               |
 
 - **The bottom panel becomes tabbed.** The Console is the only thing there today; it becomes the first of its tabs, and
   each running extension with output gets one beside it.

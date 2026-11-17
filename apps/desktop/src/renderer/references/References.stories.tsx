@@ -3,7 +3,7 @@ import { referenceEntries, updateReference } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, waitFor, within } from "storybook/test"
 import { AppWindow } from "../App.tsx"
-import { design, example, frameDesigns, openProjects } from "../stories/fixtures.tsx"
+import { design, example, frameDesigns, openProject } from "../stories/fixtures.tsx"
 import { answeringSearches } from "../stories/host.ts"
 import { storyResults } from "../stories/library-results.ts"
 import { placeReferences } from "./find-references.ts"
@@ -38,7 +38,7 @@ const body = () => within(document.body)
 
 /** The example open with Pricing selected, answering searches with the samples. */
 async function pricingSelected() {
-  await openProjects("example")
+  await openProject("example")
   answeringSearches(storyResults)
   example().selection.set({ design: design("Pricing") })
 }
@@ -103,7 +103,7 @@ export const PlaceReferences: Story = {
  * it's here, Open in Mobbin and More from the app.
  */
 export const OnTheCanvas: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: () => placedBesidePricing()
 }
 
@@ -112,7 +112,7 @@ export const OnTheCanvas: Story = {
  * from it, and its name as who placed it.
  */
 export const PlacedByAnAgent: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: () =>
     placedBesidePricing("Claude", [
       "Yearly is picked by default, and the saving sits on the toggle itself.",
@@ -123,7 +123,7 @@ export const PlacedByAnAgent: Story = {
 
 /** A reference whose picture's link has run out: it shows its app's name and Open in Mobbin in its place. */
 export const PictureExpired: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await placedBesidePricing()
     const { doc } = example()

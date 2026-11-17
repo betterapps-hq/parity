@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, screen, userEvent, within } from "storybook/test"
-import { openProjects, ProjectStage } from "../../stories/fixtures.tsx"
+import { openProject, ProjectStage } from "../../stories/fixtures.tsx"
 import { IconExport, iconFileName } from "./icon-export.tsx"
 
 /**
@@ -10,7 +10,7 @@ import { IconExport, iconFileName } from "./icon-export.tsx"
 const meta = {
   title: "Parity/Explorations/Icon export",
   component: IconExport,
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   decorators: [
     (Story) => (
       <ProjectStage className="h-screen bg-background text-foreground">

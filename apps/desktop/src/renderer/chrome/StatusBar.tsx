@@ -250,8 +250,8 @@ function ConsoleStatus({ projectId }: { projectId: string }) {
 }
 
 /**
- * A save that failed, which nothing else would show. Unsaved changes show as a dot on the project's tab, so the status
- * bar doesn't repeat them.
+ * A save that failed, which nothing else would show. Unsaved changes show as a dot after the project's name, so the
+ * status bar doesn't repeat them.
  */
 function SaveFailure({ designs }: { designs: DocSession }) {
   const state = useSaveState(designs)

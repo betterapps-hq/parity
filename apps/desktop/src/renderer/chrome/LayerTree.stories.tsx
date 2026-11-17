@@ -3,7 +3,7 @@ import { designsSelection, layersSelection, newDesign } from "@parity-app/editor
 import { addContainer, addNote, containerEntries, updateContainer, updateView } from "@parity-app/multiplayer"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
-import { design, example, findTooltip, node, openProjects, ProjectStage } from "../stories/fixtures.tsx"
+import { design, example, findTooltip, node, openProject, ProjectStage } from "../stories/fixtures.tsx"
 import { renameAndRecord } from "./inspector-events.ts"
 import { formatKeys } from "./keys.ts"
 import { LayerTree } from "./LayerTree.tsx"
@@ -91,7 +91,7 @@ async function scrollUntil(find: () => HTMLElement): Promise<HTMLElement> {
 
 /** Selects Value inside the Dashboard's Users card, as Ctrl-clicking it on the canvas would. */
 async function selectUsersValue(): Promise<void> {
-  await openProjects("example")
+  await openProject("example")
   const path = `${node("Dashboard", "Users card")}/${node("Stat card", "Value")}`
   example().selection.set({ design: design("Dashboard"), node: path })
 }
@@ -153,7 +153,7 @@ async function rightClick(target: HTMLElement): Promise<void> {
  * Components panel. Each
  * heading has a + that makes a new one, always showing (PAR-546).
  */
-export const Designs: Story = { loaders: [() => openProjects("example")] }
+export const Designs: Story = { loaders: [() => openProject("example")] }
 
 /**
  * A project whose designs were all deleted: each heading's + shows, and the row below it is a button that makes the
@@ -161,7 +161,7 @@ export const Designs: Story = { loaders: [() => openProjects("example")] }
  */
 export const EmptyProject: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("designless")],
+  loaders: [() => openProject("designless")],
   play: async ({ canvasElement }) => {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await expect(within(tree).getByRole("button", { name: "New screen" })).toBeVisible()
@@ -176,7 +176,7 @@ export const EmptyProject: Story = {
  */
 export const NewScreenHovered: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("designless")],
+  loaders: [() => openProject("designless")],
   play: async ({ canvasElement }) => {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await userEvent.hover(within(tree).getByRole("button", { name: "New screen" }))
@@ -190,7 +190,7 @@ export const NewScreenHovered: Story = {
  */
 export const FirstScreenMade: Story = {
   parameters: { blank: true },
-  loaders: [() => openProjects("designless")],
+  loaders: [() => openProject("designless")],
   play: async ({ canvasElement }) => {
     const tree = within(canvasElement).getByRole("tree", { name: "Layers" })
     await userEvent.click(within(tree).getByRole("button", { name: "No screens yet. New screen" }))
@@ -204,7 +204,7 @@ export const FirstScreenMade: Story = {
 
 /** A design opened by its arrow, then its page: its first level of layers shows, and nothing is selected. */
 export const DesignExpanded: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     const card = row("Plan card")
     await fireEvent.click(within(card).getByRole("button", { name: "Expand" }))
@@ -221,7 +221,7 @@ export const DesignExpanded: Story = {
 export const LayerSelected: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Plan card"), node: node("Plan card", "Feature 3 text") })
     }
   ]
@@ -234,7 +234,7 @@ export const LayerSelected: Story = {
 export const Slots: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const key = design("Plan card")
       updateContainer(example().doc, key, "Make slot", (container) =>
         setSlot(container, node("Plan card", "Features"), "features")
@@ -248,7 +248,7 @@ export const Slots: Story = {
 export const SeveralLayersSelected: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const card = design("Plan card")
       const layers = ["Feature 1", "Feature 2", "Feature 3"].map((name) => node("Plan card", name))
       example().selection.set(layersSelection(card, layers))
@@ -260,7 +260,7 @@ export const SeveralLayersSelected: Story = {
 export const SeveralDesignsSelected: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set(designsSelection([design("Stat card"), design("Plan card"), design("Activity item")]))
     }
   ]
@@ -273,7 +273,7 @@ export const SeveralDesignsSelected: Story = {
 export const Hovered: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const card = design("Plan card")
       example().selection.set({ design: card, node: node("Plan card", "Price row") })
       example().selection.setHover({ design: card, node: node("Plan card", "Billing") })
@@ -283,7 +283,7 @@ export const Hovered: Story = {
 
 /** Layers hidden in the design: muted, with a crossed-out eye. Nothing is selected. */
 export const HiddenLayers: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Stat card", "Value skeleton", "Note skeleton")
     example().selection.set({})
@@ -297,7 +297,7 @@ export const HiddenLayers: Story = {
 export const ShowingAState: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const card = design("Stat card")
       updateView(example().doc, card, "Show Loading", (view) => ({ ...view, state: "loading" }))
     }
@@ -314,7 +314,7 @@ export const ShowingAState: Story = {
 export const Instances: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Pricing"), node: node("Pricing", "Pro plan") })
     }
   ],
@@ -330,7 +330,7 @@ export const Instances: Story = {
 export const SelectedOnCanvas: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Pricing"), node: node("Pricing", "Headline") })
     }
   ]
@@ -340,7 +340,7 @@ export const SelectedOnCanvas: Story = {
 export const RenamingALayer: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       example().selection.set({ design: design("Plan card"), node: node("Plan card", "Call to action") })
     }
   ],
@@ -353,7 +353,7 @@ export const RenamingALayer: Story = {
 
 /** Renaming a design from its row, as double-clicking it starts. */
 export const RenamingADesign: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
     await fireEvent.doubleClick(row("Plan card"))
     await within(canvasElement).findByDisplayValue("Plan card")
@@ -364,7 +364,7 @@ export const RenamingADesign: Story = {
 export const LongNames: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const { doc, selection } = example()
       const card = design("Plan card")
       const third = node("Plan card", "Feature 3 text")
@@ -380,7 +380,7 @@ export const LongNames: Story = {
  * delete it, each with its keys from the keymap (PAR-571).
  */
 export const LayerMenu: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Stat card", "Value skeleton")
     example().selection.set({ design: design("Stat card") })
@@ -406,7 +406,7 @@ export const LayerMenu: Story = {
 export const HiddenByAVariant: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const card = design("Plan card")
       const feature = node("Plan card", "Feature 4")
       updateContainer(example().doc, card, "Add density variant", (current) => {
@@ -435,7 +435,7 @@ export const HiddenByAVariant: Story = {
 
 /** A design's menu, opened by right-clicking its row, which selects it: rename, duplicate or delete it. */
 export const DesignMenu: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await rightClick(row("Plan card"))
     const menu = await within(document.body).findByRole("menu")
@@ -450,7 +450,7 @@ export const DesignMenu: Story = {
 
 /** Dragging the selected Feature 4 up the tree: a line under Feature 2 shows it would land after it. */
 export const DraggingBetweenLayers: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Plan card", "Feature 4")
     dragOver(row("Plan card", "Feature 2"), "Plan card", ["Feature 4"], 0.9)
@@ -459,7 +459,7 @@ export const DraggingBetweenLayers: Story = {
 
 /** Dragging a layer onto a layout: a ring around the layout's row shows it would go inside, at the end. */
 export const DraggingIntoALayout: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Plan card", "Price row")
     dragOver(row("Plan card", "Price block"), "Plan card", ["Call to action"], 0.5)
@@ -471,7 +471,7 @@ export const DraggingIntoALayout: Story = {
  * shows it would be listed after it (PAR-187).
  */
 export const DraggingADesign: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     const data = new DataTransfer()
     row("Pricing").dispatchEvent(new DragEvent("dragstart", { bubbles: true, cancelable: true, dataTransfer: data }))
@@ -494,7 +494,7 @@ export const DraggingADesign: Story = {
  * Its arrows are gone, since a search opens what it finds (PAR-187).
  */
 export const Searching: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
     await search(canvasElement, "feature")
     await waitFor(() => row("Plan card", "Feature 4"))
@@ -505,7 +505,7 @@ export const Searching: Story = {
 
 /** A search that finds nothing says so, in place of the tree. */
 export const NothingFound: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
     await search(canvasElement, "carousel")
     await within(canvasElement).findByText("No layers or designs match “carousel”")
@@ -514,7 +514,7 @@ export const NothingFound: Story = {
 
 /** Collapse all, pressed with a layer deep in Plan card selected: every row closes, the selection's too (PAR-187). */
 export const CollapsedAll: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async ({ canvasElement }) => {
     await reveal("Plan card", "Feature 3 text")
     await userEvent.click(within(canvasElement).getByRole("button", { name: "Collapse all" }))
@@ -527,7 +527,7 @@ export const CollapsedAll: Story = {
  * Alt+click closes them all.
  */
 export const OpenedWithEverythingInside: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     const arrow = within(row("Plan card")).getByRole("button", { name: "Expand" })
     await fireEvent.click(arrow, { altKey: true })
@@ -541,7 +541,7 @@ export const OpenedWithEverythingInside: Story = {
  * (PAR-187).
  */
 export const OpenedWithItsSiblings: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await userEvent.click(row("Pricing"))
     await userEvent.keyboard("*")
@@ -555,7 +555,7 @@ export const OpenedWithItsSiblings: Story = {
  * and only Pricing's open, so the tree doesn't grow as the selection moves around the project (PAR-187).
  */
 export const SelectionMovedOn: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Plan card", "Feature 3 text")
     example().selection.set({ design: design("Pricing"), node: node("Pricing", "Headline") })
@@ -569,7 +569,7 @@ export const SelectionMovedOn: Story = {
  * while the pointer is elsewhere, as Value skeleton's does (PAR-187).
  */
 export const HiddenFromItsEye: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Plan card", "Feature 2")
     // Picked in the tree, so the rows opened to show Feature 2 stay open.
@@ -622,7 +622,7 @@ export const HiddenInsideAnInstance: Story = {
  * The layers inside it are locked with it: hovered, theirs says what locks them, and isn't a button.
  */
 export const LockedFromItsLock: Story = {
-  loaders: [() => openProjects("example")],
+  loaders: [() => openProject("example")],
   play: async () => {
     await reveal("Plan card", "Feature 2")
     await userEvent.click(row("Plan card"))
@@ -642,7 +642,7 @@ export const LockedFromItsLock: Story = {
 export const LockedDesign: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       updateContainer(example().doc, design("Pricing"), "Lock screen", (container) => ({ ...container, locked: true }))
     }
   ],
@@ -663,7 +663,7 @@ export const LockedDesign: Story = {
 export const TextOnTheCanvas: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const { doc, selection } = example()
       addNote(doc, doc.main, {
         id: "note-launch",
@@ -693,7 +693,7 @@ export const TextOnTheCanvas: Story = {
 export const LargeProject: Story = {
   loaders: [
     async () => {
-      await openProjects("example")
+      await openProject("example")
       const { doc, selection } = example()
 
       for (let index = 0; index < 100; index++) {

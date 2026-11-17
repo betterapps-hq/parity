@@ -2,7 +2,7 @@ import { annotationKinds, type ReviewTool } from "@parity-app/editor"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { expect, userEvent, within } from "storybook/test"
 import { floatingBar } from "../../chrome/toolbar-parts.tsx"
-import { openProjects, ProjectStage } from "../../stories/fixtures.tsx"
+import { openProject, ProjectStage } from "../../stories/fixtures.tsx"
 import { ReviewBar } from "./ReviewBar.tsx"
 import { ReviewToolBar } from "./ReviewToolBar.tsx"
 
@@ -28,7 +28,7 @@ const meta = {
       </ProjectStage>
     )
   ],
-  loaders: [() => openProjects("example")]
+  loaders: [() => openProject("example")]
 } satisfies Meta<typeof ReviewToolBar>
 
 export default meta

@@ -19,19 +19,19 @@ import { ZoomControls } from "./chrome/ZoomControls.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { sendRouteMarks, followSelection } from "./extension-editor.ts"
 import { useTool } from "./selection.ts"
-import { type ProjectSession, type Tab, workspace } from "./workspace.ts"
+import { type Project, type ProjectSession, workspace } from "./workspace.ts"
 
 /**
  * An open project's canvas and panels, loaded in a chunk of its own (PAR-1084): tldraw and the panels make up most of
  * the window's code, and none of it is drawn until a project has opened, so the window paints without it.
  */
 export function OpenProject({
-  tab,
+  project,
   session,
   active,
   reopen
 }: {
-  tab: Tab
+  project: Project
   session: ProjectSession
   active: boolean
   reopen: () => void
@@ -45,7 +45,7 @@ export function OpenProject({
     <ProjectContext value={session}>
       <ProjectColors hidden={!active} className="flex min-h-0 flex-1 flex-col">
         {/* Each part fails on its own; this catches what they don't, and can reopen the project (PAR-667). */}
-        <ErrorBoundary name="project" label={tab.title} kind="page" onReopen={reopen}>
+        <ErrorBoundary name="project" label={project.title} kind="page" onReopen={reopen}>
           <main className="flex min-h-0 flex-1">
             <ErrorBoundary name="left-panel" label="Left panel" onReopen={reopen} className="w-64 flex-none border-r">
               <LeftPanel />
@@ -53,7 +53,7 @@ export function OpenProject({
             {/* The console docks under the canvas, between the side panels (PAR-147). */}
             <div className="flex min-w-0 flex-1 flex-col">
               <ErrorBoundary name="canvas" label="Canvas" onReopen={reopen} className="justify-center">
-                <CanvasArea tabId={tab.id} shown={active} />
+                <CanvasArea projectId={project.id} shown={active} />
               </ErrorBoundary>
               <ConsoleBoundary onReopen={reopen}>
                 <ConsolePanel />
@@ -93,12 +93,14 @@ function ConsoleBoundary({ onReopen, children }: { onReopen: () => void; childre
   )
 }
 
-function CanvasArea({ tabId, shown }: { tabId: string; shown: boolean }) {
-  const session = workspace.getTab(tabId)?.session
+function CanvasArea({ projectId, shown }: { projectId: string; shown: boolean }) {
+  const project = workspace.getProject()
+  const session = project?.id === projectId ? project.session : undefined
   const tool = useTool(session!.selection)
-  const onEditor = useCallback((editor: Editor | undefined) => workspace.setEditor(tabId, editor), [tabId])
 
-  // Component previews are made in the background for as long as the tab is open (PAR-207), and go when it closes.
+  const onEditor = useCallback((editor: Editor | undefined) => workspace.setEditor(projectId, editor), [projectId])
+
+  // Component previews are made in the background for as long as the project is open (PAR-207), and go when it closes.
   useEffect(() => (session ? startPreviews(session) : undefined), [session])
 
   useEffect(() => {

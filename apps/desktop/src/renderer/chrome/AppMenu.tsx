@@ -35,7 +35,7 @@ import {
 } from "lucide-react"
 import { createContext, type ReactNode, useContext } from "react"
 import { setEffectivePreference, useEffectivePreferences } from "../project-settings.ts"
-import { useActiveTabId, useRecentProjects, workspace } from "../workspace.ts"
+import { useProject, useRecentProjects, workspace } from "../workspace.ts"
 import { actions, commandsFor } from "./actions.ts"
 import { openDialog } from "./app-dialogs.ts"
 import { installCliCommand } from "./cli-command.ts"
@@ -53,13 +53,13 @@ const mac = isMac()
 
 /**
  * File, Edit, View, Object, Arrange and Help, in the title bar, like a desktop app's menus, named and ordered as
- * Figma's are. Each menu reads the active tab when it opens, so what it offers matches what's selected. Every item's
+ * Figma's are. Each menu reads the project when it opens, so what it offers matches what's selected. Every item's
  * keys come from the keymap, its icon from `commandIcons`, and whether it applies and what it's called from
  * `commandsFor`, as the shortcuts read them. Each command is in one menu only.
  */
 export function AppMenu() {
-  // Re-renders the bar when the active tab changes; the menus read the rest when they open.
-  useActiveTabId()
+  // Re-renders the bar when the project changes; the menus read the rest when they open.
+  useProject()
 
   const menus: [string, () => ReactNode][] = [
     ["File", FileItems],
@@ -85,7 +85,7 @@ export function AppMenu() {
   )
 }
 
-/** Each command's state in the active tab, as the open menu read it. */
+/** Each command's state in the project, as the open menu read it. */
 const States = createContext<CommandStates | undefined>(undefined)
 
 /** A menu's items, with every command's state read once as it opens. */
@@ -159,7 +159,7 @@ function Toggle({
   )
 }
 
-/** Tabs and projects: open, save, export, Settings, then close. New screen and New component are Object's. */
+/** The project: open, save, export, Settings, then close. New screen and New component are Object's. */
 function FileItems() {
   const session = activeSession()
   const recent = useRecentProjects()
@@ -167,8 +167,6 @@ function FileItems() {
 
   return (
     <>
-      <Item command="newTab" />
-      <MenubarSeparator />
       <Item command="openFolder">Open project folder…</Item>
       <Item command="openFile">Open project file…</Item>
       <MenubarSub>
@@ -248,15 +246,13 @@ function EditItems() {
   )
 }
 
-/** Home, zoom, and what the window shows. */
+/** Zoom, and what the window shows. */
 function ViewItems() {
   const layout = useLayout()
   const preferences = useEffectivePreferences()
 
   return (
     <>
-      <Item command="home" />
-      <MenubarSeparator />
       <Item command="zoomIn" />
       <Item command="zoomOut" />
       <Item command="zoomTo100" />

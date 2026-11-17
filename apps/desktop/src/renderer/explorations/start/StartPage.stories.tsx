@@ -24,14 +24,14 @@ type Story = StoryObj<typeof meta>
 
 type Context = "home" | "new-tab" | "first-run"
 
-const openProjects: MockTab[] = [
+const openProject: MockTab[] = [
   { id: "website", title: "Kestrel website" },
   { id: "dashboard", title: "Cloud console" }
 ]
 
 const tabsFor: Record<Context, MockTab[]> = {
-  home: [{ id: "home", title: "Home", home: true }, ...openProjects],
-  "new-tab": [{ id: "home", title: "Home", home: true }, ...openProjects, { id: "new", title: "New tab" }],
+  home: [{ id: "home", title: "Home", home: true }, ...openProject],
+  "new-tab": [{ id: "home", title: "Home", home: true }, ...openProject, { id: "new", title: "New tab" }],
   "first-run": [{ id: "home", title: "Home", home: true }]
 }
 

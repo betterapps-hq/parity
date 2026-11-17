@@ -8,7 +8,7 @@ import { panelLimits, setLayout } from "../chrome/layout.ts"
 import { LeftPanel } from "../chrome/LeftPanel.tsx"
 import { LibraryBrowserHost } from "../library/LibraryBrowser.tsx"
 import { projectLibrary } from "../project-doc.ts"
-import { design, example, never, openProjects, ProjectStage, typeInto } from "../stories/fixtures.tsx"
+import { design, example, never, openProject, ProjectStage, typeInto } from "../stories/fixtures.tsx"
 import { answering, answeringSearches, media, requests } from "../stories/host.ts"
 import { storyResults } from "../stories/library-results.ts"
 import { MediaPanel } from "./MediaPanel.tsx"
@@ -77,7 +77,7 @@ function showIn(designName: string, image: { src: string; alt?: string; credit?:
 async function openMedia(files: ImageFile[] = pictures): Promise<void> {
   media.files = [...files]
   answeringSearches(storyResults)
-  await openProjects("example")
+  await openProject("example")
   setLayout({ leftTab: "media" })
 }
 
