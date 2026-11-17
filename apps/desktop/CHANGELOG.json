@@ -2,6 +2,21 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 03:35:59 GMT",
+      "version": "0.101.0",
+      "tag": "@parity-app/desktop_v0.101.0",
+      "comments": {
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "d70e7edee8578ea2cf3ff3586fd42aa32ddc0a6c",
+            "comment": "Add @parity-app/presence-ui: the production components for people's and agents' presence on the canvas, from the approved multiplayer designs"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 03:17:30 GMT",
       "version": "0.100.1",
       "tag": "@parity-app/desktop_v0.100.1",
