@@ -321,6 +321,22 @@ canvas. Private `_folders`, route handlers, `_document` and `api/` aren't routes
 the app. Each page is a screen, laid out in the router's tree, whose frames load the app itself at the page's URL (see
 editor.md), with each path param's value set in Props.
 
+**Pages run the page runtime (PAR-1260),** which Vite, the webpack-compatible builders and Next serve first in the app's
+page, so a page changes mode without loading again and says how tall it is and where it went. Each project's pages load
+under a `.localhost` name of its own, so they run in a process of their own; Vite, webpack-compatible builders and Next
+all serve those names. What the runtime knows of the app comes from its extensions' page modules:
+
+| Router or renderer        | Page module                                                            | Status |
+| ------------------------- | ---------------------------------------------------------------------- | ------ |
+| TanStack Router           | Moves the app with its own router, read from `window.__TSR_ROUTER__`   | ✅     |
+| React Router              | None yet (PAR-1265): the page is moved only by loading it at the route | 🔜     |
+| Next.js                   | None yet (PAR-1265): the page is moved only by loading it at the route | 🔜     |
+| React, Next.js's included | Says when the app has hydrated, from React's first commit to its root  | ✅     |
+| Any other renderer        | None: the page counts as hydrated once loaded and quiet for 150 ms     | ◐      |
+
+Hydration and navigation in the fixtures' real apps are checked only by the end-to-end suite, which doesn't cover them
+yet.
+
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
 

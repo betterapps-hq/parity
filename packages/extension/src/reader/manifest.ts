@@ -169,6 +169,12 @@ const pattern = z
     }
   }, "isn't a regular expression")
 
+/** A module served into the app's page, by its package export and the name it's exported by. */
+const pageModule = z.strictObject({
+  import: z.string().startsWith("./"),
+  export: z.string().regex(/^[A-Za-z_$][\w$]*$/, "isn't a name a module exports by")
+})
+
 const providers = z.strictObject({
   renderer: z
     .strictObject({
@@ -176,7 +182,8 @@ const providers = z.strictObject({
       runtimePackages: z.array(z.string()),
       runtimeImports: z.array(z.string()),
       developmentStandIns: z.record(z.string(), z.string()).optional(),
-      componentExtensions: z.array(z.string())
+      componentExtensions: z.array(z.string()),
+      page: pageModule.optional()
     })
     .optional(),
   builder: z
@@ -192,7 +199,9 @@ const providers = z.strictObject({
     })
     .optional(),
   styles: empty.optional(),
-  router: z.strictObject({ decorators: z.array(frameDecorator).max(20).optional() }).optional(),
+  router: z
+    .strictObject({ decorators: z.array(frameDecorator).max(20).optional(), page: pageModule.optional() })
+    .optional(),
   entities: z
     .strictObject({
       watches: z.array(z.string()).optional(),

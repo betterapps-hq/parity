@@ -1,4 +1,3 @@
-import { appPageModeScript } from "@parity-app/project"
 import { z } from "zod"
 import { guestFiles } from "./browser-modules.ts"
 import type { BundlerPlugin } from "./bundler.ts"
@@ -143,11 +142,11 @@ const reloadScript = `(() => {
 })()`
 
 /**
- * The app's page as the canvas gets it: with what tells it the frame's mode and how tall it is (`appPageModeScript`),
- * first in its head, and what reloads it after each build that changes something.
+ * The app's page as the canvas gets it: with what reloads it after each build that changes something, first in its
+ * head. The page runtime comes in with the app's own entries (`GuestConfigOptions.pageEntry`).
  */
 export function servedAppPage(html: string): string {
-  const scripts = `<script>${appPageModeScript}</script><script>${reloadScript}</script>`
+  const scripts = `<script>${reloadScript}</script>`
   const head = /<head(?:\s[^>]*)?>/i.exec(html)
 
   return head

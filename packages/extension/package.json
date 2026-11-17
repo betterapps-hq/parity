@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./manifest": "./src/reader/index.ts",
     "./internal": "./src/internal.ts",
+    "./page": "./src/page.ts",
     "./styles": "./src/styles.ts"
   },
   "dependencies": {
