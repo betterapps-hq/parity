@@ -126,7 +126,7 @@ async function renderPage(job: PageJob): Promise<RenderedFrame> {
     // The window is only as tall as its first size until the capture, so a lazy image below it wouldn't start loading.
     eagerImages(host.shadowRoot)
     await window.canvasSettle()
-    await Promise.race([imagesLoaded(host), new Promise((resolve) => setTimeout(resolve, 1500))])
+    await Promise.race([imagesDecoded(images(host.shadowRoot)), new Promise((resolve) => setTimeout(resolve, 1500))])
 
     return { width: mode.width, height, nodes: [], overflowsX: false, unknownComponents: [] }
   } catch (error) {
@@ -134,15 +134,26 @@ async function renderPage(job: PageJob): Promise<RenderedFrame> {
   }
 }
 
+/** Every image in `root` and in the shadow roots inside it, as a copied web component's. */
+function images(root: ParentNode | null): HTMLImageElement[] {
+  return [...(root?.querySelectorAll("*") ?? [])].flatMap((element) => [
+    ...(element instanceof HTMLImageElement ? [element] : []),
+    ...images(element.shadowRoot)
+  ])
+}
+
 /** Has every lazy image in `root`, and in the shadow roots inside it, load now, as the whole page is captured. */
 function eagerImages(root: ParentNode | null): void {
-  for (const element of root?.querySelectorAll("*") ?? []) {
-    if (element instanceof HTMLImageElement && element.loading === "lazy") {
-      element.loading = "eager"
+  for (const image of images(root)) {
+    if (image.loading === "lazy") {
+      image.loading = "eager"
     }
-
-    eagerImages(element.shadowRoot)
   }
+}
+
+/** Once every one of `found` has loaded or failed. */
+async function imagesDecoded(found: readonly HTMLImageElement[]): Promise<void> {
+  await Promise.all(found.map((image) => (image.complete ? Promise.resolve() : image.decode().catch(() => undefined))))
 }
 
 async function renderDesign(job: DesignJob): Promise<RenderedFrame> {

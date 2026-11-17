@@ -92,7 +92,7 @@ export function pageTraceFiles(input: PageTraceInput): string[] {
 /**
  * The files directly in each folder above a route's file, not in their subfolders: where a router that names routes by
  * folder keeps what wraps every route below, as Next's templates, loading, error and not-found files, which no import
- * reaches. The project's root is left out, as its files are config, and the route's own folder, which is the route's.
+ * reaches; and every file in those folders' parallel slots (`@team/`), which their layouts draw beside the route. The project's root is left out, as its files are config, and the route's own folder, which is the route's.
  */
 export function ancestorFiles(route: string, files: readonly string[]): string[] {
   const folders = new Set<string>()
@@ -101,7 +101,9 @@ export function ancestorFiles(route: string, files: readonly string[]): string[]
     folders.add(folder)
   }
 
-  return files.filter((path) => folders.has(folderOf(path)))
+  const slots = [...folders].map((folder) => `${folder}/@`)
+
+  return files.filter((path) => folders.has(folderOf(path)) || slots.some((slot) => path.startsWith(slot)))
 }
 
 function folderOf(path: string): string {
