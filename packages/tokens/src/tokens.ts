@@ -39,6 +39,7 @@ export function extractTokens(
   const themeValues = new Map(
     theme.flatMap((variable) => (variable.derived ? [] : [[variable.name, variable.value] as const]))
   )
+
   const tokens = new Map<string, Token>()
   const categoryOf = (name: string, value: string) => categories[name] ?? categorize(name, value)
 
