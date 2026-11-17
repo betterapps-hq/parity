@@ -332,7 +332,7 @@ export function surfaceExtension(change: Partial<WindowExtension> = {}): WindowE
     extensionDependencies: [],
     commands: [],
     settings: {},
-    settingScopes: {},
+    declaredSettings: {},
     host: "crashed",
     ...change
   }
