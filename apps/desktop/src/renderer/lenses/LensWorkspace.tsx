@@ -28,7 +28,7 @@ import {
   type DockviewTheme,
   type IDockviewPanelProps
 } from "dockview-react"
-import { type Dispatch, type ReactNode, type SetStateAction, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { type Dock, dockAdapter } from "./dock-adapter.ts"
 import { GroupActions } from "./GroupActions.tsx"
 import { LensBar } from "./LensBar.tsx"
@@ -55,6 +55,19 @@ export interface LensWorkspaceProps<Id extends string> {
   titleBar?: ReactNode
   /** Below the lenses, as the window's status bar. */
   statusBar?: ReactNode
+  /**
+   * Whether the left panel and the inspector show, when the window keeps that itself, as the app does with its panel
+   * layout, so its own commands show and hide them too. Without it, the shell keeps it.
+   */
+  panels?: Panels | undefined
+  /** Told when the shell shows or hides a panel, with `panels`. */
+  onPanels?: ((next: Panels) => void) | undefined
+}
+
+/** Whether the left panel and the inspector show. */
+export interface Panels {
+  left: boolean
+  right: boolean
 }
 
 /**
@@ -68,7 +81,9 @@ export function LensWorkspace<Id extends string>({
   popoutUrl,
   title,
   titleBar,
-  statusBar
+  statusBar,
+  panels: given,
+  onPanels
 }: LensWorkspaceProps<Id>) {
   const known = useMemo(() => new Map<string, LensView<Id>>(lenses.map((lens) => [lens.id, lens])), [lenses])
   const [opening] = useState(() => readLayout(saved, lenses))
@@ -76,7 +91,9 @@ export function LensWorkspace<Id extends string>({
   const [layout, setLayout] = useState<Layout<Id>>({ groups: [] })
   // The lens the panels show before Dockview has laid the window out.
   const [last, setLast] = useState(() => opening.groups[opening.focus ?? 0]?.open ?? barOrder(lenses)[0]?.id)
-  const [panels, setPanels] = useState({ left: true, right: true })
+  const [kept, setKept] = useState<Panels>({ left: true, right: true })
+  const panels = given ?? kept
+  const setPanels = (change: (before: Panels) => Panels) => (onPanels ?? setKept)(change(panels))
 
   // With every tab closed, no lens is in focus, and the panels that follow one go with it.
   const empty = dock !== undefined && isEmpty(layout)
@@ -192,8 +209,8 @@ function lensActions<Id extends string>({
   current: Id | undefined
   known: ReadonlyMap<string, LensView<Id>>
   windows: boolean
-  panels: { left: boolean; right: boolean }
-  setPanels: Dispatch<SetStateAction<{ left: boolean; right: boolean }>>
+  panels: Panels
+  setPanels: (change: (before: Panels) => Panels) => void
 }): LensActions<Id> {
   // Decided on Dockview's layout as it is now, which a drag may have changed since the window last drew.
   const run = (decide: (now: Layout<Id>) => DockOperation<Id>[]) => {

@@ -8360,7 +8360,11 @@ in focus beside them, over the status bar. The title bar stays above, as on Home
   designs.
 - **Lenses stay in the main window** until the desktop app has lens windows (PAR-1247): the menus don't offer Move to
   new window, and a tab let go outside the window stays where it was.
-- **Component previews** are made for as long as the project is open, whether or not Screens shows.
+- **The panels are the window's panel layout,** so the lens bar, Show Layers and the other panel commands, the View
+  menu's panel toggle and extensions show and hide the same panels. A hidden panel is gone rather than left as a rail of
+  its tabs, as in the exploration, and the lens bar or a panel command brings it back.
+- **Component previews** are made for as long as the project is open, whether or not Screens shows: once a canvas has
+  come up, a lens closed doesn't hold them back as a canvas still loading does.
 
 Code: `OpenProject.tsx` renders `LensWorkspace` with `appLenses`, in `lenses/app-lenses.ts`; `lenses/screens.tsx` is
 Screens (`screensLens`), whose views read the open project through `OpenProjectContext`. The shell is

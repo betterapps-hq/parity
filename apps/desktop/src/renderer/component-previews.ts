@@ -216,6 +216,8 @@ class ProjectPreviews {
   private readonly skipped = new Set<string>()
   private readonly stops: (() => void)[] = []
   private lastActivity = performance.now()
+  /** A canvas has been up: the project has opened, and a canvas missing since is a lens closed, not one loading. */
+  private canvasWasUp = false
   private timer: ReturnType<typeof setTimeout> | undefined
   private refreshTimer: ReturnType<typeof setTimeout> | undefined
   private making = false
@@ -508,7 +510,7 @@ class ProjectPreviews {
 
   /**
    * Makes the next preview `nextPreview` picks, then asks again. The canvas comes first: nothing is made while the tab
-   * isn't the one shown, its canvas isn't up or a frame on it waits for its bitmap.
+   * isn't the one shown, its canvas hasn't come up since the project opened or a frame on it waits for its bitmap.
    */
   private async step(): Promise<void> {
     this.timer = undefined
@@ -517,7 +519,10 @@ class ProjectPreviews {
       return
     }
 
-    const settled = !!this.session.editor && workspace.getProject()?.session === this.session && bitmapsWaiting() === 0
+    const project = workspace.getProject()?.session
+    // With every lens closed there's no canvas to wait for, once one has been up.
+    this.canvasWasUp ||= !!project?.editor
+    const settled = this.canvasWasUp && project === this.session && bitmapsWaiting() === 0
 
     const needed = this.components().flatMap((component) => {
       const entry = this.entries.get(component)

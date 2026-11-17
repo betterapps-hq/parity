@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { ProjectContext } from "./canvas/context.ts"
 import { ProjectColors } from "./canvas/project-colors.tsx"
 import { ErrorBoundary } from "./chrome/ErrorBoundary.tsx"
+import { setLayout, useLayout } from "./chrome/layout.ts"
 import { StatusBar } from "./chrome/StatusBar.tsx"
 import { startPreviews } from "./component-previews.ts"
 import { followSelection, sendRouteMarks } from "./extension-editor.ts"
@@ -31,6 +32,9 @@ export function OpenProject({
   // And the person's marks on its routes through `parity.routes` (PAR-1175, PAR-1176).
   useEffect(() => sendRouteMarks(session), [session])
 
+  // The panels follow the window's panel layout, which Show Layers, the View menu and extensions change too.
+  const { left, right } = useLayout()
+
   // Component previews are made in the background for as long as the project is open (PAR-207), and go when it closes.
   useEffect(() => startPreviews(session), [session])
 
@@ -43,6 +47,8 @@ export function OpenProject({
             <LensWorkspace
               lenses={appLenses}
               title={project.title}
+              panels={{ left, right }}
+              onPanels={setLayout}
               statusBar={
                 <ErrorBoundary name="status-bar" label="Status bar" kind="strip" className="h-7 shrink-0 border-t">
                   <StatusBar />
