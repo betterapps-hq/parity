@@ -379,12 +379,12 @@ picture, captured offscreen from its copy and kept on disk, and turns into its c
 picture shows as soon as the project opens, while its trace says it's current. What a trace holds depends on what the
 builder can say about a route:
 
-| Builder                     | A page's trace                                                                                              | Status |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------- | ------ |
-| Vite                        | What its module graph says the route's file and its parents' files load, and Parity's scan of their imports | ✅     |
-| webpack-compatible builders | The same, from their own `loadedFiles`                                                                      | ✅     |
-| Next.js                     | Every file under the route's folder, its layouts, and Parity's scan of their imports                        | ◐      |
-| Any, before it can say      | The whole project, so any change makes the picture stale                                                    | ◐      |
+| Builder                     | A page's trace                                                                                                          | Status |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------ |
+| Vite                        | What its module graph says the route's file and its parents' files load, and Parity's scan of their imports             | ✅     |
+| webpack-compatible builders | The same, from their own `loadedFiles`                                                                                  | ✅     |
+| Next.js                     | Every file under the route's folder, its layouts, the files in each folder above it, and Parity's scan of their imports | ◐      |
+| Any, before it can say      | The whole project, so any change makes the picture stale                                                                | ◐      |
 
 Every trace also holds the project's stylesheets, its package.json, configs and lockfiles, and its `public` folder.
 Server code a loader reaches only through a dynamic import isn't in the scan.

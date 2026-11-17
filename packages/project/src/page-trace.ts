@@ -62,7 +62,7 @@ export function routeChain(route: string, routes: readonly TracedRoute[]): strin
  *   its parents' files, and Parity's scan of their imports, which reaches the modules a loader or server function reads
  *   that the page never loads.
  * - Where the router names routes by folder (Next.js, which has no `loadedFiles`): every file under the route's folder,
- *   its parents' files (the layouts), and the scan.
+ *   its parents' files (the layouts), the files directly in each folder above it (`ancestorFiles`), and the scan.
  * - Otherwise, for a route that isn't known, or for a page that didn't land on its own route: the whole project.
  *
  * Each with the stylesheets, the files every page depends on, and the files in the root's `public` folder, which pages
@@ -86,7 +86,22 @@ export function pageTraceFiles(input: PageTraceInput): string[] {
   const folder = folderOf(chain[0]!)
   const under = input.files.filter((path) => (folder === "" ? !path.startsWith("../") : path.startsWith(`${folder}/`)))
 
-  return sorted([...common, ...under])
+  return sorted([...common, ...under, ...ancestorFiles(chain[0]!, input.files)])
+}
+
+/**
+ * The files directly in each folder above a route's file, not in their subfolders: where a router that names routes by
+ * folder keeps what wraps every route below, as Next's templates, loading, error and not-found files, which no import
+ * reaches. The project's root is left out, as its files are config, and the route's own folder, which is the route's.
+ */
+export function ancestorFiles(route: string, files: readonly string[]): string[] {
+  const folders = new Set<string>()
+
+  for (let folder = folderOf(folderOf(route)); folder !== ""; folder = folderOf(folder)) {
+    folders.add(folder)
+  }
+
+  return files.filter((path) => folders.has(folderOf(path)))
 }
 
 function folderOf(path: string): string {

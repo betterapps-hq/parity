@@ -2,6 +2,7 @@ import { stat } from "node:fs/promises"
 import { join } from "node:path"
 import type { FrameTrace } from "@parity-app/change-detection"
 import {
+  ancestorFiles,
   type CodeSnapshot,
   contentReader,
   importedFiles,
@@ -71,8 +72,12 @@ export function pageTraces(projects: PageTraceProjects): PageTraces {
 
     const chain = routeChain(job.route, project.routes)
 
+    // A router naming routes by folder wraps them in the files above them, as Next's templates, which no import reaches.
+    const wrapping =
+      project.folderRoutes && chain.length > 0 ? ancestorFiles(chain[0]!, [...snapshot.files.keys()]) : []
+
     const [scanned, styles, loaded] = await Promise.all([
-      moduleClosure(chain, scan),
+      moduleClosure([...chain, ...wrapping], scan),
       moduleClosure(project.stylesheets, scan),
       chain.length > 0 ? projects.loadedFiles(job.projectId, chain) : Promise.resolve(undefined)
     ])
