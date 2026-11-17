@@ -419,6 +419,24 @@ describe("snapshot.take and sheets.get over the channel", () => {
     )
   })
 
+  it("shows a style preview over the page, and never puts it in a snapshot (PAR-1264)", async () => {
+    document.head.innerHTML = `<style>main { color: blue; }</style>`
+    document.body.innerHTML = "<main>Pricing</main>"
+    const parity = framed()
+
+    await parity.request("preview.set", { css: "main { color: red !important; }" })
+    const shown = getComputedStyle(document.querySelector("main")!).color
+    const snapshot = await parity.request("snapshot.take", {})
+
+    expect(shown).toBe("red")
+    expect(snapshot.sheets).toHaveLength(1)
+
+    await parity.request("preview.set", { css: "" })
+
+    expect(document.adoptedStyleSheets).toHaveLength(0)
+    await expect(parity.request("preview.set", { css: "x".repeat(1_000_001) })).rejects.toThrow("preview.set takes CSS")
+  })
+
   it("gives a snapshot two seconds past the quiet it waits for", () => {
     expect(snapshotDeadline({ ms: 150, max: 3000 })).toBe(5000)
     expect(snapshotDeadline(undefined)).toBe(2000)

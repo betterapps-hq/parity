@@ -239,6 +239,7 @@ function setUp(
   const fileChanged: WindowMethods["project.fileChanged"]["params"][] = []
   const moves: WindowMethods["project.guestMoved"]["params"][] = []
   const detectionChanged: WindowMethods["project.detectionChanged"]["params"][] = []
+  const filesChanged: WindowMethods["project.filesChanged"]["params"][] = []
   let port = 5100
 
   // Woken whenever the windows are told something.
@@ -325,6 +326,10 @@ function setUp(
       },
       componentsChanged: () => undefined,
       codeChanged: () => undefined,
+      filesChanged: (change) => {
+        filesChanged.push(change)
+        told()
+      },
       guestMoved: (move) => {
         moves.push(move)
 
@@ -339,7 +344,18 @@ function setUp(
     unsupported
   })
 
-  return { projects, builder, watcher, detections, checker, fileChanged, moves, detectionChanged, reaches }
+  return {
+    projects,
+    builder,
+    watcher,
+    detections,
+    checker,
+    fileChanged,
+    filesChanged,
+    moves,
+    detectionChanged,
+    reaches
+  }
 }
 
 beforeEach(async () => {
@@ -656,6 +672,21 @@ describe("an open project's files", () => {
     await new Promise((done) => setTimeout(done, 300))
     expect(fileChanged).toHaveLength(1)
     expect(await readFile(join(root, "shop.par"), "utf8")).toContain("Saved from the canvas")
+  })
+
+  it("tell the windows which of the app's files changed, at once for a save writing several (PAR-1264)", async () => {
+    const { projects, watcher, filesChanged, reaches } = setUp()
+    await projects.open(root)
+
+    watcher.change("src/routes/pricing.tsx")
+    watcher.change(".next/server/app.js")
+    watcher.change("shop.par")
+    watcher.change("src/data/plans.json")
+    await reaches(filesChanged, 1)
+    // Longer than the watcher waits after a change, so a second message would have come.
+    await new Promise((done) => setTimeout(done, 400))
+
+    expect(filesChanged).toEqual([{ projectId: root, paths: ["src/data/plans.json", "src/routes/pricing.tsx"] }])
   })
 
   it("tell the windows when the builder names other stylesheets, so they open the project again", async () => {

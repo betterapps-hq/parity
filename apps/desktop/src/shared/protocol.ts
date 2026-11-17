@@ -382,6 +382,11 @@ export interface WindowMethods {
   "project.guestMoved": { params: { projectId: string; guestUrl: string }; result: undefined }
   /** Component files whose code changed on disk, which the tab's guest loads again (PAR-165). */
   "project.codeChanged": { params: { projectId: string } & CodeChange; result: undefined }
+  /**
+   * Files of the app that changed on disk, relative to its root, which route boards' copies and pages may be drawn
+   * from, so they're frozen or started again (route-frames.md, PAR-1264).
+   */
+  "project.filesChanged": { params: { projectId: string; paths: string[] }; result: undefined }
   /** What detection reads of the project changed since it opened, so its tab opens it again (PAR-820). */
   "project.detectionChanged": { params: { projectId: string }; result: undefined }
   /**
@@ -476,6 +481,7 @@ export const windowMethods = Object.keys({
   "project.componentsChanged": true,
   "project.guestMoved": true,
   "project.codeChanged": true,
+  "project.filesChanged": true,
   "project.detectionChanged": true,
   "project.committed": true,
   "extensions.changed": true,

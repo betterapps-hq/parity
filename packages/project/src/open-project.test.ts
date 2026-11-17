@@ -1,6 +1,6 @@
 import { join, resolve } from "node:path"
 import { describe, expect, it } from "vite-plus/test"
-import { documentTarget, pickMainDocument, projectFileChange, readDesigns } from "./open-project.ts"
+import { documentTarget, pageSourceChange, pickMainDocument, projectFileChange, readDesigns } from "./open-project.ts"
 
 describe("pickMainDocument", () => {
   it.each([
@@ -62,6 +62,29 @@ describe("documentTarget", () => {
       expect(documentTarget(root, path)).toBeUndefined()
     }
   )
+})
+
+describe("pageSourceChange (PAR-1264)", () => {
+  it.each([
+    ["src/routes/pricing.tsx", true],
+    ["app/layout.tsx", true],
+    ["src/data/plans.json", true],
+    ["pnpm-lock.yaml", true],
+    ["src/styles.css", true],
+    [".next/server/app/page.js", false],
+    [".git/index", false],
+    ["node_modules/.vite/deps/react.js", false],
+    ["packages/ui/node_modules/x/index.js", false],
+    ["dist/assets/index.js", false],
+    ["src/routes/build/page.tsx", true],
+    ["app/out/page.tsx", true],
+    ["designs.par", false],
+    ["tsconfig.tsbuildinfo", false],
+    ["npm-debug.log", false],
+    ["src/.DS_Store", false]
+  ])("%s can change a page: %s", (path, changes) => {
+    expect(pageSourceChange(path)).toBe(changes)
+  })
 })
 
 describe("projectFileChange", () => {

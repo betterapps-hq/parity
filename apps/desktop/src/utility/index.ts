@@ -101,6 +101,9 @@ const projects = openProjects({
     codeChanged: (change) => {
       editor?.request("project.codeChanged", change).catch(() => undefined)
     },
+    filesChanged: (change) => {
+      editor?.request("project.filesChanged", change).catch(() => undefined)
+    },
     detectionChanged: (change) => {
       editor?.request("project.detectionChanged", change).catch(() => undefined)
     },

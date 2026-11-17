@@ -17,11 +17,12 @@ import {
   styleOfElement
 } from "@parity-app/editor"
 import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
-import { useEffect, useId, useLayoutEffect, useMemo, useRef } from "react"
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
 import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
 import { type LiveState, poolFor, useLiveBoard } from "./live-frames.ts"
+import { showTokenPreview, tokenPreviewSheet, useTokenPreview } from "./page-changes.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -46,6 +47,7 @@ const hostAttributes = new Set([
  * a height of its own, which clips it. It's inert, so its links and forms can't be followed or sent, and nothing in it
  * takes focus. Until its copy comes, a placeholder stands in at the window's height. Where the page landed, when it
  * isn't the route's own path, goes to the board's warning and Layers; the primary frame's copy gives Layers its layers.
+ * Its copy is kept by `CopyKey`, its route, mode and state, and frozen again when the app's code changes (PAR-1264).
  *
  * With the Interact tool it can go live (PAR-1263): resting the pointer on it sends one of the project's spare frames
  * to its route, and pressing it puts the app's own page over its copy, engaged (`useLiveBoard`). While it's live, the
@@ -85,7 +87,7 @@ export function RouteBoard({
   /** With the Interact tool, the board goes live on a press, and warms a spare when the pointer rests on it. */
   interactive: boolean
 }) {
-  const { doc } = useProject()
+  const { doc, tokens, loaded } = useProject()
   const host = useRef<HTMLDivElement>(null)
   const box = useRef<HTMLDivElement>(null)
   const id = useId()
@@ -97,8 +99,14 @@ export function RouteBoard({
     [frame.viewport.width, frame.viewport.height]
   )
 
-  const copy = useFrozenCopy(project, url, drawn, viewport, rank)
-  const height = frame.height ?? Math.max(viewport.height, copy?.pageHeight ?? 0)
+  const key = useMemo(() => ({ route: url, mode: mode.id, state }), [url, mode.id, state])
+  const copy = useFrozenCopy(project, key, drawn, viewport, rank)
+  // The copy's height while a token preview shows, which can make it taller or shorter than it was frozen.
+  const [previewed, setPreviewed] = useState<number>()
+  const height = frame.height ?? Math.max(viewport.height, previewed ?? copy?.pageHeight ?? 0)
+
+  // Token values edited and not saved show in the copy as in the design frames, through the project's preview sheet.
+  useTokenPreview(project, tokens, loaded.themeAttributes)
   const drawnHeight = useRef(height)
 
   useEffect(() => {
@@ -164,8 +172,25 @@ export function RouteBoard({
 
     registry.current ??= new CustomElementRegistry()
 
-    return showCopy(element, copy, drawn, viewport, registry.current)
-  }, [asleep, copy, drawn, viewport])
+    return showCopy(element, copy, drawn, viewport, registry.current, tokenPreviewSheet(project))
+  }, [asleep, copy, drawn, viewport, project])
+
+  // A token preview can change the page's height, so the copy measures what it draws while one shows.
+  useEffect(() => {
+    if (!copy || asleep) {
+      return undefined
+    }
+
+    const stop = showTokenPreview(project, (css) => {
+      const root = host.current?.shadowRoot?.querySelector(`[${copyRootAttribute}]`)
+      setPreviewed(css === "" || !root ? undefined : Math.ceil(root.scrollHeight))
+    })
+
+    return () => {
+      stop()
+      setPreviewed(undefined)
+    }
+  }, [asleep, copy, project])
 
   // A fixed header shows once, in the live window, rather than again on the copy around it. After the copy is built, so
   // a copy built again while the board is live is hidden too.
@@ -229,17 +254,25 @@ export function RouteBoard({
 }
 
 /**
- * Builds `copy` in `host`'s shadow root and has the frame's lookups go through its elements. Returns what takes the
- * copy's root and mode off the host again.
+ * Builds `copy` in `host`'s shadow root and has the frame's lookups go through its elements. The project's token values
+ * edited and not saved come after the copy's own sheets, in a sheet every copy of its routes shares. Returns what
+ * takes the copy's root and mode off the host again.
  */
 function showCopy(
   host: HTMLElement,
   copy: FrozenCopy,
   mode: PageMode,
   viewport: { width: number; height: number },
-  registry: CustomElementRegistry
+  registry: CustomElementRegistry,
+  preview: CSSStyleSheet
 ): () => void {
-  const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry })
+  const target = prepareFrame(host, copySheets(copy), {
+    classNames: [],
+    attributes: {},
+    viewport,
+    registry,
+    sheets: [preview]
+  })
 
   // Inline styles' viewport lengths and `rem` measure the board, as its sheets' do.
   const built = buildCopy(document, copy.body, registry, {

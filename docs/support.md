@@ -373,6 +373,20 @@ it tried to go. A live page is closed when another board goes live or after 10 s
 | Shadow roots, video frames, what shows on hover or focus | Not copied                                                                           | ❌     |
 | Pages past 50,000 elements, 256 deep or 8 MB of text     | Refused: the board keeps its placeholder                                             | ❌     |
 
+**Copies follow the code, and show token edits (PAR-1264).** When the app's files change, its route copies are frozen
+again, nearest the view first, and a route whose modes drew the same markup takes one snapshot for all of them. Token
+values edited and not yet saved show in every copy and in the page drawn with the Interact tool.
+
+| Builder            | After a code change                                                             | Status |
+| ------------------ | ------------------------------------------------------------------------------- | ------ |
+| Vite               | Copies frozen again; a page drawn with the Interact tool loaded again           | ✅     |
+| webpack-compatible | Copies frozen again; a page drawn with the Interact tool loaded again by Parity | ✅     |
+| Next.js            | Copies frozen again; a page drawn with the Interact tool takes Next's updates   | ✅     |
+| Any                | Only the copies a change reaches are frozen again                               | ❌     |
+
+Until traces by builder come (step 6 of [proposals/route-frames.md](proposals/route-frames.md)), any change to the app's
+files freezes every copy again. A theme a token preview reaches is one the page turns on with a class on its root.
+
 A backend in any language works with the lenses that read standards: OpenAPI, SQL and OpenTelemetry don't care what
 wrote them.
 

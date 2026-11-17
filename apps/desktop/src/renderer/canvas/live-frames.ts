@@ -12,6 +12,7 @@ import {
   planPool,
   type PoolFrame,
   refillAfter,
+  updatesItself,
   usedPause,
   warmAfter
 } from "@parity-app/frames"
@@ -31,6 +32,7 @@ import type { Editor } from "tldraw"
 import { track } from "../report-error.ts"
 import { resetWithWindow, useStore, windowStore } from "../store.ts"
 import { holdFreezer } from "./freezer.ts"
+import { onPageFiles, showTokenPreview } from "./page-changes.ts"
 import { parityChecks } from "./page-channel.ts"
 
 /*
@@ -224,6 +226,10 @@ export class Pool {
   private refillTimer = 0
   private planTimer = 0
   private frameLoop = 0
+  /** The project's previewed token values as a page's CSS, which each frame is shown when it connects (PAR-1264). */
+  private preview = ""
+  /** Frames on their way to going live when the app's files changed, which reload once they're live (PAR-1264). */
+  private readonly outdated = new WeakSet<Frame>()
   private readonly stopListening: () => void
 
   constructor(project: string) {
@@ -240,12 +246,24 @@ export class Pool {
     window.addEventListener("blur", focus)
     const unstopped = window.canvasHost?.pages.onStopped((stop) => this.stopped(stop.frame, stop.url))
 
+    const unpreviewed = showTokenPreview(project, (css) => {
+      this.preview = css
+
+      for (const frame of this.frames()) {
+        this.sendPreview(frame)
+      }
+    })
+
+    const unchanged = onPageFiles(project, () => this.filesChanged())
+
     this.stopListening = () => {
       window.removeEventListener("message", hello)
       window.removeEventListener("pointerdown", pressed, true)
       window.removeEventListener("focus", focus)
       window.removeEventListener("blur", focus)
       unstopped?.()
+      unpreviewed()
+      unchanged()
     }
   }
 
@@ -448,6 +466,11 @@ export class Pool {
       this.setLiveState(state)
       this.place()
       this.setEngaged(true)
+
+      if (this.outdated.delete(frame)) {
+        this.reload(frame)
+      }
+
       this.startLoop()
       track("routeFrame.live", { from: pick.from satisfies LiveFrom, ms: Math.round(performance.now() - started) })
       this.refillSoon()
@@ -754,6 +777,62 @@ export class Pool {
       )
       this.sendMode(frame, board)
     }
+
+    if (this.preview !== "") {
+      this.sendPreview(frame)
+    }
+  }
+
+  /** Shows a frame the project's previewed token values (`preview.set`), giving up past its deadline. */
+  private sendPreview(frame: Frame): void {
+    void withDeadline(frame.channel.request("preview.set", { css: this.preview }), pageDeadlines["preview.set"]).catch(
+      () => undefined
+    )
+  }
+
+  /** The pool's frames: the live one, the spares, and those on their way to going live. */
+  private frames(): Frame[] {
+    return [
+      ...new Set([...(this.live ? [this.live.frame] : []), ...this.spares.values(), ...this.pendingFrames.values()])
+    ]
+  }
+
+  /**
+   * The app's files changed (PAR-1264). A page under Vite or a webpack-compatible builder keeps the modules it loaded, so
+   * it's loaded again: the live page where it is (`page.reload`), or at where it last said it was when it doesn't
+   * answer, and it says hello again; spares are closed, and the pool fills again. Next's pages take its hot updates.
+   */
+  private filesChanged(): void {
+    const live = this.live?.frame
+
+    if (live && !updatesItself(live.router)) {
+      this.reload(live)
+    }
+
+    // A frame on its way to going live reloads once it's live, as going live waits on it as it is.
+    for (const frame of this.pendingFrames.values()) {
+      if (!updatesItself(frame.router)) {
+        this.outdated.add(frame)
+      }
+    }
+
+    if ([...this.spares.values()].some((frame) => !updatesItself(frame.router))) {
+      this.closeSpares()
+      this.plan()
+    }
+  }
+
+  /** Loads a frame's page again where it is (`page.reload`), or at where it last said it was when it doesn't answer. */
+  private reload(frame: Frame): void {
+    const { iframe, location } = frame
+
+    const fallback = () => {
+      iframe.src = location
+        ? new URL(`${location.path}${location.search}${location.hash}`, iframe.src).href
+        : iframe.src
+    }
+
+    void withDeadline(frame.channel.request("page.reload", {}), pageDeadlines["page.reload"]).catch(fallback)
   }
 
   /** Sets a frame's mode to its board's, giving up past `mode.set`'s deadline, as a stuck page answers nothing. */

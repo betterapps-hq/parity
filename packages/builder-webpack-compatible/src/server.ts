@@ -2,7 +2,6 @@ import { readFile } from "node:fs/promises"
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http"
 import type { AddressInfo } from "node:net"
 import { extname, isAbsolute, relative, resolve } from "node:path"
-import { pageVersionPath } from "./app-pages.ts"
 
 /*
  * Serves the guest's build to the canvas: the modules the builder writes for the page, the files the bundler wrote, and
@@ -50,12 +49,13 @@ export interface GuestServerOptions {
   page?: AppPage
 }
 
-/** The app's page, and what tells it to reload. */
+/**
+ * The app's page. It doesn't reload itself after a build: Parity starts its frames again after a code change
+ * (route-frames.md, PAR-1264).
+ */
 export interface AppPage {
   /** The page as the canvas gets it, or nothing when the app has none. */
   html(): Promise<string | undefined>
-  /** How many builds have changed something, which a page reloads when it grows. */
-  version(): number
 }
 
 /** Starts the server. Its origin is `http://127.0.0.1:<port>`. */
@@ -131,15 +131,6 @@ async function answer(options: GuestServerOptions, request: IncomingMessage, res
   }
 
   const url = new URL(request.url ?? "/", `http://${loopback}`)
-
-  // Answered while a build runs, so a page asks again rather than waits.
-  if (options.page && url.pathname === pageVersionPath) {
-    response.setHeader("Content-Type", "text/plain")
-    response.setHeader("Cache-Control", "no-store")
-    response.end(String(options.page.version()))
-
-    return
-  }
 
   await options.ready()
   const source = await options.module(url)
