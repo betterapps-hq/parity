@@ -272,10 +272,10 @@ export function personStandIn() {
   }
 }
 
-/** This copy's agents, as the window would tell of them, and what's done with other copies' steps. */
+/** This copy's agents, as the window would tell of them, and other copies' steps the development room passes on. */
 export function agentsStandIn() {
   const listeners = new Set<(steps: AgentStep[]) => void>()
-  const received: string[] = []
+  const passed = new Set<(steps: AgentStep[], from: string) => void>()
   const recorded: { name: string; attributes: unknown }[] = []
   const timers = new Map<number, () => void>()
   let next = 0
@@ -287,7 +287,11 @@ export function agentsStandIn() {
 
       return () => void listeners.delete(listener)
     },
-    received: (steps, from) => void received.push(`${steps.length} from ${from}`),
+    onPassedOn(listener) {
+      passed.add(listener)
+
+      return () => void passed.delete(listener)
+    },
     exists: (ref) => !ref.key.startsWith("gone"),
     record: (name, attributes) => void recorded.push({ name, attributes }),
     timers: {
@@ -304,9 +308,10 @@ export function agentsStandIn() {
 
   return {
     surface,
-    received,
     recorded,
     step: (steps: AgentStep[]) => listeners.forEach((listener) => listener(steps)),
+    /** Steps another copy sent, reaching the window without an extension passing them in. */
+    passOn: (steps: AgentStep[], from: string) => passed.forEach((listener) => listener(steps, from)),
     /** A minute passes, and its timers go off. */
     minute: () => {
       time += 60_000

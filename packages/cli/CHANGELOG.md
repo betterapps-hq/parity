@@ -1,8 +1,27 @@
 # Change Log - @parity-app/cli
 
-<!-- This log was last generated on Tue, 17 Nov 2026 05:42:13 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 06:39:04 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.78.0
+
+Tue, 17 Nov 2026 06:39:04 GMT
+
+### Minor changes
+
+- Route pages run the page runtime: they change mode without loading again, measure their height in the mode's window
+  and report where they land, with page modules from TanStack Router and React (ajcraswell@gmail.com)
+- Grid placement is in the Design panel: a grid child's cells on a map of its grid, its lines and spans, and Align and
+  Justify self (ajcraswell@gmail.com)
+- Internal extensions' window modules hear this person's pointer, gestures and view, and agents' steps, with the sync
+  seam built for opening a project through a room (ajcraswell@gmail.com)
+
+### Patches
+
+- Move core's remaining Tailwind assumptions behind the styles provider: library stylesheets, their import's place, the
+  frames' rules layer, the spacing steps, which components set their own size, and the Next builders' plugin root
+  (PAR-1130) (ajcraswell@gmail.com)
 
 ## 0.77.0
 

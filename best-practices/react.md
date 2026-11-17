@@ -21,8 +21,9 @@ Conventions for authoring React components in this monorepo. Hooks have their ow
 ## Styling
 
 - **Follow the selected UI system's styling model.** Fluent surfaces use griffel `makeStyles()` and Fluent tokens;
-  shadcn/ui surfaces use Tailwind CSS and their CSS-variable token layer. Define shared visual values as tokens rather
-  than scattering hardcoded colors or spacing. Apply the app's global reset and base styles once at its root.
+  shadcn/ui surfaces use shadcn's CSS-variable token layer, with Tailwind CSS when the app runs shadcn-sync in Tailwind
+  mode and plain CSS otherwise. Define shared visual values as tokens rather than scattering hardcoded colors or
+  spacing. Apply the app's global reset and base styles once at its root.
 - **Put styles in `{ComponentName}.styles.ts`** and export a hook named `use{ComponentName}Styles()`; name the result
   `classes` at the call site.
 

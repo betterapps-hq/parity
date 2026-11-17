@@ -1,6 +1,6 @@
 import { locateNode } from "@parity-app/core"
 import type { NodeRef } from "@parity-app/extension"
-import { agentEventOf, agentStepOf, type AgentsPort } from "@parity-app/extension-host/window-agents"
+import { agentStepOf, type AgentsPort } from "@parity-app/extension-host/window-agents"
 import { targetOf } from "@parity-app/extension-host/window-canvas"
 import type { Pointer, PresencePort } from "@parity-app/extension-host/window-presence"
 import type { Viewing } from "@parity-app/extension/internal"
@@ -12,8 +12,8 @@ import type { ProjectSession } from "./workspace.ts"
 
 /*
  * What a project tab tells its window modules of this person and of agents (PAR-1257): the pointer over the canvas,
- * gestures, and what's selected to view, for `parity.presence`; and this copy's agents' steps, with other copies' steps
- * an extension passes in queued as this copy's are, for `parity.agents`.
+ * gestures, and what's selected to view, for `parity.presence`; and agents' steps, this copy's and those the development
+ * room passes on, for `parity.agents`.
  */
 
 /** This person's pointer, gestures and what they view in the tab, for `windowPresence`. */
@@ -52,7 +52,7 @@ export function windowPresencePort(session: ProjectSession): PresencePort {
   }
 }
 
-/** The tab's agents as the canvas queues them, for `windowAgents`. */
+/** The tab's agents' steps as the agent API reports them, for `windowAgents`. */
 export function windowAgentsPort(session: ProjectSession, tab: string): AgentsPort {
   const layerType = (design: string, node: string) => {
     const root = session.doc.design(design)?.root
@@ -69,13 +69,18 @@ export function windowAgentsPort(session: ProjectSession, tab: string): AgentsPo
           listener(here.map((event) => agentStepOf(event, layerType)))
         }
       }),
-    // Queued as another copy's steps are today, so the canvas draws their cursors and doesn't pass them on again. An
-    // agent's id is its copy's own, so each is queued as its copy's, apart from an agent of the same id elsewhere.
-    received: (steps, from) =>
-      presence.push(
-        steps.map((step) => ({ ...agentEventOf(step, isDesignIn(session)), agentId: `${from}:${step.agentId}`, tab })),
-        true
-      ),
+    // The development room's (`live-room.ts`), which reach the window without an extension passing them in.
+    onPassedOn: (listener) =>
+      presence.onPassedOn((events, from) => {
+        const here = events.filter((event) => event.tab === tab)
+
+        if (here.length > 0) {
+          listener(
+            here.map((event) => agentStepOf(event, layerType)),
+            from
+          )
+        }
+      }),
     exists: (ref) => existsIn(session, ref),
     record: track
   }

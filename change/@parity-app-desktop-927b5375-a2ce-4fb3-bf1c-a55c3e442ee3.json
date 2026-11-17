@@ -1,7 +1,0 @@
-{
-  "type": "minor",
-  "comment": "Images get a Design panel of their own: Content first, then Size, Position, Appearance and Stroke, with no Fill",
-  "packageName": "@parity-app/desktop",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

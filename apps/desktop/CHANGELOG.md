@@ -1,8 +1,32 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Tue, 17 Nov 2026 03:35:59 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 06:38:14 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.102.0
+
+Tue, 17 Nov 2026 06:38:14 GMT
+
+### Minor changes
+
+- Internal extensions draw on the canvas: parity.canvas layers, boxes, previews and holds, parity.camera, and
+  parity.colors, with hooks in @parity-app/canvas-layer (ajcraswell@gmail.com)
+- Images get a Design panel of their own: Content first, then Size, Position, Appearance and Stroke, with no Fill
+  (ajcraswell@gmail.com)
+- Route pages run the page runtime: they change mode without loading again, measure their height in the mode's window
+  and report where they land, with page modules from TanStack Router and React (ajcraswell@gmail.com)
+- Internal extensions' window modules hear this person's pointer, gestures and view, and agents' steps, with the sync
+  seam built for opening a project through a room (ajcraswell@gmail.com)
+- Grid placement is in the Design panel: a grid child's cells on a map of its grid, its lines and spans, and Align and
+  Justify self (ajcraswell@gmail.com)
+
+### Patches
+
+- A token's detail closes at the first Escape, and the right arrow moves into a derived token's detail
+  (ajcraswell@gmail.com)
+- Undo in a live room takes out only your own typing, even beside the same letter someone else wrote
+  (ajcraswell@gmail.com)
 
 ## 0.101.0
 

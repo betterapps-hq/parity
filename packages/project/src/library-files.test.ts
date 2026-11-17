@@ -195,6 +195,33 @@ describe("libraries an extension found", () => {
     expect(found.notes).toEqual([])
   })
 
+  it("read each component's props from the package's own declarations, not the kit's paths in the file", async () => {
+    await synced('export { Button } from "./ui/button.js"\nexport { Card as Panel } from "./ui/card.js"')
+    await write("node_modules/@buildkitgg/shadcn/ui/button.d.ts", "export function Button(): unknown")
+    await write("node_modules/@buildkitgg/shadcn/ui/card.d.ts", "export function Card(): unknown")
+    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+      version: 4,
+      id: "nova",
+      name: "Shadcn Nova",
+      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      components: {
+        list: {
+          Button: component({ declaration: "dist/ui/button.d.ts" }),
+          Panel: component({ declaration: "index.d.ts" })
+        }
+      }
+    })
+
+    const found = await findLibraries(root, syncedApp, [], renderer, {
+      registry: join(root, "registry"),
+      detected: [nova]
+    })
+
+    expect(found.components["shadcn/Button"]?.declaration).toBe("node_modules/@buildkitgg/shadcn/ui/button.d.ts")
+    // card.d.ts exports only Card, so an alias keeps the file that exports it by its own name.
+    expect(found.components["shadcn/Panel"]?.declaration).toBe("node_modules/@buildkitgg/shadcn/index.d.ts")
+  })
+
   it("with no registry file, are listed from their declarations, as the extension describes them", async () => {
     await synced("export function Button(): unknown")
 

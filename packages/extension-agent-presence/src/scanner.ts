@@ -1,4 +1,4 @@
-import type { AgentPalette } from "./agent-colors.ts"
+import type { PaletteLook } from "@parity-app/presence-ui"
 import type { Box } from "./motion.ts"
 
 /** How long a scan takes at full pace: the beam's sweep, a hold once it covers the target, and a slow fade. */
@@ -12,7 +12,7 @@ export interface Scan {
   box(): Box
   /** The target's corner radius on screen. */
   radius: number
-  palette: AgentPalette
+  palette: PaletteLook
   /** Who's scanning: scans of the same target by different agents mix their colors. */
   agent: string
   ms: number
@@ -125,8 +125,10 @@ export class Scanner {
   private readonly epoch = performance.now()
   private readonly still = matchMedia("(prefers-reduced-motion: reduce)").matches
   private lost = false
+  private readonly canvas: HTMLCanvasElement
 
-  constructor(private readonly canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement) {
+    this.canvas = canvas
     canvas.style.visibility = "hidden"
     this.gl = canvas.getContext("webgl", { premultipliedAlpha: true, alpha: true, antialias: false })
     const gl = this.gl

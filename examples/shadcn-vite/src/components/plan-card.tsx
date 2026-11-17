@@ -7,7 +7,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from "@buildkitgg/shadcn-baseui-nova"
+} from "@buildkitgg/shadcn"
 
 export interface PlanCardProps {
   name: string

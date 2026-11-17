@@ -1,0 +1,48 @@
+{
+  "name": "@parity-app/extension-agent-presence",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Agents at work on the canvas: a pointer per agent that travels to what it reads or changes, scans it and drags the boards it moves.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./window": "./src/window.tsx",
+    "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "@parity-app/canvas-layer": "workspace:*",
+    "@parity-app/extension": "workspace:*",
+    "@parity-app/presence-ui": "workspace:*",
+    "lucide-react": "^1.66.0"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  },
+  "parity": {
+    "displayName": "Agent presence",
+    "prefix": "agentPresence",
+    "icon": {
+      "viewBox": "0 0 24 24",
+      "path": "M4 3l15 7-6.5 2L10 18.5z"
+    },
+    "internal": true,
+    "window": "./window",
+    "detect": {
+      "always": true
+    },
+    "activates": [
+      "onStartup"
+    ],
+    "capabilities": [
+      "canvas",
+      "agents",
+      "hold"
+    ],
+    "contributes": {}
+  }
+}
