@@ -12,7 +12,8 @@ ledger of CSS properties and `validate` (PAR-940), and the adapter contract that
 and reads classes through (PAR-943), on 2026-11-11. `@parity-app/processes` holds what the desktop app's processes
 decide, moved out of core (PAR-989), and the one lifecycle every child process and worker goes through (PAR-987), on
 2026-11-12. Core's last files that weren't the model moved to the packages that use them, and its unused names went
-(PAR-1044), the same day. The first items are in Linear's Package boundaries stream.
+(PAR-1044), the same day. `@parity-app/lenses` holds what the lens layout decides (PAR-1239), on 2026-11-16. The first
+items are in Linear's Package boundaries stream.
 
 ## In one line
 
@@ -126,6 +127,7 @@ when it's spread through UI code. Today:
 | `@parity-app/media-player`              | Playing video with the app's own controls, at the edge since it's React: the player, a tile's preview and its length, and what the player's keys do.                                                                                                                       | New code, approved in Storybook (PAR-891).                                                                                                                                                                                                        |
 | `@parity-app/style-schema`              | What a layer's style means: the stored style, its CSS declarations both ways, the ledger of CSS properties, validation, and the contract each styling framework's adapter implements ([style-package.md](style-package.md)).                                               | `nodeStyle` in `core/document.ts` and the style-to-CSS in `core/render.ts` (PAR-939); the rest is PAR-940 to PAR-944.                                                                                                                             |
 | `@parity-app/processes`                 | What the app's processes decide: the child lifecycle (start, exit, deadlines and the output tail), the builder process's methods, service restarts, the render queue and preview order, turns, the bitmap cache, WebP text, the CLI's launchers, code editors and updates. | Nine files from core used only by the app, such as `builder-process.ts` and `service-restarts.ts` (PAR-989), and `lifecycle.ts`, from the four copies in Storybook's process manager, builders, installs and the type checker's worker (PAR-987). |
+| `@parity-app/lenses`                    | What the lens layout decides, without Dockview or the views: lenses and the layout as data, the dock operations each action makes, the lens bar's marks, the menus' enabled items, and reading a saved layout.                                                             | The lens exploration's `workspace.tsx`, from [lens-layout.md](lens-layout.md) (PAR-1239).                                                                                                                                                         |
 
 ### `@parity-app/code`: design and code, both ways
 

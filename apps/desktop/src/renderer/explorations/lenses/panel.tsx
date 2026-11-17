@@ -138,7 +138,7 @@ export function LensPanel({
   ]
 
   return (
-    <PanelFrame side="left" label={`${info.label} panel`} tabs={tabs} tab={tab} onTab={onTab} onHide={onHide}>
+    <PanelFrame side="left" label={`${info.name} panel`} tabs={tabs} tab={tab} onTab={onTab} onHide={onHide}>
       <TabsContent value="outline" className="flex min-h-0 flex-col">
         <LensOutline key={lens} lens={lens} selected={selected} onSelect={onSelect} />
       </TabsContent>
