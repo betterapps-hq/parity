@@ -1,5 +1,6 @@
 import { Button, Kbd } from "@buildkitgg/shadcn"
 import {
+  componentInfoOf,
   type DesignNode,
   designStates,
   editsDesign,
@@ -98,7 +99,7 @@ export function LayerPanel({ entry, nodeId }: { entry: ContainerEntry; nodeId: s
   const can = selectionCapabilities(
     layer.entry.container,
     [{ id: layer.nodeId, node: layer.node, parent: undefined }],
-    (component) => components[component]?.takesStyle
+    (component) => componentInfoOf(components, component)?.takesStyle
   )
 
   // What a story draws takes its args as props, which are written back to its file; nothing else of it is.
@@ -433,7 +434,7 @@ export function LayerNoStyle() {
 
   return (
     layer?.node.type === "component" &&
-    components[layer.node.component]?.takesStyle === false && (
+    componentInfoOf(components, layer.node.component)?.takesStyle === false && (
       <NoStyleNote component={layer.node.component} wrap={layer.inner === undefined} />
     )
   )
@@ -468,7 +469,7 @@ function LayerStyleSections({
       <StyleSections
         editor={styleEditor}
         container={entry.container}
-        takesStyle={(component) => components[component]?.takesStyle}
+        takesStyle={(component) => componentInfoOf(components, component)?.takesStyle}
         order={order}
       />
     )

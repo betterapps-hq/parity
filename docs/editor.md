@@ -4552,7 +4552,11 @@ section with the group's own title leads it without a title of its own, and its 
   linked from. A code component's links, to its stories and its file, are in the header. Beside the name, one of the
   design's own instances has the menu with Swap component, Reset overrides with how many there are, Push to main where
   the component is the project's, and Detach. Then its props, or "No props to set." Before a code component's props are
-  read from its source, it says so, and its + adds any prop by name.
+  read from its source, it says so, and its + adds any prop by name. An icon's props are its set's, which its icons
+  share: read like any component's from the component that draws the set's icons from data (Hugeicons' `HugeiconsIcon`),
+  or from the first icon its library file prefers, so a Lucide icon shows Size and its stroke options, and its color and
+  stroke width, SVG attributes it passes on, are in Attributes (`componentInfoOf`, `packages/core/src/project.test.ts`;
+  `iconSetSource`, `packages/project/src/library-files.test.ts`).
 - **Attributes** (PAR-1026), after a code component's Component instance: what it passes on to its component's root
   element, apart from its own props. + adds one from a searchable list grouped as Attributes, Accessibility and Events,
   each with its kind; its row says Accessibility or Events on hover, and × removes it until a state changes it. Without
@@ -4838,7 +4842,7 @@ then Size with Spacing, Position, Fill, Stroke and Appearance, with Typography, 
 text layer's opens with Content and Typography, then Size, Position and Appearance, with Fill, its background, after
 them. An image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
 Position, Appearance and Stroke; it has no Fill, since the picture fills it. An icon's opens with Component instance,
-which icon it is and the props it sets, and Attributes, as its accessible name, then Size, Position and Appearance; its
+which icon it is and its set's props, and Attributes, as its accessible name, then Size, Position and Appearance; its
 color and stroke are its own, so it has no Typography, Fill or Stroke. A component instance's opens with Component
 instance, its props and the slots it fills, and Attributes, then Size, Position, Typography for the text inside it, and
 Appearance, with no Layout; when its component takes no `className`, a note stands in for its style sections. The

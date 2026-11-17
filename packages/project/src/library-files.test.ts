@@ -222,3 +222,65 @@ describe("components shadcn-sync generates", () => {
     expect(Object.keys(found.components)).toEqual(["lyra/Button"])
   })
 })
+
+describe("icon sets", () => {
+  it("reads a set's props from the first icon it prefers, or from the component that draws its icons from data", async () => {
+    await write("node_modules/glyphs/package.json", { name: "glyphs", version: "1.0.0", types: "dist/index.d.ts" })
+    await write("node_modules/glyphs/dist/index.d.ts", "export declare function CheckIcon(): unknown")
+    await write("node_modules/glyphs/glyphs.lib.par", {
+      version: 4,
+      id: "glyphs",
+      name: "Glyphs",
+      icons: { render: "export", prefer: ["CheckIcon"] }
+    })
+    await write("node_modules/@drawn/icons/package.json", { name: "@drawn/icons", version: "1.0.0" })
+    await write("node_modules/@drawn/icons/drawn.lib.par", {
+      version: 4,
+      id: "drawn",
+      name: "Drawn",
+      icons: { render: { import: "@drawn/react", component: "DrawnIcon", prop: "icon" } }
+    })
+    await write("node_modules/@drawn/react/package.json", {
+      name: "@drawn/react",
+      version: "1.0.0",
+      exports: { ".": { types: "./index.d.ts" } }
+    })
+    await write("node_modules/@drawn/react/index.d.ts", "export declare function DrawnIcon(): unknown")
+
+    const found = await findLibraries(
+      root,
+      { dependencies: { glyphs: "1.0.0", "@drawn/icons": "1.0.0" } },
+      [],
+      renderer
+    )
+    expect(found.iconSets).toEqual({
+      "glyphs/": {
+        path: "glyphs",
+        export: "CheckIcon",
+        library: "glyphs",
+        declaration: "node_modules/glyphs/dist/index.d.ts"
+      },
+      "drawn/": {
+        path: "@drawn/react",
+        export: "DrawnIcon",
+        library: "drawn",
+        declaration: "node_modules/@drawn/react/index.d.ts"
+      }
+    })
+  })
+
+  it("reads no props for a set that names no icon, whose icons keep the props they set", async () => {
+    await write("node_modules/glyphs/package.json", { name: "glyphs", version: "1.0.0", types: "index.d.ts" })
+    await write("node_modules/glyphs/index.d.ts", "export declare function CheckIcon(): unknown")
+    await write("node_modules/glyphs/glyphs.lib.par", {
+      version: 4,
+      id: "glyphs",
+      name: "Glyphs",
+      icons: { render: "export" }
+    })
+
+    const found = await findLibraries(root, { dependencies: { glyphs: "1.0.0" } }, [], renderer)
+    expect(found.libraries.map((library) => library.kind)).toEqual(["icons"])
+    expect(found.iconSets).toEqual({})
+  })
+})

@@ -5,7 +5,9 @@ import {
   type ComponentSource,
   type ContainerSpec,
   type DescribedTokens,
+  iconSetPropsId,
   type LibraryComponents,
+  type LibraryIcons,
   type LibraryInfo,
   type LibraryManifest,
   libraryDesigns,
@@ -190,6 +192,8 @@ export interface FoundLibraries {
   libraries: LibraryInfo[]
   /** Each library's components, keyed `library/Export` so they never clash with the project's own. */
   components: Record<string, ComponentSource>
+  /** One icon of each icon set, by `iconSetPropsId`, whose props stand for the set's (see `ProjectConfig.iconSets`). */
+  iconSets: Record<string, ComponentSource>
   /** The tokens libraries describe in their `.lib.par`. */
   describedTokens: DescribedTokens[]
   /** What the person may want to know: a file made for another version, or hand edits for exports that have gone. */
@@ -213,7 +217,7 @@ export async function findLibraries(
 ): Promise<FoundLibraries> {
   // A library's stylesheet counts as imported from a theme file the entry stylesheet imports, too.
   const css = (await Promise.all(stylesheets.map((path) => readStylesheet(join(root, path))))).join("\n")
-  const result: FoundLibraries = { libraries: [], components: {}, describedTokens: [], notes: [] }
+  const result: FoundLibraries = { libraries: [], components: {}, iconSets: {}, describedTokens: [], notes: [] }
   const dependencies = Object.keys({ ...pkg.dependencies, ...pkg.devDependencies })
 
   for (const importName of dependencies) {
@@ -295,8 +299,14 @@ export async function findLibraries(
       }
     }
 
-    // Icons are used by name from the whole package, not listed one by one.
+    // Icons are used by name from the whole package, not listed one by one: one stands for the set's props.
     if (definition.kind === "icons") {
+      const icon = manifest?.icons && (await iconSetSource(root, installed, importName, definition.id, manifest.icons))
+
+      if (icon) {
+        result.iconSets[iconSetPropsId(definition.id)] = icon
+      }
+
       continue
     }
 
@@ -359,6 +369,45 @@ export async function findLibraries(
   }
 
   return result
+}
+
+/**
+ * The icon whose props stand for an icon set's: the component that draws its icons from data, as Hugeicons'
+ * `HugeiconsIcon`, or the first icon it prefers, from the module its icons are imported from. None for a set that
+ * names no icon, whose icons keep the props they set.
+ */
+async function iconSetSource(
+  root: string,
+  installed: InstalledPackage,
+  importName: string,
+  library: string,
+  icons: LibraryIcons
+): Promise<ComponentSource | undefined> {
+  // The component that draws the set's icons from data, for a set whose icons aren't components of their own.
+  const drawn = icons.render === "export" ? undefined : icons.render
+  const module = drawn ? drawn.import : (icons.import ?? importName)
+  const icon = drawn ? drawn.component : icons.prefer?.[0]
+  const found =
+    module === importName ? installed : await findPackage(root, packageNameOf(module)).catch(() => undefined)
+  const subpath =
+    found && module.length > packageNameOf(module).length ? `.${module.slice(packageNameOf(module).length)}` : "."
+  const declaration = found && packageEntry(found, "types", subpath)
+
+  return icon && declaration
+    ? {
+        path: module,
+        export: icon,
+        library,
+        declaration: posix.normalize(relative(root, declaration).replaceAll("\\", "/"))
+      }
+    : undefined
+}
+
+/** The package a module specifier is in: `@heroicons/react` for `@heroicons/react/24/outline`. */
+function packageNameOf(specifier: string): string {
+  const parts = specifier.split("/")
+
+  return parts.slice(0, specifier.startsWith("@") ? 2 : 1).join("/")
 }
 
 /** A component a library's declarations export, imported by the name the project depends on the library by. */
