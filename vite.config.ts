@@ -21,6 +21,7 @@ const edge = [
   "builder-webpack-compatible",
   "canvas-layer",
   "cli",
+  "extension-agent-presence",
   "extension-multiplayer",
   "extension-node",
   "extension-react",

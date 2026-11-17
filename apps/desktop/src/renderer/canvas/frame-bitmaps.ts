@@ -94,6 +94,7 @@ export function useFrameShows(
   const previews = useSyncExternalStore(session.tokens.subscribe, session.tokens.previews)
   const { guest } = session.loaded
   const { guestUrl, theme } = session.info
+  const layer = session.info.styles?.layer
   const { added } = session
   const { width, height } = frame
   const { width: viewportWidth, height: viewportHeight } = frame.viewport
@@ -101,7 +102,7 @@ export function useFrameShows(
   const job = useMemo(
     () =>
       renderJob(
-        { projectId: session.id, guestUrl, components: added, theme },
+        { projectId: session.id, guestUrl, components: added, theme, layer },
         {
           tree,
           mode,
@@ -121,6 +122,7 @@ export function useFrameShows(
       guestUrl,
       added,
       theme,
+      layer,
       tree,
       mode,
       width,

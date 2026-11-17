@@ -62,7 +62,7 @@ function Failures({ design }) {
  * The guest of a project whose styling framework writes classes, and a service that writes them once it's let to: a
  * class for each declaration, except a gap, which this framework has no class for.
  */
-const classed = { ...loaded, ...frameCss("@layer base, utilities;", "http://parity.test") }
+const classed = { ...loaded, ...frameCss("@layer base, utilities;", "http://parity.test", "utilities") }
 const writtenClasses = new Map()
 export let answerClasses
 

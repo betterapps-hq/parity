@@ -74,7 +74,7 @@ window.canvasRender = async (job) => {
   }
 
   try {
-    const loaded = await loadGuest(job.guestUrl, job.theme)
+    const loaded = await loadGuest(job.guestUrl, job.theme, job.layer)
     showTokenOverrides(loaded.sheet, job.previews ?? [])
     const host = document.createElement("div")
     // A frame narrower than its window lays out across the whole window, as the canvas's does (ModeView.tsx).

@@ -50,6 +50,12 @@ type Story = StoryObj<typeof meta>
 
 const unit = 4
 
+/** The steps of Tailwind's spacing scale, as its extension names them. */
+const steps = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 8, 10, 12, 16, 20, 24].map((factor) => ({
+  name: `spacing-${factor}`,
+  factor
+}))
+
 interface Layer {
   id: string
   name: string
@@ -342,6 +348,7 @@ function Playground({ scene: initial, tokens = [], selected: initiallySelected =
               <SpacingHandles
                 handles={handles}
                 unit={unit}
+                steps={steps}
                 tokens={tokens}
                 valueOf={(handle) => valueOf(handle, sceneRef.current.layout, measured, tokens)}
                 dragging={dragging}

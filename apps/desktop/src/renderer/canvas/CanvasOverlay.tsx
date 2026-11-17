@@ -37,7 +37,7 @@ import { allFrames, findFrames, findNodeElement, nodeBox } from "../frame.ts"
 import { type DocSession, projectLibrary } from "../project-doc.ts"
 import { getEffectivePreferences } from "../project-settings.ts"
 import { type SelectionStore, useEditing } from "../selection.ts"
-import { spacingUnit } from "../tokens-store.ts"
+import { spacingSteps, spacingUnit } from "../tokens-store.ts"
 import type { ProjectDesigns, ProjectSession } from "../workspace.ts"
 import { CarriedPicture } from "./CarriedPicture.tsx"
 import { useProject } from "./context.ts"
@@ -480,6 +480,7 @@ function SpacingHandlesFor({
     <SpacingHandles
       handles={spacingHandles(measure.layout)}
       unit={spacingUnit(tokens)}
+      steps={spacingSteps(tokens)}
       tokens={lengthTokens(tokens)}
       valueOf={(handle) => spacingValue(session, target, handle, measure)}
       dragging={dragging}

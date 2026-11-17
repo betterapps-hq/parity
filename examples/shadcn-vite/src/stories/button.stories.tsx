@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite"
-import { Button } from "@buildkitgg/shadcn-baseui-nova"
+import { Button } from "@buildkitgg/shadcn"
 
 const meta = {
   title: "UI/Button",

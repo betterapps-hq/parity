@@ -285,11 +285,11 @@ describe("following re-exports", () => {
     const dist = (file: string) => at("node_modules/@acme/kit/dist", file)
     const exported = await exportedComponents(dist("index.d.ts"), renderer)
     expect(Object.fromEntries(exported)).toEqual({
-      Root: { name: "Root", file: dist("index.d.ts") },
-      Button: { name: "Button", file: dist("button.d.ts") },
-      Panel: { name: "Panel", file: dist("card.d.ts") },
-      Dialog: { name: "Dialog", file: dist("dialog.d.ts") },
-      Loop: { name: "Loop", file: dist("cycle.d.ts") }
+      Root: { name: "Root", file: dist("index.d.ts"), fileExport: "Root" },
+      Button: { name: "Button", file: dist("button.d.ts"), fileExport: "Button" },
+      Panel: { name: "Panel", file: dist("card.d.ts"), fileExport: "Card" },
+      Dialog: { name: "Dialog", file: dist("dialog.d.ts"), fileExport: "default" },
+      Loop: { name: "Loop", file: dist("cycle.d.ts"), fileExport: "Loop" }
     })
   })
 
@@ -310,9 +310,9 @@ describe("following re-exports", () => {
     const src = (file: string) => at("packages/ui/src", file)
     const exported = await exportedComponents(src("index.tsx"), renderer)
     expect(Object.fromEntries(exported)).toEqual({
-      Shell: { name: "Shell", file: src("index.tsx"), as: "function" },
-      Field: { name: "Field", file: src("forms/field.tsx"), as: "function" },
-      Panel: { name: "Panel", file: src("card.tsx"), as: "function" }
+      Shell: { name: "Shell", file: src("index.tsx"), fileExport: "Shell", as: "function" },
+      Field: { name: "Field", file: src("forms/field.tsx"), fileExport: "Field", as: "function" },
+      Panel: { name: "Panel", file: src("card.tsx"), fileExport: "Card", as: "function" }
     })
   })
 })

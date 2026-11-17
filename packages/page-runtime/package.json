@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@parity-app/channel": "workspace:*",
-    "@parity-app/extension": "workspace:*"
+    "@parity-app/extension": "workspace:*",
+    "@parity-app/frames": "workspace:*"
   },
   "devDependencies": {
     "happy-dom": "catalog:"

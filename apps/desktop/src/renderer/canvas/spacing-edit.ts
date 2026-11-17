@@ -17,7 +17,7 @@ import { containerEntry, editFrame, type ProjectDoc, updateContainer } from "@pa
 import type { Token } from "@parity-app/tokens"
 import type { PointerEvent as ReactPointerEvent } from "react"
 import { px } from "../lengths.ts"
-import { resolveTokenValue, spacingUnit } from "../tokens-store.ts"
+import { resolveTokenValue, spacingBase, spacingUnit } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
 import type { AreaSpace, FrameGeometry } from "./frame-geometry.ts"
 import { followPress, gestures } from "./gesture.ts"
@@ -83,14 +83,15 @@ export function measureSpacing(
  */
 export function lengthTokens(tokens: readonly Token[]): LengthToken[] {
   const unit = spacingUnit(tokens)
+  const base = spacingBase(tokens)
 
   return tokens.flatMap((token) => {
-    if ((token.category !== "spacing" && token.category !== "container") || token.derived || token.name === "spacing") {
+    if ((token.category !== "spacing" && token.category !== "container") || token.derived || token.name === base) {
       return []
     }
 
     // The scale's own variable isn't set on Parity's page, so a step of it is worked out here.
-    const value = resolveTokenValue(tokens, token.name).replaceAll("var(--spacing)", `${unit}px`)
+    const value = resolveTokenValue(tokens, token.name).replaceAll(`var(--${base})`, `${unit}px`)
 
     if (value.includes("var(")) {
       return []

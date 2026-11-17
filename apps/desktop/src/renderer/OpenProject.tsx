@@ -1,6 +1,5 @@
 import { type ReactNode, useCallback, useEffect } from "react"
 import type { Editor } from "tldraw"
-import { AgentPresence } from "./agent/AgentPresence.tsx"
 import { CanvasDrop } from "./canvas/CanvasDrop.tsx"
 import { CanvasEditor } from "./canvas/CanvasEditor.tsx"
 import { CanvasOverlay } from "./canvas/CanvasOverlay.tsx"
@@ -137,9 +136,6 @@ function CanvasArea({ projectId, shown }: { projectId: string; shown: boolean })
           </ErrorBoundary>
           <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
             <CanvasDrop />
-          </ErrorBoundary>
-          <ErrorBoundary name="canvas.agents" label="Agents" kind="silent">
-            <AgentPresence />
           </ErrorBoundary>
           <WindowLayers order="overSelection" />
           <WindowLayers order="edge" />

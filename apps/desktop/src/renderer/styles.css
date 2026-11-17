@@ -5,8 +5,12 @@
  */
 @import "@buildkitgg/shadcn/tailwind.css";
 @import "./scrollbars.css";
-/* The media player's and presence's packages sit outside the app, where Tailwind doesn't look for classes by itself. */
+/*
+ * The media player's, presence's and agent presence's packages sit outside the app, where Tailwind doesn't look for
+ * classes by itself.
+ */
 @source "../../../../packages/media-player/src";
+@source "../../../../packages/extension-agent-presence/src";
 @source "../../../../packages/presence-ui/src";
 
 /*

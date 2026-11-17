@@ -282,6 +282,12 @@ export interface LengthToken {
   px: number
 }
 
+/** A step of the spacing scale, as the styling framework names it (`spacing-4`), and how many units it is. */
+export interface ScaleStep {
+  name: string
+  factor: number
+}
+
 export interface SpacingEditStart {
   /** The handle pressed. */
   handle: { kind: "padding"; side: PaddingSide } | { kind: "gap"; direction: "row" | "column" }
@@ -483,20 +489,20 @@ export function pickedSpacing(start: SpacingEditStart, value: FieldLength, held:
 
 /**
  * The token a handle's label names beside its value: the length token it's bound to, or else its step of the spacing
- * scale (`spacing-4` for 16px with a 4px unit), which every value a drag lands on is. Nothing for a value off the scale.
+ * scale, as the styling framework names it (`spacing-4` for 16px with a 4px unit). Nothing for a value off the scale.
  */
-export function spacingScaleName(value: { px: number; token?: string }, unit: number): string | undefined {
+export function spacingScaleName(
+  value: { px: number; token?: string },
+  steps: readonly ScaleStep[],
+  unit: number
+): string | undefined {
   if (value.token) {
     return value.token
   }
 
-  const steps = Math.round((value.px / unit) * 1e6) / 1e6
+  const units = value.px / unit
 
-  if (Math.abs(steps * 2 - Math.round(steps * 2)) > 1e-6) {
-    return undefined
-  }
-
-  return `spacing-${Number.isInteger(steps) ? steps : steps.toFixed(1)}`
+  return steps.find((step) => Math.abs(step.factor - units) < 1e-6)?.name
 }
 
 /**

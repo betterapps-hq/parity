@@ -28,6 +28,8 @@ export interface AgentSnapshot {
   iconSets?: IconSet[]
   tokens: Token[]
   theme: ThemeVariable[]
+  /** The cascade layer the project's styling framework puts its classes in, which frames draw their rules in. */
+  layer?: string
   modes: ModeSettings
   documents: { path: string; document: CanvasDocument }[]
   /**

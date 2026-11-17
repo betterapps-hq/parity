@@ -109,7 +109,7 @@ describe("the example project in a Storybook build", () => {
       const save: RenderNode = {
         kind: "component",
         nodeId: "save",
-        component: "nova/Button",
+        component: "shadcn/Button",
         props: {},
         slots: { children: [{ kind: "text", text: "Save" }] }
       }

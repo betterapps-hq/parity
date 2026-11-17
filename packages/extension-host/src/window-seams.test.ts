@@ -94,7 +94,7 @@ describe("parity.presence", () => {
 })
 
 describe("parity.agents", () => {
-  it("tells this copy's steps without a copy, and other copies' with theirs, passing those on to be drawn", async () => {
+  it("tells this copy's steps without a copy, and other copies' with theirs, however they reached the window", async () => {
     const test = driven()
     const { agentSteps, parity } = await tab(test.module)
 
@@ -109,8 +109,9 @@ describe("parity.agents", () => {
       }
     )
 
-    expect(test.api.heard).toEqual(["agents read", "agents move end from peer-2"])
-    expect(agentSteps.received).toEqual(["2 from peer-2"])
+    agentSteps.passOn([{ kind: "read", agentId: "codex" }], "room")
+
+    expect(test.api.heard).toEqual(["agents read", "agents move end from peer-2", "agents read from room"])
   })
 
   it("drops steps passed in that name what isn't here, recording that at most once a minute", async () => {

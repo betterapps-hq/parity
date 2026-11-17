@@ -1,17 +1,13 @@
-import { emptyDocument } from "@parity-app/core"
+import { CanvasLayerContext } from "@parity-app/canvas-layer"
+import { AgentPresence, AgentQueue } from "@parity-app/extension-agent-presence"
+import { agentStepOf } from "@parity-app/extension-host/window-agents"
 import type { Meta, StoryObj } from "@storybook/react-vite"
 import { useEffect, useId, useLayoutEffect, useMemo, useReducer, useRef, useState } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
-import { ProjectContext } from "../canvas/context.ts"
+import { holds } from "../canvas/board-holds.ts"
 import { placedBoards } from "../canvas/placed-boards.ts"
-import { ComponentStore } from "../components-store.ts"
-import { openTestSession } from "../doc-fixtures.ts"
 import { registerFrame } from "../frame.ts"
-import { keepRecovery } from "../recovery.ts"
-import { SelectionStore } from "../selection.ts"
-import { ProjectSession, type SessionParts } from "../workspace.ts"
-import { AgentPresence } from "./AgentPresence.tsx"
-import { presence } from "./presence.ts"
+import { storyLayer } from "./story-layer.ts"
 
 interface MockNode {
   id: string
@@ -128,27 +124,17 @@ function Frame({ board }: { board: MockBoard }) {
 }
 
 /**
- * A canvas of mock boards with agents' presence over it, playing calls as an agent would make them. Moves land on the
+ * A canvas of mock boards with agents' presence over it, playing calls as an agent would make them. It's the agent
+ * presence extension's own queue and choreography, in a layer over the stage instead of the canvas. Moves land on the
  * boards at once, as the project document applies them, and the boards are drawn where they're held until dragged.
  */
 function Stage({ calls, note }: { calls: Call[]; note: string }) {
   const tab = `story-${useId()}`
+  const layer = useMemo(() => storyLayer(tab), [tab])
+  // Held as the extension holds them, with `parity.canvas.hold`.
+  const queue = useMemo(() => new AgentQueue((design, at) => heldBoard(tab, design, at)), [tab])
 
-  const session = useMemo(() => {
-    const designs = openTestSession([{ path: "app.par", document: emptyDocument() }])
-
-    return new ProjectSession(
-      {
-        id: tab,
-        designs,
-        selection: new SelectionStore(),
-        components: new ComponentStore(),
-        recovery: keepRecovery(designs, async () => undefined)
-      },
-      // SAFETY: AgentPresence reads the session's id, and its editor, which a story without tldraw leaves out.
-      {} as SessionParts
-    )
-  }, [tab])
+  useEffect(() => () => queue.dispose(), [queue])
 
   const [positions, setPositions] = useState(() => new Map(boards.map((board) => [board.key, board])))
   const [run, replay] = useReducer((count: number) => count + 1, 0)
@@ -169,7 +155,8 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
           (step): PresenceEvent => ({ tab, agent: agent.name, agentId: agent.id, label: call.label, ...step })
         )
 
-        presence.push(events)
+        // Told before the moves land, as `parity.agents.onActivity` is.
+        queue.push(events.map((event) => agentStepOf(event)))
         setPositions((current) => {
           const next = new Map(current)
 
@@ -187,11 +174,14 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
     })
 
     return () => timers.forEach(clearTimeout)
-  }, [calls, run, tab])
+  }, [calls, run, tab, queue])
 
   return (
-    <ProjectContext.Provider value={session}>
-      <div className="relative h-[600px] w-full overflow-hidden bg-[#0e0e10] font-sans text-foreground">
+    <CanvasLayerContext value={layer}>
+      <div
+        data-agent-stage={tab}
+        className="relative h-[600px] w-full overflow-hidden bg-[#0e0e10] font-sans text-foreground"
+      >
         {[...positions.values()].map((board) => {
           const at = placedBoards.at(tab, board.key) ?? board
 
@@ -207,7 +197,7 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
             </div>
           )
         })}
-        <AgentPresence />
+        <AgentPresence queue={queue} />
         <div className="absolute right-3 bottom-3 z-[500] flex max-w-md items-center gap-3 rounded-lg border bg-background/90 px-3 py-2 text-xs">
           <span className="text-muted-foreground">{note}</span>
           <button
@@ -222,8 +212,19 @@ function Stage({ calls, note }: { calls: Call[]; note: string }) {
           </button>
         </div>
       </div>
-    </ProjectContext.Provider>
+    </CanvasLayerContext>
   )
+}
+
+/** A board held as `parity.canvas.hold` holds one. */
+function heldBoard(tab: string, design: string, at: { x: number; y: number }) {
+  const held = holds.hold(tab, design, at, "@parity-app/extension-agent-presence")
+
+  return {
+    update: (next: { x: number; y: number }) => held.update(next),
+    release: () => held.release(),
+    dispose: () => held[Symbol.dispose]()
+  }
 }
 
 const meta = {

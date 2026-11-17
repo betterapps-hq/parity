@@ -1,6 +1,6 @@
 {
   "type": "none",
-  "comment": "Pull the lens layout's decisions into @parity-app/lenses, which the lens exploration now lays itself out through",
+  "comment": "Story stand-in follows the canvas layer's color listeners",
   "packageName": "@parity-app/desktop",
   "email": "ajcraswell@gmail.com",
   "dependentChangeType": "none"

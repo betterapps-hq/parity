@@ -19,19 +19,11 @@ export interface Token {
   source: "semantic" | "theme"
   /** Value per theme: `default` for the root, otherwise the theme a class or attribute names (e.g. `dark`). */
   values: Record<string, string>
-  /** A step of a scale built on another token, like `spacing-4` on `spacing`: read-only, it follows its base. */
+  /**
+   * A step of a scale built on another token, like `spacing-4` on `spacing`, as the styling framework derives it:
+   * read-only, it follows its base.
+   */
   derived?: { from: string; factor: number }
-}
-
-/** The steps of the spacing scale, as Tailwind's utilities use them: `p-4` is four steps of `--spacing`. */
-export const spacingScale = [
-  0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6, 7, 8, 9, 10, 11, 12, 14, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56, 60, 64,
-  72, 80, 96
-]
-
-/** The token name a spacing step goes by. */
-export function spacingStepName(step: number): string {
-  return `spacing-${step}`
 }
 
 /**
@@ -44,7 +36,10 @@ export function extractTokens(
   theme: readonly ThemeVariable[] = [],
   categories: Readonly<Record<string, TokenCategory>> = {}
 ): Token[] {
-  const themeValues = new Map(theme.map((variable) => [variable.name, variable.value]))
+  const themeValues = new Map(
+    theme.flatMap((variable) => (variable.derived ? [] : [[variable.name, variable.value] as const]))
+  )
+
   const tokens = new Map<string, Token>()
   const categoryOf = (name: string, value: string) => categories[name] ?? categorize(name, value)
 
@@ -66,23 +61,15 @@ export function extractTokens(
     tokens.set(name, { name, category: categoryOf(name, value), source: "theme", values: { default: value } })
   }
 
-  // The scale itself is one variable; its steps are what designs use, so each is listed as a token of its own.
-  if (tokens.get("spacing")?.category === "spacing") {
-    for (const step of spacingScale) {
-      const name = spacingStepName(step)
+  // A scale's steps, as the styling framework derives them from their base, which designs use rather than the base.
+  for (const { name, value, derived } of theme) {
+    const base = derived && tokens.get(derived.from)
 
-      if (tokens.has(name)) {
-        continue
-      }
-
-      tokens.set(name, {
-        name,
-        category: "spacing",
-        source: "theme",
-        values: { default: step === 0 ? "0" : `calc(var(--spacing) * ${step})` },
-        derived: { from: "spacing", factor: step }
-      })
+    if (!base || tokens.has(name)) {
+      continue
     }
+
+    tokens.set(name, { name, category: base.category, source: "theme", values: { default: value }, derived })
   }
 
   return [...tokens.values()].sort((a, b) => a.name.localeCompare(b.name, "en", { numeric: true }))

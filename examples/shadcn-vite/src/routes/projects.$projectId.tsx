@@ -8,7 +8,7 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
-} from "@buildkitgg/shadcn-baseui-nova"
+} from "@buildkitgg/shadcn"
 import { projects } from "@/data/projects"
 
 export const Route = createFileRoute("/projects/$projectId")({

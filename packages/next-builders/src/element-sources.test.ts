@@ -42,7 +42,7 @@ describe("the project's JSX tagged for Next", () => {
 
     expect(files.find((file) => file.path === elementSourcesLoaderFile)?.text).toBe(elementSourcesLoaderSource)
     expect(files.find((file) => file.path === "next.config.mjs")?.text).toContain(
-      "rulesWithElementSources(rulesWithTailwindBase(project.turbopack?.rules))"
+      "rulesWithElementSources(rulesWithProjectRoot(project.turbopack?.rules))"
     )
 
     const folder = await mkdtemp(join(tmpdir(), "parity-element-sources-"))

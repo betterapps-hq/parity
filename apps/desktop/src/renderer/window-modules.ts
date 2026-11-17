@@ -105,7 +105,7 @@ export async function startTabModules(
 
   // A service that doesn't answer in time leaves the modules to start once the session's list arrives.
   let early: ProjectExtensions =
-    Object.keys(windowModuleList).length > 0
+    windowModuleList.size > 0
       ? await Promise.race([
           request("extensions.list", { projectId: project.id }).catch(() => none),
           new Promise<ProjectExtensions>((resolve) => setTimeout(() => resolve(none), listWaitMs))
@@ -126,7 +126,7 @@ export async function startTabModules(
     earlyListeners.clear()
   }
 
-  if (Object.keys(windowModuleList).length > 0) {
+  if (windowModuleList.size > 0) {
     polling = setInterval(() => {
       void request("extensions.list", { projectId: project.id })
         .then((listed) => {
@@ -309,7 +309,7 @@ function start(
     project: { root: project.root, name: project.name },
     // Each module is a chunk of its own, listed from the built-in list (shared/built-in-extensions.ts).
     load: async (id) => {
-      const load = windowModuleList[id]
+      const load = windowModuleList.get(id)
 
       if (!load) {
         throw new Error(`${id} has no window module in this build`)

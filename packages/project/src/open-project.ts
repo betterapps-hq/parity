@@ -31,8 +31,11 @@ export interface ProjectInfo {
   builder: { id: string; name: string; toolVersion: string; console?: BuilderConsole }
   /** The router adapter that read `routes`, when the app has one; their owner among the project's nodes. */
   router?: { id: string; name: string }
-  /** The styling framework whose theme the tokens include, when one was recognized. */
-  styles?: { id: string; name: string; stylesheet: string; error?: string }
+  /**
+   * The styling framework whose theme the tokens include, when one was recognized, with the cascade layer its classes
+   * go in, as Tailwind's `utilities`, when it names one.
+   */
+  styles?: { id: string; name: string; stylesheet: string; layer?: string; error?: string }
   /** The styling framework's full theme, which compiled CSS trims to what the project's code uses. */
   theme: ThemeVariable[]
   guestUrl: string

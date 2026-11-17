@@ -125,8 +125,8 @@ function providerOf({ info, pkg }: OpenProject) {
  * Adds a library to the project, with the registry's icon sets `companions` names in the same install. One an extension
  * sets up is set up with the settings chosen: the extension says what that changes in package.json, Parity writes
  * it, then installs with the project's own package manager, whose install runs the scripts the
- * extension added. One from the registry is installed by name. Either has its Tailwind entry imported from the
- * project's stylesheet. The person asked for it from the canvas, so this changes their project.
+ * extension added. One from the registry is installed by name. Either has its stylesheet imported from the
+ * project's, where its styles provider says it goes. The person asked for it from the canvas, so this changes their project.
  */
 export async function addLibrary(
   project: OpenProject,
@@ -168,7 +168,7 @@ export async function addLibrary(
     const named = { verb: "install", name: provided.name, package: provided.package, command, args } as const
 
     return runPackageManager(project, named, async () => {
-      const styled = plan.styles ? await importLibraryStyles(project, provided.name, plan.styles) : undefined
+      const styled = plan.styles ? await importLibraryStyles(project, providers, provided.name, plan.styles) : undefined
 
       return styled ?? setUp
     })
@@ -185,8 +185,8 @@ export async function addLibrary(
   const named = { verb: "install", name: definition.name, package: definition.package, command, args } as const
 
   return runPackageManager(project, named, async () =>
-    definition.tailwindEntry
-      ? importLibraryStyles(project, definition.name, `${definition.package}/${definition.tailwindEntry}`)
+    definition.styles
+      ? importLibraryStyles(project, providers, definition.name, `${definition.package}/${definition.styles}`)
       : undefined
   )
 }
@@ -230,7 +230,7 @@ export async function removeLibrary(
     plan = await providers?.call(providerOf(project), { kind: "libraries", method: "remove", params: { library } })
     name = provided.name
   } else if (installed) {
-    const styles = installed.tailwindEntry ? `${installed.importName}/${installed.tailwindEntry}` : undefined
+    const styles = installed.styles ? `${installed.importName}/${installed.styles}` : undefined
     plan = { packages: [installed.importName], styles }
     name = installed.name
   } else {
@@ -348,16 +348,23 @@ async function runPackageManager(
 
 export async function importStyles(
   project: OpenProject,
+  providers: ProjectProviders | undefined,
   { library }: ServiceMethods["library.importStyles"]["params"]
 ): Promise<ProjectEditResult | undefined> {
   const { info } = project
   const installed = info.libraries.find((candidate) => candidate.id === library)
 
-  if (!installed?.tailwindEntry) {
+  if (!installed?.styles) {
     throw new Error(`${library} has no styles to import`)
   }
 
-  const edit = await importLibraryStyles(project, installed.name, `${installed.importName}/${installed.tailwindEntry}`)
+  const edit = await importLibraryStyles(
+    project,
+    providers,
+    installed.name,
+    `${installed.importName}/${installed.styles}`
+  )
+
   installed.stylesImported = true
 
   return edit
@@ -373,19 +380,35 @@ function stylesheetOf(project: OpenProject): string {
   return stylesheet
 }
 
-/** Imports a library's styles into the project's stylesheet, unless it imports them already. */
+/**
+ * Imports a library's styles into the project's stylesheet, unless it imports them already: where the styling framework
+ * that reads it says, else first.
+ */
 async function importLibraryStyles(
   project: OpenProject,
+  providers: ProjectProviders | undefined,
   name: string,
   specifier: string
 ): Promise<ProjectEditResult | undefined> {
   const stylesheet = stylesheetOf(project)
   const source = await readFile(join(project.info.root, stylesheet), "utf8")
-  const content = withStylesImport(source, specifier)
 
-  if (content === undefined) {
+  if (source.includes(specifier)) {
     return undefined
   }
+
+  const { styles } = project.info
+  const framework = styles && !styles.error && styles.stylesheet === stylesheet ? styles.id : undefined
+
+  const placed =
+    framework &&
+    (await providers?.call(
+      providerOf(project),
+      { kind: "styles", method: "importStyles", params: { source, specifier } },
+      framework
+    ))
+
+  const content = placed || withStylesImport(source, specifier)
 
   return applyProjectEdit(project, {
     label: `Import ${name}'s styles`,

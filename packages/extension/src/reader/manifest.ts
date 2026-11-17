@@ -198,7 +198,16 @@ const providers = z.strictObject({
         .optional()
     })
     .optional(),
-  styles: empty.optional(),
+  styles: z
+    .strictObject({
+      layer: z
+        .string()
+        .regex(/^[\w-]+$/)
+        .max(100)
+        .optional(),
+      rootOptions: z.record(z.string().min(1).max(214), z.string().regex(/^\w+$/).max(100)).optional()
+    })
+    .optional(),
   router: z
     .strictObject({ decorators: z.array(frameDecorator).max(20).optional(), page: pageModule.optional() })
     .optional(),

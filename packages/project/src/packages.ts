@@ -361,6 +361,8 @@ export interface ExportedComponent {
   name: string
   /** The file it's declared in. */
   file: string
+  /** The name that file exports it by, which a rename re-exports as another (`export { Card as Panel }`). */
+  fileExport: string
   /** How the renderer recognised it. Declaration files don't say. */
   as?: ComponentEvidence
 }
@@ -399,7 +401,7 @@ async function exportsOf(
   }
 
   for (const component of await renderer.findComponents(source, file)) {
-    found.set(component.export, { name: component.name, file, as: component.as })
+    found.set(component.export, { name: component.name, file, fileExport: component.export, as: component.as })
   }
 
   for (const reexport of reexportsOf(source)) {

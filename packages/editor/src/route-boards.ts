@@ -9,6 +9,7 @@ import {
   type RouteSegment,
   sameSegments
 } from "@parity-app/core"
+import type { PageMode } from "@parity-app/frames"
 import { type BoardBox, labelLook, titleTop } from "./canvas-labels.ts"
 
 /**
@@ -485,14 +486,6 @@ export function landedElsewhere(url: string, landed: string): string | undefined
   const trim = (path: string) => (path.length > 1 ? path.replace(/\/+$/, "") : path)
 
   return trim(new URL(url).pathname) === trim(landed) ? undefined : landed
-}
-
-/** The mode a page's frame draws in, which Parity sets in the app's own page with `mode.set` (PAR-1076, PAR-1260). */
-export interface PageMode {
-  classes: string[]
-  attributes: Record<string, string>
-  /** What `prefers-color-scheme` answers: the mode's theme's, when it has one that's dark or light. */
-  scheme?: "dark" | "light"
 }
 
 /** A mode as the app's own page draws in it: its classes and attributes, and its scheme from its theme option's id or class. */

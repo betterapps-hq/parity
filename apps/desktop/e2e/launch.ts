@@ -424,7 +424,7 @@ async function stopProcess(child: ChildProcess): Promise<void> {
  * stand-in rather than failing, so their frames draw and are captured as the others are.
  */
 const memberRow = `import type * as React from "react"
-import { Avatar, AvatarFallback, Badge, Input } from "@buildkitgg/shadcn-baseui-nova"
+import { Avatar, AvatarFallback, Badge, Input } from "@buildkitgg/shadcn"
 
 export interface Member {
   name: string

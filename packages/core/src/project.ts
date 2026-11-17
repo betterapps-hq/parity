@@ -193,8 +193,8 @@ export interface LibraryInfo {
    * source, and the app's own build compiles them, so the dev server doesn't pre-bundle it.
    */
   workspace?: string
-  /** Its Tailwind entry, imported from the project's stylesheet so its classes and tokens are built. */
-  tailwindEntry?: string
+  /** Its stylesheet, relative to the package, imported from the project's so its classes and tokens are built. */
+  styles?: string
   /** Whether the project's stylesheet imports the library's styles yet. */
   stylesImported: boolean
   /** The viewport widths the library is designed around, from its `.lib.par`. */

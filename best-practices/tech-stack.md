@@ -47,6 +47,7 @@ For building command-line tools.
 | Unit tests | Run [Vitest](https://github.com/vitest-dev/vitest/tree/main/packages/vitest) through [Vite+](https://github.com/voidzero-dev/vite-plus). Use [`@vitest/coverage-v8`](https://github.com/vitest-dev/vitest/tree/main/packages/coverage-v8) for coverage. |
 | React component tests | Render with [`@testing-library/react`](https://github.com/testing-library/react-testing-library) in [`happy-dom`](https://github.com/capricorn86/happy-dom), drive interactions with [`@testing-library/user-event`](https://github.com/testing-library/user-event), and assert DOM state with [`@testing-library/jest-dom`](https://github.com/testing-library/jest-dom). |
 | API mocking | Use [MSW](https://github.com/mswjs/msw) to intercept requests. Use `createApiMock` from [`@buildkitgg/api-mocker`](https://github.com/betterapps-hq/buildkit/tree/main/packages/tooling/api-mocker) to share endpoint mocks between unit tests and Storybook. |
+| Sample and seed data | Use [`@faker-js/faker`](https://fakerjs.dev/) to generate realistic sample records, test fixtures, and development database seed data. Set a fixed `faker.seed(...)` when reproducible results are needed. |
 | [Storybook](https://github.com/storybookjs/storybook) | Start React and Vite stories with [`@buildkitgg/storybook-config`](https://github.com/betterapps-hq/buildkit/tree/main/packages/tooling/storybook-config). Its shared configuration includes the Vitest, accessibility, and Chromatic addons. |
 | Visual regression | Use [Chromatic](https://github.com/chromaui/chromatic-cli) to compare snapshots and publish Storybook. |
 | End-to-end tests | Exercise user workflows with [`@playwright/test`](https://github.com/microsoft/playwright/tree/main/packages/playwright-test) and check accessibility with [`@axe-core/playwright`](https://github.com/dequelabs/axe-core-npm/tree/develop/packages/playwright). |
@@ -66,24 +67,24 @@ For building command-line tools.
 
 ## UI & components
 
-- Use [shadcn/ui](https://github.com/shadcn-ui/ui) with [`@buildkitgg/shadcn-baseui-nova`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-baseui-nova) as the default style. Install it under the `@buildkitgg/shadcn-baseui-kit` alias so app components and BuildKit adapters share the same kit.
+- Use [shadcn/ui](https://github.com/shadcn-ui/ui) through [`@buildkitgg/shadcn-sync`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-sync), which builds the components into a `@buildkitgg/shadcn` package inside the app. BuildKit's shadcn managers use the same package.
 
-  Install Nova under the package name the adapters expect:
+  Run the installer in the app's folder:
 
   ```sh
-  pnpm add @buildkitgg/shadcn-baseui-kit@npm:@buildkitgg/shadcn-baseui-nova
+  pnpm dlx @buildkitgg/shadcn-sync
   ```
 
-  Import components through that same name in app code:
+  Import components from the generated package:
 
   ```tsx
-  import { Button } from "@buildkitgg/shadcn-baseui-kit"
+  import { Button } from "@buildkitgg/shadcn"
 
   export function SaveButton() {
     return <Button type="submit">Save</Button>
   }
   ```
-- Load one reset. With Tailwind 4, import the kit’s `tailwind.css` alongside Tailwind. Without Tailwind, use the kit’s compiled `styles.css`, which includes Preflight. If the app supplies its own reset, use `styles-no-reset.css`. Use [the-new-css-reset](https://github.com/elad2412/the-new-css-reset) only when neither the kit nor the app loads Preflight or another reset.
+- With Tailwind 4, run sync with `--css tailwind` and import `@buildkitgg/shadcn/tailwind.css` after Tailwind. Without Tailwind, the components bring their own CSS and don't reset the page, so use [the-new-css-reset](https://github.com/elad2412/the-new-css-reset) if the app needs a reset.
 - Use [Recharts](https://github.com/recharts/recharts) for charts.
 
 | Need | BuildKit packages |
@@ -94,8 +95,6 @@ For building command-line tools.
 | User preferences | [`@buildkitgg/react-preferences`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-preferences) manages user preferences. |
 | App configuration | [`@buildkitgg/react-configuration`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-configuration) provides typed configuration and developer overrides. |
 | URL-driven tabs and panels | Use [`@buildkitgg/react-routing`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-routing) with the adapter for the app’s router, either [`@buildkitgg/tanstack-router`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/tanstack-router) or [`@buildkitgg/react-router`](https://github.com/betterapps-hq/buildkit/tree/main/packages/react/react-router). |
-| Shared component runtime | [`@buildkitgg/shadcn-runtime`](https://github.com/betterapps-hq/buildkit/tree/main/packages/shadcn/shadcn-runtime) supplies localization, text direction, and class merging for BuildKit’s shadcn components. |
-
 ## Markdown & rich text
 
 Built on the [unified](https://github.com/unifiedjs/unified) ([remark](https://github.com/remarkjs/remark) + [rehype](https://github.com/rehypejs/rehype)) ecosystem — the standard for parsing and transforming Markdown/HTML.

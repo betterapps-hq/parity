@@ -2,6 +2,85 @@
   "name": "@parity-app/desktop",
   "entries": [
     {
+      "date": "Tue, 17 Nov 2026 06:38:14 GMT",
+      "version": "0.102.0",
+      "tag": "@parity-app/desktop_v0.102.0",
+      "comments": {
+        "none": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "accaf64abde8aa75a33f60b9128bf422dca46879",
+            "comment": "Move the lens shell into the app behind a Dockview adapter and a lens registry; the Lenses exploration renders it with test lenses"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "758cba5593fbe6b97c1e60eb6453cf7025f32382",
+            "comment": "Pull the lens layout's decisions into @parity-app/lenses, which the lens exploration now lays itself out through"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "44aa5ffefd6e25ee1ee055e8e6e708e6b67b2446",
+            "comment": "Add @parity-app/frames, the package that will hold route boards' snapshots, sanitizers, frozen copies and tier planning"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "a0f1d46fa8d1ce5b4cfa496e1800733fda8555bb",
+            "comment": "Move core's remaining Tailwind assumptions behind the styles provider: library stylesheets, their import's place, the frames' rules layer, the spacing steps, which components set their own size, and the Next builders' plugin root (PAR-1130)"
+          }
+        ],
+        "patch": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "f05f6d642cb2b96ef20f58515b72e5974a4c08f5",
+            "comment": "A token's detail closes at the first Escape, and the right arrow moves into a derived token's detail"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "13d3b184fdb3c9626551b264cf47e4282f6c7a4b",
+            "comment": "Undo in a live room takes out only your own typing, even beside the same letter someone else wrote"
+          }
+        ],
+        "minor": [
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "bae46c102f1961f525f2163ec35d84b4991d2d99",
+            "comment": "Internal extensions draw on the canvas: parity.canvas layers, boxes, previews and holds, parity.camera, and parity.colors, with hooks in @parity-app/canvas-layer"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "142c51ff6519cf45b664b1012b950fd84368d6c4",
+            "comment": "Images get a Design panel of their own: Content first, then Size, Position, Appearance and Stroke, with no Fill"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "4d409fe62cd67f770249579a15230842b0ee9d59",
+            "comment": "Route pages run the page runtime: they change mode without loading again, measure their height in the mode's window and report where they land, with page modules from TanStack Router and React"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "1ad109cf6c4ec8e4fa9dd301ff8067bee678a603",
+            "comment": "Internal extensions' window modules hear this person's pointer, gestures and view, and agents' steps, with the sync seam built for opening a project through a room"
+          },
+          {
+            "author": "ajcraswell@gmail.com",
+            "package": "@parity-app/desktop",
+            "commit": "caa298047cf5ef0ed13d6b3386bd64b9c4662c85",
+            "comment": "Grid placement is in the Design panel: a grid child's cells on a map of its grid, its lines and spans, and Align and Justify self"
+          }
+        ]
+      }
+    },
+    {
       "date": "Tue, 17 Nov 2026 03:35:59 GMT",
       "version": "0.101.0",
       "tag": "@parity-app/desktop_v0.101.0",

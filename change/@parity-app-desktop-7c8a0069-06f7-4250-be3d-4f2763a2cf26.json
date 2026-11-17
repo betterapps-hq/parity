@@ -1,0 +1,7 @@
+{
+  "type": "none",
+  "comment": "Move the example project and its tests onto shadcn-sync",
+  "packageName": "@parity-app/desktop",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "none"
+}

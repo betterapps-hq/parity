@@ -112,7 +112,12 @@ stacks, and its starts, crashes and restarts. The tab shows once the extension l
   `router`'s `routes()` gives the app's routes, each parent before its children; Parity asks once as the project opens.
   A `styles` provider's `handles({ source })`, `theme({ stylesheet })`,
   `classes({ stylesheet, version, written, declarations })` and `writeTokens({ source, writes, theme })` read a styling
-  framework's theme, write a frame's declarations as classes and write token values into a stylesheet. A `renderer`'s
+  framework's theme, with the steps of its scales each `derived` from its base, write a frame's declarations as classes
+  and write token values into a stylesheet; `importStyles({ source, specifier })` adds a library's stylesheet import
+  where the framework builds it, and `setsOwnSize({ classes })` says which elements' classes set their own size
+  (PAR-1130). The manifest's `providers.styles` names the cascade `layer` its classes go in, where frames put their
+  rules, and in `rootOptions`, its build plugins that look for the project's files from where they run, with the option
+  naming the folder, which a builder that runs the build elsewhere sets to the project's root. A `renderer`'s
   `components({ files })` reads which components each file exports, a batch of files at a time, while the manifest's
   `providers.renderer` names its guest module, runtime packages and imports, development stand-ins and component file
   extensions. A `builder`'s `detect()` says whether the project's own build tool serves it, while the manifest's
@@ -307,8 +312,8 @@ An extension can offer an API to other extensions, and its commands and tools to
 
 Parity's own extensions can be **internal** (PAR-1235,
 [proposals/extensions-in-the-window.md](proposals/extensions-in-the-window.md)): built and released with the app, so
-they share its React, kit and theme, and promise nothing beyond the build they ship in. Multiplayer and agents' pointers
-are to become internal extensions. None of the built-in extensions is one yet.
+they share its React, kit and theme, and promise nothing beyond the build they ship in. Agent presence is one (below);
+multiplayer is to become one.
 
 - **One list.** Parity's built-in extensions are listed once, in
   [`shared/built-in-extensions.ts`](../apps/desktop/src/shared/built-in-extensions.ts). The service's hosts, the bundles
@@ -374,11 +379,11 @@ are to become internal extensions. None of the built-in extensions is one yet.
   they'd land, a resize and a box drawn to select, each started, ended or called off), and the design, state and mode
   selected, on each change. Nothing is listened to while no module listens. A move's drop and end are told after the
   changes committed before them.
-- **`parity.agents`** (`agents`) tells every step this copy's agents take in the tab, with no `from`, and the steps an
-  extension passes in with `receive(steps, { from })`, with that copy. Steps passed in are queued as this copy's are, so
-  the canvas draws their cursors, but never told again as this copy's, so nothing echoes back to the room. Steps naming
-  a design or layer that isn't here are dropped and recorded (`agents.stepDropped`, at most once a minute), and each
-  minute agents are active is recorded as `agents.activity`.
+- **`parity.agents`** (`agents`) tells every step this copy's agents take in the tab, with no `from`, before the write
+  it describes is applied, and other copies' steps with that copy, which the extension that brings the room passes in
+  with `receive(steps, { from })`. Steps from another copy are never told again as this copy's, so nothing echoes back
+  to the room. Core draws none of them. Steps naming a design or layer that isn't here are dropped and recorded
+  (`agents.stepDropped`, at most once a minute), and each minute agents are active is recorded as `agents.activity`.
 - **`parity.sync`** is built and tested in [window-sync.ts](../packages/extension-host/src/window-sync.ts): `onOpen`
   says how the project opens, from files or on a snapshot, within 30 seconds; `onLocalChanges`, `receive`, `version`,
   `changesSince` and `snapshot` carry changes framed with the document's lineage; `setWritesFiles` says who writes
@@ -402,6 +407,24 @@ editor's selection and navigation, and its link to the Node halves as arguments,
 camera and colors are [`window-canvas.ts`](../packages/extension-host/src/window-canvas.ts), over the tab's core
 services, which [`renderer/window-canvas.tsx`](../apps/desktop/src/renderer/window-canvas.tsx) gives it, with the hosts
 that draw the layers.
+
+## Agent presence
+
+`@parity-app/extension-agent-presence` draws agents at work: a pointer per agent that travels to what it reads or
+changes, scans it and drags the boards it moves ([editor.md](editor.md#agents-at-work-on-the-canvas-par-1269)). It's
+internal, with only a window module, activated `onStartup` in every project tab, and declares `canvas`, `agents` and
+`hold`.
+
+- **What it listens to.** `parity.agents.onActivity`, this copy's steps and other copies' alike. Each is queued per
+  agent, keyed by its id, or `${from}:${agentId}` for another copy's.
+- **What it draws.** One `overSelection` page layer, `agentPresence.agents`, with `@parity-app/presence-ui`'s
+  `AgentPointer` and `AgentBadge`. It reads the camera and boxes through the layer, and claims each agent's color from
+  `parity.colors.agents` while its pointer is drawn.
+- **Holds.** A move's board is held with `parity.canvas.hold` as its step is told, before the write lands, and let go
+  once the pointer has dragged it, or as the extension stops.
+- **Turned off,** agents work without being drawn, and the rest of the canvas is unchanged.
+
+What it offers other window modules is its queue (`AgentPresenceApi`), for tests and stories.
 
 ## Portless
 
@@ -527,15 +550,20 @@ names, and sets Shadcn up through shadcn-sync (PAR-1226, PAR-1227).
 - [window-seams.test.ts](../packages/extension-host/src/window-seams.test.ts) (PAR-1257), through the same test-only
   extension: the pointer at most once a frame with its leaving kept, gestures in order with committed changes told
   before a move's drop and end, viewing told only on a change, nothing listened to without a listener, a throwing
-  listener counted; agents' steps here without a copy and passed-in ones with theirs, steps naming what's gone dropped
-  and recorded, the minute's activity, and today's agent events mapped to steps and back; and `parity.sync` opening from
-  files or a snapshot, alone when nothing answers, calls made before the open applied in order once it does, changes
-  framed with their lineage, other lineages refused, pending changes recorded, files written as the room says, the
-  document kept open alone when the module stops, nothing detached as the project closes, a second `onOpen` refused, and
-  the minute's traffic.
+  listener counted; agents' steps here without a copy, and passed-in ones and the development room's with theirs, steps
+  naming what's gone dropped and recorded, the minute's activity, and today's agent events mapped to steps and back; and
+  `parity.sync` opening from files or a snapshot, alone when nothing answers, calls made before the open applied in
+  order once it does, changes framed with their lineage, other lineages refused, pending changes recorded, files written
+  as the room says, the document kept open alone when the module stops, nothing detached as the project closes, a second
+  `onOpen` refused, and the minute's traffic.
 - [frame-loop.test.ts](../packages/canvas-layer/src/frame-loop.test.ts): every `measure` before any `draw`, the time
   since the frame before, resting while nothing runs or the tab is hidden, and a throwing frame given to its own
   handler.
+- [extension-agent-presence](../packages/extension-agent-presence/src) (PAR-1269), without Electron: `queue.test.ts`
+  (steps queued per agent, other copies' kept apart, moved boards held and let go, trimming a long call),
+  `targets.test.ts` (where a step's target is on the screen, and what it falls back to), `window.test.ts` (the module's
+  one layer, playing other copies' steps alike, holding a board as its step is told and letting go as it stops) and
+  `motion.test.ts`.
 
 Gaps: the forked process in `utility/extension-host.ts` and the window's toasts, tab and dialogs have no tests of their
 own, nor has `renderer/window-modules.ts` or `renderer/window-canvas.tsx`, which no built-in extension uses yet; the

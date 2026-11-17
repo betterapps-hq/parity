@@ -194,7 +194,7 @@ describe("diffFile", () => {
 
   it("keeps the lines an insertion goes between", () => {
     const before = '@import "tailwindcss";\n\n:root {}\n'
-    const after = withStylesImport(before, "@buildkitgg/nova/styles.css")!
+    const after = '@import "tailwindcss";\n@import "@buildkitgg/nova/styles.css";\n\n:root {}\n'
     expect(diffFile({ path: "src/index.css", before, after }).split("\n")).toEqual([
       "--- a/src/index.css",
       "+++ b/src/index.css",
@@ -217,14 +217,7 @@ describe("diffFile", () => {
 })
 
 describe("withStylesImport", () => {
-  it("imports a library's styles right after Tailwind, once", () => {
-    const source = '@import "tailwindcss";\n@import "./fonts.css";\n'
-    const imported = withStylesImport(source, "lib/styles.css")
-    expect(imported).toBe('@import "tailwindcss";\n@import "lib/styles.css";\n@import "./fonts.css";\n')
-    expect(withStylesImport(imported!, "lib/styles.css")).toBeUndefined()
-  })
-
-  it("imports them first when the stylesheet doesn't import Tailwind", () => {
+  it("imports a library's styles first, in a stylesheet no styling framework reads", () => {
     expect(withStylesImport(":root {}\n", "lib/styles.css")).toBe('@import "lib/styles.css";\n:root {}\n')
   })
 })

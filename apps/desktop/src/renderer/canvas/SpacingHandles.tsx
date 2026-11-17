@@ -13,12 +13,12 @@ import { type FieldLength, remPixels } from "@parity-app/core"
 import {
   type LengthToken,
   type PaddingSide,
+  type ScaleStep,
   type SidesHeld,
   type SpacingHandle,
   spacingName,
   spacingScaleName
 } from "@parity-app/editor"
-import { spacingScale, spacingStepName } from "@parity-app/tokens"
 import { ChevronDown } from "lucide-react"
 import {
   type CSSProperties,
@@ -54,6 +54,8 @@ export interface SpacingHandlesProps {
   handles: readonly SpacingHandle[]
   /** Layout pixels per spacing step, to name each value's step of the scale. */
   unit: number
+  /** The steps of the spacing scale, as the styling framework names them, listed beside the box a value is typed in. */
+  steps: readonly ScaleStep[]
   /** The project's length tokens, listed beside the box a value is typed in. */
   tokens: readonly LengthToken[]
   /** What each handle's value is now: in layout pixels, with the token it's bound to. */
@@ -79,6 +81,7 @@ export interface SpacingHandlesProps {
 export function SpacingHandles({
   handles,
   unit,
+  steps,
   tokens,
   valueOf,
   dragging,
@@ -135,7 +138,7 @@ export function SpacingHandles({
         const key = spacingKey(handle)
         const name = spacingName(handle, handles.filter((other) => other.kind === "gap").length)
         const value = dragging?.key === key ? dragging : valueOf(handle)
-        const scaleName = spacingScaleName(value, unit)
+        const scaleName = spacingScaleName(value, steps, unit)
         const across = isAcross(handle)
         const active = dragging?.key === key || hovered === key || focused === key
         const color = spacingColors[handle.kind]
@@ -230,6 +233,7 @@ export function SpacingHandles({
                 text={typing.text}
                 reason={typing.reason}
                 unit={unit}
+                steps={steps}
                 tokens={tokens}
                 onChange={(text) => setTyping({ ...typing, text, reason: undefined })}
                 onCommit={(text) => commit(handle, text)}
@@ -341,6 +345,7 @@ function TypeBox(props: {
   text: string
   reason?: string
   unit: number
+  steps: readonly ScaleStep[]
   tokens: readonly LengthToken[]
   onChange: (text: string) => void
   /** What's typed, with the unit a plain number is in. */
@@ -466,25 +471,27 @@ function TypeBox(props: {
                     ))}
                   </CommandGroup>
                 )}
-                <CommandGroup heading="Spacing scale">
-                  {spacingScale.map((step) => (
-                    <CommandItem
-                      key={step}
-                      value={spacingStepName(step)}
-                      onSelect={() => props.onPick(step)}
-                      className="gap-2 text-xs"
-                    >
-                      <span className="flex shrink-0" style={{ width: barRoom }}>
-                        <SpacingBar length={step * props.unit} room={barRoom} color={props.color} />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-mono">{spacingStepName(step)}</span>
-                      <span className="text-muted-foreground tabular-nums">
-                        {inUnit(step * props.unit, unit)}
-                        {unit}
-                      </span>
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+                {props.steps.length > 0 && (
+                  <CommandGroup heading="Spacing scale">
+                    {props.steps.map((step) => (
+                      <CommandItem
+                        key={step.name}
+                        value={step.name}
+                        onSelect={() => props.onPick(step.factor)}
+                        className="gap-2 text-xs"
+                      >
+                        <span className="flex shrink-0" style={{ width: barRoom }}>
+                          <SpacingBar length={step.factor * props.unit} room={barRoom} color={props.color} />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-mono">{step.name}</span>
+                        <span className="text-muted-foreground tabular-nums">
+                          {inUnit(step.factor * props.unit, unit)}
+                          {unit}
+                        </span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                )}
               </CommandList>
             </Command>
           </PopoverContent>

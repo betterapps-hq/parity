@@ -1,161 +1,49 @@
-import { useSyncExternalStore } from "react"
 import type { PresenceEvent } from "../../shared/protocol.ts"
-import { type Held, holds } from "../canvas/board-holds.ts"
-import { signal } from "../store.ts"
 
 /**
- * What agents are doing in each tab, as a queue per agent the canvas plays back at a readable pace, each with its
- * own cursor. Agents work in milliseconds; people need a second or two per step to follow along.
+ * Agents' activity in this window, as the agent API reports it, before the writes it describes are applied. Core only
+ * passes it on: each tab's `parity.agents` tells window modules (`window-seams.ts`), and the agent presence extension
+ * draws it. Steps another copy in a live room sent come in here too, told apart so they're never sent back.
  */
-class PresenceQueue {
-  /** The hold on each move's board, from when it's queued until its cursor has dragged the board there. */
-  private readonly held = new WeakMap<PresenceEvent, Held>()
-  private readonly queues = new Map<string, PresenceEvent[]>()
-  private readonly changes = signal()
-  /** Agents with a cursor in each tab, in the order they arrived. */
-  private readonly present = new Map<string, string[]>()
-  /** Tabs whose canvas is playing their queue, by how many players. */
-  private readonly watched = new Map<string, number>()
-  private version = 0
-  /** Told of the events this copy's agents send, which a live room passes on to the other copies. */
-  private readonly pushed = new Set<(events: PresenceEvent[]) => void>()
-
-  subscribe = this.changes.subscribe
-
-  getVersion = () => this.version
-
-  /** Marks a tab's queue as played, so its moves wait for the cursor to drag them. */
-  watch(tab: string): () => void {
-    this.watched.set(tab, (this.watched.get(tab) ?? 0) + 1)
-
-    return () => {
-      const count = (this.watched.get(tab) ?? 1) - 1
-
-      if (count > 0) {
-        this.watched.set(tab, count)
-      } else {
-        this.watched.delete(tab)
-      }
-    }
-  }
+class AgentActivity {
+  private readonly own = new Set<(events: PresenceEvent[]) => void>()
+  private readonly passed = new Set<(events: PresenceEvent[], from: string) => void>()
 
   /** Listens to the events this copy's agents send, not those passed on from another copy. */
   onPush(listener: (events: PresenceEvent[]) => void): () => void {
-    this.pushed.add(listener)
+    this.own.add(listener)
 
     return () => {
-      this.pushed.delete(listener)
+      this.own.delete(listener)
     }
   }
 
-  /** Queues agents' events; `passedOn` for those another copy in a live room sent. */
-  push(events: PresenceEvent[], passedOn = false): void {
-    if (!passedOn) {
-      for (const listener of this.pushed) {
+  /** Listens to the events other copies' agents sent, with the copy they came from. */
+  onPassedOn(listener: (events: PresenceEvent[], from: string) => void): () => void {
+    this.passed.add(listener)
+
+    return () => {
+      this.passed.delete(listener)
+    }
+  }
+
+  /** Reports agents' events: this copy's, or with `passedOn` those another copy in a live room sent. */
+  push(events: PresenceEvent[], passedOn: boolean | string = false): void {
+    if (passedOn === false) {
+      for (const listener of this.own) {
         listener(events)
       }
-    }
 
-    for (const event of events) {
-      const id = queueId(event.tab, agentOf(event))
-      const queue = this.queues.get(id) ?? []
-
-      // A long call shouldn't take minutes to replay: keep the start, the latest steps and the end.
-      if (queue.length > 24) {
-        for (const dropped of queue.splice(1, queue.length - 16)) {
-          if (dropped.kind === "move" && dropped.to) {
-            this.letGo(dropped, dropped.to)
-          }
-        }
-      }
-
-      // A move lands on the canvas before the cursor gets to it; hold the board back until it does.
-      if (event.kind === "move" && event.design && event.from && event.to) {
-        if (!this.watched.has(event.tab)) {
-          continue
-        }
-
-        this.held.set(event, holds.hold(event.tab, event.design, event.from, "agent-presence"))
-      }
-
-      queue.push(event)
-      this.queues.set(id, queue)
-      const present = this.present.get(event.tab) ?? []
-
-      if (!present.includes(agentOf(event))) {
-        this.present.set(event.tab, [...present, agentOf(event)])
-      }
-    }
-
-    this.version++
-    this.changes.notify()
-  }
-
-  /** Draws a move's board somewhere along its drag. */
-  drawHeld(event: PresenceEvent, at: { x: number; y: number }): void {
-    this.held.get(event)?.update(at)
-  }
-
-  /** A move has played, or been skipped: its board is let go at `to`, unless another move still holds it. */
-  letGo(event: PresenceEvent, to: { x: number; y: number }): void {
-    const held = this.held.get(event)
-    this.held.delete(event)
-    held?.update(to)
-    held?.release()
-  }
-
-  /** The agents with a cursor in a tab: from their first step until they retire. */
-  agents(tab: string): string[] {
-    return this.present.get(tab) ?? noAgents
-  }
-
-  /** Takes an idle agent's cursor away, unless it has steps waiting again. */
-  retire(tab: string, agent: string): void {
-    if (this.waiting(tab, agent) > 0) {
       return
     }
 
-    const present = this.present.get(tab)?.filter((id) => id !== agent) ?? []
+    // The development room doesn't say which copy sent them, so they're all one other copy's.
+    const from = passedOn === true ? "room" : passedOn
 
-    if (present.length > 0) {
-      this.present.set(tab, present)
-    } else {
-      this.present.delete(tab)
+    for (const listener of this.passed) {
+      listener(events, from)
     }
-
-    this.version++
-    this.changes.notify()
-  }
-
-  /** How many of an agent's steps are waiting to play in a tab. */
-  waiting(tab: string, agent: string): number {
-    return this.queues.get(queueId(tab, agent))?.length ?? 0
-  }
-
-  take(tab: string, agent: string): PresenceEvent | undefined {
-    const event = this.queues.get(queueId(tab, agent))?.shift()
-
-    if (event) {
-      this.version++
-    }
-
-    return event
   }
 }
 
-const noAgents: string[] = []
-
-/** Which agent an event is from; calls that don't say share one cursor. */
-export function agentOf(event: PresenceEvent): string {
-  return event.agentId ?? event.agent ?? "agent"
-}
-
-function queueId(tab: string, agent: string): string {
-  return `${tab}\n${agent}`
-}
-
-export const presence = new PresenceQueue()
-
-export function usePresenceVersion(): number {
-  return useSyncExternalStore(presence.subscribe, presence.getVersion)
-}
+export const presence = new AgentActivity()

@@ -140,7 +140,7 @@ describe("libraries an extension found", () => {
     package: "@buildkitgg/shadcn",
     name: "Shadcn Nova",
     description: "Every shadcn component on Base UI, in the nova style.",
-    tailwindEntry: "tailwind.css"
+    styles: "tailwind.css"
   }
 
   /** `@buildkitgg/shadcn` as sync writes it into an app. */
@@ -183,7 +183,7 @@ describe("libraries an extension found", () => {
         id: "shadcn",
         name: "Shadcn Nova",
         package: "@buildkitgg/shadcn",
-        tailwindEntry: "tailwind.css",
+        styles: "tailwind.css",
         stylesImported: false,
         decorators: [{ wrap: { import: "@buildkitgg/shadcn", component: "TooltipProvider" } }]
       }
@@ -193,6 +193,33 @@ describe("libraries an extension found", () => {
     expect(found.components["shadcn/Button"]?.path).toBe("@buildkitgg/shadcn")
     // sync's version says nothing about the kit's, so there's no file to update.
     expect(found.notes).toEqual([])
+  })
+
+  it("read each component's props from the package's own declarations, not the kit's paths in the file", async () => {
+    await synced('export { Button } from "./ui/button.js"\nexport { Card as Panel } from "./ui/card.js"')
+    await write("node_modules/@buildkitgg/shadcn/ui/button.d.ts", "export function Button(): unknown")
+    await write("node_modules/@buildkitgg/shadcn/ui/card.d.ts", "export function Card(): unknown")
+    await write("registry/@buildkitgg+shadcn-baseui-nova.lib.par", {
+      version: 4,
+      id: "nova",
+      name: "Shadcn Nova",
+      package: { name: "@buildkitgg/shadcn-baseui-nova", version: "0.5.0", range: "^0.5.0" },
+      components: {
+        list: {
+          Button: component({ declaration: "dist/ui/button.d.ts" }),
+          Panel: component({ declaration: "index.d.ts" })
+        }
+      }
+    })
+
+    const found = await findLibraries(root, syncedApp, [], renderer, {
+      registry: join(root, "registry"),
+      detected: [nova]
+    })
+
+    expect(found.components["shadcn/Button"]?.declaration).toBe("node_modules/@buildkitgg/shadcn/ui/button.d.ts")
+    // card.d.ts exports only Card, so an alias keeps the file that exports it by its own name.
+    expect(found.components["shadcn/Panel"]?.declaration).toBe("node_modules/@buildkitgg/shadcn/index.d.ts")
   })
 
   it("with no registry file, are listed from their declarations, as the extension describes them", async () => {
@@ -219,7 +246,7 @@ describe("libraries an extension found", () => {
         stylesImported: true
       }
     ])
-    expect(found.libraries[0]?.tailwindEntry).toBeUndefined()
+    expect(found.libraries[0]?.styles).toBeUndefined()
     expect(Object.keys(found.components)).toEqual(["shadcn/Button"])
   })
 

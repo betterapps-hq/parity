@@ -1,4 +1,5 @@
 import { packageExport } from "@parity-app/core"
+import agentPresencePackage from "@parity-app/extension-agent-presence/package.json" with { type: "json" }
 import multiplayerPackage from "@parity-app/extension-multiplayer/package.json" with { type: "json" }
 import nextjsPackage from "@parity-app/extension-nextjs/package.json" with { type: "json" }
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
@@ -53,6 +54,7 @@ export const builtInExtensions: readonly BuiltInExtension[] = [
   { packageJson: storybookPackage, bundle: "storybook" },
   { packageJson: accessibilityPackage, bundle: "storybook-a11y" },
   { packageJson: portlessPackage, bundle: "portless" },
+  { packageJson: agentPresencePackage, bundle: "agent-presence" },
   { packageJson: multiplayerPackage, bundle: "multiplayer" }
 ]
 
@@ -154,18 +156,17 @@ export function windowModuleEntries(read: readonly ReadBuiltIn[] = readBuiltIns(
  */
 export function windowModulesSource(entries: Record<string, string> = windowModuleEntries()): string {
   const loaders = Object.entries(entries).map(
-    ([extension, specifier]) => `  ${JSON.stringify(extension)}: () => import(${JSON.stringify(specifier)})`
+    ([extension, specifier]) => `  [${JSON.stringify(extension)}, () => import(${JSON.stringify(specifier)})]`
   )
 
-  const list = loaders.length > 0 ? `{\n${loaders.join(",\n")}\n}` : "{}"
+  const list = loaders.length > 0 ? `[\n${loaders.join(",\n")}\n]` : ""
 
   return [
     "// Generated from src/shared/built-in-extensions.ts. After changing that list, run",
     "// `pnpm exec vp test run apps/desktop/src/shared/built-in-extensions.test.ts -u` to write it again.",
     "",
     "/** Internal extensions' window modules, by extension id, each loading its chunk when its extension activates. */",
-    "// oxlint-disable-next-line anti-slop/no-known-value-widening -- the window looks modules up by any extension id",
-    `export const windowModules: Record<string, () => Promise<object>> = ${list}`,
+    `export const windowModules = new Map<string, () => Promise<object>>(${list})`,
     ""
   ].join("\n")
 }

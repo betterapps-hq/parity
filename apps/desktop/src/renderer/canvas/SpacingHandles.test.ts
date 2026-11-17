@@ -59,6 +59,7 @@ export function mount(dragging, layout) {
       createElement(SpacingHandles, {
         handles: layout === "column" ? column : handles,
         unit: 4,
+        steps: [3, 4, 6].map((factor) => ({ name: "spacing-" + factor, factor })),
         tokens: [],
         valueOf: (handle) => ({ px: handle.kind === "gap" ? 12 : ["top", "bottom"].includes(handle.side) ? 16 : 24 }),
         dragging,

@@ -1,15 +1,10 @@
-import { ActionIcon, AgentBadge, AgentPointer } from "@parity-app/presence-ui"
+import { CanvasLayerContext, type CanvasLayerContextValue, useColor, useFrame } from "@parity-app/canvas-layer"
+import type { AgentStep } from "@parity-app/extension/internal"
+import { ActionIcon, AgentBadge, AgentPointer, type PaletteLook } from "@parity-app/presence-ui"
 import { LoaderCircle, Sparkles } from "lucide-react"
-import { type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
-import type { PresenceEvent } from "../../shared/protocol.ts"
-import { useProject } from "../canvas/context.ts"
-import { areaSpace, frameGeometry } from "../canvas/frame-geometry.ts"
-import { scheduleOverlay } from "../canvas/overlay-scheduler.ts"
-import { findFrames, findNodeElement } from "../frame.ts"
-import { type AgentPalette, agentColors, agentPalettes } from "./agent-colors.ts"
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react"
 import {
   arcPoint,
-  type Box,
   breathe,
   curvePoint,
   easeInOutCubic,
@@ -20,17 +15,12 @@ import {
   type Point,
   travelMs
 } from "./motion.ts"
-import { presence, usePresenceVersion } from "./presence.ts"
+import type { AgentQueue, QueuedStep } from "./queue.ts"
 import { type Scan, scanCoveredShare, Scanner, scanMs } from "./scanner.ts"
+import { locate, type Target } from "./targets.ts"
 
 /** How long a cursor waits near its last target for the agent's next call before it fades. */
 const lingerMs = 20_000
-
-/** Something the agent looks at, found again each time it's asked for, so it follows the canvas as it pans. */
-interface Target {
-  box(): Box
-  element(): HTMLElement | undefined
-}
 
 /** A measurement's size label, under what was measured while the agent looks at it. */
 interface Label {
@@ -42,25 +32,59 @@ interface Label {
 interface Activity {
   agent: string
   label?: string
-  kind?: PresenceEvent["kind"]
+  kind?: AgentStep["kind"]
   done: boolean
   error?: string
 }
 
+/** The layer the presence is drawn in: its camera, boxes, colors and frames. */
+function useLayer(): CanvasLayerContextValue {
+  const layer = useContext(CanvasLayerContext)
+
+  if (!layer) {
+    throw new Error("AgentPresence draws in a canvas layer, so it only works inside what parity.canvas.layer draws")
+  }
+
+  return layer
+}
+
+/** Renders again with every change to the queue, so pointers come and go with their agents. */
+function useQueueVersion(queue: AgentQueue): number {
+  return useSyncExternalStore(queue.subscribe, queue.getVersion)
+}
+
 /**
- * Shows agents at work, like collaborators' cursors: one per agent, each in its own colors. A cursor travels to what
+ * Shows agents at work, like collaborators' pointers: one per agent, each in its own colors. A pointer travels to what
  * its agent reads or changes at a person's pace, lingers there glancing around, and scans it so people can see what's
  * being looked at. Strips in the corner say who each agent is and what its current call is doing.
+ *
+ * It's drawn in a page layer, in a pane kept over the canvas's whole view and scaled back to the screen's pixels, so
+ * pointers, badges and scans stay the same size at any zoom.
  */
-export function AgentPresence() {
-  const session = useProject()
-  // Renders again with every presence change, so cursors come and go with their agents.
-  usePresenceVersion()
-  const rootRef = useRef<HTMLDivElement>(null)
+export function AgentPresence({ queue }: { queue: AgentQueue }) {
+  const layer = useLayer()
+  useQueueVersion(queue)
+  const paneRef = useRef<HTMLDivElement>(null)
   const scanner = useRef<Scanner>(undefined)
-  const agents = presence.agents(session.id)
+  const agents = queue.agents()
 
-  useEffect(() => presence.watch(session.id), [session.id])
+  useEffect(() => queue.watch(), [queue])
+
+  // The pane covers what's in view, at the screen's scale, moved with the camera in the same frame as the page.
+  useFrame({
+    draw: () => {
+      const pane = paneRef.current
+
+      if (!pane) {
+        return
+      }
+
+      const { zoom, view } = layer.view()
+      pane.style.width = `${view.width * zoom}px`
+      pane.style.height = `${view.height * zoom}px`
+      pane.style.transform = `translate(${view.x}px, ${view.y}px) scale(${1 / zoom})`
+    }
+  })
 
   // One scanner draws every agent's scans, so scans of the same thing can mix their colors. Its canvas exists only
   // while an agent is at work.
@@ -81,74 +105,76 @@ export function AgentPresence() {
     }
   }, [])
 
-  const done = useCallback((agent: string) => presence.retire(session.id, agent), [session.id])
+  const done = useCallback((agent: string) => queue.retire(agent), [queue])
   const scan = useCallback((next: Scan) => scanner.current?.scan(next), [])
 
   return (
-    <div ref={rootRef} className="pointer-events-none absolute inset-0 z-[400] overflow-hidden">
+    <div
+      ref={paneRef}
+      data-agent-presence=""
+      className="pointer-events-none absolute top-0 left-0 origin-top-left overflow-hidden"
+    >
       {agents.length > 0 && (
         <canvas ref={scanCanvas} className="pointer-events-none invisible absolute inset-0 size-full" />
       )}
       {agents.map((agent, index) => (
-        <AgentCursor key={agent} agent={agent} index={index} root={rootRef} onDone={done} onScan={scan} />
+        <AgentCursor key={agent} queue={queue} agent={agent} index={index} onDone={done} onScan={scan} />
       ))}
     </div>
   )
 }
 
-/** One agent's cursor, scans and strip, playing its queue until it has been idle a while. */
+/** One agent's pointer, scans and strip, playing its queue until it has been idle a while. */
 function AgentCursor({
+  queue,
   agent,
   index,
-  root,
   onDone,
   onScan
 }: {
+  queue: AgentQueue
   agent: string
   index: number
-  root: RefObject<HTMLDivElement | null>
   onDone: (agent: string) => void
   onScan: (scan: Scan) => void
 }) {
-  const session = useProject()
-  const version = usePresenceVersion()
+  const layer = useLayer()
+  const version = useQueueVersion(queue)
   const cursorRef = useRef<HTMLDivElement>(null)
   const [activity, setActivity] = useState<Activity>()
-  const [palette, setPalette] = useState<AgentPalette>()
+  // Claimed from agents' colors while its pointer is drawn, under the agent's key.
+  const palette = useColor(agent, "agents")
+  const colors = useRef<PaletteLook>(palette)
   const [labels, setLabels] = useState<Label[]>([])
   const playing = useRef(false)
   const mounted = useRef(true)
   const nextId = useRef(1)
   const cursor = useRef<{ at: Point; visible: boolean }>({ at: { x: 0, y: 0 }, visible: false })
-  const editor = useRef(session.editor)
+
+  useEffect(() => {
+    colors.current = palette
+  }, [palette])
 
   useEffect(() => {
     mounted.current = true
 
     return () => {
       mounted.current = false
-      agentColors.release(agent)
     }
   }, [agent])
-
-  useEffect(() => {
-    editor.current = session.editor
-  }, [session.editor])
 
   useEffect(() => {
     if (playing.current) {
       return
     }
 
-    const area = root.current?.parentElement
     const pointer = cursorRef.current
 
-    if (!area || !pointer) {
+    if (!pointer) {
       return
     }
 
     playing.current = true
-    const tab = session.id
     const alive = () => mounted.current
     const still = matchMedia("(prefers-reduced-motion: reduce)").matches
 
@@ -178,7 +204,7 @@ function AgentCursor({
     // still, as a hand on a mouse is while its person reads. Idling between calls it breathes slower and wider, with a
     // soft pulse, and stops the moment the agent's next call arrives.
     const look = (target: Target, ms: number, idle = false) => {
-      const going = idle ? () => alive() && presence.waiting(tab, agent) === 0 : alive
+      const going = idle ? () => alive() && queue.waiting(agent) === 0 : alive
 
       if (still) {
         return pause(ms)
@@ -250,17 +276,17 @@ function AgentCursor({
     }
 
     // Grabs a moved board where it was held and drags it to where the agent put it, board and cursor together.
-    const drag = async (event: PresenceEvent) => {
-      const { design, from, to } = event
+    const drag = async (event: QueuedStep) => {
+      const { from, to } = event
 
-      if (!design || !from || !to) {
+      if (!from || !to) {
         return
       }
 
-      const pace = paceFor(presence.waiting(tab, agent))
+      const pace = paceFor(queue.waiting(agent))
 
       try {
-        const target = locate(area, event)
+        const target = locate(layer, event)
 
         if (!target) {
           return await pause(300 * pace)
@@ -271,14 +297,14 @@ function AgentCursor({
         press(true)
         await pause(140 * pace)
         const grab = cursor.current.at
-        const zoom = editor.current?.getZoomLevel() ?? 1
+        const { zoom } = layer.view()
         const span = Math.hypot(to.x - from.x, to.y - from.y) * zoom
         const bend = (Math.random() < 0.5 ? -1 : 1) * 0.05
         await animate(
           still ? 0 : Math.max(1000, travelMs({ x: 0, y: 0 }, { x: span, y: 0 }) * 1.6) * pace,
           (t) => {
             const now = arcPoint(from, to, easeInOutCubic(t), bend)
-            presence.drawHeld(event, now)
+            queue.drawHeld(event, now)
             show({ x: grab.x + (now.x - from.x) * zoom, y: grab.y + (now.y - from.y) * zoom })
           },
           alive
@@ -287,13 +313,13 @@ function AgentCursor({
         press(false)
         await pause(500 * pace)
       } finally {
-        presence.letGo(event, to)
+        queue.letGo(event, to)
       }
     }
 
-    const visit = async (event: PresenceEvent, kind: PresenceEvent["kind"]) => {
-      const pace = paceFor(presence.waiting(tab, agent))
-      const target = locate(area, event)
+    const visit = async (event: QueuedStep, kind: AgentStep["kind"]) => {
+      const pace = paceFor(queue.waiting(agent))
+      const target = locate(layer, event)
 
       if (!target) {
         return pause(300 * pace)
@@ -301,7 +327,7 @@ function AgentCursor({
 
       await approach(target, pace)
       const ms = scanMs * pace
-      onScan({ box: () => target.box(), radius: cornerRadius(target), palette: colors, agent, ms })
+      onScan({ box: () => target.box(), radius: target.radius(), palette: colors.current, agent, ms })
       const id = kind === "measure" ? nextId.current++ : undefined
 
       if (id !== undefined) {
@@ -320,13 +346,12 @@ function AgentCursor({
     }
 
     let last: Target | undefined
-    let colors = agentPalettes[0]!
 
     const play = async () => {
       let idleSince: number | undefined
 
       while (alive()) {
-        const event = presence.take(tab, agent)
+        const event = queue.take(agent)
 
         if (!event) {
           // Agents think between calls: stay near what it last looked at, so the next call picks up from there.
@@ -354,8 +379,6 @@ function AgentCursor({
 
         idleSince = undefined
         const name = event.agent ?? "Agent"
-        colors = agentColors.claim(agent)
-        setPalette(colors)
 
         if (event.kind === "start") {
           setActivity({ agent: name, label: event.label, kind: "start", done: false })
@@ -389,13 +412,15 @@ function AgentCursor({
     }
 
     void play()
-  }, [version, session.id, agent, root, onDone, onScan])
+  }, [version, queue, layer, agent, onDone, onScan])
 
-  const color = palette?.color ?? "var(--canvas-agent)"
+  const { color } = palette
 
   return (
     <>
-      {palette && labels.map((label) => <MeasureLabel key={label.id} label={label} palette={palette} />)}
+      {labels.map((label) => (
+        <MeasureLabel key={label.id} label={label} palette={palette} />
+      ))}
       <div
         ref={cursorRef}
         data-idle="false"
@@ -436,34 +461,25 @@ function AgentCursor({
 }
 
 /** A measurement's size, in CSS pixels as the design lays it out, under what was measured. */
-function MeasureLabel({ label, palette }: { label: Label; palette: AgentPalette }) {
-  const session = useProject()
+function MeasureLabel({ label, palette }: { label: Label; palette: PaletteLook }) {
   const { target, leaving } = label
   const ref = useRef<HTMLDivElement>(null)
-  const element = target.element()
-  const size = element && { w: Math.round(element.offsetWidth), h: Math.round(element.offsetHeight) }
+  const measured = target.size()
+  const size = measured && { w: Math.round(measured.width), h: Math.round(measured.height) }
 
-  // It follows what was measured with the canvas's other overlays (PAR-986, see `overlay-scheduler.ts`), placed before
-  // it's first painted.
-  useLayoutEffect(() => {
+  const place = useCallback(() => {
     const chip = ref.current
-    const area = chip?.closest<HTMLElement>(".canvas-area")
+    const box = target.box()
 
-    if (!chip || !area) {
-      return undefined
+    if (chip) {
+      chip.style.left = `${box.x + box.w / 2}px`
+      chip.style.top = `${box.y + box.h}px`
     }
+  }, [target])
 
-    return scheduleOverlay(area, session, {
-      showing: () => true,
-      // What an agent measures can be in any design.
-      designs: () => "every",
-      measure: () => target.box(),
-      draw: (box) => {
-        chip.style.left = `${box.x + box.w / 2}px`
-        chip.style.top = `${box.y + box.h}px`
-      }
-    })
-  }, [target, session])
+  // Placed before it's first painted, then it follows what was measured each frame.
+  useLayoutEffect(place, [place])
+  useFrame({ draw: place })
 
   if (!size) {
     return null
@@ -478,22 +494,6 @@ function MeasureLabel({ label, palette }: { label: Label; palette: AgentPalette 
       {size.w} × {size.h}
     </div>
   )
-}
-
-/** A target's corner radius on screen, so its scan has the same shape. */
-function cornerRadius(target: Target): number {
-  const element = target.element()
-
-  if (!element?.offsetWidth) {
-    return 0
-  }
-
-  const radius = Number.parseFloat(getComputedStyle(element).borderTopLeftRadius) || 0
-  // In a frame it's drawn at the frame's scale and its own; outside the frames, at the window's.
-  const root = element.getRootNode()
-  const host = root instanceof ShadowRoot ? root.host : undefined
-
-  return host instanceof HTMLElement ? radius * frameGeometry(host).element(element).scale : radius
 }
 
 /** Runs `frame` with progress from 0 to 1 over `ms`, one call per animation frame. */
@@ -522,71 +522,4 @@ function animate(ms: number, frame: (t: number) => void, alive: () => boolean): 
 
 function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)))
-}
-
-/**
- * The element an event is about, and where it is relative to the canvas area. Undefined when it isn't drawn or is
- * out of view, as the canvas culls boards it has scrolled past.
- */
-function locate(area: HTMLElement, event: PresenceEvent): Target | undefined {
-  let element = targetElement(area, event)
-
-  if (!element) {
-    return undefined
-  }
-
-  const relative = (rect: DOMRect): Box => areaSpace(area).box(rect)
-
-  let last = relative(element.getBoundingClientRect())
-  const { width, height } = area.getBoundingClientRect()
-  const inView = last.x < width && last.y < height && last.x + last.w > 0 && last.y + last.h > 0
-
-  if (last.w === 0 || last.h === 0 || !inView) {
-    return undefined
-  }
-
-  return {
-    box: () => {
-      // A write can draw the element again; find the new one, or stay where it was.
-      if (!element?.isConnected) {
-        element = targetElement(area, event)
-      }
-
-      if (element) {
-        last = relative(element.getBoundingClientRect())
-      }
-
-      return last
-    },
-    element: () => element
-  }
-}
-
-function targetElement(area: HTMLElement, event: PresenceEvent): HTMLElement | undefined {
-  if (!event.design) {
-    return undefined
-  }
-
-  const frames = findFrames(area, event.design)
-
-  const frame =
-    frames.find((host) => host.dataset.mode === event.mode && host.dataset.state === event.state) ??
-    frames.find((host) => host.dataset.mode === event.mode) ??
-    frames.find((host) => host.dataset.primary === "true")
-
-  if (event.node && frame) {
-    const element = findNodeElement(frame, event.node)
-
-    if (element) {
-      return element
-    }
-  }
-
-  // What the agent looks at is the design itself, the screen or component in its frame, not the board around it. A
-  // move is of the board, which the cursor drags.
-  if (frame && event.kind !== "move") {
-    return frame
-  }
-
-  return area.querySelector<HTMLElement>(`.container-view[data-design="${CSS.escape(event.design)}"]`) ?? undefined
 }

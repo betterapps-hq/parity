@@ -12,8 +12,9 @@ ledger of CSS properties and `validate` (PAR-940), and the adapter contract that
 and reads classes through (PAR-943), on 2026-11-11. `@parity-app/processes` holds what the desktop app's processes
 decide, moved out of core (PAR-989), and the one lifecycle every child process and worker goes through (PAR-987), on
 2026-11-12. Core's last files that weren't the model moved to the packages that use them, and its unused names went
-(PAR-1044), the same day. `@parity-app/lenses` holds what the lens layout decides (PAR-1239), on 2026-11-16. The first
-items are in Linear's Package boundaries stream.
+(PAR-1044), the same day. `@parity-app/lenses` holds what the lens layout decides (PAR-1239), on 2026-11-16.
+`@parity-app/frames` holds route boards' page snapshots, their sanitizers, building a frozen copy and the tiers'
+planners (PAR-1261), on 2026-11-17. The first items are in Linear's Package boundaries stream.
 
 ## In one line
 
