@@ -724,22 +724,24 @@ export function windowModules(options: WindowModulesOptions): WindowModules {
       return
     }
 
-    const hadApi = run.activated?.window !== undefined
-    await teardown(entry, run)
-    options.record?.("extension.deactivated", {
-      extension: entry.extension.id,
-      half: "window",
-      why,
-      uptimeMs: now() - entry.began
-    })
-
-    if (hadApi) {
+    // Those building on it hear it's gone now, before its teardown is awaited, so a run that starts meanwhile and
+    // becomes available is never followed by word that it's gone.
+    if (run.activated?.window !== undefined) {
       for (const watcher of entries.values()) {
         for (const listener of watcher.current?.watching.get(entry.extension.id)?.gone ?? []) {
           guarded(watcher, "extensions.onGone", () => listener())
         }
       }
     }
+
+    const { began } = entry
+    await teardown(entry, run)
+    options.record?.("extension.deactivated", {
+      extension: entry.extension.id,
+      half: "window",
+      why,
+      uptimeMs: now() - began
+    })
   }
 
   /** The Node half's state as its window module sees it: starting again once it has been ready is restarting. */

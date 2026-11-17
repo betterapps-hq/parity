@@ -415,6 +415,48 @@ describe("window modules in a project tab", () => {
     expect(() => parities.get("watcher")?.extensions.get("not-named")).toThrow("isn't in the manifest's")
   })
 
+  it("says a module it builds on is gone before that one's slow teardown, never after it's back", async () => {
+    const heard: string[] = []
+    const slow = Promise.withResolvers<void>()
+
+    const watcher = defineWindowModule({
+      activateWindow(parity) {
+        const other = parity.extensions.get<WindowTestWindowApi>("@parity-app/extension-window-test")
+        parity.subscriptions.push(
+          other.onAvailable(() => heard.push("available")),
+          other.onGone(() => heard.push("gone"))
+        )
+
+        return {}
+      }
+    })
+
+    const dependency = defineWindowModule({
+      activateWindow: () => ({ window: { greet: (name: string) => `Hello, ${name}` } }),
+      deactivateWindow: () => slow.promise
+    })
+
+    const { runtime } = tab({ watcher, "@parity-app/extension-window-test": dependency })
+
+    const watching = extension({
+      id: "watcher",
+      activates: ["onStartup"],
+      node: false,
+      extensionDependencies: ["@parity-app/extension-window-test"]
+    })
+
+    runtime.update([watching, extension()])
+    await settle()
+    // Off, then on again while its `deactivateWindow` is still running.
+    runtime.update([watching, extension({ settings: { "wtest.on": false } })])
+    runtime.update([watching, extension()])
+    await settle()
+    slow.resolve()
+    await settle()
+
+    expect(heard).toEqual(["available", "gone", "available"])
+  })
+
   it("reads its settings, hears them change, keeps a project one's change as the Node half would, and refuses an app setting's", async () => {
     const heard: SettingValue[] = []
 
