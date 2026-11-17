@@ -17,8 +17,9 @@ import {
   librarySource,
   remapLibraryImports
 } from "@parity-app/core"
-import { newestEntries, registryEntryFor, withEdits } from "@parity-app/registry"
+import { newestEntries, newestEntryFor, registryEntryFor, withEdits } from "@parity-app/registry"
 import { type ReadTokenFile, readDesignTokens, type SkippedToken } from "@parity-app/tokens"
+import { z } from "zod"
 import { exportedComponents, findPackage, type InstalledPackage, packageEntry } from "./packages.ts"
 import { readStylesheet } from "./styles.ts"
 
@@ -91,6 +92,100 @@ function buildkitDefinition(packageName: string): LibraryDefinition | undefined 
   }
 }
 
+/** The package shadcn-sync generates into each app, in whichever base and style the app chose. */
+const syncPackage = "@buildkitgg/shadcn"
+
+/** The part of the `manifest.json` shadcn-sync writes beside the components that says what it generated. */
+const syncManifest = z.object({
+  settings: z.object({
+    base: z.enum(["base", "radix", "aria"]),
+    style: z.string().regex(/^[a-z]+$/),
+    css: z.string().optional()
+  })
+})
+
+/** sync's bases, each with the name its Buildkit kits have in their package names and the primitives' own. */
+const syncBases = {
+  base: { kit: "baseui", primitives: "Base UI" },
+  radix: { kit: "radix", primitives: "Radix" },
+  aria: { kit: "aria", primitives: "React Aria" }
+} satisfies Record<z.infer<typeof syncManifest>["settings"]["base"], { kit: string; primitives: string }>
+
+/** What shadcn-sync generated in a package: the kit the registry describes it by, and a definition to fall back on. */
+interface SyncedStyle {
+  /** The Buildkit kit of the same base and style, such as `@buildkitgg/shadcn-baseui-nova`. */
+  kit: string
+  /** The library as it's shown when the registry has no file for the kit, as for a base no kit is published on. */
+  definition: LibraryDefinition
+}
+
+/**
+ * What shadcn-sync generated, from its `manifest.json`. In Tailwind mode the app's Tailwind builds the components'
+ * classes from the package's `tailwind.css`, which the app imports as it would a kit's; otherwise each component imports
+ * its own CSS and there's nothing to import.
+ */
+async function syncedStyle(packageDir: string): Promise<SyncedStyle | undefined> {
+  let parsed: ReturnType<typeof syncManifest.safeParse>
+
+  try {
+    parsed = syncManifest.safeParse(JSON.parse(await readFile(join(packageDir, "manifest.json"), "utf8")))
+  } catch {
+    return undefined
+  }
+
+  if (!parsed.success) {
+    return undefined
+  }
+
+  const { base, style, css } = parsed.data.settings
+  const { kit, primitives } = syncBases[base]
+
+  return {
+    kit: `@buildkitgg/shadcn-${kit}-${style}`,
+    definition: {
+      id: style,
+      name: `Shadcn ${style.charAt(0).toUpperCase()}${style.slice(1)}`,
+      description: `Every shadcn component on ${primitives}, in the ${style} style.`,
+      package: syncPackage,
+      tailwindEntry: css === "tailwind" ? "tailwind.css" : undefined
+    }
+  }
+}
+
+/**
+ * The registry's file for a dependency: for the components shadcn-sync generates, the newest file for the kit they
+ * stand in for, whatever version is installed, since they follow upstream rather than the kit's releases.
+ */
+function registryFileFor(
+  packageName: string,
+  version: string | undefined,
+  synced: SyncedStyle | undefined,
+  registry: string | undefined
+) {
+  return synced ? newestEntryFor(synced.kit, registry) : registryEntryFor(packageName, version, registry)
+}
+
+/** How a dependency is shown: sync's components under their kit's name, in their own package. */
+function definitionFor(
+  manifest: LibraryManifest | undefined,
+  packageName: string,
+  synced: SyncedStyle | undefined
+): LibraryDefinition | undefined {
+  if (!synced) {
+    return manifest ? definitionOf(manifest, packageName) : buildkitDefinition(packageName)
+  }
+
+  if (!manifest) {
+    return synced.definition
+  }
+
+  return {
+    ...definitionOf(manifest, synced.kit),
+    package: packageName,
+    tailwindEntry: synced.definition.tailwindEntry
+  }
+}
+
 export interface FoundLibraries {
   libraries: LibraryInfo[]
   /** Each library's components, keyed `library/Export` so they never clash with the project's own. */
@@ -138,8 +233,13 @@ export async function findLibraries(
     const packageDir = installed.dir
     const { version } = installed.manifest
     const packageName = installed.manifest.name ?? importName
+    const synced = packageName === syncPackage ? await syncedStyle(packageDir) : undefined
+    // The registry describes sync's components by the kit they stand in for.
+    const describedAs = synced?.kit ?? packageName
+
     const own = await libraryManifestIn(packageDir)
-    const fromRegistry = own ? undefined : await registryEntryFor(packageName, version, registry)
+    const fromRegistry = own ? undefined : await registryFileFor(packageName, version, synced, registry)
+
     const described = own ?? fromRegistry
 
     const edited =
@@ -154,10 +254,10 @@ export async function findLibraries(
     }
 
     const manifest = edited?.manifest
-      ? remapLibraryImports(edited.manifest, (specifier) => importOf(specifier, packageName, importName))
+      ? remapLibraryImports(edited.manifest, (specifier) => importOf(specifier, describedAs, importName))
       : undefined
 
-    const definition = manifest ? definitionOf(manifest, packageName) : buildkitDefinition(packageName)
+    const definition = definitionFor(manifest, packageName, synced)
 
     if (!definition || result.libraries.some((library) => library.id === definition.id)) {
       continue
@@ -207,10 +307,12 @@ export async function findLibraries(
     if (listed) {
       // A file made for another version still describes it: components the package doesn't export are left out,
       // and ones it has that the file doesn't list are found by name until the file is updated.
-      const mismatched = fromRegistry?.older || fromRegistry?.newer
+      // sync's components are always checked: they're generated from upstream shadcn, which the kit's file may be
+      // ahead of or behind.
+      const mismatched = synced || fromRegistry?.older || fromRegistry?.newer
       const differs = mismatched ? await otherExports(entry, renderer, listed.list) : undefined
 
-      if (differs && fromRegistry) {
+      if (differs && fromRegistry && !synced) {
         const made = fromRegistry.manifest.package?.version ?? "another version"
 
         const about = fromRegistry.older
@@ -218,7 +320,9 @@ export async function findLibraries(
           : `older than Parity's file for it (${made}): ${differs.added.length} components it doesn't list found by name, ${differs.gone.size} it doesn't have yet. \`parity lib ${packageName} --registry\` makes one for this version.`
 
         result.notes.push(`${packageName} ${version ?? ""} is ${about}`)
+      }
 
+      if (differs) {
         for (const component of differs.added) {
           result.components[`${definition.id}/${component.name}`] = declaredSource(
             root,

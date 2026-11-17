@@ -68,10 +68,16 @@ function source(canvasElement: HTMLElement, title: string): HTMLElement {
 }
 
 /**
- * Every source, as the tab first opens: the component designs, the UI kit and each library open, the rest of the app's
- * components closed, since there are three sources or more.
+ * Every source, as the tab first opens: the component designs open, each library closed, and the rest of
+ * the app's components closed too, since there are three sources or more.
  */
-export const AllSources: Story = { loaders: [openComponents] }
+export const AllSources: Story = {
+  loaders: [openComponents],
+  play: async ({ canvasElement }) => {
+    await expect(source(canvasElement, "Shadcn Nova")).toHaveAttribute("aria-expanded", "false")
+    await expect(source(canvasElement, "Local components")).toHaveAttribute("aria-expanded", "true")
+  }
+}
 
 /**
  * Only the rows in view are drawn, ten either side besides, however many components the sources hold (PAR-1202).
@@ -80,6 +86,7 @@ export const AllSources: Story = { loaders: [openComponents] }
 export const OnlyRowsInView: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
+    await userEvent.click(source(canvasElement, "Shadcn Nova"))
     const headings = within(canvasElement).getAllByRole("button", { name: /\d+$/, expanded: true })
     const listed = headings.reduce((total, heading) => total + Number(/(\d+)$/.exec(heading.textContent ?? "")![1]), 0)
     const rows = () => canvasElement.querySelectorAll("[data-line^='items:']")
@@ -231,11 +238,13 @@ export const Pages: Story = {
   }
 }
 
-/** A library's components, with the sources above it closed. */
+/** A library's components, opened, with the sources above it closed. */
 export const LibraryComponents: Story = {
   loaders: [openComponents],
   play: async ({ canvasElement }) => {
     await userEvent.click(source(canvasElement, "Local components"))
+    await userEvent.click(source(canvasElement, "Shadcn Nova"))
+    await waitFor(() => expect(source(canvasElement, "Shadcn Nova")).toHaveAttribute("aria-expanded", "true"))
   }
 }
 

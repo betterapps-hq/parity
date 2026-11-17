@@ -100,6 +100,11 @@ import { revealSelection } from "./reveal.ts"
 
 const noSubscription = () => () => undefined
 
+/** Whether a source is the app's own components or pages, which can run to hundreds. */
+function bulky(id: string): boolean {
+  return id === "project" || id === "project:pages"
+}
+
 /** No source opened or closed by hand. */
 const noneOpened: Readonly<Record<string, boolean>> = {}
 
@@ -426,10 +431,9 @@ export function ComponentsPanel() {
         shown.map((source) => ({
           id: source.id,
           families: source.families,
-          // The app's components and pages can run to hundreds, so they start closed beside other sections.
-          open:
-            openedBy[source.id] ??
-            (!!needle || (source.id !== "project" && source.id !== "project:pages") || shown.length < 3),
+          // Libraries start closed, and so do the app's components and pages beside other sections, since each can run
+          // to hundreds. A search opens every section with a match.
+          open: openedBy[source.id] ?? (!!needle || (!source.library && (!bulky(source.id) || shown.length < 3))),
           notice: !!source.library && !source.library.stylesImported
         })),
         view === "grid" ? 2 : 1

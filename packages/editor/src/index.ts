@@ -451,6 +451,8 @@ export {
 export {
   editableText,
   openingSelection,
+  type RebasedText,
+  rebaseText,
   type TextRange,
   textSizing,
   textToEdit,

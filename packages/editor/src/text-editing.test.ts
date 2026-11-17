@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test"
 import {
   editableText,
   openingSelection,
+  rebaseText,
   textSizing,
   textSizingKeys,
   textToEdit,
@@ -265,5 +266,47 @@ describe("withTextSizing", () => {
         expect(textSizing(next)).toBe(sizing)
       }
     }
+  })
+})
+
+describe("taking someone else's change into text being typed", () => {
+  const caret = (at: number) => ({ start: at, end: at })
+
+  it("keeps a change before the typing, and the caret moves along with the characters", () => {
+    // "Sign in" typed to "Sign in now", caret at the end, while someone wrote "Please " at the start.
+    expect(rebaseText("Sign in", "Sign in now", "Please sign in", caret(11))).toEqual({
+      text: "Please sign in now",
+      selection: caret(18)
+    })
+  })
+
+  it("keeps a change after the typing, and the caret stays put", () => {
+    expect(rebaseText("Sign in", "Sign up in", "Sign in today", caret(7))).toEqual({
+      text: "Sign up in today",
+      selection: caret(7)
+    })
+  })
+
+  it("puts the typing first when both write at the same place", () => {
+    expect(rebaseText("ab", "aXb", "aYb", caret(2))).toEqual({ text: "aXYb", selection: caret(2) })
+  })
+
+  it("keeps the typing after what the other wrote where they change the same characters", () => {
+    // Both replaced "in": the other with "up", the person with "out", caret after it.
+    expect(rebaseText("Sign in", "Sign out", "Sign up", caret(8))).toEqual({
+      text: "Sign upout",
+      selection: caret(10)
+    })
+  })
+
+  it("moves a selection after a deletion before it", () => {
+    expect(rebaseText("one two three", "one two three!", "two three", { start: 4, end: 7 })).toEqual({
+      text: "two three!",
+      selection: { start: 0, end: 3 }
+    })
+  })
+
+  it("takes the change as it is when nothing's typed", () => {
+    expect(rebaseText("Hello", "Hello", "Hello there", caret(2))).toEqual({ text: "Hello there", selection: caret(2) })
   })
 })

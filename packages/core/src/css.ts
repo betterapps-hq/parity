@@ -125,9 +125,65 @@ export function colorSchemeQuery(query: string): ColorScheme | undefined {
  */
 export function prepareCanvasCss(css: string, options: PrepareCssOptions): CanvasCss {
   const globals: string[] = []
-  const scoped = serialize(parse(css), options, globals)
+  const bodyCopies: string[] = []
+
+  const serializing = {
+    ...options,
+    uncopiedCustomProperties: uncopiedCustomProperties(css),
+    bodyCopies,
+    declaredCopyLayers: new Set<string>(),
+    anonymousLayers: { count: 0, stylesheet: textHash(css) }
+  }
+
+  let scoped = ""
+
+  // Each top-level rule in turn, with the body's copies of layered roots' custom properties after it, out of its layer.
+  for (const node of parse(css)) {
+    scoped += serialize([node], serializing, globals)
+
+    if (bodyCopies.length > 0) {
+      scoped += ` ${bodyCopies.join(" ")}`
+      bodyCopies.length = 0
+    }
+  }
 
   return { scoped, global: globals.join("\n") }
+}
+
+/** What `serialize` works with: the caller's options, and what it read from the whole stylesheet first. */
+type SerializeOptions = PrepareCssOptions & {
+  /**
+   * Custom properties the stylesheet declares with `!important` anywhere, or registers as not inherited
+   * (`@property … { inherits: false }`), which the body's copy of the root's would change (see `rootCustomProperties`).
+   */
+  uncopiedCustomProperties?: ReadonlySet<string>
+  /** The body's copies of layered roots' custom properties, put after the top-level rule they're in. */
+  bodyCopies?: string[]
+  /** The layers for those copies declared so far, in the order the project's own were. */
+  declaredCopyLayers?: Set<string>
+  /**
+   * How many anonymous layers there have been so far, and what this stylesheet's are named after, which name their
+   * copies' layers: distinct from another stylesheet's, whose anonymous layers are distinct layers too.
+   */
+  anonymousLayers?: { count: number; stylesheet: string }
+}
+
+/** A short name for a text, the same each time: a polynomial hash of its characters. */
+function textHash(text: string): string {
+  let hash = 7
+
+  for (let index = 0; index < text.length; index++) {
+    hash = (hash * 31 + text.charCodeAt(index)) % 2_147_483_647
+  }
+
+  return hash.toString(36)
+}
+
+function uncopiedCustomProperties(css: string): Set<string> {
+  const important = [...css.matchAll(/(--[\w-]+)\s*:[^;{}]*!\s*important/gi)]
+  const notInherited = [...css.matchAll(/@property\s+(--[\w-]+)\s*\{[^}]*\binherits\s*:\s*false\b/gi)]
+
+  return new Set([...important, ...notInherited].map((match) => match[1]!))
 }
 
 /** An at-rule a declaration sits under, such as `@media (prefers-color-scheme: dark)`. */
@@ -299,12 +355,51 @@ interface SerializeContext {
    * body, whatever the body's own is, under the same conditions.
    */
   bodyRoot?: boolean
+  /**
+   * The at-rules around the rule, outermost first: a cascade layer's name (empty for an anonymous one), or another's
+   * prelude as the frame draws it.
+   */
+  enclosing?: { layer?: string; condition?: string }[]
+}
+
+/**
+ * Declares the layers the body's copies of layered roots' custom properties go in (see `rootCustomProperties`) in the
+ * order the project's own are declared, by a layer statement (`@layer base, theme;`) or a layer's first block, so they
+ * rank as those do.
+ */
+function declareCopyLayers(text: string, options: SerializeOptions, context: SerializeContext): void {
+  for (const statement of text.matchAll(/@layer\s+([^;{}]+);/gi)) {
+    declareCopyLayerNames(statement[1]!.split(","), options, context)
+  }
+}
+
+function declareCopyLayerNames(names: string[], options: SerializeOptions, context: SerializeContext): void {
+  const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
+  const { bodyCopies, declaredCopyLayers } = options
+
+  if (!bodyCopies || !declaredCopyLayers || options.qualifiedRoots === false || context.inRule) {
+    return
+  }
+
+  const declaring = names.flatMap((name) => {
+    const path = [...layers, name.trim()].join(".")
+
+    return declaredCopyLayers.has(path) ? [] : [path]
+  })
+
+  for (const name of declaring) {
+    declaredCopyLayers.add(name)
+  }
+
+  if (declaring.length > 0) {
+    bodyCopies.push(`@layer ${declaring.map((name) => `${qualifiedRootLayer}.${name}`).join(", ")};`)
+  }
 }
 
 /** Serializes rules for a frame. */
 function serialize(
   nodes: CssNode[],
-  options: PrepareCssOptions,
+  options: SerializeOptions,
   globals: string[],
   context: SerializeContext = {}
 ): string {
@@ -313,6 +408,7 @@ function serialize(
   for (const node of nodes) {
     if (node.kind === "text") {
       const text = rewriteUrls(node.text, options.baseUrl)
+      declareCopyLayers(node.text, options, context)
 
       if (options.units === false) {
         output += text
@@ -342,12 +438,28 @@ function serialize(
       } else if (scheme) {
         output += leading + serialize(node.children, options, globals, { ...context, scheme })
       } else {
-        const body = serialize(node.children, options, globals, context)
+        const drawnPrelude = /^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude
+        const layer = /^@layer\b\s*([^{]*)$/i.exec(prelude)?.[1]?.trim()
+
+        // An anonymous layer is a layer of its own, after those before it: its copies' layer gets a name of its own.
+        const named =
+          layer === "" && options.anonymousLayers
+            ? `anonymous-${options.anonymousLayers.stylesheet}-${options.anonymousLayers.count++}`
+            : layer
+
+        const around = named === undefined ? { condition: drawnPrelude } : { layer: named }
+        const enclosing = context.inRule ? context.enclosing : [...(context.enclosing ?? []), around]
+
+        if (named) {
+          declareCopyLayerNames([named], options, context)
+        }
+
+        const body = serialize(node.children, options, globals, { ...context, enclosing })
 
         if (/^@(property|font-face)\b/i.test(prelude)) {
           globals.push(`${prelude} {${body}}`)
         } else {
-          output += `${leading}${/^@media\b/i.test(prelude) ? rewriteMedia(prelude) : prelude} {${body}}`
+          output += `${leading}${drawnPrelude} {${body}}`
         }
       }
 
@@ -404,6 +516,37 @@ function serialize(
       output += `${leading}${scope(roots.join(", "))} {${rootBody}} ${scope(others.join(", "))} {${otherBody}}`
     }
 
+    if (
+      hostRoots.includes(":host") &&
+      !others.includes(`[${bodyAttribute}]`) &&
+      !context.scheme &&
+      options.qualifiedRoots !== false
+    ) {
+      const declarations = children.filter((child) => child.kind === "text")
+
+      const conditional = new Set(customPropertiesIn(children.filter((child) => child.kind === "block")))
+
+      const referencing = rootCustomProperties(
+        declarations.map((child) => (child.kind === "text" ? child.text : "")).join(""),
+        serialize(declarations, options, [], { root: true, inRule: true }),
+        (name) => conditional.has(name) || options.uncopiedCustomProperties?.has(name) === true
+      )
+
+      const layers = (context.enclosing ?? []).flatMap((around) => (around.layer === undefined ? [] : [around.layer]))
+      const copy = `:where([${bodyAttribute}]) {${referencing}}`
+
+      if (referencing && layers.length === 0) {
+        // In the qualified roots' layer, so a theme's root, as `:root.dark`, still overrides the copy on the body.
+        output += ` @layer ${qualifiedRootLayer} { ${copy} }`
+      } else if (referencing && options.bodyCopies) {
+        // A layered root's copy goes in a layer of the qualified roots' named after its own, under its conditions, so
+        // it ranks below an unlayered theme's root as the root's own rule does, and below an unlayered root's copy.
+        const conditions = (context.enclosing ?? []).flatMap((around) => around.condition ?? [])
+        const wrapped = conditions.reduceRight((inner, condition) => `${condition} { ${inner} }`, copy)
+        options.bodyCopies.push(`@layer ${qualifiedRootLayer}.${layers.join(".")} { ${wrapped} }`)
+      }
+    }
+
     for (const block of hoisted) {
       if (block.kind !== "block") {
         continue
@@ -440,6 +583,89 @@ function serialize(
  * for a qualified root, `:where([data-canvas-body]).dark` (see `splitQualifiedRoots`).
  */
 const rootSelector = new RegExp(String.raw`^(?::host(?:\([^()]*\))?|:where\(\[${bodyAttribute}\]\)[\s\S]+)$`)
+
+/**
+ * A root rule's custom properties, for the frame's body as well as its host. A page's root has the page's theme on it,
+ * so a custom property it defines from another (`--palette: var(--gray-solid)`) takes that theme's value. A frame's root
+ * is its host, and the mode's class and theme attributes are on its body (see `splitQualifiedRoots`), so the host would
+ * work it out with the default theme's value and the body would inherit that. Every one is declared on the body, not
+ * only those made from others, so a later root rule's value still wins over an earlier one's there, as on the host,
+ * from whichever stylesheet. Without specificity, and in the qualified roots' layer, so a theme's root and whatever the
+ * project sets on the body still win, as they win over what a page's body inherits.
+ *
+ * Left to inherit from the host, as before: one whose root value depends on more than the rules' order, because the
+ * stylesheet declares it `!important` somewhere or the root rule sets it again under a condition (`@supports`, a width
+ * query), as a copy on the body would win there where the host's cascade wouldn't; and one it registers as not
+ * inherited, which the body takes its initial value of.
+ */
+function rootCustomProperties(written: string, drawn: string, inherited: (name: string) => boolean): string {
+  const names = new Set(declarationsIn(written).map(customPropertyName))
+
+  // As they're drawn, lengths and all, but only those the project wrote: Parity's own stay on the host.
+  const found = declarationsIn(drawn).filter((declaration) => {
+    const name = customPropertyName(declaration)
+
+    return name !== undefined && names.has(name) && !inherited(name)
+  })
+
+  return found.length > 0 ? ` ${found.join("; ")}; ` : ""
+}
+
+/** The custom properties declared anywhere in these nodes, nested blocks and all. */
+function customPropertiesIn(nodes: CssNode[]): string[] {
+  return nodes.flatMap((node) =>
+    node.kind === "text"
+      ? declarationsIn(node.text).flatMap((declaration) => customPropertyName(declaration) ?? [])
+      : customPropertiesIn(node.children)
+  )
+}
+
+function customPropertyName(declaration: string): string | undefined {
+  return /^(--[\w-]+)\s*:/.exec(declaration)?.[1]
+}
+
+/** A declaration list's declarations, trimmed, split at the semicolons outside parentheses and strings. */
+function declarationsIn(text: string): string[] {
+  const found: string[] = []
+  let depth = 0
+  let start = 0
+  let quote: string | undefined
+
+  for (let index = 0; index <= text.length; index++) {
+    const char = text[index]
+
+    if (quote) {
+      if (char === "\\") {
+        index++
+      } else if (char === quote) {
+        quote = undefined
+      }
+    } else if (char === '"' || char === "'") {
+      quote = char
+    } else if (char === "(") {
+      depth++
+    } else if (char === ")") {
+      depth--
+    } else if (index === text.length || (char === ";" && depth === 0)) {
+      const declaration = text.slice(start, index).trim()
+
+      if (declaration) {
+        found.push(declaration)
+      }
+
+      start = index + 1
+    }
+  }
+
+  const rest = text.slice(start).trim()
+
+  // An unclosed string runs to the end, as CSS reads it.
+  if (quote && rest) {
+    found.push(rest)
+  }
+
+  return found
+}
 
 /** The body standing in for a qualified root, whose font size is the frame's `rem` as the host's is otherwise. */
 const bodyRootPrefix = `:where([${bodyAttribute}])`

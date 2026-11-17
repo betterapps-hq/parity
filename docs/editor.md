@@ -2008,6 +2008,8 @@ of Base UI's, Shadcn Vega's and Recharts' entries, with about 1,950 buttons, eac
   it as before.
 - **Searching starts at the top** of what matches, and starting or clearing a search forgets which sources were opened
   or closed by hand, as before.
+- **Libraries start closed,** each a heading with its count, and so do the app's components and pages beside two other
+  sources or more. A search opens every source with a match.
 
 Code: which lines show is pure, in `packages/editor/src/asset-lines.ts` (`assetLines`). The panel is `ComponentsPanel`,
 `AssetList` and `AssetEntry` in `apps/desktop/src/renderer/chrome/AssetsPanel.tsx`; `AssetMenu` and `RowOffers` work out
@@ -2019,10 +2021,10 @@ Tests:
 - `packages/editor/src/asset-lines.test.ts` (5): a source's heading, its families' headings and one item to a row; the
   count of a closed source; a closed source's notice without its items; items two to a row in Grid, marking each
   family's first and last rows; and keys that differ across sources.
-- `chrome/ComponentsPanel.stories.tsx`: OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once
-  the list scrolls to its end; StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has
-  focus; ComponentMenu, its menu worked out as it opens; and SearchingAgain, a source closed in one search open again in
-  the next.
+- `chrome/ComponentsPanel.stories.tsx`: AllSources, each library closed and the component designs open as the tab first
+  opens; OnlyRowsInView, fewer rows drawn than the sources list, and the first gone once the list scrolls to its end;
+  StorybookLink and OpeningStorybook, the row's buttons there once it's pointed at or has focus; ComponentMenu, its menu
+  worked out as it opens; and SearchingAgain, a source closed in one search open again in the next.
 
 Tried on Copacker in a development copy of the app on 2026-11-16: the panel held 212 to 348 elements, 24 to 35 lines, in
 every view, at 256 and 200 pixels wide; moving a design five times drew no rows again; searching "badge", Tab through a
@@ -5444,8 +5446,9 @@ picker.
   line, up to its maximum width if it has one, where it wraps as the text does. Its font, size, weight, line height,
   letter spacing, alignment, case and decoration follow the text's at the zoom shown.
 - **Leaving keeps the edit.** Escape keeps what's typed, as notes do, and so do Enter and clicking away. Shift+Enter
-  types a new line. The layer stays selected. An edit is one undo step, Edit text, written to the state and variant the
-  editor opened on (PAR-164, below); leaving without a change writes nothing.
+  types a new line. The layer stays selected. Typing is written to the state and variant the editor opened on (PAR-164,
+  below) as it's typed, one Edit text step per pause (PAR-1230, below); leaving with the text as it opened leaves no
+  step.
 - **It reads and writes the same state** (PAR-585). The text it opens on and the place the edit goes are worked out by
   one rule, `editingState`: the state the layer was picked in, else the state the board shows, else the base state. A
   picked state that's gone, as when an agent deletes it while the editor is open, used to show the board's text but
@@ -5453,6 +5456,66 @@ picker.
 - **Input methods.** While an input method is composing (Japanese, Chinese, Korean), Enter and Escape are left to it, to
   take or drop what's composed, and don't close the editor. The editor tracks composition by its `compositionstart` and
   `compositionend` events, and by the key event's own `isComposing`.
+
+### Typing written as it's typed (PAR-1230)
+
+Text is written to the document while it's typed, not when the editor closes, so others in a live room (PAR-1179) see it
+as it's typed, and layers after it move with it (docs/proposals/extensions-in-the-window.md, Live text).
+
+- **A few writes a second.** The first key starts a write 150 ms later with whatever's typed by then, so a burst of keys
+  is one write, not one per key. The saver writes the file as it does any change, after its own 300 ms, so the file
+  isn't rewritten per key either.
+- **One undo step per pause.** Typing goes in a gesture that ends once it stops for a second, or when the editor closes,
+  so Undo takes back a pause's worth of typing, not each key. Typing that ends where it began leaves no step.
+- **Others' changes are taken in.** When the text changes under the editor, as someone in a live room types in it too,
+  their change is merged with what's typed and not yet written, and the caret moves with the characters around it, so it
+  stays where the person is typing. Where both changed the same characters, what either removed goes and the typing
+  follows what the other wrote. Their change isn't in this person's undo. While an input method is composing, the change
+  waits until it's done.
+- **Where someone's typing shows.** Each copy sends where its person is typing with their cursor: the layer, the state
+  it's written to, and the selection in the text (the proposal's `text` gesture). The others outline that text in the
+  person's color with their name on its corner, as Multiplayer's Selections stories draw a selection (PAR-1188), and
+  draw their caret before the character it's at, in every frame drawing the text: a 1.5px line in that color, a little
+  shorter than the letters, blinking once it rests, as a text field's caret does (steady with reduced motion). It goes
+  when they close the editor or leave. The person's own caret stays in the text's color, as a text field's does.
+- **One outline while editing.** The editor has no outline of its own: the text's selection outline is the one shown. It
+  used to draw a thick 2px outline over it.
+- **Letters aren't cut off.** The editor leaves room above and below its lines (0.3em) for letters that reach past them,
+  as a heading set solid has, so their tops and descenders show and the text doesn't shift up when the caret moves; the
+  text stays where the frame draws it.
+- **Hugging text grows as it's typed.** Text whose box hugs its line in a wider layout, as a heading centred in a column
+  does, is edited growing along the line up to the room its layout has, from the side it sits on (its middle when it's
+  centred), as the frame draws it once it's written. It used to wrap at the width it opened with until the next write
+  measured it again, so what was typed past it jumped onto a second line and back.
+- **A frame named after its text** follows each write, as it did the closing one.
+- Without a room nothing else changes: the text is written sooner, in the same steps' worth of undo.
+
+Code: `LiveText` in `apps/desktop/src/renderer/canvas/live-text.ts` (the batching, the gesture per pause and taking in
+others' changes), `rebaseText` in `packages/editor/src/text-editing.ts` (merging the two changes and moving the
+selection), and `TextEditor.tsx`, which feeds it the textarea's input and the document's changes and tells the room
+where the caret is. In a room: `Typing`, `setTyping` and `typists` in `renderer/live-room.ts`, `canvas/RoomTyping.tsx`
+(the outline, name and caret, with `Outlined` from `multiplayer/`), and `caretLine` in `canvas/text-caret.ts`.
+
+Tests:
+
+- `apps/desktop/src/renderer/canvas/live-text.test.ts` (6), on a test document: four keys 50 ms apart written twice; two
+  runs of typing a pause apart undone as two steps; closing with the text as it opened leaving no step; nothing written
+  once closed; someone else's change before the caret taken in with the typing and the caret kept after it, and Undo
+  taking back only the typing; and its own writes not taken in again.
+- `packages/editor/src/text-editing.test.ts`, "taking someone else's change into text being typed" (6): a change before
+  the typing moving the caret, one after it leaving the caret, both writing at one place, both changing the same
+  characters, a selection moved by a deletion before it, and a change taken as it is when nothing's typed.
+- `apps/desktop/src/renderer/canvas/text-caret-drawn.test.ts` (3), in Chrome: a caret at the left of the character it's
+  before, across text nodes and onto a wrapped line; at the right of the last character at the end and past it; and none
+  in an element without text.
+
+Gaps: a selection someone else makes is drawn as their caret at its end, not as a highlight. Two people typing in the
+same text within the same 150 ms each write the whole text, so one of those writes can win over the other's before
+either is taken in. Checked on 2026-11-16 with two copies in a room through `scripts/drive.ts`: " today" typed into
+Pricing's title a key every 250 ms in one showed in the other a letter at a time, and "!" typed after a pause came off
+with one Undo, " today" with the next, in both copies. Checked again the same day, after the first try in a room: in the
+typing copy one outline and the whole two-line heading, unclipped; in the other, Ana's outline, name and caret before
+"and" where hers was, in each of Pricing's three frames.
 
 ### Auto width, auto height and fixed text (PAR-175)
 
@@ -5525,12 +5588,11 @@ been tried. With several layers selected, a switch measures each text layer in i
 of a mixed selection, and reads each one's own parent for `grow`; none of that has a test of its own, and with the
 Resizing control gone, nothing drives a switch end to end. The resize handles changing the mode follows from reading it
 from the width and height, and has no test of its own. A text layer's own new lines, typed with Shift+Enter, are kept in
-the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). While the editor is
-open the text under it doesn't reflow as it's typed in, so layers after it move only once the edit is kept. Checked in
-an isolated copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and
-a zoom to 110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and
-Resizing showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923
-took Resizing out of the panel).
+the text but drawn as spaces, since text layers don't preserve white space (older than PAR-175). Checked in an isolated
+copy of the app on 2026-10-30: a double-click on "upgrade" selected it, the editor followed a wheel pan and a zoom to
+110% with "upgrade" still selected, Escape kept "grow" as one Edit text step with Lede still selected, and Resizing
+showed Auto height pressed and switched Lede to auto width, which its 560px maximum still wraps (before PAR-923 took
+Resizing out of the panel).
 
 ### Inline text, alignment and long words (PAR-898)
 
@@ -6103,7 +6165,8 @@ PARITY_ROOM=1 PARITY_UI_PORT=5311 PARITY_DEBUG_PORT=9334 pnpm dev
   that joined next takes over.
 - **Edits merge.** Each copy sends the Loro updates of its commits, repairs included, and takes in the others', which
   show as `remote` changes: in neither person's undo. Token values edited on the canvas merge too, a token at a time,
-  and undoing a token edit puts back only the tokens that step changed and nobody has changed since (PAR-1231).
+  and undoing a token edit puts back only the tokens that step changed and nobody has changed since (PAR-1231). Text is
+  written as it's typed (PAR-1230), so it arrives while it's typed, not when the editor closes.
 - **Only the host writes files** (PAR-1231), so copies don't write the same files over each other. It writes the others'
   edits like its own, autosaving them on its usual delay, and writes the stylesheet. A change says where its content is
   already written (`written`): `files` for a file reloaded from disk or code drawn again, which the saver takes as
@@ -8648,6 +8711,46 @@ stylesheet adopted before the guest's own and the ones a frame is given). Checke
 Parity's body and Routes list keep `InterVariable`, copacker's `globals.css`, `theme.css.ts.vanilla.css` and sonner's
 styles sit in the head switched off, and every frame's added sheet has them. Gaps: styled-components and Turbopack's
 lazy CSS modules aren't checked against a fixture.
+
+### Stylesheets written into a frame draw as the project's own (PAR-1210)
+
+CSS-in-JS writes its rules into whatever container it's given, and a library's decorator can give it the frame: Chakra's
+and MUI's point Emotion's cache at the frame's shadow root. Those rules were written for a page. Before, they were drawn
+as written, with only their lengths changed, so the frame missed what the page would have done with them. Chakra's solid
+buttons drew transparent, because Chakra sets its palette's custom properties on `html`.
+
+- **A `<style>` the project's code puts in a frame is switched off there** (`media="not all"`), and its CSS is prepared
+  as the project's own stylesheets are (core's `prepareCanvasCss`), then drawn in that frame. That's its text, or its
+  rules once its code inserts or deletes some through the CSSOM, as Emotion does in production, including rules inserted
+  before the frame has seen the element go in. So `html` and `:root` become the frame's host and `body` its body, media
+  queries the frame's width and colour scheme, and lengths the frame's. `@font-face` and `@property` go to the document,
+  where a shadow root needs them. It's the frame's side of what's switched off in the page (PAR-1187), so it holds for
+  every library and builder, and no decorator needs to know.
+- **Where they cascade:** first among the frame's sheets, where the elements' own sheets were, before the project's
+  global stylesheets and Parity's rules. Each element's CSS, and each inserted rule, is prepared once per project, so
+  frames sharing a library's rules share the work, and a rule added later costs only itself.
+- **A root custom property made from another takes the frame's theme.** A page's root carries the page's theme, so
+  `--palette: var(--gray-solid)` on `:root` takes the theme's `--gray-solid`. A frame's root is its host, while the
+  mode's class and theme attributes are on its body. So the root rule's custom properties are declared on the body too,
+  with no specificity, in the layer a qualified root's declarations are in, so a theme's root (`:root.dark`) still
+  overrides them, and whatever the project sets on the body still wins. One the stylesheet declares `!important`, or the
+  root rule sets again under a condition, is left to the host's cascade, as before. This holds for the project's own
+  stylesheets as well, as with Tailwind's `@theme` without `inline`. A token edit's preview edits the copy too
+  (`previewToken` in `guest.ts`).
+- **Not covered:** a sheet the project's code constructs and adopts into a frame keeps its rules as written, with its
+  lengths measuring the frame. Griffel's shadow DOM renderer writes Fluent's styles that way.
+
+Code: `apps/desktop/src/renderer/frame-styles.ts`, set up by `prepareFrame` in `frame.ts`, which also tells it about
+inserted and deleted rules; `prepare` from the guest, passed by `mountFrame` in `frame-host.ts`;
+`referencingCustomProperties` in `packages/core/src/css.ts`.
+
+Tests: `apps/desktop/src/renderer/frame.test.ts` (3, in Chrome: a page's root, body, width query and font written into a
+frame as text and as inserted rules, drawn as the frame's, with the elements switched off and Parity's page untouched;
+deleted rules, new text and a removed element followed; a root custom property made from another taking the theme on the
+frame's body). `packages/core/src/css.test.ts` (1: the copy on the body, by what the project wrote, not when reading
+tokens, nor for a root in a theme). Checked in the running app on `nextjs-webpack` (Chakra UI 3.37.0) on 2026-11-16:
+solid buttons drew black in light and white in dark, as Chakra draws them, teal buttons and a purple badge filled, and
+Problems found nothing in either mode. Before, every solid button was transparent.
 
 ### Detected again when what detection reads changes (PAR-820)
 
