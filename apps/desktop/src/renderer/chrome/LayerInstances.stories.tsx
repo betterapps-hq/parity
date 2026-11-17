@@ -9,7 +9,7 @@ import { DesignTab } from "./DesignPanel.tsx"
 import { inspecting, slowly } from "./inspector-stories.tsx"
 import { inspectorStage, pick, renderInspector } from "./layer-stories.tsx"
 
-/** Instances beyond the two in Kinds: a code component's content and style, and a design instance's edge cases. */
+/** Instances beyond Layers › Component instance: a code component's content and style, and a design instance's edge cases. */
 const meta = {
   title: "Parity/Inspector/Layers/Instances",
   component: DesignTab,

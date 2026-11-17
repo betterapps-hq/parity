@@ -4103,7 +4103,7 @@ Tests:
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
-- `chrome/LayerPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
+- `chrome/MediaPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
 - `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
   refused by the other's node.
 
@@ -4696,8 +4696,8 @@ Tests:
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
 - `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
   each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
-  PickingASizing opening their pickers by name. Layers › Layout and Text are those kinds' own panels, and Layers › Kinds
-  (`chrome/LayerPanel.stories.tsx`) shows the sections each other kind of layer gets.
+  PickingASizing opening their pickers by name. Layers › Layout, Text, Image and video, Icon and Component instance are
+  those kinds' own panels.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -4753,7 +4753,7 @@ Tests:
 - `inspector/controls/FieldRow.stories.tsx` (Fields › Parts › Field row): Set finds the field by the row's name; Changed
   In A State puts the value back with the reset arrow; Mixed, Long Name, Half Rows, With An Action, Locked To A Preset,
   Overriding A Preset and Changes With The Viewport, for review.
-- `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
+- `chrome/MediaPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker, PAR-1046): Filled selects the layer from its chip
   and clears the slot with its ×, without selecting the layer; Open lists On this screen before Components; Searching
@@ -4830,31 +4830,34 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 
-### Each layer kind's own panel (PAR-1057, PAR-1058, PAR-1059, PAR-1060, PAR-1061)
+### Each layer kind's own panel (PAR-1057 to PAR-1062)
 
-Layouts, text layers, images, videos and icons each have a Design panel of their own, which puts the style sections in
-that kind's order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing,
-Position, Fill, Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with
-Content and Typography, then Size, Position and Appearance, with Fill, its background, after them. An image's or a
-video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size, Position, Appearance
-and Stroke; it has no Fill, since the picture fills it. An icon's opens with Component instance, which icon it is and
-the props it sets, then Size, Position and Appearance; its color and stroke are its own, so it has no Typography, Fill
-or Stroke. The capability table still leaves out what the layer can't take: a design's root has no Position, and a
-frame's root starts with its size. On a layout, a component or an instance, Typography folds to its title and + until it
-sets something; + opens it.
+Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
+the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout,
+then Size with Spacing, Position, Fill, Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A
+text layer's opens with Content and Typography, then Size, Position and Appearance, with Fill, its background, after
+them. An image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
+Position, Appearance and Stroke; it has no Fill, since the picture fills it. An icon's opens with Component instance,
+which icon it is and the props it sets, then Size, Position and Appearance; its color and stroke are its own, so it has
+no Typography, Fill or Stroke. A component instance's opens with Component instance, its props and the slots it fills,
+and Attributes, then Size, Position, Typography for the text inside it, and Appearance, with no Layout; when its
+component takes no `className`, a note stands in for its style sections. The capability table still leaves out what the
+layer can't take: a design's root has no Position, and a frame's root starts with its size. On a layout, a component or
+an instance, Typography folds to its title and + until it sets something; + opens it.
 
-Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from its order and its content (`LayoutPanel`,
-`TextPanel`, and `MediaPanel` for images and videos, `IconPanel`), and `kindPanels` with `panelKind` pick the one
-`LayerPanel` draws, an icon by `isIconLayer`;, `StyleSections`' `order`; the fold in
-`inspector/sections/TypographySection.tsx`.
+Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from the sections before its style and its order
+(`LayoutPanel`, `TextPanel`, `MediaPanel` for images and videos, `IconPanel`, and `InstancePanel` for both kinds of
+instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an icon by `isIconLayer`; `StyleSections`'
+`order`; the fold in `inspector/sections/TypographySection.tsx`.
 
 Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
 typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
 Layout. `chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
 Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
-(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. Layers › All kinds
-(`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's `LayerPanel` with its own
-selection, to compare them while each kind's panel is built.
+(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
+(Layers › Component instance): Code Component, Component instance first and no Layout; Design Instance, Component
+instance first. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column
+the app's `LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
 
@@ -4898,7 +4901,7 @@ Tests:
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `inspector/controls/FieldRow.stories.tsx` Typing: the text field found by its row's name, committing nothing until
   Enter.
-- `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
+- `chrome/MediaPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
 
@@ -4969,8 +4972,8 @@ one sentence ("Editing Default changes every state") and wraps when it doesn't f
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
-Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layers › Image and video: Image; Sections › State selector: Editing
+A State; Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -5037,9 +5040,9 @@ libraries and the project's own components; a library matched by its whole id; a
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
 project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
 label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
-layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Kinds, Layers
-› Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
-and dark.
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Icon, Layers ›
+Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light and
+dark.
 
 ### A layer's own fields (PAR-1051)
 
@@ -6094,8 +6097,8 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerPanel.stories.tsx` Text (a screen's layer, no Editing control) and ComponentInstance (no State
-  row).
+- Stories: `chrome/TextPanel.stories.tsx` Headline (a screen's layer, no Editing control) and
+  `chrome/InstancePanel.stories.tsx` Code Component (no State row).
 
 ### A design's modes in its own order (PAR-923)
 

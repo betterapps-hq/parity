@@ -442,12 +442,18 @@ export function LayerMedia() {
   return <MediaSection entry={layer.entry} node={layer.node} />
 }
 
-/** That a code component taking no `style` can't be sized or styled here, before the style sections. */
-function LayerNoStyle() {
+/**
+ * That a code component taking no `style` can't be sized or styled here, in place of the style sections, which the
+ * capability table leaves out for it. Nothing for one that takes it, or isn't known not to.
+ */
+export function LayerNoStyle() {
+  const session = useProject()
+  const components = useComponents(session.components)
   const layer = useSelectedLayer()
 
   return (
-    layer?.node.type === "component" && (
+    layer?.node.type === "component" &&
+    components[layer.node.component]?.takesStyle === false && (
       <NoStyleNote component={layer.node.component} wrap={layer.inner === undefined} />
     )
   )
