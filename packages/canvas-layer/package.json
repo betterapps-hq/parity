@@ -1,0 +1,21 @@
+{
+  "name": "@parity-app/canvas-layer",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "What's drawn in an internal extension's canvas layer reads the camera, boxes, colors and frames through: the layer's context and its hooks.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@parity-app/extension": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "react": "^19.3.1"
+  }
+}

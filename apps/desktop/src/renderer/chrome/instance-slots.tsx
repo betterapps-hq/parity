@@ -15,7 +15,7 @@ import {
 import { slotPreviewTree } from "@parity-app/editor"
 import type { ContainerEntry } from "@parity-app/multiplayer"
 import { ArrowLeft, SquareDashed } from "lucide-react"
-import type { ReactElement, ReactNode } from "react"
+import type { HTMLAttributes, ReactElement, ReactNode } from "react"
 import { useProject } from "../canvas/context.ts"
 import { kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { projectLibrary } from "../canvas/layers.ts"
@@ -76,7 +76,7 @@ function useClear(entry: ContainerEntry, instance: InstanceNode) {
     }))
 }
 
-/** What fills a slot, as its card and its panel say it: its layer's name, or nothing while it's empty. */
+/** What fills a slot, as its card says it: its layer's name, or nothing while it's empty. */
 function SlotState({ slot }: { slot: InstanceSlot }) {
   const [name] = useFillNames(slot)
 
@@ -177,14 +177,22 @@ function SlotCard({
 }
 
 /**
- * One slot after an instance's params: what fills it, picked from the design's layers and the project's components or
- * dropped from Layers (PAR-1046), its card, and Clear inside the field.
+ * What fills a slot, picked from the design's layers and the project's components or dropped from Layers (PAR-1046),
+ * with Clear inside the field: in the slot's row on its instance, and at the top of its own panel. `box` is what the
+ * field's box takes from what it sits in, as a row's card's handlers.
  */
-function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot }) {
+function SlotFill({
+  entry,
+  instance,
+  slot,
+  ...box
+}: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot } & Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "children" | "className" | "onChange" | "slot"
+>) {
   const session = useProject()
   const entries = useContainerEntries(session)
   const library = projectLibrary(session)
-  const card = useHoverCard()
   const clear = useClear(entry, instance)
   const change = useSlotChange(entry, instance)
   const label = shownName(slot.name)
@@ -234,34 +242,48 @@ function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: I
   }
 
   return (
-    <Field label={label} icon={<TypeTile type="slot" />} hint="Shown in place of its placeholder">
+    <SlotPickerField
+      label={label}
+      layer={slot.fill[0] && shown(slot.fill[0])}
+      layers={candidates.map(({ node, depth, parent }) => ({
+        ...shown(node),
+        depth,
+        parent: parent && named(parent)
+      }))}
+      components={slotComponents(
+        entries.map((each) => each.container),
+        entry.container,
+        instance
+      ).map(({ id, name }) => ({ id, name }))}
+      onPickLayer={fillWith}
+      onPickComponent={(component) =>
+        change(
+          slot,
+          `Fill ${slot.name}`,
+          (container) => fillSlotWithComponent(container, instance.id, slot.name, component).container
+        )
+      }
+      onDropLayers={drop}
+      onClear={() => clear(slot)}
+      onSelectLayer={select}
+      {...box}
+    />
+  )
+}
+
+/** One slot after an instance's params: what fills it, and its card. */
+function SlotRow({ entry, instance, slot }: { entry: ContainerEntry; instance: InstanceNode; slot: InstanceSlot }) {
+  const card = useHoverCard()
+
+  return (
+    <Field label={shownName(slot.name)} icon={<TypeTile type="slot" />} hint="Shown in place of its placeholder">
       <SlotCard slot={slot} card={card}>
         {/* The card sits by the row's box: resting on it, or the left arrow key in an empty input, opens it. */}
         <div className="min-w-0">
-          <SlotPickerField
-            label={label}
-            layer={slot.fill[0] && shown(slot.fill[0])}
-            layers={candidates.map(({ node, depth, parent }) => ({
-              ...shown(node),
-              depth,
-              parent: parent && named(parent)
-            }))}
-            components={slotComponents(
-              entries.map((each) => each.container),
-              entry.container,
-              instance
-            ).map(({ id, name }) => ({ id, name }))}
-            onPickLayer={fillWith}
-            onPickComponent={(component) =>
-              change(
-                slot,
-                `Fill ${slot.name}`,
-                (container) => fillSlotWithComponent(container, instance.id, slot.name, component).container
-              )
-            }
-            onDropLayers={drop}
-            onClear={() => clear(slot)}
-            onSelectLayer={select}
+          <SlotFill
+            entry={entry}
+            instance={instance}
+            slot={slot}
             aria-describedby={card.open ? card.id : undefined}
             onPointerEnter={card.enter}
             onPointerLeave={card.leave}
@@ -295,8 +317,8 @@ export function InstanceSlotFields({ entry, instance }: { entry: ContainerEntry;
 }
 
 /**
- * A selected slot of one of the design's instances, which a click in Components adds into: its name, the instance it's
- * in, a picture of what shows there, and Clear.
+ * A selected slot of one of the design's instances (PAR-1063), which a click in Components adds into: its name, the
+ * instance it's in, then what fills it, picked as on the instance's row, and a picture of what shows there.
  */
 export function SlotPanel({
   entry,
@@ -309,7 +331,6 @@ export function SlotPanel({
 }) {
   const session = useProject()
   const entries = useContainerEntries(session)
-  const clear = useClear(entry, instance)
   const filled = slot.fill.length > 0
   const name = layerLabel(instance, entries, projectLibrary(session), session.info.libraries)
 
@@ -336,24 +357,12 @@ export function SlotPanel({
           </Button>
         </p>
       </div>
-      <PanelSection
-        title="Contents"
-        action={
-          filled && (
-            <Button variant="ghost" size="sm" className="h-6 px-2 text-xs" onClick={() => clear(slot)}>
-              Clear
-            </Button>
-          )
-        }
-      >
-        <div className="mb-2 flex items-center gap-1.5 px-1 text-xs">
-          <SlotState slot={slot} />
-          {!filled && <span className="text-muted-foreground">Placeholder showing</span>}
+      <PanelSection title="Contents">
+        <SlotFill entry={entry} instance={instance} slot={slot} />
+        {!filled && <p className="type-description mt-1.5 px-1 text-muted-foreground">Placeholder showing</p>}
+        <div className="mt-2">
+          <SlotPicture slot={slot} />
         </div>
-        <SlotPicture slot={slot} />
-        <p className="type-description mt-3 px-1 text-muted-foreground">
-          Click a component in Components to add it here.
-        </p>
       </PanelSection>
     </>
   )

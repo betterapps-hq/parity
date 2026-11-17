@@ -518,14 +518,14 @@ export {
 } from "./settings-search.ts"
 
 export {
-  pageFrameName,
+  pageFrameUrl,
   pageGroupBox,
-  pageHeightMessage,
-  pageLandedMessage,
   landedElsewhere,
   type PageLayout,
   pageLinkLine,
   pageLinksLit,
+  pageMode,
+  projectHost,
   pageName,
   type PageNode,
   pageTree,

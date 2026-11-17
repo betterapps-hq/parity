@@ -274,6 +274,11 @@ export interface RendererAdapter extends Adapter {
   /** File extensions that can hold this framework's components. */
   componentExtensions: string[]
   /**
+   * The module that says when the app's page has hydrated, resolvable from the host, and the name it exports it by
+   * (`PageHydration` in `@parity-app/extension/page`).
+   */
+  pageModule?: PageModuleRef
+  /**
    * The components a file exports, from its text alone, so a whole app can be read in a fraction of a second. The
    * file's name says how to read it (`.tsx`, `.jsx`, a `.d.ts` declaration) and names its default export. A renderer
    * an extension gives answers through its provider, so asynchronously (PAR-1095).
@@ -300,6 +305,7 @@ export interface RendererPackage {
           runtimeImports: string[]
           developmentStandIns?: Record<string, string>
           componentExtensions: string[]
+          page?: { import: string; export: string }
         }
       }
     }
@@ -318,7 +324,7 @@ export function extensionRenderer(pkg: RendererPackage): RendererDescription | u
     return undefined
   }
 
-  const { guest, runtimePackages, runtimeImports, developmentStandIns, componentExtensions } = renderer
+  const { guest, runtimePackages, runtimeImports, developmentStandIns, componentExtensions, page } = renderer
   const packages = runtimePackages.join(" and ")
   const versions = peerVersions(pkg.peerDependencies)
 
@@ -330,7 +336,7 @@ export function extensionRenderer(pkg: RendererPackage): RendererDescription | u
 
       return { found, summary: found ? `${packages} in package.json` : `No ${packages} in package.json` }
     },
-    guestModule: `${pkg.name}/${guest.replace(/^\.\//, "")}`,
+    guestModule: packageExport(pkg.name, guest),
     runtimePackages,
     runtimeImports,
     componentExtensions
@@ -348,7 +354,22 @@ export function extensionRenderer(pkg: RendererPackage): RendererDescription | u
     description.developmentStandIns = developmentStandIns
   }
 
+  if (page) {
+    description.pageModule = { module: packageExport(pkg.name, page.import), export: page.export }
+  }
+
   return description
+}
+
+/** A module of Parity's that runs in the app's own page, by the specifier the host resolves, and its export's name. */
+export interface PageModuleRef {
+  module: string
+  export: string
+}
+
+/** The specifier of a package's export, as `./guest` of `@parity-app/extension-react` is `@parity-app/extension-react/guest`. */
+export function packageExport(name: string, path: string): string {
+  return `${name}/${path.replace(/^\.\//, "")}`
 }
 
 /** An export a renderer recognises as a component. */

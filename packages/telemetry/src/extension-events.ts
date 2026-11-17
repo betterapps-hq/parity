@@ -78,7 +78,9 @@ export const extensionCallFailed = defineEvent(
   "extension.callFailed",
   z.object({
     extension,
-    api: z.string().describe("What core called, as `selection.onChange` or `node.status`"),
+    api: z
+      .string()
+      .describe("What core called, as `selection.onChange`, `node.status` or `layer:multiplayer.pointers`"),
     failures,
     stopped: z.boolean().describe("Whether this failure stopped it in the tab"),
     message,

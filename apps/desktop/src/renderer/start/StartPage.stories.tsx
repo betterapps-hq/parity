@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite"
 import { type ReactNode, useMemo, useState } from "react"
 import { expect, fireEvent, userEvent, waitFor, within } from "storybook/test"
 import type { PictureFrame, PictureScreen, ProjectPicture } from "../../shared/protocol.ts"
+import { holdToast } from "../stories/fixtures.tsx"
 import { setStoryAccount } from "../stories/host.ts"
 import { examplePicture } from "./example-picture.ts"
 import dashboardDesktop from "./example-pictures/dashboard-desktop.webp?inline"
@@ -235,7 +236,7 @@ export const HomeMissingFolders: Story = {
   ),
   play: async ({ canvasElement }) => {
     await userEvent.click(within(canvasElement).getByRole("button", { name: "walkies" }))
-    await waitFor(() => expect(within(document.body).getByText("Can't find the project")).toBeInTheDocument())
+    await holdToast("Can't find the project")
   }
 }
 

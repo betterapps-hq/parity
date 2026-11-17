@@ -286,9 +286,10 @@ Through `@parity-app/telemetry`, with no route paths or page content in any even
 the functions that take a `Document`. It's named for frames, not routes, so stories and components can use the same
 tiers later (see Beyond routes). `PageMode` moves into it from `route-boards.ts`.
 
-`@parity-app/page-runtime` is built to one script, as `appPageModeScript` is today, and replaces it in all three
-builders. Its unit tests run in happy-dom. Hydration and navigation are checked against the fixtures' real apps in the
-end-to-end suite in CI, since happy-dom can't run a Start or Next app's hydration.
+`@parity-app/page-runtime` replaces `appPageModeScript` in all three builders. As built (PAR-1260) it's a module entry
+each builder serves, not one inline script, so it can import the channel and the page modules, and React's hook is
+installed before React loads. Its unit tests run in happy-dom. Hydration and navigation are checked against the
+fixtures' real apps in the end-to-end suite in CI, since happy-dom can't run a Start or Next app's hydration.
 
 ## Contracts
 
@@ -723,10 +724,13 @@ Each is an issue, in this order.
    `appPageModeScript` in the Vite, webpack-compatible and Next builders, with the handshake, `mode.set` without a
    reload, `page.height` in the mode's window and no scrollbar. Frames load from `<project-id>.localhost`, with each
    builder's host check confirmed. TanStack Router's page router, React's hydration module, and the fallbacks.
-   `PageFrame` uses it, so a board's mode changes without reloading.
+   `PageFrame` uses it, so a board's mode changes without reloading. Built: the frame name also carries the frame's
+   role, mode and viewport, `mode.set` carries the viewport, `page.ready`'s router is `null` without a page router, and
+   the port arrives as `{parity: "port", frame}`.
 3. **`@parity-app/frames`** (PAR-1261), done: the snapshot's schemas and caps, both sanitizers with a test for every
    element, attribute and URL rule, `buildCopy`, ids, keys and the planners. It added `sanitizeRoot`, since `<html>`'s
-   attributes go on the copy's host in Parity's document and need the same allowlist as the body's.
+   attributes go on the copy's host in Parity's document and need the same allowlist as the body's. `PageMode` is only
+   in `@parity-app/frames` now, and its `PageLocation` is `@parity-app/extension/page`'s.
 4. **Frozen copies.** `snapshot.take` and `sheets.get` in the runtime, other hosts' sheets fetched by main, the freezer
    frame and its queue, and the `RouteBoard` view that shows copies through `prepareFrame`, registered as frames, with
    hit-testing, layers in a window store, styles read when shown, and the redirect warning. Boards show copies instead

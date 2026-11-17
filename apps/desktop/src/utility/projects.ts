@@ -30,6 +30,8 @@ import {
   type ExtensionTool,
   libraryManifestExtension,
   type PackageManifest,
+  type PageModuleFile,
+  type PageModuleRef,
   type ProjectConfig,
   parseCanvasDocument,
   type CanvasDocument,
@@ -78,6 +80,7 @@ import {
 } from "@parity-app/project"
 import { errorCode } from "@parity-app/telemetry"
 import { writeTokenChanges } from "@parity-app/tokens"
+import { pageModuleBundle, pageRuntimeBundle } from "../shared/built-in-extensions.ts"
 import { logNote } from "../shared/log.ts"
 import type {
   FrameClassesWritten,
@@ -176,6 +179,8 @@ export interface ProjectProviders {
   owner(project: ProviderProject, kind: ProviderKind, extension?: string): { id: string; name: string } | undefined
   /** What the project's extensions put around every frame, outermost first, from their manifests (PAR-1152). */
   decorators(project: ProviderProject): ExtensionDecorator[]
+  /** The page modules of the project's routers, from their manifests (PAR-1260). */
+  pageRouters(project: ProviderProject): (PageModuleRef & { extension: string })[]
 }
 
 /** What the open projects are made with: the adapters Parity supports, and what reaches outside the service. */
@@ -262,8 +267,12 @@ interface Project extends OpenProject {
   builder: BuilderDescription
   startOptions: BuilderStartOptions
   watcher?: Watching
-  /** The props inferred from each component's source, read again as the list says. */
+  /**
+   * The props inferred from each component's source, read again as the list says, with `iconProps` among them.
+   */
   components: Promise<Record<string, ComponentInfo>>
+  /** The props each icon set's icons share, by `iconSetPropsId`, read once from one icon of each set. */
+  iconProps: Promise<Record<string, ComponentInfo>>
   /** What reads the app's files for components when they change. */
   renderer: RendererAdapter
   /** Where the windows load the project's guest from: `info.guestUrl`, unless they couldn't load it after it moved. */
@@ -454,6 +463,31 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const bundled = join(import.meta.dirname, "guest.mjs")
 
     return !devRunner && existsSync(bundled) ? bundled : require.resolve(renderer.guestModule)
+  }
+
+  /**
+   * A module of Parity's that the builder serves into the app's own page: the app's bundled copy, `bundle` beside the
+   * service, unless it runs from source.
+   */
+  function pageFile(bundle: string, specifier: string): string {
+    const bundled = join(import.meta.dirname, `${bundle}.mjs`)
+
+    return !devRunner && existsSync(bundled) ? bundled : require.resolve(specifier)
+  }
+
+  /** The page runtime, the routers' page modules and the renderer's hydration module, each by its file. */
+  function pageModules(renderer: RendererAdapter, routers: readonly (PageModuleRef & { extension: string })[]) {
+    const file = (extension: string, ref: PageModuleRef): PageModuleFile => ({
+      extension,
+      file: pageFile(pageModuleBundle(extension), ref.module),
+      export: ref.export
+    })
+
+    return {
+      runtime: pageFile(pageRuntimeBundle, "@parity-app/page-runtime"),
+      routers: routers.map((router) => file(router.extension, router)),
+      hydration: renderer.pageModule ? [file(renderer.id, renderer.pageModule)] : []
+    }
   }
 
   /** Tells telemetry why the project can't be opened, and returns the error that says so. */
@@ -689,6 +723,9 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     if (frameDecorators.length > 0) {
       config.frameDecorators = frameDecorators
     }
+
+    // What runs first in the app's own page when the canvas draws a route (PAR-1260).
+    config.pageModules = pageModules(renderer, adapters.providers?.pageRouters({ root, name, pkg }) ?? [])
 
     // The person's corrections come before what was saved, so changing them is a change the fingerprint sees.
     const discovered = nextComponentList(
@@ -933,12 +970,14 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
       known,
       // A saved detection brings its props; discovery's list has every one read.
       components: Promise.resolve(saved?.props ?? {}),
+      iconProps: inferProps(root, config.iconSets ?? {}),
       renderer,
       openedAt: performance.now(),
       stylesVersion: 0,
       detected: inputs && { key: inputs.key, files: new Set(inputs.files) }
     }
 
+    project.components = withIconProps(project, project.components)
     readProps(project, opened, config.componentFiles)
     project.watcher = watchProjectFiles(project)
 
@@ -1755,7 +1794,7 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const { root } = project.info
 
     if (step.props === "all") {
-      project.components = inferProps(root, step.list.sources, files)
+      project.components = withIconProps(project, inferProps(root, step.list.sources, files))
 
       return
     }
@@ -1780,6 +1819,15 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
       return all
     })
+    project.components = withIconProps(project, project.components)
+  }
+
+  /** Components' props with the props each icon set's icons share among them, which the list doesn't name. */
+  function withIconProps(
+    project: Pick<Project, "iconProps">,
+    components: Promise<Record<string, ComponentInfo>>
+  ): Promise<Record<string, ComponentInfo>> {
+    return Promise.all([components, project.iconProps]).then(([props, icons]) => ({ ...props, ...icons }))
   }
 
   /** Tells the windows the project's component list, with its props, as they are now. */

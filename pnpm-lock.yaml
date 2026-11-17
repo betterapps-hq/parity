@@ -346,6 +346,9 @@ importers:
       '@parity-app/agent':
         specifier: workspace:*
         version: link:../../packages/agent
+      '@parity-app/canvas-layer':
+        specifier: workspace:*
+        version: link:../../packages/canvas-layer
       '@parity-app/change-detection':
         specifier: workspace:*
         version: link:../../packages/change-detection
@@ -433,6 +436,9 @@ importers:
       '@parity-app/multiplayer-loro':
         specifier: workspace:*
         version: link:../../packages/multiplayer-loro
+      '@parity-app/page-runtime':
+        specifier: workspace:*
+        version: link:../../packages/page-runtime
       '@parity-app/presence-colors':
         specifier: workspace:*
         version: link:../../packages/presence-colors
@@ -749,6 +755,19 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/canvas-layer:
+    dependencies:
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+    devDependencies:
+      '@types/react':
+        specifier: ^19.3.0
+        version: 19.3.0
+      react:
+        specifier: ^19.3.1
+        version: 19.3.1
 
   packages/change-detection:
     dependencies:
@@ -1186,6 +1205,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
       zod:
         specifier: 'catalog:'
         version: 4.6.7
@@ -1313,6 +1335,22 @@ importers:
       zod:
         specifier: 'catalog:'
         version: 4.6.7
+
+  packages/page-runtime:
+    dependencies:
+      '@parity-app/channel':
+        specifier: workspace:*
+        version: link:../channel
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      '@parity-app/frames':
+        specifier: workspace:*
+        version: link:../frames
+    devDependencies:
+      happy-dom:
+        specifier: 'catalog:'
+        version: 21.0.4
 
   packages/presence-colors:
     dependencies:

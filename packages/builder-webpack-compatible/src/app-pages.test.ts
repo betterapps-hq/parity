@@ -111,12 +111,13 @@ describe("the app's page", () => {
     expect(builtAppFiles([{ name: "main", files: ["main.js"] }])).toEqual({ scripts: [], styles: [] })
   })
 
-  it("runs what tells the canvas its mode and height first, and what reloads it after a build", () => {
+  it("runs what reloads the page after a build first", () => {
     const served = servedAppPage(
       '<!doctype html><html><head lang="en"><title>Harbor</title></head><body></body></html>'
     )
 
     expect(served).toMatch(/^<!doctype html><html><head lang="en"><script>\(\(\) => \{/)
+    expect(served).not.toContain("parity:")
     expect(served).toContain('fetch("/@parity/page-version", { cache: "no-store" })')
     expect(served).toContain("else if (version !== seen) window.location.reload()")
     expect(served.indexOf("<title>")).toBeGreaterThan(served.indexOf("page-version"))

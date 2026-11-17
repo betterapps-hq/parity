@@ -23,6 +23,11 @@ export interface ProjectConfig {
   packageStyles?: string[]
   /** Components the canvas can place, keyed by component id. */
   components: Record<string, ComponentSource>
+  /**
+   * One icon of each icon set the project depends on, by `iconSetPropsId`, whose props are read as any component's are
+   * and stand for every icon of the set, since a set's icons share their props (`size`, `color`, `strokeWidth`).
+   */
+  iconSets?: Record<string, ComponentSource>
   /** Project files (`*.par`), relative to the project root. */
   documents: string[]
   /** Component libraries the project depends on, whose components the canvas can place too. */
@@ -35,6 +40,12 @@ export interface ProjectConfig {
    * the project's own.
    */
   frameDecorators?: ExtensionDecorator[]
+  /**
+   * What runs in the app's own page when the canvas draws a route (PAR-1260): the page runtime, and the router's and
+   * renderer's page modules. Each is a module of Parity's, by its absolute path, which the builder serves first in the
+   * page. Unset when the project has no routes to draw.
+   */
+  pageModules?: PageModules
   /**
    * The project's preview file for Parity, `.parity/preview.tsx` or another script extension, relative to the root: its
    * Storybook preview exports (`decorators`, `loaders`, `parameters`, `globalTypes`, `initialGlobals`) apply to every
@@ -68,6 +79,23 @@ export interface PreviewComposer {
   extension: string
 }
 
+/** The page runtime and the page modules a builder serves into the app's page, each by its absolute path. */
+export interface PageModules {
+  /** `@parity-app/page-runtime`'s module, which exports `startPageRuntime`. */
+  runtime: string
+  /** Page routers (`PageRouter`), the first the page finds being the one the runtime drives. */
+  routers: PageModuleFile[]
+  /** Hydration modules (`PageHydration`). */
+  hydration: PageModuleFile[]
+}
+
+/** A page module: the prefix of the extension that gives it, its file, and the name it exports what the runtime takes. */
+export interface PageModuleFile {
+  extension: string
+  file: string
+  export: string
+}
+
 /** A decorator an extension declares, with the prefix of the extension that declares it. */
 export interface ExtensionDecorator {
   extension: string
@@ -82,6 +110,21 @@ export interface DescribedTokens {
   manifest: string
   tokens: DescribedToken[]
   error?: string
+}
+
+/**
+ * Where the props an icon set's icons share are kept among the project's components' props: the set's id and a slash,
+ * as `lucide/`, which names no component.
+ */
+export function iconSetPropsId(library: string): string {
+  return `${library}/`
+}
+
+/** The props a component takes: its own, or for an icon, which isn't read one by one, its set's (`iconSetPropsId`). */
+export function componentInfoOf<Info>(components: Readonly<Record<string, Info>>, component: string): Info | undefined {
+  const slash = component.indexOf("/")
+
+  return components[component] ?? (slash > 0 ? components[iconSetPropsId(component.slice(0, slash))] : undefined)
 }
 
 export interface ComponentSource {

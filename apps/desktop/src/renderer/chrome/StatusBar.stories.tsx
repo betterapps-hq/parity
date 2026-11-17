@@ -340,6 +340,6 @@ export const StorybookFailed: Story = {
   ],
   play: async () => {
     await userEvent.click(await body().findByRole("button", { name: /in Storybook$/ }))
-    await holdToast("Open in Storybook didn't work")
+    await holdToast("Couldn't run the command")
   }
 }

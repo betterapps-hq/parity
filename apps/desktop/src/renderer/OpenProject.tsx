@@ -20,6 +20,7 @@ import { startPreviews } from "./component-previews.ts"
 import { sendRouteMarks, followSelection } from "./extension-editor.ts"
 import { extensionsOf } from "./extensions.ts"
 import { useTool } from "./selection.ts"
+import { CanvasShown, WindowLayers } from "./window-canvas.tsx"
 import { startWindowModules } from "./window-modules.ts"
 import { type Project, type ProjectSession, workspace } from "./workspace.ts"
 
@@ -127,26 +128,32 @@ function CanvasArea({ projectId, shown }: { projectId: string; shown: boolean })
         className={`canvas-area relative isolate z-[5] min-w-0 flex-1 ${tool === "text" ? "cursor-text" : ""} ${tool === "frame" ? "cursor-crosshair" : ""}`}
         data-tool={tool}
       >
-        <CanvasEditor onEditor={onEditor} shown={shown} />
-        {/* What's drawn over the canvas fails without a word, leaving the canvas as it is; Sentry still hears. */}
-        <ErrorBoundary name="canvas.overlay" label="Outlines" kind="silent">
-          <CanvasOverlay />
-        </ErrorBoundary>
-        <ErrorBoundary name="canvas.tab-order" label="Tab order" kind="silent">
-          <TabOrderOverlay />
-        </ErrorBoundary>
-        <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
-          <CanvasDrop />
-        </ErrorBoundary>
-        <ErrorBoundary name="canvas.agents" label="Agents" kind="silent">
-          <AgentPresence />
-        </ErrorBoundary>
-        <ErrorBoundary name="canvas.toolbar" label="Toolbar" kind="silent">
-          <FloatingToolbar />
-        </ErrorBoundary>
-        <ErrorBoundary name="canvas.view-controls" label="Zoom" kind="silent">
-          <ZoomControls />
-        </ErrorBoundary>
+        <CanvasShown value={shown}>
+          <CanvasEditor onEditor={onEditor} shown={shown} />
+          {/* Internal extensions' layers, each with an error boundary of its own (window-canvas.tsx). */}
+          <WindowLayers order="overDesigns" />
+          {/* What's drawn over the canvas fails without a word, leaving the canvas as it is; Sentry still hears. */}
+          <ErrorBoundary name="canvas.overlay" label="Outlines" kind="silent">
+            <CanvasOverlay />
+          </ErrorBoundary>
+          <ErrorBoundary name="canvas.tab-order" label="Tab order" kind="silent">
+            <TabOrderOverlay />
+          </ErrorBoundary>
+          <ErrorBoundary name="canvas.drop" label="Drop" kind="silent">
+            <CanvasDrop />
+          </ErrorBoundary>
+          <ErrorBoundary name="canvas.agents" label="Agents" kind="silent">
+            <AgentPresence />
+          </ErrorBoundary>
+          <WindowLayers order="overSelection" />
+          <WindowLayers order="edge" />
+          <ErrorBoundary name="canvas.toolbar" label="Toolbar" kind="silent">
+            <FloatingToolbar />
+          </ErrorBoundary>
+          <ErrorBoundary name="canvas.view-controls" label="Zoom" kind="silent">
+            <ZoomControls />
+          </ErrorBoundary>
+        </CanvasShown>
       </div>
     </CanvasMenu>
   )

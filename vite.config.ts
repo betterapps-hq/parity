@@ -13,11 +13,13 @@ const readers = ["code", "project", "registry"]
 
 /**
  * Packages at the edge, where Node and React belong: the CLI, generators, the agent runtime, Parity's own extensions,
- * which run in Node hosts of their own, the media player, presence's components and fixtures.
+ * which run in Node hosts of their own, the media player, presence's components, the hooks internal extensions draw
+ * canvas layers with, and fixtures.
  */
 const edge = [
   "agent",
   "builder-webpack-compatible",
+  "canvas-layer",
   "cli",
   "extension-node",
   "extension-react",

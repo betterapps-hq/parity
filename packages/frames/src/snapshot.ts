@@ -1,4 +1,5 @@
 import { type DataParser, parserFor } from "@parity-app/core/schema"
+import type { PageLocation } from "@parity-app/extension/page"
 import { z } from "zod"
 
 /** What a route's page drew in one mode, as plain data. */
@@ -53,13 +54,7 @@ export interface PageSheet {
   text: string
 }
 
-export interface PageLocation {
-  path: string
-  search: string
-  hash: string
-  /** How the router ended: on the route, sent elsewhere, on its not-found route, or on its error boundary. */
-  outcome: "landed" | "redirected" | "not-found" | "error"
-}
+export type { PageLocation }
 
 /** The most elements a snapshot's body may hold, itself included. */
 export const maxSnapshotElements = 50_000
@@ -75,7 +70,7 @@ export const maxSheetText = 4 * 1024 * 1024
 
 const attribute = z.tuple([z.string(), z.string()])
 
-export const pageLocationSchema = z.strictObject({
+export const pageLocationSchema: z.ZodType<PageLocation> = z.strictObject({
   path: z.string().startsWith("/"),
   search: z.string(),
   hash: z.string(),

@@ -19,7 +19,22 @@ export const runtimeFolder = "renderer"
  * take `new URL(path, import.meta.url)` for a file to bundle.
  */
 export async function copyGuestRuntime(entry: string, guestApp: string, served: string): Promise<string> {
-  const folder = join(guestApp, runtimeFolder)
+  const [copied] = await copyParityModules([entry], guestApp, served, runtimeFolder)
+
+  return copied ?? posix.join(runtimeFolder, basename(entry))
+}
+
+/**
+ * Copies modules of Parity's at `entries`, with their relative imports and Parity's own packages, into `into` in
+ * `guestApp`, which is emptied first, and returns where each entry is, from the guest app's folder, in order.
+ */
+export async function copyParityModules(
+  entries: readonly string[],
+  guestApp: string,
+  served: string,
+  into: string
+): Promise<string[]> {
+  const folder = join(guestApp, into)
   await rm(folder, { recursive: true, force: true })
   await mkdir(folder, { recursive: true })
 
@@ -36,8 +51,12 @@ export async function copyGuestRuntime(entry: string, guestApp: string, served: 
     return name
   }
 
-  const queue = [resolve(entry)]
-  nameOf(queue[0]!)
+  const queue = entries.map((entry) => resolve(entry))
+
+  for (const file of queue) {
+    nameOf(file)
+  }
+
   const done = new Set<string>()
 
   while (queue.length > 0) {
@@ -64,7 +83,7 @@ export async function copyGuestRuntime(entry: string, guestApp: string, served: 
     await writeFile(join(folder, nameOf(file)), source.replaceAll("import.meta.url", JSON.stringify(served)))
   }
 
-  return posix.join(runtimeFolder, nameOf(resolve(entry)))
+  return entries.map((entry) => posix.join(into, nameOf(resolve(entry))))
 }
 
 /** The file one of the runtime's imports leads to, when it's the runtime's own: relative, or a Parity package's. */

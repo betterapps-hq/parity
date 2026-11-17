@@ -796,7 +796,7 @@ Tests:
   nothing changed for the same place, itself, another file or a missing design.
 - `chrome/LayerTree.stories.tsx` (under Parity/Left panel/Layers): Searching, NothingFound, CollapsedAll,
   OpenedWithEverythingInside (Alt+click), OpenedWithItsSiblings (`*`), SelectionMovedOn, HiddenFromItsEye,
-  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-05.
+  DraggingADesign and LargeProject. Their play functions passed in Storybook on 2026-11-16.
 - `apps/desktop/e2e/app.ts`: `selectDesignInLayers` and `toggleInLayers` scroll the panel with the mouse wheel to a row
   out of view, which `sleeping.e2e.ts` and `fields.e2e.ts` use.
 
@@ -2915,9 +2915,9 @@ Tests:
   lock left to the canvas; and Unlock read only when every design is locked.
 - `chrome/canvas-menu.test.ts` and `chrome/layers-menu.test.ts`: Lock in each menu, unavailable inside an instance and
   on the root, and in a design's menu.
-- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Features")
-  and LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
-  2026-11-06.
+- `chrome/LayerTree.stories.tsx`: LockedFromItsLock (a row's lock, and a layer inside reading "Locked with Hero") and
+  LockedDesign (the design's lock, its layers, and Unlock in its menu). Their play functions passed in Storybook on
+  2026-11-16.
 - `e2e/menus.e2e.ts`: the canvas menu lists Lock with Ctrl+Shift+L.
 
 Gaps: clicking through a locked layer, a locked design ignoring clicks and its title, and Ctrl+Shift+L were tried on the
@@ -2938,8 +2938,8 @@ a component design; the Layers panel's add buttons start new designs. Each is on
   corner marks the pointer where it goes in an absolutely placed layout. A drop on the empty canvas makes a screen there
   (PAR-546, below); one over a design where there's no layout says so.
 - **A click inserts at the selection:** into a selected layout, at its end; just after any other selected layer, in its
-  layout or slot; or at the end of a selected design's root. With nothing selected it makes a screen in the middle of
-  the view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
+  layout or slot; or at the end of a selected design's root. With nothing selected it makes a frame in the middle of the
+  view (PAR-546); with a design selected that has nowhere for it, a message says to select a layout.
 - **What goes in is ready to show something.** A component gets its required props (an option's first value, `false`,
   `0` or its own name, unless they have a default) and its name as text when it takes children. A library's part comes
   inside the parents it needs that aren't around the layout already, with their samples.
@@ -4111,7 +4111,7 @@ Tests:
   attributes left alone.
 - `packages/editor/src/insert.test.ts`: a video layer at its proportions, and "Add video".
 - `chrome/layer-kind.test.ts`: an image is Image and a video Video.
-- `chrome/LayerPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
+- `chrome/MediaPanel.stories.tsx` Video: its section's fields and Controls found by their labels (PAR-892).
 - `packages/agent/src/dispatch.test.ts`: a video saved and placed in a video node, and a picture and a video each
   refused by the other's node.
 
@@ -4560,7 +4560,11 @@ section with the group's own title leads it without a title of its own, and its 
   linked from. A code component's links, to its stories and its file, are in the header. Beside the name, one of the
   design's own instances has the menu with Swap component, Reset overrides with how many there are, Push to main where
   the component is the project's, and Detach. Then its props, or "No props to set." Before a code component's props are
-  read from its source, it says so, and its + adds any prop by name.
+  read from its source, it says so, and its + adds any prop by name. An icon's props are its set's, which its icons
+  share: read like any component's from the component that draws the set's icons from data (Hugeicons' `HugeiconsIcon`),
+  or from the first icon its library file prefers, so a Lucide icon shows Size and its stroke options, and its color and
+  stroke width, SVG attributes it passes on, are in Attributes (`componentInfoOf`, `packages/core/src/project.test.ts`;
+  `iconSetSource`, `packages/project/src/library-files.test.ts`).
 - **Attributes** (PAR-1026), after a code component's Component instance: what it passes on to its component's root
   element, apart from its own props. + adds one from a searchable list grouped as Attributes, Accessibility and Events,
   each with its kind; its row says Accessibility or Events on hover, and × removes it until a state changes it. Without
@@ -4591,8 +4595,15 @@ section with the group's own title leads it without a title of its own, and its 
   Size, Weight with italic, Line height and Letter spacing, from the project's type tokens, and the text's Color. A
   layer with type of its own and no preset is offered the preset it matches, or the nearest within three steps summed
   over the rows the preset sets (a different font, 4px of size or line height, 100 of weight, 0.025em of letter
-  spacing). A layer that sets no type of its own is offered none. The presets listed are still the stand-in project's,
-  measured with the project's type tokens. Not saved: Preset, and the color's opacity.
+  spacing). A layer that sets no type of its own is offered none. A row the layer doesn't set shows faintly what its
+  text draws in, read from the canvas's computed style for its element, inherited values included (`nodeTypeStyle`,
+  `renderedType` in `inspector/controls/rendered-type.ts`, tested in `rendered-type.test.ts`); before the layer is
+  drawn, and in Storybook, it shows the stand-in project's defaults. Font lists the project's fonts first, its font
+  tokens and the families its stylesheets declare with `@font-face`, then the fonts installed on this computer, from
+  Local Font Access, each set in its own face; Weight offers the faces the font has, and a variable font's whole axis
+  (`inspector/controls/fonts.ts`, tested in `fonts.test.ts`; the project's faces from `declaredFaces` in `guest.ts`).
+  Storybook lists them as the app does, the computer's fonts included. The presets listed are still the stand-in
+  project's, measured with the project's type tokens. Not saved: Preset, and the color's opacity.
 - **Appearance:** Opacity beside Blend mode, Radius from the project's radius tokens, and Clip content, a menu of
   Visible, Clip, Scroll and Scroll when needed. Not saved: Blend mode, Corner shape, Each corner and Scroll always.
 - **Stroke:** + adds the project's usual stroke and − removes it; then its color and one width. Not saved: the color's
@@ -4704,8 +4715,8 @@ Tests:
   it's written; color tokens and other values left out; a limit; and none for a design with no colors.
 - `inspector/sections/*.stories.tsx` (Sections › Layout, Position, Size, Appearance, Fill, Stroke, Effects and Text):
   each style section alone on Pricing's and Sign in's layers, with PickingAColor, PickingASpacing, PickingAWeight and
-  PickingASizing opening their pickers by name. Layers › Layout and Text are those kinds' own panels, and Layers › Kinds
-  (`chrome/LayerPanel.stories.tsx`) shows the sections each other kind of layer gets.
+  PickingASizing opening their pickers by name. Layers › Layout, Text, Image and video, Icon and Component instance are
+  those kinds' own panels.
 
 - `apps/desktop/e2e/fields.e2e.ts`, listed under "Typing, stepping and scrubbing" above.
 
@@ -4761,7 +4772,7 @@ Tests:
 - `inspector/controls/FieldRow.stories.tsx` (Fields › Parts › Field row): Set finds the field by the row's name; Changed
   In A State puts the value back with the reset arrow; Mixed, Long Name, Half Rows, With An Action, Locked To A Preset,
   Overriding A Preset and Changes With The Viewport, for review.
-- `chrome/LayerPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
+- `chrome/MediaPanel.stories.tsx` Image and Video: File, Alt text, Fit and Controls found by role and name.
 - `chrome/LayerSlots.stories.tsx` InstanceSlots, for review.
 - `inspector/controls/SlotPicker.stories.tsx` (Fields › Slot picker, PAR-1046): Filled selects the layer from its chip
   and clears the slot with its ×, without selecting the layer; Open lists On this screen before Components; Searching
@@ -4838,22 +4849,48 @@ Code: `useSelectedLayer` and `useLayer` in `apps/desktop/src/renderer/chrome/sel
 `AttributesSection` in `inspector/sections/PropsSection.tsx`; `DesignTabFields` in `chrome/DesignPanel.tsx`, which a
 story puts one section in; `renderSection` in `chrome/layer-stories.tsx`.
 
-### A layout's and a text layer's own panels (PAR-1057, PAR-1058)
+### Each layer kind's own panel (PAR-1057 to PAR-1064)
 
-A layout and a text layer each have a Design panel of their own, which puts the style sections in that kind's order
-([layer-panels.md](proposals/layer-panels.md)). A layout's opens with Layout, then Size with Spacing, Position, Fill,
-Stroke and Appearance, with Typography, Effects, Motion and CSS after them. A text layer's opens with Content and
-Typography, then Size, Position and Appearance, with Fill, its background, after them. The capability table still leaves
-out what the layer can't take: a design's root has no Position, and a frame's root starts with its size. On a layout, a
-component or an instance, Typography folds to its title and + until it sets something; + opens it.
+Layouts, text layers, images, videos, icons and component instances each have a Design panel of their own, which puts
+the style sections in that kind's order ([layer-panels.md](proposals/layer-panels.md)). After each kind's own lead,
+every kind shares one order, leaving out what it doesn't have: Size with Spacing, Position, Appearance, Typography,
+Fill, Stroke, then Effects, Motion and CSS. A layout's has Layout after Position, as Penpot and Figma put a layer's own
+size and place first. A text layer's opens with Content and Typography, with Fill, its background, after Appearance. An
+image's or a video's opens with Content, its file, alt text, fit and credit, and a video's controls, then Size,
+Position, Appearance and Stroke; it has no Typography or Fill, since the picture fills it. An icon's opens with
+Component instance, which icon it is and its set's props, and Attributes, as its accessible name, then Size, Position
+and Appearance; its color and stroke are its own, so it has no Typography, Fill or Stroke. A component instance's opens
+with Component instance, its props and the slots it fills, and Attributes, then Size, Position, Appearance, and
+Typography for the text inside it, with no Layout; when its component takes no `className`, a note stands in for its
+style sections. The capability table still leaves out what the layer can't take: a design's root has no Position, and a
+frame's root starts with its size. Typography is always open, on a layout, a component or an instance as on a text
+layer.
 
-Code: `LayoutPanel` and `layoutSections` in `chrome/LayoutPanel.tsx`, `TextPanel` and `textSections` in
-`chrome/TextPanel.tsx`, which `LayerPanel` draws for those kinds; `StyleSections`' `order`; the fold in
-`inspector/sections/TypographySection.tsx`.
+A layer read from a component's element (read-only viewer) shows its type's own sections, from
+`@parity-app/layer-types`, Appearance straight after Size as in the shared order, with Spacing and Position after Size,
+as every box has them, Typography for a structure element, whose text inside inherits it, and Effects, Motion and CSS
+folded last. What a story draws takes edits to its props only: every kind's other sections are read-only there.
 
-Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Layout first and Typography folded behind Add
-typography; Root, no Position. `chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no
-Layout. Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
+Several layers of one kind show their style sections in that kind's order, as its own panel does; several layers of
+different kinds show only the sections they all share, in the shared order, with Mixed where values differ (PAR-1064).
+
+Code: `kindPanel` in `chrome/KindPanels.tsx` builds each kind's panel from the sections before its style and its order
+(`LayoutPanel`, `TextPanel`, `MediaPanel` for images and videos, `IconPanel`, and `InstancePanel` for both kinds of
+instance), and `kindPanels` with `panelKind` pick the one `LayerPanel` draws, an icon by `isIconLayer`; `elementOrder`
+for a layer read from an element; `kindOrders` and `oneKindOrder`, which `MultiLayerPanel` in `chrome/MultiPanel.tsx`
+uses too; `StyleSections`' `order`; the fold in `inspector/sections/TypographySection.tsx`.
+
+Tests: `chrome/LayoutPanel.stories.tsx` (Layers › Layout): In A Layout, Size first, Layout after Position, Appearance
+before Typography, Fill and Stroke, and Typography open with no Add typography; Root, no Position.
+`chrome/TextPanel.stories.tsx` (Layers › Text): Headline, Typography before Size and no Layout.
+`chrome/MediaPanel.stories.tsx` (Layers › Image and video): Image and Video, Content first, then Size, Position,
+Appearance and Stroke, with no Layout, Typography or Fill, and Video's Controls switch. `chrome/IconPanel.stories.tsx`
+(Layers › Icon): Check, Component instance first, with no Typography, Fill or Stroke. `chrome/InstancePanel.stories.tsx`
+(Layers › Component instance): Code Component, Component instance then Attributes first and no Layout; Design Instance,
+Component instance first. `chrome/MultiPanel.stories.tsx` (Layers › Several layers): Layers Of One Kind, Typography
+before Size; Layers Of Different Kinds, no Layout or Content. `chrome/ElementPanel.stories.tsx` (Layers › Element):
+Button, Typography, Size, Spacing, Position and Appearance; Section, Layout, Size, Spacing, Position and Typography.
+Layers › All kinds (`chrome/AllKinds.stories.tsx`) draws every kind's panel side by side, each column the app's
 `LayerPanel` with its own selection, to compare them while each kind's panel is built.
 
 Tests:
@@ -4898,7 +4935,7 @@ Tests:
 - `apps/desktop/src/renderer/chrome/fields.test.ts`, in Chrome: a number prop's field found by its label.
 - `inspector/controls/FieldRow.stories.tsx` Typing: the text field found by its row's name, committing nothing until
   Enter.
-- `chrome/LayerPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
+- `chrome/MediaPanel.stories.tsx` Image and Video: Visible, File, Alt text, Fit and, for a video, Controls found by role
   and name.
 - `apps/desktop/e2e/fields.e2e.ts`: a number prop's field found by its row's label (number props, PAR-203).
 
@@ -4969,8 +5006,8 @@ one sentence ("Editing Default changes every state") and wraps when it doesn't f
 Code: `panelEnd` in `apps/desktop/src/renderer/chrome/PanelSection.tsx` is the right padding sections and headers use;
 `Field` in `chrome/fields.tsx` places the reset arrow beside the label.
 
-Tests: none; it's checked in the Inspector stories (Layers › Kinds: Image; Sections › State selector: Editing A State;
-Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
+Tests: none; it's checked in the Inspector stories (Layers › Image and video: Image; Sections › State selector: Editing
+A State; Fields › Parts › Field row: Changed In A State; Layers › Designs: Screen Selected), in light and dark.
 
 ### What's selected, above its name (PAR-723)
 
@@ -5037,9 +5074,9 @@ libraries and the project's own components; a library matched by its whole id; a
 is green apart from its layout; its chip and its text on a panel take their own steps; an icon layer is Smile in a
 project's tab, beside a component instance's Diamond; and outside a tab when it's given the libraries; an unnamed icon's
 label is its icon, a named one's its name; and its id without the libraries), and `chrome/canvas-menu.test.ts` (Select
-layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Kinds, Layers
-› Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light
-and dark.
+layer names an unnamed icon by its icon). The header itself is checked in the Inspector stories (Layers › Icon, Layers ›
+Instances: Layer Inside An Instance, Sections › Header: Unnamed Layer, Layers › Designs: Screen Selected), in light and
+dark.
 
 ### A layer's own fields (PAR-1051)
 
@@ -5470,8 +5507,9 @@ A slot it leaves empty shows the placeholder.
   Of several dragged layers, the first that can go in does. A layer from another design, the instance itself, or a layer
   it's inside can't, and a toast says why ("Only layers in this design can go in Features", "Pricing can't go in
   Features, which is inside it").
-- **A selected slot** has a panel of its own: its name, the instance it's in, which goes back to it, its picture, and
-  Clear. A click in Components adds into it, at its end.
+- **A selected slot** has a panel of its own (PAR-1063): its name, the instance it's in, which goes back to it, then
+  Contents, with the same picker as the instance's row, its × clearing it, and the slot's picture. A click in Components
+  adds into it, at its end. The rest of the slot's panel waits on how slots behave (PAR-1070).
 - **On the canvas** the fill is drawn where the placeholder was, and its layers are the design's own: picking and
   selecting them works as for any other. Layers doesn't list them under the instance.
 - **Detach** bakes the fill in where the placeholder was, keeping its layers' ids. A component can place an instance of
@@ -5488,10 +5526,10 @@ The file keeps a fill as `slots` on the instance, by slot name, as a code compon
 Detach in `instances.ts`. Where a click inserts is `whereToInsert` in `@parity-app/editor`, and the picture's tree
 `slotPreviewTree`.
 
-Code: `chrome/instance-slots.tsx` (the rows, the card and the slot's panel), `SlotPickerField` in
-`inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`, `DesignInstanceProps` in
-`inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`, `treePreviewJob` and `useOneOffPreview`
-in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
+Code: `chrome/instance-slots.tsx` (`SlotFill`, the picker the rows and the slot's panel share, the card and the slot's
+panel), `SlotPickerField` in `inspector/controls/slot-picker.tsx`, `layersMime` and the drag in `chrome/LayerTree.tsx`,
+`DesignInstanceProps` in `inspector/sections/PropsSection.tsx`, `LayerPanel` in `chrome/LayerPanel.tsx`,
+`treePreviewJob` and `useOneOffPreview` in `component-previews.ts`, and `insertAtSelection` in `canvas/insert.ts`.
 
 Tests:
 
@@ -6104,8 +6142,8 @@ Tests:
   the variant's changes.
 - `packages/core/src/instances.test.ts`, "names where Show and Hide land" (PAR-497): the variant option shown in the
   base state, another state over the variant, and the base state with the default option shown.
-- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Plan card's Compact option hides Feature 4, and its row's
-  menu offers Show.
+- `chrome/LayerTree.stories.tsx`, HiddenByAVariant (PAR-497): Pricing's Compact option hides its lede, and the lede's
+  row's menu offers Show.
 - `packages/editor/src/style-editing.test.ts` (PAR-567): an edit in a variant option the board shows landing in the
   option, a state's edit leaving the design alone, resets across layers, and the parent's layout read with a variant's
   direction and inside an instance (see Fields, Typing, stepping and scrubbing).
@@ -6181,8 +6219,8 @@ Tests:
 - `packages/agent/src/run.test.ts`, "states, only a component's" (10): `Designs()` by kind, eight calls refused on a
   screen, and a screen edited and drawn in its base state.
 - `apps/desktop/src/renderer/chrome/convert-to-frame.test.ts`, "converting a component to a screen": the notice's line.
-- Stories: `chrome/LayerPanel.stories.tsx` Text (a screen's layer, no Editing control) and ComponentInstance (no State
-  row).
+- Stories: `chrome/TextPanel.stories.tsx` Headline (a screen's layer, no Editing control) and
+  `chrome/InstancePanel.stories.tsx` Code Component (no State row).
 
 ### A design's modes in its own order (PAR-923)
 
@@ -6566,7 +6604,7 @@ Tests:
   palette shade), DetailFromTheKeyboard (the right arrow in and Escape back, past a spacing step's disabled Edit),
   Motion, EditingAPaletteShade (from a search), InvalidValue, UnclosedBracket (a bracket left open and a missing token,
   refused) and DescribedOnly (the end of the list, drawn once scrolled to). All 29 of the file's stories played in
-  Storybook on 2026-10-30. Gap: FoldedSections clears the search with the section already open, so no story folds one
+  Storybook on 2026-11-16. Gap: FoldedSections clears the search with the section already open, so no story folds one
   during a search and then clears it. That clearing unfolds it was checked in the code: the search field's `onChange`
   empties the folded set whenever the search goes from empty to not, or back.
 - `explorations/previews/TokenPreviews.stories.tsx`: all 18 played on 2026-10-29, drawing with the app's module. The
@@ -8312,7 +8350,11 @@ A screen is named for the component its route draws, else its path.
   drawn from where the boards are now, so they follow a page that's moved, and they sit behind every board.
 - **The app draws it.** A page's frames load the app's own `index.html` at the page's URL from the builder's server, in
   a document of their own, so the app's router, layouts, loaders and redirects run as they do in a browser: `/settings`
-  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window.
+  shows Profile, where its index redirects. Designs are still drawn by the guest in Parity's window. A frame loads under
+  a name of its project's own, `http://p<hash>.localhost:<port>` (`pageFrameUrl`), which Chromium reaches on the
+  loopback address and runs in a process of its own, so one project's pages never share a process with another's
+  (PAR-1260). Vite and Next's development server accept those names as they come; the webpack-compatible builders'
+  server lets the page's own name load its chunks (`isPageOrigin`).
 - **A value for each param, in Props.** Selecting a page shows its route's path params under Props, before Route, as
   text fields, each with the param's name as its placeholder. A value draws the page at that URL (`samplePath` with the
   view's `params`, in `routePageUrl`), written as a URL writes it; an unset one is the param's name, and an unset
@@ -8341,20 +8383,34 @@ A screen is named for the component its route draws, else its path.
   pans and selects over it, except with the Interact tool: then the page takes the pointer and keys as a design does,
   and clicking Pricing in App's frame takes it to `/pricing`. Otherwise it's inert, as a design's frame is, so Tab on
   the canvas never goes into the page and leaves the canvas's keys there (`keyboard.e2e.ts`, "keys outside Interact").
-- **Modes reach the page.** A page's frame names itself with its mode, as `parity:` and the mode's classes, attributes
-  and color scheme as JSON, and a script the builder's server puts first in the app's `index.html` puts the classes and
-  attributes on `<html>` and answers `prefers-color-scheme` with the mode's scheme, before the app runs. An app that
+- **The page runtime (PAR-1260).** The builder serves the page runtime first in the app's page
+  (`@parity-app/page-runtime`, as [proposals/route-frames.md](proposals/route-frames.md) sets out): Vite as a module
+  script at the top of `<head>`, the webpack-compatible builders as the first module of each of the app's entries, and
+  Next from its `instrumentation-client`, which every client entry runs before React. With it come the extensions' page
+  modules: the router's, which moves the app with its own router (TanStack Router's reads `window.__TSR_ROUTER__`), and
+  the renderer's, which says when the app has hydrated (React's installs a minimal `__REACT_DEVTOOLS_GLOBAL_HOOK__` and
+  waits for the first commit to the app's root, never to Next's development overlay). The frame's name is `parity:` and
+  JSON with the protocol's version, the frame's id, Parity's origin, and the mode and window it opens in. The runtime
+  posts its hello to Parity's origin only, and Parity checks the hello's origin and source, hands it a `MessagePort` and
+  runs `@parity-app/channel` on it (`usePageChannel`). A page that reloads says hello again and gets a new port. Once
+  the app has hydrated, the page says where it is and which router can move it; with no hydration module, once it has
+  loaded and its DOM has been quiet for 150 ms. After that it says where it moves by itself, by its router or by its
+  address, and that someone used it, at most once a second. Anywhere other than a frame Parity named, the runtime does
+  nothing.
+- **Modes reach the page, without a reload.** The frame opens in its mode, and when the mode changes Parity sends it
+  with `mode.set`: the runtime puts the mode's classes and attributes on `<html>`, takes off the last mode's, and
+  answers `prefers-color-scheme` with the mode's scheme, telling the app's queries when the answer changes. An app that
   follows the system's theme, as the example's theme provider does, follows the mode's: in Desktop Light the page's
   `<html>` is `light` with a white background. An app that keeps its own choice of theme, in `localStorage`, uses that,
   and its page frames share it, since they're one origin.
 - **As tall as the page.** Each viewport's frame is as wide as its viewport and as tall as its page, with no scrollbar:
-  App, whose page runs 49px past a 1280 × 800 window, is 1280 × 849. The script the builder's server puts first in the
-  app's `index.html` posts the document's height to the canvas, `{ parity: "page-height", height }`, whenever it changes
-  while the frame is still as tall as its screen (Desktop 800, Tablet 1024, Mobile 844), and the frame grows to it but
-  never shrinks below the screen. It measures only at the screen's height because a page with a section as tall as the
-  window grows with the frame, without end; once the frame has grown, what such a section runs past isn't given a
-  scrollbar. So a page that changes after it first draws, as with the Interact tool, keeps the height it first had. A
-  frame given a height of its own keeps it and scrolls, but page frames have no resize handles yet.
+  App, whose page runs 49px past a 1280 × 800 window, is 1280 × 849. The runtime hides the page's scrollbar, so the page
+  lays out at the mode's whole width, and says how tall the page is (`page.height`) whenever that changes while its
+  window is the mode's (Desktop 800, Tablet 1024, Mobile 844). The frame grows to it but never shrinks below the window.
+  It measures only in the mode's window because a page with a section as tall as the window grows with the frame,
+  without end. A mode that changes takes the frame back to its window until the page says how tall it is there. So a
+  page that changes after it first draws, as with the Interact tool, keeps the height it first had. A frame given a
+  height of its own keeps it and scrolls, but page frames have no resize handles yet.
 - **Bundled up front.** The builder's server scans `index.html` with the components, so what only the app's entry
   imports, such as its router, is bundled before the first page asks for it. Bundled later, it was bundled again under
   the pages, which then had two copies of React.
@@ -8366,15 +8422,30 @@ its four pages a level in, and Billing and Profile in the Settings folder; click
 canvas. Moving Pricing's page with `history.replaceState` showed "Lands on /pricing/annual" under its frame. Dashboard's
 frame drew the login page, and its row in Layers showed the warning, with "Lands on /login" on hover.
 
+The page runtime was tried in a development build on the example project (PAR-1260): all eight page frames loaded under
+the project's own `p….localhost` name, each with `window.parityFrame`, the mode's classes and no scrollbar, and App's
+frame grew to 849 from the page's `page.height`. Dashboard's warning came from its `page.ready`. Setting Desktop Light's
+theme to Dark in the Modes panel turned every page dark without loading it again, its `prefers-color-scheme` query
+answering dark, and back. Setting its viewport to Mobile made App's frame 390 wide and 893 tall, measured in the 390 ×
+844 window, and back to 849. A page that reloaded by itself connected again and took both changes.
+
 Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pageLinkLine`, `pageLinksLit`,
-`pageLandedMessage` and `landedElsewhere` in `packages/editor/src/route-boards.ts`, with `titleTop` in
+`landedElsewhere`, `pageMode` and `pageFrameUrl` in `packages/editor/src/route-boards.ts`, with `titleTop` in
 `canvas-labels.ts`; `routeOptions` in `packages/extension-tanstack-router/src/routes.ts`; `providedRoutes` in
 `apps/desktop/src/utility/extensions.ts`; `apps/desktop/src/renderer/canvas/route-pages.ts`; `PageLinksUtil.tsx`, with
-`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`; `routeLines` in
-`apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`, and
-`appPageModeScript` in `app-page.ts`, whose messages `pageHeightMessage` and `pageLandedMessage` read.
+`PageGroupView`; `PageFrame`, `LandedElsewhere` and the title's backdrop in `ContainerView.tsx`, and `usePageChannel` in
+`page-channel.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in
+`packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
+`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
+in `packages/extension-tanstack-router/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each
+manifest's `page`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
+`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
+`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
+`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
+`packages/next-builders/src/start.ts`; and `pageEntries` in `apps/desktop/src/shared/built-in-extensions.ts`, which
+`apps/desktop/scripts/build.ts` bundles for a packaged app.
 
-Tests: `packages/editor/src/route-boards.test.ts` (34: each layout's pages hung from its index, the root's index at the
+Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
 top, and an index of a deeper path as a page; a layout a group around its pages when its index only redirects, an index
 that redirects but draws staying a page, and a layout without an index a group; a forest without a root index, and
 nothing without routes; each page centered over the pages under it, a level below; a group's pages side by side inside
@@ -8382,25 +8453,38 @@ it on its own level, with the page above centered over the group; each page's UR
 empty sample; a screen for each page, named for its component, with the screen it hangs from, ending above the designs;
 a group for a layout without a page, hanging from the page above, with the page its index redirects to, its pages
 hanging from it and no screen for the layout; a pathless layout's group named for its component; a page's frames with no
-size of their own; the page's height read from its frame's message, rounded up, and no other message or a height that
-isn't a positive number; the path a page landed on read from its frame's message, and no other message or a path that
-isn't one; the landed path given when it isn't the page's own, and nothing for its own with or without a trailing slash;
-a group's box round its pages' titles; a line curving across above the lower page's title and dropping to its board,
-turning down higher zoomed out, and curving all the way down once the title reaches the page above; the lines a page
-brings forward, up to the top of the tree and down to the pages right under it, for several pages at once, and none for
-no page or a page outside the tree; a line into a group curving straight to its top), `canvas-labels.test.ts`
-(`titleTop`, up close and zoomed out), `packages/extension-tanstack-router/src/routes.test.ts` (the example's
-`/settings` index redirecting to Profile, and a route that always redirects told from one that sometimes does), and
-`packages/extension-vite/src/app-page.test.ts` (6: the page's height told once it loads and again when it grows, nothing
-told once the frame is taller than its screen, the scrollbar hidden while it is and given back otherwise, the path the
-page opens on and where the router moves it told, nothing told once someone uses the page, and nothing told outside a
-page's frame). Gaps: reading routes when the project opens, the page frames, drawing the lines, groups, landing warning
-and the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
-lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
-its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
-rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
-opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
-hovering Projects.
+size of their own; a mode's classes, attributes and scheme as the page draws in them; a page's URL under its project's
+own `.localhost` name, and each project a name of its own; the landed path given when it isn't the page's own, and
+nothing for its own with or without a trailing slash; a group's box round its pages' titles; a line curving across above
+the lower page's title and dropping to its board, turning down higher zoomed out, and curving all the way down once the
+title reaches the page above; the lines a page brings forward, up to the top of the tree and down to the pages right
+under it, for several pages at once, and none for no page or a page outside the tree; a line into a group curving
+straight to its top), `canvas-labels.test.ts` (`titleTop`, up close and zoomed out),
+`packages/extension-tanstack-router/src/routes.test.ts` (the example's `/settings` index redirecting to Profile, and a
+route that always redirects told from one that sometimes does), and the page runtime's (PAR-1260):
+`packages/page-runtime/src/runtime.test.ts` (16: nothing in a window Parity didn't name, nor in a frame named in another
+version; the hello to Parity's origin alone; a port taken only from Parity's origin; the scrollbar hidden; the mode the
+frame opens in, changed without a reload, with `prefers-color-scheme` answered and its query told; a `mode.set` it can't
+read refused; the height told in the mode's window, rounded up, and not once the frame has grown; ready once a page
+without a hydration module has gone quiet, or once a hydration module says the app committed; a router that isn't the
+app's passed over; `route.go` moving the app and saying where it ended, a redirect included, without a `page.moved`;
+`route.go` refused without a router; where the page moved told, by its router or its address; `page.used` at most once a
+second), `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where
+it resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
+not when it's first idle; one given up when aborted; the watcher told until it stops),
+`packages/extension-react/src/page.test.ts` (4: the first commit to the app's root, never to a root in a shadow root, as
+Next's overlay's, with real React; giving up when aborted; the document and an element in the page as roots; only
+`#__next` or the document under Next), `packages/project/src/page-entry.test.ts` (2), `guest-config.test.ts` ("runs the
+page runtime first in each of the app's entries"), `server.test.ts` (`isPageOrigin`), `guest-app.test.ts` ("runs the
+page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the routers' page modules") and
+`built-in-extensions.test.ts` ("bundles the page runtime and the built-in page modules"). Hydration and navigation in
+the fixtures' real apps are left to the end-to-end suite. Gaps: reading routes when the project opens, the page frames,
+drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the bundling have no test
+of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%: every page's name and
+path read clearly, with each line meeting its page's top edge. Each page frame was checked on the example at 1280 wide:
+App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in Storybook's Page tree stories
+(`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect) at 5% and 10%, by selecting
+Pricing, Settings' group and Billing and hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 
@@ -8448,7 +8532,7 @@ group in the panel: the UI kit's by file, as Card with CardHeader and CardTitle,
   handlers it passes through to its element aren't listed. A layer inside it shows its type's sections: first the ones
   its attributes fill (`panelData`), as Link with its `href` and target, a Checkbox with its name and whether it's
   checked, or a video's Source and Playback, leaving out one with nothing set; then its text, for text; then the style
-  sections its type has, as a Button's Typography, Size, Fill, Stroke and Appearance. A layer of a page shows the Design
+  sections its type has, as a Button's Typography, Size, Appearance, Fill and Stroke. A layer of a page shows the Design
   tab's sections with its values. None of them edits it.
 - **Never saved.** The boards are laid out each time the project opens, in a design file of their own that's never
   written. Neither a move, the width a board is drawn at, nor its layers being read marks the project unsaved. Pages and
