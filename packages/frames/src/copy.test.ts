@@ -104,4 +104,16 @@ describe("buildCopy", () => {
   it("gives the same ids to the same markup", () => {
     expect(copy().drawn.ids).toEqual(copy().drawn.ids)
   })
+
+  it("orders tens of thousands of siblings within the test timeout", () => {
+    const wide: FrozenElement = {
+      tag: "body",
+      attributes: [],
+      children: Array.from({ length: 40_000 }, () => ({ tag: "i", attributes: [], children: [] }))
+    }
+
+    const { drawn } = buildCopy(document, wide, registry)
+
+    expect(drawn.ids.at(-1)).toBe("39999")
+  })
 })

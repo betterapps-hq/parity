@@ -254,7 +254,10 @@ export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): SanitizedR
 
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string {
-  return sanitizeCss(text.replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')*;?/gi, ""), policy)
+  return sanitizeCss(
+    readLoadNames(text).replace(/@import\b(?:[^;"']|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')*;?/gi, ""),
+    policy
+  )
 }
 
 function sanitizeNode(node: FrozenNode, policy: SanitizePolicy, count: { removed: number }): FrozenNode {
@@ -308,7 +311,9 @@ function sanitizeAttributes(
   const kept: [string, string][] = []
 
   for (const [name, value] of attributes) {
-    const clean = allowedAttribute(tag, namespace, name) ? sanitizeValue(tag, name, value, policy) : undefined
+    const clean = allowedAttribute(tag, namespace, name)
+      ? sanitizeValue(tag, namespace, name, value, policy)
+      : undefined
 
     if (clean === undefined) {
       count.removed += 1
@@ -337,7 +342,13 @@ function allowedAttribute(tag: string, namespace: FrozenElement["namespace"], na
 }
 
 /** An allowed attribute's value with its URLs checked, or undefined when it can't be kept. */
-function sanitizeValue(tag: string, name: string, value: string, policy: SanitizePolicy): string | undefined {
+function sanitizeValue(
+  tag: string,
+  namespace: FrozenElement["namespace"],
+  name: string,
+  value: string,
+  policy: SanitizePolicy
+): string | undefined {
   const use = mediaSources.get(tag) ?? "link"
 
   switch (name) {
@@ -352,7 +363,8 @@ function sanitizeValue(tag: string, name: string, value: string, policy: Sanitiz
     case "xlink:href":
       return allowedUrl(value, use, policy) ? value : undefined
     default:
-      return value
+      // SVG's presentation attributes take CSS values, so `fill`, `filter`, `mask` and the rest can load a `url()`.
+      return namespace === "svg" ? sanitizeCss(value, policy) : value
   }
 }
 
@@ -435,8 +447,8 @@ function srcsetCandidates(value: string): { url: string; descriptor: string }[] 
  * loads images and fonts, so any `https:` host is allowed.
  */
 function sanitizeCss(css: string, policy: SanitizePolicy): string {
-  const urls = css.replace(
-    /\burl\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|([^)"'\s]*))\s*\)/gi,
+  const urls = readLoadNames(css).replace(
+    /\burl\(\s*(?:"((?:[^"\\]|\\.)*)"|'((?:[^'\\]|\\.)*)'|((?:[^)"'\s\\]|\\[0-9a-f]{1,6}\s?|\\[^\n])*))\s*\)/gi,
     (whole, double?: string, single?: string, bare?: string) =>
       allowedUrl(cssString(double ?? single ?? bare ?? ""), "image", policy) ? whole : "none"
   )
@@ -449,6 +461,32 @@ function sanitizeCss(css: string, policy: SanitizePolicy): string {
     )
 
     return `${open}${strings})`
+  })
+}
+
+/** A CSS identifier, escapes and all, as a function's or an at-rule's name can be written. */
+const cssIdentifier = String.raw`(?:[\w-]|\\[0-9a-f]{1,6}\s?|\\[^\n0-9a-f])+`
+
+/** Each name, as an escape-free identifier, ahead of `(` or, for an at-rule, of what follows its name. */
+const cssName = new RegExp(String.raw`(@?)(${cssIdentifier})(?=[\s("';{])`, "gi")
+
+/** The function names that load something, which an escape could hide from the patterns that check them. */
+const loadFunctions = new Set(["url", "image-set", "-webkit-image-set"])
+
+/**
+ * CSS with the names of `url()`, `image-set()` and `@import` written plainly where escapes spelled them (`u\72l(`,
+ * `@\69mport`), as a browser reads them, so the checks after see every load. Every other name keeps its escapes.
+ */
+function readLoadNames(css: string): string {
+  return css.replace(cssName, (whole, at: string, name: string) => {
+    if (!name.includes("\\")) {
+      return whole
+    }
+
+    const read = cssString(name).toLowerCase()
+    const loads = at === "@" ? read === "import" : loadFunctions.has(read)
+
+    return loads ? `${at}${read}` : whole
   })
 }
 

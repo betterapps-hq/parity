@@ -126,6 +126,10 @@ const frozenBody = z.unknown().transform((value, context): FrozenElement => {
   let elements = 1
   let text = textOf(body)
 
+  if (text > maxSnapshotText) {
+    return fail(`a snapshot holds at most ${maxSnapshotText} characters of text`, "attributes")
+  }
+
   const pending: Pending[] = top.data.children.map((raw, index) => ({
     raw,
     into: body.children,

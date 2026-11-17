@@ -266,6 +266,13 @@ describe("sanitizePage: URLs", () => {
     expect(kept("div", "style", style)).toBe(`background: none no-repeat; mask: url(${other}); color: red`)
     expect(kept("rect", "style", "fill: url(#g)", "svg")).toBe("fill: url(#g)")
   })
+
+  it("takes disallowed url()s out of SVG's presentation attributes", () => {
+    expect(kept("g", "filter", "url(http://evil.example/f.svg#f)", "svg")).toBe("none")
+    expect(kept("rect", "fill", "url(#g) red", "svg")).toBe("url(#g) red")
+    expect(kept("path", "mask", `url(${policy.pageOrigin}/m.svg#m)`, "svg")).toBe(`url(${policy.pageOrigin}/m.svg#m)`)
+    expect(kept("path", "d", "M0 0L10 10", "svg")).toBe("M0 0L10 10")
+  })
 })
 
 describe("sanitizeRoot", () => {
@@ -325,6 +332,25 @@ describe("sanitizeSheet", () => {
     expect(sanitizeSheet(String.raw`a { background: url("\6a avascript:alert(1)") }`, policy)).toBe(
       "a { background: none }"
     )
+  })
+
+  it("reads escapes in an unquoted url()", () => {
+    expect(sanitizeSheet(String.raw`a { background: url(\6a avascript:alert\(1\)) }`, policy)).toBe(
+      "a { background: none }"
+    )
+  })
+
+  it("finds url() and @import when escapes spell their names", () => {
+    expect(sanitizeSheet(String.raw`a { background: u\72l(http://evil.example/x.png) }`, policy)).toBe(
+      "a { background: none }"
+    )
+    expect(sanitizeSheet(String.raw`@\69mport "http://evil.example/a.css"; b{}`, policy)).toBe(" b{}")
+  })
+
+  it("keeps escapes in names that don't load anything, as Tailwind's selectors", () => {
+    const css = String.raw`.md\:flex { display: flex } .w-\[10px\] { width: 10px }`
+
+    expect(sanitizeSheet(css, policy)).toBe(css)
   })
 
   it("checks image-set()'s strings as it does url()s", () => {

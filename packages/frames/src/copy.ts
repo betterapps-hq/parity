@@ -94,7 +94,13 @@ function depthFirst(made: readonly string[], parents: ReadonlyMap<string, string
 
   for (const id of made) {
     const parent = parents.get(id)
-    children.set(parent, [...(children.get(parent) ?? []), id])
+    const siblings = children.get(parent)
+
+    if (siblings) {
+      siblings.push(id)
+    } else {
+      children.set(parent, [id])
+    }
   }
 
   const ordered: string[] = []

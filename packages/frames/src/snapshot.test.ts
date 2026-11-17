@@ -92,6 +92,12 @@ describe("parsePageSnapshot", () => {
       `at most ${maxSnapshotText} characters`
     )
   })
+
+  it("refuses an empty body whose own attributes pass the text cap", () => {
+    const huge: FrozenElement = { tag: "body", attributes: [["class", "x".repeat(maxSnapshotText)]], children: [] }
+
+    expect(() => parsePageSnapshot({ ...snapshot(), body: huge })).toThrow(`at most ${maxSnapshotText} characters`)
+  })
 })
 
 describe("parsePageSheets", () => {
