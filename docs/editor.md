@@ -8697,8 +8697,9 @@ A screen is named for the component its route draws, else its path.
   every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
   body, except where the class of a theme the token has a value of its own in is, and a theme's value where its class
   is: Desktop Dark keeps `primary`'s dark value, and takes an edited `radius`, which has none. A theme's value given,
-  saved and undone shows the token's default there. The page with the Interact tool gets them over its channel
-  (`preview.set`), into a sheet its snapshots never list.
+  saved and undone shows the token's default there. A theme turned on by an attribute, such as `[data-theme="dark"]`,
+  counts as its class does (the guest's `themeAttributes`). The pool's live and spare pages get them over their channel
+  (`preview.set`), when they connect and as they change, into a sheet their snapshots never list.
 - **Live boards (PAR-1263).** With the Interact tool, a route board can be the app's own page, as
   [proposals/route-frames.md](proposals/route-frames.md) sets out. Each project keeps two spare frames per window while
   Interact is on: the app's page in an iframe on its builder's origin, in a layer in the canvas's page space above the
