@@ -30,6 +30,8 @@ export class TokenStore {
   private tokens: Token[]
   /** The edits the shared stylesheet shows now. */
   private shown: TokenEdits = noTokenEdits
+  /** The tokens and themes this store has previewed, which the stylesheet shows at their edits' values or originals. */
+  private readonly previewed = new Set<string>()
   private overrides: readonly TokenChange[] = []
   private readonly unfollow: () => void
 
@@ -116,11 +118,15 @@ export class TokenStore {
       return
     }
 
-    const differences = tokenDifferences(this.shown, edits)
+    const differences = tokenDifferences(asLoaded(this.shown, edits, this.loaded, this.previewed), edits)
 
     // A value set to nothing takes the declaration out again, which a value the sheet never had leaves alone.
     for (const { name, theme, value } of differences) {
       previewToken(this.sheet, name, theme, value ?? "")
+    }
+
+    for (const key of edits.keys()) {
+      this.previewed.add(key)
     }
 
     this.shown = edits
@@ -128,6 +134,32 @@ export class TokenStore {
     this.overrides = withTokenOverrides(this.overrides, differences, this.loaded)
     this.changes.notify()
   }
+}
+
+/**
+ * The edits the stylesheet shows, with each token edited now that it has never previewed at the value the stylesheet
+ * had when its guest loaded, not the edit's original: a copy that joined a live room after the host saved loaded the
+ * saved value, which can differ from the original the room's edits carry (PAR-1254). A token it has previewed and taken
+ * out since shows its edit's original, so redoing it compares with that.
+ */
+function asLoaded(
+  shown: TokenEdits,
+  edits: TokenEdits,
+  loaded: readonly Token[],
+  previewed: ReadonlySet<string>
+): TokenEdits {
+  let from: Map<string, TokenEdit> | undefined
+
+  for (const [key, edit] of edits) {
+    const value = loaded.find((token) => token.name === edit.name)?.values[edit.theme]
+
+    if (!shown.has(key) && !previewed.has(key) && value !== undefined && value !== edit.original) {
+      from ??= new Map(shown)
+      from.set(key, { ...edit, value })
+    }
+  }
+
+  return from ?? shown
 }
 
 /**

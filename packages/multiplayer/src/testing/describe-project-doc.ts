@@ -25,6 +25,7 @@ import {
   updateView
 } from "../callers.ts"
 import { createProjectDoc } from "../project-doc.ts"
+import { createProjectSaver } from "../saver.ts"
 import type { DocChange, DocOp, DocProvider, GestureId, ProjectDoc } from "../types.ts"
 import type { ReplicaPair } from "./replicas.ts"
 
@@ -1217,6 +1218,65 @@ export function describeProjectDoc(provider: DocProvider, options: { replicas?: 
         exchange()
         expect(b.tokens().has("primary default")).toBe(false)
         expect(b.tokens().get("accent default")?.value).toBe("blue")
+      })
+
+      it("writes what's changed back since the host saved when this copy takes over writing files (PAR-1254)", async () => {
+        const { a, b, exchange } = together()
+        const disk = new Map(files().map(({ path, document }): [string, CanvasDocument] => [path, document]))
+        const stylesheet = new Map([["primary default", "black"]])
+
+        /** A copy's saver writing to the one disk; the host's writes reach the guest as files changed on disk. */
+        const saverOf = (
+          doc: ProjectDoc,
+          writesFiles: boolean,
+          onWrite?: (path: string, document: CanvasDocument) => void
+        ) => {
+          const saver = createProjectSaver(
+            doc,
+            {
+              saveDocument: async (path, document) => {
+                disk.set(path, document)
+                onWrite?.(path, document)
+              },
+              deleteDocument: async (path) => void disk.delete(path),
+              autosave: () => false
+            },
+            writesFiles ? {} : { writesFiles, saved: { files: new Map(disk), modes: defaultModeSettings } }
+          )
+
+          saver.writeTokensWith({
+            path: "src/index.css",
+            write: async (changes) => {
+              for (const { name, theme, value } of changes) {
+                stylesheet.set(`${name} ${theme}`, value ?? "")
+              }
+            }
+          })
+
+          return saver
+        }
+
+        const guest = saverOf(b, false)
+        const host = saverOf(a, true, (path, document) => guest.read(path, document))
+
+        // The host renames Home and makes primary red, and saves both.
+        apply(a, [{ op: "setDesign", design: "app.par#home", path: ["name"], value: "Start" }])
+        changeTokens(a, "Change primary", [primary("red")])
+        exchange()
+        await host.flush()
+        expect(disk.get("app.par")?.containers[1]?.name).toBe("Start")
+        expect(stylesheet.get("primary default")).toBe("red")
+
+        // The guest changes both back to what it opened with, and the host leaves before saving that.
+        apply(b, [{ op: "setDesign", design: "app.par#home", path: ["name"], value: "Home" }])
+        changeTokens(b, "Change primary", [primary("black")])
+        exchange()
+        host.dispose()
+
+        await expect(guest.setWritesFiles(true)).resolves.toEqual({ filesWritten: 1, stylesheetWritten: true })
+        expect(disk.get("app.par")?.containers[1]?.name).toBe("Home")
+        expect(stylesheet.get("primary default")).toBe("black")
+        expect(guest.unsaved()).toEqual([])
       })
 
       it("shares which state and mode each design shows, alongside the other person's edits to it", () => {

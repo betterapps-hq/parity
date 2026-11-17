@@ -6391,9 +6391,13 @@ the signed-in person's first name.
   it's typed (PAR-1230).
 - **Only the host writes files** (PAR-1231). It writes the others' edits like its own, autosaving them on its usual
   delay, and writes the stylesheet. A copy that doesn't write files has nothing to save: its name shows no unsaved dot,
-  closing it asks nothing, and Save says "Saved by the room". When it takes over, it writes every file that differs from
-  what it read from disk. Only the host takes in a file changed on disk; the others ignore their own disk, recording it
-  once per file (`sync.diskIgnored`).
+  closing it asks nothing, and Save says "Saved by the room". Only the host takes in a file changed on disk; the others
+  ignore their own disk, recording it once per file (`sync.diskIgnored`), but take the file as what's saved (PAR-1254).
+  When one takes over, it writes every file that differs from what it last read from disk, when it opened or as the host
+  saved it since, and every token value edited: it can't tell which the host saved to the stylesheet, so it writes them
+  all.
+- **A copy that joins shows the room's token values,** compared with the stylesheet it loaded, not the edits' originals,
+  so a value the host saved and changed back shows as the room has it (PAR-1254).
 - **Everyone sees the same state and mode** (PAR-1231): which state and mode a design shows is an edit like any other.
 - **People.** Each person is drawn in the palette the host assigned them, so they're the same color in every copy, and
   colors never run out (`parity.colors.assign`). Their pointer glides between the positions sent, with a badge of their
@@ -6435,8 +6439,13 @@ Tests:
 - `packages/multiplayer-loro/src/backend.test.ts`: opening on a snapshot as the replica holds it; two documents kept in
   step through each one's local updates, delivered late as a relay does, with a merge repaired the same on both.
 - `packages/multiplayer/src/saver.test.ts`, "ProjectSaver in a live room": others' changes written and counted in
-  `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go.
-- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro.
+  `fromOthers`; nothing written or unsaved in a copy that doesn't write files; taking over and letting go; every token
+  value edited written on taking over, one changed back to its original included; a file the host saved taken as what
+  the file holds, so one changed back since is written (PAR-1254).
+- `packages/multiplayer/src/testing/describe-project-doc.ts`, "concurrent", run on Loro: a copy taking over after the
+  host saved and left writes the file and token value it changed back since (PAR-1254).
+- `apps/desktop/src/renderer/tokens-store.test.ts`, "joining a live room" (2), in Chrome: a guest that loaded a value
+  the host saved shows the room's, though it's the edit's original; and shows a saved edit again on redo after undo.
 
 ### The canvas surface: colors, the camera and boxes (PAR-1236)
 

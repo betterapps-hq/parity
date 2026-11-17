@@ -39,6 +39,16 @@ export function guest(designs) {
   return { sheet, store: new TokenStore(tokens, sheet, write, designs, "src/index.css") }
 }
 
+/** A guest that loaded \`--primary\` saved as another value, as a copy joining a live room after the host saved. */
+export function guestSaved(designs, primary) {
+  const sheet = new CSSStyleSheet()
+  sheet.replaceSync(css.replace("--primary: black", "--primary: " + primary))
+  const saved = tokens.map((token) =>
+    token.name === "primary" ? { ...token, values: { ...token.values, default: primary } } : token
+  )
+  return { sheet, store: new TokenStore(saved, sheet, async () => {}, designs, "src/index.css") }
+}
+
 /** A token's value in a theme, as the sheet declares it. */
 export function declared(sheet, name, theme = "default") {
   const selector = theme === "default" ? ":host" : "." + theme
@@ -166,6 +176,42 @@ describe("editing tokens", () => {
     })
 
     expect(result).toEqual(["red", 1, false])
+  })
+})
+
+describe("joining a live room", () => {
+  it("shows the room's value over one the host saved, though it's the edit's original (PAR-1254)", async () => {
+    const result = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { open, guestSaved, declared } = tokens
+      // The host saved red, then changed it back to black: the room's edit is black, its original black.
+      const { designs, tokens: first } = open()
+      first.store.set([{ name: "primary", theme: "default", value: "red" }])
+      first.store.set([{ name: "primary", theme: "default", value: "black" }])
+      const joined = guestSaved(designs, "red")
+
+      return declared(joined.sheet, "primary")
+    })
+
+    expect(result).toBe("black")
+  })
+
+  it("shows a token edit again on redo in a guest that loaded the value it saved", async () => {
+    const result = await page.evaluate(() => {
+      // @ts-expect-error The bundle's global.
+      const { open, guestSaved, declared } = tokens
+      // Red saved over the original black, and the guest loaded again with red: undo shows black, redo red again.
+      const { designs, tokens: first } = open()
+      first.store.set([{ name: "primary", theme: "default", value: "red" }])
+      const joined = guestSaved(designs, "red")
+      designs.doc.undo()
+      const undone = declared(joined.sheet, "primary")
+      designs.doc.redo()
+
+      return [undone, declared(joined.sheet, "primary")]
+    })
+
+    expect(result).toEqual(["black", "red"])
   })
 })
 

@@ -9,7 +9,6 @@ import {
   editStatus,
   type EditStatus,
   mergedDocument,
-  noTokenEdits,
   savedView,
   type SaveState,
   type StatusOptions,
@@ -191,7 +190,9 @@ export function closeDocSession(session: DocSession): void {
 
 /**
  * How the saver starts in a live room: only the host writes files, so copies don't write the same files over each
- * other. A copy that joins opens on the host's document, so what its files hold is what it read from disk.
+ * other. A copy that joins opens on the host's document, so what its files hold is what it read from disk, and it
+ * follows the files as they change on disk (`reloadFile`). What the stylesheet holds it can't tell, as the host may
+ * have saved token values the edits don't show as changed, so taking over writes them all (PAR-1254).
  */
 function roomSaving(room: RoomOpening | undefined, options: OpenOptions): Parameters<typeof createProjectSaver>[2] {
   if (!room || room.writesFiles) {
@@ -205,8 +206,7 @@ function roomSaving(room: RoomOpening | undefined, options: OpenOptions): Parame
         ...options.files.map((file): [string, CanvasDocument] => [file.path, withoutModes(file.document)]),
         ...options.drawn.map((file): [string, CanvasDocument] => [file.path, file.document])
       ]),
-      modes: options.modes,
-      tokens: noTokenEdits
+      modes: options.modes
     }
   }
 }
@@ -414,8 +414,10 @@ function ignoredOnDisk(session: DocSession, path: string): void {
  * choose which to keep.
  */
 export function reloadFile(session: DocSession, path: string, document: CanvasDocument, force = false): boolean {
-  // In a live room the copy that writes files takes a changed file in, and the others get it from there.
+  // In a live room the copy that writes files takes a changed file in, and the others get it from there. They take it
+  // as what the file holds, so taking over writes it only if it differs (PAR-1254).
   if (!session.saver.writesFiles()) {
+    session.saver.read(path, document)
     ignoredOnDisk(session, path)
 
     return true
