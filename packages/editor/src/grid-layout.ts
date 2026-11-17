@@ -3,8 +3,17 @@
  * the cells it covers. In the app it's read from the canvas, as the browser lays the grid out, auto-placed children
  * included; a story builds one from its stand-in grid.
  */
-import type { SelfAlign } from "./controls/data.ts"
-import type { Area } from "./controls/layout-controls.tsx"
+
+/** Where a grid child sits in its cells along one axis. */
+export type SelfAlign = "start" | "center" | "end" | "stretch"
+
+/** The cells a child covers: its first column and row, counted from 0, and how many of each. */
+export interface Area {
+  col: number
+  row: number
+  cols: number
+  rows: number
+}
 
 /** A child of the grid and the cells it covers. */
 export interface GridChild {
@@ -130,18 +139,79 @@ const lineNumber = (line: string) => (/^-?\d+$/.test(line.trim()) ? Number(line)
 const spanNumber = (line: string) => Number(/^span\s+(\d+)$/.exec(line.trim())?.[1]) || undefined
 
 /**
- * The tracks a child takes along one axis. Lines its style names say so outright; a span says how many, and its box,
- * where it sits in them, which; with neither, the tracks its box covers.
+ * How many tracks a grid's template makes itself, before the grid adds any for children placed past them: from a
+ * computed `grid-template-columns` or `-rows` as the style gives it, `repeat(3, minmax(0, 1fr))` or `100px [end] 1fr`.
+ * None for a template it can't count, such as one that repeats to fill the grid.
  */
-function placed(edges: Edges, from: number, to: number, lines: Lines | undefined, align: SelfAlign | undefined) {
+export function explicitTracks(template: string): number | undefined {
+  const text = template.trim()
+
+  if (text === "none" || text === "") {
+    return 0
+  }
+
+  let count = 0
+
+  for (const track of topLevelWords(text.replace(/\[[^\]]*\]/g, " "))) {
+    if (!track.startsWith("repeat(")) {
+      count += 1
+      continue
+    }
+
+    const repeat = /^repeat\(\s*(\d+)\s*,(.*)\)$/s.exec(track)
+    const inner = repeat ? explicitTracks(repeat[2] ?? "") : undefined
+
+    if (!repeat || inner === undefined) {
+      return undefined
+    }
+
+    count += Number(repeat[1]) * inner
+  }
+
+  return count
+}
+
+/** A list split at the spaces outside any brackets: `minmax(0, 1fr) 100px` is two words. */
+function topLevelWords(text: string): string[] {
+  const words: string[] = []
+  let depth = 0
+  let word = ""
+
+  for (const char of text) {
+    depth += Number(char === "(") - Number(char === ")")
+
+    if (depth === 0 && /\s/.test(char)) {
+      words.push(word)
+      word = ""
+    } else {
+      word += char
+    }
+  }
+
+  return [...words, word].filter((part) => part !== "")
+}
+
+/**
+ * The tracks a child takes along one axis. Lines its style names say so outright, negative ones counted back from the
+ * end of the grid's own tracks; a span, one unless it says, gives how many, and its box, where it sits in them, which.
+ * Without its lines, the tracks its box covers.
+ */
+function placed(
+  edges: Edges,
+  explicit: number,
+  from: number,
+  to: number,
+  lines: Lines | undefined,
+  align: SelfAlign | undefined
+) {
   const box = covered(edges, from, to)
 
   if (!lines) {
     return box
   }
 
-  // Line 1 is before the first track; -1 after the last.
-  const track = (line: number) => (line > 0 ? line - 1 : edges.length + 1 + line)
+  // Line 1 is before the first track; -1 after the last of the template's own.
+  const track = (line: number) => (line > 0 ? line - 1 : explicit + 1 + line)
   const start = lineNumber(lines.start)
   const end = lineNumber(lines.end)
 
@@ -151,11 +221,8 @@ function placed(edges: Edges, from: number, to: number, lines: Lines | undefined
     return { at: Math.max(0, first), span: Math.max(1, last - first) }
   }
 
-  const span = spanNumber(lines.start) ?? spanNumber(lines.end)
-
-  if (span === undefined) {
-    return box
-  }
+  // An auto-placed child takes one track, however far its box runs past it.
+  const span = spanNumber(lines.start) ?? spanNumber(lines.end) ?? 1
 
   if (start !== undefined) {
     return { at: Math.max(0, track(start)), span }
@@ -165,7 +232,7 @@ function placed(edges: Edges, from: number, to: number, lines: Lines | undefined
     return { at: Math.max(0, track(end) - span), span }
   }
 
-  // Auto-placed with a span: where its box sits in its tracks says which they are.
+  // Auto-placed: where its box sits in its tracks says which they are.
   const last = box.at + box.span - 1
   let at = box.at
 
@@ -209,6 +276,8 @@ export function measuredGrid(grid: {
   gap: { column: number; row: number }
   /** How it shares out room its tracks leave, across and down. */
   distribution?: { x?: Distribution; y?: Distribution }
+  /** How many columns and rows its template makes, which negative lines count back from; all of them otherwise. */
+  explicit?: { columns?: number; rows?: number }
   children: readonly MeasuredChild[]
   self: string
   items: GridLayout["items"]
@@ -222,8 +291,10 @@ export function measuredGrid(grid: {
     self: grid.self,
     items: grid.items,
     children: grid.children.map(({ id, name, auto, box, lines, align }) => {
-      const col = placed(columns, box.left, box.left + box.width, lines?.column, align?.x ?? grid.items.x)
-      const row = placed(rows, box.top, box.top + box.height, lines?.row, align?.y ?? grid.items.y)
+      const across = grid.explicit?.columns ?? columns.length
+      const down = grid.explicit?.rows ?? rows.length
+      const col = placed(columns, across, box.left, box.left + box.width, lines?.column, align?.x ?? grid.items.x)
+      const row = placed(rows, down, box.top, box.top + box.height, lines?.row, align?.y ?? grid.items.y)
 
       return { id, name, auto, area: { col: col.at, cols: col.span, row: row.at, rows: row.span } }
     })

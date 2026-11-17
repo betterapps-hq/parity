@@ -7,7 +7,8 @@ import {
   type StyleEdit,
   type StyleRow,
   type StyleSelection,
-  styleSelection
+  styleSelection,
+  type GridLayout
 } from "@parity-app/editor"
 import { type ContainerEntry, updateContainer } from "@parity-app/multiplayer"
 import type { Token } from "@parity-app/tokens"
@@ -19,7 +20,6 @@ import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
 import type { TypeValues } from "../inspector/controls/preset-data.ts"
 import { renderedType, typeStyleKey } from "../inspector/controls/rendered-type.ts"
-import type { GridLayout } from "../inspector/grid-layout.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"

@@ -1,4 +1,5 @@
 import { Button, DropdownMenuCheckboxItem, Popover, PopoverContent, PopoverTrigger, Toggle } from "@buildkitgg/shadcn"
+import type { GridLayout } from "@parity-app/editor"
 import { formatNumber, isReadFailure, readTrackSize, type TrackSize } from "@parity-app/style-schema"
 import {
   ArrowDown,
@@ -25,7 +26,6 @@ import { kindColors } from "../../canvas/kinds.tsx"
 import { AppSelect } from "../../chrome/AppSelect.tsx"
 import { Hint } from "../../chrome/Hint.tsx"
 import { PanelSection } from "../../chrome/PanelSection.tsx"
-import type { GridLayout } from "../grid-layout.ts"
 import { PixelField, type SectionProps } from "./controls.tsx"
 import { clamp, sameValue, stepCount, tint } from "./css-values.ts"
 import { type Columns, contentSizeWords, type Draft, type SelfAlign, type Span, typedContentSizes } from "./data.ts"

@@ -4587,14 +4587,16 @@ section with the group's own title leads it without a title of its own, and its 
   a row of its own. Then Spacing, the box model, padding inside margin, or padding alone for a design's root, which has
   nothing around it to push away. Editing a side changes only that side of each selected layer. Not saved: the aspect
   lock.
-- **Grid placement** (PAR-927), a grid child's Size, titled Size: W and H, then Cells, Auto or Manual, over a map of the
-  grid as the canvas lays it out, its columns at their widths and the other children where the browser put them,
-  auto-placed ones included. Dragging across cells, dragging the child or its edges places it; Start and Span, or End
-  lines from the title's menu, type it; then where it sits in its cell, Align and Justify self. It writes `colStart`,
-  `colEnd`, `rowStart`, `rowEnd` and the spans as one edit, and All as lines 1 to -1 (`GridPlacementSection`, `nodeGrid`
-  in `chrome/LayerPanel.tsx`, `inspector/grid-layout.ts`, tested in `grid-layout.test.ts`; the control's cases in Rows ›
-  Grid placement; the keys in `style-schema`'s `declare.test.ts` and `extension-tailwind`'s `printer.test.ts`). Without
-  a drawn grid, as in Storybook's section stories, it shows nothing.
+- **Grid placement** (PAR-927), a grid child's Size, titled Size: W and H with any min and max, then Cells, Auto or
+  Manual, over a map of the grid as the canvas lays it out, its columns at their widths and the other children where the
+  browser put them, auto-placed ones included. Each child's cells come from its lines and spans, counting negative lines
+  from the template's own tracks, with tracks placed where the grid's content alignment spreads them. Dragging across
+  cells, dragging the child or its edges places it; Start and Span, or End lines from the title's menu, type it; then
+  where it sits in its cell, Align and Justify self. It writes `colStart`, `colEnd`, `rowStart`, `rowEnd` and the spans
+  as one edit, and All as lines 1 to -1 (`GridPlacementSection`, `nodeGrid` in `chrome/LayerPanel.tsx`, and
+  `@parity-app/editor`'s `grid-layout.ts`, tested in `grid-layout.test.ts`; the control's cases in Rows › Grid
+  placement; the keys in `style-schema`'s `declare.test.ts` and `extension-tailwind`'s `printer.test.ts`). With several
+  layers selected, or without a drawn grid, as in Storybook's section stories, it shows Size.
 - **Layout:** the alignment box, with Type (vertical, horizontal, wrap or grid) and Gap beside it, and a grid's Columns
   and Rows under them as counts, Rows Auto when unset, as many as the layer's children need. A spread (between, around,
   evenly) shows as an Auto gap. Wrap into columns is in a vertical layout's menu. Not saved: Reverse direction, Lines

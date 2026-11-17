@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test"
-import { measuredGrid, selfAlign, trackSizes } from "./grid-layout.ts"
+import { explicitTracks, measuredGrid, selfAlign, trackSizes } from "./grid-layout.ts"
 
 describe("a grid as the canvas lays it out", () => {
   it("reads its tracks from their computed sizes", () => {
@@ -80,6 +80,59 @@ describe("a grid as the canvas lays it out", () => {
     })
 
     expect(grid.children[0]?.area).toEqual({ col: 1, cols: 1, row: 0, rows: 1 })
+  })
+
+  it("keeps an auto-placed child to one track, however far its box runs past it", () => {
+    const auto = { start: "auto", end: "auto" }
+
+    const grid = measuredGrid({
+      columns: [100, 100, 100],
+      rows: [50],
+      gap: { column: 0, row: 0 },
+      self: "wide",
+      items: {},
+      children: [
+        {
+          id: "wide",
+          name: "Wide",
+          auto: true,
+          box: { left: 0, top: 0, width: 240, height: 50 },
+          lines: { column: auto, row: auto }
+        }
+      ]
+    })
+
+    expect(grid.children[0]?.area).toEqual({ col: 0, cols: 1, row: 0, rows: 1 })
+  })
+
+  it("counts negative lines back from the template's own tracks, not ones the grid added", () => {
+    // One row in the template, two more the grid made for children past it.
+    const grid = measuredGrid({
+      columns: [100],
+      rows: [50, 50, 50],
+      gap: { column: 0, row: 0 },
+      explicit: { columns: 1, rows: 1 },
+      self: "top",
+      items: {},
+      children: [
+        {
+          id: "top",
+          name: "Top",
+          auto: false,
+          box: { left: 0, top: 0, width: 100, height: 50 },
+          lines: { column: { start: "auto", end: "auto" }, row: { start: "1", end: "-1" } }
+        }
+      ]
+    })
+
+    expect(grid.children[0]?.area).toEqual({ col: 0, cols: 1, row: 0, rows: 1 })
+  })
+
+  it("counts the tracks a template makes itself", () => {
+    expect(explicitTracks("repeat(3, minmax(0, 1fr))")).toBe(3)
+    expect(explicitTracks("[start] 100px repeat(2, 1fr 2fr) [end]")).toBe(5)
+    expect(explicitTracks("none")).toBe(0)
+    expect(explicitTracks("repeat(auto-fill, 100px)")).toBeUndefined()
   })
 
   it("reads where the grid puts its children in their cells", () => {

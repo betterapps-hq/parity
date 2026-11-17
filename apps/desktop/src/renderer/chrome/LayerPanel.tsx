@@ -17,7 +17,17 @@ import {
   type StateSpec,
   type VideoNode
 } from "@parity-app/core"
-import { type InspectorSection, panelParts, selectionCapabilities, type StyleSection } from "@parity-app/editor"
+import {
+  explicitTracks,
+  type GridLayout,
+  type InspectorSection,
+  measuredGrid,
+  panelParts,
+  selectionCapabilities,
+  selfAlign,
+  type StyleSection,
+  trackSizes
+} from "@parity-app/editor"
 import { describeElement, type ElementFacts, panelData } from "@parity-app/layer-types"
 import { updateView } from "@parity-app/multiplayer"
 import { Diamond, Eye, EyeOff, Group, RotateCcw, Sparkles } from "lucide-react"
@@ -33,7 +43,6 @@ import { ContentSection } from "../inspector/controls/controls.tsx"
 import { ChangeMark } from "../inspector/controls/field-parts.tsx"
 import { Field, FieldGrid, SwitchRow } from "../inspector/controls/field-row.tsx"
 import type { TypeStyle } from "../inspector/controls/rendered-type.ts"
-import { type GridLayout, measuredGrid, selfAlign, trackSizes } from "../inspector/grid-layout.ts"
 import { AttributesSection, PropsSection } from "../inspector/sections/PropsSection.tsx"
 import { type ContainerEntry, projectLibrary, useContainerEntries } from "../project-doc.ts"
 import { useSelection } from "../selection.ts"
@@ -836,6 +845,11 @@ export function nodeGrid(
     columns: trackSizes(grid.gridTemplateColumns),
     rows: trackSizes(grid.gridTemplateRows),
     gap: { column: parseFloat(grid.columnGap) || 0, row: parseFloat(grid.rowGap) || 0 },
+    // The template as the style gives it, before the grid adds tracks, which negative lines count back from.
+    explicit: {
+      columns: explicitTracks(String(parent.computedStyleMap().get("grid-template-columns") ?? "")),
+      rows: explicitTracks(String(parent.computedStyleMap().get("grid-template-rows") ?? ""))
+    },
     distribution: {
       // Its content box, in its own pixels: inside its padding, as `clientWidth` is unscaled and inside its border.
       x: {
