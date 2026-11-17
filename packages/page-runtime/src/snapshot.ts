@@ -7,6 +7,7 @@ import type {
   PageSnapshot,
   SheetEntry
 } from "@parity-app/frames"
+import { skippedTags as skipped } from "@parity-app/frames/preview"
 import { srcsetCandidates } from "@parity-app/frames/srcset"
 
 /*
@@ -15,9 +16,6 @@ import { srcsetCandidates } from "@parity-app/frames/srcset"
  * kept here until Parity asks for the ones it hasn't got (`sheets.get`). A sheet on another origin, whose rules the
  * page can't read, is listed by its address for Parity's main process to fetch.
  */
-
-/** Elements left out of a snapshot: they draw nothing, and the sheets are collected apart. */
-const skipped = new Set(["script", "style", "link", "meta", "template", "noscript", "base"])
 
 /** Attributes that hold one URL, made absolute against the page's address. */
 const urlAttributes = new Set(["href", "src", "poster", "xlink:href", "action", "formaction", "data", "cite"])
@@ -67,6 +65,9 @@ export function sheetsById(sheets: ReadonlyMap<string, string>, ids: readonly st
     return text === undefined ? [] : [{ id, text }]
   })
 }
+
+/** Sheets the runtime adopted itself, such as a style preview's, which no snapshot lists. */
+export const runtimeSheets = new WeakSet<CSSStyleSheet>()
 
 function emptyBody(): FrozenElement {
   return { tag: "body", attributes: [], children: [] }
@@ -311,7 +312,7 @@ function pageSheets(document: Document, kept: Map<string, string>): SheetEntry[]
 
   // Each sheet's pieces apart, so a sheet every route links is one entry they share.
   const sheets = [...document.styleSheets, ...document.adoptedStyleSheets].map((sheet): SheetPiece[] => {
-    if (sheet.disabled) {
+    if (sheet.disabled || runtimeSheets.has(sheet)) {
       return []
     }
 

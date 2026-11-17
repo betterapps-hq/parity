@@ -1801,8 +1801,8 @@ the guest (`packages/builder-webpack-compatible`), so the webpack and Rsbuild bu
   their names) and makes its page with the project's first HTML plugin, made again with its options for those entries:
   Rsbuild's comes with its template and title filled in. An app without one gets a page with a `root` to mount on. Any
   path that names no file gets the page, with the script that gives it the frame's mode and tells the canvas its height
-  and where it landed first, and one that reloads it after each build that changes something. The app's entries' CSS is
-  the page's, not the components'. Code: `app-pages.ts`.
+  and where it landed first. The page doesn't reload itself after a build: Parity loads its frames again when the app's
+  files change (PAR-1264). The app's entries' CSS is the page's, not the components'. Code: `app-pages.ts`.
 - **A changed component loads afresh.** The guest's entry accepts hot updates for every module it imports, so a change
   takes out the modules between the changed file and the components, and keeps React and shared contexts. The canvas
   imports the component at `/<path>?t=<stamp>`, as from Vite, and gets a module that applies the build's hot update
@@ -1818,9 +1818,9 @@ Code: `packages/extension-rspack` (its manifest, `extension.ts` and `builder.ts`
 
 Tests: `packages/extension-rspack/src/builder.test.ts` (detection, config loading and its manifest) and
 `extension.test.ts`; `packages/builder-webpack-compatible/src/*.test.ts` (the config, the guest's entry and modules, the
-graph walks, the server's paths, and the app's entries, page and reloads in `app-pages.test.ts` and `server.test.ts`);
-the `rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and
-its config found, its three components and Home drawn with the project's custom properties, and a component's code and a
+graph walks, the server's paths, and the app's entries and page in `app-pages.test.ts` and `server.test.ts`); the
+`rspack` validation project. Tried in the running app on 2026-11-15 on a copy of `fixtures/rspack`: Rspack 2.3.2 and its
+config found, its three components and Home drawn with the project's custom properties, and a component's code and a
 token edited together, both drawn afresh.
 
 ### Rsbuild as an extension, through its builder provider (PAR-1148)
@@ -8621,22 +8621,23 @@ A screen is named for the component its route draws, else its path.
 - **Frozen copies (PAR-1262).** Each route board's frame shows a frozen copy of its page, as
   [proposals/route-frames.md](proposals/route-frames.md) sets out. One frame per project, the freezer, makes them: it's
   parked in Parity's window at 1% of its size, where Chromium still lays it out, and for each route that needs a copy,
-  nearest the view first, it loads the route fresh, then for each mode its boards draw sets the mode (`mode.set`), sizes
-  itself to the mode's window and asks for a snapshot (`snapshot.take`) once the page has been quiet for 150 ms, at most
-  3 s. The page runtime answers with the body's tree as plain data, URLs made absolute and form state written in as
-  attributes, `<html>`'s classes and attributes without the mode's, the page's height, where it landed, and its
-  stylesheets by content hash. Parity asks for the sheets it hasn't got (`sheets.get`), and main fetches a sheet on
-  another host, such as a web font's, over `https:` (`pageSheet`). The snapshot is parsed with its schema, which refuses
-  a page past 50,000 elements, 256 deep or 8 MB of text, and passed through `sanitizePage` and `sanitizeRoot`. The board
-  builds it with `buildCopy` in a shadow root from `prepareFrame`, with a custom element registry of its own, so the
-  guest's definitions don't upgrade its elements; each sheet goes through `sanitizeSheet` and `prepareCanvasCss` once
-  and is shared by every copy. `<html>`'s classes and attributes go on the frame's host and on an element around the
-  body stand-in, as tall as the mode's window as the page's root was, `<body>`'s on the stand-in, and the mode's on the
-  host and the stand-in. A web component's open shadow root comes with its own styles, and a canvas comes as a picture
-  at the size it was drawn. A copy is as tall as its page in the mode's window, unless the board has a height of its
-  own, and it's inert, so nothing in it takes focus or follows a link. Until it comes, a placeholder stands in at the
-  window's height. A board that sleeps, zoomed far out, lets go of its copy's elements and shows the placeholder until
-  pictures come (step 6), building the copy again from what it kept when it wakes.
+  nearest the view first, it loads the route fresh, then for each mode its boards draw (or each markup group, below)
+  sets the mode (`mode.set`), sizes itself to the mode's window and asks for a snapshot (`snapshot.take`) once the page
+  has been quiet for 150 ms, at most 3 s. The page runtime answers with the body's tree as plain data, URLs made
+  absolute and form state written in as attributes, `<html>`'s classes and attributes without the mode's, the page's
+  height, where it landed, and its stylesheets by content hash. Parity asks for the sheets it hasn't got (`sheets.get`),
+  and main fetches a sheet on another host, such as a web font's, over `https:` (`pageSheet`). The snapshot is parsed
+  with its schema, which refuses a page past 50,000 elements, 256 deep or 8 MB of text, and passed through
+  `sanitizePage` and `sanitizeRoot`. The board builds it with `buildCopy` in a shadow root from `prepareFrame`, with a
+  custom element registry of its own, so the guest's definitions don't upgrade its elements; each sheet goes through
+  `sanitizeSheet` and `prepareCanvasCss` once and is shared by every copy. `<html>`'s classes and attributes go on the
+  frame's host and on an element around the body stand-in, as tall as the mode's window as the page's root was,
+  `<body>`'s on the stand-in, and the mode's on the host and the stand-in. A web component's open shadow root comes with
+  its own styles, and a canvas comes as a picture at the size it was drawn. A copy is as tall as its page in the mode's
+  window, unless the board has a height of its own, and it's inert, so nothing in it takes focus or follows a link.
+  Until it comes, a placeholder stands in at the window's height. A board that sleeps, zoomed far out, lets go of its
+  copy's elements and shows the placeholder until pictures come (step 6), building the copy again from what it kept when
+  it wakes.
 - **Selecting inside a copy.** A copy's frame is registered under its page's design with its mode and state, and its
   elements have ids from their place in the body (`0.3.1`), which `buildCopy`'s `DrawnNodes` maps, so clicking and
   double-clicking select inside a copy as in a design's frame, with the element's outline, name and spacing. Layers
@@ -8644,6 +8645,24 @@ A screen is named for the component its route draws, else its path.
   `header` and `main`. Those layers are made again with each freeze and kept in the window (`copyLayers`), never in the
   project's document. They're made without styles; the Design panel reads an element's computed style when it shows it
   (`withCopyStyle`).
+- **Copies follow the code (PAR-1264).** The project service's watcher tells the window which of the app's files changed
+  (`project.filesChanged`), 250 ms after the last, leaving out hidden folders such as `.git` and `.next`, installed
+  packages, builders' output, `.par` files and TypeScript's build records (`pageSourceChange`). A copy is kept by its
+  route, mode and state (`CopyKey`) with the trace it was made from; until traces by builder come (step 6), every copy's
+  trace is the whole project, so any change makes the project's copies stale. A stale copy stays shown until the freezer
+  has a new one, nearest the view first. Modes whose snapshots drew the same markup form a markup group: a route frozen
+  again takes one snapshot per group, which every copy in the group shows at once with its own height, and each other
+  mode is checked with a snapshot of its own once nothing is missing or stale. Two states of a route share a copy. A
+  page that loads again while it's frozen says hello again with the same id: the freezer replaces its channel, waits for
+  it to be ready and takes the snapshot again, three times at most. With the Interact tool, a board's page under Vite or
+  a webpack-compatible builder is loaded again when the app's files change, since it keeps the modules it loaded; a page
+  whose router is Next's takes Next's hot updates in place. The webpack-compatible builders' pages no longer poll and
+  reload themselves.
+- **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
+  design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
+  every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
+  body without a theme's class, and a theme's value where its class is, so Desktop Dark keeps its own. The page with the
+  Interact tool gets them over its channel (`preview.set`), into a sheet its snapshots never list.
 - **When the page process fails.** A project's pages share one renderer process. When it closes the freezer's channel or
   a request misses its deadline, the freezer starts again after 1 s, then 5 s, then 30 s, and after three failures in
   two minutes it stops for that project; boards keep the copies they have.
@@ -8666,6 +8685,15 @@ Region panel, and double-clicking the pricing cards on the canvas selected their
 read styles in the Design panel. Dashboard's row in Layers kept its warning from its copy's landing on `/login`. Mobile
 and dark modes and a failing page process weren't tried in the app.
 
+Code changes and previews were tried in a development build on the example project (PAR-1264). Editing PlanCard, the
+Pricing route's component, on disk ("a month" to "per month, billed yearly") showed in Pricing's copy 4.4 s after the
+save, and putting it back showed again. With Desktop Dark turned on too, both copies changed in the same frame, 7.6 s
+after the save, from the one snapshot of their markup group. With the Interact tool, the same edit loaded Pricing's page
+again with the change. Setting `primary`'s Light value in the Tokens panel turned the Choose Team button in Pricing's
+copy blue in the same frame, while Desktop Dark's kept its own value; the page drawn with the Interact tool showed it
+too, and again after it loaded again for the code change. Undo put both copies back. A page that loads again while
+frozen, and a webpack-compatible project, weren't tried in the app.
+
 The page runtime was tried in a development build on the example project (PAR-1260): all eight page frames loaded under
 the project's own `p….localhost` name, each with `window.parityFrame`, the mode's classes and no scrollbar, and App's
 frame grew to 849 from the page's `page.height`. Dashboard's warning came from its `page.ready`. Setting Desktop Light's
@@ -8681,19 +8709,24 @@ Code: `pageTree`, `placePages`, `routeTree`, `routeScreens`, `pageGroupBox`, `pa
 `page-channel.ts`; frozen copies: `RouteBoard` and `withCopyStyle` in `RouteBoard.tsx`, the freezer, `useFrozenCopy` and
 `copySheets` in `freezer.ts`, `copyLayers`, `withCopyEntries` and `shownEntry` in `route-pages.ts`, `takeSnapshot` in
 `packages/page-runtime/src/snapshot.ts`, `freezeOrder` and `restartAfter` in `packages/frames/src/freezer.ts`,
-`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`, `fetchPageSheet` in
-`apps/desktop/src/main/page-sheets.ts`, and the `routeFrame` events in `packages/telemetry/src/route-frame-events.ts`;
-`routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`; `appPage` in `packages/extension-vite/src/builder.ts`.
-The page runtime: `startPageRuntime` and the protocol in `packages/page-runtime/src/`; `PageRouter` and `PageHydration`
-in `packages/extension/src/page.ts`; `tanstackRouterPage` in `packages/extension-tanstack-router/src/page.ts`;
-`reactRouterPage` in `packages/extension-react-router/src/page.ts`, with library mode's wrapped `react-router` in
-`src/page-wrap/react-router.ts`; `nextjsPage` in `packages/extension-nextjs/src/page.ts`; `reactHydration` in
-`packages/extension-react/src/page.ts`; each manifest's `page` and `pageWraps`, carried by `pageRouters` in
-`packages/extension-host/src/hosts.ts` and `pageModules` in `apps/desktop/src/utility/projects.ts` into the project's
-config; `pageEntrySource` in `packages/project/src/page-entry.ts`, served by `appPageRuntime` in
-`packages/extension-vite/src/app-page.ts`, `pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and
-`copyPageModules` in `packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs
-before Vite's own resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
+`frozenSnapshots` in `packages/editor/src/element-layers.ts`, `withCopyLayers` in `route-boards.ts`; code changes and
+previews: `pageSourceChange` in `packages/project/src/open-project.ts`, the watcher's `filesChanged` in
+`apps/desktop/src/utility/projects.ts`, `page-changes.ts` (`pageFilesChanged`, `previewTokens`, `previewRoute`),
+`staleCopies`, `groupLeaders`, `sharedMarkup` and `withMarkup` in `packages/frames/src/keys.ts`, `tokenPreviewCss` and
+`updatesItself` in `packages/frames/src/preview.ts`, and `preview.set` in `packages/page-runtime/src/runtime.ts`;
+`fetchPageSheet` in `apps/desktop/src/main/page-sheets.ts`, and the `routeFrame` events in
+`packages/telemetry/src/route-frame-events.ts`; `routeLines` in `apps/desktop/src/renderer/chrome/LayerTree.tsx`;
+`appPage` in `packages/extension-vite/src/builder.ts`. The page runtime: `startPageRuntime` and the protocol in
+`packages/page-runtime/src/`; `PageRouter` and `PageHydration` in `packages/extension/src/page.ts`; `tanstackRouterPage`
+in `packages/extension-tanstack-router/src/page.ts`; `reactRouterPage` in `packages/extension-react-router/src/page.ts`,
+with library mode's wrapped `react-router` in `src/page-wrap/react-router.ts`; `nextjsPage` in
+`packages/extension-nextjs/src/page.ts`; `reactHydration` in `packages/extension-react/src/page.ts`; each manifest's
+`page` and `pageWraps`, carried by `pageRouters` in `packages/extension-host/src/hosts.ts` and `pageModules` in
+`apps/desktop/src/utility/projects.ts` into the project's config; `pageEntrySource` in
+`packages/project/src/page-entry.ts`, served by `appPageRuntime` in `packages/extension-vite/src/app-page.ts`,
+`pageEntry` in `packages/builder-webpack-compatible/src/guest-config.ts` and `copyPageModules` in
+`packages/next-builders/src/start.ts`; the wrapped packages, served by `appPageWraps`, which runs before Vite's own
+resolver, and by `pageWrapRules` in `guest-config.ts`; and `pageEntries` and `pageExternals` in
 `apps/desktop/src/shared/built-in-extensions.ts`, which `apps/desktop/scripts/build.ts` bundles for a packaged app.
 
 Tests: `packages/editor/src/route-boards.test.ts` (35: each layout's pages hung from its index, the root's index at the
@@ -8728,11 +8761,20 @@ its media, an unreadable import where it stands inside every condition around it
 one named layer inside its `supports()`; the same markup hash for the same tree; `url()`s and `image-set()`'s strings
 made absolute; a snapshot and its sheets over the channel; a wait or too many ids refused; the snapshot's deadline),
 `packages/frames/src/freezer.test.ts` (5: nearest route first, each once; nothing with no boards; restarting after 1 s
-and 5 s, stopping after three failures in two minutes, and forgetting older ones), `element-layers.test.ts` ("gives a
-copy's elements their path from the body as ids"), `route-boards.test.ts` ("puts what the copy drew inside the innermost
-route"), `apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and
-`supports()` kept apart from the media after it; another host's sheet over https, its `url()`s absolute against where it
-came from; anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
+and 5 s, stopping after three failures in two minutes, and forgetting older ones), and for code changes and previews
+(PAR-1264): `packages/frames/src/planners.test.ts` (`groupLeaders`: one mode of each markup group and each mode not
+frozen yet, and every mode of a route frozen for the first time; `withMarkup`: a mode moved into the group of the markup
+it drew), `packages/frames/src/preview.test.ts` (5: token values on a copy's roots by theme and on the live page's root,
+unsafe values and themes left out, and a sheet a document takes; only Next's pages updating themselves),
+`packages/page-runtime/src/snapshot.test.ts` ("shows a style preview over the page, and never puts it in a snapshot"),
+`packages/project/src/open-project.test.ts` (`pageSourceChange`: the app's files and lockfile, not hidden folders,
+installed packages, builders' output, `.par` files, build records or logs) and
+`apps/desktop/src/utility/projects.test.ts` ("tell the windows which of the app's files changed, at once for a save that
+writes several"), `element-layers.test.ts` ("gives a copy's elements their path from the body as ids"),
+`route-boards.test.ts` ("puts what the copy drew inside the innermost route"),
+`apps/desktop/src/main/page-sheets.test.ts` (6: its `@import`s inlined in their layer and media, and `supports()` kept
+apart from the media after it; another host's sheet over https, its `url()`s absolute against where it came from;
+anything else refused unasked; nothing for a failed answer, one that isn't CSS, or a request that fails),
 `packages/extension-tanstack-router/src/page.test.ts` (6: the router found on the page's window or not; where it
 resolved, with search and hash; its not-found route and an error; a navigation resolved once the router has resolved,
 not when it's first idle; one given up when aborted; the watcher told until it stops),
@@ -8757,13 +8799,14 @@ entries" and "serves a wrapped package to the app's own modules"), `server.test.
 `guest-app.test.ts` ("runs the page runtime in the browser before a page's own code"), `hosts.test.ts` ("gives the
 routers' page modules" and "gives the packages a router's page module wraps") and `built-in-extensions.test.ts`
 ("bundles the page runtime and the built-in page modules"). Hydration and navigation in the fixtures' real apps are left
-to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, the freezer, building and
-selecting copies, drawing the lines, groups, landing warning and the titles' backdrop, Layers' route tree, and the
-bundling have no test of their own; all were tried in the app. The lines were checked on the example at 5%, 10% and 22%:
-every page's name and path read clearly, with each line meeting its page's top edge. Each page frame was checked on the
-example at 1280 wide: App at 849 tall with no scrollbar, the rest at 800. Bringing lines forward was checked in
-Storybook's Page tree stories (`PageLines.stories.tsx`, the example opened with its own routes and Settings' redirect)
-at 5% and 10%, by selecting Pricing, Settings' group and Billing and hovering Projects.
+to the end-to-end suite. Gaps: reading routes when the project opens, the page frames, the freezer (its stale copies,
+markup groups and second hello included), building and selecting copies, drawing the lines, groups, landing warning and
+the titles' backdrop, Layers' route tree, and the bundling have no test of their own; all were tried in the app. The
+lines were checked on the example at 5%, 10% and 22%: every page's name and path read clearly, with each line meeting
+its page's top edge. Each page frame was checked on the example at 1280 wide: App at 849 tall with no scrollbar, the
+rest at 800. Bringing lines forward was checked in Storybook's Page tree stories (`PageLines.stories.tsx`, the example
+opened with its own routes and Settings' redirect) at 5% and 10%, by selecting Pricing, Settings' group and Billing and
+hovering Projects.
 
 ### Each of the project's components on a board of its own (read-only viewer, step 8)
 

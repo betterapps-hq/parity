@@ -21,6 +21,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
 import { useProject } from "./context.ts"
 import { copyRootAttribute, copyShadowStyle, copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
+import { previewTokens, tokenPreviewSheet } from "./page-changes.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
 /** Attributes on a copy's host that are Parity's own, which neither the page's root nor its mode may set. */
@@ -45,6 +46,7 @@ const hostAttributes = new Set([
  * a height of its own, which clips it. It's inert, so its links and forms can't be followed or sent, and nothing in it
  * takes focus. Until its copy comes, a placeholder stands in at the window's height. Where the page landed, when it
  * isn't the route's own path, goes to the board's warning and Layers; the primary frame's copy gives Layers its layers.
+ * Its copy is kept by `CopyKey`, its route, mode and state, and frozen again when the app's code changes (PAR-1264).
  */
 export function RouteBoard({
   url,
@@ -76,7 +78,7 @@ export function RouteBoard({
    */
   asleep: boolean
 }) {
-  const { doc } = useProject()
+  const { doc, tokens } = useProject()
   const host = useRef<HTMLDivElement>(null)
   const registry = useRef<CustomElementRegistry>(undefined)
   const drawn = useMemo(() => pageMode(mode), [mode])
@@ -86,8 +88,20 @@ export function RouteBoard({
     [frame.viewport.width, frame.viewport.height]
   )
 
-  const copy = useFrozenCopy(project, url, drawn, viewport, rank)
+  const key = useMemo(() => ({ route: url, mode: mode.id, state }), [url, mode.id, state])
+  const copy = useFrozenCopy(project, key, drawn, viewport, rank)
   const height = frame.height ?? Math.max(viewport.height, copy?.pageHeight ?? 0)
+
+  // Token values edited and not saved show in the copy as in the design frames, through the project's preview sheet.
+  useEffect(() => {
+    const show = () => previewTokens(project, tokens.previews(), themesOf(tokens.get()))
+    show()
+    const unsubscribe = tokens.subscribe(show)
+
+    return () => {
+      unsubscribe()
+    }
+  }, [project, tokens])
 
   // Selecting, outlining and agents find the copy as they find a design's frames.
   useLayoutEffect(() => registerFrame(host.current!, design), [design])
@@ -101,8 +115,8 @@ export function RouteBoard({
 
     registry.current ??= new CustomElementRegistry()
 
-    return showCopy(element, copy, drawn, viewport, registry.current)
-  }, [asleep, copy, drawn, viewport])
+    return showCopy(element, copy, drawn, viewport, registry.current, tokenPreviewSheet(project))
+  }, [asleep, copy, drawn, viewport, project])
 
   const elsewhere = copy ? landedElsewhere(url, copy.location.path) : undefined
 
@@ -144,17 +158,25 @@ export function RouteBoard({
 }
 
 /**
- * Builds `copy` in `host`'s shadow root and has the frame's lookups go through its elements. Returns what takes the
- * copy's root and mode off the host again.
+ * Builds `copy` in `host`'s shadow root and has the frame's lookups go through its elements. The project's token values
+ * edited and not saved come after the copy's own sheets, in a sheet every copy of its routes shares. Returns what
+ * takes the copy's root and mode off the host again.
  */
 function showCopy(
   host: HTMLElement,
   copy: FrozenCopy,
   mode: PageMode,
   viewport: { width: number; height: number },
-  registry: CustomElementRegistry
+  registry: CustomElementRegistry,
+  preview: CSSStyleSheet
 ): () => void {
-  const target = prepareFrame(host, copySheets(copy), { classNames: [], attributes: {}, viewport, registry })
+  const target = prepareFrame(host, copySheets(copy), {
+    classNames: [],
+    attributes: {},
+    viewport,
+    registry,
+    sheets: [preview]
+  })
 
   // Inline styles' viewport lengths and `rem` measure the board, as its sheets' do.
   const built = buildCopy(document, copy.body, registry, {
@@ -342,6 +364,11 @@ export function withCopyStyle<Entry extends { key: string; path: string }>(
   const type = node.type === "text" || node.type === "image" ? node.type : "layout"
 
   return { ...node, style: styleOfElement({ style }, type) }
+}
+
+/** Every theme the project's tokens have a value in, `default` included. */
+function themesOf(tokens: readonly { values: Record<string, string> }[]): string[] {
+  return [...new Set(tokens.flatMap((token) => Object.keys(token.values)))].sort((a, b) => a.localeCompare(b, "en"))
 }
 
 /** Every layer's id in a tree of layers. */

@@ -73,6 +73,7 @@ import {
   openedProjectInfo,
   pickMainDocument,
   type ProjectDetection,
+  pageSourceChange,
   projectFileChange,
   readChangedFiles,
   readDesigns,
@@ -107,6 +108,12 @@ import type { TypeChecker } from "./props.ts"
 
 const require = createRequire(import.meta.url)
 
+/**
+ * How long the watcher waits after the app's last changed file before telling the windows, in milliseconds: a save that
+ * writes several files is one change, and a builder has noticed it by then, so a page loaded for it gets the new code.
+ */
+export const pageSourceDelay = 250
+
 /** Something watching files, which stops when it's closed. */
 export interface Watching {
   close(): void
@@ -127,6 +134,8 @@ export interface ProjectListeners {
   componentsChanged: (change: WindowMethods["project.componentsChanged"]["params"]) => void
   /** The code of some of a project's components changed on disk, by its builder's account. */
   codeChanged: (change: WindowMethods["project.codeChanged"]["params"]) => void
+  /** Files that can change what the app's pages draw changed on disk, batched (route-frames.md, PAR-1264). */
+  filesChanged: (change: WindowMethods["project.filesChanged"]["params"]) => void
   /** A builder started again on a new port; resolves whether the windows now draw the guest from there. */
   guestMoved: (change: GuestMoved) => Promise<boolean>
   /** What detection reads of a project changed since it opened, so its tabs open it again (PAR-820). */
@@ -1442,7 +1451,18 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
     const { root } = project.info
     const timers = new Map<string, ReturnType<typeof setTimeout>>()
     const changed = new Set<string>()
+    // The app's files that changed since the windows were last told, which pages and their copies are drawn from.
+    const sources = new Set<string>()
     let rescanning: Promise<void> = Promise.resolve()
+
+    const tellSources = () => {
+      const paths = [...sources].sort((a, b) => a.localeCompare(b, "en"))
+      sources.clear()
+
+      if (paths.length > 0) {
+        listeners.filesChanged({ projectId: project.info.id, paths })
+      }
+    }
 
     const rescan = () => {
       const paths = [...changed]
@@ -1513,6 +1533,11 @@ export function openProjects(adapters: ProjectAdapters): OpenProjects {
 
         if (project.detected?.files.has(path)) {
           later("detection", 400, () => void tellDetectionChanged(project))
+        }
+
+        if (pageSourceChange(path)) {
+          sources.add(path)
+          later("sources", pageSourceDelay, tellSources)
         }
 
         const change = projectFileChange(path, {

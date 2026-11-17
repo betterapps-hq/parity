@@ -1604,7 +1604,7 @@ function PageFrame({
     })
   )
 
-  const heard = usePageChannel(page, { id, src, mode: drawn, viewport })
+  const heard = usePageChannel(page, { id, src, mode: drawn, viewport, project })
   const height = frame.height ?? Math.max(frame.viewport.height, heard.height ?? 0)
   const landed = heard.location
   const elsewhere = landed ? landedElsewhere(url, landed.path) : undefined

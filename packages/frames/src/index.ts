@@ -3,12 +3,16 @@ export { type BuiltCopy, buildCopy, type CopyPreparation } from "./copy.ts"
 export {
   type CopyKey,
   copyId,
+  groupLeaders,
   type MarkupGroups,
   sharedMarkup,
   staleCopies,
   type TracedCopy,
-  type ViewOrder
+  type ViewOrder,
+  withMarkup
 } from "./keys.ts"
+
+export { skippedTags, type TokenPreview, tokenPreviewCss, updatesItself } from "./preview.ts"
 
 export type { PageMode } from "./mode.ts"
 

@@ -1,6 +1,7 @@
 import { type Channel, type Checks, createChannel, domPort } from "@parity-app/channel"
 import { parserFor } from "@parity-app/core/schema"
 import type { PageLocation } from "@parity-app/extension/page"
+import { updatesItself } from "@parity-app/frames"
 import {
   type PageMethods,
   type PageMode,
@@ -11,11 +12,14 @@ import {
 } from "@parity-app/page-runtime/protocol"
 import { type RefObject, useEffect, useRef, useState } from "react"
 import { z } from "zod"
+import { onPageFiles, showTokenPreview } from "./page-changes.ts"
 
 /*
  * Parity's end of a page frame's channel (docs/proposals/route-frames.md, PAR-1260): the page runtime in the app's own
  * page says hello, Parity checks where it came from and hands it a port, and `@parity-app/channel` runs on that port.
- * Parity sets the page's mode over it without a reload, and hears how tall the page is and where it went.
+ * Parity sets the page's mode over it without a reload, and hears how tall the page is and where it went. After a code
+ * change, a page that doesn't update itself is loaded again, and the project's token values edited and not
+ * saved are shown in it (`preview.set`, PAR-1264).
  */
 
 const pageLocation = z.object({
@@ -62,19 +66,38 @@ function sendMode(channel: Channel<ParityMethods, PageMethods> | undefined, mode
   }
 }
 
+/** Sends a style preview to the page, if it's connected, giving up past `preview.set`'s deadline. */
+function sendPreview(channel: Channel<ParityMethods, PageMethods> | undefined, css: string) {
+  if (channel) {
+    void withDeadline(channel.request("preview.set", { css }), pageDeadlines["preview.set"]).catch(() => undefined)
+  }
+}
+
 /**
  * Talks to the page runtime in `frame`, which loads `src` and is named with `id`: answers its hello from `src`'s origin
- * with a port, and a second hello, after the page reloaded, with a new one and the height forgotten. Each time the page connects and each time
- * the mode changes, it sets the mode, and it hears the page's height and location.
+ * with a port, and a second hello, after the page reloaded, with a new one and the height forgotten. Each time the page
+ * connects and each time the mode changes, it sets the mode, and it hears the page's height and location. It shows
+ * `project`'s token values edited and not saved in the page, and when the app's files change, it loads the page again
+ * unless the page said its router takes the builder's hot updates.
  */
 export function usePageChannel(
   frame: RefObject<HTMLIFrameElement | null>,
-  { id, src, mode, viewport }: { id: string; src: string; mode: PageMode; viewport: PageViewport }
+  {
+    id,
+    src,
+    mode,
+    viewport,
+    project
+  }: { id: string; src: string; mode: PageMode; viewport: PageViewport; project: string }
 ): PageHeard {
   const drawn = JSON.stringify([mode, viewport])
   const [height, setHeight] = useState<{ drawn: string; height: number }>()
   const [location, setLocation] = useState<PageLocation>()
   const channel = useRef<Channel<ParityMethods, PageMethods>>(undefined)
+  // The page router the page said it has, which says whether it updates itself after a code change.
+  const router = useRef<string | null>(undefined)
+  // The project's previewed token values, which a page that connects later is shown too.
+  const preview = useRef("")
   // What the page draws in now, which a page that connects later is set to.
   const current = useRef({ drawn, mode, viewport })
 
@@ -98,8 +121,9 @@ export function usePageChannel(
       const connected = createChannel<ParityMethods, PageMethods>({
         checks: parityChecks,
         handlers: {
-          "page.ready": ({ location: at }) => {
+          "page.ready": ({ location: at, router: said }) => {
             setLocation(at)
+            router.current = said
 
             return null
           },
@@ -125,6 +149,10 @@ export function usePageChannel(
       connected.connect(domPort(ports.port1))
       page.postMessage({ parity: "port", frame: id }, origin, [ports.port2])
       sendMode(connected, current.current.mode, current.current.viewport)
+
+      if (preview.current !== "") {
+        sendPreview(connected, preview.current)
+      }
     }
 
     window.addEventListener("message", heard)
@@ -135,6 +163,30 @@ export function usePageChannel(
       channel.current = undefined
     }
   }, [frame, id, src])
+
+  useEffect(
+    () =>
+      showTokenPreview(project, (css) => {
+        preview.current = css
+        sendPreview(channel.current, css)
+      }),
+    [project]
+  )
+
+  // A page under Vite or a webpack-compatible builder keeps the modules it loaded, so a code change loads it again; its
+  // runtime says hello again with the same id. Next's take its hot updates in place.
+  useEffect(
+    () =>
+      onPageFiles(project, () => {
+        const page = frame.current
+
+        if (page && !updatesItself(router.current)) {
+          router.current = undefined
+          page.src = src
+        }
+      }),
+    [frame, project, src]
+  )
 
   // The page changes mode in place, without loading again.
   useEffect(() => {

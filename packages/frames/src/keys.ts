@@ -67,3 +67,35 @@ export function sharedMarkup(route: string, mode: string, groups: MarkupGroups):
 
   return [mode, ...[...modes].flatMap(([other, hash]) => (other !== mode && hash === markup ? [other] : []))]
 }
+
+/**
+ * The modes to snapshot first when a route is frozen again: one from each markup group, whose snapshot updates the rest
+ * of its group (`sharedMarkup`), and each mode with no markup known yet, which is its own group. In `modes`' order.
+ */
+export function groupLeaders(route: string, modes: readonly string[], groups: MarkupGroups): string[] {
+  const covered = new Set<string>()
+  const leaders: string[] = []
+
+  for (const mode of modes) {
+    if (covered.has(mode)) {
+      continue
+    }
+
+    leaders.push(mode)
+
+    for (const shared of sharedMarkup(route, mode, groups)) {
+      covered.add(shared)
+    }
+  }
+
+  return leaders
+}
+
+/** The groups once a route's snapshot in `mode` drew `markup`, which moves the mode into that markup's group. */
+export function withMarkup(groups: MarkupGroups, route: string, mode: string, markup: string): MarkupGroups {
+  if (groups.get(route)?.get(mode) === markup) {
+    return groups
+  }
+
+  return new Map(groups).set(route, new Map(groups.get(route)).set(mode, markup))
+}

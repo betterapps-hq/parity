@@ -100,6 +100,7 @@ export {
   type OpenedProjectInfo,
   openedProjectInfo,
   pickMainDocument,
+  pageSourceChange,
   projectFileChange,
   type ProjectInfo,
   readDesigns,

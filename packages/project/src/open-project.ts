@@ -197,6 +197,28 @@ export function documentTarget(root: string, path: string): string | undefined {
   return path.endsWith(".par") ? insideProject(root, path) : undefined
 }
 
+/** Folders a builder or tool writes into as it runs, whose changes are its output rather than the app's code. */
+const outputFolders = new Set(["node_modules", "dist", "build", "out", "coverage", "storybook-static"])
+
+/**
+ * Whether a change the project's watcher reports can change what the app's pages draw, by its path relative to the root
+ * with `/` between folders (docs/proposals/route-frames.md, "Code changes and previews"): any file of the app's, with
+ * its lockfile, but not what's in hidden folders such as `.git` and `.next`, in installed packages or builders' output,
+ * Parity's own design files, or a TypeScript build's record.
+ */
+export function pageSourceChange(path: string): boolean {
+  const parts = path.split("/")
+  const name = parts.at(-1) ?? ""
+
+  return (
+    name !== "" &&
+    !parts.some((part) => part.startsWith(".") || outputFolders.has(part)) &&
+    !name.endsWith(".par") &&
+    !name.endsWith(".tsbuildinfo") &&
+    !name.endsWith(".log")
+  )
+}
+
 /**
  * What a change the project's watcher reports means, by its path relative to the root with `/` between folders: one of
  * the project's config inputs (`configInput`, checked before `node_modules` is passed over, since a tsconfig can extend

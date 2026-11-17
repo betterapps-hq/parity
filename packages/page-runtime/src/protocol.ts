@@ -140,7 +140,15 @@ export interface PageMethods {
   "snapshot.take": { params: { quiet?: SnapshotQuiet }; result: PageSnapshot }
   /** The stylesheets with these ids, from the page's snapshots; an id it never read is left out. */
   "sheets.get": { params: { ids: string[] }; result: PageSheet[] }
+  /**
+   * Puts a style preview's rules in the page over its own, replacing the last; an empty string takes them out. They're
+   * never in a snapshot, so a preview never becomes a copy.
+   */
+  "preview.set": { params: { css: string }; result: null }
 }
+
+/** The most text one `preview.set` may carry. */
+export const maxPreviewCss = 1_000_000
 
 /** How long a page waits to go quiet before a snapshot: `ms` without a change in its DOM, at most `max`. */
 export interface SnapshotQuiet {
@@ -177,7 +185,8 @@ export const pageDeadlines: Record<keyof PageMethods, number> = {
   "page.scroll": 1000,
   // Past the quiet it waits for, which `snapshotDeadline` adds.
   "snapshot.take": 2000,
-  "sheets.get": 5000
+  "sheets.get": 5000,
+  "preview.set": 1000
 }
 
 /** How long Parity waits for a snapshot: the quiet it asked the page to wait for, and two seconds more. */

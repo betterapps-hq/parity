@@ -12,6 +12,7 @@ import type {
 } from "../../shared/protocol.ts"
 import { canvasIdFor } from "../canvas/CanvasEditor.tsx"
 import { askChangesAgain } from "../canvas/frame-changes.ts"
+import { pageFilesChanged } from "../canvas/page-changes.ts"
 import { announceEdit } from "../chrome/project-edits.tsx"
 import { answerExtension } from "../extension-ui.ts"
 import { revealView } from "../extension-views.ts"
@@ -131,6 +132,13 @@ const handlers: Handlers = {
   "project.codeChanged": ({ projectId, paths, stamp }) => {
     if (sessionOf(projectId)) {
       workspace.codeChanged(projectId, paths, stamp)
+    }
+
+    return undefined
+  },
+  "project.filesChanged": ({ projectId, paths }) => {
+    if (sessionOf(projectId)) {
+      pageFilesChanged(projectId, paths)
     }
 
     return undefined

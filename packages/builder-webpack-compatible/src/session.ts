@@ -4,7 +4,7 @@ import { createRequire } from "node:module"
 import { dirname, join } from "node:path"
 import type { BuilderSession, BuilderStartOptions, CodeChange } from "@parity-app/core"
 import { gatherChanges, pageEntrySource } from "@parity-app/project"
-import { type AppFiles, appEntryPrefix, appPageFile, builtAppFiles, plainAppPage, servedAppPage } from "./app-pages.ts"
+import { type AppFiles, appEntryPrefix, appPageFile, builtAppFiles, plainAppPage } from "./app-pages.ts"
 import { componentModuleSource, guestFiles, guestModuleSource } from "./browser-modules.ts"
 import type { Bundler, BundlerCompilation, BundlerConfig, BundlerStats } from "./bundler.ts"
 import { writeElementSourcesLoader, writeGuestAddressLoader } from "./element-sources.ts"
@@ -109,8 +109,6 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
   let cssDigest: string | undefined
   /** The files the latest build wrote for the app's entries, for a page when its config makes none. */
   let appFiles: AppFiles = { scripts: [], styles: [] }
-  /** How many builds have changed something, which the app's pages reload when it grows. */
-  let pageVersion = 0
 
   /** How many times the build has been invalidated: a build's results only count if no newer build has started. */
   let invalidations = 0
@@ -174,11 +172,6 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
         const paths = changed.flatMap((file) => reached.get(file)!)
         changes.stamp()
         changes.add({ paths: [...new Set(paths)], styles: restyled })
-
-        // The app's pages show what changed, whatever it was: a page's own file needn't be a component's.
-        if (changed.length > 0 || restyled) {
-          pageVersion++
-        }
       })
   })
 
@@ -258,9 +251,8 @@ export async function startBundledGuest({ bundler, config, start }: BundledGuest
         const made = await readFile(join(output, appPageFile), "utf8").catch(() => undefined)
         const html = made ?? (appFiles.scripts.length > 0 ? plainAppPage(appFiles) : undefined)
 
-        return html === undefined ? undefined : servedAppPage(html)
-      },
-      version: () => pageVersion
+        return html
+      }
     }
   })
 
