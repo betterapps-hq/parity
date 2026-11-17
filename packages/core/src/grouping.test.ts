@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vite-plus/test"
-import { componentRole, describeEvidence, groupComponents, rendersRoot, routeFiles } from "./grouping.ts"
+import {
+  componentRole,
+  describeEvidence,
+  groupComponents,
+  rendersRoot,
+  routeFiles,
+  withRouteFiles
+} from "./grouping.ts"
 import type { ComponentSource } from "./project.ts"
 import type { ProjectRoute } from "./routes.ts"
 
@@ -182,5 +189,35 @@ describe("grouping components", () => {
       { name: "/(portal)", ids: ["(portal)/ErrorPage"] },
       { name: "/orders/[id]", ids: ["OrderPage"] }
     ])
+  })
+})
+
+describe("a builder's config with the route files", () => {
+  const config = { styles: [], components: {}, documents: [], libraries: [] }
+
+  it("lists each file the routes are made of once, the files they draw while loading or failing among them", () => {
+    const routes = [
+      route({ id: "root", kind: "root", path: "/", file: "src/routes/__root.tsx" }),
+      route({
+        id: "/",
+        kind: "page",
+        path: "/",
+        file: "src/routes/index.tsx",
+        parent: "root",
+        index: true,
+        stateFiles: { error: "src/routes/-error.tsx" }
+      }),
+      route({ id: "/home", kind: "page", path: "/home", file: "src/routes/index.tsx", parent: "root" })
+    ]
+
+    expect(withRouteFiles(config, routes).routeFiles).toEqual([
+      "src/routes/__root.tsx",
+      "src/routes/index.tsx",
+      "src/routes/-error.tsx"
+    ])
+  })
+
+  it("leaves an app without routes as it is", () => {
+    expect(withRouteFiles(config, [])).toBe(config)
   })
 })

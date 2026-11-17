@@ -367,6 +367,22 @@ Providers are declared in the manifest's `providers` and given behaviour in `act
   frame stands for. Parity reads them before the extension's code runs, as it does a renderer's guest module, since the
   builder writes the guest as the project opens. React Router's is a `MemoryRouter`; TanStack Router's a
   `RouterProvider` with a memory-history router whose root route draws the frame (`{ "$frame": "content" }`).
+- **A tool's extension names its preview** (PAR-98). `providers.preview` in the manifest lists the files where the tool
+  keeps a preview with Storybook's exports (`files`, the first that's there used) and how it's applied (`compose`). The
+  one way so far is `{ "api": "portable-stories", "from": [...] }`: the renderer's guest imports `setProjectAnnotations`
+  and `composeStory` from the first package of `from` the project depends on, sets the preview as the project's
+  annotations, and composes a story for each frame. Every frame draws inside it when the project has no
+  `.parity/preview.*`, inside the libraries' and routers' decorators. Like a router's decorators, it's data Parity reads
+  before the extension's code runs. Storybook's extension names `.storybook/preview.*` and `@storybook/react` or a React
+  framework that re-exports it:
+
+  ```json
+  "preview": {
+    "files": [".storybook/preview.tsx", ".storybook/preview.ts"],
+    "compose": { "api": "portable-stories", "from": ["@storybook/react", "@storybook/react-vite"] }
+  }
+  ```
+
 - **Entities providers keep the round trip.** Import gives screens and their code; export writes an edited screen back
   to its file on Save, as stories work today. Parity makes the canvas file and its nodes from what import returns, so no
   call adds a canvas file directly.
@@ -463,25 +479,25 @@ This is how an extension works with Parity's UX rather than beside it.
 
 ## Where the UI can be extended
 
-| Area              | In it today                                                                      | What an extension adds                                                      |
-| ----------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Left panel        | Tabs: Layers, Components, Icons, Media, Tokens                                   | A tab with its own icon, such as Tests or Analytics                         |
-| Layers            | Groups: Screens, Components, Frames, Routes, Stories                             | A group for its canvas file, with folders, as Stories and Routes are        |
-| Right panel       | Tabs: Design, Modes, Accessibility                                               | A tab, such as Timings                                                      |
-| Design tab        | Sections for the selection, and buttons in its heading                           | A section for nodes of a type or a `when`, and heading buttons              |
-| Bottom panel      | The Console, alone                                                               | Its own tab for its log and processes; tabs such as test results            |
-| Status bar        | Tool items, component and token counts, processes                                | Items                                                                       |
-| App menu          | File, Edit, View, Object, Arrange, Help                                          | Items in a group of one of them                                             |
-| Right-click menus | Layers, the canvas, a design's title, component cards, Media tiles               | Items, by placement id and `when`, greyed by `enablement`                   |
-| Search actions    | Parity's commands, insert options, projects, designs, layers, components, tokens | Commands, and results of its own, such as routes by URL                     |
-| Insert (`/`)      | Basic layers, components, icons                                                  | Options of its own, such as blocks, or an icon set that also shows in Icons |
-| Library browser   | Mobbin, Unsplash, Pixabay, from Media and Find references                        | A connector of its own                                                      |
-| Canvas toolbar    | Tools, Insert, Find references, Search actions, review tools                     | Later: a tool of its own, such as a ruler                                   |
-| Canvas            | Designs, the stories and pages files, route lines                                | Overlays on nodes, node types, canvas files through entities providers      |
-| Frames            | Decorators from the project's preview file                                       | Decorators, such as a mock or a provider ([decorators.md](decorators.md))   |
-| Components panel  | Cards, their menu and buttons                                                    | Facts, and actions on cards                                                 |
-| Settings          | Appearance, Saving, Canvas, Code, Export, Updates, Privacy                       | Its own page on the Extensions page, drawn from its schema                  |
-| Tabs at the top   | Projects, Home, a new tab                                                        | A page of its own, such as a setup guide                                    |
+| Area              | In it today                                                                      | What an extension adds                                                                 |
+| ----------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Left panel        | Tabs: Layers, Components, Icons, Media, Tokens                                   | A tab with its own icon, such as Tests or Analytics                                    |
+| Layers            | Groups: Screens, Components, Frames, Routes, Stories                             | A group for its canvas file, with folders, as Stories and Routes are                   |
+| Right panel       | Tabs: Design, Modes, Accessibility                                               | A tab, such as Timings                                                                 |
+| Design tab        | Sections for the selection, and buttons in its heading                           | A section for nodes of a type or a `when`, and heading buttons                         |
+| Bottom panel      | The Console, alone                                                               | Its own tab for its log and processes; tabs such as test results                       |
+| Status bar        | Tool items, component and token counts, processes                                | Items                                                                                  |
+| App menu          | File, Edit, View, Object, Arrange, Help                                          | Items in a group of one of them                                                        |
+| Right-click menus | Layers, the canvas, a design's title, component cards, Media tiles               | Items, by placement id and `when`, greyed by `enablement`                              |
+| Search actions    | Parity's commands, insert options, projects, designs, layers, components, tokens | Commands, and results of its own, such as routes by URL                                |
+| Insert (`/`)      | Basic layers, components, icons                                                  | Options of its own, such as blocks, or an icon set that also shows in Icons            |
+| Library browser   | Mobbin, Unsplash, Pixabay, from Media and Find references                        | A connector of its own                                                                 |
+| Canvas toolbar    | Tools, Insert, Find references, Search actions, review tools                     | Later: a tool of its own, such as a ruler                                              |
+| Canvas            | Designs, the stories and pages files, route lines                                | Overlays on nodes, node types, canvas files through entities providers                 |
+| Frames            | Decorators from the project's preview file                                       | Decorators, and a tool's preview, such as Storybook's ([decorators.md](decorators.md)) |
+| Components panel  | Cards, their menu and buttons                                                    | Facts, and actions on cards                                                            |
+| Settings          | Appearance, Saving, Canvas, Code, Export, Updates, Privacy                       | Its own page on the Extensions page, drawn from its schema                             |
+| Tabs at the top   | Projects, Home, a new tab                                                        | A page of its own, such as a setup guide                                               |
 
 - **The bottom panel becomes tabbed.** The Console is the only thing there today; it becomes the first of its tabs, and
   each running extension with output gets one beside it.

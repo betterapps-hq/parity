@@ -38,14 +38,34 @@ export interface ProjectConfig {
   /**
    * The project's preview file for Parity, `.parity/preview.tsx` or another script extension, relative to the root: its
    * Storybook preview exports (`decorators`, `loaders`, `parameters`, `globalTypes`, `initialGlobals`) apply to every
-   * frame, inside the libraries' decorators (PAR-100).
+   * frame, inside the libraries' decorators (PAR-100). Without one, a preview an extension names for its tool, such as
+   * Storybook's `.storybook/preview.tsx`, with `previewComposer` set (PAR-98).
    */
   preview?: string
+  /** When `preview` is a tool's, named by an extension: how the guest applies it (PAR-98). */
+  previewComposer?: PreviewComposer
+  /**
+   * The files the app's routes are made of, relative to the root, as its router's extension reads them: what a builder
+   * looks through for the packages pages import before any page loads (PAR-1203). Unset for an app without a router.
+   */
+  routeFiles?: string[]
   /**
    * For a library's own project, with a `.lib.par` at its root: the library's id, which its own components are named
    * by (`nova/Button`), as the apps that install it name them.
    */
   namespace?: string
+}
+
+/**
+ * How a tool's preview is applied: with `portable-stories`, the guest imports Storybook's portable stories API
+ * (`setProjectAnnotations` and `composeStory`) from `module`, a package the project depends on, as the extension that
+ * names the preview says (PAR-98).
+ */
+export interface PreviewComposer {
+  api: "portable-stories"
+  module: string
+  /** The prefix of the extension that named the preview. */
+  extension: string
 }
 
 /** A decorator an extension declares, with the prefix of the extension that declares it. */

@@ -22,13 +22,13 @@ export * from "./envelope.ts"
 
 export * from "./events.ts"
 
+export * from "./extension-events.ts"
+
 export * from "./grouping.ts"
 
 export * from "./hangs.ts"
 
 export * from "./process-events.ts"
-
-export * from "./extension-events.ts"
 
 export * from "./project-events.ts"
 

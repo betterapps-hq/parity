@@ -7,6 +7,8 @@ import {
   type EntitiesDescription,
   extensionBuilder,
   extensionEntities,
+  extensionPreview,
+  type PreviewDescription,
   type ExtensionTool,
   extensionTool,
   extensionRenderer,
@@ -103,6 +105,11 @@ export const builtInBuilders: BuilderDescription[] = [
 /** The entities providers Parity's own extensions describe, found by what Parity's detection finds of their tools. */
 export const builtInEntities: EntitiesDescription[] = [extensionEntities(storybookPackage)].filter(
   (entities) => entities !== undefined
+)
+
+/** The previews Parity's own extensions name for their tools, which frames draw in without `.parity/preview.*`. */
+export const builtInPreviews: PreviewDescription[] = [extensionPreview(storybookPackage)].filter(
+  (preview) => preview !== undefined
 )
 
 /**

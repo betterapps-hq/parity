@@ -201,6 +201,15 @@ const providers = z.strictObject({
       color: z.strictObject({ light: z.string().min(1).max(100), dark: z.string().min(1).max(100) }).optional()
     })
     .optional(),
+  preview: z
+    .strictObject({
+      files: z.array(z.string().min(1)).min(1).max(20),
+      compose: z.strictObject({
+        api: z.literal("portable-stories"),
+        from: z.array(z.string().min(1)).min(1).max(20)
+      })
+    })
+    .optional(),
   connector: empty.optional(),
   search: empty.optional(),
   addresses: empty.optional(),
