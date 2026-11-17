@@ -56,6 +56,15 @@ describe("codeSnapshot", () => {
     expect((await codeSnapshot(root, "a")).fingerprint).toBe(before)
   })
 
+  it("counts the dot-folder of a tool's preview it's given, as Storybook's (PAR-98)", async () => {
+    await edit(".storybook/preview.tsx", "export const decorators = []")
+    const before = (await codeSnapshot(root, "a", [".storybook"])).fingerprint
+    await edit(".storybook/preview.tsx", "export const decorators = [withTheme]")
+
+    expect((await codeSnapshot(root, "a", [".storybook"])).fingerprint).not.toBe(before)
+    expect((await codeSnapshot(root, "a")).files.has(".storybook/preview.tsx")).toBe(false)
+  })
+
   it("keeps each file's size and time by its path, which previews are named by", async () => {
     const { files } = await codeSnapshot(root, "a")
     expect([...files.keys()].sort()).toEqual(["package.json", "src/Button.tsx", "src/index.css"])

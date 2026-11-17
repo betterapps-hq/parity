@@ -41,6 +41,9 @@ export {
   type EntitiesDescription,
   type EntitiesPackage,
   extensionEntities,
+  extensionPreview,
+  type PreviewDescription,
+  type PreviewPackage,
   type FileWrite,
   type Adapter,
   type AdapterDetection,
@@ -290,7 +293,8 @@ export {
   type LeftOutExport,
   rendersRoot,
   type RouteFiles,
-  routeFiles
+  routeFiles,
+  withRouteFiles
 } from "./grouping.ts"
 
 export {
@@ -409,6 +413,7 @@ export {
   type ComponentSource,
   type DescribedTokens,
   type ExtensionDecorator,
+  type PreviewComposer,
   type LibraryInfo,
   type OpenProp,
   type ProjectConfig

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Colors by key that never run out, the camera and following, and boxes and hits on the canvas, as core services (PAR-1236)",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

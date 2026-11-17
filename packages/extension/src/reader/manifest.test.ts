@@ -188,6 +188,21 @@ describe("readExtension", () => {
     )
   })
 
+  it("takes a tool's preview as data, and refuses a way of composing it Parity doesn't know (PAR-98)", () => {
+    const tool = (preview: JsonValue) => packageJson({ contributes: { ...contributes, providers: { preview } } })
+
+    const preview = {
+      files: [".storybook/preview.tsx"],
+      compose: { api: "portable-stories", from: ["@storybook/react"] }
+    }
+
+    expect(readExtension(tool(preview)).manifest.contributes.providers?.preview).toEqual(preview)
+    expect(() => readExtension(tool({ ...preview, compose: { api: "vitest", from: ["@storybook/react"] } }))).toThrow(
+      "/parity/contributes/providers/preview/compose/api"
+    )
+    expect(() => readExtension(tool({ ...preview, files: [] }))).toThrow("/parity/contributes/providers/preview/files")
+  })
+
   it("refuses an unknown activation event, placement or contributes key", () => {
     expect(() => readExtension(packageJson({ activates: ["onOpen"] }))).toThrow("/parity/activates/0")
     expect(() =>
