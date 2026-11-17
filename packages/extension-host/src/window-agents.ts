@@ -106,10 +106,10 @@ export interface AgentsPort {
   /** This copy's agents' steps in this tab, before the writes they describe are applied. Returns what stops it. */
   onSteps(listener: (steps: AgentStep[]) => void): () => void
   /**
-   * Other copies' steps, as an extension passed them in, for the window to draw while agents' pointers are still drawn
-   * by core.
+   * Other copies' steps that reached the window without an extension passing them in, as the development room's do,
+   * with the copy they came from. Returns what stops it.
    */
-  received?(steps: AgentStep[], from: string): void
+  onPassedOn?(listener: (steps: AgentStep[], from: string) => void): () => void
   /** Whether what a step names is in the document. */
   exists?(ref: NodeRef): boolean
   record?: RecordSeamEvent
@@ -189,6 +189,24 @@ export function windowAgents(port: AgentsPort): WindowSurface & Disposable {
       return false
     })
 
+  /** Another copy's steps: counted, and told with the copy they came from once what they name is found here. */
+  const passedOn = (steps: AgentStep[], from: string) => {
+    if (steps.length === 0) {
+      return
+    }
+
+    counts.received += steps.length
+    counts.copies.add(from)
+    counted()
+    const here = kept(steps, from)
+
+    if (here.length > 0) {
+      tell(here, from)
+    }
+  }
+
+  const stopPassedOn = port.onPassedOn?.(passedOn)
+
   return {
     capability: "agents",
     make(context) {
@@ -203,19 +221,7 @@ export function windowAgents(port: AgentsPort): WindowSurface & Disposable {
           return handle
         },
         receive(steps, { from }) {
-          if (steps.length === 0) {
-            return
-          }
-
-          counts.received += steps.length
-          counts.copies.add(from)
-          counted()
-          const here = kept(steps, from)
-
-          if (here.length > 0) {
-            tell(here, from)
-            port.received?.(here, from)
-          }
+          passedOn(steps, from)
         }
       }
 
@@ -223,6 +229,7 @@ export function windowAgents(port: AgentsPort): WindowSurface & Disposable {
     },
     dispose() {
       stopSteps()
+      stopPassedOn?.()
       listeners.clear()
 
       if (timer !== undefined) {

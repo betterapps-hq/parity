@@ -24,6 +24,7 @@ import {
   mediumOfType,
   videosFolder
 } from "@parity-app/editor"
+import agentPresencePackage from "@parity-app/extension-agent-presence/package.json" with { type: "json" }
 import { installedStatus } from "@parity-app/extension-host"
 import portlessPackage from "@parity-app/extension-portless/package.json" with { type: "json" }
 import reactRouterPackage from "@parity-app/extension-react-router/package.json" with { type: "json" }
@@ -515,6 +516,9 @@ let windowHandler: ((method: WindowMethod, params: WindowParams) => Promise<Serv
 
 const storybookExtension = readExtension(storybookPackage)
 
+/** Agent presence, built in and internal: a window module in every project tab, with no Node half. */
+const agentPresenceExtension = readExtension(agentPresencePackage, { builtIn: true })
+
 /**
  * Parity's own extensions that run for a project detection finds their tool in, with the status their code sets, in
  * the order the service lists them: the builder, then the renderer, then the rest.
@@ -581,9 +585,18 @@ export function standInExtensions(info: ProjectInfo): ExtensionStatus[] {
   const detected = (extension: ExtensionPackage) =>
     info.detection.tools.some((tool) => tool.id === extension.manifest.prefix)
 
-  const tools = toolExtensions.flatMap(({ extension, status }) =>
-    detected(extension) ? [activated(extension, { status })] : []
-  )
+  const tools = [
+    ...toolExtensions.flatMap(({ extension, status }) =>
+      detected(extension) ? [activated(extension, { status })] : []
+    ),
+    {
+      ...activated(agentPresenceExtension, { status: {} }),
+      internal: true,
+      window: true,
+      node: false,
+      capabilities: agentPresenceExtension.manifest.capabilities ?? []
+    }
+  ]
 
   if (!detected(storybookExtension)) {
     return tools

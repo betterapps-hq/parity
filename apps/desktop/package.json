@@ -53,6 +53,7 @@
     "@parity-app/multiplayer-local": "workspace:*",
     "@parity-app/multiplayer-loro": "workspace:*",
     "@parity-app/extension": "workspace:*",
+    "@parity-app/extension-agent-presence": "workspace:*",
     "@parity-app/extension-host": "workspace:*",
     "@parity-app/extension-nextjs": "workspace:*",
     "@parity-app/extension-portless": "workspace:*",
