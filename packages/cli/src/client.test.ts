@@ -478,7 +478,7 @@ describe("describeExtensions", () => {
       [
         "Multiplayer (@parity-app/extension-multiplayer), running",
         "  halves: Node running, window active",
-        "  room: attached, writes files, 2 peers, nothing pending, lineage 7f3a9c",
+        "  room: attached, writes files, 2 copies in the room, nothing pending, lineage 7f3a9c",
         "  failed 2026-11-17T08:41:02.000Z node: join failed: timed out",
         "  failed 2026-11-17T08:41:05.000Z window selection.onChange: Cannot read properties of undefined (reading 'id')"
       ].join("\n")

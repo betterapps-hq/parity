@@ -251,9 +251,9 @@ Every error from the editor window carries `extensions.json` beside `frames.json
 stopped in a tab (PAR-1283). For each such extension in each tab, it lists its id, version and display name, its halves'
 states, its capabilities, its layers, how many previews and holds it has open, its last five failures, and, for the
 extension that brings the room, the room's state, its random lineage, whether this copy writes files, whether changes
-are pending, the version's size and the peers it last reported. It never holds a document's bytes, names, labels or what
-anyone typed. `extensionsSnapshot` in `@parity-app/extension-host/window-snapshot` builds it, for `parity extensions`
-too.
+are pending, the version's size and how many copies, this one included, it last said were in the room. It never holds a
+document's bytes, names, labels or what anyone typed. `extensionsSnapshot` in
+`@parity-app/extension-host/window-snapshot` builds it, for `parity extensions` too.
 
 ## Turning it off
 
