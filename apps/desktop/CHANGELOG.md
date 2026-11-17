@@ -1,8 +1,38 @@
 # Change Log - @parity-app/desktop
 
-<!-- This log was last generated on Mon, 16 Nov 2026 22:19:52 GMT and should not be manually modified. -->
+<!-- This log was last generated on Tue, 17 Nov 2026 02:17:05 GMT and should not be manually modified. -->
 
 <!-- Start content -->
+
+## 0.99.0
+
+Tue, 17 Nov 2026 02:17:05 GMT
+
+### Minor changes
+
+- Storybook previews written with definePreview compose with their addons, and Parity's own preview file can use
+  definePreview (PAR-97) (ajcraswell@gmail.com)
+- Text typed on the canvas is written as it's typed, one undo step per pause, so others in a live room see it while it's
+  typed (ajcraswell@gmail.com)
+- Several drags show at once: other people's drags draw with the local lift, carry and settle in their color, and boards
+  an agent moves are held through a core hold that lets go after 10 s or when grabbed (ajcraswell@gmail.com)
+- Colors by key that never run out, the camera and following, and boxes and hits on the canvas, as core services
+  (PAR-1236) (ajcraswell@gmail.com)
+- Frames draw inside the project's Storybook preview when it has no .parity/preview, composed with Storybook's portable
+  stories API as Storybook's extension names it (PAR-98) (ajcraswell@gmail.com)
+- Component libraries: add Shadcn, Mantine, Chakra UI, Fluent UI or Material UI from a dialog that previews each one's
+  tokens, components and breakpoints, change Shadcn's settings, and remove a library; shadcn set up by hand is found by
+  its extension (ajcraswell@gmail.com)
+
+### Patches
+
+- Keep Vite's prebundled dependencies per copy of Parity, bundle what only pages import before any page loads, and keep
+  the warm-up's compiled modules (ajcraswell@gmail.com)
+- In a live room, the copy that writes files saves everyone's edits, token values sync, and so does which state and mode
+  a design shows. (ajcraswell@gmail.com)
+- The preview file offer looks inside fragments between the app's providers (ajcraswell@gmail.com)
+- Text being typed keeps what someone else in a live room wrote right where a deletion starts. (ajcraswell@gmail.com)
+- End a builder as soon as its project service is gone, even while its main thread is busy (ajcraswell@gmail.com)
 
 ## 0.98.2
 
