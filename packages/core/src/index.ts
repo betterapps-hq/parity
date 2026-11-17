@@ -402,9 +402,11 @@ export {
 } from "./params.ts"
 
 export {
+  componentInfoOf,
   type ComponentSource,
   type DescribedTokens,
   type ExtensionDecorator,
+  iconSetPropsId,
   type PreviewComposer,
   type LibraryInfo,
   type OpenProp,

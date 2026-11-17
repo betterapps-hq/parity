@@ -118,6 +118,8 @@ export interface PresetLayer {
   own: TypeValues
   /** Weight's italic toggle, which no preset sets. */
   italic?: boolean
+  /** What its text draws in where it sets nothing, read from the canvas; the stand-in project's defaults until drawn. */
+  inherited?: Required<TypeValues>
 }
 
 /** What the text inherits while a row is unset: the project's sans at 16/24, Regular, no letter spacing. */
@@ -128,6 +130,9 @@ export const inherited: Required<TypeValues> = {
   lineHeight: { px: 24 },
   letterSpacing: { em: 0 }
 }
+
+/** What a layer's text draws in where it sets nothing. */
+export const inheritedBy = (layer: PresetLayer): Required<TypeValues> => layer.inherited ?? inherited
 
 export type Source = "preset" | "override" | "own" | "inherited"
 
@@ -195,14 +200,14 @@ export function applyPreset(layer: PresetLayer, name: string | undefined): Prese
 export function detachPreset(layer: PresetLayer): PresetLayer {
   const preset = presetNamed(layer.preset)
 
-  return { own: { ...preset?.values, ...layer.own }, italic: layer.italic }
+  return { own: { ...preset?.values, ...layer.own }, italic: layer.italic, inherited: layer.inherited }
 }
 
 /* What the values come to */
 
 /** Every row's value as the text draws it, from the layer, its preset and what it inherits. */
 export function typeOf(layer: PresetLayer): Required<TypeValues> {
-  const values = { ...inherited }
+  const values = { ...inheritedBy(layer) }
 
   for (const { field } of typeFields) {
     const { value } = shownValue(layer, field)

@@ -1,0 +1,7 @@
+{
+  "type": "minor",
+  "comment": "Read an icon set's props from one of its icons, as any component's are read, so an icon's Props show its set's props",
+  "packageName": "@parity-app/cli",
+  "email": "ajcraswell@gmail.com",
+  "dependentChangeType": "patch"
+}

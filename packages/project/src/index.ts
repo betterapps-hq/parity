@@ -252,6 +252,7 @@ export async function discoverProject(
     styles,
     packageStyles: packageStyles.length > 0 ? packageStyles : undefined,
     components: all,
+    iconSets: Object.keys(libraries.iconSets).length > 0 ? libraries.iconSets : undefined,
     libraries: libraries.libraries,
     documents,
     describedTokens: tokens.length > 0 ? tokens : undefined,

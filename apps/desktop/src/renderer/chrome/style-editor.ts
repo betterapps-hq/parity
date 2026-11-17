@@ -17,6 +17,8 @@ import { projectLibrary } from "../canvas/layers.ts"
 import { useStylePreview } from "../canvas/style-preview.ts"
 import { watchFrame } from "../frame-host.ts"
 import { findFrames, subscribeFrames } from "../frame.ts"
+import type { TypeValues } from "../inspector/controls/preset-data.ts"
+import { renderedType, typeStyleKey } from "../inspector/controls/rendered-type.ts"
 import { useSelection } from "../selection.ts"
 import { spacingUnit, useTokenList } from "../tokens-store.ts"
 import type { ProjectSession } from "../workspace.ts"
@@ -27,7 +29,7 @@ import {
   rowChanged,
   rowValues
 } from "./inspector-events.ts"
-import { measureNode, placeNode } from "./LayerPanel.tsx"
+import { measureNode, nodeTypeStyle, placeNode } from "./LayerPanel.tsx"
 
 /** One row's edit of every selected layer, with what Undo calls it. `undefined` in an edit clears a property. */
 export interface StyleChange<R extends StyleRow = StyleRow> {
@@ -71,6 +73,11 @@ export interface StyleEditor {
    * border, the layer's own size, and its offset from that box's top left, for Position's inset box.
    */
   place?: () => LayerPlace | undefined
+  /**
+   * With one layer selected, the type its element draws with, as the canvas computes it, inherited values included, for
+   * Typography's unset rows.
+   */
+  type?: () => Required<TypeValues> | undefined
 }
 
 /** Where a layer sits in the box its insets count from, in pixels. */
@@ -80,12 +87,21 @@ export interface LayerPlace {
   inFlow: { x: number; y: number }
 }
 
-/** A layer's drawn size as text, to tell when it changes, or empty while it isn't drawn. */
-const sizeKey = (size: { width: number; height: number } | undefined) => (size ? `${size.width}x${size.height}` : "")
+/** A layer's drawn size and type as text, to tell when either changes, or empty while it isn't drawn. */
+function drawnKey(
+  editor: ProjectSession["editor"],
+  design: string,
+  layer: string,
+  picked: { mode?: string; state?: string }
+): string {
+  const size = measureNode(editor, design, layer, picked)
+
+  return size ? `${size.width}x${size.height} ${typeStyleKey(nodeTypeStyle(editor, design, layer, picked))}` : ""
+}
 
 /**
- * Draws the panel again when the one selected layer's drawn size changes: its frame drawing it for the first time, an
- * edit laying it out again, or the frame resizing. The panel reads the size as it draws (`measure`, `place`), and
+ * Draws the panel again when the one selected layer's drawn size or type changes: its frame drawing it for the first time, an
+ * edit laying it out again, or the frame resizing. The panel reads the size as it draws (`measure`, `place`, `type`), and
  * nothing else tells it a frame has drawn, so a layer picked before its frame drew showed no size in Size or Spacing.
  * It watches the design's frames as the canvas's overlay does, and measures once an animation frame at most.
  */
@@ -98,7 +114,7 @@ function useDrawnBox(
   const [, redraw] = useReducer((count: number) => count + 1, 0)
   // The size this draw of the panel saw, which a change is told against.
   const seen = useRef("")
-  const drawn = layer ? sizeKey(measureNode(session.editor, design, layer, picked)) : ""
+  const drawn = layer ? drawnKey(session.editor, design, layer, picked) : ""
   const { mode, state } = picked
 
   useEffect(() => {
@@ -117,7 +133,7 @@ function useDrawnBox(
     const check = () => {
       frame = 0
 
-      if (sizeKey(measureNode(session.editor, design, layer, { mode, state })) !== seen.current) {
+      if (drawnKey(session.editor, design, layer, { mode, state }) !== seen.current) {
         redraw()
       }
     }
@@ -275,6 +291,11 @@ export function useStyleEditor(entry: ContainerEntry, ids: readonly string[]): S
     tokens,
     unit,
     measure: (axis, round = Math.round) => (only ? measure(only, axis, round) : undefined),
-    place: () => (only ? placeNode(session.editor, entry.key, only, selected) : undefined)
+    place: () => (only ? placeNode(session.editor, entry.key, only, selected) : undefined),
+    type: () => {
+      const style = only ? nodeTypeStyle(session.editor, entry.key, only, selected) : undefined
+
+      return style && renderedType(style)
+    }
   }
 }
