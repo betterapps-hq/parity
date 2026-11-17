@@ -16,8 +16,8 @@ const asIs = (path: string) => path
 
 describe("wrappedImport", () => {
   it("serves a wrapped package to the app's own modules through Parity's module (PAR-1265)", () => {
-    expect(wrappedImport("react-router", "/app/src/main.tsx", wraps, asIs)).toBe(wrapper)
-    expect(wrappedImport("react-router", "/app/src/routes.tsx?v=3", wraps, asIs)).toBe(wrapper)
+    expect(wrappedImport("react-router", "/app/src/main.tsx", wraps, asIs)).toEqual({ file: wrapper })
+    expect(wrappedImport("react-router", "/app/src/routes.tsx?v=3", wraps, asIs)).toEqual({ file: wrapper })
     expect(wrappedImport("react-router-dom", "/app/src/main.tsx", wraps, asIs)).toBeUndefined()
   })
 

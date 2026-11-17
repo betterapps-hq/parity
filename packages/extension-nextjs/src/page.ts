@@ -97,25 +97,32 @@ function pagesOutcome(route: string): PageLocation["outcome"] {
  * new tree, so the page holds what the address says. Returns what stops it.
  */
 function onAddressWrite(changed: () => void): () => void {
-  const push = history.pushState
-  const replace = history.replaceState
-
-  history.pushState = function (...args) {
-    push.apply(this, args)
-    changed()
-  }
-
-  history.replaceState = function (...args) {
-    replace.apply(this, args)
-    changed()
-  }
+  const unpatch = [afterWrite("pushState", changed), afterWrite("replaceState", changed)]
 
   addEventListener("popstate", changed)
 
   return () => {
-    history.pushState = push
-    history.replaceState = replace
+    unpatch.forEach((undo) => undo())
     removeEventListener("popstate", changed)
+  }
+}
+
+/** Calls `changed` after each call of one of `history`'s writes. Returns what puts the write back as it was. */
+function afterWrite(method: "pushState" | "replaceState", changed: () => void): () => void {
+  const own = Object.getOwnPropertyDescriptor(history, method)
+  const write = history[method].bind(history)
+
+  history[method] = (...args) => {
+    write(...args)
+    changed()
+  }
+
+  return () => {
+    if (own) {
+      Object.defineProperty(history, method, own)
+    } else {
+      Reflect.deleteProperty(history, method)
+    }
   }
 }
 

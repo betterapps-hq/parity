@@ -33,7 +33,11 @@ export function appPageRuntime(
       const wrapped = wrappedImport(id, importer, modules()?.wraps ?? [], normalizePath)
 
       // The wrapping module's own import is the app's copy, resolved as the app's root would.
-      return wrapped === "app" ? this.resolve(id, `${root}/index.html`, { skipSelf: true }) : wrapped
+      if (wrapped === "app") {
+        return this.resolve(id, `${root}/index.html`, { skipSelf: true })
+      }
+
+      return wrapped?.file
     },
     load(id) {
       if (id !== `\0${pageEntryId}`) {
@@ -52,8 +56,8 @@ export function appPageRuntime(
 }
 
 /**
- * Where an import of a wrapped package goes (PAR-1265): from the app's own modules, to the module of Parity's that wraps
- * it; from that module itself, to the app's own copy (`"app"`). Packages' own imports, and other packages, are left
+ * Where an import of a wrapped package goes (PAR-1265): from the app's own modules, to the file of Parity's module that
+ * wraps it; from that module itself, to the app's own copy (`"app"`). Packages' own imports, and other packages, are left
  * alone.
  */
 export function wrappedImport(
@@ -61,7 +65,7 @@ export function wrappedImport(
   importer: string | undefined,
   wraps: readonly PageWrapFile[],
   normalizePath: (path: string) => string
-): string | "app" | undefined {
+): { file: string } | "app" | undefined {
   const wrap = wraps.find((candidate) => candidate.package === id)
 
   if (!wrap || !importer) {
@@ -75,7 +79,7 @@ export function wrappedImport(
     return "app"
   }
 
-  return from.includes("/node_modules/") ? undefined : file
+  return from.includes("/node_modules/") ? undefined : { file }
 }
 
 /**

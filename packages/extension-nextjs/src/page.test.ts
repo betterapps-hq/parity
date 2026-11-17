@@ -109,14 +109,14 @@ describe("nextjsPage", () => {
   it("gives up an App Router navigation that never commits when it's aborted, and leaves history as it was", async () => {
     const router = appRouter()
     router.push = () => undefined
-    const push = window.history.pushState
+    const before = Object.getOwnPropertyDescriptor(window.history, "pushState")
 
     const abort = new AbortController()
     const going = nextjsPage.navigate("/stalled", abort.signal)
     abort.abort(new Error("Too slow"))
 
     await expect(going).rejects.toThrow("Too slow")
-    expect(window.history.pushState).toBe(push)
+    expect(Object.getOwnPropertyDescriptor(window.history, "pushState")).toEqual(before)
   })
 
   it("resolves a Pages Router navigation once the new page has committed, with its 404 and error pages", async () => {
