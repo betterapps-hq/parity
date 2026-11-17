@@ -1,12 +1,12 @@
 # Proposal: one project per window, its lenses down the left
 
 Status: draft for discussion, 2026-11-16, with a clickable exploration in Storybook, Parity/Explorations/Lenses, laid
-out by Dockview (PAR-1237). Nothing in the app is built. Andrew asked for routes, components and stories to have
-canvases and panels of their own, as the database's ERD, the API and the other lenses of [app-lenses.md](app-lenses.md)
-arrive, listed down the left as VS Code lists its views, and for a lens to move into a window on another monitor. He
-also asked that Parity have one project open at a time, so the window's project tabs go. This changes app-lenses.md's
-third decision, "each lens as its own canvas page, with links jumping between pages and the design canvas staying the
-main view".
+out by Dockview (PAR-1237). Nothing in the app is built; [Building it into the app](#building-it-into-the-app) plans it
+as PAR-1239 to PAR-1248. Andrew asked for routes, components and stories to have canvases and panels of their own, as
+the database's ERD, the API and the other lenses of [app-lenses.md](app-lenses.md) arrive, listed down the left as VS
+Code lists its views, and for a lens to move into a window on another monitor. He also asked that Parity have one
+project open at a time, so the window's project tabs go. This changes app-lenses.md's third decision, "each lens as its
+own canvas page, with links jumping between pages and the design canvas staying the main view".
 
 ## In one line
 
@@ -116,6 +116,43 @@ background.
 - **Main's window list knows lens windows,** for closing the project, quitting, and putting them back on their screen.
 - **Lenses as extensions' contributions,** so the ERD and API lenses come from their extensions as the router's pages
   do: an id, a name, an icon, a source, a left panel, a canvas and an inspector section.
+
+## Building it into the app
+
+The logic goes in a package and the views stay in the app, as [packages.md](packages.md) has it: a package takes data
+and returns data, and the shell needs the app's own canvas, panels and kit, which a package can't import.
+
+```text
+packages/lenses/                   @parity-app/lenses: pure, tested in Vitest
+  lens.ts      a lens as data: id, name, icon, order and shortcut, and why it's unavailable
+  layout.ts    the layout as data: groups in the main window or their own, their tabs, focus
+  decide.ts    show, open in a new tab, split, move to a window and back, close: dock operations
+  state.ts     the lens in focus, the empty window, the lens bar's marks, the menus' enabled items
+  saved.ts     a saved layout's schema, with lenses that are gone dropped
+
+apps/desktop/src/renderer/lenses/  the shell, and the only place that imports Dockview
+  LensWorkspace.tsx  dock-adapter.ts  LensBar.tsx  LensTab.tsx  GroupActions.tsx  dock.css
+  popout.ts          a lens window's theme, its menus' container and its shortcuts
+  registry.ts        each lens's canvas, left panel and inspector
+```
+
+**The lens registry is where the two meet.** A lens is its data from the package and three components: a canvas, a left
+panel and an inspector. The exploration's lenses become test lenses for the same `LensWorkspace` the app renders, so its
+story shows the real shell. Extensions can add lenses the same way later, as they add panel tabs and pages today.
+
+| Step                                                             | Issue                        | Needs              |
+| ---------------------------------------------------------------- | ---------------------------- | ------------------ |
+| The decisions as data, with tests                                | PAR-1239                     |                    |
+| The shell in the app, behind a Dockview adapter and the registry | PAR-1240                     | PAR-1239           |
+| One project per window, with Home when none is open              | PAR-1241                     |                    |
+| The open project in the shell, with Screens as its first lens    | PAR-1243                     | PAR-1240, PAR-1241 |
+| Pages, Components and Stories as lenses of their own             | PAR-1244, PAR-1245, PAR-1246 | PAR-1243           |
+| Today's canvas tried in a lens's own window                      | PAR-1242                     |                    |
+| Lens windows in the desktop app                                  | PAR-1247                     | PAR-1242, PAR-1243 |
+| Each project's layout saved and restored                         | PAR-1248                     | PAR-1243           |
+
+Data's canvas, the ERD, comes with the Data lens's own work (PAR-40). Trying today's canvas in a lens's own window goes
+early, since it's the part most likely to change the plan.
 
 ## On Dockview
 
