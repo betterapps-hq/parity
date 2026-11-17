@@ -364,6 +364,9 @@ export function sanitizePage(body: FrozenElement, policy: SanitizePolicy): { bod
 /** A sheet's text with every `url()` outside the policy taken out; `@import` is refused, as the page inlined them. */
 export function sanitizeSheet(text: string, policy: SanitizePolicy): string
 
+/** `<html>`'s classes, attributes and inline style with only what may go on the copy's host in Parity's document. */
+export function sanitizeRoot(root: PageRoot, policy: SanitizePolicy): { root: PageRoot; removed: number }
+
 export interface SanitizePolicy {
   /** The builder's origin, which a copy may load anything from. */
   pageOrigin: string
@@ -723,10 +726,11 @@ Each is an issue, in this order.
    builder's host check confirmed. TanStack Router's page router, React's hydration module, and the fallbacks.
    `PageFrame` uses it, so a board's mode changes without reloading. Built: the frame name also carries the frame's
    role, mode and viewport, `mode.set` carries the viewport, `page.ready`'s router is `null` without a page router, and
-   the port arrives as `{parity: "port", frame}`. `PageMode` is in both `route-boards.ts` and the runtime's protocol
-   until step 3 moves it.
-3. **`@parity-app/frames`:** the snapshot's schemas and caps, both sanitizers with a test for every element, attribute
-   and URL rule, `buildCopy`, ids, keys and the planners.
+   the port arrives as `{parity: "port", frame}`.
+3. **`@parity-app/frames`** (PAR-1261), done: the snapshot's schemas and caps, both sanitizers with a test for every
+   element, attribute and URL rule, `buildCopy`, ids, keys and the planners. It added `sanitizeRoot`, since `<html>`'s
+   attributes go on the copy's host in Parity's document and need the same allowlist as the body's. `PageMode` is only
+   in `@parity-app/frames` now, and its `PageLocation` is `@parity-app/extension/page`'s.
 4. **Frozen copies.** `snapshot.take` and `sheets.get` in the runtime, other hosts' sheets fetched by main, the freezer
    frame and its queue, and the `RouteBoard` view that shows copies through `prepareFrame`, registered as frames, with
    hit-testing, layers in a window store, styles read when shown, and the redirect warning. Boards show copies instead

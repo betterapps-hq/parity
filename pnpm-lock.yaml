@@ -849,6 +849,9 @@ importers:
       '@parity-app/core':
         specifier: workspace:*
         version: link:../core
+      '@parity-app/frames':
+        specifier: workspace:*
+        version: link:../frames
       '@parity-app/tokens':
         specifier: workspace:*
         version: link:../tokens
@@ -1197,6 +1200,22 @@ importers:
         specifier: workspace:*
         version: link:../tokens
 
+  packages/frames:
+    dependencies:
+      '@parity-app/core':
+        specifier: workspace:*
+        version: link:../core
+      '@parity-app/extension':
+        specifier: workspace:*
+        version: link:../extension
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
+    devDependencies:
+      happy-dom:
+        specifier: 'catalog:'
+        version: 21.0.4
+
   packages/icons:
     dependencies:
       '@parity-app/core':
@@ -1325,6 +1344,9 @@ importers:
       '@parity-app/extension':
         specifier: workspace:*
         version: link:../extension
+      '@parity-app/frames':
+        specifier: workspace:*
+        version: link:../frames
     devDependencies:
       happy-dom:
         specifier: 'catalog:'

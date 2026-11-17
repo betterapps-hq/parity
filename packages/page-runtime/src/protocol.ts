@@ -1,4 +1,5 @@
 import type { PageLocation } from "@parity-app/extension/page"
+import type { PageMode } from "@parity-app/frames"
 
 /*
  * How Parity and the page runtime talk (docs/proposals/route-frames.md, "The page runtime's channel"): the frame's name,
@@ -12,13 +13,8 @@ export const pageProtocol = 1
 /** What a frame's name starts with, followed by its `FrameName` as JSON. */
 const namePrefix = "parity:"
 
-/** The mode a route's page draws in: the classes and attributes on its `<html>`, and its color scheme. */
-export interface PageMode {
-  classes: string[]
-  attributes: Record<string, string>
-  /** What `prefers-color-scheme` answers: the mode's theme's, when it has one that's dark or light. */
-  scheme?: "dark" | "light"
-}
+/** The mode a route's page draws in, from `@parity-app/frames`, where Parity's side of route frames keeps it. */
+export type { PageMode }
 
 /** The mode's window, in CSS pixels, which the page's height is measured in. */
 export interface PageViewport {

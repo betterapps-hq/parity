@@ -542,7 +542,6 @@ export {
   type PageLayout,
   pageLinkLine,
   pageLinksLit,
-  type PageMode,
   pageMode,
   projectHost,
   pageName,
