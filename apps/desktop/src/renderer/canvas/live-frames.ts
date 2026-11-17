@@ -406,6 +406,16 @@ export class Pool {
       // A spare the pool or a hover is moving finishes that move first, so it's where it says it is.
       await frame.moving
 
+      // A spare that turned out to have no page router can't be sent: a new frame loads at the board's URL instead.
+      if (frame.route !== route && frame.router === null) {
+        this.pendingFrames.delete(frame.id)
+        this.close(frame)
+        frame = this.open(board.url, "live", board)
+        this.pendingFrames.set(frame.id, frame)
+        frame.busy = true
+        await withDeadline(frame.ready.promise, loadDeadline)
+      }
+
       if (frame.route !== route) {
         await this.send(frame, route)
       }
@@ -507,6 +517,13 @@ export class Pool {
   private pressedOutside(event: PointerEvent): void {
     if (this.live?.engaged && event.target !== this.live.frame.iframe) {
       this.disengage()
+    }
+
+    // A press anywhere but the board on its way to going live moves on from it: it's closed once ready, never engaged.
+    const pending = this.going && this.boards.get(this.going.board)?.().element()
+
+    if (this.going && !(event.target instanceof Node && pending?.contains(event.target))) {
+      this.going = undefined
     }
   }
 
