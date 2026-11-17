@@ -231,19 +231,22 @@ export class AgentQueue {
     this.changed()
   }
 
-  /** Skips the visits that have waited longer than `behindLimitMs`, all but the latest, letting go of skipped moves. */
+  /**
+   * Skips the visits that have waited longer than `behindLimitMs`, all but the latest. Skipped moves are let go in the
+   * order they were told, so a board several of them moved is left where the last one put it.
+   */
   private catchUp(queue: QueuedStep[]) {
     const late = (step: QueuedStep) => visited(step) && this.now() - (this.told.get(step) ?? this.now()) > behindLimitMs
+    const latest = queue.findLastIndex(visited)
+    const skipped = queue.filter((step, index) => index < latest && late(step))
 
-    for (let index = queue.findLastIndex(visited) - 1; index >= 0; index -= 1) {
-      const step = queue[index]!
+    if (skipped.length === 0) {
+      return
+    }
 
-      if (!late(step)) {
-        continue
-      }
+    queue.splice(0, queue.length, ...queue.filter((step) => !skipped.includes(step)))
 
-      queue.splice(index, 1)
-
+    for (const step of skipped) {
       if (step.kind === "move" && step.to) {
         this.letGo(step, step.to)
       }

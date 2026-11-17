@@ -169,6 +169,19 @@ describe("the agent queue", () => {
     expect(told).toEqual(["hold card 0,0", "update card 40,40", "release card"])
   })
 
+  it("lets skipped moves of one board go in the order they were told, leaving it where the last one put it", () => {
+    const { queue, told, clock } = queued()
+    queue.watch()
+    const moved = (from: number, to: number): AgentStep => ({ ...move, from: { x: from, y: 0 }, to: { x: to, y: 0 } })
+
+    queue.push([moved(0, 100), moved(100, 200)])
+    clock.now = behindLimitMs + 1
+    queue.push([moved(200, 300)])
+    queue.take("claude")
+
+    expect(told.filter((line) => line.startsWith("update"))).toEqual(["update card 100,0", "update card 200,0"])
+  })
+
   it("keeps the latest visit however long it waited, played faster for it", () => {
     const { queue, clock } = queued()
 

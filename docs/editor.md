@@ -6625,14 +6625,14 @@ development room's steps told apart) and `windowAgentsPort` in `renderer/window-
 
 Tests:
 
-- `packages/extension-agent-presence/src/queue.test.ts` (14): each agent's steps in order with a pointer until it
+- `packages/extension-agent-presence/src/queue.test.ts` (15): each agent's steps in order with a pointer until it
   retires; another copy's agents kept apart under their key; a moved board held while it's played and let go where it
   landed; moves left alone while nothing plays the queue; a long call trimmed, letting go of the boards it skips; a held
   board dragged, at the fastest pace until the pointer has it and while it drags it; the visits ahead of a held move
   skipped when they'd leave no time to drag it; a board let go where it was put once its hold has all but run out; every
   hold let go as it stops; listeners told as agents come and go; the board a move drags; a 1.8 s call of 60 reads played
-  within 11 s; the visits that waited over 6 s skipped for the latest, a skipped board landing where it was put; the
-  latest visit kept however long it waited, at the fastest pace.
+  within 11 s; the visits that waited over 6 s skipped for the latest, a skipped board landing where it was put, several
+  skipped moves of one board let go in order; the latest visit kept however long it waited, at the fastest pace.
 - `packages/extension-agent-presence/src/targets.test.ts` (8): a page box on the screen; a layer in its state and mode's
   frame with its radius and size; falling back to the frame, then the board; a move by its board; an asleep frame; out
   of view, missing or naming no design skipped; a layer's design found when its key has a slash; staying put when the
