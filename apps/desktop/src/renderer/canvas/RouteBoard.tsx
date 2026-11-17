@@ -153,13 +153,28 @@ function showCopy(
   // The stand-in `prepareFrame` made gives way to the copy's, which carries `<body>`'s attributes.
   target.parentElement?.replaceWith(built.fragment)
   const unroot = rootOnHost(host, copy.root, mode)
-  const nodes = new Map<string, Element>()
+  const nodes = new Map<string, Element | Text>()
+
+  // Text between elements is a layer of its own (`frozenSnapshots`), as `<parent>.t<index>`: its node is found by its
+  // place among its parent's children, which `buildCopy` made in the snapshot's order.
+  const texts = (parent: Element, id: string) => {
+    for (const [index, child] of [...parent.childNodes].entries()) {
+      if (child instanceof Text) {
+        nodes.set(`${id}.t${index}`, child)
+      }
+    }
+  }
+
+  if (body) {
+    texts(body, "body")
+  }
 
   for (const id of built.drawn.ids) {
     const [element] = built.drawn.elements(id)
 
     if (element) {
       nodes.set(id, element)
+      texts(element, id)
     }
   }
 
