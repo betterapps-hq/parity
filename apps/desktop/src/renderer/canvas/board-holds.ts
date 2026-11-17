@@ -1,9 +1,10 @@
+import { holdLimitMs } from "@parity-app/extension/internal"
 import { track } from "../report-error.ts"
 import { type Timers, windowTimers } from "./carried.ts"
 import { type Placement, placedBoards, type PlacedBoards, type Point } from "./placed-boards.ts"
 
 /** However long a hold lasts, it's let go after this, so a board an agent's write never came for doesn't stay put. */
-export const holdLimitMs = 10_000
+export { holdLimitMs }
 
 /** How a hold ended: let go, after `holdLimitMs`, by the person grabbing the board, or with what made it. */
 export type HoldEnd = "released" | "timeout" | "grabbed" | "disposed"

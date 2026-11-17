@@ -415,8 +415,9 @@ that draw the layers.
 
 `@parity-app/extension-agent-presence` draws agents at work: a pointer per agent that travels to what it reads or
 changes, scans it and drags the boards it moves ([editor.md](editor.md#agents-at-work-on-the-canvas-par-1269)). It's
-internal, with only a window module, activated `onStartup` in every project tab, and declares `canvas`, `agents` and
-`hold`.
+internal, with only a window module, activated `onSetting:agentPresence.show` in every project tab while **Show agents
+on canvas** is on (Settings → Extensions → Agent presence, an app setting that starts on), and declares `canvas`,
+`agents` and `hold`.
 
 - **What it listens to.** `parity.agents.onActivity`, this copy's steps and other copies' alike. Each is queued per
   agent, keyed by its id, or `${from}:${agentId}` for another copy's.
@@ -424,8 +425,15 @@ internal, with only a window module, activated `onStartup` in every project tab,
   `AgentPointer` and `AgentBadge`. It reads the camera and boxes through the layer, and claims each agent's color from
   `parity.colors.agents` while its pointer is drawn.
 - **Holds.** A move's board is held with `parity.canvas.hold` as its step is told, before the write lands, and let go
-  once the pointer has dragged it, or as the extension stops.
-- **Turned off,** agents work without being drawn, and the rest of the canvas is unchanged.
+  once the pointer has dragged it, or as the extension stops. A hold lasts at most `holdLimitMs` (10 s, from
+  `@parity-app/extension/internal`), so the queue keeps a board held only while its pointer can still drag it: it plays
+  at its fastest while a board waits, skips visits that would leave no time, and lets a board whose hold has all but run
+  out land where the agent put it.
+- **Turned off,** from Settings or after failing, agents work without being drawn, and the rest of the canvas is
+  unchanged.
+
+- **Its logo.** Its manifest's icon is the agent pointer's outline, one path in the text's color. Settings draws the
+  pointer itself instead, in an agent's colors with its glow (`extensionMark` in `renderer/chrome/settings/marks.tsx`).
 
 What it offers other window modules is its queue (`AgentPresenceApi`), for tests and stories.
 

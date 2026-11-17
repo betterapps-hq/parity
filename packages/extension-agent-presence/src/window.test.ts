@@ -1,6 +1,8 @@
 import type { Disposable } from "@parity-app/extension"
 import type { Agents, AgentStep, CanvasSurface, LayerOptions, WindowParity } from "@parity-app/extension/internal"
+import { readExtension } from "@parity-app/extension/manifest"
 import { describe, expect, it } from "vite-plus/test"
+import packageJson from "../package.json" with { type: "json" }
 import agentPresence from "./window.tsx"
 
 /** A project tab's `WindowParity`, as far as agent presence reaches it, writing down what it's asked to do. */
@@ -68,6 +70,17 @@ const move: AgentStep = {
 }
 
 describe("agent presence's window module", () => {
+  it("runs while Show agents on canvas is on, an app setting that starts on", () => {
+    const { manifest } = readExtension(packageJson, { builtIn: true })
+
+    expect(manifest.activates).toEqual(["onSetting:agentPresence.show"])
+    expect(manifest.contributes.settings?.["agentPresence.show"]).toMatchObject({
+      type: "boolean",
+      default: true,
+      scope: "app"
+    })
+  })
+
   it("draws in one layer over the selection, and plays this copy's agents and other copies' alike", async () => {
     const tab = standIn()
     const { window } = await agentPresence.activateWindow(tab.parity)

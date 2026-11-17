@@ -104,7 +104,8 @@ on it.
 - `onSetting:<key>`: active while one of its boolean app settings is on. Multiplayer uses
   `onSetting:multiplayer.liveRoom` for now, an app setting so it's known before the project opens. Turning it on or off
   reopens the project.
-- `onStartup`: active in every project tab. Agent presence uses this, so it's listening before the first agent step.
+- `onStartup`: active in every project tab. Agent presence used this until it gained its switch (PAR-1274); it now uses
+  `onSetting:agentPresence.show`, an app setting that starts on, so it's still listening before the first agent step.
   It's cheap until an agent works.
 
 **Who brings the room.** A manifest that brings the room says so with `"contributes": { "sync": true }`. Two enabled
