@@ -73,9 +73,24 @@ export function ProjectCanvas({
       return
     }
 
-    const follow = () => {
+    // The store tells of the tool and hover changing too, and what was selected before this lens showed stays selected,
+    // so only a newly selected design is followed.
+    const selectedKey = () => {
       const { design, note, reference } = selection.get()
-      const key = note ?? reference ?? design
+
+      return note ?? reference ?? design
+    }
+
+    let last = selectedKey()
+
+    const follow = () => {
+      const key = selectedKey()
+
+      if (key === last) {
+        return
+      }
+
+      last = key
       const other = key === undefined ? undefined : lensDrawing[canvasOf(key)]
 
       if (key && other && canvasOf(key) !== draws) {

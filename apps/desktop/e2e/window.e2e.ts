@@ -186,6 +186,14 @@ describe("the window", () => {
 
       await page.keyboard.press("Control+a")
       await expect.poll(async () => ((await app.selection()).designs ?? []).toSorted()).toEqual(pages.toSorted())
+
+      // Back on Screens with the pages still selected, picking a tool leaves Screens in front.
+      await page.keyboard.press("Control+2")
+      await expect.poll(() => page.locator(".dv-tab").allTextContents()).toEqual(["Screens"])
+      await page.keyboard.press("h")
+      await app.frames(4)
+      expect(await page.locator(".dv-tab").allTextContents()).toEqual(["Screens"])
+      await page.keyboard.press("v")
     } finally {
       await page.keyboard.press("Escape")
       await showScreens()
