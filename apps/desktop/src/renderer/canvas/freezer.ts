@@ -370,6 +370,13 @@ class Freezer {
       const copy = have.get(other.key)
 
       if (other.url === need.url && copy?.drawn === need.drawn) {
+        const stale = this.stale.get(other.key)
+
+        // A copy a code change made stale is stale for the board that shares it too, until it's frozen again.
+        if (stale !== undefined) {
+          this.stale.set(need.key, stale)
+        }
+
         copies.set(new Map(have).set(need.key, copy))
 
         return

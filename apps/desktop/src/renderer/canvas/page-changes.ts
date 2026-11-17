@@ -35,7 +35,7 @@ export function onPageFiles(project: string, listener: FilesListener): () => voi
 interface TokensPreview {
   sheet: CSSStyleSheet
   tokens: readonly TokenPreview[]
-  themes: readonly string[]
+  themes: ReadonlyMap<string, readonly string[]>
 }
 
 const tokenPreviews = new Map<string, TokensPreview>()
@@ -53,7 +53,7 @@ function tokensFor(project: string): TokensPreview {
   let preview = tokenPreviews.get(project)
 
   if (!preview) {
-    preview = { sheet: new CSSStyleSheet(), tokens: [], themes: [] }
+    preview = { sheet: new CSSStyleSheet(), tokens: [], themes: new Map() }
     tokenPreviews.set(project, preview)
   }
 
@@ -63,14 +63,18 @@ function tokensFor(project: string): TokensPreview {
 /**
  * Shows token values edited and not yet saved in every copy of the project's routes and their live pages, in place of
  * what was shown: the page's own stylesheets hold the saved ones, which the design frames' shared stylesheet doesn't
- * reach. `themes` are the project's themes, whose own values a default value leaves alone. It goes into one sheet every
+ * reach. `themes` are the themes each token has a value in, whose own values a default value leaves alone. It goes into one sheet every
  * copy adopts, so it reaches them all in the same frame, and it never makes a copy stale. The same `tokens` and `themes`
  * as last time change nothing.
  */
-export function previewTokens(project: string, tokens: readonly TokenPreview[], themes: readonly string[]): void {
+export function previewTokens(
+  project: string,
+  tokens: readonly TokenPreview[],
+  themes: ReadonlyMap<string, readonly string[]>
+): void {
   const preview = tokensFor(project)
 
-  if (preview.tokens === tokens && preview.themes.join() === themes.join()) {
+  if (preview.tokens === tokens && sameThemes(preview.themes, themes)) {
     return
   }
 
@@ -88,7 +92,7 @@ export function previewTokens(project: string, tokens: readonly TokenPreview[], 
 /** What the window's token store gives a preview: the values edited and not saved, and the tokens with their themes. */
 interface PreviewedTokens {
   previews(): readonly TokenPreview[]
-  get(): readonly { values: Record<string, string> }[]
+  get(): readonly { name: string; values: Record<string, string> }[]
   subscribe(listener: () => void): () => void
 }
 
@@ -109,9 +113,14 @@ export function useTokenPreview(project: string, tokens: PreviewedTokens): void 
   }, [project, tokens])
 }
 
-/** Every theme the project's tokens have a value in, `default` included. */
-function themesOf(tokens: readonly { values: Record<string, string> }[]): string[] {
-  return [...new Set(tokens.flatMap((token) => Object.keys(token.values)))].sort((a, b) => a.localeCompare(b, "en"))
+/** The themes each token has a value in, by its name, `default` included. */
+function themesOf(tokens: readonly { name: string; values: Record<string, string> }[]): Map<string, string[]> {
+  return new Map(tokens.map((token) => [token.name, Object.keys(token.values)]))
+}
+
+/** Whether two tokens' themes say the same. */
+function sameThemes(a: ReadonlyMap<string, readonly string[]>, b: ReadonlyMap<string, readonly string[]>): boolean {
+  return a.size === b.size && [...a].every(([name, themes]) => b.get(name)?.join() === themes.join())
 }
 
 /** The sheet a copy of the project's routes adopts after its own, which holds its previewed token values. */

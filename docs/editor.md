@@ -8675,7 +8675,8 @@ A screen is named for the component its route draws, else its path.
 - **Style previews in copies.** Token values edited and not yet saved show in every copy, in the same frame as in the
   design frames: the page's own stylesheets hold the saved values, so the project's previewed values go into one sheet
   every copy of its routes adopts after its own (`tokenPreviewCss`). A default value is declared on the copy's host and
-  body without a theme's class, and a theme's value where its class is, so Desktop Dark keeps its own. The page with the
+  body, except where the class of a theme the token has a value of its own in is, and a theme's value where its class
+  is: Desktop Dark keeps `primary`'s dark value, and takes an edited `radius`, which has none. The page with the
   Interact tool gets them over its channel (`preview.set`), into a sheet its snapshots never list.
 - **When the page process fails.** A project's pages share one renderer process. When it closes the freezer's channel or
   a request misses its deadline, the freezer starts again after 1 s, then 5 s, then 30 s, and after three failures in

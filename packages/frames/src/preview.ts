@@ -34,49 +34,53 @@ const themeName = /^[\w-]+$/
 /**
  * Previewed token values as CSS custom properties, for a copy (`"copy"`), where the page's root rules are on the copy's
  * host and its body stand-in, and a theme's class is on the host, the element around the body and the body stand-in, or
- * for the live page (`"page"`), on its root. A default value leaves out roots with one of `themes`' classes, so a theme's
- * own value still wins there; a theme's value is declared where the theme's class is. Values that would end their
- * declaration early, and themes that aren't a class's name, are left out.
+ * for the live page (`"page"`), on its root. A default value leaves out roots with the class of a theme that token has a
+ * value of its own in (`themes`, by token), so that theme's value still wins there, and reaches every other theme; a
+ * theme's value is declared where the theme's class is. Values that would end their declaration early, and themes that
+ * aren't a class's name, are left out.
  */
 export function tokenPreviewCss(
   tokens: readonly TokenPreview[],
-  themes: readonly string[],
+  themes: ReadonlyMap<string, readonly string[]>,
   scope: "copy" | "page"
 ): string {
-  const classes = themes.flatMap((theme) => (theme !== "default" && themeName.test(theme) ? [`.${theme}`] : []))
-  const others = classes.length > 0 ? `:not(${classes.join(", ")})` : ""
-
-  const selectorOf = (theme: string): string | undefined => {
-    if (theme === "default") {
-      return scope === "page"
-        ? `:root${others}`
-        : `:host${classes.length > 0 ? `(${others})` : ""}, [data-copy-root]${others}, [data-canvas-body]${others}`
-    }
-
-    if (!themeName.test(theme)) {
-      return undefined
-    }
+  const defaultSelector = (classes: readonly string[]) => {
+    const others = classes.length > 0 ? `:not(${classes.join(", ")})` : ""
 
     return scope === "page"
-      ? `:root.${theme}`
-      : `:host(.${theme}), [data-copy-root].${theme}, [data-canvas-body].${theme}`
+      ? `:root${others}`
+      : `:host${classes.length > 0 ? `(${others})` : ""}, [data-copy-root]${others}, [data-canvas-body]${others}`
   }
 
-  const byTheme = new Map<string, string[]>()
+  const themeSelector = (theme: string) =>
+    scope === "page" ? `:root.${theme}` : `:host(.${theme}), [data-copy-root].${theme}, [data-canvas-body].${theme}`
+
+  // Declarations by selector, in the order their first token came.
+  const bySelector = new Map<string, string[]>()
 
   for (const { name, theme, value } of tokens) {
-    if (customProperty.test(`--${name}`) && !unsafeValue.test(value)) {
-      byTheme.set(theme, [...(byTheme.get(theme) ?? []), `--${name}: ${value.trim()};`])
+    if (!customProperty.test(`--${name}`) || unsafeValue.test(value)) {
+      continue
+    }
+
+    let selector: string | undefined
+
+    if (theme === "default") {
+      const own = (themes.get(name) ?? []).flatMap((each) =>
+        each !== "default" && themeName.test(each) ? [`.${each}`] : []
+      )
+
+      selector = defaultSelector(own.toSorted((a, b) => a.localeCompare(b, "en")))
+    } else if (themeName.test(theme)) {
+      selector = themeSelector(theme)
+    }
+
+    if (selector) {
+      bySelector.set(selector, [...(bySelector.get(selector) ?? []), `--${name}: ${value.trim()};`])
     }
   }
 
-  return [...byTheme]
-    .flatMap(([theme, declarations]) => {
-      const selector = selectorOf(theme)
-
-      return selector ? [`${selector} { ${declarations.join(" ")} }`] : []
-    })
-    .join("\n")
+  return [...bySelector].map(([selector, declarations]) => `${selector} { ${declarations.join(" ")} }`).join("\n")
 }
 
 /** The page routers whose pages take the builder's hot updates in place, so a code change needn't start them again. */

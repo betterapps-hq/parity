@@ -9,20 +9,26 @@ describe("tokenPreviewCss (PAR-1264)", () => {
     { name: "radius", theme: "default", value: "1rem" }
   ]
 
-  it("declares a default value on a copy's roots without a theme's class, and a theme's where its class is", () => {
-    expect(tokenPreviewCss(tokens, ["default", "dark"], "copy")).toBe(
+  // `primary` has a dark value of its own; `radius` has only its default, which dark inherits.
+  const themes = new Map([
+    ["primary", ["default", "dark"]],
+    ["radius", ["default"]]
+  ])
+
+  it("declares a default value on a copy's roots without the class of a theme the token has its own value in", () => {
+    expect(tokenPreviewCss(tokens, themes, "copy")).toBe(
       [
-        ":host(:not(.dark)), [data-copy-root]:not(.dark), [data-canvas-body]:not(.dark) { --primary: #ff0000; --radius: 1rem; }",
-        ":host(.dark), [data-copy-root].dark, [data-canvas-body].dark { --primary: #880000; }"
+        ":host(:not(.dark)), [data-copy-root]:not(.dark), [data-canvas-body]:not(.dark) { --primary: #ff0000; }",
+        ":host(.dark), [data-copy-root].dark, [data-canvas-body].dark { --primary: #880000; }",
+        ":host, [data-copy-root], [data-canvas-body] { --radius: 1rem; }"
       ].join("\n")
     )
   })
 
-  it("declares them on the live page's root", () => {
-    expect(tokenPreviewCss(tokens, ["default", "dark"], "page")).toBe(
-      ":root:not(.dark) { --primary: #ff0000; --radius: 1rem; }\n:root.dark { --primary: #880000; }"
+  it("declares them on the live page's root, a default-only token in every theme", () => {
+    expect(tokenPreviewCss(tokens, themes, "page")).toBe(
+      ":root:not(.dark) { --primary: #ff0000; }\n:root.dark { --primary: #880000; }\n:root { --radius: 1rem; }"
     )
-    expect(tokenPreviewCss(tokens.slice(2), ["default"], "page")).toBe(":root { --radius: 1rem; }")
   })
 
   it("leaves out a value that would end its declaration and a theme that isn't a class", () => {
@@ -32,7 +38,7 @@ describe("tokenPreviewCss (PAR-1264)", () => {
           { name: "primary", theme: "default", value: "red; } * { color: red" },
           { name: "primary", theme: '[data-theme="x"]', value: "red" }
         ],
-        ["default"],
+        themes,
         "page"
       )
     ).toBe("")
@@ -40,9 +46,9 @@ describe("tokenPreviewCss (PAR-1264)", () => {
 
   it("is a real stylesheet a document takes", () => {
     const { document } = new Window()
-    document.head.innerHTML = `<style>${tokenPreviewCss(tokens, ["default", "dark"], "page")}</style>`
+    document.head.innerHTML = `<style>${tokenPreviewCss(tokens, themes, "page")}</style>`
 
-    expect(document.styleSheets[0]?.cssRules).toHaveLength(2)
+    expect(document.styleSheets[0]?.cssRules).toHaveLength(3)
   })
 })
 
