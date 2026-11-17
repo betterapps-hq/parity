@@ -232,19 +232,31 @@ function placed(
     return { at: Math.max(0, track(end) - span), span }
   }
 
-  // Auto-placed: where its box sits in its tracks says which they are.
-  const last = box.at + box.span - 1
-  let at = box.at
+  // Auto-placed: the run of tracks whose edge, or middle, lines up with its box where its alignment puts it.
+  const runs = Array.from({ length: Math.max(1, edges.length - span + 1) }, (_, at) => at)
 
-  if (align === "end") {
-    at = last - span + 1
+  const offBy = (at: number) => {
+    const first = edges[at]
+    const last = edges[Math.min(edges.length - 1, at + span - 1)]
+
+    if (!first || !last) {
+      return Infinity
+    }
+
+    if (align === "end") {
+      return Math.abs(last.end - to)
+    }
+
+    if (align === "center") {
+      return Math.abs((first.start + last.end) / 2 - (from + to) / 2)
+    }
+
+    return Math.abs(first.start - from)
   }
 
-  if (align === "center") {
-    at = Math.round((box.at + last + 1 - span) / 2)
-  }
+  const at = runs.reduce((best, run) => (offBy(run) < offBy(best) ? run : best), runs[0] ?? 0)
 
-  return { at: Math.max(0, at), span }
+  return { at, span }
 }
 
 /** A computed align or justify keyword as a grid child's place in its cell; `normal` and the like stretch. */

@@ -128,6 +128,28 @@ describe("a grid as the canvas lays it out", () => {
     expect(grid.children[0]?.area).toEqual({ col: 0, cols: 1, row: 0, rows: 1 })
   })
 
+  it("finds a centered span's tracks by where its middle is drawn, across unequal tracks", () => {
+    const grid = measuredGrid({
+      columns: [100, 300, 100],
+      rows: [50],
+      gap: { column: 0, row: 0 },
+      self: "badge",
+      items: {},
+      children: [
+        {
+          id: "badge",
+          name: "Badge",
+          auto: true,
+          box: { left: 180, top: 0, width: 40, height: 50 },
+          lines: { column: { start: "auto", end: "span 2" }, row: { start: "auto", end: "auto" } },
+          align: { x: "center" }
+        }
+      ]
+    })
+
+    expect(grid.children[0]?.area).toEqual({ col: 0, cols: 2, row: 0, rows: 1 })
+  })
+
   it("counts the tracks a template makes itself", () => {
     expect(explicitTracks("repeat(3, minmax(0, 1fr))")).toBe(3)
     expect(explicitTracks("[start] 100px repeat(2, 1fr 2fr) [end]")).toBe(5)
