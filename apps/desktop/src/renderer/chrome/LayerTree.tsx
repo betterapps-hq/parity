@@ -87,6 +87,7 @@ import { useProject } from "../canvas/context.ts"
 import { DesignIcon, designColor, focusOnMount, kindColors, layerLabel, nodeColor, NodeIcon } from "../canvas/kinds.tsx"
 import { moveLayers, type MoveTarget } from "../canvas/layer-drag.ts"
 import {
+  landingLabel,
   pageLandings,
   type PageGroupPlace,
   type RouteListing,
@@ -1588,11 +1589,11 @@ const LayerRow = memo(function LayerRow({
                 </Hint>
               )}
               {landed !== undefined && (
-                <Hint label={`Lands on ${landed}`}>
+                <Hint label={landingLabel(landed)}>
                   <span className="flex">
                     <TriangleAlert
                       className="size-3 text-amber-600 dark:text-amber-400"
-                      aria-label={`Lands on ${landed}`}
+                      aria-label={landingLabel(landed)}
                     />
                   </span>
                 </Hint>

@@ -349,8 +349,20 @@ yet.
 **Route boards show frozen copies (PAR-1262).** One frame per project, the freezer, loads each route fresh and takes a
 snapshot of its page in each mode its boards draw: the page's DOM without scripts, its stylesheets and where it landed.
 Parity checks and sanitizes it and builds it in the board's frame with the page's own styles, so selection, Layers and
-the Design panel reach the page's elements. With the Interact tool a board still loads the page itself, until live
-frames come from a pool (step 5 of [proposals/route-frames.md](proposals/route-frames.md)).
+the Design panel reach the page's elements.
+
+**Route boards go live with the Interact tool (PAR-1263).** Each project keeps two spare frames of the app's own page
+per window while Interact is on, moved by its page router to the routes in view. A press on a board puts the page over
+its copy, engaged, so it takes the pointer, the wheel and keys; Ctrl or Cmd with the wheel still zooms the canvas, and
+Escape or a press outside gives them back. A page that leaves the builder's origin is stopped, and its board says where
+it tried to go. A live page is closed when another board goes live or after 10 s out of view
+([proposals/route-frames.md](proposals/route-frames.md), step 5).
+
+| Router                                        | Going live                                                       | Status |
+| --------------------------------------------- | ---------------------------------------------------------------- | ------ |
+| TanStack Router                               | A spare moved by the app's router; about 100 ms with one waiting | ✅     |
+| React Router's data modes, Next.js's routers  | The same, through their page routers; not tried in the app yet   | ◐      |
+| No page router, as React Router's declarative | A spare loaded at the route; fast only when one is parked there  | ◐      |
 
 | What a page holds                                        | In its copy                                                                          | Status |
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------ | ------ |
