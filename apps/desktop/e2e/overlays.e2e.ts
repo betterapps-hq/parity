@@ -94,7 +94,11 @@ describe("the overlay canvas", () => {
           }
 
           if (!editor.getShapeAtPoint(editor.screenToPage({ x, y }), { hitInside: true, margin: 20 })) {
-            return { x, y }
+            const { x: left, y: top, w, h } = box
+
+            const { x: cx, y: cy, z } = editor.getCamera()
+
+            return { x, y, box: [left, top, w, h], camera: [cx, cy, z] }
           }
         }
       }
@@ -115,18 +119,23 @@ describe("the overlay canvas", () => {
     try {
       // tldraw takes the press; what else it met is said alongside, as only CI has shown it going elsewhere.
       const met = () =>
-        app.page.evaluate(({ x, y }) => {
+        app.page.evaluate(({ x, y, ...found }) => {
           const { editor, selection } = window.e2e!.session()
           const under = document.elementFromPoint(x, y)
           const focus = document.activeElement
+          const box = editor!.getSelectionScreenBounds()
+          const camera = editor!.getCamera()
 
           return {
             path: editor!.getPath(),
             tool: selection.getTool(),
             under: under ? `${under.tagName}.${under.className}` : undefined,
             focus: focus ? `${focus.tagName}.${focus.className}` : undefined,
-            selected: editor!.getSelectedShapeIds().length,
-            canvases: document.querySelectorAll(".tl-container").length
+            selected: editor!.getSelectedShapeIds().map(String),
+            canvases: document.querySelectorAll(".tl-container").length,
+            found,
+            box: [box?.x, box?.y, box?.w, box?.h],
+            camera: [camera.x, camera.y, camera.z]
           }
         }, empty)
 
