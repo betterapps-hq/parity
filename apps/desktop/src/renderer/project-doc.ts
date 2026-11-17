@@ -40,7 +40,7 @@ import {
 } from "@parity-app/multiplayer"
 import { localProvider } from "@parity-app/multiplayer-local"
 import { useMemo, useSyncExternalStore } from "react"
-import { copyLayers, withCopyEntries } from "./canvas/route-pages.ts"
+import { copiesOf, copyLayers, withCopyEntries } from "./canvas/route-pages.ts"
 import { track } from "./report-error.ts"
 import { useStore } from "./store.ts"
 
@@ -548,7 +548,7 @@ export function useContainerEntries(session: DocSession): readonly ContainerEntr
   const entries = useSyncExternalStore(subscribeDoc(session), () => containerEntries(session.doc))
   const copies = useStore(copyLayers)
 
-  return useMemo(() => withCopyEntries(entries, copies), [entries, copies])
+  return useMemo(() => withCopyEntries(entries, copiesOf(copies, session.doc)), [entries, copies, session.doc])
 }
 
 /** One design as the window shows it (see `useContainerEntries`). */
@@ -556,7 +556,10 @@ export function useContainerEntry(session: DocSession, key: string | undefined):
   const entry = useSyncExternalStore(subscribeDoc(session), () => (key ? containerEntry(session.doc, key) : undefined))
   const copies = useStore(copyLayers)
 
-  return useMemo(() => (entry ? withCopyEntries([entry], copies)[0] : undefined), [entry, copies])
+  return useMemo(
+    () => (entry ? withCopyEntries([entry], copiesOf(copies, session.doc))[0] : undefined),
+    [entry, copies, session.doc]
+  )
 }
 
 /** The designs one design's instances reach, for resolving it. */

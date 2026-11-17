@@ -10,6 +10,7 @@ import {
 import { buildCopy, type PageMode, type PageRoot } from "@parity-app/frames"
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react"
 import { findFrames, findNodeElements, prepareFrame, registerFrame, setDrawnNodes, setInnerNodes } from "../frame.ts"
+import { useProject } from "./context.ts"
 import { copySheets, type FrozenCopy, useFrozenCopy } from "./freezer.ts"
 import { routePagesFile, setCopyLayers, setPageLanding } from "./route-pages.ts"
 
@@ -60,6 +61,7 @@ export function RouteBoard({
   /** How urgent the copy is, lowest first, from where the frame is against the view. */
   rank: () => number
 }) {
+  const { doc } = useProject()
   const host = useRef<HTMLDivElement>(null)
   const registry = useRef<CustomElementRegistry>(undefined)
   const drawn = useMemo(() => pageMode(mode), [mode])
@@ -99,9 +101,9 @@ export function RouteBoard({
   // What the page draws, as layers in the window, never in the project's document.
   useEffect(() => {
     if (copy && primary) {
-      setCopyLayers(design, elementLayers(frozenSnapshots(copy.body)))
+      setCopyLayers(doc, design, elementLayers(frozenSnapshots(copy.body)))
     }
-  }, [copy, design, primary])
+  }, [copy, design, doc, primary])
 
   return (
     <div
@@ -142,7 +144,13 @@ function showCopy(
   const body = built.fragment.firstElementChild
 
   if (body) {
-    body.classList.add(...mode.classes)
+    // `<html>`'s classes and attributes too: selectors in the shadow root can't reach the host, so a page's
+    // `.font-page { … }` or `[data-theme]` rule for its root matches the body and reaches what's in it.
+    body.classList.add(...copy.root.classes, ...mode.classes)
+    setAttributes(
+      body,
+      copy.root.attributes.filter(([name]) => !body.hasAttribute(name))
+    )
     setAttributes(body, Object.entries(mode.attributes))
 
     if (mode.scheme) {

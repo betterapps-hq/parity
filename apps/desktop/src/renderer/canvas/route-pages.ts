@@ -99,24 +99,37 @@ export function setPageLanding(design: string, path: string | undefined): void {
   pageLandings.set(next)
 }
 
+/** What each page's frozen copy draws, by its design's key, for each open project's document. */
+export interface CopyLayers {
+  readonly byDoc: WeakMap<ProjectDoc, ReadonlyMap<string, readonly DesignNode[]>>
+}
+
 /**
- * What each page's frozen copy draws, as layers, by its design's key (PAR-1262): made again with each freeze, from the
- * board's main frame, and kept in the window, never in the project's document. Layers shows them inside the route that
- * draws the page (`withCopyLayers`).
+ * What each page's frozen copy draws, as layers, by its project's document and its design's key (PAR-1262): made again
+ * with each freeze, from the board's main frame, and kept in the window, never in the project's document, so another
+ * project's page with the same route never shows them, and they go with the project. Layers shows them inside the route
+ * that draws the page (`withCopyLayers`).
  */
-export const copyLayers: Store<ReadonlyMap<string, readonly DesignNode[]>> = windowStore<
-  ReadonlyMap<string, readonly DesignNode[]>
->(() => new Map())
+export const copyLayers: Store<CopyLayers> = windowStore<CopyLayers>(() => ({ byDoc: new WeakMap() }))
+
+const noCopies: ReadonlyMap<string, readonly DesignNode[]> = new Map()
+
+/** What the pages' copies in one project draw. */
+export function copiesOf(copies: CopyLayers, doc: ProjectDoc): ReadonlyMap<string, readonly DesignNode[]> {
+  return copies.byDoc.get(doc) ?? noCopies
+}
 
 /** Keeps what a page's copy draws as its layers. */
-export function setCopyLayers(design: string, layers: readonly DesignNode[]): void {
-  const now = copyLayers.get()
+export function setCopyLayers(doc: ProjectDoc, design: string, layers: readonly DesignNode[]): void {
+  const { byDoc } = copyLayers.get()
+  const now = byDoc.get(doc) ?? noCopies
 
   if (JSON.stringify(now.get(design)) === JSON.stringify(layers)) {
     return
   }
 
-  copyLayers.set(new Map(now).set(design, layers))
+  byDoc.set(doc, new Map(now).set(design, layers))
+  copyLayers.set({ byDoc })
 }
 
 /** Page designs with what each one's frozen copy draws inside the route that draws it, for Layers. */
@@ -141,7 +154,7 @@ export function withCopyEntries<Entry extends { key: string; path: string; conta
 export function shownEntry(doc: ProjectDoc, key: string): ContainerEntry | undefined {
   const entry = containerEntry(doc, key)
 
-  return entry && withCopyEntries([entry], copyLayers.get())[0]
+  return entry && withCopyEntries([entry], copiesOf(copyLayers.get(), doc))[0]
 }
 
 /**
