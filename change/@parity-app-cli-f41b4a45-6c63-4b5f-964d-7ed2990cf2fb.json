@@ -1,7 +1,0 @@
-{
-  "type": "patch",
-  "comment": "Recognize the components shadcn-sync generates as the Buildkit style they're made in",
-  "packageName": "@parity-app/cli",
-  "email": "ajcraswell@gmail.com",
-  "dependentChangeType": "patch"
-}

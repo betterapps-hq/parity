@@ -1,5 +1,8 @@
+import { mkdir, mkdtemp, readdir, rm, stat, utimes } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { elementSources, guestModuleSource, taggedModule } from "./builder.ts"
+import { deleteOldCaches, elementSources, guestModuleSource, keepDependencyCache, taggedModule } from "./builder.ts"
 
 describe("guestModuleSource", () => {
   it("imports the renderer, styles and components in order", () => {
@@ -344,5 +347,50 @@ describe("element sources in the guest", () => {
 
   it("is for the development server alone", () => {
     expect(elementSources(root)).toMatchObject({ name: "canvas:element-sources", enforce: "pre", apply: "serve" })
+  })
+})
+
+// docs/editor.md, Vite as an extension: each copy of Parity keeps its own prebundled dependencies (PAR-1203).
+describe("the dependency cache", () => {
+  const day = 24 * 60 * 60 * 1000
+
+  it("gives each copy of Parity a folder of its own, the same on every launch", async () => {
+    const root = await mkdtemp(join(tmpdir(), "parity-cache-"))
+
+    try {
+      const first = await keepDependencyCache(root, "D:/worktrees/a/out/builder-process.mjs")
+      const again = await keepDependencyCache(root, "D:/worktrees/a/out/builder-process.mjs")
+      const other = await keepDependencyCache(root, "C:/Program Files/Parity/builder-process.mjs")
+
+      expect(first).toMatch(/^node_modules\/\.vite-parity\/[0-9a-f]{10}$/)
+      expect(again).toBe(first)
+      expect(other).not.toBe(first)
+      expect((await stat(join(root, first))).isDirectory()).toBe(true)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  })
+
+  it("deletes the folders no copy has opened the project with since, leaving its own", async () => {
+    const caches = await mkdtemp(join(tmpdir(), "parity-caches-"))
+    const now = Date.now()
+
+    try {
+      for (const [name, age] of [
+        ["own", 30],
+        ["recent", 3],
+        ["stale", 20],
+        ["deps", 20]
+      ] as const) {
+        await mkdir(join(caches, name))
+        const when = new Date(now - age * day)
+        await utimes(join(caches, name), when, when)
+      }
+
+      await deleteOldCaches(caches, "own", now - 14 * day)
+      expect((await readdir(caches)).sort()).toEqual(["own", "recent"])
+    } finally {
+      await rm(caches, { recursive: true, force: true })
+    }
   })
 })

@@ -50,6 +50,11 @@ describe("colorSchemeQuery", () => {
   })
 })
 
+/** A root rule's custom properties as they're declared on the frame's body too (PAR-1210). */
+function bodyCopy(declarations: string): string {
+  return `@layer canvas-qualified-root { :where([data-canvas-body]) { ${declarations} } }`
+}
+
 describe("prepareCanvasCss with prefers-color-scheme", () => {
   const dark = ':where([data-canvas-body][data-canvas-color-scheme="dark"])'
   const light = ':where([data-canvas-body][data-canvas-color-scheme="light"])'
@@ -83,21 +88,25 @@ describe("prepareCanvasCss with prefers-color-scheme", () => {
 
   it("moves a block nested in the root's own rule after it, where it can reach the body", () => {
     expect(scoped(":root { --c: #fff; @media (prefers-color-scheme: dark) { --c: #000; } }")).toBe(
-      `:host { --c: #fff; } ${dark} { --c: #000; }`
+      `:host { --c: #fff; } ${bodyCopy("--c: #fff;")} ${dark} { --c: #000; }`
     )
   })
 
   it("keeps a block under a layer in its layer, and leaves a query that asks for more alone", () => {
     expect(scoped("@layer base { @media (prefers-color-scheme: dark) { :root { --c: #000; } } }")).toBe(
-      `@layer base {  ${dark} { --c: #000; }  }`
+      `@layer base {  ${dark} { --c: #000; }  } @layer canvas-qualified-root.base;`
     )
     const both = "@media screen and (prefers-color-scheme: dark) { :host { --c: #000; } }"
-    expect(scoped(both)).toBe(both)
+    expect(scoped(both)).toBe(
+      `@media screen and (prefers-color-scheme: dark) { :host { --c: #000; } ${bodyCopy("--c: #000;")} }`
+    )
   })
 
   it("leaves the blocks as written when asked to, for reading tokens", () => {
     const css = "@media (prefers-color-scheme: dark) { :host { --c: #000; } }"
-    expect(prepareCanvasCss(css, { ...options, units: false, colorSchemes: false }).scoped).toBe(css)
+    expect(prepareCanvasCss(css, { ...options, units: false, colorSchemes: false }).scoped).toBe(
+      `@media (prefers-color-scheme: dark) { :host { --c: #000; } ${bodyCopy("--c: #000;")} }`
+    )
   })
 })
 
@@ -130,7 +139,7 @@ describe("prepareCanvasCss", () => {
     expect(scoped(":root:not(.dark), .x { --c: #fff; }")).toBe(
       "@layer canvas-qualified-root { :where([data-canvas-body]):not(.dark) { --c: #fff; } } .x { --c: #fff; }"
     )
-    expect(scoped(":root { --c: #fff; }")).toBe(":host { --c: #fff; }")
+    expect(scoped(":root { --c: #fff; }")).toBe(`:host { --c: #fff; } ${bodyCopy("--c: #fff;")}`)
   })
 
   it("takes a qualified root's rem from its own font size, not a nested rule's, and drops importance on the body", () => {
@@ -255,8 +264,80 @@ describe("prepareCanvasCss", () => {
   it("measures rem against the frame's root font, in declarations and custom properties", () => {
     const css = ":root { --spacing: 0.25rem; } .a { margin: -1.5rem 2rem; width: calc(var(--spacing) * 4); }"
     expect(prepareCanvasCss(css, options).scoped).toBe(
-      ":host { --spacing: calc(0.25 * var(--canvas-rem, 1rem)); } .a { margin: calc(-1.5 * var(--canvas-rem, 1rem)) " +
+      `:host { --spacing: calc(0.25 * var(--canvas-rem, 1rem)); } ${bodyCopy("--spacing: calc(0.25 * var(--canvas-rem, 1rem));")} ` +
+        ".a { margin: calc(-1.5 * var(--canvas-rem, 1rem)) " +
         "calc(2 * var(--canvas-rem, 1rem)); width: calc(var(--spacing) * 4); }"
+    )
+  })
+
+  it("declares the root's custom properties on the frame's body too, where its theme is (PAR-1210)", () => {
+    const css =
+      ":root { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * 2rem) } .a { color: red }"
+
+    expect(prepareCanvasCss(css, options).scoped).toBe(
+      ":host { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))) } " +
+        "@layer canvas-qualified-root { :where([data-canvas-body]) { --palette: var(--gray-solid); --plain: 1px; --gap: calc(var(--unit) * calc(2 * var(--canvas-rem, 1rem))); } } " +
+        ".a { color: red }"
+    )
+
+    // One whose value depends on importance or a condition is left to inherit from the host, whose cascade decides it.
+    expect(prepareCanvasCss(":root { --fg: red !important; --a: var(--b) } :root { --fg: blue }", options).scoped).toBe(
+      `:host { --fg: red !important; --a: var(--b) } ${bodyCopy("--a: var(--b);")} :host { --fg: blue }`
+    )
+    expect(
+      prepareCanvasCss(":root { --fg: red; --a: var(--b); @supports (display: grid) { --fg: blue; } }", options).scoped
+    ).toContain(bodyCopy("--a: var(--b);"))
+    // Nor one registered as not inherited, which the body takes its initial value of.
+    expect(
+      prepareCanvasCss(
+        '@property --fg { syntax: "<color>"; inherits: false; initial-value: blue; } :root { --fg: red; --a: var(--b) }',
+        options
+      ).scoped
+    ).toContain(bodyCopy("--a: var(--b);"))
+    // A layered root's copy goes in a layer of the qualified roots' named after its own, below an unlayered theme's root.
+    expect(prepareCanvasCss("@layer base { :root { --fg: red } } :root.dark { --fg: blue }", options).scoped).toBe(
+      "@layer base { :host { --fg: red } } @layer canvas-qualified-root.base; @layer canvas-qualified-root.base { :where([data-canvas-body]) { --fg: red; } } " +
+        ":host(.dark) { --fg: blue } @layer canvas-qualified-root { :where([data-canvas-body]).dark { --fg: blue } }"
+    )
+    expect(
+      prepareCanvasCss("@layer theme { @media (width >= 40rem) { :root { --a: var(--b) } } }", options).scoped
+    ).toBe(
+      "@layer theme { @container canvas-viewport (width >= 40rem) { :host { --a: var(--b) } } } " +
+        "@layer canvas-qualified-root.theme; @layer canvas-qualified-root.theme { @container canvas-viewport (width >= 40rem) { :where([data-canvas-body]) { --a: var(--b); } } }"
+    )
+    // In the order the project's layer statement declares its own.
+    expect(prepareCanvasCss("@layer base, theme; @layer theme { :root { --fg: blue } }", options).scoped).toBe(
+      "@layer base, theme; @layer canvas-qualified-root.base, canvas-qualified-root.theme; " +
+        "@layer theme { :host { --fg: blue } } @layer canvas-qualified-root.theme { :where([data-canvas-body]) { --fg: blue; } }"
+    )
+    // Or the order its layers' first blocks declare them in.
+    expect(prepareCanvasCss("@layer base {} @layer theme { :root { --fg: blue } }", options).scoped).toBe(
+      "@layer base {} @layer canvas-qualified-root.base; @layer theme { :host { --fg: blue } } " +
+        "@layer canvas-qualified-root.theme; @layer canvas-qualified-root.theme { :where([data-canvas-body]) { --fg: blue; } }"
+    )
+
+    // An anonymous layer's copies rank after those of the layers before it, as its own rules do.
+    const anonymous = prepareCanvasCss(
+      "@layer named { :root { --fg: red } } @layer { :root { --fg: blue } }",
+      options
+    ).scoped
+
+    const copyLayer = /canvas-qualified-root\.(anonymous-[\w-]+)/.exec(anonymous)?.[1]
+
+    expect(anonymous).toContain(
+      `@layer canvas-qualified-root.${copyLayer}; @layer canvas-qualified-root.${copyLayer} { :where([data-canvas-body]) { --fg: blue; } }`
+    )
+    // Another stylesheet's anonymous layer is another layer.
+    expect(prepareCanvasCss("@layer { :root { --fg: green } }", options).scoped).not.toContain(`${copyLayer};`)
+    // A semicolon in a string doesn't end a declaration.
+    expect(prepareCanvasCss(':root { --a: "one;two"; --b: "three;four" }', options).scoped).toContain(
+      bodyCopy('--a: "one;two"; --b: "three;four";')
+    )
+    // Tokens read the root as written.
+    expect(prepareCanvasCss(css, { ...options, qualifiedRoots: false }).scoped).not.toContain("data-canvas-body")
+    // A root in a theme is already drawn on the body in it.
+    expect(prepareCanvasCss(":root.dark { --palette: var(--gray-solid) }", options).scoped).not.toContain(
+      ":where([data-canvas-body]) {"
     )
   })
 
@@ -293,7 +374,7 @@ describe("prepareCanvasCss", () => {
       "[data-canvas-body] { font-size: 62.5%; } .a { font-size: 1.2em; }"
     )
     expect(scoped("html { --root-font-size: 50%; line-height: 1.5em; font-size: larger; }")).toBe(
-      ":host { --root-font-size: 50%; line-height: 1.5em; font-size: larger; }"
+      `:host { --root-font-size: 50%; line-height: 1.5em; font-size: larger; } ${bodyCopy("--root-font-size: 50%;")}`
     )
   })
 
@@ -302,7 +383,7 @@ describe("prepareCanvasCss", () => {
       "html { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } @media (width >= 40rem) { .a { top: 1rem } }"
 
     expect(prepareCanvasCss(css, { ...options, units: false }).scoped).toBe(
-      ":host { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } " +
+      `:host { font-size: 62.5%; --spacing: 0.25rem; --header: 10vh; } ${bodyCopy("--spacing: 0.25rem; --header: 10vh;")} ` +
         "@container canvas-viewport (width >= 40rem) { .a { top: 1rem } }"
     )
   })

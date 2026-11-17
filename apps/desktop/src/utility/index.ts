@@ -31,6 +31,7 @@ import type { Attributes } from "./event-attributes.ts"
 import {
   builtInBuilders,
   builtInEntities,
+  builtInPreviews,
   builtInRenderers,
   builtInTools,
   closeExtensions,
@@ -77,6 +78,7 @@ const projects = openProjects({
   renderers: builtInRenderers,
   builders: builtInBuilders,
   entities: builtInEntities,
+  previews: builtInPreviews,
   tools: builtInTools,
   // The extensions' hosts start below, before any project opens.
   get providers() {

@@ -35,6 +35,8 @@ beforeEach(async () => {
     // Past the stylesheets' module, so only Vite's background compiles reach it while they're found.
     "src/app.ts": 'import { greeting } from "fake-ui"\nexport const app = greeting',
     "src/index.css": ":root { --primary: red; }",
+    // A page nothing else imports, as a TanStack Start app's are without an index.html.
+    "src/routes/about.tsx": 'import { greeting } from "fake-ui"\nexport const about = greeting',
     "node_modules/fake-ui/package.json": JSON.stringify({ name: "fake-ui", type: "module", main: "index.js" }),
     "node_modules/fake-ui/index.js": 'export const greeting = "hello"\n'
   }
@@ -82,10 +84,18 @@ describe("a prepared Vite builder", () => {
     await globalThis.parityPrepareTestServer?.environments.client?.waitForRequestsIdle()
     expect(registered).not.toHaveBeenCalled()
 
-    session = await prepared.start({ styles: ["src/index.css"], components: {}, documents: [], libraries: [] })
+    session = await prepared.start({
+      styles: ["src/index.css"],
+      components: {},
+      documents: [],
+      libraries: [],
+      routeFiles: ["src/routes/about.tsx"]
+    })
     expect(optimizer!.options.noDiscovery).toBeFalsy()
+    // The optimizer looks through the pages too, for what only they import (PAR-1203).
+    expect(optimizer!.options.entries).toContain("src/routes/about.tsx")
     // Started, the app's modules import the package through the optimizer again.
     const main = await fetch(new URL("/src/main.ts", session.guestUrl))
-    expect(await main.text()).toMatch(/\/\.vite-parity\/deps\/fake-ui\.js/)
+    expect(await main.text()).toMatch(/\/\.vite-parity\/[0-9a-f]{10}\/deps\/fake-ui\.js/)
   }, 30_000)
 })

@@ -612,6 +612,245 @@ describe("styles written while the project runs", () => {
     })
   })
 
+  it("draw a page's root, body, media queries and fonts as the frame's, as CSS-in-JS writes them into it (PAR-1210)", async () => {
+    await frameWith("", '<div class="text"></div><div class="inserted"></div><div class="wide"></div>')
+
+    const drawn = await page.evaluate(async () => {
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      // As Emotion writes in development: text in a <style> in the frame, the root's palette among it.
+      const text = document.createElement("style")
+      text.textContent = `html { --palette-solid: rgb(1, 2, 3) } body { --body-set: yes }
+        .text { background-color: var(--palette-solid); color: var(--body-set, rgb(9, 9, 9)) }
+        @font-face { font-family: "Frame Sans"; src: url("/fonts/frame-sans.woff2") }`
+      shadow.prepend(text)
+      // And in production: rules inserted into an empty <style>, a width query among them.
+      const inserted = document.createElement("style")
+      shadow.prepend(inserted)
+      inserted.sheet!.insertRule(":root { --inserted-solid: rgb(4, 5, 6) }")
+      inserted.sheet!.insertRule(".inserted { background-color: var(--inserted-solid) }")
+      inserted.sheet!.insertRule(".wide { width: 10px }", inserted.sheet!.cssRules.length)
+      inserted.sheet!.insertRule("@media (max-width: 767px) { .wide { width: 20px } }", inserted.sheet!.cssRules.length)
+      await new Promise((resolve) => setTimeout(resolve))
+
+      const style = (selector: string) => getComputedStyle(shadow.querySelector(selector)!)
+
+      const documentText = document.adoptedStyleSheets
+        .flatMap((sheet) => [...sheet.cssRules].map((rule) => rule.cssText))
+        .join("\n")
+
+      return {
+        text: style(".text").backgroundColor,
+        bodyVariable: style("[data-canvas-body]").getPropertyValue("--body-set").trim(),
+        inserted: style(".inserted").backgroundColor,
+        // The frame is 390 wide in a wider window, so the frame's query holds and the window's wouldn't.
+        wide: shadow.querySelector(".wide")!.getBoundingClientRect().width,
+        font: documentText.includes('"Frame Sans"'),
+        muted: [text.media, inserted.media],
+        // Parity's own page takes none of it.
+        page: getComputedStyle(document.documentElement).getPropertyValue("--palette-solid")
+      }
+    })
+
+    expect(drawn).toEqual({
+      text: "rgb(1, 2, 3)",
+      bodyVariable: "yes",
+      inserted: "rgb(4, 5, 6)",
+      wide: 20,
+      font: true,
+      muted: ["not all", "not all"],
+      page: ""
+    })
+  })
+
+  it("take a root custom property made from another from the frame's theme, as a page's root does (PAR-1210)", async () => {
+    await frameWith(
+      `:root { --gray-solid: rgb(0, 0, 0); --palette-solid: var(--gray-solid); --palette-fg: var(--gray-solid) }
+        [data-theme="dark"] { --gray-solid: rgb(255, 255, 255) }
+        :root[data-theme="dark"] { --palette-fg: rgb(1, 2, 3) }
+        :root { --late: var(--gray-solid) }
+        :root { --late: rgb(7, 8, 9) }
+        @layer tokens { :root { --layered: var(--gray-solid) } }
+        :root[data-theme="dark"] { --layered: rgb(4, 5, 6) }
+        .solid { background-color: var(--palette-solid); color: var(--palette-fg); border-top-color: var(--late);
+          border-bottom-color: var(--layered) }`,
+      '<div class="solid"></div>',
+      "",
+      { "data-theme": "dark" }
+    )
+
+    const drawn = await page.evaluate(() => {
+      const style = getComputedStyle(document.querySelector("#host")!.shadowRoot!.querySelector(".solid")!)
+
+      return [style.backgroundColor, style.color, style.borderTopColor, style.borderBottomColor]
+    })
+
+    // The theme's root, a later root rule and an unlayered theme's root over a layered one still override the copy.
+    expect(drawn).toEqual(["rgb(255, 255, 255)", "rgb(1, 2, 3)", "rgb(7, 8, 9)", "rgb(4, 5, 6)"])
+  })
+
+  it("follow a written stylesheet's media as the project changes it, and read what it imports", async () => {
+    await frameWith("", '<div class="box"></div><div class="font"></div>')
+
+    const drawn = await page.evaluate(async () => {
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      const box = shadow.querySelector(".box")!
+      const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+      const style = document.createElement("style")
+      style.media = "print"
+      style.textContent = ".box { color: rgb(1, 1, 1) }"
+      shadow.append(style)
+      await tick()
+      const printed = getComputedStyle(box).color
+      // Changed twice before the frame sees either: the last counts.
+      style.media = "screen"
+      style.media = "all"
+      await tick()
+      const all = [getComputedStyle(box).color, style.getAttribute("media")]
+      // Given its media before the frame sees it go in.
+      const late = document.createElement("style")
+      late.textContent = ".font { background-color: rgb(2, 2, 2) }"
+      shadow.append(late)
+      late.media = "print"
+      late.media = "all"
+      const importing = document.createElement("style")
+      importing.textContent = '@import url("data:text/css,.font%7Bcolor:rgb(6,6,6)%7D");'
+      shadow.append(importing)
+      await tick()
+      await tick()
+
+      const font = getComputedStyle(shadow.querySelector(".font")!)
+
+      return [printed, ...all, font.color, font.backgroundColor]
+    })
+
+    expect(drawn).toEqual(["rgb(0, 0, 0)", "rgb(1, 1, 1)", "not all", "rgb(6, 6, 6)", "rgb(2, 2, 2)"])
+  })
+
+  it("keep a written stylesheet's media as the project's code moves it to another frame", async () => {
+    await frameWith("", '<div class="box"></div>')
+
+    const color = await page.evaluate(async () => {
+      const tick = () => new Promise((resolve) => setTimeout(resolve, 20))
+      const other = document.createElement("div")
+      document.querySelector("#frames")!.append(other)
+
+      const target = frame.prepareFrame(other, [new CSSStyleSheet()], {
+        classNames: [],
+        attributes: {},
+        viewport: { width: 390, height: 844 }
+      })
+
+      target.innerHTML = '<div class="box"></div>'
+      const style = document.createElement("style")
+      style.media = "all"
+      style.textContent = ".box { color: rgb(3, 2, 1) }"
+      other.shadowRoot!.append(style)
+      await tick()
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      shadow.append(style)
+      await tick()
+      const moved = getComputedStyle(shadow.querySelector(".box")!).color
+      // Out of every frame, into a shadow root of the project's own: its sheet draws there again.
+      const plain = document.createElement("div")
+      document.querySelector("#frames")!.append(plain)
+      const own = plain.attachShadow({ mode: "open" })
+      own.innerHTML = '<div class="box"></div>'
+      own.append(style)
+      await tick()
+      const released = [getComputedStyle(own.querySelector(".box")!).color, style.getAttribute("media")]
+      other.remove()
+      plain.remove()
+
+      return [moved, ...released]
+    })
+
+    expect(color).toEqual(["rgb(3, 2, 1)", "rgb(3, 2, 1)", "all"])
+  })
+
+  it("follow rules the project's code deletes and text it replaces", async () => {
+    await frameWith("", '<div class="box"></div>')
+
+    const colors = await page.evaluate(async () => {
+      const shadow = document.querySelector("#host")!.shadowRoot!
+      const box = shadow.querySelector(".box")!
+      const tick = () => new Promise((resolve) => setTimeout(resolve))
+      const inserted = document.createElement("style")
+      shadow.append(inserted)
+      inserted.sheet!.insertRule(".box { color: rgb(1, 1, 1) }")
+      await tick()
+      const first = getComputedStyle(box).color
+      inserted.sheet!.deleteRule(0)
+      await tick()
+      const deleted = getComputedStyle(box).color
+      const text = document.createElement("style")
+      text.textContent = ".box { color: rgb(2, 2, 2) }"
+      shadow.append(text)
+      await tick()
+      const added = getComputedStyle(box).color
+      text.textContent = ".box { color: rgb(3, 3, 3) }"
+      await tick()
+      const replaced = getComputedStyle(box).color
+      // A rule inserted straight after new text, before the frame has seen the text change.
+      text.textContent = ".box { color: rgb(4, 4, 4) }"
+      text.sheet!.insertRule(".box { color: rgb(5, 5, 5) }", 1)
+      await tick()
+      const insertedAfterText = getComputedStyle(box).color
+      // A rule's declarations and selector changed in place, and a rule inserted into a rule in it.
+      // SAFETY: the second rule is the `.box` style rule inserted above.
+      const rule = text.sheet!.cssRules[1] as CSSStyleRule
+      rule.style.setProperty("color", "rgb(7, 7, 7)")
+      await tick()
+      const setProperty = getComputedStyle(box).color
+      rule.style.color = "rgb(8, 8, 8)"
+      await tick()
+      const named = getComputedStyle(box).color
+      rule.selectorText = ".nothing"
+      await tick()
+      const selector = getComputedStyle(box).color
+      text.sheet!.disabled = true
+      await tick()
+      const disabled = getComputedStyle(box).color
+      text.disabled = false
+      await tick()
+      text.sheet!.insertRule("@media all { }", 2)
+      // SAFETY: the third rule is the `@media` rule just inserted.
+      const media = text.sheet!.cssRules[2] as CSSMediaRule
+      media.insertRule(".box { color: rgb(9, 9, 9) }")
+      await tick()
+      const nested = getComputedStyle(box).color
+      text.remove()
+      await tick()
+
+      return [
+        first,
+        deleted,
+        added,
+        replaced,
+        insertedAfterText,
+        setProperty,
+        named,
+        selector,
+        disabled,
+        nested,
+        getComputedStyle(box).color
+      ]
+    })
+
+    expect(colors).toEqual([
+      "rgb(1, 1, 1)",
+      "rgb(0, 0, 0)",
+      "rgb(2, 2, 2)",
+      "rgb(3, 3, 3)",
+      "rgb(5, 5, 5)",
+      "rgb(7, 7, 7)",
+      "rgb(8, 8, 8)",
+      "rgb(4, 4, 4)",
+      "rgb(0, 0, 0)",
+      "rgb(9, 9, 9)",
+      "rgb(0, 0, 0)"
+    ])
+  })
+
   it("leave Parity's own styles measuring Parity's window", async () => {
     const heights = await page.evaluate(() => {
       const element = document.createElement("div")

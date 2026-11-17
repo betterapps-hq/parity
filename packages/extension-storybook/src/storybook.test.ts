@@ -40,6 +40,16 @@ describe("the Storybook extension", () => {
     })
   })
 
+  it("names .storybook/preview.* as the project's preview, composed with Storybook's portable stories API (PAR-98)", () => {
+    const preview = readExtension(packageJson).manifest.contributes.providers?.preview
+
+    expect(preview?.files[0]).toBe(".storybook/preview.tsx")
+    expect(preview?.compose).toEqual({
+      api: "portable-stories",
+      from: expect.arrayContaining(["@storybook/react", "@storybook/react-vite", "@storybook/nextjs"])
+    })
+  })
+
   it("gives Storybook's supported versions by its peer dependencies, storybook first", () => {
     expect(readExtension(packageJson).versions).toEqual({
       packages: ["storybook", "@storybook/react", "@storybook/react-vite"],

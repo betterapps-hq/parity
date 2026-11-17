@@ -311,6 +311,8 @@ export interface Providers {
   router?: RouterContribution
   /** Imports screens such as stories, and writes them back. */
   entities?: EntitiesContribution
+  /** Names the preview its tool keeps, which every frame draws inside, and how it's applied. */
+  preview?: PreviewContribution
   /** Finds screens, photos or videos in an outside library. */
   connector?: Record<string, never>
   /** Answers Search actions with results of its own. */
@@ -349,6 +351,21 @@ export interface SettingContribution {
 
 /** A value as JSON writes it. */
 export type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue }
+
+/**
+ * A preview a tool keeps for the project, such as Storybook's `.storybook/preview.tsx`: every frame draws inside it when
+ * the project has no `.parity/preview.*` (PAR-98). It's data, so Parity reads it before the extension's code runs, and
+ * the renderer's guest applies it in the frames.
+ */
+export interface PreviewContribution {
+  /** Where the tool keeps it, from the project's root; the first that's there is used. */
+  files: string[]
+  /**
+   * How it's applied. `portable-stories` is Storybook's portable stories API (`setProjectAnnotations` and
+   * `composeStory`), imported from the first package of `from` the project depends on.
+   */
+  compose: { api: "portable-stories"; from: string[] }
+}
 
 /**
  * An entities provider's contribution: the config files whose change Parity reads its tool's files again for, and how

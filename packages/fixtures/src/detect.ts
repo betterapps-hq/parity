@@ -139,9 +139,11 @@ export async function snapshotProject(root: string): Promise<ProjectSnapshot> {
 
   // The libraries shadcn's extension recognizes, as the desktop app asks it.
   const detected = detectLibraries(await readProjectFiles((path) => readFile(join(root, path), "utf8")))
+
   const config = renderer
     ? await discoverProject(root, renderer, pkg, { styles: appStyles, libraries: detected })
     : undefined
+
   const stylesheets = config?.styles ?? []
 
   const sources = await Promise.all(

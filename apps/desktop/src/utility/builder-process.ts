@@ -6,6 +6,7 @@ import { viteBuilder } from "@parity-app/extension-vite/builder"
 import { webpackBuilder } from "@parity-app/extension-webpack/builder"
 import { serveBuilderProcess } from "@parity-app/processes"
 import { keepCompiledCode } from "../shared/compile-cache.ts"
+import { endWithParent } from "./parent-watch.ts"
 // One project's builder, in a process of its own that the project service starts (see builders.ts). Ending it when the
 // project closes is what gives back the build tool's memory, which closing its server doesn't.
 
@@ -31,6 +32,10 @@ keepCompiledCode()
 
 // The service ended, even killed outright: nothing can reach this builder any more.
 process.on("disconnect", () => process.exit(0))
+
+// The same, while this builder's main thread is too busy to hear it, so a crashed service's builder doesn't hold the
+// project for the fresh service's (PAR-1189).
+endWithParent()
 
 // A project's plugin that drops a promise shouldn't take its builder down, as it didn't in the service.
 process.on("unhandledRejection", (reason) => console.error("[builder]", reason))

@@ -815,7 +815,7 @@ export interface RenderedFrame {
   contrast?: FrameContrast
 }
 
-export type { LibraryPreview, PreviewedToken } from "@parity-app/project"
+export type { LibraryPreview } from "@parity-app/project"
 
 /** A library the Components panel offers, or an icon set the Icons tab does. */
 export interface CatalogLibrary {

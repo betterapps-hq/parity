@@ -16,6 +16,7 @@ import {
   libraryId,
   libraryManifestExtension,
   type PackageManifest,
+  type PreviewDescription,
   parseLibraryManifest,
   type ProjectConfig,
   type ProjectEntities,
@@ -26,7 +27,7 @@ import { parseJsonc } from "@parity-app/registry"
 import { componentFor } from "./component-for.ts"
 import type { ProjectDetection } from "./detection.ts"
 import { type DetectedLibrary, describedTokens, findLibraries } from "./libraries.ts"
-import { findPreviewFile } from "./preview-file.ts"
+import { findProjectPreview } from "./preview-file.ts"
 import { findWorkspace, workspaceDependencies, workspaceSection } from "./workspace.ts"
 
 export { type ConfigSource, findConfig, type FoundConfig, loadConfig } from "./configs.ts"
@@ -67,7 +68,7 @@ export {
   type ReadProjectFile
 } from "./app-providers.ts"
 
-export { findPreviewFile } from "./preview-file.ts"
+export { findPreviewFile, findProjectPreview } from "./preview-file.ts"
 
 export { type GuestModule, guestModule, type GuestModuleOptions } from "./guest-module.ts"
 
@@ -175,6 +176,11 @@ export interface DiscoverOptions {
    * generates (`LibrariesProvider.detect`), each read with its registry file. None when unset.
    */
   libraries?: DetectedLibrary[] | Promise<DetectedLibrary[] | undefined>
+  /**
+   * The previews extensions name for their tools, such as Storybook's (PAR-98): frames draw in the first that's there
+   * when the project has no `.parity/preview.*`.
+   */
+  previews?: readonly PreviewDescription[]
 }
 
 /**
@@ -196,7 +202,7 @@ export async function discoverProject(
   const [loaded, app, preview, detected] = await Promise.all([
     options.styles,
     findAppComponents(root, renderer, tsconfig, notes),
-    findPreviewFile(root),
+    findProjectPreview(root, pkg, options.previews),
     options.libraries
   ])
 
@@ -236,8 +242,8 @@ export async function discoverProject(
 
   notes.push(documents.length === 0 ? "no .par project file yet" : `designs in ${documents.join(", ")}`)
 
-  if (preview) {
-    notes.push(`frames drawn inside ${preview}'s decorators`)
+  if (preview.preview) {
+    notes.push(`frames drawn inside ${preview.preview}'s decorators`)
   }
 
   const all = { ...components, ...libraries.components }
@@ -250,7 +256,7 @@ export async function discoverProject(
     documents,
     describedTokens: tokens.length > 0 ? tokens : undefined,
     namespace: namespace || undefined,
-    preview,
+    ...preview,
     notes,
     componentFiles: app.files
   }

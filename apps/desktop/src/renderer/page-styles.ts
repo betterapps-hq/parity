@@ -171,7 +171,7 @@ function styleWithImports(css: string, origin: string): string {
 }
 
 /** A stylesheet's text by its address, and where it came from in the end, after any redirect. */
-async function fetchStylesheet(address: string): Promise<{ text: string; from: string } | undefined> {
+export async function fetchStylesheet(address: string): Promise<{ text: string; from: string } | undefined> {
   try {
     const response = await fetch(address)
 

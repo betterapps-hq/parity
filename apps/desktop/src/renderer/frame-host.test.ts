@@ -90,7 +90,9 @@ beforeAll(async () => {
         addedSheet,
         themeAttributes: { dark: { "data-theme": "dark" } },
         rules: (tree: { nodeId: string }[]) =>
-          tree.map(({ nodeId }) => `[data-drawn="${nodeId}"] { order: 1 }`).join("")
+          tree.map(({ nodeId }) => `[data-drawn="${nodeId}"] { order: 1 }`).join(""),
+        prepare: (css: string) => ({ scoped: css, global: "" }),
+        origin: "http://project.test"
       },
       mode: { classNames: ["dark"], attributes: {}, viewport: { width: 390, height: 844 }, globals: { theme: "dark" } }
     })
